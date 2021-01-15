@@ -939,7 +939,7 @@ static int dump_addresses(
         _cleanup_free_ struct local_address *local = NULL;
         _cleanup_strv_free_ char **buf = NULL;
         struct in_addr dhcp4_address = {};
-        int r, n, i;
+        int r, n;
 
         assert(rtnl);
         assert(table);
@@ -951,7 +951,7 @@ static int dump_addresses(
         if (lease)
                 (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
                 char name[IF_NAMESIZE+1];
 
