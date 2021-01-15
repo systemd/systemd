@@ -61,16 +61,16 @@ static void pull_job_finish(PullJob *j, int ret) {
                 j->on_finished(j);
 }
 
-static int pull_job_restart(PullJob *j) {
+static int pull_job_restart(PullJob *j, const char *new_url) {
         int r;
-        char *chksum_url = NULL;
 
-        r = import_url_change_last_component(j->url, "SHA256SUMS", &chksum_url);
+        assert(j);
+        assert(new_url);
+
+        r = free_and_strdup(&j->url, new_url);
         if (r < 0)
                 return r;
 
-        free(j->url);
-        j->url = chksum_url;
         j->state = PULL_JOB_INIT;
         j->payload = mfree(j->payload);
         j->payload_size = 0;
@@ -114,23 +114,31 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 r = 0;
                 goto finish;
         } else if (status >= 300) {
-                if (status == 404 && j->style == VERIFICATION_PER_FILE) {
 
-                        /* retry pull job with SHA256SUMS file */
-                        r = pull_job_restart(j);
+                if (status == 404 && j->on_not_found) {
+                        _cleanup_free_ char *new_url = NULL;
+
+                        /* This resource wasn't found, but the implementor wants to maybe let us know a new URL, query for it. */
+                        r = j->on_not_found(j, &new_url);
                         if (r < 0)
                                 goto finish;
 
-                        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
-                        if (code != CURLE_OK) {
-                                log_error("Failed to retrieve response code: %s", curl_easy_strerror(code));
-                                r = -EIO;
-                                goto finish;
-                        }
+                        if (r > 0) { /* A new url to use */
+                                assert(new_url);
 
-                        if (status == 0) {
-                                j->style = VERIFICATION_PER_DIRECTORY;
-                                return;
+                                r = pull_job_restart(j, new_url);
+                                if (r < 0)
+                                        goto finish;
+
+                                code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+                                if (code != CURLE_OK) {
+                                        log_error("Failed to retrieve response code: %s", curl_easy_strerror(code));
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                if (status == 0)
+                                        return;
                         }
                 }
 
@@ -556,7 +564,6 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
                 .start_usec = now(CLOCK_MONOTONIC),
                 .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
                 .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
-                .style = VERIFICATION_STYLE_UNSET,
                 .url = TAKE_PTR(u),
         };
 
