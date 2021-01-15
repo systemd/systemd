@@ -757,12 +757,12 @@ int bind_mount_in_namespace(
                 bool make_file_or_directory) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1;
-        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
+        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p,
+                chased_src[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
-        _cleanup_free_ char *chased_src = NULL;
         struct stat st, self_mntns_st;
         pid_t child;
         int r;
@@ -800,14 +800,15 @@ int bind_mount_in_namespace(
         if (r < 0)
                 return log_debug_errno(r == -ENOENT ? SYNTHETIC_ERRNO(EOPNOTSUPP) : r, "Target does not allow propagation of mount points");
 
-        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, &chased_src, NULL);
+        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, NULL, &chased_src_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
+        xsprintf(chased_src, "/proc/self/fd/%i", chased_src_fd);
 
-        if (lstat(chased_src, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", chased_src);
+        if (fstat(chased_src_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
         if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", chased_src);
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
 
         /* Our goal is to install a new bind mount into the container,
            possibly read-only. This is irritatingly complex
@@ -843,7 +844,7 @@ int bind_mount_in_namespace(
 
         mount_tmp_created = true;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
+        r = mount_follow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto finish;
 
