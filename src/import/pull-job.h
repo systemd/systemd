@@ -17,7 +17,7 @@ typedef void (*PullJobProgress)(PullJob *job);
 typedef enum PullJobState {
         PULL_JOB_INIT,
         PULL_JOB_ANALYZING, /* Still reading into ->payload, to figure out what we have */
-        PULL_JOB_RUNNING,  /* Writing to destination */
+        PULL_JOB_RUNNING,   /* Writing to destination */
         PULL_JOB_DONE,
         PULL_JOB_FAILED,
         _PULL_JOB_STATE_MAX,
