@@ -2512,7 +2512,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
 static int link_delete(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
-        int index, r, i;
+        int index, r;
         void *p;
 
         r = sd_netlink_open(&rtnl);
@@ -2523,7 +2523,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         if (!indexes)
                 return log_oom();
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
