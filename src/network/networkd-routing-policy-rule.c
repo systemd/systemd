@@ -1553,8 +1553,8 @@ int config_parse_routing_policy_rule_type(
         }
 
         n->type = (uint8_t) t;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 
