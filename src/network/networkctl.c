@@ -988,7 +988,6 @@ static int dump_addresses(
 static int dump_address_labels(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_netlink_message *m;
         TableCell *cell;
         int r;
 
@@ -1024,7 +1023,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_align_percent(table, cell, 100);
 
-        for (m = reply; m; m = sd_netlink_message_next(m)) {
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 _cleanup_free_ char *pretty = NULL;
                 union in_addr_union prefix = IN_ADDR_NULL;
                 uint8_t prefixlen;
