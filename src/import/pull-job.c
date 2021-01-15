@@ -434,10 +434,9 @@ fail:
 }
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL;
         PullJob *j = userdata;
         size_t sz = size * nmemb;
-        _cleanup_free_ char *length = NULL, *last_modified = NULL;
-        char *etag;
         int r;
 
         assert(contents);
@@ -456,8 +455,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                 goto fail;
         }
         if (r > 0) {
-                free(j->etag);
-                j->etag = etag;
+                free_and_replace(j->etag, etag);
 
                 if (strv_contains(j->old_etags, j->etag)) {
                         log_info("Image already downloaded. Skipping download.");
