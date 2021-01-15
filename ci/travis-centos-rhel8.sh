@@ -81,11 +81,11 @@ for phase in "${PHASES[@]}"; do
             info "Setup phase"
             info "Using Travis $CENTOS_RELEASE"
             # Pull a Docker image and start a new container
-            docker pull centos:$CENTOS_RELEASE
+            docker pull quay.io/centos/centos:$CENTOS_RELEASE
             info "Starting container $CONT_NAME"
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
                         -w /build --privileged=true --name $CONT_NAME \
-                        -dit --net=host centos:$CENTOS_RELEASE /sbin/init
+                        -dit --net=host quay.io/centos/centos:$CENTOS_RELEASE /sbin/init
             # Beautiful workaround for Fedora's version of Docker
             sleep 1
             $DOCKER_EXEC dnf makecache
