@@ -2596,14 +2596,14 @@ static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
 static int link_force_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int index, i, k = 0, r;
+        int k = 0, r;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
-        for (i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+        for (int i = 1; i < argc; i++) {
+                int index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
