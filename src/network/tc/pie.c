@@ -73,7 +73,7 @@ int config_parse_pie_packet_limit(
         if (isempty(rvalue)) {
                 pie->packet_limit = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -85,7 +85,7 @@ int config_parse_pie_packet_limit(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
