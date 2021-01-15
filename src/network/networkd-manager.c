@@ -488,12 +488,11 @@ static int ordered_set_put_dns_server(OrderedSet *s, int ifindex, struct in_addr
 
 static int ordered_set_put_dns_servers(OrderedSet *s, int ifindex, struct in_addr_full **dns, unsigned n) {
         int r, c = 0;
-        unsigned i;
 
         assert(s);
         assert(dns || n == 0);
 
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
                 r = ordered_set_put_dns_server(s, ifindex, dns[i]);
                 if (r < 0)
                         return r;
@@ -527,12 +526,11 @@ static int ordered_set_put_in4_addrv(OrderedSet *s,
                                      size_t n,
                                      bool (*predicate)(const struct in_addr *addr)) {
         int r, c = 0;
-        size_t i;
 
         assert(s);
         assert(n == 0 || addresses);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 if (predicate && !predicate(&addresses[i]))
                         continue;
                 r = ordered_set_put_in4_addr(s, addresses+i);
@@ -1115,7 +1113,7 @@ int manager_enumerate(Manager *m) {
 
 Link* manager_find_uplink(Manager *m, Link *exclude) {
         _cleanup_free_ struct local_address *gateways = NULL;
-        int n, i;
+        int n;
 
         assert(m);
 
@@ -1129,7 +1127,7 @@ Link* manager_find_uplink(Manager *m, Link *exclude) {
                 return NULL;
         }
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 Link *link;
 
                 link = hashmap_get(m->links, INT_TO_PTR(gateways[i].ifindex));
