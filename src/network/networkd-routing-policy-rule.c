@@ -1175,8 +1175,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
