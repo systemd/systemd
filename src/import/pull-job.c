@@ -72,11 +72,30 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
                 return r;
 
         j->state = PULL_JOB_INIT;
+        j->error = 0;
         j->payload = mfree(j->payload);
         j->payload_size = 0;
         j->payload_allocated = 0;
         j->written_compressed = 0;
         j->written_uncompressed = 0;
+        j->content_length = UINT64_MAX;
+        j->etag = mfree(j->etag);
+        j->etag_exists = false;
+        j->mtime = 0;
+        j->checksum = mfree(j->checksum);
+
+        curl_glue_remove_and_free(j->glue, j->curl);
+        j->curl = NULL;
+
+        curl_slist_free_all(j->request_header);
+        j->request_header = NULL;
+
+        import_compress_free(&j->compress);
+
+        if (j->checksum_context) {
+                gcry_md_close(j->checksum_context);
+                j->checksum_context = NULL;
+        }
 
         r = pull_job_begin(j);
         if (r < 0)
