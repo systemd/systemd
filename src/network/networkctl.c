@@ -2264,7 +2264,7 @@ static char *lldp_capabilities_to_string(uint16_t x) {
 }
 
 static void lldp_capabilities_legend(uint16_t x) {
-        unsigned w, i, cols = columns();
+        unsigned cols = columns();
         static const char* const table[] = {
                 "o - Other",
                 "p - Repeater",
@@ -2283,7 +2283,7 @@ static void lldp_capabilities_legend(uint16_t x) {
                 return;
 
         printf("\nCapability Flags:\n");
-        for (w = 0, i = 0; i < ELEMENTSOF(table); i++)
+        for (unsigned w = 0, i = 0; i < ELEMENTSOF(table); i++)
                 if (x & (1U << i) || arg_all) {
                         bool newline;
 
