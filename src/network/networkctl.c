@@ -2636,7 +2636,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
-        int index, i, r;
+        int index, r;
         void *p;
 
         r = sd_bus_open_system(&bus);
@@ -2647,7 +2647,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         if (!indexes)
                 return log_oom();
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
