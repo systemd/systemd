@@ -542,7 +542,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 raw_pull_report_progress(i, RAW_VERIFYING);
 
-                r = pull_verify(i->raw_job, i->roothash_job, i->settings_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->verify, i->raw_job, i->roothash_job, i->settings_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
