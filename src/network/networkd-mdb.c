@@ -363,7 +363,6 @@ int config_parse_mdb_group_address(
                 return 0;
         }
 
-        mdb_entry = NULL;
-
+        TAKE_PTR(mdb_entry);
         return 0;
 }
