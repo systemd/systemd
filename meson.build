@@ -2198,6 +2198,8 @@ public_programs += executable(
         'src/systemctl/systemctl-log-setting.h',
         'src/systemctl/systemctl-logind.c',
         'src/systemctl/systemctl-logind.h',
+        'src/systemctl/systemctl-mount.c',
+        'src/systemctl/systemctl-mount.h',
         'src/systemctl/systemctl-preset-all.c',
         'src/systemctl/systemctl-preset-all.h',
         'src/systemctl/systemctl-reset-failed.c',

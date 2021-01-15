@@ -275,14 +275,19 @@
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
-        and the API file systems <filename>/proc/</filename>, <filename>/sys/</filename>, and <filename>/dev/</filename>
-        are mounted inside of it, unless they are already mounted. Note that this option has no effect unless used in
-        conjunction with <varname>RootDirectory=</varname>/<varname>RootImage=</varname> as these three mounts are
+        and the API file systems <filename>/proc/</filename>, <filename>/sys/</filename>, <filename>/dev/</filename> and
+        <filename>/run/</filename> (as an empty <literal>tmpfs</literal>) are mounted inside of it, unless they are
+        already mounted. Note that this option has no effect unless used in conjunction with
+        <varname>RootDirectory=</varname>/<varname>RootImage=</varname> as these four mounts are
         generally mounted in the host anyway, and unless the root directory is changed, the private mount namespace
-        will be a 1:1 copy of the host's, and include these three mounts. Note that the <filename>/dev/</filename> file
+        will be a 1:1 copy of the host's, and include these four mounts. Note that the <filename>/dev/</filename> file
         system of the host is bind mounted if this option is used without <varname>PrivateDevices=</varname>. To run
         the service with a private, minimal version of <filename>/dev/</filename>, combine this option with
         <varname>PrivateDevices=</varname>.</para>
+
+        <para>In order to allow propagating mounts at runtime in a safe manner, <filename>/run/systemd/propagate</filename>
+        on the host will be used to set up new mounts, and <filename>/run/host/incoming/</filename> in the private namespace
+        will be used as an intermediate step to store them before being moved to the final mount point.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
