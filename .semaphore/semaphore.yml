@@ -1,0 +1,27 @@
+---
+# vi: ts=2 sw=2 et:
+
+version: v1.0
+name: Debian autopkgtest (LXC)
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu1804
+
+# Cancel any running or queued job for the same ref
+auto_cancel:
+  running:
+    when: "true"
+
+execution_time_limit:
+  hours: 1
+
+blocks:
+  - name: "Setup & test"
+    task:
+      jobs:
+        - name: "Install dependencies & run the Debian autopkgtest"
+          commands:
+            - checkout --use-cache
+            - .semaphore/semaphore-runner.sh SETUP
+            - .semaphore/semaphore-runner.sh RUN
