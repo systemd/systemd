@@ -13,7 +13,6 @@ arc_settls
 arc_usr_cmpxchg
 arch_prctl
 arm_fadvise64_64
-arm_sync_file_range
 atomic_barrier
 atomic_cmpxchg_32
 bdflush
@@ -60,6 +59,7 @@ epoll_create1
 epoll_ctl
 epoll_ctl_old
 epoll_pwait
+epoll_pwait2
 epoll_wait
 epoll_wait_old
 eventfd
@@ -241,7 +241,6 @@ name_to_handle_at
 nanosleep
 newfstatat
 nfsservctl
-ni_syscall
 nice
 old_adjtimex
 old_getpagesize
@@ -568,7 +567,6 @@ times
 tkill
 truncate
 truncate64
-udftrap
 ugetrlimit
 umask
 umount
@@ -584,7 +582,6 @@ utime
 utimensat
 utimensat_time64
 utimes
-utimesat
 utrap_install
 vfork
 vhangup
