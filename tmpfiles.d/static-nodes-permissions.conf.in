@@ -15,3 +15,5 @@ z /dev/loop-control 0660 - disk  -
 z /dev/net/tun      0666 - -     -
 z /dev/fuse         0666 - -     -
 z /dev/kvm          @DEV_KVM_MODE@ - kvm -
+z /dev/vhost-net    @DEV_KVM_MODE@ - kvm -
+z /dev/vhost-vsock  @DEV_KVM_MODE@ - kvm -
