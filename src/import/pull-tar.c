@@ -40,19 +40,19 @@ struct TarPull {
         sd_event *event;
         CurlGlue *glue;
 
+        PullFlags flags;
+        ImportVerify verify;
         char *image_root;
 
         PullJob *tar_job;
-        PullJob *settings_job;
         PullJob *checksum_job;
         PullJob *signature_job;
+        PullJob *settings_job;
 
         TarPullFinished on_finished;
         void *userdata;
 
         char *local;
-        bool force_local;
-        bool settings;
 
         pid_t tar_pid;
 
@@ -61,8 +61,6 @@ struct TarPull {
 
         char *settings_path;
         char *settings_temp_path;
-
-        ImportVerify verify;
 };
 
 TarPull* tar_pull_unref(TarPull *i) {
@@ -75,22 +73,15 @@ TarPull* tar_pull_unref(TarPull *i) {
         }
 
         pull_job_unref(i->tar_job);
-        pull_job_unref(i->settings_job);
         pull_job_unref(i->checksum_job);
         pull_job_unref(i->signature_job);
+        pull_job_unref(i->settings_job);
 
         curl_glue_unref(i->glue);
         sd_event_unref(i->event);
 
-        if (i->temp_path) {
-                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-                free(i->temp_path);
-        }
-
-        if (i->settings_temp_path) {
-                (void) unlink(i->settings_temp_path);
-                free(i->settings_temp_path);
-        }
+        rm_rf_subvolume_and_free(i->temp_path);
+        unlink_and_free(i->settings_temp_path);
 
         free(i->final_path);
         free(i->settings_path);
@@ -163,11 +154,6 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
 
                 percent = 0;
 
-                if (i->settings_job) {
-                        percent += i->settings_job->progress_percent * 5 / 100;
-                        remain -= 5;
-                }
-
                 if (i->checksum_job) {
                         percent += i->checksum_job->progress_percent * 5 / 100;
                         remain -= 5;
@@ -175,6 +161,11 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
 
                 if (i->signature_job) {
                         percent += i->signature_job->progress_percent * 5 / 100;
+                        remain -= 5;
+                }
+
+                if (i->settings_job) {
+                        percent += i->settings_job->progress_percent * 5 / 100;
                         remain -= 5;
                 }
 
@@ -230,11 +221,11 @@ static int tar_pull_make_local_copy(TarPull *i) {
         if (!i->local)
                 return 0;
 
-        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->force_local);
+        r = pull_make_local_copy(i->final_path, i->image_root, i->local, i->flags);
         if (r < 0)
                 return r;
 
-        if (i->settings) {
+        if (FLAGS_SET(i->flags, PULL_SETTINGS)) {
                 const char *local_settings;
                 assert(i->settings_job);
 
@@ -244,7 +235,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
                 local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
 
-                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, 0, COPY_REFLINK | (FLAGS_SET(i->flags, PULL_FORCE) ? COPY_REPLACE : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
@@ -264,11 +255,11 @@ static bool tar_pull_is_done(TarPull *i) {
 
         if (!PULL_JOB_IS_COMPLETE(i->tar_job))
                 return false;
-        if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
-                return false;
         if (i->checksum_job && !PULL_JOB_IS_COMPLETE(i->checksum_job))
                 return false;
         if (i->signature_job && !PULL_JOB_IS_COMPLETE(i->signature_job))
+                return false;
+        if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
                 return false;
 
         return true;
@@ -483,15 +474,15 @@ int tar_pull_start(
                 TarPull *i,
                 const char *url,
                 const char *local,
-                bool force_local,
-                ImportVerify verify,
-                bool settings) {
+                PullFlags flags,
+                ImportVerify verify) {
 
         int r;
 
         assert(i);
         assert(verify < _IMPORT_VERIFY_MAX);
         assert(verify >= 0);
+        assert(!(flags & ~PULL_FLAGS_MASK_TAR));
 
         if (!http_url_is_valid(url))
                 return -EINVAL;
@@ -506,9 +497,8 @@ int tar_pull_start(
         if (r < 0)
                 return r;
 
-        i->force_local = force_local;
+        i->flags = flags;
         i->verify = verify;
-        i->settings = settings;
 
         /* Set up download job for TAR file */
         r = pull_job_new(&i->tar_job, url, i->glue, i);
@@ -524,8 +514,13 @@ int tar_pull_start(
         if (r < 0)
                 return r;
 
+        /* Set up download of checksum/signature files */
+        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
+        if (r < 0)
+                return r;
+
         /* Set up download job for the settings file (.nspawn) */
-        if (settings) {
+        if (FLAGS_SET(flags, PULL_SETTINGS)) {
                 r = pull_make_auxiliary_job(&i->settings_job, url, tar_strip_suffixes, ".nspawn", i->glue, tar_pull_job_on_finished, i);
                 if (r < 0)
                         return r;
@@ -535,20 +530,9 @@ int tar_pull_start(
                 i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         }
 
-        /* Set up download of checksum/signature files */
-        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
-        if (r < 0)
-                return r;
-
         r = pull_job_begin(i->tar_job);
         if (r < 0)
                 return r;
-
-        if (i->settings_job) {
-                r = pull_job_begin(i->settings_job);
-                if (r < 0)
-                        return r;
-        }
 
         if (i->checksum_job) {
                 i->checksum_job->on_progress = tar_pull_job_on_progress;
@@ -563,6 +547,12 @@ int tar_pull_start(
                 i->signature_job->on_progress = tar_pull_job_on_progress;
 
                 r = pull_job_begin(i->signature_job);
+                if (r < 0)
+                        return r;
+        }
+
+        if (i->settings_job) {
+                r = pull_job_begin(i->settings_job);
                 if (r < 0)
                         return r;
         }
