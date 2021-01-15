@@ -5,6 +5,7 @@
 
 # RPM macros for packages installing systemd unit files
 
+%_systemd_util_dir @rootlibexecdir@
 %_unitdir @systemunitdir@
 %_userunitdir @userunitdir@
 %_presetdir @systempresetdir@
