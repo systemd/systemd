@@ -18,17 +18,27 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
 int rm_rf(const char *path, RemoveFlags flags);
 
 /* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
-static inline void rm_rf_physical_and_free(char *p) {
+static inline char *rm_rf_physical_and_free(char *p) {
         PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         free(p);
+        return NULL;
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
 
 /* Similar as above, but also has magic btrfs subvolume powers */
-static inline void rm_rf_subvolume_and_free(char *p) {
+static inline char *rm_rf_subvolume_and_free(char *p) {
         PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
         free(p);
+        return NULL;
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_subvolume_and_free);
