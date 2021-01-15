@@ -356,3 +356,29 @@ libbasic_gcrypt = static_library(
         include_directories : includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'])
+
+############################################################
+
+arch_list = [
+        'alpha',
+        'arc',
+        'arm',
+        'arm64',
+        'i386',
+        'ia64',
+        'm68k',
+        'mips64',
+        'mips64n32',
+        'mipso32',
+        'powerpc',
+        'powerpc64',
+        's390',
+        's390x',
+        'sparc',
+        'x86_64']
+
+run_target(
+        'update-syscall-tables',
+        command : [syscall_table_update_sh, meson.current_source_dir()] + arch_list)
+
+syscall_names_text = files('syscall-names.text')
