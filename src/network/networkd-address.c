@@ -1455,7 +1455,7 @@ int config_parse_broadcast(
         }
 
         n->family = AF_INET;
-        n = NULL;
+        TAKE_PTR(n);
 
         return 0;
 }
@@ -1538,8 +1538,7 @@ int config_parse_address(
         else
                 n->in_addr_peer = buffer;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1584,7 +1583,7 @@ int config_parse_label(
         if (r < 0)
                 return log_oom();
 
-        n = NULL;
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1680,7 +1679,7 @@ int config_parse_address_flags(
 
         SET_FLAG(n->flags, ltype, r);
 
-        n = NULL;
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1731,7 +1730,7 @@ int config_parse_address_scope(
         }
 
         n->scope_set = true;
-        n = NULL;
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1786,7 +1785,7 @@ int config_parse_duplicate_address_detection(
         }
 
         n->duplicate_address_detection = a;
-        n = NULL;
+        TAKE_PTR(n);
         return 0;
 }
 
