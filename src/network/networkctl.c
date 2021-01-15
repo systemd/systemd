@@ -661,7 +661,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
-        int c, i, r;
+        int c, r;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -691,7 +691,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        for (i = 0; i < c; i++) {
+        for (int i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
@@ -771,7 +771,6 @@ static int get_gateway_description(
                 union in_addr_union *gateway,
                 char **gateway_description) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *m;
         int r;
 
         assert(rtnl);
@@ -792,7 +791,7 @@ static int get_gateway_description(
         if (r < 0)
                 return r;
 
-        for (m = reply; m; m = sd_netlink_message_next(m)) {
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 union in_addr_union gw = IN_ADDR_NULL;
                 struct ether_addr mac = ETHER_ADDR_NULL;
                 uint16_t type;
@@ -940,7 +939,7 @@ static int dump_addresses(
         _cleanup_free_ struct local_address *local = NULL;
         _cleanup_strv_free_ char **buf = NULL;
         struct in_addr dhcp4_address = {};
-        int r, n, i;
+        int r, n;
 
         assert(rtnl);
         assert(table);
@@ -952,7 +951,7 @@ static int dump_addresses(
         if (lease)
                 (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
                 char name[IF_NAMESIZE+1];
 
@@ -989,7 +988,6 @@ static int dump_addresses(
 static int dump_address_labels(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_netlink_message *m;
         TableCell *cell;
         int r;
 
@@ -1025,7 +1023,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_align_percent(table, cell, 100);
 
-        for (m = reply; m; m = sd_netlink_message_next(m)) {
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 _cleanup_free_ char *pretty = NULL;
                 union in_addr_union prefix = IN_ADDR_NULL;
                 uint8_t prefixlen;
@@ -1265,7 +1263,6 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
 }
 
 static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes) {
-        unsigned c;
         int r;
 
         assert(prefix);
@@ -1273,7 +1270,7 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
         if (!ifindexes || ifindexes[0] <= 0)
                 return 0;
 
-        for (c = 0; ifindexes[c] > 0; c++) {
+        for (unsigned c = 0; ifindexes[c] > 0; c++) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
                                    TABLE_STRING, c == 0 ? prefix : "",
@@ -2213,7 +2210,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
-        int r, c, i;
+        int r, c;
 
         (void) pager_open(arg_pager_flags);
 
@@ -2238,7 +2235,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        for (i = 0; i < c; i++) {
+        for (int i = 0; i < c; i++) {
                 if (i > 0)
                         fputc('\n', stdout);
 
@@ -2267,7 +2264,7 @@ static char *lldp_capabilities_to_string(uint16_t x) {
 }
 
 static void lldp_capabilities_legend(uint16_t x) {
-        unsigned w, i, cols = columns();
+        unsigned cols = columns();
         static const char* const table[] = {
                 "o - Other",
                 "p - Repeater",
@@ -2286,7 +2283,7 @@ static void lldp_capabilities_legend(uint16_t x) {
                 return;
 
         printf("\nCapability Flags:\n");
-        for (w = 0, i = 0; i < ELEMENTSOF(table); i++)
+        for (unsigned w = 0, i = 0; i < ELEMENTSOF(table); i++)
                 if (x & (1U << i) || arg_all) {
                         bool newline;
 
@@ -2302,7 +2299,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        int i, r, c, m = 0;
+        int r, c, m = 0;
         uint16_t all = 0;
         TableCell *cell;
 
@@ -2348,7 +2345,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 5));
         table_set_minimum_width(table, cell, 16);
 
-        for (i = 0; i < c; i++) {
+        for (int i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
 
                 r = open_lldp_neighbors(links[i].ifindex, &f);
@@ -2477,7 +2474,7 @@ static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index)
 static int link_up_down(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
-        int index, r, i;
+        int index, r;
         void *p;
 
         r = sd_netlink_open(&rtnl);
@@ -2488,7 +2485,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
         if (!indexes)
                 return log_oom();
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
@@ -2515,7 +2512,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
 static int link_delete(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
-        int index, r, i;
+        int index, r;
         void *p;
 
         r = sd_netlink_open(&rtnl);
@@ -2526,7 +2523,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         if (!indexes)
                 return log_oom();
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
@@ -2565,13 +2562,13 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
 static int link_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int index, i, k = 0, r;
+        int index, k = 0, r;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
@@ -2599,14 +2596,14 @@ static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
 static int link_force_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int index, i, k = 0, r;
+        int k = 0, r;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
-        for (i = 1; i < argc; i++) {
-                index = resolve_interface_or_warn(&rtnl, argv[i]);
+        for (int i = 1; i < argc; i++) {
+                int index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2639,7 +2636,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
-        int index, i, r;
+        int index, r;
         void *p;
 
         r = sd_bus_open_system(&bus);
@@ -2650,7 +2647,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         if (!indexes)
                 return log_oom();
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
