@@ -1428,8 +1428,8 @@ int config_parse_routing_policy_rule_family(
         }
 
         n->address_family = a;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 
