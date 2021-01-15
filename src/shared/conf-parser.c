@@ -1124,13 +1124,13 @@ int config_parse_mtu(
                 void *data,
                 void *userdata) {
 
-        uint32_t *mtu = data;
+        uint32_t *mtu = data, k;
         int r;
 
         assert(rvalue);
         assert(mtu);
 
-        r = parse_mtu(ltype, rvalue, mtu);
+        r = parse_mtu(ltype, rvalue, &k);
         if (r == -ERANGE) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Maximum transfer unit (MTU) value out of range. Permitted range is %" PRIu32 "…%" PRIu32 ", ignoring: %s",
@@ -1143,7 +1143,13 @@ int config_parse_mtu(
                            "Failed to parse MTU value '%s', ignoring: %m", rvalue);
                 return 0;
         }
+        if (k == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid MTU value '%s', ignoring: %m", rvalue);
+                return 0;
+        }
 
+        *mtu = k;
         return 0;
 }
 
