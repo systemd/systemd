@@ -110,7 +110,7 @@ int pull_find_old_etags(
         return 0;
 }
 
-int pull_make_local_copy(const char *final, const char *image_root, const char *local, bool force_local) {
+int pull_make_local_copy(const char *final, const char *image_root, const char *local, PullFlags flags) {
         const char *p;
         int r;
 
@@ -122,7 +122,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
 
         p = prefix_roota(image_root, local);
 
-        if (force_local)
+        if (FLAGS_SET(flags, PULL_FORCE))
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         r = btrfs_subvol_snapshot(final, p,

@@ -5,6 +5,7 @@
 
 #include "import-util.h"
 #include "macro.h"
+#include "pull-common.h"
 
 typedef struct TarPull TarPull;
 
@@ -15,4 +16,4 @@ TarPull* tar_pull_unref(TarPull *pull);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarPull*, tar_pull_unref);
 
-int tar_pull_start(TarPull *pull, const char *url, const char *local, bool force_local, ImportVerify verify, bool settings);
+int tar_pull_start(TarPull *pull, const char *url, const char *local, PullFlags flags, ImportVerify verify);
