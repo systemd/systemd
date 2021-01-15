@@ -302,10 +302,8 @@ int pull_make_verification_jobs(
                 signature_job->uncompressed_max = signature_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
         }
 
-        *ret_checksum_job = checksum_job;
-        *ret_signature_job = signature_job;
-
-        checksum_job = signature_job = NULL;
+        *ret_checksum_job = TAKE_PTR(checksum_job);
+        *ret_signature_job = TAKE_PTR(signature_job);
 
         return 0;
 }
