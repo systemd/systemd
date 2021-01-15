@@ -1263,7 +1263,6 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
 }
 
 static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes) {
-        unsigned c;
         int r;
 
         assert(prefix);
@@ -1271,7 +1270,7 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
         if (!ifindexes || ifindexes[0] <= 0)
                 return 0;
 
-        for (c = 0; ifindexes[c] > 0; c++) {
+        for (unsigned c = 0; ifindexes[c] > 0; c++) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
                                    TABLE_STRING, c == 0 ? prefix : "",
