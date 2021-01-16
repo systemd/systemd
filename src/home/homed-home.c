@@ -2656,11 +2656,7 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error) {
                 if (ordered_set_size(h->pending_operations) >= PENDING_OPERATIONS_MAX)
                         return sd_bus_error_setf(error, BUS_ERROR_TOO_MANY_OPERATIONS, "Too many client operations requested");
 
-                r = ordered_set_ensure_allocated(&h->pending_operations, &operation_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = ordered_set_put(h->pending_operations, o);
+                r = ordered_set_ensure_put(&h->pending_operations, &operation_hash_ops, o);
                 if (r < 0)
                         return r;
 

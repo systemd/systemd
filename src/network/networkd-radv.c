@@ -75,11 +75,7 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
         prefix->network = network;
         prefix->section = TAKE_PTR(n);
 
-        r = hashmap_ensure_allocated(&network->prefixes_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(network->prefixes_by_section, prefix->section, prefix);
+        r = hashmap_ensure_put(&network->prefixes_by_section, &network_config_hash_ops, prefix->section, prefix);
         if (r < 0)
                 return r;
 
