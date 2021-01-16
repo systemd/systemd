@@ -257,15 +257,13 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 return r;
 
         if (read_network) {
-                size_t i;
-
                 r = sd_bus_message_read_array(message, 'i', (const void**) &netif, &n_netif);
                 if (r < 0)
                         return r;
 
                 n_netif /= sizeof(int32_t);
 
-                for (i = 0; i < n_netif; i++) {
+                for (size_t i = 0; i < n_netif; i++) {
                         if (netif[i] <= 0)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid network interface index %i", netif[i]);
                 }
