@@ -108,6 +108,8 @@ int setup_namespace(
                 char **read_write_paths,
                 char **read_only_paths,
                 char **inaccessible_paths,
+                char **exec_paths,
+                char **no_exec_paths,
                 char **empty_directories,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
