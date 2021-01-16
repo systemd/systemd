@@ -18,6 +18,6 @@ jobs:
       - name: Repository checkout
         uses: actions/checkout@v1
       - name: Install build dependencies
-        run: sudo -E .github/workflows/ubuntu-unit-tests.sh SETUP
+        run: sudo -E .github/workflows/unit_tests.sh SETUP
       - name: Build & test (${{ matrix.run_phase }})
-        run: sudo -E .github/workflows/ubuntu-unit-tests.sh RUN_${{ matrix.run_phase }}
+        run: sudo -E .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}

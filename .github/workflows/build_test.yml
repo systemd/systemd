@@ -19,6 +19,7 @@ jobs:
       matrix:
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "10" }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "11" }
           - { COMPILER: "clang", COMPILER_VERSION: "10" }
           - { COMPILER: "clang", COMPILER_VERSION: "11" }
     env: ${{ matrix.env }}
@@ -26,4 +27,4 @@ jobs:
       - name: Repository checkout
         uses: actions/checkout@v1
       - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }})
-        run: sudo -E .github/workflows/ubuntu-build-check.sh
+        run: sudo -E .github/workflows/build_test.sh
