@@ -1999,7 +1999,9 @@ bool exec_needs_mount_namespace(
 
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
-            !strv_isempty(context->inaccessible_paths))
+            !strv_isempty(context->inaccessible_paths) ||
+            !strv_isempty(context->exec_paths) ||
+            !strv_isempty(context->no_exec_paths))
                 return true;
 
         if (context->n_bind_mounts > 0)
@@ -3206,6 +3208,8 @@ static int apply_mount_namespace(
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
+                            needs_sandboxing ? context->exec_paths : NULL,
+                            needs_sandboxing ? context->no_exec_paths : NULL,
                             empty_directories,
                             bind_mounts,
                             n_bind_mounts,
@@ -4814,6 +4818,8 @@ void exec_context_done(ExecContext *c) {
         c->read_only_paths = strv_free(c->read_only_paths);
         c->read_write_paths = strv_free(c->read_write_paths);
         c->inaccessible_paths = strv_free(c->inaccessible_paths);
+        c->exec_paths = strv_free(c->exec_paths);
+        c->no_exec_paths = strv_free(c->no_exec_paths);
 
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
@@ -5499,6 +5505,18 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (!strv_isempty(c->inaccessible_paths)) {
                 fprintf(f, "%sInaccessiblePaths:", prefix);
                 strv_fprintf(f, c->inaccessible_paths);
+                fputs("\n", f);
+        }
+
+        if (!strv_isempty(c->exec_paths)) {
+                fprintf(f, "%sExecPaths:", prefix);
+                strv_fprintf(f, c->exec_paths);
+                fputs("\n", f);
+        }
+
+        if (!strv_isempty(c->no_exec_paths)) {
+                fprintf(f, "%sNoExecPaths:", prefix);
+                strv_fprintf(f, c->no_exec_paths);
                 fputs("\n", f);
         }
 
