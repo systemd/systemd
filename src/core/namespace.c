@@ -53,6 +53,8 @@ typedef enum MountMode {
         PROCFS,
         READONLY,
         READWRITE,
+        NOEXEC,
+        EXEC,
         TMPFS,
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
@@ -210,6 +212,8 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [TMPFS]                = "tmpfs",
         [MOUNT_IMAGES]         = "mount-images",
         [READWRITE_IMPLICIT]   = "rw-implicit",
+        [EXEC]                 = "exec",
+        [NOEXEC]               = "noexec",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
@@ -227,6 +231,18 @@ static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
         return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE, PRIVATE_TMP_READONLY);
+}
+
+static bool mount_entry_noexec(const MountEntry *p) {
+        assert(p);
+
+        return IN_SET(p->mode, NOEXEC, INACCESSIBLE, SYSFS, PROCFS);
+}
+
+static bool mount_entry_exec(const MountEntry *p) {
+        assert(p);
+
+        return p->mode == EXEC;
 }
 
 static const char *mount_entry_source(const MountEntry *p) {
@@ -1107,6 +1123,8 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
         case READWRITE_IMPLICIT:
+        case EXEC:
+        case NOEXEC:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
@@ -1227,6 +1245,16 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
                 flags_mask |= MS_NOSUID;
         }
 
+        if (mount_entry_noexec(m)) {
+                new_flags |= MS_NOEXEC;
+                flags_mask |= MS_NOEXEC;
+                submounts = true;
+        } else if (mount_entry_exec(m)) {
+                new_flags &= ~MS_NOEXEC;
+                flags_mask |= MS_NOEXEC;
+                submounts = true;
+        }
+
         if (flags_mask == 0) /* No Change? */
                 return 0;
 
@@ -1234,7 +1262,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
          * nothing further down.  Set /dev readonly, but not submounts like /dev/shm. Also, we only set the
          * per-mount read-only flag.  We can't set it on the superblock, if we are inside a user namespace
          * and running Linux <= 4.17. */
-        submounts =
+        submounts |=
                 mount_entry_read_only(m) &&
                 !IN_SET(m->mode, EMPTY_DIR, TMPFS);
         if (submounts)
@@ -1275,6 +1303,8 @@ static size_t namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** exec_paths,
+                char** no_exec_paths,
                 char** empty_directories,
                 size_t n_bind_mounts,
                 size_t n_temporary_filesystems,
@@ -1305,6 +1335,8 @@ static size_t namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                strv_length(exec_paths) +
+                strv_length(no_exec_paths) +
                 strv_length(empty_directories) +
                 n_bind_mounts +
                 n_mount_images +
@@ -1449,6 +1481,8 @@ int setup_namespace(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** exec_paths,
+                char** no_exec_paths,
                 char** empty_directories,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
@@ -1560,6 +1594,8 @@ int setup_namespace(
                         read_write_paths,
                         read_only_paths,
                         inaccessible_paths,
+                        exec_paths,
+                        no_exec_paths,
                         empty_directories,
                         n_bind_mounts,
                         n_temporary_filesystems,
@@ -1582,6 +1618,14 @@ int setup_namespace(
                         goto finish;
 
                 r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE, require_prefix);
+                if (r < 0)
+                        goto finish;
+
+                r = append_access_mounts(&m, exec_paths, EXEC, require_prefix);
+                if (r < 0)
+                        goto finish;
+
+                r = append_access_mounts(&m, no_exec_paths, NOEXEC, require_prefix);
                 if (r < 0)
                         goto finish;
 
