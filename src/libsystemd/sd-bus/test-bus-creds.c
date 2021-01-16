@@ -3,7 +3,6 @@
 #include "sd-bus.h"
 
 #include "bus-dump.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "tests.h"
 

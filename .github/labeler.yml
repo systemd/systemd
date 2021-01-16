@@ -36,4 +36,3 @@ timedate:
   - src/timedate/*
 timesync:
   - src/timesync/*
-  - src/time-wait-sync/*

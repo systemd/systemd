@@ -73,7 +73,7 @@ tests += [
         [['src/import/test-qcow2.c',
           'src/import/qcow2-util.c',
           'src/import/qcow2-util.h'],
-         [libshared],
+         [],
          [libz],
-         'HAVE_ZLIB', 'manual'],
+         [], 'HAVE_ZLIB', 'manual'],
 ]
