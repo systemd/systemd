@@ -79,7 +79,7 @@ int config_parse_cake_bandwidth(
         if (isempty(rvalue)) {
                 c->bandwidth = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -92,7 +92,7 @@ int config_parse_cake_bandwidth(
         }
 
         c->bandwidth = k/8;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -133,7 +133,7 @@ int config_parse_cake_overhead(
 
         if (isempty(rvalue)) {
                 c->overhead = 0;
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -152,7 +152,7 @@ int config_parse_cake_overhead(
         }
 
         c->overhead = v;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
         return 0;
 }
 

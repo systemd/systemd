@@ -79,7 +79,7 @@ int config_parse_drr_size(
         if (isempty(rvalue)) {
                 drr->quantum = 0;
 
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
@@ -98,7 +98,7 @@ int config_parse_drr_size(
 
         drr->quantum = (uint32_t) u;
 
-        tclass = NULL;
+        TAKE_PTR(tclass);
         return 0;
 }
 
