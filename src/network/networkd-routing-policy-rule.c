@@ -1067,8 +1067,7 @@ int config_parse_routing_policy_rule_tos(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1104,8 +1103,7 @@ int config_parse_routing_policy_rule_priority(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1141,8 +1139,7 @@ int config_parse_routing_policy_rule_table(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1178,8 +1175,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1228,8 +1224,7 @@ int config_parse_routing_policy_rule_prefix(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1274,8 +1269,7 @@ int config_parse_routing_policy_rule_device(
                         return log_oom();
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1319,8 +1313,7 @@ int config_parse_routing_policy_rule_port_range(
                 n->dport.end = high;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1358,8 +1351,7 @@ int config_parse_routing_policy_rule_ip_protocol(
 
         n->ipproto = r;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1397,8 +1389,7 @@ int config_parse_routing_policy_rule_invert(
 
         n->invert_rule = r;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1437,8 +1428,8 @@ int config_parse_routing_policy_rule_family(
         }
 
         n->address_family = a;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1483,8 +1474,8 @@ int config_parse_routing_policy_rule_uid_range(
 
         n->uid_range.start = start;
         n->uid_range.end = end;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1524,8 +1515,7 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1563,8 +1553,8 @@ int config_parse_routing_policy_rule_type(
         }
 
         n->type = (uint8_t) t;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 

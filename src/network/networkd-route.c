@@ -2193,6 +2193,11 @@ int config_parse_tcp_window(
                            "Specified TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
+        if (k == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
 
         if (streq(lvalue, "InitialCongestionWindow"))
                 n->initcwnd = k;
