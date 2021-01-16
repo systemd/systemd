@@ -639,7 +639,7 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
         return 1;
 }
 
-static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
+int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
         int r;
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
@@ -749,6 +749,9 @@ int link_set_routing_policy_rules(Link *link) {
         link->routing_policy_rules_configured = false;
 
         HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                if (rule->from_dhcp_ip || rule->to_dhcp_ip || rule->from_dhcp_gateway || rule->to_dhcp_gateway)
+                        continue;
+
                 r = routing_policy_rule_configure(rule, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
@@ -1210,6 +1213,30 @@ int config_parse_routing_policy_rule_prefix(
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
                 return log_oom();
+
+        if (streq(lvalue, "To")) {
+                if (streq(rvalue, "_dhcp4_ip"))
+                        n->to_dhcp_ip = true;
+                else if (streq(rvalue, "_dhcp4_gw"))
+                        n->to_dhcp_gateway = true;
+
+                if (n->to_dhcp_ip || n->to_dhcp_gateway) {
+                        TAKE_PTR(n);
+                        return 0;
+                }
+        }
+
+        if (streq(lvalue, "From")) {
+                if (streq(rvalue, "_dhcp4_ip"))
+                        n->from_dhcp_ip = true;
+                else if (streq(rvalue, "_dhcp4_gw"))
+                        n->from_dhcp_gateway = true;
+
+                if (n->from_dhcp_ip || n->from_dhcp_gateway) {
+                        TAKE_PTR(n);
+                        return 0;
+                }
+        }
 
         if (streq(lvalue, "To")) {
                 buffer = &n->to;
