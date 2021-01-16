@@ -135,7 +135,6 @@ static bool address_pool_prefix_is_taken(
 
 static int address_pool_acquire_one(AddressPool *p, int family, unsigned prefixlen, union in_addr_union *found) {
         union in_addr_union u;
-        unsigned i;
         int r;
 
         assert(p);
@@ -150,7 +149,7 @@ static int address_pool_acquire_one(AddressPool *p, int family, unsigned prefixl
 
         u = p->in_addr;
 
-        for (i = 0; i < RANDOM_PREFIX_TRIAL_MAX; i++) {
+        for (unsigned i = 0; i < RANDOM_PREFIX_TRIAL_MAX; i++) {
                 r = in_addr_random_prefix(p->family, &u, p->prefixlen, prefixlen);
                 if (r <= 0)
                         return r;

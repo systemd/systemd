@@ -580,8 +580,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_close_ int fd = -1;
-        size_t allocated = 0, c = 0, j;
-        sd_netlink_message *i;
+        size_t allocated = 0, c = 0;
         int r;
 
         assert(rtnl);
@@ -606,7 +605,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                         return log_oom();
         }
 
-        for (i = reply; i; i = sd_netlink_message_next(i)) {
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 if (!GREEDY_REALLOC0(links, allocated, c + 2)) /* We keep one trailing one as marker */
                         return -ENOMEM;
 
@@ -645,7 +644,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         typesafe_qsort(links, c, link_info_compare);
 
         if (bus)
-                for (j = 0; j < c; j++)
+                for (size_t j = 0; j < c; j++)
                         (void) acquire_link_bitrates(bus, links + j);
 
         *ret = TAKE_PTR(links);
@@ -891,7 +890,7 @@ static int dump_gateways(
                 int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
         _cleanup_strv_free_ char **buf = NULL;
-        int r, n, i;
+        int r, n;
 
         assert(rtnl);
         assert(table);
@@ -900,7 +899,7 @@ static int dump_gateways(
         if (n <= 0)
                 return n;
 
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
                 _cleanup_free_ char *gateway = NULL, *description = NULL, *with_description = NULL;
                 char name[IF_NAMESIZE+1];
 

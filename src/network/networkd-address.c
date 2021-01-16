@@ -599,7 +599,6 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
 
 static int link_enumerate_ipv6_tentative_addresses(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *addr;
         int r;
 
         assert(link);
@@ -614,7 +613,7 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        for (addr = reply; addr; addr = sd_netlink_message_next(addr)) {
+        for (sd_netlink_message *addr = reply; addr; addr = sd_netlink_message_next(addr)) {
                 unsigned char flags;
                 int ifindex;
 
