@@ -2613,6 +2613,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as InaccessiblePaths = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as NoExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t MountFlags = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
@@ -3123,6 +3127,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ReadOnlyPaths is not documented!-->
 
     <!--property InaccessiblePaths is not documented!-->
+
+    <!--property ExecPaths is not documented!-->
+
+    <!--property NoExecPaths is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
 
@@ -3687,6 +3695,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ReadOnlyPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InaccessiblePaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecPaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NoExecPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
@@ -4340,6 +4352,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as InaccessiblePaths = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as NoExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t MountFlags = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
@@ -4878,6 +4894,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ReadOnlyPaths is not documented!-->
 
     <!--property InaccessiblePaths is not documented!-->
+
+    <!--property ExecPaths is not documented!-->
+
+    <!--property NoExecPaths is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
 
@@ -5444,6 +5464,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ReadOnlyPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InaccessiblePaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecPaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NoExecPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
@@ -6021,6 +6045,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as InaccessiblePaths = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as NoExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t MountFlags = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
@@ -6487,6 +6515,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ReadOnlyPaths is not documented!-->
 
     <!--property InaccessiblePaths is not documented!-->
+
+    <!--property ExecPaths is not documented!-->
+
+    <!--property NoExecPaths is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
 
@@ -6971,6 +7003,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ReadOnlyPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InaccessiblePaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecPaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NoExecPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
@@ -7669,6 +7705,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as InaccessiblePaths = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as ExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as NoExecPaths = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t MountFlags = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateTmp = ...;
@@ -8121,6 +8161,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ReadOnlyPaths is not documented!-->
 
     <!--property InaccessiblePaths is not documented!-->
+
+    <!--property ExecPaths is not documented!-->
+
+    <!--property NoExecPaths is not documented!-->
 
     <!--property PrivateTmp is not documented!-->
 
@@ -8591,6 +8635,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ReadOnlyPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="InaccessiblePaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecPaths"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NoExecPaths"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountFlags"/>
 
