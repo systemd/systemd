@@ -1389,7 +1389,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>Table=</varname></term>
           <listitem>
             <para>The table identifier for the route. Takes <literal>default</literal>,
-            <literal>main</literal>, <literal>local</literal> or a number between 1 and 4294967295.
+            <literal>main</literal>, <literal>local</literal> and a number between 1 and 4294967295 or specified in
+            <varname>RouteTable=</varname>. See <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             If unset and <varname>Type=</varname> is <literal>local</literal>, <literal>broadcast</literal>,
             <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.

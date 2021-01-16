@@ -1916,11 +1916,19 @@ int config_parse_route_table(
         if (r >= 0)
                 n->table = r;
         else {
-                r = safe_atou32(rvalue, &n->table);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
-                        return 0;
+                if (!ordered_hashmap_isempty(network->manager->route_tables)) {
+                        RouteTable *t = NULL;
+
+                        t = ordered_hashmap_get(network->manager->route_tables, rvalue);
+                        if (t)
+                                n->table = t->table;
+                } else {
+                        r = safe_atou32(rvalue, &n->table);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
+                                return 0;
+                        }
                 }
         }
 
