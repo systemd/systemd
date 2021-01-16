@@ -1199,7 +1199,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Specifies the routing table identifier to lookup if the rule selector matches. Takes
             one of <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>,
-            or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
+            and a number between 1 and 4294967295 or specified in <varname>RouteTable=</varname>.
+            See <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            Defaults to <literal>main</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

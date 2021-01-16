@@ -87,7 +87,7 @@ static const char * const route_table_table[] = {
         [RT_TABLE_LOCAL]   = "local",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
+DEFINE_STRING_TABLE_LOOKUP(route_table, int);
 
 #define ROUTE_TABLE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("default") + 1)
 static const char *format_route_table(int table, char *buf, size_t size) {
@@ -195,6 +195,15 @@ int route_new(Route **ret) {
 
         return 0;
 }
+
+RouteTable *route_tables_free(RouteTable *t) {
+        if (!t)
+                return NULL;
+
+        free(t->name);
+        return mfree(t);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(RouteTable*, route_tables_free);
 
 static int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
@@ -2352,6 +2361,75 @@ int config_parse_multipath_route(
 
         TAKE_PTR(m);
         TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_route_table_names(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_tables_freep) RouteTable *m = NULL;
+        _cleanup_free_ char *name = NULL;
+        OrderedHashmap **s = data;
+        uint32_t table;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *s = ordered_hashmap_free_with_destructor(*s, route_tables_free);
+                return 0;
+        }
+
+        p = rvalue;
+        r = extract_first_word(&p, &name, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid RouteTable=, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        r = safe_atou32(p, &table);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse RouteTable=, ignoring assignment: %s", p);
+                return 0;
+        }
+
+        if (table == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid RouteTable=, ignoring assignment: %s", p);
+                return 0;
+        }
+
+        m = new(RouteTable, 1);
+        if (!m)
+                return log_oom();
+
+        *m = (RouteTable) {
+                .table = table,
+                .name = TAKE_PTR(name),
+        };
+
+        r = ordered_hashmap_ensure_put(s, &string_hash_ops, m->name, m);
+        if (r < 0)
+                return log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to store RouteTable=, ignoring: %s", rvalue);
+
+        TAKE_PTR(m);
         return 0;
 }
 
