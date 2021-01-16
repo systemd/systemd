@@ -26,4 +26,4 @@ jobs:
       - name: Repository checkout
         uses: actions/checkout@v1
       - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }})
-        run: sudo -E .github/workflows/ubuntu-build-check.sh
+        run: sudo -E .github/workflows/build_test.sh
