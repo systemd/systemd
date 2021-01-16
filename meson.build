@@ -1626,6 +1626,16 @@ includes = include_directories('src/basic',
 add_project_arguments('-include', 'config.h', language : 'c')
 
 generate_gperfs = find_program('tools/generate-gperfs.py')
+autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
+hwdb_update_sh = find_program('tools/hwdb-update.sh')
+make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
+make_directive_index_py = find_program('tools/make-directive-index.py')
+make_man_index_py = find_program('tools/make-man-index.py')
+syscall_table_update_sh = find_program('tools/syscall-table-update.sh')
+xml_helper_py = find_program('tools/xml_helper.py')
+update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
+
+############################################################
 
 subdir('po')
 subdir('catalog')
@@ -1691,17 +1701,6 @@ install_libsystemd_static = static_library(
                         libselinux,
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
-############################################################
-
-autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
-hwdb_update_sh = find_program('tools/hwdb-update.sh')
-make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
-make_directive_index_py = find_program('tools/make-directive-index.py')
-make_man_index_py = find_program('tools/make-man-index.py')
-syscall_names_update_sh = find_program('tools/syscall-names-update.sh')
-xml_helper_py = find_program('tools/xml_helper.py')
-update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
 
 ############################################################
 

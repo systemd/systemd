@@ -283,7 +283,7 @@ generate_syscall_list = find_program('generate-syscall-list.py')
 fname = 'syscall-list.h'
 syscall_list_h = custom_target(
         fname,
-        input : 'syscall-names.text',
+        input : syscall_names_text,
         output : fname,
         command : [generate_syscall_list,
                    '@INPUT@'],
@@ -405,9 +405,3 @@ libshared = shared_library(
         dependencies : libshared_deps,
         install : true,
         install_dir : rootlibexecdir)
-
-############################################################
-
-run_target(
-        'syscall-names-update',
-        command : [syscall_names_update_sh, meson.current_source_dir()])

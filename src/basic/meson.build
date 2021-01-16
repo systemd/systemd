@@ -262,6 +262,9 @@ missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
 missing_socket_h = files('missing_socket.h')
 
+missing_syscall_def_h = files('missing_syscall_def.h')
+basic_sources += missing_syscall_def_h
+
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
@@ -330,9 +333,47 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
 endforeach
 
 basic_sources += generated_gperf_headers
-basic_gcrypt_sources = files(
-        'gcrypt-util.c',
-        'gcrypt-util.h')
+
+############################################################
+
+arch_list = [
+        'alpha',
+        'arc',
+        'arm',
+        'arm64',
+        'i386',
+        'ia64',
+        'm68k',
+        'mips64',
+        'mips64n32',
+        'mipso32',
+        'powerpc',
+        'powerpc64',
+        's390',
+        's390x',
+        'sparc',
+        'x86_64']
+
+run_target(
+        'update-syscall-tables',
+        command : [syscall_table_update_sh, meson.current_source_dir()] + arch_list)
+
+syscall_names_text = files('syscall-names.text')
+
+syscall_lists = []
+foreach arch: arch_list
+        syscall_lists += files('syscalls-@0@'.format(arch))
+endforeach
+
+missing_syscalls_py = find_program('missing_syscalls.py')
+
+run_target(
+        'update-syscall-header',
+        command : [missing_syscalls_py,
+                   missing_syscall_def_h,
+                   syscall_lists])
+
+############################################################
 
 libbasic = static_library(
         'basic',
@@ -347,6 +388,12 @@ libbasic = static_library(
                         libdl],
         c_args : ['-fvisibility=default'],
         install : false)
+
+############################################################
+
+basic_gcrypt_sources = files(
+        'gcrypt-util.c',
+        'gcrypt-util.h')
 
 # A convenience library that is separate from libbasic to avoid
 # unnecessary linking to libgcrypt.
