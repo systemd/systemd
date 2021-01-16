@@ -809,7 +809,6 @@ int config_parse_dhcp_request_options(
                 void *userdata) {
 
         Network *network = data;
-        const char *p;
         int r;
 
         assert(filename);
@@ -826,7 +825,7 @@ int config_parse_dhcp_request_options(
                 return 0;
         }
 
-        for (p = rvalue;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *n = NULL;
                 uint32_t i;
 
