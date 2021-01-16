@@ -370,7 +370,6 @@ static int netdev_macsec_configure_receive_association(NetDev *netdev, ReceiveAs
 
 static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *m, ReceiveChannel *c) {
         NetDev *netdev;
-        unsigned i;
         int r;
 
         assert(c);
@@ -395,7 +394,7 @@ static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *
 
         log_netdev_debug(netdev, "Receive channel is configured");
 
-        for (i = 0; i < c->n_rxsa; i++) {
+        for (unsigned i = 0; i < c->n_rxsa; i++) {
                 r = netdev_macsec_configure_receive_association(netdev, c->rxsa[i]);
                 if (r < 0) {
                         log_netdev_warning_errno(netdev, r,
