@@ -183,8 +183,7 @@ static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop
         if (ret)
                 *ret = nexthop;
 
-        nexthop = NULL;
-
+        TAKE_PTR(nexthop);
         return 0;
 }
 
