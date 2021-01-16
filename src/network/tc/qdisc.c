@@ -324,7 +324,7 @@ int config_parse_qdisc_parent(
         } else
                 qdisc->tca_kind = mfree(qdisc->tca_kind);
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -362,7 +362,7 @@ int config_parse_qdisc_handle(
 
         if (isempty(rvalue)) {
                 qdisc->handle = TC_H_UNSPEC;
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -375,7 +375,7 @@ int config_parse_qdisc_handle(
         }
 
         qdisc->handle = (uint32_t) n << 16;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

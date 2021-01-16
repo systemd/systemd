@@ -138,7 +138,7 @@ int config_parse_fair_queueing_controlled_delay_u32(
         if (isempty(rvalue)) {
                 *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -150,7 +150,7 @@ int config_parse_fair_queueing_controlled_delay_u32(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -204,7 +204,7 @@ int config_parse_fair_queueing_controlled_delay_usec(
                 else
                         *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -216,7 +216,7 @@ int config_parse_fair_queueing_controlled_delay_usec(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -257,7 +257,7 @@ int config_parse_fair_queueing_controlled_delay_bool(
         if (isempty(rvalue)) {
                 fqcd->ecn = -1;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -270,7 +270,7 @@ int config_parse_fair_queueing_controlled_delay_bool(
         }
 
         fqcd->ecn = r;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -323,7 +323,7 @@ int config_parse_fair_queueing_controlled_delay_size(
                 else
                         *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -342,7 +342,7 @@ int config_parse_fair_queueing_controlled_delay_size(
         }
 
         *p = sz;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
