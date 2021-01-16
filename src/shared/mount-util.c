@@ -210,13 +210,14 @@ int bind_remount_recursive_with_mountinfo(
         assert(prefix);
         assert(proc_self_mountinfo);
 
-        /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory is already
-         * mounted, we reuse the mount and simply mark it MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write
-         * operation). If it isn't we first make it one. Afterwards we apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to
-         * all submounts we can access, too. When mounts are stacked on the same mount point we only care for each
-         * individual "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We
-         * do not have any effect on future submounts that might get propagated, they might be writable. This includes
-         * future submounts that have been triggered via autofs.
+        /* Recursively remount a directory (and all its submounts) with desired flags (MS_READONLY,
+         * MS_NOSUID, MS_NOEXEC). If the directory is already mounted, we reuse the mount and simply mark it
+         * MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write operation), ditto for other flags. If it
+         * isn't we first make it one. Afterwards we apply (or remove) the flags to all submounts we can
+         * access, too. When mounts are stacked on the same mount point we only care for each individual
+         * "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We do
+         * not have any effect on future submounts that might get propagated, they might be writable
+         * etc. This includes future submounts that have been triggered via autofs.
          *
          * If the "deny_list" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the deny list for the top-level path. */

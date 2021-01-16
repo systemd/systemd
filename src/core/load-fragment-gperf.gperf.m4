@@ -119,6 +119,8 @@ $1.InaccessibleDirectories,              config_parse_namespace_path_strv,      
 $1.ReadWritePaths,                       config_parse_namespace_path_strv,            0,                                  offsetof($1, exec_context.read_write_paths)
 $1.ReadOnlyPaths,                        config_parse_namespace_path_strv,            0,                                  offsetof($1, exec_context.read_only_paths)
 $1.InaccessiblePaths,                    config_parse_namespace_path_strv,            0,                                  offsetof($1, exec_context.inaccessible_paths)
+$1.ExecPaths,                            config_parse_namespace_path_strv,            0,                                  offsetof($1, exec_context.exec_paths)
+$1.NoExecPaths,                          config_parse_namespace_path_strv,            0,                                  offsetof($1, exec_context.no_exec_paths)
 $1.BindPaths,                            config_parse_bind_paths,                     0,                                  offsetof($1, exec_context)
 $1.BindReadOnlyPaths,                    config_parse_bind_paths,                     0,                                  offsetof($1, exec_context)
 $1.TemporaryFileSystem,                  config_parse_temporary_filesystems,          0,                                  offsetof($1, exec_context)
