@@ -26,6 +26,19 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
+        const char * const exec[] = {
+                "/lib",
+                "/usr",
+                "-/lib64",
+                "-/usr/lib64",
+                NULL
+        };
+
+        const char * const no_exec[] = {
+                "/var",
+                NULL
+        };
+
         const char *inaccessible[] = {
                 "/home/lennart/projects",
                 NULL
@@ -70,6 +83,8 @@ int main(int argc, char *argv[]) {
                             (char **) writable,
                             (char **) readonly,
                             (char **) inaccessible,
+                            (char **) exec,
+                            (char **) no_exec,
                             NULL,
                             &(BindMount) { .source = (char*) "/usr/bin", .destination = (char*) "/etc/systemd", .read_only = true }, 1,
                             &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
