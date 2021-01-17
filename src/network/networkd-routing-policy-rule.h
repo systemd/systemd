@@ -41,6 +41,11 @@ typedef struct RoutingPolicyRule {
         char *iif;
         char *oif;
 
+        bool from_dhcp_ip:1;
+        bool to_dhcp_ip:1;
+        bool from_dhcp_gateway:1;
+        bool to_dhcp_gateway:1;
+
         union in_addr_union to;
         union in_addr_union from;
 
@@ -56,6 +61,7 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 void network_drop_invalid_routing_policy_rules(Network *network);
 
 int link_set_routing_policy_rules(Link *link);
+int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
