@@ -1457,19 +1457,7 @@ int log_dup_console(void) {
         return 0;
 }
 
-void log_setup_service(void) {
-        /* Sets up logging the way it is most appropriate for running a program as a service. Note that using this
-         * doesn't make the binary unsuitable for invocation on the command line, as log output will still go to the
-         * terminal if invoked interactively. */
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        (void) log_open();
-}
-
-void log_setup_cli(void) {
-        /* Sets up logging the way it is most appropriate for running a program as a CLI utility. */
-
+void log_setup(void) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         (void) log_open();

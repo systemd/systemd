@@ -300,5 +300,4 @@ int log_syntax_invalid_utf8_internal(
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
-void log_setup_service(void);
-void log_setup_cli(void);
+void log_setup(void);

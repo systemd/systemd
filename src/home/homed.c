@@ -17,7 +17,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-homed.service",
                                "A service to create, remove, change or inspect home areas.",
