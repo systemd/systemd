@@ -16,14 +16,6 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         assert(m);
         assert(ifindex > 0);
 
-        r = hashmap_ensure_allocated(&m->links, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&m->links_by_name, &string_hash_ops);
-        if (r < 0)
-                return r;
-
         n = strdup(ifname);
         if (!n)
                 return -ENOMEM;
@@ -39,11 +31,11 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
         };
 
-        r = hashmap_put(m->links_by_name, l->ifname, l);
+        r = hashmap_ensure_put(&m->links_by_name, &string_hash_ops, l->ifname, l);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links, NULL, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
