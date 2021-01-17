@@ -1943,11 +1943,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = hashmap_ensure_allocated(&m->dnssd_services, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(m->dnssd_services, service->name, service);
+        r = hashmap_ensure_put(&m->dnssd_services, &string_hash_ops, service->name, service);
         if (r < 0)
                 return r;
 
