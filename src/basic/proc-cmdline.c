@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "macro.h"
@@ -119,7 +120,9 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
 
         /* We parse the EFI variable first, because later settings have higher priority. */
 
-        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
+        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS) &&
+            (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS_BY_ENV) ||
+             getenv_bool("SYSTEMD_PARSE_EFI") != 0)) {
                 r = systemd_efi_options_variable(&line);
                 if (r < 0) {
                         if (r != -ENODATA)
