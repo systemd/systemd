@@ -117,14 +117,10 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                         return r;
 
                 LIST_PREPEND(items, service->txt_data_items, txt_data);
-                txt_data = NULL;
+                TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_allocated(&manager->dnssd_services, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(manager->dnssd_services, service->name, service);
+        r = hashmap_ensure_put(&manager->dnssd_services, &string_hash_ops, service->name, service);
         if (r < 0)
                 return r;
 
@@ -134,7 +130,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        service = NULL;
+        TAKE_PTR(service);
 
         return 0;
 }
