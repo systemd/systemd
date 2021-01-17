@@ -369,7 +369,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

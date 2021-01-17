@@ -122,8 +122,6 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        log_set_max_level_realm(LOG_REALM_SYSTEMD, log_get_max_level());
-
         r = mac_selinux_init();
         if (r < 0)
                 return r;

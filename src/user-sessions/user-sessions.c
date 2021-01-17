@@ -21,7 +21,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program requires one argument.");
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
