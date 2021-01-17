@@ -234,7 +234,7 @@ int config_parse_tclass_parent(
                 }
         }
 
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }
@@ -271,7 +271,7 @@ int config_parse_tclass_classid(
 
         if (isempty(rvalue)) {
                 tclass->classid = TC_H_UNSPEC;
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
@@ -283,7 +283,7 @@ int config_parse_tclass_classid(
                 return 0;
         }
 
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }

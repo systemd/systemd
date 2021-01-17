@@ -68,7 +68,7 @@ int config_parse_trivial_link_equalizer_id(
         if (isempty(rvalue)) {
                 teql->id = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -86,6 +86,6 @@ int config_parse_trivial_link_equalizer_id(
 
         teql->id = id;
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
         return 0;
 }
