@@ -152,8 +152,8 @@ bool dns_transaction_gc(DnsTransaction *t) {
 static uint16_t pick_new_id(Manager *m) {
         uint16_t new_id;
 
-        /* Find a fresh, unused transaction id. Note that this loop is bounded because there's a limit on the number of
-         * transactions, and it's much lower than the space of IDs. */
+        /* Find a fresh, unused transaction id. Note that this loop is bounded because there's a limit on the
+         * number of transactions, and it's much lower than the space of IDs. */
 
         assert_cc(TRANSACTIONS_MAX < 0xFFFF);
 
@@ -1333,6 +1333,10 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         assert(t);
 
+        /* Returns 0 if dns_transaction_complete() has been called. In that case the transaction and query
+         * candidate objects may have been invalidated and must not be accessed. Returns 1 if the transaction
+         * has been prepared. */
+
         dns_transaction_stop_timeout(t);
 
         if (!dns_scope_network_good(t->scope)) {
@@ -1460,7 +1464,6 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 }
 
 static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
-
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         bool add_known_answers = false;
         DnsTransaction *other;
@@ -1628,8 +1631,9 @@ int dns_transaction_go(DnsTransaction *t) {
 
         assert(t);
 
-        /* Returns > 0 if the transaction is now pending, returns 0 if could be processed immediately and has finished
-         * now. */
+        /* Returns > 0 if the transaction is now pending, returns 0 if could be processed immediately and has
+         * finished now. In the latter case, the transaction and query candidate objects must not be accessed.
+         */
 
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
 
