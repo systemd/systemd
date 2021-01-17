@@ -405,7 +405,7 @@ static int write_to_console(
                 const char *lon = "", *loff = "";
                 if (log_get_show_color()) {
                         lon = ansi_highlight_yellow4();
-                        loff = ANSI_NORMAL;
+                        loff = ansi_normal();
                 }
 
                 (void) snprintf(location, sizeof location, "%s%s:%i%s: ", lon, file, line, loff);
