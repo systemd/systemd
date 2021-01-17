@@ -3345,7 +3345,7 @@ static int run(int argc, char *argv[]) {
 
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = redirect_bus_mgr();
         if (r < 0)

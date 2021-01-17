@@ -1929,7 +1929,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        log_setup_service();
+        log_setup();
 
         if (arg_cat_config)
                 return cat_config();

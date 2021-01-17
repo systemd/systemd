@@ -39,7 +39,7 @@ static int run(int argc, char *argv[]) {
         size_t length = 0;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
