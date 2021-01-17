@@ -1032,8 +1032,11 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Scope=</varname></term>
           <listitem>
-            <para>The scope of the address, which can be <literal>global</literal>,
-            <literal>link</literal> or <literal>host</literal> or an unsigned integer in the range 0—255.
+            <para>The scope of the address, which can be
+            <literal>global</literal> (valid everywhere on the network, even through a gateway),
+            <literal>link</literal> (only valid on this device, will not traverse a gateway) or
+            <literal>host</literal> (only valid within the device itself, e.g. 127.0.0.1)
+            or an unsigned integer in the range 0—255.
             Defaults to <literal>global</literal>.</para>
           </listitem>
         </varlistentry>
@@ -1340,12 +1343,32 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Scope=</varname></term>
           <listitem>
-            <para>The scope of the route, which can be <literal>global</literal>, <literal>site</literal>,
-            <literal>link</literal>, <literal>host</literal>, or <literal>nowhere</literal>. For IPv4 route,
-            defaults to <literal>host</literal> if <varname>Type=</varname> is <literal>local</literal>
-            or <literal>nat</literal>, and <literal>link</literal> if <varname>Type=</varname> is
+            <para>The scope of the IPv4 route, which can be <literal>global</literal>, <literal>site</literal>,
+            <literal>link</literal>, <literal>host</literal>, or
+            <literal>nowhere</literal>:</para>
+            <itemizedlist>
+              <listitem><para><literal>global</literal> means the route can reach
+              hosts more than one hop away.</para></listitem>
+
+              <listitem><para><literal>site</literal> means an interior route in
+              the local autonomous system.</para></listitem>
+
+              <listitem><para><literal>link</literal> means the route can only
+              reach hosts on the local network (one hop away).</para></listitem>
+
+              <listitem><para><literal>host</literal> means the route will not
+              leave the local machine (used for internal addresses like
+              127.0.0.1).</para></listitem>
+
+              <listitem><para><literal>nowhere</literal> means the destination
+              doesn't exist.</para></listitem>
+            </itemizedlist>
+            <para>For IPv4 route, defaults to <literal>host</literal> if <varname>Type=</varname> is
+            <literal>local</literal> or <literal>nat</literal>,
+            and <literal>link</literal> if <varname>Type=</varname> is
             <literal>broadcast</literal>, <literal>multicast</literal>, or <literal>anycast</literal>.
-            In other cases, defaults to <literal>global</literal>.</para>
+            In other cases, defaults to <literal>global</literal>.  The value is
+            not used for IPv6.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
