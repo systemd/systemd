@@ -1682,16 +1682,17 @@ int config_parse_exec_root_hash_sig(
         return 0;
 }
 
-int config_parse_exec_cpu_affinity(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
+int config_parse_exec_cpu_affinity(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = data;
         int r;
@@ -1712,7 +1713,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         if (r >= 0)
                 c->cpu_affinity_from_numa = false;
 
-        return r;
+        return 0;
 }
 
 int config_parse_capability_set(
@@ -2742,7 +2743,7 @@ int config_parse_pass_environ(
         if (n) {
                 r = strv_extend_strv(passenv, n, true);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -2817,7 +2818,7 @@ int config_parse_unset_environ(
         if (n) {
                 r = strv_extend_strv(unsetenv, n, true);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -3095,16 +3096,17 @@ int config_parse_unit_requires_mounts_for(
         }
 }
 
-int config_parse_documentation(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_documentation(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Unit *u = userdata;
         int r;
@@ -3138,7 +3140,7 @@ int config_parse_documentation(const char *unit,
         if (b)
                 *b = NULL;
 
-        return r;
+        return 0;
 }
 
 #if HAVE_SECCOMP
@@ -4539,8 +4541,11 @@ int config_parse_set_credential(
                 r = hashmap_ensure_put(&context->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, l,
+                                   "Duplicated credential value '%s', ignoring assignment: %s", sc->id, rvalue);
+                        return 0;
+                }
 
                 TAKE_PTR(sc);
         }
