@@ -483,13 +483,11 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = hashmap_ensure_allocated(&s->daemons, &uint64_hash_ops);
-        if (r < 0) {
+        r = hashmap_ensure_put(&s->daemons, &uint64_hash_ops, &d->fd, d);
+        if (r == -ENOMEM) {
                 log_oom();
                 goto error;
         }
-
-        r = hashmap_put(s->daemons, &d->fd, d);
         if (r < 0) {
                 log_error_errno(r, "Failed to add daemon to hashmap: %m");
                 goto error;

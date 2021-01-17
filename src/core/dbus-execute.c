@@ -1983,11 +1983,7 @@ int bus_exec_context_set_transient_property(
                                         sc->data = TAKE_PTR(copy);
                                         sc->size = sz;
 
-                                        r = hashmap_ensure_allocated(&c->set_credentials, &exec_set_credential_hash_ops);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = hashmap_put(c->set_credentials, sc->id, sc);
+                                        r = hashmap_ensure_put(&c->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
                                         if (r < 0)
                                                 return r;
 
