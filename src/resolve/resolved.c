@@ -26,7 +26,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-resolved.service",
                                "Provide name resolution with caching using DNS, mDNS, LLMNR.",

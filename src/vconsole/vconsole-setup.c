@@ -430,7 +430,7 @@ int main(int argc, char **argv) {
         unsigned idx = 0;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
