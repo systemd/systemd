@@ -84,7 +84,7 @@ int config_parse_stochastic_fair_blue_u32(
         if (isempty(rvalue)) {
                 sfb->packet_limit = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -96,7 +96,7 @@ int config_parse_stochastic_fair_blue_u32(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
