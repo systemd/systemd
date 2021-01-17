@@ -2269,10 +2269,8 @@ if conf.get('ENABLE_SYSEXT') == 1
                 'src/sysext/sysext.c',
                 include_directories : includes,
                 link_with : [libshared],
-                dependencies : [threads],
                 install_rpath : rootlibexecdir,
-                install : true,
-                install_dir : rootbindir)
+                install : true)
 endif
 
 if conf.get('ENABLE_USERDB') == 1
@@ -2512,8 +2510,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                                 libopenssl,
                                 libp11kit],
                 install_rpath : rootlibexecdir,
-                install : true,
-                install_dir : bindir)
+                install : true)
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1

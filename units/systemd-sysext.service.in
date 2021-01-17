@@ -24,8 +24,8 @@ ConditionDirectoryNotEmpty=|/usr/lib/extensions
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-sysext --merge
-ExecStop=@rootbindir@/systemd-sysext --unmerge
+ExecStart=@bindir@/systemd-sysext --merge
+ExecStop=@bindir@/systemd-sysext --unmerge
 
 [Install]
 WantedBy=sysinit.target
