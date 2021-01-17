@@ -142,11 +142,9 @@ static int network_resolve_stacked_netdevs(Network *network) {
                 if (r <= 0)
                         continue;
 
-                r = hashmap_ensure_allocated(&network->stacked_netdevs, &string_hash_ops);
-                if (r < 0)
+                r = hashmap_ensure_put(&network->stacked_netdevs, &string_hash_ops, netdev->ifname, netdev);
+                if (r == -ENOMEM)
                         return log_oom();
-
-                r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0)
                         return log_error_errno(r, "%s: Failed to add NetDev '%s' to network: %m",
                                                network->filename, (const char *) name);

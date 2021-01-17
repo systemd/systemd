@@ -756,11 +756,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
                                                       netdev->ifname);
         }
 
-        r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
+        r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r == -EEXIST) {
                 NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
 

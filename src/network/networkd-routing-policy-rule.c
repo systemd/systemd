@@ -100,11 +100,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         rule->section = TAKE_PTR(n);
         rule->protocol = RTPROT_STATIC;
 
-        r = hashmap_ensure_allocated(&network->rules_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(network->rules_by_section, rule->section, rule);
+        r = hashmap_ensure_put(&network->rules_by_section, &network_config_hash_ops, rule->section, rule);
         if (r < 0)
                 return r;
 

@@ -79,11 +79,7 @@ static int fdb_entry_new_static(
                 .fdb_ntf_flags = NEIGHBOR_CACHE_ENTRY_FLAGS_SELF,
         };
 
-        r = hashmap_ensure_allocated(&network->fdb_entries_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(network->fdb_entries_by_section, fdb_entry->section, fdb_entry);
+        r = hashmap_ensure_put(&network->fdb_entries_by_section, &network_config_hash_ops, fdb_entry->section, fdb_entry);
         if (r < 0)
                 return r;
 
