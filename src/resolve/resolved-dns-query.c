@@ -132,8 +132,11 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
         Iterator i;
         int r;
         unsigned n = 0;
+        bool notify = false;
 
         assert(c);
+
+        c->query->block_ready++;
 
         /* Start the transactions that are not started yet */
         SET_FOREACH(t, c->transactions, i) {
@@ -141,14 +144,21 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
                         continue;
 
                 r = dns_transaction_go(t);
-                if (r < 0)
+                if (r < 0) {
+                        c->query->block_ready--;
                         return r;
+                }
+                if (r == 0)
+                        /* A transaction is complete. */
+                        notify = true;
 
                 n++;
         }
 
+        c->query->block_ready--;
+
         /* If there was nothing to start, then let's proceed immediately */
-        if (n == 0)
+        if (n == 0 || notify)
                 dns_query_candidate_notify(c);
 
         return 0;
