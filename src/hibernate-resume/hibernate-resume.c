@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
