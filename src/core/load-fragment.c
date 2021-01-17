@@ -1682,16 +1682,17 @@ int config_parse_exec_root_hash_sig(
         return 0;
 }
 
-int config_parse_exec_cpu_affinity(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
+int config_parse_exec_cpu_affinity(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = data;
         int r;
@@ -1712,7 +1713,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         if (r >= 0)
                 c->cpu_affinity_from_numa = false;
 
-        return r;
+        return 0;
 }
 
 int config_parse_capability_set(
