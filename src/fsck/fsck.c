@@ -256,7 +256,7 @@ static int run(int argc, char *argv[]) {
         int r, exit_status;
         pid_t pid;
 
-        log_setup_service();
+        log_setup();
 
         if (argc > 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
