@@ -17,6 +17,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-routing-policy-rule.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -136,6 +137,75 @@ static bool link_prefixroute(Link *link) {
         return !link->network->dhcp_route_table_set ||
                 link->network->dhcp_route_table == RT_TABLE_MAIN ||
                 link->manager->dhcp4_prefix_root_cannot_set_table;
+}
+
+static int dhcp_set_routing_policy_rules(Link *link) {
+        const struct in_addr *router = NULL;
+        struct in_addr address, netmask;
+        RoutingPolicyRule *rule;
+        unsigned prefixlen;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP error: no address: %m");
+
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
+
+        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+
+        (void) sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *pretty = NULL;
+                union in_addr_union u = {
+                        .in = address,
+                };
+
+                (void) in_addr_to_string(AF_INET, &u, &pretty);
+                log_link_debug(link, "DHCP: Configuring RPDB rule from DHCPv4 address %s", strna(pretty));
+        }
+
+        HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                if (!rule->from_dhcp_ip && !rule->to_dhcp_ip && !rule->from_dhcp_gateway && !rule->to_dhcp_gateway)
+                        continue;
+
+                if ((rule->from_dhcp_gateway || rule->to_dhcp_gateway) && !router) {
+                        log_link_debug(link, "DHCP error: Failed to configure RPDB rule from DHCPv4 gateway");
+                        continue;
+                }
+
+                if (rule->from_dhcp_ip) {
+                        rule->from.in = address;
+                        rule->from_prefixlen = prefixlen;
+                }
+
+                if (rule->to_dhcp_ip) {
+                        rule->to.in = address;
+                        rule->to_prefixlen = prefixlen;
+                }
+
+                if (rule->from_dhcp_gateway) {
+                        rule->from.in = *router;
+                        rule->from_prefixlen = 32;
+                }
+
+                if (rule->to_dhcp_gateway) {
+                        rule->to.in = *router;
+                        rule->to_prefixlen = 32;
+                }
+
+                r = routing_policy_rule_configure(rule, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
+        }
+
+        return 0;
 }
 
 static int dhcp_route_configure(Route *route, Link *link) {
@@ -745,6 +815,10 @@ static int dhcp4_address_ready_callback(Address *address) {
 
         /* Do not call this again. */
         address->callback = NULL;
+
+        r = dhcp_set_routing_policy_rules(link);
+        if (r < 0)
+                return r;
 
         r = link_set_dhcp_routes(link);
         if (r < 0)
