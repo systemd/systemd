@@ -128,7 +128,7 @@ static int run(int argc, char *argv[]) {
          * to detect whether we are being run in a virtualized
          * environment or not */
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
