@@ -56,7 +56,7 @@ All tools:
   method. Defaults to `auto`. Behavior is defined as follows:
   `auto`: Checks if `/etc/initrd-release` exists, and a temporary fs is mounted
           on `/`. If both conditions meet, then it's in initrd.
-  `lenient`: Similiar to `auto`, but the rootfs check is skipped.
+  `lenient`: Similar to `auto`, but the rootfs check is skipped.
   `0|1`: Simply overrides initrd detection. This is useful for debugging and
          testing initrd-only programs in the main system.
 
