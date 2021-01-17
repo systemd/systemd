@@ -4541,8 +4541,11 @@ int config_parse_set_credential(
                 r = hashmap_ensure_put(&context->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, l,
+                                   "Duplicated credential value '%s', ignoring assignment: %s", sc->id, rvalue);
+                        return 0;
+                }
 
                 TAKE_PTR(sc);
         }
