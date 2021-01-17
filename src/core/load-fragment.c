@@ -4536,13 +4536,11 @@ int config_parse_set_credential(
                 sc->data = TAKE_PTR(unescaped);
                 sc->size = l;
 
-                r = hashmap_ensure_allocated(&context->set_credentials, &exec_set_credential_hash_ops);
+                r = hashmap_ensure_put(&context->set_credentials, &exec_set_credential_hash_ops, sc->id, sc);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
                         return r;
-
-                r = hashmap_put(context->set_credentials, sc->id, sc);
-                if (r < 0)
-                        return log_oom();
 
                 TAKE_PTR(sc);
         }
