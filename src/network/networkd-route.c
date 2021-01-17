@@ -1903,11 +1903,17 @@ int config_parse_route_table(
         if (r >= 0)
                 n->table = r;
         else {
-                r = safe_atou32(rvalue, &n->table);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
-                        return 0;
+                if (!hashmap_isempty(network->manager->route_tables)) {
+                        uint32_t t = PTR_TO_UINT32(hashmap_get(network->manager->route_tables, rvalue));
+                        if (t)
+                                n->table = t;
+                } else {
+                        r = safe_atou32(rvalue, &n->table);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
+                                return 0;
+                        }
                 }
         }
 
@@ -2408,7 +2414,7 @@ int config_parse_route_table_names(
         }
 
         r = hashmap_ensure_put(s, &string_hash_ops, name, UINT32_TO_PTR(table));
-        if (r < 0)
+        if (r == -ENOMEM)
                 return log_oom();
 
         if (r < 0)
