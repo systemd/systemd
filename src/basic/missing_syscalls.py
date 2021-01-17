@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys
-import os
 import functools
 
 # We only generate numbers for a dozen or so syscalls
