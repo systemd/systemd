@@ -70,7 +70,7 @@ bool in_initrd(void) {
          *
          * If env var $SYSTEMD_IN_INITRD is not set or set to "auto",
          * both checks are used. If it's set to "lenient", only check
-         * 1 is used. If set to a booleen value, then the boolean
+         * 1 is used. If set to a boolean value, then the boolean
          * value is returned.
          */
 
