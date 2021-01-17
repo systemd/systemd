@@ -22,6 +22,8 @@ enum {
         NETLINK_TYPE_UNION,
         NETLINK_TYPE_SOCKADDR,
         NETLINK_TYPE_BINARY,
+        NETLINK_TYPE_BITFIELD32,                /* NLA_BITFIELD32 */
+        NETLINK_TYPE_REJECT,                    /* NLA_REJECT */
 };
 
 typedef enum NLMatchType {

@@ -546,6 +546,13 @@
           to this is reset. Defaults to unset.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>BroadcastMulticastQueueLength=</varname></term>
+        <listitem>
+          <para>Specifies the length of the receive queue for broadcast/multicast packets. An unsigned
+          integer in the range 0—4294967294. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

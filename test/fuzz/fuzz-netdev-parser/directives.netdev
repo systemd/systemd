@@ -10,6 +10,7 @@ IngressQOSMaps=
 [MACVLAN]
 Mode=
 SourceMACAddress=
+BroadcastMulticastQueueLength=
 [WireGuard]
 ListenPort=
 PrivateKey=
