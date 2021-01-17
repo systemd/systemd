@@ -336,11 +336,7 @@ static int rule_resolve_user(UdevRules *rules, const char *name, uid_t *ret) {
         if (!n)
                 return -ENOMEM;
 
-        r = hashmap_ensure_allocated(&rules->known_users, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(rules->known_users, n, UID_TO_PTR(uid));
+        r = hashmap_ensure_put(&rules->known_users, &string_hash_ops, n, UID_TO_PTR(uid));
         if (r < 0)
                 return r;
 
@@ -375,11 +371,7 @@ static int rule_resolve_group(UdevRules *rules, const char *name, gid_t *ret) {
         if (!n)
                 return -ENOMEM;
 
-        r = hashmap_ensure_allocated(&rules->known_groups, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(rules->known_groups, n, GID_TO_PTR(gid));
+        r = hashmap_ensure_put(&rules->known_groups, &string_hash_ops, n, GID_TO_PTR(gid));
         if (r < 0)
                 return r;
 
