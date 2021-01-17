@@ -157,11 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!subsystem)
                                 return -ENOMEM;
 
-                        r = hashmap_ensure_allocated(&arg_subsystem_filter, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = hashmap_put(arg_subsystem_filter, subsystem, devtype);
+                        r = hashmap_ensure_put(&arg_subsystem_filter, NULL, subsystem, devtype);
                         if (r < 0)
                                 return r;
 
