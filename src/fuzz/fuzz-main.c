@@ -22,7 +22,9 @@ int main(int argc, char **argv) {
         size_t size;
         char *name;
 
-        test_setup_logging(LOG_DEBUG);
+        /* We don't want to fill the logs with messages about parse errors.
+         * Disable most logging if not running standalone */
+        test_setup_logging(LOG_CRIT);
 
         for (i = 1; i < argc; i++) {
                 _cleanup_free_ char *buf = NULL;

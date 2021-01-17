@@ -17,11 +17,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ void *buffer = NULL;
         int r;
 
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
-
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
