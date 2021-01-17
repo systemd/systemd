@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         struct stat st;
         int r, q = 0;
 
-        log_setup_service();
+        log_setup();
 
         if (stat("/usr", &st) < 0) {
                 log_error_errno(errno, "Failed to stat /usr: %m");

@@ -3363,7 +3363,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        log_setup_service();
+        log_setup();
 
         /* Descending down file system trees might take a lot of fds */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
