@@ -42,6 +42,18 @@ int generator_write_cryptsetup_service_section(
                 const char *password,
                 const char *options);
 
+int generator_write_veritysetup_unit_section(
+                FILE *f,
+                const char *source);
+
+int generator_write_veritysetup_service_section(
+                FILE *f,
+                const char *name,
+                const char *data_what,
+                const char *hash_what,
+                const char *roothash,
+                const char *options);
+
 int generator_write_device_deps(
         const char *dir,
         const char *what,

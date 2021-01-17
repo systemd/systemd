@@ -9,6 +9,7 @@ manpages = [
  ['coredump.conf', '5', ['coredump.conf.d'], 'ENABLE_COREDUMP'],
  ['coredumpctl', '1', [], 'ENABLE_COREDUMP'],
  ['crypttab', '5', [], 'HAVE_LIBCRYPTSETUP'],
+ ['veritytab', '5', [], 'HAVE_LIBCRYPTSETUP'],
  ['daemon', '7', [], ''],
  ['dnssec-trust-anchors.d',
   '5',

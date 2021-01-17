@@ -356,11 +356,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>veritytab=</varname></term>
+        <term><varname>rd.veritytab=</varname></term>
         <term><varname>roothash=</varname></term>
         <term><varname>systemd.verity=</varname></term>
         <term><varname>rd.systemd.verity=</varname></term>
         <term><varname>systemd.verity_root_data=</varname></term>
         <term><varname>systemd.verity_root_hash=</varname></term>
+        <term><varname>systemd.verity.root_options=</varname></term>
         <listitem>
           <para>Configures the integrity protection root hash for the root file system, and other related
           parameters. For details, see

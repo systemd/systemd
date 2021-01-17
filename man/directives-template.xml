@@ -94,7 +94,8 @@
   </refsect1>
 
   <refsect1>
-    <title><filename>/etc/crypttab</filename> and
+    <title><filename>/etc/crypttab</filename>,
+    <filename>/etc/veritytab</filename> and
     <filename>/etc/fstab</filename> options</title>
 
     <para>Options which influence mounted filesystems and encrypted volumes.</para>

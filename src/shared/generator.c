@@ -620,6 +620,81 @@ int generator_write_cryptsetup_service_section(
         return 0;
 }
 
+int generator_write_veritysetup_unit_section(
+                FILE *f,
+                const char *source) {
+
+        assert(f);
+
+        fprintf(f,
+                "[Unit]\n"
+                "Description=Integrity Protection Setup for %%I\n"
+                "Documentation=man:veritytab(5) man:systemd-veritysetup-generator(8) man:systemd-veritysetup@.service(8)\n");
+
+        if (source)
+                fprintf(f, "SourcePath=%s\n", source);
+
+        fprintf(f,
+                "DefaultDependencies=no\n"
+                "IgnoreOnIsolate=true\n"
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket\n"
+                "Before=blockdev@dev-mapper-%%i.target\n"
+                "Wants=blockdev@dev-mapper-%%i.target\n");
+
+        return 0;
+}
+
+int generator_write_veritysetup_service_section(
+                FILE *f,
+                const char *name,
+                const char *data_what,
+                const char *hash_what,
+                const char *roothash,
+                const char *options) {
+
+        _cleanup_free_ char *name_escaped = NULL, *data_what_escaped = NULL, *hash_what_escaped,
+                            *roothash_escaped = NULL, *options_escaped = NULL;
+
+        assert(f);
+        assert(name);
+        assert(data_what);
+        assert(hash_what);
+
+        name_escaped = specifier_escape(name);
+        if (!name_escaped)
+                return log_oom();
+
+        data_what_escaped = specifier_escape(data_what);
+        if (!data_what_escaped)
+                return log_oom();
+
+        hash_what_escaped = specifier_escape(hash_what);
+        if (!hash_what_escaped)
+                return log_oom();
+
+        roothash_escaped = specifier_escape(roothash);
+        if (!roothash_escaped)
+                return log_oom();
+
+        if (options) {
+                options_escaped = specifier_escape(options);
+                if (!options_escaped)
+                        return log_oom();
+        }
+
+        fprintf(f,
+                "\n"
+                "[Service]\n"
+                "Type=oneshot\n"
+                "RemainAfterExit=yes\n"
+                "ExecStart=" SYSTEMD_VERITYSETUP_PATH " attach '%s' '%s' '%s' '%s' '%s'\n"
+                "ExecStop=" SYSTEMD_VERITYSETUP_PATH " detach '%s'\n",
+                name_escaped, data_what_escaped, hash_what_escaped, roothash_escaped, strempty(options_escaped),
+                name_escaped);
+
+        return 0;
+}
+
 void log_setup_generator(void) {
         /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
         if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
