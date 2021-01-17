@@ -2743,7 +2743,7 @@ int config_parse_pass_environ(
         if (n) {
                 r = strv_extend_strv(passenv, n, true);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -2818,7 +2818,7 @@ int config_parse_unset_environ(
         if (n) {
                 r = strv_extend_strv(unsetenv, n, true);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         return 0;
