@@ -5,6 +5,7 @@
 #include "conf-parser.h"
 #include "macvlan.h"
 #include "macvlan-util.h"
+#include "parse-util.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
@@ -51,6 +52,57 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_MODE attribute: %m");
         }
 
+        if (m->bc_queue_length != UINT32_MAX) {
+                r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_BC_QUEUE_LEN, m->bc_queue_length);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_BC_QUEUE_LEN attribute: %m");
+        }
+
+        return 0;
+}
+
+int config_parse_macvlan_broadcast_queue_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        MacVlan *m = userdata;
+        uint32_t v;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+        assert(userdata);
+
+        if (isempty(rvalue)) {
+                m->bc_queue_length = UINT32_MAX;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &v);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse BroadcastMulticastQueueLength=%s, ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        if (v == UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid BroadcastMulticastQueueLength=%s, ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        m->bc_queue_length = v;
         return 0;
 }
 
@@ -82,6 +134,7 @@ static void macvlan_init(NetDev *n) {
         assert(m);
 
         m->mode = _NETDEV_MACVLAN_MODE_INVALID;
+        m->bc_queue_length = UINT32_MAX;
 }
 
 const NetDevVTable macvtap_vtable = {
