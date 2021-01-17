@@ -67,7 +67,7 @@ int config_parse_stochastic_fairness_queueing_perturb_period(
         if (isempty(rvalue)) {
                 sfq->perturb_period = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -79,7 +79,7 @@ int config_parse_stochastic_fairness_queueing_perturb_period(
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

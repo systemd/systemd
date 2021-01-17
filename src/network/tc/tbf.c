@@ -156,7 +156,7 @@ int config_parse_token_bucket_filter_size(
                 else
                         assert_not_reached("unknown lvalue");
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -179,7 +179,7 @@ int config_parse_token_bucket_filter_size(
         else
                 assert_not_reached("unknown lvalue");
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -227,7 +227,7 @@ int config_parse_token_bucket_filter_rate(
         if (isempty(rvalue)) {
                 *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
