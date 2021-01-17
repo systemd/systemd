@@ -263,11 +263,9 @@ int job_install_deserialized(Job *j) {
                 return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EEXIST),
                                             "Unit already has a job installed. Not installing deserialized job.");
 
-        r = hashmap_ensure_allocated(&j->manager->jobs, NULL);
+        r = hashmap_ensure_put(&j->manager->jobs, NULL, UINT32_TO_PTR(j->id), j);
         if (r < 0)
                 return r;
-
-        r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j);
         if (r == -EEXIST)
                 return log_unit_debug_errno(j->unit, r, "Job ID %" PRIu32 " already used, cannot deserialize job.", j->id);
         if (r < 0)
