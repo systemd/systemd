@@ -561,7 +561,7 @@ int dns_packet_append_name(
                         if (r < 0)
                                 goto fail;
 
-                        s = NULL;
+                        TAKE_PTR(s);
                 }
         }
 
