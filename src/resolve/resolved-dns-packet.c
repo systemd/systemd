@@ -557,11 +557,7 @@ int dns_packet_append_name(
                                 goto fail;
                         }
 
-                        r = hashmap_ensure_allocated(&p->names, &dns_name_hash_ops);
-                        if (r < 0)
-                                goto fail;
-
-                        r = hashmap_put(p->names, s, SIZE_TO_PTR(n));
+                        r = hashmap_ensure_put(&p->names, &dns_name_hash_ops, s, SIZE_TO_PTR(n));
                         if (r < 0)
                                 goto fail;
 
