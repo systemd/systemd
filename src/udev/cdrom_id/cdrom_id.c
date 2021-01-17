@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "main-func.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "sort-util.h"
@@ -1005,17 +1006,4 @@ work:
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        int r;
-
-        log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
-        log_parse_environment();
-        log_open();
-
-        r = run(argc, argv);
-
-        log_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-}
+DEFINE_MAIN_FUNCTION(run);
