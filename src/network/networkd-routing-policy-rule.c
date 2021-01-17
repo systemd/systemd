@@ -635,7 +635,7 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
         return 1;
 }
 
-static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
+int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
         int r;
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
@@ -745,6 +745,9 @@ int link_set_routing_policy_rules(Link *link) {
         link->routing_policy_rules_configured = false;
 
         HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                if (rule->from_dhcp_ip || rule->to_dhcp_ip || rule->from_dhcp_gateway || rule->to_dhcp_gateway)
+                        continue;
+
                 r = routing_policy_rule_configure(rule, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
@@ -1203,6 +1206,34 @@ int config_parse_routing_policy_rule_prefix(
         if (r < 0)
                 return log_oom();
 
+        if (streq(lvalue, "To") && IN_SET(n->family, AF_UNSPEC, AF_INET)) {
+                if (streq(rvalue, "_dhcp4_ip"))
+                        n->to_dhcp_ip = true;
+                else if (streq(rvalue, "_dhcp4_gw"))
+                        n->to_dhcp_gateway = true;
+
+                if (n->to_dhcp_ip || n->to_dhcp_gateway) {
+                        n->family = AF_INET;
+
+                        TAKE_PTR(n);
+                        return 0;
+                }
+        }
+
+        if (streq(lvalue, "From") && IN_SET(n->family, AF_UNSPEC, AF_INET)) {
+                if (streq(rvalue, "_dhcp4_ip"))
+                        n->from_dhcp_ip = true;
+                else if (streq(rvalue, "_dhcp4_gw"))
+                        n->from_dhcp_gateway = true;
+
+                if (n->from_dhcp_ip || n->from_dhcp_gateway) {
+                        n->family = AF_INET;
+
+                        TAKE_PTR(n);
+                        return 0;
+                }
+        }
+
         if (streq(lvalue, "To")) {
                 buffer = &n->to;
                 prefixlen = &n->to_prefixlen;
@@ -1564,6 +1595,12 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                                 "%s: address family specified by Family= conflicts with the address "
                                 "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
                                 rule->section->filename, rule->section->line);
+
+        if ((rule->family == AF_INET6) && (rule->from_dhcp_ip || rule->to_dhcp_ip || rule->from_dhcp_gateway || rule->to_dhcp_gateway))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: address family specified by Family= conflicts with the special DHCP4 values "
+                                       "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
+                                       rule->section->filename, rule->section->line);
 
         if (rule->family == AF_UNSPEC) {
                 if (IN_SET(rule->address_family, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_NO))
