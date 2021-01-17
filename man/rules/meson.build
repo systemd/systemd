@@ -952,6 +952,7 @@ manpages = [
    'systemd-suspend-then-hibernate.service'],
   ''],
  ['systemd-sysctl.service', '8', ['systemd-sysctl'], ''],
+ ['systemd-sysext', '8', ['systemd-sysext.service'], ''],
  ['systemd-system-update-generator', '8', [], ''],
  ['systemd-system.conf',
   '5',
