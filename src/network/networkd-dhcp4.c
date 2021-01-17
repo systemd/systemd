@@ -163,7 +163,7 @@ static int dhcp_route_configure(Route *route, Link *link) {
 static int link_set_dns_routes(Link *link, const struct in_addr *address) {
         const struct in_addr *dns;
         uint32_t table;
-        int i, n, r;
+        int n, r;
 
         assert(link);
         assert(link->dhcp_lease);
@@ -181,7 +181,7 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
 
         table = link_get_dhcp_route_table(link);
 
-        for (i = 0; i < n; i ++) {
+        for (int i = 0; i < n; i ++) {
                 _cleanup_(route_freep) Route *route = NULL;
 
                 r = route_new(&route);

@@ -67,12 +67,11 @@ static void test_config_parse_hwaddr_one(const char *rvalue, int ret, const stru
 
 static void test_config_parse_hwaddrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
         _cleanup_set_free_free_ Set *s = NULL;
-        size_t m;
 
         assert_se(config_parse_hwaddrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL) == 0);
         assert_se(set_size(s) == n);
 
-        for (m = 0; m < n; m++) {
+        for (size_t m = 0; m < n; m++) {
                 _cleanup_free_ struct ether_addr *q = NULL;
 
                 assert_se(q = set_remove(s, &list[m]));

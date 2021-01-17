@@ -44,9 +44,9 @@ static int find_next_bit(int i, uint32_t x) {
 
 static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
         struct bridge_vlan_info br_vlan;
-        int i, j, k, r, cnt;
-        uint16_t begin, end;
         bool done, untagged = false;
+        uint16_t begin, end;
+        int r, cnt;
 
         assert(link);
         assert(req);
@@ -56,16 +56,17 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
         cnt = 0;
 
         begin = end = UINT16_MAX;
-        for (k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
-                unsigned base_bit;
-                uint32_t vid_map = br_vid_bitmap[k];
+        for (int k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
                 uint32_t untagged_map = br_untagged_bitmap[k];
+                uint32_t vid_map = br_vid_bitmap[k];
+                unsigned base_bit;
+                int i;
 
                 base_bit = k * 32;
                 i = -1;
                 done = false;
                 do {
-                        j = find_next_bit(i, vid_map);
+                        int j = find_next_bit(i, vid_map);
                         if (j > 0) {
                                 /* first hit of any bit */
                                 if (begin == UINT16_MAX && end == UINT16_MAX) {
