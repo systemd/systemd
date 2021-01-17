@@ -1905,7 +1905,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
 
                 if (txt_data->txt) {
                         LIST_PREPEND(items, service->txt_data_items, txt_data);
-                        txt_data = NULL;
+                        TAKE_PTR(txt_data);
                 }
         }
         if (r < 0)
@@ -1927,7 +1927,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                         return r;
 
                 LIST_PREPEND(items, service->txt_data_items, txt_data);
-                txt_data = NULL;
+                TAKE_PTR(txt_data);
         }
 
         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &path);
@@ -1957,7 +1957,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
 
         service->manager = m;
 
-        service = NULL;
+        TAKE_PTR(service);
 
         manager_refresh_rrs(m);
 
