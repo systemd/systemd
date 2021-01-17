@@ -1522,8 +1522,6 @@ int journal_file_find_data_object(
 }
 
 bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
-        const char *a;
-
         /* We kinda enforce POSIX syntax recommendations for
            environment variables here, but make a couple of additional
            requirements.
@@ -1550,7 +1548,7 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
                 return false;
 
         /* Only allow A-Z0-9 and '_' */
-        for (a = p; a < p + l; a++)
+        for (const char *a = p; a < p + l; a++)
                 if ((*a < 'A' || *a > 'Z') &&
                     (*a < '0' || *a > '9') &&
                     *a != '_')
@@ -1897,7 +1895,7 @@ static int journal_file_link_entry_item(JournalFile *f, Object *o, uint64_t offs
 }
 
 static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
-        uint64_t n, i;
+        uint64_t n;
         int r;
 
         assert(f);
@@ -1928,7 +1926,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
 
         /* Link up the items */
         n = journal_file_entry_n_items(o);
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0; i < n; i++) {
                 r = journal_file_link_entry_item(f, o, offset, i);
                 if (r < 0)
                         return r;
@@ -2083,7 +2081,6 @@ int journal_file_append_entry(
                 uint64_t *seqnum,
                 Object **ret, uint64_t *ret_offset) {
 
-        unsigned i;
         EntryItem *items;
         int r;
         uint64_t xor_hash = 0;
@@ -2116,7 +2113,7 @@ int journal_file_append_entry(
         /* alloca() can't take 0, hence let's allocate at least one */
         items = newa(EntryItem, MAX(1u, n_iovec));
 
-        for (i = 0; i < n_iovec; i++) {
+        for (unsigned i = 0; i < n_iovec; i++) {
                 uint64_t p;
                 Object *o;
 
@@ -3831,12 +3828,11 @@ int journal_file_open_reliably(
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
-        uint64_t i, n;
-        uint64_t q, xor_hash = 0;
-        int r;
-        EntryItem *items;
-        dual_timestamp ts;
+        uint64_t q, n, xor_hash = 0;
         const sd_id128_t *boot_id;
+        dual_timestamp ts;
+        EntryItem *items;
+        int r;
 
         assert(from);
         assert(to);
@@ -3854,7 +3850,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         /* alloca() can't take 0, hence let's allocate at least one */
         items = newa(EntryItem, MAX(1u, n));
 
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0; i < n; i++) {
                 uint64_t l, h;
                 le64_t le_hash;
                 size_t t;
