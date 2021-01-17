@@ -120,11 +120,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                 txt_data = NULL;
         }
 
-        r = hashmap_ensure_allocated(&manager->dnssd_services, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(manager->dnssd_services, service->name, service);
+        r = hashmap_ensure_put(&manager->dnssd_services, &string_hash_ops, service->name, service);
         if (r < 0)
                 return r;
 
