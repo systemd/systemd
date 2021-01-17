@@ -201,7 +201,7 @@ static int run(int argc, char *argv[]) {
         dev_t devno;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

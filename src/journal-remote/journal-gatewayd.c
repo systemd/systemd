@@ -995,7 +995,7 @@ static int run(int argc, char *argv[]) {
                 MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
-        log_setup_service();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

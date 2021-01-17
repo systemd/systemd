@@ -163,7 +163,7 @@ static void show_cg_info(const char *controller, const char *path) {
 static int run(int argc, char *argv[]) {
         int r, output_flags;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
