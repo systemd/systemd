@@ -232,17 +232,13 @@ void log_assert_failed_return_realm(
         log_dispatch_internal(level, error, PROJECT_FILE, __LINE__, __func__, NULL, NULL, NULL, NULL, buffer)
 
 /* Logging with level */
-#define log_full_errno_realm(realm, level, error, ...)                  \
+#define log_full_errno(level, error, ...)                               \
         ({                                                              \
-                int _level = (level), _e = (error), _realm = (realm);   \
-                (log_get_max_level_realm(_realm) >= LOG_PRI(_level))    \
-                        ? log_internal_realm(LOG_REALM_PLUS_LEVEL(_realm, _level), _e, \
-                                             PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                int _level = (level), _e = (error);                     \
+                (log_get_max_level() >= LOG_PRI(_level))                \
+                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
-
-#define log_full_errno(level, error, ...)                               \
-        log_full_errno_realm(LOG_REALM, (level), (error), __VA_ARGS__)
 
 #define log_full(level, ...) (void) log_full_errno((level), 0, __VA_ARGS__)
 
