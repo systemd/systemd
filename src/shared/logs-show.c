@@ -66,26 +66,17 @@ static int print_catalog(FILE *f, sd_journal *j) {
         else
                 prefix = "--";
 
-        if (colors_enabled())
-                newline = strjoina(ANSI_NORMAL "\n", ansi_grey(), prefix, ANSI_NORMAL " ", ansi_green());
-        else
-                newline = strjoina("\n", prefix, " ");
+        newline = strjoina(ansi_normal(), "\n", ansi_grey(), prefix, ansi_normal(), " ", ansi_green());
 
         z = strreplace(strstrip(t), "\n", newline);
         if (!z)
                 return log_oom();
 
-        if (colors_enabled())
-                fprintf(f, "%s%s %s%s", ansi_grey(), prefix, ANSI_NORMAL, ansi_green());
-        else
-                fprintf(f, "%s ", prefix);
+        fprintf(f, "%s%s %s%s", ansi_grey(), prefix, ansi_normal(), ansi_green());
 
         fputs(z, f);
 
-        if (colors_enabled())
-                fputs(ANSI_NORMAL "\n", f);
-        else
-                fputc('\n', f);
+        fprintf(f, "%s\n", ansi_normal());
 
         return 1;
 }
