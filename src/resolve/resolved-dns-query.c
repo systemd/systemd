@@ -144,6 +144,9 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
                 r = dns_transaction_go(t);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        /* The transaction is complete. The query candidate has been invalidated. */
+                        return 0;
 
                 n++;
         }
