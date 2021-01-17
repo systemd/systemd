@@ -3096,16 +3096,17 @@ int config_parse_unit_requires_mounts_for(
         }
 }
 
-int config_parse_documentation(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_documentation(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Unit *u = userdata;
         int r;
@@ -3139,7 +3140,7 @@ int config_parse_documentation(const char *unit,
         if (b)
                 *b = NULL;
 
-        return r;
+        return 0;
 }
 
 #if HAVE_SECCOMP
