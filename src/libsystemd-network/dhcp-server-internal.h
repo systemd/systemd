@@ -9,7 +9,7 @@
 #include "sd-event.h"
 
 #include "dhcp-internal.h"
-#include "hashmap.h"
+#include "ordered-set.h"
 #include "log.h"
 #include "time-util.h"
 
@@ -58,8 +58,8 @@ struct sd_dhcp_server {
 
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 
-        OrderedHashmap *extra_options;
-        OrderedHashmap *vendor_options;
+        OrderedSet *extra_options;
+        OrderedSet *vendor_options;
 
         bool emit_router;
 
