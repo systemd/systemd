@@ -629,11 +629,7 @@ int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v) {
         assert_return(client, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&client->extra_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(client->extra_options, UINT_TO_PTR(v->option), v);
+        r = ordered_hashmap_ensure_put(&client->extra_options, &dhcp_option_hash_ops, UINT_TO_PTR(v->option), v);
         if (r < 0)
                 return r;
 

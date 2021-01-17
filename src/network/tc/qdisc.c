@@ -126,11 +126,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         qdisc->network = network;
         qdisc->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&network->tc_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(network->tc_by_section, qdisc->section, TC(qdisc));
+        r = ordered_hashmap_ensure_put(&network->tc_by_section, &network_config_hash_ops, qdisc->section, TC(qdisc));
         if (r < 0)
                 return r;
 

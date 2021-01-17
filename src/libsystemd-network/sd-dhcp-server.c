@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "ordered-set.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -153,8 +154,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         hashmap_free(server->leases_by_client_id);
 
-        ordered_hashmap_free(server->extra_options);
-        ordered_hashmap_free(server->vendor_options);
+        ordered_set_free(server->extra_options);
+        ordered_set_free(server->vendor_options);
 
         free(server->bound_leases);
         return mfree(server);
@@ -531,18 +532,18 @@ static int server_send_ack(
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(j, server->extra_options) {
+        ORDERED_SET_FOREACH(j, server->extra_options) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                        j->option, j->length, j->data);
                 if (r < 0)
                         return r;
         }
 
-        if (!ordered_hashmap_isempty(server->vendor_options)) {
+        if (!ordered_set_isempty(server->vendor_options)) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                ordered_hashmap_size(server->vendor_options), server->vendor_options);
+                                ordered_set_size(server->vendor_options), server->vendor_options);
                 if (r < 0)
                         return r;
         }
@@ -1181,11 +1182,7 @@ int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v) {
         assert_return(server, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&server->extra_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(server->extra_options, UINT_TO_PTR(v->option), v);
+        r = ordered_set_ensure_put(&server->extra_options, &dhcp_option_hash_ops, v);
         if (r < 0)
                 return r;
 
@@ -1199,11 +1196,7 @@ int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v) 
         assert_return(server, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&server->vendor_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return -ENOMEM;
-
-        r = ordered_hashmap_put(server->vendor_options, v, v);
+        r = ordered_set_ensure_put(&server->vendor_options, &dhcp_option_hash_ops, v);
         if (r < 0)
                 return r;
 
