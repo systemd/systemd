@@ -161,7 +161,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        subsystem = devtype = NULL;
+                        TAKE_PTR(subsystem);
+                        TAKE_PTR(devtype);
                         break;
                 }
                 case 't':
