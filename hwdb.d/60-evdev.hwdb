@@ -560,6 +560,15 @@ evdev:name:MSFT0001:02 04F3:304B Touchpad:dmi:*svnLENOVO:*pvrLenovoLegionY9000X2
  EVDEV_ABS_36=::30
 
 #########################################
+# NEWYES
+#########################################
+
+# NEWYES 10" LCD writing tablet
+evdev:input:b0003v6161p4D15*
+ EVDEV_ABS_00=::152
+ EVDEV_ABS_01=::244
+
+#########################################
 # Razer
 #########################################
 
