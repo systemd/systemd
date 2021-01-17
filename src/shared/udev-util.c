@@ -68,7 +68,7 @@ int udev_parse_config_full(
 
                 /* we set the udev log level here explicitly, this is supposed
                  * to regulate the code in libudev/ and udev/. */
-                r = log_set_max_level_from_string_realm(LOG_REALM_UDEV, log);
+                r = log_set_max_level_from_string(log);
                 if (r < 0)
                         log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
                                    "failed to set udev log level '%s', ignoring: %m", log);
