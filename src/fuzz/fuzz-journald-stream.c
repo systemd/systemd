@@ -19,9 +19,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size == 0 || size > 65536)
                 return 0;
 
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
-
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, stream_fds) >= 0);
         dummy_server_init(&s, NULL, 0);
         assert_se(stdout_stream_install(&s, stream_fds[0], &stream) >= 0);

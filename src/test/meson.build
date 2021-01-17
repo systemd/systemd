@@ -759,7 +759,7 @@ tests += [
           libkmod,
           libacl,
           libselinux],
-         '', 'manual', '-DLOG_REALM=LOG_REALM_UDEV'],
+         '', 'manual'],
 
         [['src/test/test-udev-util.c'],
          [],

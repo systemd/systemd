@@ -18,9 +18,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct ucred ucred;
         struct timeval *tv = NULL;
 
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
-
         dummy_server_init(&s, NULL, 0);
 
         sealed_fd = memfd_new(NULL);

@@ -276,7 +276,7 @@ static int run(int argc, char *argv[]) {
         if (argc > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires no arguments.");
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

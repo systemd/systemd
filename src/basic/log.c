@@ -40,8 +40,7 @@
 #define SNDBUF_SIZE (8*1024*1024)
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
-static int log_max_level[] = {LOG_INFO, LOG_INFO};
-assert_cc(ELEMENTSOF(log_max_level) == _LOG_REALM_MAX);
+static int log_max_level = LOG_INFO;
 static int log_facility = LOG_DAEMON;
 
 static int console_fd = STDERR_FILENO;
@@ -352,11 +351,10 @@ void log_forget_fds(void) {
         console_fd = kmsg_fd = syslog_fd = journal_fd = -1;
 }
 
-void log_set_max_level_realm(LogRealm realm, int level) {
+void log_set_max_level(int level) {
         assert((level & LOG_PRIMASK) == level);
-        assert(realm < ELEMENTSOF(log_max_level));
 
-        log_max_level[realm] = level;
+        log_max_level = level;
 }
 
 void log_set_facility(int facility) {
@@ -716,18 +714,17 @@ int log_dump_internal(
                 const char *func,
                 char *buffer) {
 
-        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
         PROTECT_ERRNO;
 
         /* This modifies the buffer... */
 
-        if (_likely_(LOG_PRI(level) > log_max_level[realm]))
+        if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
-int log_internalv_realm(
+int log_internalv(
                 int level,
                 int error,
                 const char *file,
@@ -736,11 +733,10 @@ int log_internalv_realm(
                 const char *format,
                 va_list ap) {
 
-        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
         char buffer[LINE_MAX];
         PROTECT_ERRNO;
 
-        if (_likely_(LOG_PRI(level) > log_max_level[realm]))
+        if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
@@ -751,7 +747,7 @@ int log_internalv_realm(
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
-int log_internal_realm(
+int log_internal(
                 int level,
                 int error,
                 const char *file,
@@ -763,7 +759,7 @@ int log_internal_realm(
         int r;
 
         va_start(ap, format);
-        r = log_internalv_realm(level, error, file, line, func, format, ap);
+        r = log_internalv(level, error, file, line, func, format, ap);
         va_end(ap);
 
         return r;
@@ -785,7 +781,7 @@ int log_object_internalv(
         PROTECT_ERRNO;
         char *buffer, *b;
 
-        if (_likely_(LOG_PRI(level) > log_max_level[LOG_REALM_SYSTEMD]))
+        if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
@@ -838,9 +834,8 @@ static void log_assert(
                 const char *format) {
 
         static char buffer[LINE_MAX];
-        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
 
-        if (_likely_(LOG_PRI(level) > log_max_level[realm]))
+        if (_likely_(LOG_PRI(level) > log_max_level))
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
@@ -852,41 +847,38 @@ static void log_assert(
         log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
-_noreturn_ void log_assert_failed_realm(
-                LogRealm realm,
+_noreturn_ void log_assert_failed(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func) {
-        log_assert(LOG_REALM_PLUS_LEVEL(realm, LOG_CRIT), text, file, line, func,
+        log_assert(LOG_CRIT, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
         abort();
 }
 
-_noreturn_ void log_assert_failed_unreachable_realm(
-                LogRealm realm,
+_noreturn_ void log_assert_failed_unreachable(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func) {
-        log_assert(LOG_REALM_PLUS_LEVEL(realm, LOG_CRIT), text, file, line, func,
+        log_assert(LOG_CRIT, text, file, line, func,
                    "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
         abort();
 }
 
-void log_assert_failed_return_realm(
-                LogRealm realm,
+void log_assert_failed_return(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func) {
         PROTECT_ERRNO;
-        log_assert(LOG_REALM_PLUS_LEVEL(realm, LOG_DEBUG), text, file, line, func,
+        log_assert(LOG_DEBUG, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
 }
 
 int log_oom_internal(int level, const char *file, int line, const char *func) {
-        return log_internal_realm(level, ENOMEM, file, line, func, "Out of memory.");
+        return log_internal(level, ENOMEM, file, line, func, "Out of memory.");
 }
 
 int log_format_iovec(
@@ -941,13 +933,12 @@ int log_struct_internal(
                 const char *func,
                 const char *format, ...) {
 
-        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
         char buf[LINE_MAX];
         bool found = false;
         PROTECT_ERRNO;
         va_list ap;
 
-        if (_likely_(LOG_PRI(level) > log_max_level[realm]) ||
+        if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
@@ -1041,12 +1032,11 @@ int log_struct_iovec_internal(
                 const struct iovec input_iovec[],
                 size_t n_input_iovec) {
 
-        LogRealm realm = LOG_REALM_REMOVE_LEVEL(level);
         PROTECT_ERRNO;
         size_t i;
         char *m;
 
-        if (_likely_(LOG_PRI(level) > log_max_level[realm]) ||
+        if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
@@ -1101,14 +1091,14 @@ int log_set_target_from_string(const char *e) {
         return 0;
 }
 
-int log_set_max_level_from_string_realm(LogRealm realm, const char *e) {
+int log_set_max_level_from_string(const char *e) {
         int t;
 
         t = log_level_from_string(e);
         if (t < 0)
                 return -EINVAL;
 
-        log_set_max_level_realm(realm, t);
+        log_set_max_level(t);
         return 0;
 }
 
@@ -1167,27 +1157,24 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-void log_parse_environment_realm(LogRealm realm) {
+void log_parse_environment(void) {
+        const char *e;
+
+        /* Do not call from library code. */
+
         if (getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
                 /* Only try to read the command line in daemons. We assume that anything that has a
                  * controlling tty is user stuff. For PID1 we do a special check in case it hasn't
                  * closed the console yet. */
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
-
-        log_parse_environment_cli_realm(realm);
-}
-
-void log_parse_environment_cli_realm(LogRealm realm) {
-        /* Do not call from library code. */
-
-        const char *e;
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL,
+                                          PROC_CMDLINE_STRIP_RD_PREFIX | PROC_CMDLINE_IGNORE_EFI_OPTIONS_BY_ENV);
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
                 log_warning("Failed to parse log target '%s'. Ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_LEVEL");
-        if (e && log_set_max_level_from_string_realm(realm, e) < 0)
+        if (e && log_set_max_level_from_string(e) < 0)
                 log_warning("Failed to parse log level '%s'. Ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_COLOR");
@@ -1211,8 +1198,8 @@ LogTarget log_get_target(void) {
         return log_target;
 }
 
-int log_get_max_level_realm(LogRealm realm) {
-        return log_max_level[realm];
+int log_get_max_level(void) {
+        return log_max_level;
 }
 
 void log_show_color(bool b) {
@@ -1347,7 +1334,7 @@ int log_syntax_internal(
         va_list ap;
         const char *unit_fmt = NULL;
 
-        if (_likely_(LOG_PRI(level) > log_max_level[LOG_REALM_SYSTEMD]) ||
+        if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
@@ -1363,7 +1350,7 @@ int log_syntax_internal(
         if (config_file) {
                 if (config_line > 0)
                         return log_struct_internal(
-                                        LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                        level,
                                         error,
                                         file, line, func,
                                         "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
@@ -1374,7 +1361,7 @@ int log_syntax_internal(
                                         NULL);
                 else
                         return log_struct_internal(
-                                        LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                        level,
                                         error,
                                         file, line, func,
                                         "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
@@ -1384,7 +1371,7 @@ int log_syntax_internal(
                                         NULL);
         } else if (unit)
                 return log_struct_internal(
-                                LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                level,
                                 error,
                                 file, line, func,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
@@ -1393,7 +1380,7 @@ int log_syntax_internal(
                                 NULL);
         else
                 return log_struct_internal(
-                                LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                level,
                                 error,
                                 file, line, func,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
@@ -1470,21 +1457,9 @@ int log_dup_console(void) {
         return 0;
 }
 
-void log_setup_service(void) {
-        /* Sets up logging the way it is most appropriate for running a program as a service. Note that using this
-         * doesn't make the binary unsuitable for invocation on the command line, as log output will still go to the
-         * terminal if invoked interactively. */
-
+void log_setup(void) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
-        (void) log_open();
-}
-
-void log_setup_cli(void) {
-        /* Sets up logging the way it is most appropriate for running a program as a CLI utility. */
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment_cli();
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);

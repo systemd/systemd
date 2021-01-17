@@ -129,7 +129,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int outfd = -1, errfd = -1, saved_stderr = -1;
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

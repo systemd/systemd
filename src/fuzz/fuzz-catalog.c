@@ -11,9 +11,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_close_ int fd = -1;
         _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
 
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
-
         assert_se(h = ordered_hashmap_new(&catalog_hash_ops));
 
         fd = mkostemp_safe(name);

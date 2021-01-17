@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+export SYSTEMD_LOG_COLOR=0
+
 SYSUSERS="${1:-systemd-sysusers}"
 
 [ -e "$(dirname $0)/../systemd-runtest.env" ] && . "$(dirname $0)/../systemd-runtest.env"

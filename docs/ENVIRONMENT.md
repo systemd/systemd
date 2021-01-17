@@ -94,6 +94,9 @@ All tools:
   for example in systemd-nspawn, will be logged to the audit log, if the current
   kernel version supports this.
 
+* `$SYSTEMD_PARSE_EFI=0` — if set, several settings, e.g., log related settings,
+  in EFI option are ignored.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
