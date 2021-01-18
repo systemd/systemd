@@ -2,6 +2,8 @@
 
 systemd_coredump_sources = files('''
         coredump.c
+        coredump-ratelimit.c
+        coredump-ratelimit.h
         coredump-vacuum.c
         coredump-vacuum.h
 '''.split())

@@ -23,6 +23,7 @@
 #include "compress.h"
 #include "conf-parser.h"
 #include "copy.h"
+#include "coredump-ratelimit.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -89,6 +90,8 @@ enum {
          * environment. */
 
         META_COMM = _META_ARGV_MAX,
+        _META_BOOTID_ARGV_MAX,
+        META_BOOTID = _META_BOOTID_ARGV_MAX,
         _META_MANDATORY_MAX,
 
         /* The rest are similar to the previous ones except that we won't fail if one of
@@ -109,6 +112,7 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_HOSTNAME]     = "COREDUMP_HOSTNAME=",
         [META_COMM]              = "COREDUMP_COMM=",
         [META_EXE]               = "COREDUMP_EXE=",
+        [META_BOOTID]            = "_BOOT_ID=",
         [META_UNIT]              = "COREDUMP_UNIT=",
 };
 
@@ -144,6 +148,11 @@ static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = (uint64_t) -1;
 static uint64_t arg_max_use = (uint64_t) -1;
 
+static usec_t arg_ratelimitinterval = DEFAULT_COREDUMP_RATELIMIT_INTERVAL;
+static unsigned arg_ratelimitburst = DEFAULT_COREDUMP_RATELIMIT_BURST;
+static unsigned arg_coredumpsperbootmax = DEFAULT_COREDUMPS_PER_BOOT_MAX;
+
+
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
@@ -153,6 +162,9 @@ static int parse_config(void) {
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
                 { "Coredump", "KeepFree",         config_parse_iec_uint64,        0, &arg_keep_free         },
                 { "Coredump", "MaxUse",           config_parse_iec_uint64,        0, &arg_max_use           },
+                { "Coredump", "RateLimitIntervalSec", config_parse_sec,           0, &arg_ratelimitinterval },
+                { "Coredump", "RateLimitBurst",    config_parse_unsigned,         0, &arg_ratelimitburst    },
+                { "Coredump", "CoredumpsPerBootMax", config_parse_unsigned,       0, &arg_coredumpsperbootmax},
                 {}
         };
 
@@ -207,6 +219,7 @@ static int fix_xattr(int fd, const Context *context) {
                 [META_ARGV_HOSTNAME]     = "user.coredump.hostname",
                 [META_COMM]              = "user.coredump.comm",
                 [META_EXE]               = "user.coredump.exe",
+                [META_BOOTID]            = "user.coredump.bootid",
         };
 
         int r = 0;
@@ -285,8 +298,7 @@ static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
 }
 
 static int make_filename(const Context *context, char **ret) {
-        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
-        sd_id128_t boot = {};
+        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL, *b = NULL;
         int r;
 
         assert(context);
@@ -299,9 +311,9 @@ static int make_filename(const Context *context, char **ret) {
         if (!u)
                 return -ENOMEM;
 
-        r = sd_id128_get_boot(&boot);
-        if (r < 0)
-                return r;
+        b = filename_escape(context->meta[META_BOOTID]);
+        if (!b)
+                return -ENOMEM;
 
         p = filename_escape(context->meta[META_ARGV_PID]);
         if (!p)
@@ -312,10 +324,10 @@ static int make_filename(const Context *context, char **ret) {
                 return -ENOMEM;
 
         if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s",
+                     "/var/lib/systemd/coredump/core.%s.%s.%s.%s.%s",
                      c,
                      u,
-                     SD_ID128_FORMAT_VAL(boot),
+                     b,
                      p,
                      t) < 0)
                 return -ENOMEM;
@@ -1212,8 +1224,20 @@ static int process_kernel(int argc, char* argv[]) {
 
         if (context.is_journald || context.is_pid1)
                 r = submit_coredump(&context, iovw, STDIN_FILENO);
-        else
+        else {
+                _cleanup_free_ char *process_name = NULL;
+                process_name = context.meta[META_EXE];
+                if (!process_name)
+                        return -ENOMEM;
+                /* per process coredump ratelimit */
+                r = coredump_ratelimit(process_name, arg_ratelimitinterval, arg_ratelimitburst, arg_coredumpsperbootmax);
+                if (r > 0) {
+                        log_notice("Rate limit for binary %s has been reached, coredump is suppressed.", process_name);
+                        r = 0;
+                        goto finish;
+                }
                 r = send_iovec(iovw, STDIN_FILENO);
+        }
 
  finish:
         iovw = iovw_free_free(iovw);
