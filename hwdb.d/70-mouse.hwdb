@@ -432,6 +432,10 @@ mouse:usb:v046dpc51a:name:Logitech USB Receiver:*
 mouse:usb:v046dpc01e:name:Logitech USB-PS/2 Optical Mouse:*
  MOUSE_DPI=400@125 *800@125 1600@125
 
+# Logitech MX 518 Legendary (HERO sensor)
+mouse:usb:v046dpc08e:name:Logitech MX518 Gaming Mouse:*
+ MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000 6400@1000
+
 # Logitech MX1000 Laser Cordless Mouse
 mouse:bluetooth:v046dpb003:name:Logitech MX1000 mouse:*
  MOUSE_DPI=800@80
