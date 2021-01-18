@@ -94,11 +94,7 @@ static int address_new_static(Network *network, const char *filename, unsigned s
         address->network = network;
         address->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&network->addresses_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(network->addresses_by_section, address->section, address);
+        r = ordered_hashmap_ensure_put(&network->addresses_by_section, &network_config_hash_ops, address->section, address);
         if (r < 0)
                 return r;
 
