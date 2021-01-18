@@ -8,6 +8,7 @@
 #include "conf-parser.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "ip-protocol-list.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
@@ -1129,9 +1130,10 @@ int config_parse_routing_policy_rule_table(
         if (r < 0)
                 return log_oom();
 
-        r = safe_atou32(rvalue, &n->table);
+        r = route_table_from_string_full(network, rvalue, &n->table);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule table, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse RPDB rule route table number \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
