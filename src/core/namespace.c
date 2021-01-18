@@ -51,6 +51,7 @@ typedef enum MountMode {
         EMPTY_DIR,
         SYSFS,
         PROCFS,
+        RUN,
         READONLY,
         READWRITE,
         TMPFS,
@@ -76,12 +77,13 @@ typedef struct MountEntry {
         LIST_HEAD(MountOptions, image_options);
 } MountEntry;
 
-/* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
+/* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               PROCFS,       false },
         { "/dev",                BIND_DEV,     false },
         { "/sys",                SYSFS,        false },
+        { "/run",                RUN,          false, .options_const = "mode=755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
@@ -945,6 +947,20 @@ static int mount_tmpfs(const MountEntry *m) {
         return 1;
 }
 
+static int mount_run(const MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
+        if (r > 0) /* make this a NOP if /run is already a mount point */
+                return 0;
+
+        return mount_tmpfs(m);
+}
+
 static int mount_images(const MountEntry *m) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -1170,6 +1186,9 @@ static int apply_mount(
         case PROCFS:
                 return mount_procfs(m, ns_info);
 
+        case RUN:
+                return mount_run(m);
+
         case MOUNT_IMAGES:
                 return mount_images(m);
 
@@ -1282,7 +1301,8 @@ static size_t namespace_calculate_mounts(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *creds_path,
-                const char* log_namespace) {
+                const char* log_namespace,
+                bool setup_propagate) {
 
         size_t protect_home_cnt;
         size_t protect_system_cnt =
@@ -1309,6 +1329,7 @@ static size_t namespace_calculate_mounts(
                 n_bind_mounts +
                 n_mount_images +
                 n_temporary_filesystems +
+                (setup_propagate ? 1 : 0) + /* /run/systemd/incoming */
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
@@ -1468,6 +1489,8 @@ int setup_namespace(
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
                 const char *verity_data_path,
+                const char *propagate_dir,
+                const char *incoming_dir,
                 DissectImageFlags dissect_image_flags,
                 char **error_path) {
 
@@ -1476,12 +1499,15 @@ int setup_namespace(
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         MountEntry *m = NULL, *mounts = NULL;
-        bool require_prefix = false;
+        bool require_prefix = false, setup_propagate = false;
         const char *root;
         size_t n_mounts;
         int r;
 
         assert(ns_info);
+
+        if (!isempty(propagate_dir) && !isempty(incoming_dir))
+                setup_propagate = true;
 
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
@@ -1566,7 +1592,8 @@ int setup_namespace(
                         n_mount_images,
                         tmp_dir, var_tmp_dir,
                         creds_path,
-                        log_namespace);
+                        log_namespace,
+                        setup_propagate);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -1735,6 +1762,15 @@ int setup_namespace(
                         };
                 }
 
+                /* Will be used to add bind mounts at runtime */
+                if (setup_propagate)
+                        *(m++) = (MountEntry) {
+                                .source_const = propagate_dir,
+                                .path_const = incoming_dir,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                        };
+
                 assert(mounts + n_mounts == m);
 
                 /* Prepend the root directory where that's necessary */
@@ -1758,6 +1794,10 @@ int setup_namespace(
 
                 goto finish;
         }
+
+        /* Create the source directory to allow runtime propagation of mounts */
+        if (setup_propagate)
+                (void) mkdir_p(propagate_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */
@@ -1898,6 +1938,16 @@ int setup_namespace(
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
                 r = log_debug_errno(errno, "Failed to remount '/' with desired mount flags: %m");
                 goto finish;
+        }
+
+        /* bind_mount_in_namespace() will MS_MOVE into that directory, and that's only
+         * supported for non-shared mounts. This needs to happen after remounting / or it will fail. */
+        if (setup_propagate) {
+                r = mount(NULL, incoming_dir, NULL, MS_SLAVE, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to remount %s with MS_SLAVE: %m", incoming_dir);
+                        goto finish;
+                }
         }
 
         r = 0;
