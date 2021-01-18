@@ -15,6 +15,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
 
         assert(m);
         assert(ifindex > 0);
+        assert(ifname);
 
         n = strdup(ifname);
         if (!n)
