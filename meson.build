@@ -2511,8 +2511,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                                 libopenssl,
                                 libp11kit],
                 install_rpath : rootlibexecdir,
-                install : true,
-                install_dir : bindir)
+                install : true)
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
