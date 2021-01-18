@@ -27,10 +27,6 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         assert(m);
         assert(ifindex > 0);
 
-        r = hashmap_ensure_allocated(&m->links, NULL);
-        if (r < 0)
-                return r;
-
         l = new(Link, 1);
         if (!l)
                 return -ENOMEM;
@@ -48,7 +44,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
                 return -ENOMEM;
 
-        r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
+        r = hashmap_ensure_put(&m->links, NULL, INT_TO_PTR(ifindex), l);
         if (r < 0)
                 return r;
 
@@ -56,7 +52,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 
         if (ret)
                 *ret = l;
-        l = NULL;
+        TAKE_PTR(l);
 
         return 0;
 }
