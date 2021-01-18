@@ -81,11 +81,7 @@ static int macsec_receive_association_new_static(MACsec *s, const char *filename
 
         security_association_init(&c->sa);
 
-        r = ordered_hashmap_ensure_allocated(&s->receive_associations_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(s->receive_associations_by_section, c->section, c);
+        r = ordered_hashmap_ensure_put(&s->receive_associations_by_section, &network_config_hash_ops, c->section, c);
         if (r < 0)
                 return r;
 
@@ -157,11 +153,9 @@ static int macsec_receive_channel_new_static(MACsec *s, const char *filename, un
 
         c->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&s->receive_channels_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(s->receive_channels_by_section, c->section, c);
+        r = ordered_hashmap_ensure_put(&s->receive_channels_by_section, &network_config_hash_ops, c->section, c);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
                 return r;
 
@@ -216,11 +210,9 @@ static int macsec_transmit_association_new_static(MACsec *s, const char *filenam
 
         security_association_init(&a->sa);
 
-        r = ordered_hashmap_ensure_allocated(&s->transmit_associations_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(s->transmit_associations_by_section, a->section, a);
+        r = ordered_hashmap_ensure_put(&s->transmit_associations_by_section, &network_config_hash_ops, a->section, a);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
                 return r;
 
@@ -1028,11 +1020,9 @@ static int macsec_receive_channel_verify(ReceiveChannel *c) {
                                               "Ignoring [MACsecReceiveChannel] section from line %u",
                                               c->section->filename, c->section->line);
 
-        r = ordered_hashmap_ensure_allocated(&c->macsec->receive_channels, &uint64_hash_ops);
-        if (r < 0)
+        r = ordered_hashmap_ensure_put(&c->macsec->receive_channels, &uint64_hash_ops, &c->sci.as_uint64, c);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = ordered_hashmap_put(c->macsec->receive_channels, &c->sci.as_uint64, c);
         if (r == -EEXIST)
                 return log_netdev_error_errno(netdev, r,
                                               "%s: Multiple [MACsecReceiveChannel] sections have same SCI, "
@@ -1120,11 +1110,9 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
                 if (r < 0)
                         return log_oom();
 
-                r = ordered_hashmap_ensure_allocated(&a->macsec->receive_channels, &uint64_hash_ops);
-                if (r < 0)
+                r = ordered_hashmap_ensure_put(&a->macsec->receive_channels, &uint64_hash_ops, &new_channel->sci.as_uint64, new_channel);
+                if (r == -ENOMEM)
                         return log_oom();
-
-                r = ordered_hashmap_put(a->macsec->receive_channels, &new_channel->sci.as_uint64, new_channel);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r,
                                                       "%s: Failed to store receive channel at hashmap, "
