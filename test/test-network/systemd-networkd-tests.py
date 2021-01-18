@@ -259,6 +259,17 @@ def expectedFailureIfFQPIEIsNotAvailable():
 
     return f
 
+def expectedFailureIfMPTCPIsNotAvailable():
+    def f(func):
+        rc = call('ip mptcp limits set subflows 5 add_addr_accepted 5', stderr=subprocess.DEVNULL)
+        call('ip mptcp limits set subflows 0 add_addr_accepted 0', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1767,6 +1778,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-link-local-addressing-no.network',
         '25-link-local-addressing-yes.network',
         '25-link-section-unmanaged.network',
+        '25-mptcp.network',
         '25-neighbor-section.network',
         '25-neighbor-next.network',
         '25-neighbor-ipv6.network',
@@ -2800,6 +2812,25 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip nexthop list dev veth99')
         print(output)
         self.assertRegex(output, '192.168.5.1')
+
+    @expectedFailureIfMPTCPIsNotAvailable()
+    def test_mptcp(self):
+        call('ip mptcp limits set subflows 5 add_addr_accepted 5', stderr=subprocess.DEVNULL)
+        output = check_output('ip mptcp limits show')
+        print(output)
+        self.assertRegex(output, 'add_addr_accepted 5 subflows 5')
+
+        time.sleep(2)
+
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-mptcp.network')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('ip mptcp endpoint show')
+        print(output)
+        self.assertRegex(output, '192.168.5.10 id 1 dev dummy98')
+
+        call('ip mptcp limits set subflows 0 add_addr_accepted 0', stderr=subprocess.DEVNULL)
 
     def test_qdisc(self):
         copy_unit_to_networkd_unit_path('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',
