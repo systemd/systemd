@@ -1977,13 +1977,12 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN)
                         ordered_hashmap_clear_free_free(event->seclabel_list);
 
-                r = ordered_hashmap_ensure_allocated(&event->seclabel_list, NULL);
-                if (r < 0)
+                r = ordered_hashmap_ensure_put(&event->seclabel_list, NULL, name, label);
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0)
+                        return r;
 
-                r = ordered_hashmap_put(event->seclabel_list, name, label);
-                if (r < 0)
-                        return log_oom();
                 log_rule_debug(dev, rules, "SECLABEL{%s}='%s'", name, label);
                 name = label = NULL;
                 break;
