@@ -102,16 +102,12 @@ static int client_context_compare(const void *a, const void *b) {
 }
 
 static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
-        ClientContext *c;
+        _cleanup_free_ ClientContext *c = NULL;
         int r;
 
         assert(s);
         assert(pid_is_valid(pid));
         assert(ret);
-
-        r = hashmap_ensure_allocated(&s->client_contexts, NULL);
-        if (r < 0)
-                return r;
 
         r = prioq_ensure_allocated(&s->client_contexts_lru, client_context_compare);
         if (r < 0)
@@ -136,13 +132,11 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
                 .log_ratelimit_burst = s->ratelimit_burst,
         };
 
-        r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
-        if (r < 0) {
-                free(c);
+        r = hashmap_ensure_put(&s->client_contexts, NULL, PID_TO_PTR(pid), c);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = c;
+        *ret = TAKE_PTR(c);
         return 0;
 }
 

@@ -342,10 +342,6 @@ int config_parse_arp_ip_target_address(
                         continue;
                 }
 
-                r = ordered_set_ensure_allocated(&b->arp_ip_targets, NULL);
-                if (r < 0)
-                        return log_oom();
-
                 if (ordered_set_size(b->arp_ip_targets) >= NETDEV_BOND_ARP_TARGETS_MAX) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Too many ARP IP targets are specified. The maximum number is %d. Ignoring assignment: %s",
@@ -353,7 +349,9 @@ int config_parse_arp_ip_target_address(
                         continue;
                 }
 
-                r = ordered_set_put(b->arp_ip_targets, UINT32_TO_PTR(ip.in.s_addr));
+                r = ordered_set_ensure_put(&b->arp_ip_targets, NULL, UINT32_TO_PTR(ip.in.s_addr));
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r == -EEXIST)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Bond ARP IP target address is duplicated, ignoring assignment: %s", n);
