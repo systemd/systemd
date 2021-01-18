@@ -124,7 +124,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, name, NULL);
+        r = image_find(IMAGE_MACHINE, name, NULL, NULL);
         if (r == -ENOENT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
@@ -480,7 +480,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(IMAGE_MACHINE, images);
+        r = image_discover(IMAGE_MACHINE, NULL, images);
         if (r < 0)
                 return r;
 
@@ -562,7 +562,7 @@ static int redirect_method_to_image(sd_bus_message *message, Manager *m, sd_bus_
         if (!image_name_is_valid(name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
-        r = image_find(IMAGE_MACHINE, name, &i);
+        r = image_find(IMAGE_MACHINE, name, NULL, &i);
         if (r == -ENOENT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
@@ -755,7 +755,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                         goto child_fail;
                 }
 
-                r = image_discover(IMAGE_MACHINE, images);
+                r = image_discover(IMAGE_MACHINE, NULL, images);
                 if (r < 0)
                         goto child_fail;
 
