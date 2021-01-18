@@ -8,6 +8,5 @@ StandardInput=data
 StandardInputText=hi
 StandardOutput=truncate:/tmp/test-exec-standardoutput-output
 StandardError=null
-ExecStart=cat
-ExecStartPost=cmp /tmp/test-exec-standardoutput-output /tmp/test-exec-standardoutput-expected
+ExecStart=sh -c 'cat && cmp /tmp/test-exec-standardoutput-output /tmp/test-exec-standardoutput-expected'
 Type=oneshot

@@ -2430,8 +2430,19 @@ SystemCallErrorNumber=EPERM</programlisting>
         </para>
 
         <para><option>truncate:<replaceable>path</replaceable></option> is similar to
-        <option>file:<replaceable>path</replaceable></option> above, but it truncates the file when opening it.
-        </para>
+        <option>file:<replaceable>path</replaceable></option> above, but it truncates the file when opening
+        it. For units with multiple command lines, e.g. <varname>Type=oneshot</varname> services with
+        multiple <varname>ExecStart=</varname>, or services with <varname>ExecCondition=</varname>,
+        <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname>, the output file is reopened
+        and therefore re-truncated for each command line. If the output file is truncated while another
+        process still has the file open, e.g. by an <varname>ExecReload=</varname> running concurrently with
+        an <varname>ExecStart=</varname>, and the other process continues writing to the file without
+        adjusting its offset, then the space between the file pointers of the two processes may be filled
+        with <constant>NUL</constant> bytes, producing a sparse file. Thus,
+        <option>truncate:<replaceable>path</replaceable></option> is typically only useful for units where
+        only one process runs at a time, such as services with a single <varname>ExecStart=</varname> and no
+        <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>, <varname>ExecStop=</varname> or
+        similar.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
