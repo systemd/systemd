@@ -2391,14 +2391,13 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
         if (startswith(method, "org.varlink.service."))
                 return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
 
-        if (hashmap_ensure_allocated(&s->methods, &string_hash_ops) < 0)
-                return log_oom_debug();
-
         m = strdup(method);
         if (!m)
                 return log_oom_debug();
 
-        r = hashmap_put(s->methods, m, callback);
+        r = hashmap_ensure_put(&s->methods, &string_hash_ops, m, callback);
+        if (r == -ENOMEM)
+                return log_oom_debug();
         if (r < 0)
                 return log_debug_errno(r, "Failed to register callback: %m");
         if (r > 0)
