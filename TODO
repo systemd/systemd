@@ -21,7 +21,7 @@ Janitorial Clean-ups:
 Features:
 
 * sd-boot: define a drop-in dir in the ESP that may contain X.509
-  certificates. If the firmware is detected to be in setup mode, automaticallly
+  certificates. If the firmware is detected to be in setup mode, automatically
   enroll them as PK/KEK/db, turn off setup mode and proceed. Optionally,
   instead of auto-enrolling them add them to the sd-boot menu, giving the user
   the option to manually enroll them, after selecting the menu entry. This way,
