@@ -95,9 +95,10 @@ static int property_get_exit_status_set(
         return sd_bus_message_close_container(reply);
 }
 
-int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        int read_only, make_file_or_directory;
+static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         const char *dest, *src, *propagate_directory;
+        int read_only, make_file_or_directory;
         Unit *u = userdata;
         ExecContext *c;
         pid_t unit_pid;
@@ -120,16 +121,22 @@ int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (!path_is_absolute(src) || !path_is_normalized(src))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
 
-        if (isempty(dest))
+        if (!is_image && isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
 
+        if (is_image) {
+                r = bus_read_mount_options(message, error, &options, NULL, "");
+                if (r < 0)
+                        return r;
+        }
+
         r = bus_verify_manage_units_async_full(
                         u,
-                        "bind-mount",
+                        is_image? "mount-image" : "bind-mount",
                         CAP_SYS_ADMIN,
-                        N_("Authentication is required to bind mount on '$(unit)'."),
+                        N_("Authentication is required to mount on '$(unit)'."),
                         true,
                         message,
                         error);
@@ -158,14 +165,28 @@ int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not running");
 
         propagate_directory = strjoina("/run/systemd/propagate/", u->id);
-        r = bind_mount_in_namespace(unit_pid,
-                                    propagate_directory,
-                                    "/run/systemd/incoming/",
-                                    src, dest, read_only, make_file_or_directory);
+        if (is_image)
+                r = mount_image_in_namespace(unit_pid,
+                                             propagate_directory,
+                                             "/run/systemd/incoming/",
+                                             src, dest, read_only, make_file_or_directory, options);
+        else
+                r = bind_mount_in_namespace(unit_pid,
+                                            propagate_directory,
+                                            "/run/systemd/incoming/",
+                                            src, dest, read_only, make_file_or_directory);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in unit's namespace: %m", src, dest);
 
         return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_service_method_mount(message, userdata, error, false);
+}
+
+int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_service_method_mount(message, userdata, error, true);
 }
 
 const sd_bus_vtable bus_service_vtable[] = {
@@ -231,6 +252,17 @@ const sd_bus_vtable bus_service_vtable[] = {
                                  SD_BUS_PARAM(mkdir),
                                  NULL,,
                                  bus_service_method_bind_mount,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("MountImage",
+                                 "ssbba(ss)",
+                                 SD_BUS_PARAM(source)
+                                 SD_BUS_PARAM(destination)
+                                 SD_BUS_PARAM(read_only)
+                                 SD_BUS_PARAM(mkdir)
+                                 SD_BUS_PARAM(options),
+                                 NULL,,
+                                 bus_service_method_mount_image,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* The following four are obsolete, and thus marked hidden here. They moved into the Unit interface */
