@@ -115,19 +115,11 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&nl->genl_family_to_nlmsg_type, NULL);
+        r = hashmap_ensure_put(&nl->genl_family_to_nlmsg_type, NULL, INT_TO_PTR(family), UINT_TO_PTR(u));
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&nl->nlmsg_type_to_genl_family, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(nl->genl_family_to_nlmsg_type, INT_TO_PTR(family), UINT_TO_PTR(u));
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(nl->nlmsg_type_to_genl_family, UINT_TO_PTR(u), INT_TO_PTR(family));
+        r = hashmap_ensure_put(&nl->nlmsg_type_to_genl_family, NULL, UINT_TO_PTR(u), INT_TO_PTR(family));
         if (r < 0)
                 return r;
 
