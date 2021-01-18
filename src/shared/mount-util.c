@@ -14,15 +14,19 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "libmount-util.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "set.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 int mount_fd(const char *source,
              int target_fd,
@@ -741,4 +745,226 @@ int mount_option_mangle(
         *ret_remaining_options = TAKE_PTR(ret);
 
         return 0;
+}
+
+int bind_mount_in_namespace(
+                pid_t target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                bool read_only,
+                bool make_file_or_directory) {
+
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p,
+                chased_src[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        bool mount_slave_created = false, mount_slave_mounted = false,
+                mount_tmp_created = false, mount_tmp_mounted = false,
+                mount_outside_created = false, mount_outside_mounted = false;
+        struct stat st, self_mntns_st;
+        pid_t child;
+        int r;
+
+        assert(target > 0);
+        assert(propagate_path);
+        assert(incoming_path);
+        assert(src);
+        assert(dest);
+
+        r = namespace_open(target, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
+
+        if (fstat(mntns_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to fstat mount namespace FD of target process: %m");
+
+        r = namespace_open(0, NULL, &self_mntns_fd, NULL, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of systemd's namespace: %m");
+
+        if (fstat(self_mntns_fd, &self_mntns_st) < 0)
+                return log_debug_errno(errno, "Failed to fstat mount namespace FD of systemd: %m");
+
+        /* We can't add new mounts at runtime if the process wasn't started in a namespace */
+        if (st.st_ino == self_mntns_st.st_ino && st.st_dev == self_mntns_st.st_dev)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
+
+        /* One day, when bind mounting /proc/self/fd/n works across
+         * namespace boundaries we should rework this logic to make
+         * use of it... */
+
+        p = strjoina(propagate_path, "/");
+        r = laccess(p, F_OK);
+        if (r < 0)
+                return log_debug_errno(r == -ENOENT ? SYNTHETIC_ERRNO(EOPNOTSUPP) : r, "Target does not allow propagation of mount points");
+
+        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, NULL, &chased_src_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
+        xsprintf(chased_src, "/proc/self/fd/%i", chased_src_fd);
+
+        if (fstat(chased_src_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
+        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
+
+        /* Our goal is to install a new bind mount into the container,
+           possibly read-only. This is irritatingly complex
+           unfortunately, currently.
+
+           First, we start by creating a private playground in /tmp,
+           that we can mount MS_SLAVE. (Which is necessary, since
+           MS_MOVE cannot be applied to mounts with MS_SHARED parent
+           mounts.) */
+
+        if (!mkdtemp(mount_slave))
+                return log_debug_errno(errno, "Failed to create playground %s: %m", mount_slave);
+
+        mount_slave_created = true;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_slave, mount_slave, NULL, MS_BIND, NULL);
+        if (r < 0)
+                goto finish;
+
+        mount_slave_mounted = true;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_slave, NULL, MS_SLAVE, NULL);
+        if (r < 0)
+                goto finish;
+
+        /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
+        mount_tmp = strjoina(mount_slave, "/mount");
+        r = make_mount_point_inode_from_stat(&st, mount_tmp, 0700);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to create temporary mount point %s: %m", mount_tmp);
+                goto finish;
+        }
+
+        mount_tmp_created = true;
+
+        r = mount_follow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
+        if (r < 0)
+                goto finish;
+
+        mount_tmp_mounted = true;
+
+        /* Third, we remount the new bind mount read-only if requested. */
+        if (read_only) {
+                r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+                if (r < 0)
+                        goto finish;
+        }
+
+        /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there read-only
+         * right-away. */
+
+        mount_outside = strjoina(propagate_path, "/XXXXXX");
+        if (S_ISDIR(st.st_mode))
+                r = mkdtemp(mount_outside) ? 0 : -errno;
+        else {
+                r = mkostemp_safe(mount_outside);
+                safe_close(r);
+        }
+        if (r < 0) {
+                log_debug_errno(r, "Cannot create propagation file or directory %s: %m", mount_outside);
+                goto finish;
+        }
+
+        mount_outside_created = true;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_tmp, mount_outside, NULL, MS_MOVE, NULL);
+        if (r < 0)
+                goto finish;
+
+        mount_outside_mounted = true;
+        mount_tmp_mounted = false;
+
+        if (S_ISDIR(st.st_mode))
+                (void) rmdir(mount_tmp);
+        else
+                (void) unlink(mount_tmp);
+        mount_tmp_created = false;
+
+        (void) umount_verbose(LOG_DEBUG, mount_slave, UMOUNT_NOFOLLOW);
+        mount_slave_mounted = false;
+
+        (void) rmdir(mount_slave);
+        mount_slave_created = false;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0) {
+                log_debug_errno(errno, "Failed to create pipe: %m");
+                goto finish;
+        }
+
+        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidns_fd, mntns_fd, -1, -1, root_fd, &child);
+        if (r < 0)
+                goto finish;
+        if (r == 0) {
+                const char *mount_inside;
+
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                if (make_file_or_directory) {
+                        (void) mkdir_parents(dest, 0755);
+                        (void) make_mount_point_inode_from_stat(&st, dest, 0700);
+                }
+
+                /* Fifth, move the mount to the right place inside */
+                mount_inside = strjoina(incoming_path, basename(mount_outside));
+                r = mount_nofollow_verbose(LOG_ERR, mount_inside, dest, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        goto child_fail;
+
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                _exit(EXIT_FAILURE);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to wait for child: %m");
+                goto finish;
+        }
+        if (r != EXIT_SUCCESS) {
+                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                        log_debug_errno(r, "Failed to mount: %m");
+                else
+                        log_debug("Child failed.");
+                goto finish;
+        }
+
+finish:
+        if (mount_outside_mounted)
+                (void) umount_verbose(LOG_DEBUG, mount_outside, UMOUNT_NOFOLLOW);
+        if (mount_outside_created) {
+                if (S_ISDIR(st.st_mode))
+                        (void) rmdir(mount_outside);
+                else
+                        (void) unlink(mount_outside);
+        }
+
+        if (mount_tmp_mounted)
+                (void) umount_verbose(LOG_DEBUG, mount_tmp, UMOUNT_NOFOLLOW);
+        if (mount_tmp_created) {
+                if (S_ISDIR(st.st_mode))
+                        (void) rmdir(mount_tmp);
+                else
+                        (void) unlink(mount_tmp);
+        }
+
+        if (mount_slave_mounted)
+                (void) umount_verbose(LOG_DEBUG, mount_slave, UMOUNT_NOFOLLOW);
+        if (mount_slave_created)
+                (void) rmdir(mount_slave);
+
+        return r;
 }
