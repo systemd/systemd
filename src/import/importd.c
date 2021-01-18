@@ -149,10 +149,6 @@ static int transfer_new(Manager *m, Transfer **ret) {
         if (hashmap_size(m->transfers) >= TRANSFERS_MAX)
                 return -E2BIG;
 
-        r = hashmap_ensure_allocated(&m->transfers, &trivial_hash_ops);
-        if (r < 0)
-                return r;
-
         t = new(Transfer, 1);
         if (!t)
                 return -ENOMEM;
@@ -171,7 +167,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
         if (asprintf(&t->object_path, "/org/freedesktop/import1/transfer/_%" PRIu32, id) < 0)
                 return -ENOMEM;
 
-        r = hashmap_put(m->transfers, UINT32_TO_PTR(id), t);
+        r = hashmap_ensure_put(&m->transfers, &trivial_hash_ops, UINT32_TO_PTR(id), t);
         if (r < 0)
                 return r;
 

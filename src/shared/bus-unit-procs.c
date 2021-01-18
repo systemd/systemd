@@ -104,11 +104,7 @@ static int add_process(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&cg->pids, &trivial_hash_ops);
-        if (r < 0)
-                return r;
-
-        return hashmap_put(cg->pids, PID_TO_PTR(pid), (void*) name);
+        return hashmap_ensure_put(&cg->pids, &trivial_hash_ops, PID_TO_PTR(pid), (void*) name);
 }
 
 static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
