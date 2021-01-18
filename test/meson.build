@@ -60,7 +60,9 @@ test_network_generator_conversion_sh = find_program('test-network-generator-conv
 
 ############################################################
 
-test_sysusers_dir = join_paths(meson.current_source_dir(), 'test-sysusers')
+test_systemd_tmpfiles_py = find_program('test-systemd-tmpfiles.py')
+
+############################################################
 
 test_sysusers_sh = configure_file(
         input : 'test-sysusers.sh.in',

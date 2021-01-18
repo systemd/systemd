@@ -39,6 +39,5 @@ tests += [
         [['src/machine/test-machine-tables.c'],
          [libmachine_core,
           libshared],
-         [threads],
-         'ENABLE_MACHINED'],
+         [threads]],
 ]

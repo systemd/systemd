@@ -15,14 +15,6 @@ oomctl_sources = files('''
 '''.split())
 
 if conf.get('ENABLE_OOMD') == 1
-        tests += [
-                [['src/oom/test-oomd-util.c',
-                  'src/oom/oomd-util.c',
-                  'src/oom/oomd-util.h'],
-                 [],
-                 []]
-        ]
-
         install_data('org.freedesktop.oom1.conf',
                      install_dir : dbuspolicydir)
 
@@ -34,3 +26,9 @@ if conf.get('ENABLE_OOMD') == 1
                              install_dir : pkgsysconfdir)
         endif
 endif
+
+tests += [
+        [['src/oom/test-oomd-util.c',
+          'src/oom/oomd-util.c',
+          'src/oom/oomd-util.h']],
+]

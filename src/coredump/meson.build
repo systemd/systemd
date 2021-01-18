@@ -7,8 +7,9 @@ systemd_coredump_sources = files('''
 '''.split())
 
 if conf.get('HAVE_ELFUTILS') == 1
-        systemd_coredump_sources += files(['stacktrace.c',
-                                           'stacktrace.h'])
+        systemd_coredump_sources += files(
+                'stacktrace.c',
+                'stacktrace.h')
 endif
 
 coredumpctl_sources = files('coredumpctl.c')
@@ -22,7 +23,5 @@ tests += [
         [['src/coredump/test-coredump-vacuum.c',
           'src/coredump/coredump-vacuum.c',
           'src/coredump/coredump-vacuum.h'],
-         [],
-         [],
-         'ENABLE_COREDUMP', 'manual'],
+         [], [], [], '', 'manual'],
 ]

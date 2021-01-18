@@ -32,7 +32,5 @@ endif
 tests += [
         [['src/locale/test-keymap-util.c',
           'src/locale/keymap-util.c',
-          'src/locale/keymap-util.h'],
-         [libshared],
-         []],
+          'src/locale/keymap-util.h']],
 ]

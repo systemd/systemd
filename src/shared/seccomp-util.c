@@ -2151,3 +2151,41 @@ uint32_t scmp_act_kill_process(void) {
 
         return SCMP_ACT_KILL; /* same as SCMP_ACT_KILL_THREAD */
 }
+
+int parse_syscall_and_errno(const char *in, char **name, int *error) {
+        _cleanup_free_ char *n = NULL;
+        char *p;
+        int e = -1;
+
+        assert(in);
+        assert(name);
+        assert(error);
+
+        /*
+         * This parse "syscall:errno" like "uname:EILSEQ", "@sync:255".
+         * If errno is omitted, then error is set to -1.
+         * Empty syscall name is not allowed.
+         * Here, we do not check that the syscall name is valid or not.
+         */
+
+        p = strchr(in, ':');
+        if (p) {
+                e = seccomp_parse_errno_or_action(p + 1);
+                if (e < 0)
+                        return e;
+
+                n = strndup(in, p - in);
+        } else
+                n = strdup(in);
+
+        if (!n)
+                return -ENOMEM;
+
+        if (isempty(n))
+                return -EINVAL;
+
+        *error = e;
+        *name = TAKE_PTR(n);
+
+        return 0;
+}
