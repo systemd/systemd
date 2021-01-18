@@ -20,6 +20,22 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-boot: define a drop-in dir in the ESP that may contain X.509
+  certificates. If the firmware is detected to be in setup mode, automaticallly
+  enroll them as PK/KEK/db, turn off setup mode and proceed. Optionally,
+  instead of auto-enrolling them add them to the sd-boot menu, giving the user
+  the option to manually enroll them, after selecting the menu entry. This way,
+  installer images can just drop the certfiicates in the ESP, and on first boot
+  can easily enroll the keys without ever booting up.
+
+* efi stub: optionally, load initrd from disk as a separate file, HMAC check it
+  with key from TPM, bound to PCR, refusing if failing. This would then allow
+  traditional distros that generate initrds locally to secure them with TPM:
+  after generating the initrd, do the HMAC calculation, put result in initrd
+  filename, done. This would then bind the validity of the initrd to the local
+  host, and used kernel, and means people cannot change initrd or kernel
+  without booting the kernel + initrd.
+
 * importd: add ability download images for portabled + sysext
 
 * importd: support image signature verification with PKCS#7 + OpenBSD signify
