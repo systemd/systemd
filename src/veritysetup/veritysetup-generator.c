@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dropin.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -24,16 +23,6 @@
 #include "unit-name.h"
 
 #define SYSTEMD_VERITYSETUP_SERVICE "systemd-veritysetup@root.service"
-
-typedef struct verity_device {
-        char *uuid;
-        char *datadev;
-        char *hashdev;
-        char *roothash;
-        char *name;
-        char *options;
-        bool create;
-} verity_device;
 
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
@@ -395,9 +384,7 @@ static int add_veritytab_devices(void) {
         for (;;) {
                 _cleanup_free_ char *line = NULL, *name = NULL, *data_device = NULL, *hash_device = NULL,
                                     *roothash = NULL, *options = NULL;
-                verity_device *d = NULL;
                 char *l, *data_uuid, *hash_uuid;
-                int k;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -411,8 +398,8 @@ static int add_veritytab_devices(void) {
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
-                k = sscanf(l, "%ms %ms %ms %ms %ms", &name, &data_device, &hash_device, &roothash, &options);
-                if (k < 4 || k > 5) {
+                r = sscanf(l, "%ms %ms %ms %ms %ms", &name, &data_device, &hash_device, &roothash, &options);
+                if (!IN_SET(r, 4, 5)) {
                         log_error("Failed to parse %s:%u, ignoring.", arg_veritytab, veritytab_line);
                         continue;
                 }
@@ -433,9 +420,6 @@ static int add_veritytab_devices(void) {
                                 arg_veritytab);
                 if (r < 0)
                         return r;
-
-                if (d)
-                        d->create = false;
         }
 
         return 0;
