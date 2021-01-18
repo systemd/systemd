@@ -1041,10 +1041,6 @@ static int install_info_add(
                 return 0;
         }
 
-        r = ordered_hashmap_ensure_allocated(&c->will_process, &string_hash_ops);
-        if (r < 0)
-                return r;
-
         i = new(UnitFileInstallInfo, 1);
         if (!i)
                 return -ENOMEM;
@@ -1068,7 +1064,7 @@ static int install_info_add(
                 }
         }
 
-        r = ordered_hashmap_put(c->will_process, i->name, i);
+        r = ordered_hashmap_ensure_put(&c->will_process, &string_hash_ops, i->name, i);
         if (r < 0)
                 goto fail;
 
