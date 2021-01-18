@@ -505,7 +505,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (r < 0)
                 return r;
 
-        network = NULL;
+        TAKE_PTR(network);
         return 0;
 }
 
@@ -807,11 +807,9 @@ int config_parse_stacked_netdev(const char *unit,
         if (!name)
                 return log_oom();
 
-        r = hashmap_ensure_allocated(h, &string_hash_ops);
-        if (r < 0)
+        r = hashmap_ensure_put(h, &string_hash_ops, name, INT_TO_PTR(kind));
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = hashmap_put(*h, name, INT_TO_PTR(kind));
         if (r < 0)
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
@@ -819,7 +817,7 @@ int config_parse_stacked_netdev(const char *unit,
                 log_syntax(unit, LOG_DEBUG, filename, line, r,
                            "NetDev '%s' specified twice, ignoring.", name);
         else
-                name = NULL;
+                TAKE_PTR(name);
 
         return 0;
 }
