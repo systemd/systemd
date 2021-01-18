@@ -93,6 +93,29 @@ if echo test >> /run/host/os-release; then exit 1; fi
     fi
 }
 
+function check_machinectl_bind {
+    local _cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep 0.5; done; exit 1;'
+
+    cat <<EOF > /run/systemd/system/nspawn_machinectl_bind.service
+[Service]
+Type=notify
+ExecStart=systemd-nspawn $SUSE_OPTS -D /testsuite-13.nc-container --notify-ready=no /bin/sh -x -e -c "$_cmd"
+EOF
+
+    systemctl start nspawn_machinectl_bind.service
+
+    touch /tmp/marker
+
+    machinectl bind --mkdir testsuite-13.nc-container /tmp/marker
+
+    while systemctl show -P SubState nspawn_machinectl_bind.service | grep -q running
+    do
+        sleep 0.1
+    done
+
+    return $(systemctl show -P ExecMainStatus nspawn_machinectl_bind.service)
+}
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -185,5 +208,7 @@ for api_vfs_writable in yes no network; do
     run no yes $api_vfs_writable
     run yes yes $api_vfs_writable
 done
+
+check_machinectl_bind
 
 touch /testok

@@ -629,7 +629,7 @@ create_strace_wrapper() {
     cat >$_strace_wrapper <<EOF
 #!/usr/bin/env bash
 
-exec strace -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
+exec strace -f -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
 EOF
     chmod 0755 $_strace_wrapper
 }
@@ -698,14 +698,25 @@ install_missing_libraries() {
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
     for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2; do
-            if pkg-config --exists ${lib}; then
-                    path=$(pkg-config --variable=libdir ${lib})
-                    if ! [[ ${lib} =~ ^lib ]]; then
-                            lib="lib${lib}"
-                    fi
-                    inst_libs "${path}/${lib}.so"
-                    inst_library "${path}/${lib}.so"
-            fi
+        ddebug "Searching for $lib via pkg-config"
+        if pkg-config --exists ${lib}; then
+                path=$(pkg-config --variable=libdir ${lib})
+                if [ -z "${path}" ]; then
+                    ddebug "$lib.pc does not contain a libdir variable, skipping"
+                    continue
+                fi
+
+                if ! [[ ${lib} =~ ^lib ]]; then
+                        lib="lib${lib}"
+                fi
+                # Some pkg-config files are broken and give out the wrong paths
+                # (eg: libcryptsetup), so just ignore them
+                inst_libs "${path}/${lib}.so" || true
+                inst_library "${path}/${lib}.so" || true
+        else
+            ddebug "$lib.pc not found, skipping"
+            continue
+        fi
     done
 }
 
@@ -864,6 +875,9 @@ check_result_nspawn() {
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     check_asan_reports "$1" || ret=$(($ret+1))
+    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f $1/strace.out ]; then
+        cp $1/strace.out "${ARTIFACT_DIRECTORY}/"
+    fi
     _umount_dir $initdir
     return $ret
 }
@@ -876,6 +890,9 @@ check_result_qemu() {
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     save_journal $initdir/var/log/journal
     check_asan_reports "$initdir" || ret=$(($ret+1))
+    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f $initdir/strace.out ]; then
+        cp $initdir/strace.out "${ARTIFACT_DIRECTORY}/"
+    fi
     _umount_dir $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     echo $JOURNAL_LIST

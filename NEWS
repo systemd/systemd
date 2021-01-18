@@ -1,5 +1,15 @@
 systemd System and Service Manager
 
+CHANGES WITH 248:
+
+        * The MountAPIVFS= service file setting now additionally mounts a tmpfs
+          on /run/ if it is not already a mount point. A writable /run/ has always
+          been a requirement for a functioning system, but this was not
+          guaranteed when using a read-only image.
+          Users can always specify BindPaths= or InaccessiblePaths= as overrides,
+          and they will take precedence. If the host's root mount point is used,
+          there is no change in behaviour.
+
 CHANGES WITH 247:
 
         * KERNEL API INCOMPATIBILITY: Linux 4.14 introduced two new uevents

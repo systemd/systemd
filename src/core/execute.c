@@ -1987,13 +1987,12 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static bool exec_needs_mount_namespace(
+bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime) {
 
         assert(context);
-        assert(params);
 
         if (context->root_image)
                 return true;
@@ -2035,7 +2034,7 @@ static bool exec_needs_mount_namespace(
                         return true;
 
                 for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                        if (!params->prefix[t])
+                        if (params && !params->prefix[t])
                                 continue;
 
                         if (!strv_isempty(context->directories[t].paths))
@@ -3115,7 +3114,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        _cleanup_free_ char *creds_path = NULL;
+        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
@@ -3192,6 +3191,15 @@ static int apply_mount_namespace(
                 }
         }
 
+        if (MANAGER_IS_SYSTEM(u->manager)) {
+                propagate_dir = path_join("/run/systemd/propagate/", u->id);
+                if (!propagate_dir)
+                        return -ENOMEM;
+                incoming_dir = strdup("/run/systemd/incoming");
+                if (!incoming_dir)
+                        return -ENOMEM;
+        }
+
         r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
@@ -3211,6 +3219,8 @@ static int apply_mount_namespace(
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
                             context->root_verity,
+                            propagate_dir,
+                            incoming_dir,
                             DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 
