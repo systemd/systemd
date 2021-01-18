@@ -6059,15 +6059,11 @@ static int exec_runtime_add(
 
         /* tmp_dir, var_tmp_dir, netns_storage_socket fds are donated on success */
 
-        r = hashmap_ensure_allocated(&m->exec_runtime_by_id, &string_hash_ops);
-        if (r < 0)
-                return r;
-
         r = exec_runtime_allocate(&rt, id);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(m->exec_runtime_by_id, rt->id, rt);
+        r = hashmap_ensure_put(&m->exec_runtime_by_id, &string_hash_ops, rt->id, rt);
         if (r < 0)
                 return r;
 
