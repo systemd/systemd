@@ -499,11 +499,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 /* Ignore .network files that do not match the conditions. */
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(networks, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(*networks, network->name, network);
+        r = ordered_hashmap_ensure_put(networks, &string_hash_ops, network->name, network);
         if (r < 0)
                 return r;
 
