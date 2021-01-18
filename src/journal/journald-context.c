@@ -102,7 +102,7 @@ static int client_context_compare(const void *a, const void *b) {
 }
 
 static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
-        ClientContext *c;
+        _cleanup_free_ ClientContext *c = NULL;
         int r;
 
         assert(s);
@@ -137,12 +137,10 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         };
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
-        if (r < 0) {
-                free(c);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = c;
+        *ret = TAKE_PTR(c);
         return 0;
 }
 
