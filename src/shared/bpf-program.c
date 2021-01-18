@@ -209,6 +209,16 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         return 0;
 }
 
+void bpf_program_skeletonize(BPFProgram *p) {
+        assert(p);
+
+        /* Called shortly after serialization. From this point on, we are frozen for serialization and entry
+         * into BPF limbo, so we should proactively free our instructions and attached path. However, we
+         * shouldn't detach the program or close the kernel FD -- we need those on the other side. */
+        free(p->instructions);
+        free(p->attached_path);
+}
+
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags) {
         union bpf_attr attr;
         int fd;
