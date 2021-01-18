@@ -1984,7 +1984,9 @@ static int udev_rule_apply_token_to_event(
                         return log_rule_error_errno(dev, rules, r, "Failed to store SECLABEL{%s}='%s': %m", name, label);;
 
                 log_rule_debug(dev, rules, "SECLABEL{%s}='%s'", name, label);
-                name = label = NULL;
+
+                TAKE_PTR(name);
+                TAKE_PTR(label);
                 break;
         }
         case TK_A_ENV: {
