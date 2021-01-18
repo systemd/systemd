@@ -31,17 +31,15 @@ static int track_pid(Hashmap **h, const char *path, pid_t pid) {
         assert(path);
         assert(pid_is_valid(pid));
 
-        r = hashmap_ensure_allocated(h, NULL);
-        if (r < 0)
-                return log_oom();
-
         c = strdup(path);
         if (!c)
                 return log_oom();
 
-        r = hashmap_put(*h, PID_TO_PTR(pid), c);
-        if (r < 0)
+        r = hashmap_ensure_put(h, NULL, PID_TO_PTR(pid), c);
+        if (r == -ENOMEM)
                 return log_oom();
+        if (r < 0)
+                return r;
 
         TAKE_PTR(c);
         return 0;
