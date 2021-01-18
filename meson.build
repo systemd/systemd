@@ -2212,7 +2212,7 @@ if conf.get('ENABLE_SYSEXT') == 1
                 link_with : [libshared],
                 install_rpath : rootlibexecdir,
                 install : true,
-                install_dir : rootbindir)
+                install_dir : rootlibexecdir)
 endif
 
 if conf.get('ENABLE_USERDB') == 1
