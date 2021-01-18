@@ -503,7 +503,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (r < 0)
                 return r;
 
-        network = NULL;
+        TAKE_PTR(network);
         return 0;
 }
 
