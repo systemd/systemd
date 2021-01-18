@@ -71,12 +71,17 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
 
-        if (path)
+        if (path) {
                 fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        else
-                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-        if (fd < 0)
-                return -errno;
+                if (fd < 0)
+                        return -errno;
+        } else {
+                /* Note that DUPing is not enough, as the internal pointer
+                 * would still be shared and moved by FOREACH_DIRENT. */
+                fd = fd_reopen(dir_fd, O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+        }
 
         d = take_fdopendir(&fd);
         if (!d)
