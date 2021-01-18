@@ -115,14 +115,17 @@ static int verify_socket(Unit *u) {
 }
 
 int verify_executable(Unit *u, const ExecCommand *exec) {
+        int r;
+
         if (!exec)
                 return 0;
 
         if (exec->flags & EXEC_COMMAND_IGNORE_FAILURE)
                 return 0;
 
-        if (access(exec->path, X_OK) < 0)
-                return log_unit_error_errno(u, errno, "Command %s is not executable: %m", exec->path);
+        r = find_executable_full(exec->path, false, NULL, NULL);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Command %s is not executable: %m", exec->path);
 
         return 0;
 }
