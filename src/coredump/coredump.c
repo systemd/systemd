@@ -48,6 +48,7 @@
 #include "tmpfile-util.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "coredump-ratelimit.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))
@@ -62,6 +63,10 @@
 /* oss-fuzz limits memory usage. */
 #define JOURNAL_SIZE_MAX ((size_t) (10LU*1024LU*1024LU))
 #endif
+
+#define DEFAULT_COREDUMP_RATELIMIT_INTERVAL 0
+
+#define DEFAULT_COREDUMP_RATELIMIT_BURST    0
 
 /* Make sure to not make this larger than the maximum journal entry
  * size. See DATA_SIZE_MAX in journal-importer.h. */
@@ -144,6 +149,9 @@ static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = (uint64_t) -1;
 static uint64_t arg_max_use = (uint64_t) -1;
 
+static usec_t arg_ratelimitinterval = DEFAULT_COREDUMP_RATELIMIT_INTERVAL;
+static unsigned arg_ratelimitburst = DEFAULT_COREDUMP_RATELIMIT_BURST;
+
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
@@ -153,6 +161,8 @@ static int parse_config(void) {
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
                 { "Coredump", "KeepFree",         config_parse_iec_uint64,        0, &arg_keep_free         },
                 { "Coredump", "MaxUse",           config_parse_iec_uint64,        0, &arg_max_use           },
+                { "Coredump", "RateLimitInterval", config_parse_sec,              0, &arg_ratelimitinterval},
+                { "Coredump", "RateLimitBurst",    config_parse_unsigned,         0, &arg_ratelimitburst},
                 {}
         };
 
@@ -1173,6 +1183,7 @@ static int process_kernel(int argc, char* argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
         int r;
+        _cleanup_free_ char *process_name = NULL;
 
         log_debug("Processing coredump received from the kernel...");
 
@@ -1212,8 +1223,23 @@ static int process_kernel(int argc, char* argv[]) {
 
         if (context.is_journald || context.is_pid1)
                 r = submit_coredump(&context, iovw, STDIN_FILENO);
-        else
+        else {
+                process_name  = filename_escape(context.meta[META_COMM]);
+                if (!process_name) {
+                        log_error_errno(r, "Failed to escape process name. Ignoring coredump ratelimit %m");
+                } else {
+                        /* per process coredump ratelimit */
+                        r = coredump_ratelimit(process_name, arg_ratelimitinterval, arg_ratelimitburst);
+                        if(r < 0) {
+                                log_error_errno(r, "Failed to process coredump ratelimit %m");
+                        }
+                        if(r > 0) {
+                                log_warning("Core dump of %s is ratelimited", process_name);
+                                goto finish;
+                        }
+                }
                 r = send_iovec(iovw, STDIN_FILENO);
+       }
 
  finish:
         iovw = iovw_free_free(iovw);
