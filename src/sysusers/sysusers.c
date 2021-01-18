@@ -1043,13 +1043,11 @@ static int add_user(Item *i) {
                 i->uid = search_uid;
         }
 
-        r = ordered_hashmap_ensure_allocated(&todo_uids, NULL);
-        if (r < 0)
+        r = ordered_hashmap_ensure_put(&todo_uids, NULL, UID_TO_PTR(i->uid), i);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = ordered_hashmap_put(todo_uids, UID_TO_PTR(i->uid), i);
         if (r < 0)
-                return log_oom();
+                return r;
 
         i->todo_user = true;
         log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".", i->name, strna(i->description), i->uid, i->gid);
@@ -1212,13 +1210,11 @@ static int add_group(Item *i) {
                 i->gid = search_uid;
         }
 
-        r = ordered_hashmap_ensure_allocated(&todo_gids, NULL);
-        if (r < 0)
+        r = ordered_hashmap_ensure_put(&todo_gids, NULL, GID_TO_PTR(i->gid), i);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = ordered_hashmap_put(todo_gids, GID_TO_PTR(i->gid), i);
         if (r < 0)
-                return log_oom();
+                return r;
 
         i->todo_group = true;
         log_info("Creating group %s with gid " GID_FMT ".", i->name, i->gid);
