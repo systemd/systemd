@@ -117,8 +117,6 @@ Address *address_free(Address *address) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
                 set_remove(address->link->static_addresses, address);
-                if (address->link->dhcp_address == address)
-                        address->link->dhcp_address = NULL;
                 if (address->link->dhcp_address_old == address)
                         address->link->dhcp_address_old = NULL;
                 set_remove(address->link->dhcp6_addresses, address);
