@@ -127,6 +127,12 @@ int import_environment(int argc, char *argv[], void *userdata) {
 
                 strv_env_clean_with_callback(copy, invalid_callback, NULL);
 
+                char **e;
+                STRV_FOREACH(e, copy)
+                        if (string_has_cc(*e, NULL))
+                                log_notice("Environment variable $%.*s contains control characters, importing anyway.",
+                                           (int) strcspn(*e, "="), *e);
+
                 r = sd_bus_message_append_strv(m, copy);
 
         } else {
@@ -148,6 +154,10 @@ int import_environment(int argc, char *argv[], void *userdata) {
 
                                 eq = startswith(*b, *a);
                                 if (eq && *eq == '=') {
+                                        if (string_has_cc(eq + 1, NULL))
+                                                log_notice("Environment variable $%.*s contains control characters, importing anyway.",
+                                                           (int) (eq - *b), *b);
+
                                         r = sd_bus_message_append(m, "s", *b);
                                         if (r < 0)
                                                 return bus_log_create_error(r);
