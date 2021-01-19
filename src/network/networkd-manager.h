@@ -65,6 +65,9 @@ struct Manager {
         Set *routes;
         Set *routes_foreign;
 
+        /* Route table name */
+        Hashmap *route_tables;
+
         /* For link speed meter*/
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
