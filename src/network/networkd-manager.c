@@ -845,6 +845,9 @@ int manager_new(Manager **ret) {
 
         m->duid.type = DUID_TYPE_EN;
 
+        m->mp_tcp_subflows = UINT32_MAX;
+        m->mp_tcp_add_addr_accepted = UINT32_MAX;
+
         *ret = TAKE_PTR(m);
 
         return 0;
