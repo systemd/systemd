@@ -70,4 +70,4 @@ run_target(
 
 run_target(
         'autosuspend-update',
-        command : [autosuspend_update_sh, project_source_root + '/tools/chromiumos'])
+        command : [autosuspend_update_sh, project_source_root])
