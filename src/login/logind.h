@@ -114,6 +114,7 @@ struct Manager {
         bool hibernate_key_ignore_inhibited;
         bool lid_switch_ignore_inhibited;
         bool reboot_key_ignore_inhibited;
+        bool enforce_block_inhibitors_for_root;
 
         bool remove_ipc;
 

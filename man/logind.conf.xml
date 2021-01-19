@@ -349,6 +349,12 @@
         are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>EnforceBlockInhibitorsForRoot=</varname></term>
+
+        <listitem><para>Controls whether block inhibitor is honored by root
+        user. Defaults to <literal>no</literal>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
