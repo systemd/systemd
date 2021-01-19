@@ -112,7 +112,6 @@ libudevd_core = static_library(
         link_config_gperf_c,
         keyboard_keys_from_name_h,
         include_directories : udev_includes,
-        c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
 
@@ -142,7 +141,6 @@ foreach prog : udev_id_progs
                 name,
                 prog,
                 include_directories : includes,
-                c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
                 dependencies : [versiondep],
                 link_with : udev_link_with,
                 install_rpath : udev_rpath,
