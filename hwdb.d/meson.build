@@ -20,6 +20,7 @@ hwdb_files_notest = files('''
 
 hwdb_files_test = files('''
         60-autosuspend.hwdb
+        60-autosuspend-fingerprint-reader.hwdb
         60-evdev.hwdb
         60-input-id.hwdb
         60-keyboard.hwdb
