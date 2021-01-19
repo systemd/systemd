@@ -54,6 +54,8 @@ typedef enum MountMode {
         RUN,
         READONLY,
         READWRITE,
+        NOEXEC,
+        EXEC,
         TMPFS,
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
@@ -66,6 +68,7 @@ typedef struct MountEntry {
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
+        bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts or images */
@@ -212,6 +215,8 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [TMPFS]                = "tmpfs",
         [MOUNT_IMAGES]         = "mount-images",
         [READWRITE_IMPLICIT]   = "rw-implicit",
+        [EXEC]                 = "exec",
+        [NOEXEC]               = "noexec",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
@@ -229,6 +234,18 @@ static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
         return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE, PRIVATE_TMP_READONLY);
+}
+
+static bool mount_entry_noexec(const MountEntry *p) {
+        assert(p);
+
+        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, SYSFS, PROCFS);
+}
+
+static bool mount_entry_exec(const MountEntry *p) {
+        assert(p);
+
+        return p->mode == EXEC;
 }
 
 static const char *mount_entry_source(const MountEntry *p) {
@@ -502,6 +519,7 @@ static void drop_duplicates(MountEntry *m, size_t *n) {
                     !f->applied && !previous->applied) {
                         log_debug("%s (%s) is duplicate.", mount_entry_path(f), mount_mode_to_string(f->mode));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
+                        previous->noexec = previous->noexec || mount_entry_noexec(f); /* Propagate the noexec flag to the remaining entry */
                         mount_entry_done(f);
                         continue;
                 }
@@ -1123,6 +1141,8 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
         case READWRITE_IMPLICIT:
+        case EXEC:
+        case NOEXEC:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
@@ -1246,6 +1266,16 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
                 flags_mask |= MS_NOSUID;
         }
 
+        if (mount_entry_noexec(m)) {
+                new_flags |= MS_NOEXEC;
+                flags_mask |= MS_NOEXEC;
+                submounts = true;
+        } else if (mount_entry_exec(m)) {
+                new_flags &= ~MS_NOEXEC;
+                flags_mask |= MS_NOEXEC;
+                submounts = true;
+        }
+
         if (flags_mask == 0) /* No Change? */
                 return 0;
 
@@ -1253,7 +1283,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
          * nothing further down.  Set /dev readonly, but not submounts like /dev/shm. Also, we only set the
          * per-mount read-only flag.  We can't set it on the superblock, if we are inside a user namespace
          * and running Linux <= 4.17. */
-        submounts =
+        submounts |=
                 mount_entry_read_only(m) &&
                 !IN_SET(m->mode, EMPTY_DIR, TMPFS);
         if (submounts)
@@ -1261,7 +1291,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
         else
                 r = bind_remount_one_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, proc_self_mountinfo);
 
-        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
+        /* Note that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
          * read-only already stays this way. This improves compatibility with container managers, where we
          * won't attempt to undo read-only mounts already applied. */
 
@@ -1294,6 +1324,8 @@ static size_t namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** exec_paths,
+                char** no_exec_paths,
                 char** empty_directories,
                 size_t n_bind_mounts,
                 size_t n_temporary_filesystems,
@@ -1325,6 +1357,8 @@ static size_t namespace_calculate_mounts(
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                strv_length(exec_paths) +
+                strv_length(no_exec_paths) +
                 strv_length(empty_directories) +
                 n_bind_mounts +
                 n_mount_images +
@@ -1470,6 +1504,8 @@ int setup_namespace(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** exec_paths,
+                char** no_exec_paths,
                 char** empty_directories,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
@@ -1586,6 +1622,8 @@ int setup_namespace(
                         read_write_paths,
                         read_only_paths,
                         inaccessible_paths,
+                        exec_paths,
+                        no_exec_paths,
                         empty_directories,
                         n_bind_mounts,
                         n_temporary_filesystems,
@@ -1609,6 +1647,14 @@ int setup_namespace(
                         goto finish;
 
                 r = append_access_mounts(&m, inaccessible_paths, INACCESSIBLE, require_prefix);
+                if (r < 0)
+                        goto finish;
+
+                r = append_access_mounts(&m, exec_paths, EXEC, require_prefix);
+                if (r < 0)
+                        goto finish;
+
+                r = append_access_mounts(&m, no_exec_paths, NOEXEC, require_prefix);
                 if (r < 0)
                         goto finish;
 
