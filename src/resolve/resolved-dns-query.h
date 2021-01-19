@@ -47,11 +47,12 @@ struct DnsQuery {
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
 
+        /* If this is not a question by ourselves, but a "bypass" request, we propagate the original packet
+         * here, and use that instead. */
+        DnsPacket *question_bypass;
+
         uint64_t flags;
         int ifindex;
-
-        /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
-        bool clamp_ttl;
 
         DnsTransactionState state;
         unsigned n_cname_redirects;
@@ -69,6 +70,7 @@ struct DnsQuery {
         DnsSearchDomain *answer_search_domain;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
         bool previous_redirect_unauthenticated;
+        DnsPacket *answer_full_packet;
 
         /* Bus + Varlink client information */
         sd_bus_message *bus_request;
@@ -80,9 +82,11 @@ struct DnsQuery {
         char *request_address_string;
 
         /* DNS stub information */
-        DnsPacket *request_dns_packet;
-        DnsStream *request_dns_stream;
-        DnsPacket *reply_dns_packet;
+        DnsPacket *request_packet;
+        DnsStream *request_stream;
+        DnsAnswer *reply_answer;
+        DnsAnswer *reply_authoritative;
+        DnsAnswer *reply_additional;
         DnsStubListenerExtra *stub_listener_extra;
 
         /* Completion callback */
@@ -106,7 +110,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_free);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
-int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, int family, uint64_t flags);
+int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, DnsPacket *question_bypass, int family, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
 int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
