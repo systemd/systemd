@@ -880,6 +880,13 @@ static int dhcp4_update_address(Link *link, bool announce) {
                 link->dhcp_address_old = link->dhcp_address;
         link->dhcp_address = ret;
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *pretty = NULL;
+
+                (void) in_addr_prefix_to_string(AF_INET, &link->dhcp_address->in_addr, prefixlen, &pretty);
+                log_link_debug(link, "Configuring DHCPv4 address %s", strna(pretty));
+        }
+
         return 0;
 }
 
