@@ -692,7 +692,7 @@ get_ldpath() {
 install_missing_libraries() {
     # install possible missing libraries
     for i in $initdir{,/usr}/{sbin,bin}/* $initdir{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
-        LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath $i):$(get_ldpath $i)/src/udev" inst_libs $i
+        LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath $i)" inst_libs $i
     done
 
     # A number of dependencies is now optional via dlopen, so the install
