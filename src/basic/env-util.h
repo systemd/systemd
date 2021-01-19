@@ -58,3 +58,6 @@ int getenv_bool_secure(const char *p);
 int set_unset_env(const char *name, const char *value, bool overwrite);
 
 int setenv_systemd_exec_pid(bool update_only);
+
+/* Parses and does sanity checks on SYSTEMD_SYSEXT_HIERARCHIES */
+int env_parse_extension_hierarchies(char ***ret_hierarchies);

@@ -12,6 +12,7 @@
 #include "extract-word.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -783,4 +784,46 @@ int setenv_systemd_exec_pid(bool update_only) {
                 return -errno;
 
         return 1;
+}
+
+int env_parse_extension_hierarchies(char ***ret_hierarchies) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        char **p;
+        int r;
+
+        assert(ret_hierarchies);
+
+        e = secure_getenv("SYSTEMD_SYSEXT_HIERARCHIES");
+        if (!e)
+                return 0;
+
+        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
+         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
+         * switch. */
+
+        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES: %m");
+
+        STRV_FOREACH(p, l) {
+                if (!path_is_absolute(*p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Hierarchy path '%s' is not absolute, refusing.", *p);
+
+                if (!path_is_normalized(*p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Hierarchy path '%s' is not normalized, refusing.", *p);
+
+                if (path_equal(*p, "/"))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Hierarchy path '%s' is the root fs, refusing.", *p);
+        }
+
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No hierarchies specified, refusing.");
+
+        strv_free_and_replace(*ret_hierarchies, l);
+        return 0;
 }
