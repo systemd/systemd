@@ -29,18 +29,13 @@
 #include "stat-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
-static enum {
-        ACTION_STATUS,
-        ACTION_MERGE,
-        ACTION_UNMERGE,
-        ACTION_REFRESH,
-        ACTION_LIST,
-} arg_action = ACTION_STATUS;
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -149,7 +144,15 @@ static int unmerge(void) {
         return ret;
 }
 
-static int status(void) {
+static int verb_unmerge(int argc, char **argv, void *userdata) {
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
+
+        return unmerge();
+}
+
+static int verb_status(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, ret = 0;
         char **p;
@@ -399,6 +402,76 @@ static int strverscmpp(char *const* a, char *const* b) {
         return strverscmp(*a, *b);
 }
 
+static int validate_version(
+                const char *root,
+                const char *name,
+                const char *host_os_release_id,
+                const char *host_os_release_version_id,
+                const char *host_os_release_sysext_level) {
+
+        _cleanup_free_ char *extension_release_id = NULL, *extension_release_version_id = NULL, *extension_release_sysext_level = NULL;
+        int r;
+
+        assert(root);
+        assert(name);
+
+        if (arg_force) {
+                log_debug("Force mode enabled, skipping version validation.");
+                return 1;
+        }
+
+        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
+         * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
+         * merged.) */
+        r = chase_symlinks("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
+
+        /* Now that we can look into the extension image, let's see if the OS version is compatible */
+        r = parse_extension_release(
+                        root,
+                        name,
+                        "ID", &extension_release_id,
+                        "VERSION_ID", &extension_release_version_id,
+                        "SYSEXT_LEVEL", &extension_release_sysext_level,
+                        NULL);
+        if (r == -ENOENT) {
+                log_notice_errno(r, "Extension '%s' carries no extension-release data, ignoring extension.", name);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire 'os-release' data of extension '%s': %m", name);
+
+        if (!streq_ptr(host_os_release_id, extension_release_id)) {
+                log_notice("Extension '%s' is for OS '%s', but running on '%s', ignoring extension.",
+                           name, strna(extension_release_id), strna(host_os_release_id));
+                return 0;
+        }
+
+        /* If the extension has a sysext API level declared, then it must match the host API
+         * level. Otherwise, compare OS version as a whole */
+        if (extension_release_sysext_level) {
+                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
+                        log_notice("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s', ignoring extension.",
+                                   name, extension_release_sysext_level, strna(host_os_release_sysext_level));
+                        return 0;
+                }
+        } else {
+                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
+                        log_notice("Extension '%s' is for OS version '%s', but running on OS version '%s', ignoring extension.",
+                                   name, extension_release_version_id, strna(host_os_release_version_id));
+                        return 0;
+                }
+        }
+
+        log_debug("Version info of extension '%s' matches host.", name);
+        return 1;
+}
+
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
                 *buf = NULL;
@@ -440,8 +513,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
         /* Let's now mount all images */
         HASHMAP_FOREACH(img, images) {
-                _cleanup_free_ char *p = NULL,
-                        *extension_release_id = NULL, *extension_release_version_id = NULL, *extension_release_sysext_level = NULL;
+                _cleanup_free_ char *p = NULL;
 
                 p = path_join(workspace, "extensions", img->name);
                 if (!p)
@@ -523,57 +595,17 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         assert_not_reached("Unsupported image type");
                 }
 
-                /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
-                 * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
-                 * merged.) */
-                r = chase_symlinks("/usr/lib/os-release", p, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
-
-                /* Now that we can look into the extension image, let's see if the OS version is compatible */
-                r = parse_extension_release(
+                r = validate_version(
                                 p,
                                 img->name,
-                                "ID", &extension_release_id,
-                                "VERSION_ID", &extension_release_version_id,
-                                "SYSEXT_LEVEL", &extension_release_sysext_level,
-                                NULL);
-                if (r == -ENOENT) {
-                        log_notice_errno(r, "Extension '%s' carries no extension-release data, ignoring extension.", img->name);
+                                host_os_release_id,
+                                host_os_release_version_id,
+                                host_os_release_sysext_level);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         n_ignored++;
                         continue;
-                } else if (r < 0)
-                        return log_error_errno(r, "Failed to acquire 'os-release' data of extension '%s': %m", img->name);
-                else {
-                        if (!streq_ptr(host_os_release_id, extension_release_id)) {
-                                log_notice("Extension '%s' is for OS '%s', but running on '%s', ignoring extension.",
-                                           img->name, strna(extension_release_id), strna(host_os_release_id));
-                                n_ignored++;
-                                continue;
-                        }
-
-                        /* If the extension has a sysext API level declared, then it must match the host API level. Otherwise, compare OS version as a whole */
-                        if (extension_release_sysext_level) {
-                                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
-                                        log_notice("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s', ignoring extension.",
-                                                   img->name, extension_release_sysext_level, strna(host_os_release_sysext_level));
-                                        n_ignored++;
-                                        continue;
-                                }
-                        } else {
-                                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
-                                        log_notice("Extension '%s' is for OS version '%s', but running on OS version '%s', ignoring extension.",
-                                                   img->name, extension_release_version_id, strna(host_os_release_version_id));
-                                        n_ignored++;
-                                        continue;
-                                }
-                        }
-
-                        log_debug("Version info of extension '%s' matches host.", img->name);
                 }
 
                 /* Noice! This one is an extension we want. */
@@ -711,7 +743,134 @@ static int merge(Hashmap *images) {
         return r != 123; /* exit code 123 means: didn't do anything */
 }
 
-static int help(void) {
+static int verb_merge(int argc, char **argv, void *userdata) {
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        char **p;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
+
+        r = image_discover(IMAGE_EXTENSION, arg_root, images);
+        if (r < 0)
+                return log_error_errno(r, "Failed to discover extension images: %m");
+
+        /* In merge mode fail if things are already merged. (In --refresh mode below we'll unmerge if we find
+         * things are already merged...) */
+        STRV_FOREACH(p, arg_hierarchies) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = chase_symlinks(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *p);
+
+                r = is_our_mount_point(resolved);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
+                                               "Hierarchy '%s' is already merged.", *p);
+        }
+
+        return merge(images);
+}
+
+static int verb_refresh(int argc, char **argv, void *userdata) {
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
+
+        r = image_discover(IMAGE_EXTENSION, arg_root, images);
+        if (r < 0)
+                return log_error_errno(r, "Failed to discover extension images: %m");
+
+        r = merge(images); /* Returns > 0 if it did something, i.e. a new overlayfs is mounted now. When it
+                            * does so it implicitly unmounts any overlayfs placed there before. Returns == 0
+                            * if it did nothing, i.e. no extension images found. In this case the old
+                            * overlayfs remains in place if there was one. */
+        if (r < 0)
+                return r;
+        if (r == 0) /* No images found? Then unmerge. The goal of --refresh is after all that after having
+                     * called there's a guarantee that the merge status matches the installed extensions. */
+                r = unmerge();
+
+        /* Net result here is that:
+         *
+         * 1. If an overlayfs was mounted before and no extensions exist anymore, we'll have unmerged things.
+         *
+         * 2. If an overlayfs was mounted before, and there are still extensions installed' we'll have
+         *    unmerged and then merged things again.
+         *
+         * 3. If an overlayfs so far wasn't mounted, and there are extensions installed, we'll have it
+         *    mounted now.
+         *
+         * 4. If there was no overlayfs mount so far, and no extensions installed, we implement a NOP.
+         */
+
+        return 0;
+}
+
+static int verb_list(int argc, char **argv, void *userdata) {
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        Image *img;
+        int r;
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
+
+        r = image_discover(IMAGE_EXTENSION, arg_root, images);
+        if (r < 0)
+                return log_error_errno(r, "Failed to discover extension images: %m");
+
+        if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+                log_info("No OS extensions found.");
+                return 0;
+        }
+
+        t = table_new("name", "type", "path", "time");
+        if (!t)
+                return log_oom();
+
+        HASHMAP_FOREACH(img, images) {
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, img->name,
+                                TABLE_STRING, image_type_to_string(img->type),
+                                TABLE_PATH, img->path,
+                                TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
+
+        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                (void) pager_open(arg_pager_flags);
+
+        r = table_print_json(t, stdout, arg_json_format_flags);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
+}
+
+static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -722,17 +881,19 @@ static int help(void) {
         printf("%1$s [OPTIONS...] [DEVICE]\n"
                "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies.%6$s\n"
                "\n%3$sCommands:%4$s\n"
+               "  status                  Show current merge status (default)\n"
+               "  merge                   Merge extensions into /usr/ and /opt/\n"
+               "  unmerge                 Unmerge extensions from /usr/ and /opt/\n"
+               "  refresh                 Unmerge/merge extensions again\n"
+               "  list                    List installed extensions\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
-               "  -m --merge              Merge extensions into /usr/ and /opt/\n"
-               "  -u --unmerge            Unmerge extensions from /usr/ and /opt/\n"
-               "  -R --refresh            Unmerge/merge extensions again\n"
-               "  -l --list               List all OS images\n"
                "\n%3$sOptions:%4$s\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --root=PATH          Operate relative to root path\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
+               "     --force              Ignore version incompatibilities\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -748,12 +909,9 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
-                ARG_MERGE,
-                ARG_UNMERGE,
-                ARG_REFRESH,
-                ARG_LIST,
                 ARG_ROOT,
                 ARG_JSON,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -761,11 +919,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",  no_argument,       NULL, ARG_VERSION  },
                 { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
                 { "root",     required_argument, NULL, ARG_ROOT     },
-                { "merge",    no_argument,       NULL, 'm'          },
-                { "unmerge",  no_argument,       NULL, 'u'          },
-                { "refresh",  no_argument,       NULL, 'R'          },
-                { "list",     no_argument,       NULL, 'l'          },
                 { "json",     required_argument, NULL, ARG_JSON     },
+                { "force",    no_argument,       NULL, ARG_FORCE    },
                 {}
         };
 
@@ -774,34 +929,18 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hmuRl", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        return verb_help(argc, argv, NULL);
 
                 case ARG_VERSION:
                         return version();
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case 'm':
-                        arg_action = ACTION_MERGE;
-                        break;
-
-                case 'u':
-                        arg_action = ACTION_UNMERGE;
-                        break;
-
-                case 'R':
-                        arg_action = ACTION_REFRESH;
-                        break;
-
-                case 'l':
-                        arg_action = ACTION_LIST;
                         break;
 
                 case ARG_ROOT:
@@ -817,16 +956,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_FORCE:
+                        arg_force = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached("Unhandled option");
                 }
-
-        if (argc - optind > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unexpected argument.");
 
         return 1;
 }
@@ -871,13 +1010,26 @@ static int parse_env(void) {
         return 0;
 }
 
+static int sysext_main(int argc, char *argv[]) {
+
+        static const Verb verbs[] = {
+                { "status",   VERB_ANY, 1, VERB_DEFAULT, verb_status  },
+                { "merge",    VERB_ANY, 1, 0,            verb_merge   },
+                { "unmerge",  VERB_ANY, 1, 0,            verb_unmerge },
+                { "refresh",  VERB_ANY, 1, 0,            verb_refresh },
+                { "list",     VERB_ANY, 1, 0,            verb_list    },
+                { "help",     VERB_ANY, 1, 0,            verb_help    },
+                {}
+        };
+
+        return dispatch_verb(argc, argv, verbs, NULL);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(hashmap_freep) Hashmap *images = NULL;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup_cli();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -893,126 +1045,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        /* Given that things deep down in the child process will fail, let's catch the no-privilege issue
-         * early on */
-        if (!IN_SET(arg_action, ACTION_STATUS, ACTION_LIST) && !have_effective_cap(CAP_SYS_ADMIN))
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
-
-        if (arg_action == ACTION_STATUS)
-                return status();
-
-        if (arg_action == ACTION_UNMERGE)
-                return unmerge();
-
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(IMAGE_EXTENSION, arg_root, images);
-        if (r < 0)
-                return log_error_errno(r, "Failed to discover extension images: %m");
-
-        switch (arg_action) {
-
-        case ACTION_LIST: {
-                _cleanup_(table_unrefp) Table *t = NULL;
-                Image *img;
-
-                if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
-                        log_info("No OS extensions found.");
-                        return 0;
-                }
-
-                t = table_new("name", "type", "path", "time");
-                if (!t)
-                        return log_oom();
-
-                HASHMAP_FOREACH(img, images) {
-                        r = table_add_many(
-                                        t,
-                                        TABLE_STRING, img->name,
-                                        TABLE_STRING, image_type_to_string(img->type),
-                                        TABLE_PATH, img->path,
-                                        TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
-
-                (void) table_set_sort(t, (size_t) 0, (size_t) -1);
-
-                if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                        (void) pager_open(arg_pager_flags);
-
-                r = table_print_json(t, stdout, arg_json_format_flags);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                r = 0;
-                break;
-        }
-
-        case ACTION_MERGE: {
-                char **p;
-
-                /* In merge mode fail if things are already merged. (In --refresh mode below we'll unmerge if
-                 * we find things are already merged...) */
-                STRV_FOREACH(p, arg_hierarchies) {
-                        _cleanup_free_ char *resolved = NULL;
-
-                        r = chase_symlinks(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
-                        if (r == -ENOENT) {
-                                log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
-                                continue;
-                        }
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *p);
-
-                        r = is_our_mount_point(resolved);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
-                                                       "Hierarchy '%s' is already merged.", *p);
-                }
-
-                r = merge(images);
-                break;
-        }
-
-        case ACTION_REFRESH:
-                r = merge(images); /* Returns > 0 if it did something, i.e. a new overlayfs is mounted
-                                    * now. When it does so it implicitly unmounts any overlayfs placed there
-                                    * before. Returns == 0 if it did nothing, i.e. no extension images
-                                    * found. In this case the old overlayfs remains in place if there was
-                                    * one. */
-                if (r < 0)
-                        return r;
-                if (r == 0) /* No images found? Then unmerge. The goal of --refresh is after all that after
-                             * having called there's a guarantee that the merge status matches the installed
-                             * extensions. */
-                        r = unmerge();
-
-                /* Net result here is that:
-                 *
-                 * 1. If an overlayfs was mounted before and no extensions exist anymore, we'll have unmerged
-                 *    things.
-                 *
-                 * 2. If an overlayfs was mounted before, and there are still extensions installed' we'll
-                 *    have unmerged and then merged things again.
-                 *
-                 * 3. If an overlayfs so far wasn't mounted, and there are extensions installed, we'll have
-                 *    it mounted now.
-                 *
-                 * 4. If there was no overlayfs mount so far, and no extensions installed, we implement a
-                 *    NOP.
-                 */
-                break;
-
-        default:
-                assert_not_reached("Uneexpected action");
-        }
-
-        return r;
+        return sysext_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);
