@@ -35,6 +35,7 @@ static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -413,6 +414,11 @@ static int validate_version(
 
         assert(root);
         assert(name);
+
+        if (arg_force) {
+                log_debug("Force mode enabled, skipping version validation.");
+                return 1;
+        }
 
         /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
          * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
@@ -887,6 +893,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --root=PATH          Operate relative to root path\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
+               "     --force              Ignore version incompatibilities\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -904,6 +911,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_ROOT,
                 ARG_JSON,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -912,6 +920,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
                 { "root",     required_argument, NULL, ARG_ROOT     },
                 { "json",     required_argument, NULL, ARG_JSON     },
+                { "force",    no_argument,       NULL, ARG_FORCE    },
                 {}
         };
 
@@ -945,6 +954,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
+                        break;
+
+                case ARG_FORCE:
+                        arg_force = true;
                         break;
 
                 case '?':
