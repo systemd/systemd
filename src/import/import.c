@@ -70,7 +70,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                                                local);
 
                 if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL);
+                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -165,7 +165,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                                                local);
 
                 if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL);
+                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);

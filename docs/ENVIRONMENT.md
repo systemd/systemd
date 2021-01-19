@@ -267,3 +267,15 @@ systemd-firstboot and localectl:
 * `SYSTEMD_LIST_NON_UTF8_LOCALES=1` – if set non-UTF-8 locales are listed among
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
+
+systemd-sysext:
+
+* `SYSTEMD_SYSEXT_HIERARCHIES` – if set to a colon-separated list of absolute
+  paths this variable may be used to override which hierarchies to manage with
+  `systemd-sysext`. By default only `/usr/` and `/opt/` are managed. With this
+  environment variable this list may be changed, in order to add or remove
+  directories from this list. This should only reference "real" file systems
+  and directories that only contain "real" file systems as submounts — do not
+  specify API file systems such as `/proc/` or `/sys/` here, or hierarchies
+  that have them as submounts. In particular, do not specify the root directory
+  `/` here.
