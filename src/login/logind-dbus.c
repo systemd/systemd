@@ -1832,6 +1832,9 @@ static int verify_shutdown_creds(
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
         }
 
+        if (blocked && uid == 0 && m->enforce_block_inhibitors_for_root)
+                return -EPERM;
+
         if (blocked && action_ignore_inhibit) {
                 r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
