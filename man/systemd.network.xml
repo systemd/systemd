@@ -1180,13 +1180,17 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>From=</varname></term>
           <listitem>
-            <para>Specifies the source address prefix to match. Possibly followed by a slash and the prefix length.</para>
+            <para>Specifies the source address prefix to match. Possibly followed by a slash and the prefix length or
+            the special values <literal>_dhcp4_ip</literal> and <literal>_dhcp4_gw</literal>. If <literal>_dhcp4_ip</literal>
+            or <literal>_dhcp4_gw</literal> is set, then the address and gateway address provided by DHCPv4 is used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>To=</varname></term>
           <listitem>
-            <para>Specifies the destination address prefix to match. Possibly followed by a slash and the prefix length.</para>
+            <para>Specifies the destination address prefix to match. Possibly followed by a slash and the prefix length or
+             the special values <literal>_dhcp4_ip</literal> and <literal>_dhcp4_gw</literal>. If <literal>_dhcp4_ip</literal>
+             or <literal>_dhcp4_gw</literal> is set, then the address and gateway address provided by DHCPv4 is used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
