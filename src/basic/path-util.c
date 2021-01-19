@@ -587,33 +587,21 @@ char* path_join_internal(const char *first, ...) {
 
 static int check_x_access(const char *path, int *ret_fd) {
         _cleanup_close_ int fd = -1;
-        const char *with_dash;
         int r;
 
-        if (ret_fd) {
-                /* We need to use O_PATH because there may be executables for which we have only exec
-                 * permissions, but not read (usually suid executables). */
-                fd = open(path, O_PATH|O_CLOEXEC);
-                if (fd < 0)
-                        return -errno;
-
-                r = access_fd(fd, X_OK);
-                if (r < 0)
-                        return r;
-        } else {
-                /* Let's optimize things a bit by not opening the file if we don't need the fd. */
-                if (access(path, X_OK) < 0)
-                        return -errno;
-        }
-
-        with_dash = strjoina(path, "/");
-
-        /* If this passes, it must be a directory. */
-        if (access(with_dash, X_OK) >= 0)
-                return -EISDIR;
-
-        if (errno != ENOTDIR)
+        /* We need to use O_PATH because there may be executables for which we have only exec
+         * permissions, but not read (usually suid executables). */
+        fd = open(path, O_PATH|O_CLOEXEC);
+        if (fd < 0)
                 return -errno;
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        r = access_fd(fd, X_OK);
+        if (r < 0)
+                return r;
 
         if (ret_fd)
                 *ret_fd = TAKE_FD(fd);
