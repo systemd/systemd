@@ -729,9 +729,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem><para>Configures IP masquerading for the network
           interface. If enabled, packets forwarded from the network
           interface will be appear as coming from the local host.
-          Takes a boolean argument. Implies
-          <varname>IPForward=ipv4</varname>. Defaults to
-          <literal>no</literal>.</para></listitem>
+          Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>,
+          <literal>both</literal>, <literal>no</literal>.
+          The setting <literal>yes</literal> is the same as <literal>ipv4</literal> and not as
+          <literal>both</literal>!
+          Defaults to <literal>no</literal>.
+          If enabled, this automatically sets <varname>IPForward</varname> to one of
+          <literal>ipv4</literal>, <literal>ipv6</literal> or <literal>both</literal>.
+          </para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6PrivacyExtensions=</varname></term>
