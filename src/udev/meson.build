@@ -116,18 +116,18 @@ libudevd_core = static_library(
         dependencies : [libblkid, libkmod])
 
 udev_id_progs = [['ata_id/ata_id.c'],
-                ['cdrom_id/cdrom_id.c'],
-                ['fido_id/fido_id.c',
-                 'fido_id/fido_id_desc.c',
-                 'fido_id/fido_id_desc.h'],
-                ['scsi_id/scsi_id.c',
-                 'scsi_id/scsi_id.h',
-                 'scsi_id/scsi_serial.c',
-                 'scsi_id/scsi.h'],
-                ['v4l_id/v4l_id.c'],
-                ['mtd_probe/mtd_probe.c',
-                 'mtd_probe/mtd_probe.h',
-                 'mtd_probe/probe_smartmedia.c']]
+                 ['cdrom_id/cdrom_id.c'],
+                 ['fido_id/fido_id.c',
+                  'fido_id/fido_id_desc.c',
+                  'fido_id/fido_id_desc.h'],
+                 ['scsi_id/scsi_id.c',
+                  'scsi_id/scsi_id.h',
+                  'scsi_id/scsi_serial.c',
+                  'scsi_id/scsi.h'],
+                 ['v4l_id/v4l_id.c'],
+                 ['mtd_probe/mtd_probe.c',
+                  'mtd_probe/mtd_probe.h',
+                  'mtd_probe/probe_smartmedia.c']]
 
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'mips']
 if dmi_arches.contains(host_machine.cpu_family())
