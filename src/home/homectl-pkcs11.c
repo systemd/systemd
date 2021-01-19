@@ -142,6 +142,20 @@ int identity_add_token_pin(JsonVariant **v, const char *pin) {
         return 1;
 }
 
+static int acquire_pkcs11_certificate(
+                const char *uri,
+                const char *askpw_friendly_name,
+                const char *askpw_icon_name,
+                X509 **ret_cert,
+                char **ret_pin_used) {
+#if HAVE_P11KIT
+        return pkcs11_acquire_certificate(uri, askpw_friendly_name, askpw_icon_name, ret_cert, ret_pin_used);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "PKCS#11 tokens not supported on this build.");
+#endif
+}
+
 int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         _cleanup_(erase_and_freep) void *decrypted_key = NULL, *encrypted_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
@@ -152,7 +166,7 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
 
         assert(v);
 
-        r = pkcs11_acquire_certificate(uri, "home directory operation", "user-home", &cert, &pin);
+        r = acquire_pkcs11_certificate(uri, "home directory operation", "user-home", &cert, &pin);
         if (r < 0)
                 return r;
 
