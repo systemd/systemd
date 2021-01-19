@@ -13,7 +13,7 @@
 
     <para>Configuration files are read from directories in <filename>/etc/</filename>,
     <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and <filename>/usr/lib/</filename>, in
-    order of precedence, as listed in the SYNOPSIS section above. Files must have the the
+    order of precedence, as listed in the SYNOPSIS section above. Files must have the
     <literal>.conf</literal> extension. Files in <filename>/etc/</filename> override files with the same name
     in <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and
     <filename>/usr/lib/</filename>. Files in <filename>/run/</filename> override files with the same name
