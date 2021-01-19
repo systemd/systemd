@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bareudp.h"
+#include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
 #include "conf-files.h"
@@ -43,6 +44,7 @@
 #include "xfrm.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
+        [NETDEV_KIND_BATADV] = &batadv_vtable,
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
         [NETDEV_KIND_BOND] = &bond_vtable,
         [NETDEV_KIND_VLAN] = &vlan_vtable,
@@ -82,6 +84,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BAREUDP] = "bareudp",
+        [NETDEV_KIND_BATADV] = "batadv",
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
@@ -262,7 +265,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message
         assert(netdev->state == NETDEV_STATE_READY);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF));
+        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF, NETDEV_KIND_BATADV));
         assert(link);
         assert(callback);
 
@@ -353,7 +356,7 @@ static int netdev_enslave(NetDev *netdev, Link *link, link_netlink_message_handl
         assert(netdev);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF));
+        assert(IN_SET(netdev->kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF, NETDEV_KIND_BATADV));
 
         if (netdev->state == NETDEV_STATE_READY) {
                 r = netdev_enslave_ready(netdev, link, callback);
