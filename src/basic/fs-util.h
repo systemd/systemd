@@ -100,16 +100,25 @@ int chase_symlinks_and_opendir(const char *path, const char *root, unsigned chas
 int chase_symlinks_and_stat(const char *path, const char *root, unsigned chase_flags, char **ret_path, struct stat *ret_stat, int *ret_fd);
 
 /* Useful for usage with _cleanup_(), removes a directory and frees the pointer */
-static inline void rmdir_and_free(char *p) {
+static inline char *rmdir_and_free(char *p) {
         PROTECT_ERRNO;
+
+        if (!p)
+                return NULL;
+
         (void) rmdir(p);
         free(p);
+        return NULL;
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rmdir_and_free);
 
-static inline void unlink_and_free(char *p) {
+static inline char* unlink_and_free(char *p) {
+        if (!p)
+                return NULL;
+
         (void) unlink_noerrno(p);
         free(p);
+        return NULL;
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 
