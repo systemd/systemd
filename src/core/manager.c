@@ -2389,6 +2389,10 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
         if (IN_SET(n, -EAGAIN, -EINTR))
                 return 0; /* Spurious wakeup, try again */
+        if (n == -EXFULL) {
+                log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
+        }
         if (n < 0)
                 /* If this is any other, real error, then let's stop processing this socket. This of course
                  * means we won't take notification messages anymore, but that's still better than busy
