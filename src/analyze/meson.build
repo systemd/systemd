@@ -9,3 +9,13 @@ systemd_analyze_sources = files('''
         analyze-security.c
         analyze-security.h
 '''.split())
+
+tests += [
+        [['src/analyze/test-verify.c',
+          'src/analyze/analyze-verify.c',
+          'src/analyze/analyze-verify.h'],
+         [libcore,
+          libshared],
+         [],
+         core_includes],
+]

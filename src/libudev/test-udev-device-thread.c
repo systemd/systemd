@@ -5,9 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "sd-device.h"
-
-#include "device-util.h"
+#include "libudev.h"
 
 #define handle_error_errno(error, msg)                          \
         ({                                                      \
@@ -17,27 +15,28 @@
         })
 
 static void* thread(void *p) {
-        sd_device **d = p;
+        struct udev_device **d = p;
 
-        *d = sd_device_unref(*d);
+        *d = udev_device_unref(*d);
 
         return NULL;
 }
 
 int main(int argc, char *argv[]) {
-        sd_device *loopback;
+        struct udev_device *loopback;
+        struct udev_list_entry *entry, *e;
         pthread_t t;
-        const char *key, *value;
         int r;
 
         unsetenv("SYSTEMD_MEMPOOL");
 
-        r = sd_device_new_from_syspath(&loopback, "/sys/class/net/lo");
-        if (r < 0)
-                return handle_error_errno(r, "Failed to create loopback device object");
+        loopback = udev_device_new_from_syspath(NULL, "/sys/class/net/lo");
+        if (!loopback)
+                return handle_error_errno(errno, "Failed to create loopback device object");
 
-        FOREACH_DEVICE_PROPERTY(loopback, key, value)
-                printf("%s=%s\n", key, value);
+        entry = udev_device_get_properties_list_entry(loopback);
+        udev_list_entry_foreach(e, entry)
+                printf("%s=%s\n", udev_list_entry_get_name(e), udev_list_entry_get_value(e));
 
         r = pthread_create(&t, NULL, thread, &loopback);
         if (r != 0)

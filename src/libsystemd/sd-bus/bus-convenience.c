@@ -7,7 +7,6 @@
 #include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-type.h"
-#include "bus-util.h"
 #include "string-util.h"
 
 _public_ int sd_bus_emit_signalv(

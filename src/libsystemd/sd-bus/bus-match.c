@@ -4,7 +4,6 @@
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"

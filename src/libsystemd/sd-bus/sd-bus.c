@@ -26,7 +26,6 @@
 #include "bus-socket.h"
 #include "bus-track.h"
 #include "bus-type.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "def.h"
 #include "errno-util.h"

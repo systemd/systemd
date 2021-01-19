@@ -78,6 +78,7 @@ shared_sources = files('''
         daemon-util.h
         dev-setup.c
         dev-setup.h
+        devnode-acl.h
         dissect-image.c
         dissect-image.h
         dm-util.c
@@ -86,6 +87,7 @@ shared_sources = files('''
         dns-domain.h
         dropin.c
         dropin.h
+        efi-loader-features.h
         efi-loader.c
         efi-loader.h
         enable-mempool.c
@@ -144,6 +146,8 @@ shared_sources = files('''
         json-internal.h
         json.c
         json.h
+        killall.c
+        killall.h
         libcrypt-util.c
         libcrypt-util.h
         libfido2-util.c
@@ -164,6 +168,10 @@ shared_sources = files('''
         logs-show.h
         loop-util.c
         loop-util.h
+        loopback-setup.c
+        loopback-setup.h
+        machine-id-setup.c
+        machine-id-setup.h
         machine-image.c
         machine-image.h
         machine-pool.c
@@ -174,6 +182,8 @@ shared_sources = files('''
         mkfs-util.c
         mkfs-util.h
         module-util.h
+        mount-setup.c
+        mount-setup.h
         mount-util.c
         mount-util.h
         net-condition.c
@@ -243,8 +253,6 @@ shared_sources = files('''
         udev-util.h
         uid-range.c
         uid-range.h
-        unit-file.c
-        unit-file.h
         user-record-nss.c
         user-record-nss.h
         user-record-show.c
@@ -273,11 +281,12 @@ shared_sources = files('''
 '''.split())
 
 if get_option('tests') != 'false'
-        shared_sources += files('tests.c', 'tests.h')
+        shared_sources += files('''
+                test-tables.h
+                tests.c
+                tests.h
+        '''.split())
 endif
-
-test_tables_h = files('test-tables.h')
-shared_sources += test_tables_h
 
 generate_syscall_list = find_program('generate-syscall-list.py')
 fname = 'syscall-list.h'
@@ -290,7 +299,10 @@ syscall_list_h = custom_target(
         capture : true)
 
 if conf.get('HAVE_ACL') == 1
-        shared_sources += files('acl-util.c')
+        shared_sources += files('''
+                acl-util.c
+                devnode-acl.c
+        '''.split())
 endif
 
 if conf.get('ENABLE_UTMP') == 1
@@ -311,10 +323,9 @@ if conf.get('HAVE_KMOD') == 1
 endif
 
 if conf.get('HAVE_PAM') == 1
-        shared_sources += files('''
-        pam-util.c
-        pam-util.h
-'''.split())
+        shared_sources += files(
+                'pam-util.c',
+                'pam-util.h')
 endif
 
 if conf.get('ENABLE_NSCD') == 1
@@ -399,8 +410,7 @@ libshared = shared_library(
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
-                      libsystemd_static,
-                      libjournal_client],
+                      libsystemd_static],
         c_args : ['-fvisibility=default'],
         dependencies : libshared_deps,
         install : true,

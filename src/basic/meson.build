@@ -42,6 +42,7 @@ basic_sources = files('''
         dirent-util.h
         dlfcn-util.c
         dlfcn-util.h
+        dns-def.h
         efivars.c
         efivars.h
         env-file.c
@@ -244,6 +245,8 @@ basic_sources = files('''
         unaligned.h
         unit-def.c
         unit-def.h
+        unit-file.c
+        unit-file.h
         unit-name.c
         unit-name.h
         user-util.c
@@ -378,7 +381,7 @@ run_target(
 libbasic = static_library(
         'basic',
         basic_sources,
-        include_directories : includes,
+        include_directories : basic_includes,
         dependencies : [versiondep,
                         threads,
                         libcap,
@@ -400,6 +403,6 @@ basic_gcrypt_sources = files(
 libbasic_gcrypt = static_library(
         'basic-gcrypt',
         basic_gcrypt_sources,
-        include_directories : includes,
+        include_directories : basic_includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'])
