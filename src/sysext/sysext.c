@@ -8,6 +8,7 @@
 #include "capability-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -954,46 +955,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_env(void) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char *e;
-        char **p;
-        int r;
-
-        e = secure_getenv("SYSTEMD_SYSEXT_HIERARCHIES");
-        if (!e)
-                return 0;
-
-        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
-         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
-         * switch. */
-
-        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES: %m");
-
-        STRV_FOREACH(p, l) {
-                if (!path_is_absolute(*p))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is not absolute, refusing.", *p);
-
-                if (!path_is_normalized(*p))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is not normalized, refusing.", *p);
-
-                if (path_equal(*p, "/"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is the root fs, refusing.", *p);
-        }
-
-        if (strv_isempty(l))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No hierarchies specified, refusing.");
-
-        strv_free_and_replace(arg_hierarchies, l);
-        return 0;
-}
-
 static int sysext_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
@@ -1018,9 +979,12 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = parse_env();
+        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
+         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
+         * switch. */
+        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", &arg_hierarchies);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
 
         if (!arg_hierarchies) {
                 arg_hierarchies = strv_new("/usr", "/opt");
