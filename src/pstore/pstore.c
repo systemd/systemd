@@ -367,7 +367,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(pstore_entries_reset) PStoreList list = {};
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc == 3) {
                 arg_sourcedir = argv[1];

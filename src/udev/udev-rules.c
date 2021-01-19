@@ -1868,7 +1868,7 @@ static int udev_rule_apply_token_to_event(
                 if (level < 0)
                         level = event->default_log_level;
 
-                log_set_max_level_all_realms(level);
+                log_set_max_level(level);
 
                 if (level == LOG_DEBUG && !event->log_level_was_debug) {
                         /* The log level becomes LOG_DEBUG at first time. Let's log basic information. */

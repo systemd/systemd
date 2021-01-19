@@ -324,7 +324,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_facility(LOG_AUTH);
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-machined.service",
                                "Manage registrations of local VMs and containers.",
