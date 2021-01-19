@@ -15,7 +15,10 @@ about: A report of an error in a recent systemd version
  > …
 
 **Linux kernel version used** (`uname -a`)
- > …
+<!-- Make sure to enclose the pasted kernel version in `backticks`, so that
+     GitHub doesn't convert the `#` character typically included in it into a
+     reference to old GitHub issues. ->
+ > `…`
 
 **CPU architecture issue was seen on**
  > …
