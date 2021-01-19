@@ -59,3 +59,7 @@ int getenv_bool_secure(const char *p);
 int set_unset_env(const char *name, const char *value, bool overwrite);
 
 int setenv_systemd_exec_pid(bool update_only);
+
+/* Parses and does sanity checks on an environment variable containing
+ * PATH-like colon-separated absolute paths */
+int getenv_path_list(const char *name, char ***ret_paths);
