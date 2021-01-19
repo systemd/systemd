@@ -231,7 +231,8 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (!c)
                 return -ENOMEM;
 
-        /* curl_easy_setopt(c, CURLOPT_VERBOSE, 1L); */
+        if (DEBUG_LOGGING)
+                (void) curl_easy_setopt(c, CURLOPT_VERBOSE, 1L);
 
         if (curl_easy_setopt(c, CURLOPT_URL, url) != CURLE_OK)
                 return -EIO;
