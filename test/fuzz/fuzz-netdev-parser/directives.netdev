@@ -223,3 +223,14 @@ InterfaceId=
 [BareUDP]
 DestinationPort=
 EtherType=
+[BatmanAdvanced]
+GatewayMode=
+Aggregation=
+BridgeLoopAvoidance=
+DistributedArpTable=
+Fragmentation=
+HopPenalty=
+OriginatorIntervalSec=
+GatewayBandwithDown=
+GatewayBandwithUp=
+RoutingAlgorithm=
