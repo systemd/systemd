@@ -943,6 +943,10 @@ int ask_password_agent(
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
                 if (IN_SET(n, -EAGAIN, -EINTR))
                         continue;
+                if (n == -EXFULL) {
+                        log_debug("Got message with truncated control data, ignoring.");
+                        continue;
+                }
                 if (n < 0) {
                         r = (int) n;
                         goto finish;
