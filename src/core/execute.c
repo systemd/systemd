@@ -3183,7 +3183,9 @@ static int apply_mount_namespace(
         if (context->mount_flags == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
-        if (exec_context_has_credentials(context) && params->prefix[EXEC_DIRECTORY_RUNTIME]) {
+        if (exec_context_has_credentials(context) &&
+            params->prefix[EXEC_DIRECTORY_RUNTIME] &&
+            FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
                 creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
                 if (!creds_path) {
                         r = -ENOMEM;
