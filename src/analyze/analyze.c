@@ -1022,7 +1022,6 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_freep) struct unit_times *times = NULL;
-        struct unit_times *u;
         Hashmap *h;
         int n, r;
 
@@ -1038,7 +1037,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         if (!h)
                 return log_oom();
 
-        for (u = times; u->has_data; u++) {
+        for (struct unit_times *u = times; u->has_data; u++) {
                 r = hashmap_put(h, u->name, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add entry to hashmap: %m");
@@ -1065,7 +1064,6 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_freep) struct unit_times *times = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        struct unit_times *u;
         TableCell *cell;
         int n, r;
 
@@ -1105,7 +1103,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        for (u = times; u->has_data; u++) {
+        for (struct unit_times *u = times; u->has_data; u++) {
                 if (u->time <= 0)
                         continue;
 

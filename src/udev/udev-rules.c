@@ -2147,19 +2147,17 @@ static int udev_rule_apply_token_to_event(
                 if (IN_SET(token->op, OP_ASSIGN, OP_ASSIGN_FINAL))
                         ordered_hashmap_clear_free_key(event->run_list);
 
-                r = ordered_hashmap_ensure_allocated(&event->run_list, NULL);
-                if (r < 0)
-                        return log_oom();
-
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
 
                 cmd = strdup(buf);
                 if (!cmd)
                         return log_oom();
 
-                r = ordered_hashmap_put(event->run_list, cmd, token->data);
-                if (r < 0)
+                r = ordered_hashmap_ensure_put(&event->run_list, NULL, cmd, token->data);
+                if (r == -ENOMEM)
                         return log_oom();
+                if (r < 0)
+                        return r;
 
                 TAKE_PTR(cmd);
 
