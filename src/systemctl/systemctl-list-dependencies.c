@@ -117,7 +117,7 @@ static int list_dependencies_one(
                                 break;
                         }
 
-                        printf("%s%s%s ", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), ansi_normal());
+                        printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(active_state)), ansi_normal());
                 }
 
                 r = list_dependencies_print(*c, level, branches, c[1] == NULL);
