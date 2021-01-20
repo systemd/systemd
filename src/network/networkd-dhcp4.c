@@ -788,6 +788,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         } else
                 link->dhcp_address->callback = dhcp4_address_ready_callback;
 
+        link->dhcp_address->keep_dhcp4_address = false;
         return 1;
 }
 
@@ -878,7 +879,9 @@ static int dhcp4_update_address(Link *link, bool announce) {
 
         if (!address_equal(link->dhcp_address, ret))
                 link->dhcp_address_old = link->dhcp_address;
+
         link->dhcp_address = ret;
+        ret->keep_dhcp4_address = true;
 
         return 0;
 }
