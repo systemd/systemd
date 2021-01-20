@@ -736,7 +736,9 @@ _public_ int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_moni
         if (r < 0)
                 return r;
 
-        s = d = NULL;
+        TAKE_PTR(s);
+        TAKE_PTR(d);
+
         m->filter_uptodate = false;
 
         return 0;
