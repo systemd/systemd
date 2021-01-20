@@ -1483,61 +1483,6 @@ static int link_set_group(Link *link) {
         return 0;
 }
 
-static int link_tx_rx_queues_hadler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set transmit / receive queues for the interface");
-
-        return 1;
-}
-
-static int link_set_tx_rx_queues(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        if (link->network->txqueues == 0 && link->network->rxqueues == 0)
-                return 0;
-
-        log_link_debug(link, "Setting transmit / receive queues");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        if (link->network->txqueues > 0) {
-                r = sd_netlink_message_append_u32(req, IFLA_NUM_TX_QUEUES, link->network->txqueues);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set link transmit queues: %m");
-        }
-
-        if (link->network->rxqueues > 0) {
-                r = sd_netlink_message_append_u32(req, IFLA_NUM_RX_QUEUES, link->network->rxqueues);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set link receive queues: %m");
-        }
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_tx_rx_queues_hadler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
 static int link_handle_bound_to_list(Link *link) {
         Link *l;
         int r;
@@ -2106,10 +2051,6 @@ int link_configure(Link *link) {
                 return r;
 
         r = link_set_group(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_tx_rx_queues(link);
         if (r < 0)
                 return r;
 

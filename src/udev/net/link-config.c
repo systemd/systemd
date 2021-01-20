@@ -427,11 +427,15 @@ static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config 
         } else
                 mac = config->mac;
 
-        r = rtnl_set_link_properties(rtnl, ifindex, config->alias, mac, config->txqueuelen, config->mtu,
-                                     config->gso_max_size, config->gso_max_segments);
+        r = rtnl_set_link_properties(rtnl, ifindex, config->alias, mac,
+                                     config->txqueues, config->rxqueues, config->txqueuelen,
+                                     config->mtu, config->gso_max_size, config->gso_max_segments);
         if (r < 0)
-                log_device_warning_errno(device, r, "Could not set Alias=, MACAddress=, TxQueueLength=, MTU=, "
-					 "GenericSegmentOffloadMaxBytes= or GenericSegmentOffloadMaxSegments=, ignoring: %m");
+                log_device_warning_errno(device, r,
+                                         "Could not set Alias=, MACAddress=, "
+                                         "TransmitQueues=, ReceiveQueues=, TransmitQueueLength=, MTU=, "
+                                         "GenericSegmentOffloadMaxBytes= or GenericSegmentOffloadMaxSegments=, "
+                                         "ignoring: %m");
 
         return 0;
 }
@@ -701,6 +705,40 @@ int config_parse_ifalias(
         if (free_and_strdup(s, rvalue) < 0)
                 return log_oom();
 
+        return 0;
+}
+
+int config_parse_rx_tx_queues(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t k, *v = data;
+        int r;
+
+        if (isempty(rvalue)) {
+                *v = 0;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+        if (k == 0 || k > 4096) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+
+        *v = k;
         return 0;
 }
 
