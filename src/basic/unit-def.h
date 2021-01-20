@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "macro.h"
+#include "locale-util.h"
 
 /* The enum order is used to order unit jobs in the job queue
  * when other criteria (cpu weight, nice level) are identical.
@@ -304,3 +305,5 @@ UnitDependency unit_dependency_from_string(const char *s) _pure_;
 
 const char* notify_access_to_string(NotifyAccess i) _const_;
 NotifyAccess notify_access_from_string(const char *s) _pure_;
+
+SpecialGlyph unit_active_state_to_glyph(UnitActiveState state);
