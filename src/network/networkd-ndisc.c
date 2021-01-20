@@ -1544,11 +1544,9 @@ int config_parse_address_generation_type(
                 token->prefix = buffer.in6;
         }
 
-        r = ordered_set_ensure_allocated(&network->ipv6_tokens, &ipv6_token_hash_ops);
-        if (r < 0)
+        r = ordered_set_ensure_put(&network->ipv6_tokens, &ipv6_token_hash_ops, token);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = ordered_set_put(network->ipv6_tokens, token);
         if (r == -EEXIST)
                 log_syntax(unit, LOG_DEBUG, filename, line, r,
                            "IPv6 token '%s' is duplicated, ignoring: %m", rvalue);
