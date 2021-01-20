@@ -1723,10 +1723,6 @@ static int event_make_inotify_data(
 
         fd = fd_move_above_stdio(fd);
 
-        r = hashmap_ensure_allocated(&e->inotify_data, &uint64_hash_ops);
-        if (r < 0)
-                return r;
-
         d = new(struct inotify_data, 1);
         if (!d)
                 return -ENOMEM;
@@ -1737,7 +1733,7 @@ static int event_make_inotify_data(
                 .priority = priority,
         };
 
-        r = hashmap_put(e->inotify_data, &d->priority, d);
+        r = hashmap_ensure_put(&e->inotify_data, &uint64_hash_ops, &d->priority, d);
         if (r < 0) {
                 d->fd = safe_close(d->fd);
                 free(d);
