@@ -41,11 +41,12 @@ typedef enum VarlinkMethodFlags {
 } VarlinkMethodFlags;
 
 typedef enum VarlinkServerFlags {
-        VARLINK_SERVER_ROOT_ONLY   = 1 << 0, /* Only accessible by root */
-        VARLINK_SERVER_MYSELF_ONLY = 1 << 1, /* Only accessible by our own UID */
-        VARLINK_SERVER_ACCOUNT_UID = 1 << 2, /* Do per user accounting */
+        VARLINK_SERVER_ROOT_ONLY        = 1 << 0, /* Only accessible by root */
+        VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
+        VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
+        VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
 
-        _VARLINK_SERVER_FLAGS_ALL = (1 << 3) - 1,
+        _VARLINK_SERVER_FLAGS_ALL = (1 << 4) - 1,
 } VarlinkServerFlags;
 
 typedef int (*VarlinkMethod)(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
