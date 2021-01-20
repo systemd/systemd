@@ -2137,7 +2137,9 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
                 return r;
 
         v->fd = fd;
-        v->userdata = server->userdata;
+        if (server->flags & VARLINK_SERVER_INHERIT_USERDATA)
+                v->userdata = server->userdata;
+
         if (ucred_acquired) {
                 v->ucred = ucred;
                 v->ucred_acquired = true;

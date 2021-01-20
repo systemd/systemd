@@ -269,11 +269,13 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         _cleanup_(lookup_parameters_destroy) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        Manager *m = userdata;
         DnsQuery *q;
+        Manager *m;
         int r;
 
         assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
         assert(m);
 
         if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))
@@ -447,11 +449,13 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         _cleanup_(lookup_parameters_destroy) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        Manager *m = userdata;
         DnsQuery *q;
+        Manager *m;
         int r;
 
         assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
         assert(m);
 
         if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))

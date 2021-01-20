@@ -388,7 +388,7 @@ int manager_varlink_init(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID);
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
