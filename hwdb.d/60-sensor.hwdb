@@ -528,6 +528,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX:pnVISION004:*
 #########################################
 # Medion
 #########################################
+# Medion Akoya E2228T MD61900
+sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnE2228TMD61900:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+ ACCEL_LOCATION=base
 
 # Medion Akoya E1239T MD60568
 sensor:modalias:acpi:KIOX0009*:dmi:*:svnMEDION:pnE1239TMD60568:*
