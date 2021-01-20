@@ -629,10 +629,6 @@ static int event_make_signal_data(
                         return 0;
                 }
         } else {
-                r = hashmap_ensure_allocated(&e->signal_data, &uint64_hash_ops);
-                if (r < 0)
-                        return r;
-
                 d = new(struct signal_data, 1);
                 if (!d)
                         return -ENOMEM;
@@ -643,7 +639,7 @@ static int event_make_signal_data(
                         .priority = priority,
                 };
 
-                r = hashmap_put(e->signal_data, &d->priority, d);
+                r = hashmap_ensure_put(&e->signal_data, &uint64_hash_ops, &d->priority, d);
                 if (r < 0) {
                         free(d);
                         return r;
