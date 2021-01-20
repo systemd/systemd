@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "format-util.h"
 #include "logind-dbus.h"
+#include "logind-selinux-access.h"
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
 #include "logind-user.h"
@@ -202,6 +203,10 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(u);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_TERMINATEUSER, error);
+        if (r < 0)
+                return r;
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_KILL,
@@ -230,6 +235,10 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(message);
         assert(u);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_KILLUSER, error);
+        if (r < 0)
+                return r;
 
         r = bus_verify_polkit_async(
                         message,

@@ -11,6 +11,7 @@
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
+#include "logind-selinux-access.h"
 #include "logind-session-dbus.h"
 #include "logind.h"
 #include "missing_capability.h"
@@ -138,6 +139,10 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_TERMINATESEAT, error);
+        if (r < 0)
+                return r;
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_KILL,
@@ -167,6 +172,10 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_ACTIVATESESSION, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -208,6 +217,10 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SWITCHSEATTO, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "u", &to);
         if (r < 0)
                 return r;
@@ -243,6 +256,10 @@ static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SWITCHSEATTONEXT, error);
+        if (r < 0)
+                return r;
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
@@ -270,6 +287,10 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SWITCHSEATTOPREV, error);
+        if (r < 0)
+                return r;
 
         r = bus_verify_polkit_async(
                         message,
