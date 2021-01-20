@@ -878,6 +878,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
 
         if (!address_equal(link->dhcp_address, ret))
                 link->dhcp_address_old = link->dhcp_address;
+
         link->dhcp_address = ret;
 
         return 0;
