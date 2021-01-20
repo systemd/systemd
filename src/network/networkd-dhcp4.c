@@ -876,8 +876,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv4 address: %m");
 
-        if (!address_equal(link->dhcp_address, ret))
-                link->dhcp_address_old = link->dhcp_address;
+        link->dhcp_address_old = link->dhcp_address;
         link->dhcp_address = ret;
 
         return 0;
