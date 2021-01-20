@@ -230,10 +230,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be 
 Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
 </programlisting>
 
-            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. White
-            indicates an <literal>inactive</literal> or <literal>deactivating</literal> state. Red indicates a
-            <literal>failed</literal> or <literal>error</literal> state and green indicates an
-            <literal>active</literal>, <literal>reloading</literal> or <literal>activating</literal> state.
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. Along with
+            its color, its shape varies according to its state: <literal>inactive</literal> or
+            <literal>maintenance</literal> is a white circle ("○"), <literal>active</literal> is a green dot ("●"),
+            <literal>deactivating</literal> is a white dot, <literal>failed</literal> or <literal>error</literal> is
+            a red cross ("×"), and <literal>reloading</literal> is a green clockwise circle arrow ("↻").
             </para>
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
