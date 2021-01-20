@@ -352,12 +352,6 @@ static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
                         link_enter_failed(link);
                         return 1;
                 }
-
-                r = link_set_routes(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return 1;
-                }
         }
 
         return 1;
@@ -618,14 +612,8 @@ static int dhcp6_pd_finalize(Link *link) {
         if (link->dhcp6_pd_address_messages == 0) {
                 if (link->dhcp6_pd_prefixes_assigned)
                         link->dhcp6_pd_address_configured = true;
-        } else {
+        } else
                 log_link_debug(link, "Setting DHCPv6 PD addresses");
-                /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are
-                 * called, the related flags must be cleared. Otherwise, the link becomes configured
-                 * state before routes are configured. */
-                link->static_routes_configured = false;
-                link->static_nexthops_configured = false;
-        }
 
         if (link->dhcp6_pd_route_messages == 0) {
                 if (link->dhcp6_pd_prefixes_assigned)
@@ -962,12 +950,6 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                         link_enter_failed(link);
                         return 1;
                 }
-
-                r = link_set_routes(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return 1;
-                }
         }
 
         return 1;
@@ -1149,14 +1131,8 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 
         if (link->dhcp6_address_messages == 0)
                 link->dhcp6_address_configured = true;
-        else {
+        else
                 log_link_debug(link, "Setting DHCPv6 addresses");
-                /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are
-                 * called, the related flags must be cleared. Otherwise, the link becomes configured
-                 * state before routes are configured. */
-                link->static_routes_configured = false;
-                link->static_nexthops_configured = false;
-        }
 
         if (link->dhcp6_route_messages == 0)
                 link->dhcp6_route_configured = true;
