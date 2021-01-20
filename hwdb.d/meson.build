@@ -20,6 +20,7 @@ hwdb_files_notest = files('''
 
 hwdb_files_test = files('''
         60-autosuspend.hwdb
+        60-autosuspend-libfprint.hwdb
         60-evdev.hwdb
         60-input-id.hwdb
         60-keyboard.hwdb
@@ -70,4 +71,4 @@ run_target(
 
 run_target(
         'autosuspend-update',
-        command : [autosuspend_update_sh, project_source_root + '/tools/chromiumos'])
+        command : [autosuspend_update_sh, project_source_root])
