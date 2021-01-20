@@ -314,7 +314,7 @@ static void print_status_info(
 
         format_active_state(i->active_state, &active_on, &active_off);
 
-        printf("%s%s%s %s", active_on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), active_off, strna(i->id));
+        printf("%s%s%s %s", active_on, special_glyph(unit_active_state_to_glyph(i->active_state)), active_off, strna(i->id));
 
         if (i->description && !streq_ptr(i->id, i->description))
                 printf(" - %s", i->description);
@@ -433,7 +433,7 @@ static void print_status_info(
 
                 printf("%s %s%s%s %s\n",
                        t == i->triggered_by ? "TriggeredBy:" : "            ",
-                       on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off,
+                       on, special_glyph(unit_active_state_to_glyph(state)), off,
                        *t);
         }
 
