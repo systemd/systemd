@@ -19,6 +19,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -1023,10 +1024,9 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r < 0)
                 goto fail;
 
-        if (rename(temp_path, lease_file) < 0) {
-                r = -errno;
+        r = conservative_rename(temp_path, lease_file);
+        if (r < 0)
                 goto fail;
-        }
 
         return 0;
 
