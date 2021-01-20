@@ -216,20 +216,6 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>TransmitQueues=</varname></term>
-        <listitem>
-          <para>Specifies the devices's number of transmit queues. An integer in the range 1...4096.
-          When unset, the kernel's default will be used.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><varname>ReceiveQueues=</varname></term>
-        <listitem>
-          <para>Specifies the devices's number of receive queues. An integer in the range 1...4096.
-          When unset, the kernel's default will be used.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><varname>RequiredForOnline=</varname></term>
         <listitem>
           <para>Takes a boolean or a minimum operational state and an optional maximum operational state.

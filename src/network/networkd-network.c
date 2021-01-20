@@ -1193,40 +1193,6 @@ int config_parse_required_for_online(
         return 0;
 }
 
-int config_parse_rx_tx_queues(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint32_t k, *v = data;
-        int r;
-
-        if (isempty(rvalue)) {
-                *v = 0;
-                return 0;
-        }
-
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
-                return 0;
-        }
-        if (k == 0 || k > 4096) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s=, ignoring assignment: %s.", lvalue, rvalue);
-                return 0;
-        }
-
-        *v = k;
-        return 0;
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration,
                          "Failed to parse KeepConfiguration= setting");
 
