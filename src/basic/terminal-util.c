@@ -1375,23 +1375,23 @@ void get_log_colors(int priority, const char **on, const char **off, const char 
                 if (on)
                         *on = ansi_highlight_red();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
-                        *highlight = ANSI_HIGHLIGHT;
+                        *highlight = ansi_highlight();
 
         } else if (priority <= LOG_WARNING) {
                 if (on)
                         *on = ansi_highlight_yellow();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
-                        *highlight = ANSI_HIGHLIGHT;
+                        *highlight = ansi_highlight();
 
         } else if (priority <= LOG_NOTICE) {
                 if (on)
-                        *on = ANSI_HIGHLIGHT;
+                        *on = ansi_highlight();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
                         *highlight = ansi_highlight_red();
 
@@ -1399,7 +1399,7 @@ void get_log_colors(int priority, const char **on, const char **off, const char 
                 if (on)
                         *on = ansi_grey();
                 if (off)
-                        *off = ANSI_NORMAL;
+                        *off = ansi_normal();
                 if (highlight)
                         *highlight = ansi_highlight_red();
         }

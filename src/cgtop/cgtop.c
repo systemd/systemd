@@ -916,7 +916,7 @@ static int run(int argc, char *argv[]) {
         CGroupMask mask;
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1080,14 +1080,12 @@ static int run(int argc, char *argv[]) {
                 case '?':
                 case 'h':
 
-#define ON ANSI_HIGHLIGHT
-#define OFF ANSI_NORMAL
-
                         fprintf(stdout,
-                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
-                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
-                                "\t<" ON "P" OFF "> Toggle count userspace processes; <" ON "k" OFF "> Toggle count all processes\n"
-                                "\t<" ON "r" OFF "> Count processes recursively; <" ON "q" OFF "> Quit");
+                                "\t<%1$sp%2$s> By path; <%1$st%2$s> By tasks/procs; <%1$sc%2$s> By CPU; <%1$sm%2$s> By memory; <%1$si%2$s> By I/O\n"
+                                "\t<%1$s+%2$s> Inc. delay; <%1$s-%2$s> Dec. delay; <%1$s%%%2$s> Toggle time; <%1$sSPACE%2$s> Refresh\n"
+                                "\t<%1$sP%2$s> Toggle count userspace processes; <%1$sk%2$s> Toggle count all processes\n"
+                                "\t<%1$sr%2$s> Count processes recursively; <%1$sq%2$s> Quit",
+                                ansi_highlight(), ansi_normal());
                         fflush(stdout);
                         sleep(3);
                         break;

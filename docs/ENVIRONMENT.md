@@ -55,6 +55,8 @@ All tools:
 * `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in the
   SystemdOptions EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
 
+* `$SYSTEMD_PARSE_EFI=0` — if set, SystemdOptions EFI variable will not be parsed.
+
 * `$SYSTEMD_IN_INITRD=[auto|lenient|0|1]` — if set, specifies initrd detection
   method. Defaults to `auto`. Behavior is defined as follows:
   `auto`: Checks if `/etc/initrd-release` exists, and a temporary fs is mounted
