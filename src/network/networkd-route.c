@@ -87,20 +87,68 @@ static const char * const route_table_table[] = {
         [RT_TABLE_LOCAL]   = "local",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(route_table, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
 
-#define ROUTE_TABLE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("default") + 1)
-static const char *format_route_table(int table, char *buf, size_t size) {
+int route_table_from_string_full(const Manager *m, const char *s, uint32_t *ret) {
+        uint32_t t;
+        int r;
+
+        assert(m);
+        assert(s);
+        assert(ret);
+
+        r = route_table_from_string(s);
+        if (r >= 0) {
+                *ret = (uint32_t) r;
+                return 0;
+        }
+
+        t = PTR_TO_UINT32(hashmap_get(m->route_table_numbers_by_name, s));
+        if (t != 0) {
+                *ret = t;
+                return 0;
+        }
+
+        r = safe_atou32(s, &t);
+        if (r < 0)
+                return r;
+
+        if (t == 0)
+                return -ERANGE;
+
+        *ret = t;
+        return 0;
+}
+
+int route_table_to_string_full(const Manager *m, uint32_t table, char **ret) {
+        _cleanup_free_ char *str = NULL;
         const char *s;
-        char *p = buf;
+
+        assert(m);
+        assert(ret);
+
+        if (table == 0)
+                return -EINVAL;
 
         s = route_table_to_string(table);
-        if (s)
-                strpcpy(&p, size, s);
-        else
-                strpcpyf(&p, size, "%d", table);
+        if (!s)
+                s = hashmap_get(m->route_table_names_by_number, UINT32_TO_PTR(table));
 
-        return buf;
+        if (s) {
+                /* Currently, this is only used in debugging logs. To not confuse any bug
+                 * reports, let's include the table number. */
+                if (asprintf(&str, "%s(%" PRIu32 ")", s, table) < 0)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(str);
+                return 0;
+        }
+
+        if (asprintf(&str, "%" PRIu32, table) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+        return 0;
 }
 
 static const char * const route_protocol_table[] = {
@@ -584,15 +632,16 @@ static bool route_type_is_reject(const Route *route) {
         return IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW);
 }
 
-static void log_route_debug(const Route *route, const char *str, const Link *link) {
+static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *m) {
         assert(route);
         assert(str);
+        assert(m);
 
         /* link may be NULL. */
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
-                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
+                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL, *table = NULL;
+                char scope[ROUTE_SCOPE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
 
                 if (!in_addr_is_null(route->family, &route->dst)) {
                         (void) in_addr_to_string(route->family, &route->dst, &dst);
@@ -604,12 +653,13 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                         (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
+                (void) route_table_to_string_full(m, route->table, &table);
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
                                str, strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
                                format_route_scope(route->scope, scope, sizeof(scope)),
-                               format_route_table(route->table, table, sizeof(table)),
+                               strna(table),
                                format_route_protocol(route->protocol, protocol, sizeof(protocol)),
                                strna(route_type_to_string(route->type)));
         }
@@ -751,7 +801,7 @@ int route_remove(
                 manager = link->manager;
         /* link may be NULL! */
 
-        log_route_debug(route, "Removing", link);
+        log_route_debug(route, "Removing", link, manager);
 
         r = sd_rtnl_message_new_route(manager->rtnl, &req,
                                       RTM_DELROUTE, route->family,
@@ -1066,7 +1116,7 @@ int route_configure(
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many routes are configured, refusing: %m");
 
-        log_route_debug(route, "Configuring", link);
+        log_route_debug(route, "Configuring", link, link->manager);
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_NEWROUTE, route->family,
@@ -1295,10 +1345,10 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
         case RTM_NEWROUTE:
                 if (!route) {
                         if (!manager->manage_foreign_routes)
-                                log_route_debug(tmp, "Ignoring received foreign", link);
+                                log_route_debug(tmp, "Ignoring received foreign", link, manager);
                         else {
                                 /* A route appeared that we did not request */
-                                log_route_debug(tmp, "Remembering foreign", link);
+                                log_route_debug(tmp, "Remembering foreign", link, manager);
                                 r = route_add_foreign(manager, link, tmp, NULL);
                                 if (r < 0) {
                                         log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
@@ -1306,14 +1356,15 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
                                 }
                         }
                 } else
-                        log_route_debug(tmp, "Received remembered", link);
+                        log_route_debug(tmp, "Received remembered", link, manager);
 
                 break;
 
         case RTM_DELROUTE:
                 log_route_debug(tmp,
                                 route ? "Forgetting" :
-                                manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received foreign", link);
+                                manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received foreign",
+                                link, manager);
                 route_free(route);
                 break;
 
@@ -1868,28 +1919,6 @@ int config_parse_route_scope(
         return 0;
 }
 
-int route_table_from_string_full(Manager *m, const char *s, uint32_t *ret) {
-        int r;
-
-        assert(s);
-        assert(m);
-        assert(ret);
-
-        r = route_table_from_string(s);
-        if (r >= 0) {
-                *ret = (uint32_t) r;
-                return 0;
-        }
-
-        uint32_t t = PTR_TO_UINT32(hashmap_get(m->route_tables, s));
-        if (t != 0) {
-                *ret = t;
-                return 0;
-        }
-
-        return safe_atou32(s, ret);
-}
-
 int config_parse_route_table(
                 const char *unit,
                 const char *filename,
@@ -2385,16 +2414,17 @@ int config_parse_route_table_names(
                 void *data,
                 void *userdata) {
 
-        Hashmap **s = data;
+        Manager *m = userdata;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(userdata);
 
         if (isempty(rvalue)) {
-                *s = hashmap_free_free_key(*s);
+                m->route_table_names_by_number = hashmap_free(m->route_table_names_by_number);
+                m->route_table_numbers_by_name = hashmap_free(m->route_table_numbers_by_name);
                 return 0;
         }
 
@@ -2441,7 +2471,7 @@ int config_parse_route_table_names(
                         continue;
                 }
 
-                r = hashmap_ensure_put(s, &string_hash_ops, name, UINT32_TO_PTR(table));
+                r = hashmap_ensure_put(&m->route_table_numbers_by_name, &string_hash_ops_free, name, UINT32_TO_PTR(table));
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r == -EEXIST) {
@@ -2454,8 +2484,27 @@ int config_parse_route_table_names(
                                    "Failed to store route table name and number pair, ignoring assignment: %s:%s", name, num);
                         continue;
                 }
-                if (r > 0)
-                        TAKE_PTR(name);
+                if (r == 0)
+                        /* The entry is duplicated. It should not be added to route_table_names_by_number hashmap. */
+                        continue;
+
+                r = hashmap_ensure_put(&m->route_table_names_by_number, NULL, UINT32_TO_PTR(table), name);
+                if (r < 0) {
+                        hashmap_remove(m->route_table_numbers_by_name, name);
+
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r == -EEXIST)
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Specified route table name and number pair conflicts with others, ignoring assignment: %s:%s", name, num);
+                        else
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                           "Failed to store route table name and number pair, ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
+                assert(r > 0);
+
+                TAKE_PTR(name);
         }
 }
 
