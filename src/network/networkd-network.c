@@ -815,7 +815,7 @@ int config_parse_stacked_netdev(const char *unit,
                 log_syntax(unit, LOG_DEBUG, filename, line, r,
                            "NetDev '%s' specified twice, ignoring.", name);
         else
-                name = NULL;
+                TAKE_PTR(name);
 
         return 0;
 }
