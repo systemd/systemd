@@ -287,3 +287,18 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+
+SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
+        switch (state) {
+                case UNIT_ACTIVE:
+                case UNIT_RELOADING:
+                case UNIT_ACTIVATING:
+                case UNIT_DEACTIVATING:
+                    return SPECIAL_GLYPH_BLACK_CIRCLE;
+                    break;
+
+                default:
+                    return SPECIAL_GLYPH_BLACK_SQUARE;
+                    break;
+            }
+}
