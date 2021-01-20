@@ -118,6 +118,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
         int k, r = 0;
+        bool updated = false;
 
         assert(link);
         assert(router);
@@ -182,12 +183,19 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
                 }
 
         SET_FOREACH(rdnss, link->ndisc_rdnss)
-                if (rdnss->marked && IN6_ARE_ADDR_EQUAL(&rdnss->router, router))
+                if (rdnss->marked && IN6_ARE_ADDR_EQUAL(&rdnss->router, router)) {
                         free(set_remove(link->ndisc_rdnss, rdnss));
+                        updated = true;
+                }
 
         SET_FOREACH(dnssl, link->ndisc_dnssl)
-                if (dnssl->marked && IN6_ARE_ADDR_EQUAL(&dnssl->router, router))
+                if (dnssl->marked && IN6_ARE_ADDR_EQUAL(&dnssl->router, router)) {
                         free(set_remove(link->ndisc_dnssl, dnssl));
+                        updated = true;
+                }
+
+        if (updated)
+                link_dirty(link);
 
         return r;
 }
@@ -926,6 +934,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         NDiscRDNSS *rdnss;
         usec_t time_now;
+        bool updated = false;
         int n, r;
 
         assert(link);
@@ -987,7 +996,12 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
+
+                updated = true;
         }
+
+        if (updated)
+                link_dirty(link);
 
         return 0;
 }
@@ -1013,6 +1027,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime;
         usec_t time_now;
         NDiscDNSSL *dnssl;
+        bool updated = false;
         char **j;
         int r;
 
@@ -1072,7 +1087,12 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
+
+                updated = true;
         }
+
+        if (updated)
+                link_dirty(link);
 
         return 0;
 }
@@ -1197,8 +1217,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
 
         link->ndisc_addresses_configured = false;
         link->ndisc_routes_configured = false;
-
-        link_dirty(link);
 
         SET_FOREACH(na, link->ndisc_addresses)
                 if (IN6_ARE_ADDR_EQUAL(&na->router, &router.in6))
@@ -1327,7 +1345,6 @@ void ndisc_vacuum(Link *link) {
         NDiscRDNSS *r;
         NDiscDNSSL *d;
         usec_t time_now;
-        bool updated = false;
 
         assert(link);
 
@@ -1336,19 +1353,12 @@ void ndisc_vacuum(Link *link) {
         time_now = now(clock_boottime_or_monotonic());
 
         SET_FOREACH(r, link->ndisc_rdnss)
-                if (r->valid_until < time_now) {
+                if (r->valid_until < time_now)
                         free(set_remove(link->ndisc_rdnss, r));
-                        updated = true;
-                }
 
         SET_FOREACH(d, link->ndisc_dnssl)
-                if (d->valid_until < time_now) {
+                if (d->valid_until < time_now)
                         free(set_remove(link->ndisc_dnssl, d));
-                        updated = true;
-                }
-
-        if (updated)
-                link_dirty(link);
 }
 
 void ndisc_flush(Link *link) {

@@ -160,8 +160,6 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
 
         log_link_debug(link, "Removing old DHCPv6 Prefix Delegation addresses and routes.");
 
-        link_dirty(link);
-
         SET_FOREACH(route, link->dhcp6_pd_routes_old) {
                 k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
@@ -203,8 +201,6 @@ int dhcp6_pd_remove(Link *link) {
                 return r;
 
         log_link_debug(link, "Removing DHCPv6 Prefix Delegation addresses and routes.");
-
-        link_dirty(link);
 
         SET_FOREACH(route, link->dhcp6_pd_routes) {
                 k = route_remove(route, NULL, link, NULL);
@@ -579,8 +575,6 @@ static int dhcp6_pd_prepare(Link *link) {
         if (!link_dhcp6_pd_is_enabled(link))
                 return 0;
 
-        link_dirty(link);
-
         link->dhcp6_pd_address_configured = false;
         link->dhcp6_pd_route_configured = false;
         link->dhcp6_pd_prefixes_assigned = true;
@@ -696,8 +690,6 @@ static int dhcp6_remove_old(Link *link, bool force) {
 
         log_link_debug(link, "Removing old DHCPv6 addresses and routes.");
 
-        link_dirty(link);
-
         SET_FOREACH(route, link->dhcp6_routes_old) {
                 k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
@@ -731,8 +723,6 @@ static int dhcp6_remove(Link *link) {
                 return r;
 
         log_link_debug(link, "Removing DHCPv6 addresses and routes.");
-
-        link_dirty(link);
 
         SET_FOREACH(route, link->dhcp6_routes) {
                 k = route_remove(route, NULL, link, NULL);
@@ -1095,8 +1085,6 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 
         link->dhcp6_address_configured = false;
         link->dhcp6_route_configured = false;
-
-        link_dirty(link);
 
         while ((a = set_steal_first(link->dhcp6_addresses))) {
                 r = set_ensure_put(&link->dhcp6_addresses_old, &address_hash_ops, a);

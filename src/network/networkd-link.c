@@ -595,6 +595,7 @@ void link_set_state(Link *link, LinkState state) {
 
         link->state = state;
 
+        link_dirty(link);
         link_send_changed(link, "AdministrativeState", NULL);
 }
 
@@ -602,8 +603,6 @@ static void link_enter_unmanaged(Link *link) {
         assert(link);
 
         link_set_state(link, LINK_STATE_UNMANAGED);
-
-        link_dirty(link);
 }
 
 int link_stop_engines(Link *link, bool may_keep_dhcp) {
@@ -675,8 +674,6 @@ void link_enter_failed(Link *link) {
         link_set_state(link, LINK_STATE_FAILED);
 
         (void) link_stop_engines(link, false);
-
-        link_dirty(link);
 }
 
 static int link_join_netdevs_after_configured(Link *link) {
@@ -717,8 +714,6 @@ static void link_enter_configured(Link *link) {
         link_set_state(link, LINK_STATE_CONFIGURED);
 
         (void) link_join_netdevs_after_configured(link);
-
-        link_dirty(link);
 }
 
 void link_check_ready(Link *link) {
@@ -1605,6 +1600,8 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
         if (r < 0)
                 return r;
 
+        link_dirty(link);
+
         return 0;
 }
 
@@ -1612,7 +1609,6 @@ static int link_new_bound_by_list(Link *link) {
         Manager *m;
         Link *carrier;
         int r;
-        bool list_updated = false;
 
         assert(link);
         assert(link->manager);
@@ -1630,20 +1626,13 @@ static int link_new_bound_by_list(Link *link) {
                         r = link_put_carrier(link, carrier, &link->bound_by_links);
                         if (r < 0)
                                 return r;
-
-                        list_updated = true;
                 }
         }
-
-        if (list_updated)
-                link_dirty(link);
 
         HASHMAP_FOREACH(carrier, link->bound_by_links) {
                 r = link_put_carrier(carrier, link, &carrier->bound_to_links);
                 if (r < 0)
                         return r;
-
-                link_dirty(carrier);
         }
 
         return 0;
@@ -1653,7 +1642,6 @@ static int link_new_bound_to_list(Link *link) {
         Manager *m;
         Link *carrier;
         int r;
-        bool list_updated = false;
 
         assert(link);
         assert(link->manager);
@@ -1671,20 +1659,13 @@ static int link_new_bound_to_list(Link *link) {
                         r = link_put_carrier(link, carrier, &link->bound_to_links);
                         if (r < 0)
                                 return r;
-
-                        list_updated = true;
                 }
         }
-
-        if (list_updated)
-                link_dirty(link);
 
         HASHMAP_FOREACH (carrier, link->bound_to_links) {
                 r = link_put_carrier(carrier, link, &carrier->bound_by_links);
                 if (r < 0)
                         return r;
-
-                link_dirty(carrier);
         }
 
         return 0;
@@ -1713,23 +1694,32 @@ static int link_new_carrier_maps(Link *link) {
 }
 
 static void link_free_bound_to_list(Link *link) {
+        bool updated = false;
         Link *bound_to;
 
-        HASHMAP_FOREACH (bound_to, link->bound_to_links) {
-                hashmap_remove(link->bound_to_links, INT_TO_PTR(bound_to->ifindex));
+        assert(link);
+
+        while ((bound_to = hashmap_steal_first(link->bound_to_links))) {
+                updated = true;
 
                 if (hashmap_remove(bound_to->bound_by_links, INT_TO_PTR(link->ifindex)))
                         link_dirty(bound_to);
         }
 
+        if (updated)
+                link_dirty(link);
+
         return;
 }
 
 static void link_free_bound_by_list(Link *link) {
+        bool updated = false;
         Link *bound_by;
 
-        HASHMAP_FOREACH (bound_by, link->bound_by_links) {
-                hashmap_remove(link->bound_by_links, INT_TO_PTR(bound_by->ifindex));
+        assert(link);
+
+        while ((bound_by = hashmap_steal_first(link->bound_by_links))) {
+                updated = true;
 
                 if (hashmap_remove(bound_by->bound_to_links, INT_TO_PTR(link->ifindex))) {
                         link_dirty(bound_by);
@@ -1737,26 +1727,17 @@ static void link_free_bound_by_list(Link *link) {
                 }
         }
 
+        if (updated)
+                link_dirty(link);
+
         return;
 }
 
 static void link_free_carrier_maps(Link *link) {
-        bool list_updated = false;
-
         assert(link);
 
-        if (!hashmap_isempty(link->bound_to_links)) {
-                link_free_bound_to_list(link);
-                list_updated = true;
-        }
-
-        if (!hashmap_isempty(link->bound_by_links)) {
-                link_free_bound_by_list(link);
-                list_updated = true;
-        }
-
-        if (list_updated)
-                link_dirty(link);
+        link_free_bound_to_list(link);
+        link_free_bound_by_list(link);
 
         return;
 }
@@ -1922,7 +1903,6 @@ static int link_enter_join_netdev(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        link_dirty(link);
         link->enslaving = 0;
 
         if (link->network->bond) {
@@ -2245,16 +2225,14 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
         /* Then, apply new .network file */
-        r = network_apply(network, link);
-        if (r < 0)
-                return r;
+        link->network = network_ref(network);
+        link_dirty(link);
 
         r = link_new_carrier_maps(link);
         if (r < 0)
                 return r;
 
         link_set_state(link, LINK_STATE_INITIALIZED);
-        link_dirty(link);
 
         /* link_configure_duid() returns 0 if it requests product UUID. In that case,
          * link_configure() is called later asynchronously. */
@@ -2368,9 +2346,8 @@ static int link_initialized_and_synced(Link *link) {
                                 log_link_debug(link, "Ignoring DHCP server for loopback link");
                 }
 
-                r = network_apply(network, link);
-                if (r < 0)
-                        return r;
+                link->network = network_ref(network);
+                link_dirty(link);
         }
 
         r = link_new_bound_to_list(link);

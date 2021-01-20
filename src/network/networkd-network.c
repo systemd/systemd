@@ -714,21 +714,6 @@ int network_get(Manager *manager, unsigned short iftype, sd_device *device,
         return -ENOENT;
 }
 
-int network_apply(Network *network, Link *link) {
-        assert(network);
-        assert(link);
-
-        link->network = network_ref(network);
-
-        if (network->n_dns > 0 ||
-            !strv_isempty(network->ntp) ||
-            !ordered_set_isempty(network->search_domains) ||
-            !ordered_set_isempty(network->route_domains))
-                link_dirty(link);
-
-        return 0;
-}
-
 bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;

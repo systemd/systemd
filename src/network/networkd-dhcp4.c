@@ -36,8 +36,6 @@ static int dhcp4_release_old_lease(Link *link) {
 
         log_link_debug(link, "Removing old DHCPv4 address and routes.");
 
-        link_dirty(link);
-
         SET_FOREACH(route, link->dhcp_routes_old) {
                 k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
