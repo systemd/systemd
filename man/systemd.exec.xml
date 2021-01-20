@@ -117,6 +117,20 @@
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
         in conjunction with <varname>RootDirectory=</varname>. For details, see below.</para>
 
+        <para>If <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are used together with
+        <varname>NotifyAccess=</varname> the notification socket is automatically mounted from the host into
+        the root environment, to ensure the notification interface can work correctly.</para>
+
+        <para>Note that services using <varname>RootDirectory=</varname>/<varname>RootImage=</varname> will
+        not be able to log via the syslog or journal protocols to the host logging infrastructure, unless the
+        relevant sockets are mounted from the host, specifically:</para>
+
+        <example>
+          <title>Mounting logging sockets into root environment</title>
+
+          <programlisting>BindReadOnlyPaths=/dev/log /run/systemd/journal/socket /run/systemd/journal/stdout</programlisting>
+        </example>
+
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
