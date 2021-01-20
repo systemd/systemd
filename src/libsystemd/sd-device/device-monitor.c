@@ -732,11 +732,7 @@ _public_ int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_moni
                         return -ENOMEM;
         }
 
-        r = hashmap_ensure_allocated(&m->subsystem_filter, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(m->subsystem_filter, s, d);
+        r = hashmap_ensure_put(&m->subsystem_filter, NULL, s, d);
         if (r < 0)
                 return r;
 
