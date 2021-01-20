@@ -410,7 +410,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>TxQueueLength=</varname></term>
+        <term><varname>TransmitQueueLength=</varname></term>
         <listitem>
           <para>Specifies the transmit queue length of the device in number of packets. An unsigned integer
           in the range 0..4294967294. When unset, the kernel's default will be used.</para>
