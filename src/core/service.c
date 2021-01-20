@@ -1474,9 +1474,12 @@ static int service_spawn(
         if (!our_env)
                 return -ENOMEM;
 
-        if (service_exec_needs_notify_socket(s, flags))
+        if (service_exec_needs_notify_socket(s, flags)) {
                 if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0)
                         return -ENOMEM;
+
+                exec_params.notify_socket = UNIT(s)->manager->notify_socket;
+        }
 
         if (s->main_pid > 0)
                 if (asprintf(our_env + n_env++, "MAINPID="PID_FMT, s->main_pid) < 0)

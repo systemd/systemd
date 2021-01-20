@@ -384,6 +384,8 @@ struct ExecParameters {
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
         int exec_fd;
+
+        const char *notify_socket;
 };
 
 #include "unit.h"

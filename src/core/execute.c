@@ -3223,6 +3223,7 @@ static int apply_mount_namespace(
                             context->root_verity,
                             propagate_dir,
                             incoming_dir,
+                            root_dir || root_image ? params->notify_socket : NULL,
                             DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 

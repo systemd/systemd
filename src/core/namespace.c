@@ -1302,7 +1302,8 @@ static size_t namespace_calculate_mounts(
                 const char* var_tmp_dir,
                 const char *creds_path,
                 const char* log_namespace,
-                bool setup_propagate) {
+                bool setup_propagate,
+                const char* notify_socket) {
 
         size_t protect_home_cnt;
         size_t protect_system_cnt =
@@ -1329,7 +1330,6 @@ static size_t namespace_calculate_mounts(
                 n_bind_mounts +
                 n_mount_images +
                 n_temporary_filesystems +
-                (setup_propagate ? 1 : 0) + /* /run/systemd/incoming */
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
@@ -1339,7 +1339,9 @@ static size_t namespace_calculate_mounts(
                 (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0) +
                 (creds_path ? 2 : 1) +
-                !!log_namespace;
+                !!log_namespace +
+                setup_propagate + /* /run/systemd/incoming */
+                !!notify_socket;
 }
 
 static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
@@ -1491,6 +1493,7 @@ int setup_namespace(
                 const char *verity_data_path,
                 const char *propagate_dir,
                 const char *incoming_dir,
+                const char *notify_socket,
                 DissectImageFlags dissect_image_flags,
                 char **error_path) {
 
@@ -1593,7 +1596,8 @@ int setup_namespace(
                         tmp_dir, var_tmp_dir,
                         creds_path,
                         log_namespace,
-                        setup_propagate);
+                        setup_propagate,
+                        notify_socket);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -1767,6 +1771,14 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .source_const = propagate_dir,
                                 .path_const = incoming_dir,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                        };
+
+                if (notify_socket)
+                        *(m++) = (MountEntry) {
+                                .path_const = notify_socket,
+                                .source_const = notify_socket,
                                 .mode = BIND_MOUNT,
                                 .read_only = true,
                         };
