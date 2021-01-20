@@ -106,6 +106,9 @@ Address *address_free(Address *address) {
         if (!address)
                 return NULL;
 
+        if (address->keep_dhcp4_address)
+                return NULL;
+
         if (address->network) {
                 assert(address->section);
                 ordered_hashmap_remove(address->network->addresses_by_section, address->section);
@@ -117,10 +120,13 @@ Address *address_free(Address *address) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
                 set_remove(address->link->static_addresses, address);
+
                 if (address->link->dhcp_address == address)
                         address->link->dhcp_address = NULL;
+
                 if (address->link->dhcp_address_old == address)
                         address->link->dhcp_address_old = NULL;
+
                 set_remove(address->link->dhcp6_addresses, address);
                 set_remove(address->link->dhcp6_addresses_old, address);
                 set_remove(address->link->dhcp6_pd_addresses, address);
