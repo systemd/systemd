@@ -389,23 +389,25 @@ static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *ru
         return 1;
 }
 
-static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int family, const char *str, const Link *link) {
+static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int family, const char *str, const Link *link, const Manager *m) {
         assert(rule);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(str);
+        assert(m);
 
         /* link may be NULL. */
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
+                _cleanup_free_ char *from = NULL, *to = NULL, *table = NULL;
 
                 (void) in_addr_to_string(family, &rule->from, &from);
                 (void) in_addr_to_string(family, &rule->to, &to);
+                (void) route_table_to_string_full(m, rule->table, &table);
 
                 log_link_debug(link,
-                               "%s routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                               "%s routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %s",
                                str, rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen,
-                               strna(rule->iif), strna(rule->oif), rule->table);
+                               strna(rule->iif), strna(rule->oif), strna(table));
         }
 }
 
@@ -551,7 +553,7 @@ static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *ma
         assert(manager->rtnl);
         assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        log_routing_policy_rule_debug(rule, rule->family, "Removing", NULL);
+        log_routing_policy_rule_debug(rule, rule->family, "Removing", NULL, manager);
 
         r = sd_rtnl_message_new_routing_policy_rule(manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
@@ -610,7 +612,7 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_routing_policy_rule_debug(rule, family, "Configuring", link);
+        log_routing_policy_rule_debug(rule, family, "Configuring", link, link->manager);
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, family);
         if (r < 0)
@@ -973,9 +975,9 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         switch (type) {
         case RTM_NEWRULE:
                 if (rule)
-                        log_routing_policy_rule_debug(tmp, tmp->family, "Received remembered", NULL);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Received remembered", NULL, m);
                 else {
-                        log_routing_policy_rule_debug(tmp, tmp->family, "Remembering foreign", NULL);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Remembering foreign", NULL, m);
                         r = routing_policy_rule_consume_foreign(m, TAKE_PTR(tmp));
                         if (r < 0)
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
@@ -983,10 +985,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 break;
         case RTM_DELRULE:
                 if (rule) {
-                        log_routing_policy_rule_debug(tmp, tmp->family, "Forgetting", NULL);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Forgetting", NULL, m);
                         routing_policy_rule_free(rule);
                 } else
-                        log_routing_policy_rule_debug(tmp, tmp->family, "Kernel removed unknown", NULL);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Kernel removed unknown", NULL, m);
                 break;
 
         default:

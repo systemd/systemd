@@ -875,7 +875,8 @@ void manager_free(Manager *m) {
 
         ordered_set_free_free(m->address_pools);
 
-        m->route_tables = hashmap_free_free_key(m->route_tables);
+        hashmap_free(m->route_table_names_by_number);
+        hashmap_free(m->route_table_numbers_by_name);
 
         /* routing_policy_rule_free() access m->rules and m->rules_foreign.
          * So, it is necessary to set NULL after the sets are freed. */
