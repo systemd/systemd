@@ -16,6 +16,7 @@
 #include "ethtool-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "ipvlan.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -3120,10 +3121,9 @@ int link_save(Link *link) {
         if (r < 0)
                 goto fail;
 
-        if (rename(temp_path, link->state_file) < 0) {
-                r = -errno;
+        r = conservative_rename(temp_path, link->state_file);
+        if (r < 0)
                 goto fail;
-        }
 
         return 0;
 
