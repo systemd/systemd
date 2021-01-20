@@ -129,6 +129,7 @@ int setup_namespace(
                 const char *root_verity,
                 const char *propagate_dir,
                 const char *incoming_dir,
+                const char *notify_socket,
                 DissectImageFlags dissected_image_flags,
                 char **error_path);
 
