@@ -8,8 +8,10 @@
 #include "blockdev-util.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
+#include "bpffs-program.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
+#include "cgroup-bpf-ctx.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -215,6 +217,9 @@ void cgroup_context_done(CGroupContext *c) {
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
 
+        while (c->bpffs_programs)
+                cgroup_context_free_bpffs_program(c, c->bpffs_programs);
+
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
 }
@@ -361,6 +366,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupDeviceAllow *a;
         CGroupContext *c;
         IPAddressAccessItem *iaai;
+        CGroupBPFFsProgram *pp;
         char **path;
         char q[FORMAT_TIMESPAN_MAX];
         char v[FORMAT_TIMESPAN_MAX];
@@ -540,6 +546,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+        LIST_FOREACH(prog, pp, c->bpffs_programs)
+                fprintf(f, "%sBPFProgram: %s\n", prefix, pp->bpffs_path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -1057,6 +1066,12 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
+static void cgroup_apply_bpffs_program(Unit *u) {
+        assert(u);
+
+        (void) bpffs_program_install(u);
+}
+
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
@@ -1384,6 +1399,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPFFS_PROGRAM)
+                cgroup_apply_bpffs_program(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1414,6 +1432,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_bpffs_program(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return !LIST_IS_EMPTY(c->bpffs_programs);
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1466,6 +1495,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_bpffs_program(u))
+                mask |= CGROUP_MASK_BPFFS_PROGRAM;
 
         return mask;
 }
@@ -2962,6 +2994,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF pinned prog */
+        r = cg_all_unified();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPFFS_PROGRAM;
 
         *ret = mask;
         return 0;

@@ -5,7 +5,9 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
+#include "bpffs-program.h"
 #include "bus-get-properties.h"
+#include "cgroup-bpf-ctx.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "core-varlink.h"
@@ -346,6 +348,40 @@ static int property_get_ip_address_access(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_bpffs_program(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+        CGroupBPFFsProgram *p;
+        int r;
+
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(prog, p, c->bpffs_programs) {
+                _cleanup_free_ char *s = NULL;
+
+                r = bpffs_program_to_string(p->attach_type, p->bpffs_path, &s);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "s", s);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -396,6 +432,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMSwap", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_swap), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimitPercent", "s", bus_property_get_percent, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
+        SD_BUS_PROPERTY("BPFProgram", "as", property_get_bpffs_program, 0, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -565,6 +602,76 @@ static int bus_cgroup_set_transient_property(
                                                  "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
                                         warned = true;
                                 }
+                        }
+                }
+
+                return 1;
+        } else if (streq(name, "BPFProgram")) {
+                size_t n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_free_ char *bpffs_path = NULL;
+                        enum bpf_attach_type attach_type;
+                        const char* s;
+
+                        r = sd_bus_message_read(message, "s", &s);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = bpffs_program_from_string(s, &attach_type, &bpffs_path);
+                        if (r < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects BPF program description in <bpf_attach_type>:<absolute_path> format", name);
+
+                        if (!path_is_normalized(bpffs_path) || !path_is_absolute(bpffs_path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects a normalized absolute path.", name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = cgroup_add_bpffs_program(c, attach_type, bpffs_path);
+                                if (r < 0)
+                                        return r;
+                        }
+                        n++;
+                }
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupBPFFsProgram *p;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                while (c->bpffs_programs)
+                                        cgroup_context_free_bpffs_program(c, c->bpffs_programs);
+
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        LIST_FOREACH(prog, p, c->bpffs_programs)
+                                fprintf(f, "%sBPFProgram: %s\n", name, p->bpffs_path);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (!LIST_IS_EMPTY(c->bpffs_programs)) {
+                                r = cg_all_unified();
+                                if (r <= 0)
+                                        return r;
                         }
                 }
 

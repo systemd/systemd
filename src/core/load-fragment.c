@@ -24,6 +24,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
+#include "cgroup-bpf-ctx.h"
 #include "cgroup-setup.h"
 #include "conf-parser.h"
 #include "core-varlink.h"
@@ -5417,6 +5418,61 @@ int config_parse_ip_filter_bpf_progs(
 
                 warned = true;
         }
+
+        return 0;
+}
+
+int config_parse_bpffs_programs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_free_ char *bpffs_path = NULL;
+        enum bpf_attach_type attach_type;
+
+        const Unit *u = userdata;
+        CGroupContext *c = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+
+        if (isempty(rvalue)) {
+                while (c->bpffs_programs)
+                        cgroup_context_free_bpffs_program(c, c->bpffs_programs);
+                return 0;
+        }
+
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        r = bpffs_program_from_string(resolved, &attach_type, &bpffs_path);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve pinned BPF program for '%s': %m", resolved);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(bpffs_path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to simplify bpffs path '%s': %m", resolved);
+                return 0;
+        }
+
+        r = cgroup_add_bpffs_program(c, attach_type, bpffs_path);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to add program %s to cgroup-bpf context: %m", resolved);
 
         return 0;
 }
