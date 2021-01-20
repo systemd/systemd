@@ -430,7 +430,7 @@ static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config 
         r = rtnl_set_link_properties(rtnl, ifindex, config->alias, mac, config->txqueuelen, config->mtu,
                                      config->gso_max_size, config->gso_max_segments);
         if (r < 0)
-                log_device_warning_errno(device, r, "Could not set Alias=, MACAddress=, TxQueueLength=, MTU=, "
+                log_device_warning_errno(device, r, "Could not set Alias=, MACAddress=, TransmitQueueLength=, MTU=, "
 					 "GenericSegmentOffloadMaxBytes= or GenericSegmentOffloadMaxSegments=, ignoring: %m");
 
         return 0;
