@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"
+#include "fs-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -709,10 +710,9 @@ static int manager_save(Manager *m) {
         if (r < 0)
                 goto fail;
 
-        if (rename(temp_path, m->state_file) < 0) {
-                r = -errno;
+        r = conservative_rename(temp_path, m->state_file);
+        if (r < 0)
                 goto fail;
-        }
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
