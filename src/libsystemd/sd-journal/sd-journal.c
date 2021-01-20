@@ -63,7 +63,7 @@ static bool journal_pid_changed(sd_journal *j) {
 }
 
 static int journal_put_error(sd_journal *j, int r, const char *path) {
-        char *copy;
+        _cleanup_free_ char *copy = NULL;
         int k;
 
         /* Memorize an error we encountered, and store which
@@ -84,19 +84,17 @@ static int journal_put_error(sd_journal *j, int r, const char *path) {
                 copy = strdup(path);
                 if (!copy)
                         return -ENOMEM;
-        } else
-                copy = NULL;
+        }
 
         k = hashmap_ensure_put(&j->errors, NULL, INT_TO_PTR(r), copy);
         if (k < 0) {
-                free(copy);
-
                 if (k == -EEXIST)
                         return 0;
 
                 return k;
         }
 
+        TAKE_PTR(copy);
         return 0;
 }
 
