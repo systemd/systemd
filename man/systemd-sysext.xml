@@ -139,7 +139,7 @@
     with newer ones, for example to install a locally compiled development version of some low-level
     component over the immutable OS image without doing a full OS rebuild or modifying the nominally
     immutable image. (e.g. "install" a locally built package with <command>DESTDIR=/var/lib/extensions/mytest
-    make install &amp;&amp; systemd-sysext --refresh</command>, making it available in
+    make install &amp;&amp; systemd-sysext refresh</command>, making it available in
     <filename>/usr/</filename> as if it was installed in the OS image itself.) This case works regardless if
     the underlying host <filename>/usr/</filename> is managed as immutable disk image or is a traditional
     package manager controlled (i.e. writable) tree.</para>
@@ -148,12 +148,19 @@
   <refsect1>
     <title>Commands</title>
 
-    <para>The following command switches are understood:</para>
+    <para>The following commands are understood:</para>
 
     <variablelist>
       <varlistentry>
-        <term><option>--merge</option></term>
-        <term><option>-m</option></term>
+        <term><option>status</option></term>
+
+        <listitem><para>When invoked without any command verb, or when <option>status</option> is specified
+        the current merge status is shown, separately for both <filename>/usr/</filename> and
+        <filename>/opt/</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>merge</option></term>
         <listitem><para>Merges all currently installed system extension images into
         <filename>/usr/</filename> and <filename>/opt/</filename>, by overmounting these hierarchies with an
         <literal>overlayfs</literal> file system combining the underlying hierarchies with those included in
@@ -161,22 +168,20 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--unmerge</option></term>
-        <term><option>-u</option></term>
+        <term><option>unmerge</option></term>
         <listitem><para>Unmerges all currently installed system extension images from
         <filename>/usr/</filename> and <filename>/opt/</filename>, by unmounting the
-        <literal>overlayfs</literal> file systems created by <option>--merge</option>
+        <literal>overlayfs</literal> file systems created by <option>merge</option>
         prior.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--refresh</option></term>
-        <term><option>-R</option></term>
-        <listitem><para>A combination of <option>--unmerge</option> and <option>--merge</option>: if already
+        <term><option>refresh</option></term>
+        <listitem><para>A combination of <option>unmerge</option> and <option>merge</option>: if already
         mounted the existing <literal>overlayfs</literal> instance is unmounted temporarily, and then
         replaced by a new version. This command is useful after installing/removing system extension images,
         in order to update the <literal>overlayfs</literal> file system accordingly. If no system extensions
-        are installed when this command is executed, the equivalent of <option>--unmerge</option> is
+        are installed when this command is executed, the equivalent of <option>unmerge</option> is
         executed, without establishing any new <literal>overlayfs</literal> instance. Note that currently
         there's a brief moment where neither the old nor the new <literal>overlayfs</literal> file system is
         mounted. This implies that all resources supplied by a system extension will briefly disappear — even
@@ -184,8 +189,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--list</option></term>
-        <term><option>-l</option></term>
+        <term><option>list</option></term>
 
         <listitem><para>A brief list of installed extension images is shown.</para></listitem>
       </varlistentry>
@@ -193,9 +197,6 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
-
-    <para>When invoked without any command switches, the current merge status is shown, separately for both
-    <filename>/usr/</filename> and <filename>/opt/</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -216,6 +217,15 @@
         <listitem><para>Generate JSON output, instead of human readable tabular output. Takes one of
         <literal>short</literal>, <literal>pretty</literal> or <literal>off</literal> in order to control the
         output style, or explicitly disabling JSON output.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When merging system extensions into <filename>/usr/</filename> and
+        <filename>/opt/</filename>, ignore version incompatibilities, i.e. force merging regardless of
+        whether the version information included in the extension images matches the host or
+        not.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
