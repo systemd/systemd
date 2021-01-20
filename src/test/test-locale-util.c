@@ -101,6 +101,9 @@ static void dump_special_glyphs(void) {
         dump_glyph(SPECIAL_GLYPH_TREE_SPACE);
         dump_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET);
         dump_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
+        dump_glyph(SPECIAL_GLYPH_WHITE_CIRCLE);
+        dump_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
+        dump_glyph(SPECIAL_GLYPH_CIRCLE_ARROW);
         dump_glyph(SPECIAL_GLYPH_BULLET);
         dump_glyph(SPECIAL_GLYPH_ARROW);
         dump_glyph(SPECIAL_GLYPH_ELLIPSIS);
