@@ -775,6 +775,11 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 address");
                 link_enter_failed(link);
+
+                /* If the dhcp4 address fails then remove the address */
+                address_remove(link->dhcp_address, link, NULL);
+                link->dhcp_address = NULL;
+
                 return 1;
         } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
@@ -788,6 +793,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         } else
                 link->dhcp_address->callback = dhcp4_address_ready_callback;
 
+        link->dhcp_address->keep_dhcp4_address = false;
         return 1;
 }
 
@@ -878,7 +884,9 @@ static int dhcp4_update_address(Link *link, bool announce) {
 
         if (!address_equal(link->dhcp_address, ret))
                 link->dhcp_address_old = link->dhcp_address;
+
         link->dhcp_address = ret;
+        ret->keep_dhcp4_address = true;
 
         return 0;
 }

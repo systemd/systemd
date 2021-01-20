@@ -37,6 +37,7 @@ typedef struct Address {
         union in_addr_union in_addr_peer;
 
         bool scope_set:1;
+        bool keep_dhcp4_address:1;
         bool ip_masquerade_done:1;
         AddressFamily duplicate_address_detection;
 
