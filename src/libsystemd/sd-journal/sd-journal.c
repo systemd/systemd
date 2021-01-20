@@ -80,10 +80,6 @@ static int journal_put_error(sd_journal *j, int r, const char *path) {
         if (r >= 0)
                 return r;
 
-        k = hashmap_ensure_allocated(&j->errors, NULL);
-        if (k < 0)
-                return k;
-
         if (path) {
                 copy = strdup(path);
                 if (!copy)
@@ -91,7 +87,7 @@ static int journal_put_error(sd_journal *j, int r, const char *path) {
         } else
                 copy = NULL;
 
-        k = hashmap_put(j->errors, INT_TO_PTR(r), copy);
+        k = hashmap_ensure_put(&j->errors, NULL, INT_TO_PTR(r), copy);
         if (k < 0) {
                 free(copy);
 
