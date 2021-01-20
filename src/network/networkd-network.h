@@ -329,7 +329,6 @@ int network_get(Manager *manager, unsigned short iftype, sd_device *device,
                 const struct ether_addr *mac, const struct ether_addr *permanent_mac,
                 enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
                 Network **ret);
-int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 
 bool network_has_static_ipv6_configurations(Network *network);
