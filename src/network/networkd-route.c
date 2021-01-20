@@ -2385,10 +2385,7 @@ int config_parse_route_table_names(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *name = NULL;
         Hashmap **s = data;
-        uint32_t table;
-        const char *p;
         int r;
 
         assert(filename);
@@ -2401,47 +2398,65 @@ int config_parse_route_table_names(
                 return 0;
         }
 
-        p = rvalue;
-        r = extract_first_word(&p, &name, ":", 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r <= 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid RouteTable=, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *name = NULL;
+                uint32_t table;
+                char *num;
 
-        if (STR_IN_SET(name, "default", "main","local")) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Route table name %s already preconfigured. Ignoring assignment: %s", name, rvalue);
-                return 0;
-        }
+                r = extract_first_word(&p, &name, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid RouteTable=, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
 
-        r = safe_atou32(p, &table);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse RouteTable=, ignoring assignment: %s", p);
-                return 0;
-        }
+                num = strchr(name, ':');
+                if (!num) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid route table name and number pair, ignoring assignment: %s", name);
+                        continue;
+                }
 
-        if (table == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid RouteTable=, ignoring assignment: %s", p);
-                return 0;
-        }
+                *num++ = '\0';
 
-        r = hashmap_ensure_put(s, &string_hash_ops, name, UINT32_TO_PTR(table));
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r == -EEXIST) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Specified RouteTable= name and value pair conflicts with others, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-        if (r > 0)
-                TAKE_PTR(name);
+                if (STR_IN_SET(name, "default", "main", "local")) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Route table name %s already predefined. Ignoring assignment: %s:%s", name, name, num);
+                        continue;
+                }
 
-        return 0;
+                r = safe_atou32(num, &table);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse route table number '%s', ignoring assignment: %s:%s", num, name, num);
+                        continue;
+                }
+                if (table == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid route table number, ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
+
+                r = hashmap_ensure_put(s, &string_hash_ops, name, UINT32_TO_PTR(table));
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r == -EEXIST) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Specified route table name and number pair conflicts with others, ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to store route table name and number pair, ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
+                if (r > 0)
+                        TAKE_PTR(name);
+        }
 }
 
 static int route_section_verify(Route *route, Network *network) {
