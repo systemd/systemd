@@ -17,6 +17,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-routing-policy-rule.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -136,6 +137,93 @@ static bool link_prefixroute(Link *link) {
         return !link->network->dhcp_route_table_set ||
                 link->network->dhcp_route_table == RT_TABLE_MAIN ||
                 link->manager->dhcp4_prefix_root_cannot_set_table;
+}
+
+static int dhcp_set_routing_policy_rules(Link *link) {
+        const struct in_addr *router = NULL;
+        union in_addr_union address;
+        RoutingPolicyRule *rule;
+        struct in_addr netmask;
+        unsigned prefixlen;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP error: no address: %m");
+
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
+
+        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+
+        (void) sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *pretty = NULL;
+
+                (void) in_addr_to_string(AF_INET, &address, &pretty);
+                log_link_debug(link, "DHCP: Configuring RPDB rule from DHCPv4 address %s", strna(pretty));
+        }
+
+        HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                if (!IN_SET(rule->to_type, DHCP4_ADDRESS_TYPE_DHCP4_IP, DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY) &&
+                    !IN_SET(rule->from_type, DHCP4_ADDRESS_TYPE_DHCP4_IP, DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY))
+                        continue;
+
+                if ((rule->to_type == DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY || rule->from_type == DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY) && !router) {
+                        log_link_debug(link, "DHCP error: Failed to configure RPDB rule from DHCPv4 gateway");
+                        continue;
+                }
+
+                if (rule->from_type == DHCP4_ADDRESS_TYPE_DHCP4_IP) {
+                        rule->from.in = address.in;
+                        rule->from_prefixlen = prefixlen;
+                }
+
+                if (rule->to_type == DHCP4_ADDRESS_TYPE_DHCP4_IP) {
+                        rule->to.in = address.in;
+                        rule->to_prefixlen = prefixlen;
+                }
+
+                if (rule->from_type == DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY) {
+                        rule->from.in = *router;
+                        rule->from_prefixlen = 32;
+                }
+
+                if (rule->to_type == DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY) {
+                        rule->to.in = *router;
+                        rule->to_prefixlen = 32;
+                }
+
+                r = routing_policy_rule_configure(rule, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set routing policy rule from DHCP4: %m");
+        }
+
+        return 0;
+}
+
+static void dhcp_remove_routing_policy_rules(Link *link) {
+        RoutingPolicyRule *rule;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+
+        HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                if (!IN_SET(rule->to_type, DHCP4_ADDRESS_TYPE_DHCP4_IP, DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY) &&
+                    !IN_SET(rule->from_type, DHCP4_ADDRESS_TYPE_DHCP4_IP, DHCP4_ADDRESS_TYPE_DHCP4_GATEWAY))
+                        continue;
+
+                r = routing_policy_rule_remove(rule, link->manager);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Could not remove routing policy rule from DHCP4: %m");
+        }
 }
 
 static int dhcp_route_configure(Route *route, Link *link) {
@@ -746,6 +834,10 @@ static int dhcp4_address_ready_callback(Address *address) {
         /* Do not call this again. */
         address->callback = NULL;
 
+        r = dhcp_set_routing_policy_rules(link);
+        if (r < 0)
+                return r;
+
         r = link_set_dhcp_routes(link);
         if (r < 0)
                 return r;
@@ -1094,6 +1186,8 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         link_enter_failed(link);
                                         return r;
                                 }
+
+                                dhcp_remove_routing_policy_rules(link);
                         }
 
                         break;
