@@ -643,11 +643,7 @@ int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v) 
         assert_return(client, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&client->vendor_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return -ENOMEM;
-
-        r = ordered_hashmap_put(client->vendor_options, v, v);
+        r = ordered_hashmap_ensure_put(&client->vendor_options, &dhcp_option_hash_ops, v, v);
         if (r < 0)
                 return r;
 
