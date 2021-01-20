@@ -40,8 +40,6 @@ Multicast=
 MACAddress=
 Group=
 Promiscuous=
-TransmitQueues=
-ReceiveQueues=
 [SR-IOV]
 VirtualFunction=
 MACSpoofCheck=
