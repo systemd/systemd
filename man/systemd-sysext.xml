@@ -212,14 +212,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--json=</option></term>
-
-        <listitem><para>Generate JSON output, instead of human readable tabular output. Takes one of
-        <literal>short</literal>, <literal>pretty</literal> or <literal>off</literal> in order to control the
-        output style, or explicitly disabling JSON output.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--force</option></term>
 
         <listitem><para>When merging system extensions into <filename>/usr/</filename> and
@@ -230,6 +222,7 @@
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
   </refsect1>
 
