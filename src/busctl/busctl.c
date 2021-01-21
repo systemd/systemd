@@ -2246,6 +2246,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
+        (void) pager_open(arg_pager_flags);
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sIntrospect the D-Bus IPC bus.%s\n"
                "\nCommands:\n"
