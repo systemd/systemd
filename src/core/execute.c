@@ -1999,7 +1999,9 @@ bool exec_needs_mount_namespace(
 
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
-            !strv_isempty(context->inaccessible_paths))
+            !strv_isempty(context->inaccessible_paths) ||
+            !strv_isempty(context->exec_paths) ||
+            !strv_isempty(context->no_exec_paths))
                 return true;
 
         if (context->n_bind_mounts > 0)
@@ -3206,6 +3208,8 @@ static int apply_mount_namespace(
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
+                            needs_sandboxing ? context->exec_paths : NULL,
+                            needs_sandboxing ? context->no_exec_paths : NULL,
                             empty_directories,
                             bind_mounts,
                             n_bind_mounts,
@@ -4815,6 +4819,8 @@ void exec_context_done(ExecContext *c) {
         c->read_only_paths = strv_free(c->read_only_paths);
         c->read_write_paths = strv_free(c->read_write_paths);
         c->inaccessible_paths = strv_free(c->inaccessible_paths);
+        c->exec_paths = strv_free(c->exec_paths);
+        c->no_exec_paths = strv_free(c->no_exec_paths);
 
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
@@ -5164,6 +5170,18 @@ static void strv_fprintf(FILE *f, char **l) {
                 fprintf(f, " %s", *g);
 }
 
+static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv) {
+        assert(f);
+        assert(prefix);
+        assert(name);
+
+        if (!strv_isempty(strv)) {
+                fprintf(f, "%s%s:", name, prefix);
+                strv_fprintf(f, strv);
+                fputs("\n", f);
+        }
+}
+
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         char **e, **d, buf_clean[FORMAT_TIMESPAN_MAX];
         int r;
@@ -5476,32 +5494,16 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f, "%sDynamicUser: %s\n", prefix, yes_no(c->dynamic_user));
 
-        if (!strv_isempty(c->supplementary_groups)) {
-                fprintf(f, "%sSupplementaryGroups:", prefix);
-                strv_fprintf(f, c->supplementary_groups);
-                fputs("\n", f);
-        }
+        strv_dump(f, prefix, "SupplementaryGroups", c->supplementary_groups);
 
         if (c->pam_name)
                 fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
 
-        if (!strv_isempty(c->read_write_paths)) {
-                fprintf(f, "%sReadWritePaths:", prefix);
-                strv_fprintf(f, c->read_write_paths);
-                fputs("\n", f);
-        }
-
-        if (!strv_isempty(c->read_only_paths)) {
-                fprintf(f, "%sReadOnlyPaths:", prefix);
-                strv_fprintf(f, c->read_only_paths);
-                fputs("\n", f);
-        }
-
-        if (!strv_isempty(c->inaccessible_paths)) {
-                fprintf(f, "%sInaccessiblePaths:", prefix);
-                strv_fprintf(f, c->inaccessible_paths);
-                fputs("\n", f);
-        }
+        strv_dump(f, prefix, "ReadWritePaths", c->read_write_paths);
+        strv_dump(f, prefix, "ReadOnlyPaths", c->read_only_paths);
+        strv_dump(f, prefix, "InaccessiblePaths", c->inaccessible_paths);
+        strv_dump(f, prefix, "ExecPaths", c->exec_paths);
+        strv_dump(f, prefix, "NoExecPath", c->no_exec_paths);
 
         for (size_t i = 0; i < c->n_bind_mounts; i++)
                 fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,

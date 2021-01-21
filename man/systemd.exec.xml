@@ -1359,6 +1359,8 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <term><varname>ReadWritePaths=</varname></term>
         <term><varname>ReadOnlyPaths=</varname></term>
         <term><varname>InaccessiblePaths=</varname></term>
+        <term><varname>ExecPaths=</varname></term>
+        <term><varname>NoExecPaths=</varname></term>
 
         <listitem><para>Sets up a new file system namespace for executed processes. These options may be used
         to limit access a process has to the file system. Each setting takes a space-separated list of paths
@@ -1380,12 +1382,18 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname> inside it. For a more flexible option,
         see <varname>TemporaryFileSystem=</varname>.</para>
 
+        <para>Content in paths listed in <varname>NoExecPaths=</varname> are not executable even if the usual
+        file access controls would permit this. Nest <varname>ExecPaths=</varname> inside of
+        <varname>NoExecPaths=</varname> in order to provide executable content within non-executable
+        directories.</para>
+
         <para>Non-directory paths may be specified as well. These options may be specified more than once,
         in which case all paths listed will have limited access from within the namespace. If the empty string is
         assigned to this option, the specific list is reset, and all prior assignments have no effect.</para>
 
-        <para>Paths in <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname> and
-        <varname>InaccessiblePaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be
+        <para>Paths in <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname>, <varname>ExecPaths=</varname> and
+        <varname>NoExecPaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be
         ignored when they do not exist. If prefixed with <literal>+</literal> the paths are taken relative to the root
         directory of the unit, as configured with <varname>RootDirectory=</varname>/<varname>RootImage=</varname>,
         instead of relative to the root directory of the host (see above). When combining <literal>-</literal> and
