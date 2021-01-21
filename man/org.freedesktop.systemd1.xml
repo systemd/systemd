@@ -2528,6 +2528,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiqq) SocketBindDeny = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3069,6 +3071,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property SocketBindAllow is not documented!-->
 
     <!--property SocketBindDeny is not documented!-->
+
+    <!--property RestrictNetworkInterfaces is not documented!-->
 
     <!--property EnvironmentFiles is not documented!-->
 
@@ -3637,6 +3641,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -4340,6 +4346,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiqq) SocketBindDeny = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4910,6 +4918,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property SocketBindDeny is not documented!-->
 
+    <!--property RestrictNetworkInterfaces is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -5475,6 +5485,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -6075,6 +6087,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiqq) SocketBindDeny = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6573,6 +6587,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property SocketBindDeny is not documented!-->
 
+    <!--property RestrictNetworkInterfaces is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -7056,6 +7072,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -7777,6 +7795,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiqq) SocketBindDeny = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8261,6 +8281,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property SocketBindDeny is not documented!-->
 
+    <!--property RestrictNetworkInterfaces is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -8730,6 +8752,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -9304,6 +9328,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiqq) SocketBindDeny = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (bas) RestrictNetworkInterfaces = ...;
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -9447,6 +9473,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property SocketBindAllow is not documented!-->
 
     <!--property SocketBindDeny is not documented!-->
+
+    <!--property RestrictNetworkInterfaces is not documented!-->
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -9597,6 +9625,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
     <!--End of Autogenerated section-->
 
@@ -9767,6 +9797,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly a(iiqq) SocketBindAllow = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iiqq) SocketBindDeny = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9926,6 +9958,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property SocketBindAllow is not documented!-->
 
     <!--property SocketBindDeny is not documented!-->
+
+    <!--property RestrictNetworkInterfaces is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -10102,6 +10136,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
