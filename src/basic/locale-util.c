@@ -356,6 +356,9 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
+                        [SPECIAL_GLYPH_WHITE_CIRCLE]            = "*",
+                        [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = "x",
+                        [SPECIAL_GLYPH_CIRCLE_ARROW]            = "*",
                         [SPECIAL_GLYPH_BULLET]                  = "*",
                         [SPECIAL_GLYPH_MU]                      = "u",
                         [SPECIAL_GLYPH_CHECK_MARK]              = "+",
@@ -388,6 +391,9 @@ const char *special_glyph(SpecialGlyph code) {
                         /* Single glyphs in both cases */
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "\342\227\217",             /* ● */
+                        [SPECIAL_GLYPH_WHITE_CIRCLE]            = "\u25CB",                   /* ○ */
+                        [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = "\u00D7",                   /* × */
+                        [SPECIAL_GLYPH_CIRCLE_ARROW]            = "\u21BB",                   /* ↻ */
                         [SPECIAL_GLYPH_BULLET]                  = "\342\200\242",             /* • */
                         [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ (actually called: GREEK SMALL LETTER MU) */
                         [SPECIAL_GLYPH_CHECK_MARK]              = "\342\234\223",             /* ✓ */
