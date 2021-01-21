@@ -4,7 +4,7 @@ System and Service Manager
 
 <a href="https://in.waw.pl/systemd-github-state/systemd-systemd-issues.svg"><img align="right" src="https://in.waw.pl/systemd-github-state/systemd-systemd-issues-small.svg" alt="Count of open issues over time"></a>
 <a href="https://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests.svg"><img align="right" src="https://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests-small.svg" alt="Count of open pull requests over time"></a>
-[![Semaphore CI 2.0 Build Status](https://the-real-systemd.semaphoreci.com/badges/systemd/branches/master.svg?style=shields)](https://the-real-systemd.semaphoreci.com/projects/systemd)<br/>
+[![Semaphore CI 2.0 Build Status](https://the-real-systemd.semaphoreci.com/badges/systemd/branches/main.svg?style=shields)](https://the-real-systemd.semaphoreci.com/projects/systemd)<br/>
 [![Coverity Scan Status](https://scan.coverity.com/projects/350/badge.svg)](https://scan.coverity.com/projects/350)<br/>
 [![OSS-Fuzz Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/systemd.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#systemd)<br/>
 [![CIFuzz](https://github.com/systemd/systemd/workflows/CIFuzz/badge.svg)](https://github.com/systemd/systemd/actions)<br/>
