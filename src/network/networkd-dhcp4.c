@@ -465,6 +465,12 @@ static int dhcp_reset_hostname(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Failed to reset transient hostname: %m");
 
+        if (link->network->dhcp_set_static_hostname) {
+                r = manager_set_static_hostname(link->manager, NULL);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP error: Failed to reset static hostname: %m");
+        }
+
         return 0;
 }
 
@@ -948,6 +954,12 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                         r = manager_set_hostname(link->manager, hostname);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
+                }
+
+                if (hostname && link->network->dhcp_set_static_hostname) {
+                        r = manager_set_static_hostname(link->manager, hostname);
+                        if (r < 0)
+                                log_link_error_errno(link, r, "Failed to set static hostname to '%s': %m", hostname);
                 }
         }
 

@@ -1646,6 +1646,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SetStaticHostname=</varname></term>
+          <listitem>
+            <para>When true, the hostname received from the DHCP server will be set as the static hostname of the system if
+            <option>UseHostname=</option> is true. Defaults to <literal>no</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
             <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
