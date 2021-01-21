@@ -136,6 +136,11 @@ if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
 endif
 
+subdir('bpf/restrict_ifaces')
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += [restrict_ifaces_skel_h]
+endif
+
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.in',
