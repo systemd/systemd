@@ -89,6 +89,8 @@ libcore_sources = '''
         namespace.h
         path.c
         path.h
+        restrict-ifaces.c
+        restrict-ifaces.h
         scope.c
         scope.h
         selinux-access.c
@@ -121,9 +123,9 @@ libcore_sources = '''
         unit.h
 '''.split()
 
-if conf.get('BUILD_BPF') == 1
+if conf.get('BPF_FRAMEWORK') == 1
         subdir('bpf')
-        libcore_sources += [restrict_network_interfaces_hexdump_h]
+        libcore_sources += [restrict_ifaces_skel_h]
 
 endif
 load_fragment_gperf_gperf = custom_target(
@@ -155,6 +157,7 @@ libcore = static_library(
         include_directories : includes,
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libpam,
