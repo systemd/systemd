@@ -239,8 +239,6 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set columns to display: %m");
 
-        table_set_header(table, arg_legend);
-
         HASHMAP_FOREACH_KEY(v, k, names) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
@@ -357,14 +355,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         return log_error_errno(r, "Failed to fill line: %m");
         }
 
-        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(arg_pager_flags);
-
-        r = table_print_json(table, NULL, arg_json_format_flags);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static void print_subtree(const char *prefix, const char *path, char **l) {
