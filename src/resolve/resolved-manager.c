@@ -10,11 +10,16 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
+#include "conf-files.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "io-util.h"
@@ -33,9 +38,11 @@
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
 #include "resolved-varlink.h"
+#include "sd-login.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "unit-def.h"
 #include "utf8.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
@@ -704,6 +711,96 @@ int manager_new(Manager **ret) {
         *ret = TAKE_PTR(m);
 
         return 0;
+}
+
+int manager_check_dns_reply(DnsQuery *q, DnsResourceRecord *rr) {
+        _cleanup_free_ char *addr = NULL;
+        int r, family;
+
+        assert(q);
+        assert(rr);
+
+        if (rr->key->type == DNS_TYPE_A)
+                family = AF_INET;
+        else if (rr->key->type == DNS_TYPE_AAAA)
+                family = AF_INET6;
+        else
+                return 0;
+
+        r = in_addr_to_string(family, (const union in_addr_union *)&rr->a.in_addr, &addr);
+        if (r < 0)
+                return r;
+
+        log_debug("Reply IP %s to unit %s", addr, q->unit? q->unit : "(unset)");
+
+        return 0;
+}
+
+int manager_check_dns_access(Manager *m, const char *hostname, const char *unit) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_strv_free_ char **dns_allowed_domains = NULL;
+        _cleanup_strv_free_ char **dns_denied_domains = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+        char **domain_pattern;
+        bool rules_found;
+
+        assert(m);
+        assert(hostname);
+        assert(unit);
+
+        log_debug("Caller unit %s domain %s", unit, hostname);
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return -ENOMEM;
+
+        r = sd_bus_get_property_strv(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Service",
+                        "DNSAllowedDomains",
+                        &error,
+                        &dns_allowed_domains);
+
+        rules_found = !(r < 0 || strv_isempty(dns_allowed_domains));
+
+        r = sd_bus_get_property_strv(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Service",
+                        "DNSDeniedDomains",
+                        &error,
+                        &dns_denied_domains);
+
+        rules_found |= !(r < 0 || strv_isempty(dns_denied_domains));
+
+        /* Default with no rules is to allow all. */
+        if (!rules_found) {
+                log_debug("No DNSAllowedDomains nor DNSDeniedDomains properties for %s: allowing access to %s", hostname, unit);
+                return 0;
+        }
+
+        STRV_FOREACH(domain_pattern, dns_denied_domains) {
+                if (fnmatch(*domain_pattern, hostname, FNM_PATHNAME | FNM_PERIOD | FNM_CASEFOLD) != 0)
+                        continue;
+
+                log_debug("Denying access due to DNSDeniedDomains pattern %s to %s for %s", *domain_pattern, hostname, unit);
+                return -EPERM;
+        }
+
+        STRV_FOREACH(domain_pattern, dns_allowed_domains) {
+                if (fnmatch(*domain_pattern, hostname, FNM_PATHNAME | FNM_PERIOD | FNM_CASEFOLD) != 0)
+                        continue;
+
+                log_debug("Allowing access due to DNSAllowedDomains pattern %s to %s for %s", *domain_pattern, hostname, unit);
+                return 0;
+        }
+
+        log_debug("No patterns match, access to %s is denied for %s", hostname, unit);
+        return -EPERM;
 }
 
 int manager_start(Manager *m) {

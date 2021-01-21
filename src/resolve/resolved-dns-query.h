@@ -91,6 +91,9 @@ struct DnsQuery {
 
         sd_bus_track *bus_track;
 
+        /* DNS access control */
+        char *unit;
+
         LIST_FIELDS(DnsQuery, queries);
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 };

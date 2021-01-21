@@ -1150,6 +1150,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProcSubset", "s", property_get_proc_subset, offsetof(ExecContext, proc_subset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostname", "b", bus_property_get_bool, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DNSAllowedDomains", "as", NULL, offsetof(ExecContext, dns_allowed_domains), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DNSDeniedDomains", "as", NULL, offsetof(ExecContext, dns_denied_domains), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* Obsolete/redundant properties: */
         SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -3454,6 +3456,41 @@ int bus_exec_context_set_transient_property(
 
                 mount_images = mount_image_free_many(mount_images, &n_mount_images);
 
+                return 1;
+
+        } else if (STR_IN_SET(name, "DNSAllowedDomains", "DNSDeniedDomains")) {
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        char ***p;
+
+                        if (streq(name, "DNSAllowedDomains"))
+                                p = &c->dns_allowed_domains;
+                        else /* "DNSDeniedDomains" */
+                                p = &c->dns_denied_domains;
+
+                        if (strv_isempty(l)) {
+                                *p = strv_free(*p);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                _cleanup_free_ char *joined = NULL;
+
+                                r = strv_extend_strv(p, l, true);
+                                if (r < 0)
+                                        return r;
+
+                                /* We write just the new settings out to file, with unresolved specifiers. */
+                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, joined);
+                        }
+                }
                 return 1;
         }
 

@@ -4855,6 +4855,9 @@ void exec_context_done(ExecContext *c) {
 
         c->load_credentials = strv_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
+
+        c->dns_allowed_domains = strv_free(c->dns_allowed_domains);
+        c->dns_denied_domains = strv_free(c->dns_denied_domains);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -5649,6 +5652,17 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                                 partition_designator_to_string(o->partition_designator),
                                 o->options);
                 fprintf(f, "\n");
+        }
+
+        if (!strv_isempty(c->dns_allowed_domains)) {
+                fprintf(f, "%sDNSAllowedDomains:", prefix);
+                strv_fprintf(f, c->dns_allowed_domains);
+                fputs("\n", f);
+        }
+        if (!strv_isempty(c->dns_denied_domains)) {
+                fprintf(f, "%sDNSDeniedDomains:", prefix);
+                strv_fprintf(f, c->dns_denied_domains);
+                fputs("\n", f);
         }
 }
 

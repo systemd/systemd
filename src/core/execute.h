@@ -319,6 +319,9 @@ struct ExecContext {
 
         Hashmap *set_credentials; /* output id → ExecSetCredential */
         char **load_credentials; /* pairs of output id, path/input id */
+
+        char **dns_allowed_domains;
+        char **dns_denied_domains;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {

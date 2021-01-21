@@ -30,9 +30,9 @@
     <title>Description</title>
 
     <para><command>systemd-resolved</command> is a system service that provides network name resolution to
-    local applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR
-    and MulticastDNS resolver and responder. Local applications may submit network name resolution requests
-    via three interfaces:</para>
+    local applications. It implements a caching, filtering and validating DNS/DNSSEC stub resolver, as well
+    as an LLMNR and MulticastDNS resolver and responder. Local applications may submit network name
+    resolution requests via three interfaces:</para>
 
     <itemizedlist>
       <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus,
@@ -42,7 +42,7 @@
       <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details. Usage of this API is generally recommended to clients as it is asynchronous and fully
       featured (for example, properly returns DNSSEC validation status and interface scope for addresses as
-      necessary for supporting link-local networking).</para></listitem>
+      necessary for supporting link-local networking and DNS requests can be filtered).</para></listitem>
 
       <listitem><para>The glibc
       <citerefentry project='man-pages'><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -319,6 +319,21 @@
     <para>Note that the selected mode of operation for this file is detected fully automatically, depending
     on whether <filename>/etc/resolv.conf</filename> is a symlink to
     <filename>/run/systemd/resolve/resolv.conf</filename> or lists 127.0.0.53 as DNS server.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>DNS filtering with DNSAllowedDomains= and DNSDeniedDomains= directives</title>
+
+    <para>The DNS requests via bus API can be filtered, based on the domain requested. The filtering
+    parameters are read as bus property of the service, set with service directives
+    <varname>DNSAllowedDomains=</varname> to allow-list patterns of DNS domains and
+    <varname>DNSDeniedDomains=</varname> to deny-list them.</para>
+    <para>Example for allow-listing access only to a specific domain</para>
+    <programlisting>[Service]
+DNSAllowedDomains=*.ntp.org</programlisting>
+    <para>Example for denying all DNS access</para>
+    <programlisting>[Service]
+DNSDeniedDomains=*</programlisting>
   </refsect1>
 
   <refsect1>

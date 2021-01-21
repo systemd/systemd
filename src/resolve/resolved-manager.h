@@ -195,3 +195,6 @@ void manager_reset_server_features(Manager *m);
 void manager_cleanup_saved_user(Manager *m);
 
 bool manager_next_dnssd_names(Manager *m);
+
+int manager_check_dns_access(Manager *m, const char *hostname, const char *unit);
+int manager_check_dns_reply(DnsQuery *q, DnsResourceRecord *rr);
