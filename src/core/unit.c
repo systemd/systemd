@@ -728,6 +728,10 @@ void unit_free(Unit *u) {
 
         bpf_program_unref(u->bpf_device_control_installed);
 
+        // TODO(Mauricio): This fails with a "Failed to detach program from cgroup '/sys/fs/cgroup': No such file or directory error." It's the same even if I move if before unit_release_cgroup.
+        (void) cgroup_bpf_detach_programs(u, u->restrict_network_interfaces_progs);
+        set_free(u->restrict_network_interfaces_progs);
+
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
 
