@@ -2554,4 +2554,77 @@ static const char *const partition_designator_table[] = {
         [PARTITION_VAR] = "var",
 };
 
+int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        DissectImageFlags dissect_image_flags;
+        int r;
+
+        assert(src);
+        assert(dest);
+
+        r = verity_settings_load(&verity, src, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+
+        dissect_image_flags = verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
+
+        r = loop_device_make_by_path(
+                        src,
+                        -1,
+                        verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
+                        &loop_device);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create loop device for image: %m");
+
+        r = dissect_image(
+                        loop_device->fd,
+                        &verity,
+                        options,
+                        dissect_image_flags,
+                        &dissected_image);
+        /* No partition table? Might be a single-filesystem image, try again */
+        if (!verity.data_path && r == -ENOPKG)
+                 r = dissect_image(
+                                loop_device->fd,
+                                &verity,
+                                options,
+                                dissect_image_flags|DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                &dissected_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to dissect image: %m");
+
+        r = dissected_image_decrypt(
+                        dissected_image,
+                        NULL,
+                        &verity,
+                        dissect_image_flags,
+                        &decrypted_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+
+        r = mkdir_p_label(dest, 0755);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
+        r = umount_recursive(dest, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+
+        r = dissected_image_mount(dissected_image, dest, UID_INVALID, dissect_image_flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount image: %m");
+
+        if (decrypted_image) {
+                r = decrypted_image_relinquish(decrypted_image);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to relinquish decrypted image: %m");
+        }
+
+        loop_device_relinquish(loop_device);
+
+        return 0;
+}
+
 DEFINE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);
