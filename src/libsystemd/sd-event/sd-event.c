@@ -3781,8 +3781,8 @@ pending:
 }
 
 _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
-        size_t event_queue_max;
-        int r, m, i;
+        size_t n_event_queue, m;
+        int r, msec;
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
@@ -3795,29 +3795,44 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 return 1;
         }
 
-        event_queue_max = MAX(e->n_sources, 1u);
-        if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, event_queue_max))
+        n_event_queue = MAX(e->n_sources, 1u);
+        if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, n_event_queue))
                 return -ENOMEM;
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
         if (e->inotify_data_buffered)
-                timeout = 0;
+                msec = 0;
+        else
+                msec = timeout == (uint64_t) -1 ? -1 : (int) DIV_ROUND_UP(timeout, USEC_PER_MSEC);
 
-        m = epoll_wait(e->epoll_fd, e->event_queue, event_queue_max,
-                       timeout == (uint64_t) -1 ? -1 : (int) DIV_ROUND_UP(timeout, USEC_PER_MSEC));
-        if (m < 0) {
-                if (errno == EINTR) {
-                        e->state = SD_EVENT_PENDING;
-                        return 1;
+        for (m = 0;;) {
+                r = epoll_wait(e->epoll_fd, e->event_queue + m, e->event_queue_allocated - m, msec);
+                if (r < 0) {
+                        if (errno == EINTR) {
+                                e->state = SD_EVENT_PENDING;
+                                return 1;
+                        }
+
+                        r = -errno;
+                        goto finish;
                 }
 
-                r = -errno;
-                goto finish;
+                m += r;
+                if (m < e->event_queue_allocated)
+                        break;
+
+                if (e->event_queue_allocated >= n_event_queue * 10)
+                        break;
+
+                if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, e->event_queue_allocated + n_event_queue))
+                        return -ENOMEM;
+
+                msec = 0;
         }
 
         triple_timestamp_get(&e->timestamp);
 
-        for (i = 0; i < m; i++) {
+        for (size_t i = 0; i < m; i++) {
 
                 if (e->event_queue[i].data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
                         r = flush_timer(e, e->watchdog_fd, e->event_queue[i].events, NULL);
