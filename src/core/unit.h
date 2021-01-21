@@ -300,6 +300,8 @@ typedef struct Unit {
         Set *ip_bpf_custom_egress;
         Set *ip_bpf_custom_egress_installed;
 
+        Set *restrict_network_interfaces_progs;
+
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
