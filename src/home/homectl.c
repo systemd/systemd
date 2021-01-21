@@ -113,8 +113,6 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
-
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
@@ -175,11 +173,9 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_sort_error(r);
 
-                table_set_header(table, arg_legend);
-
-                r = table_print_json(table, stdout, arg_json_format_flags);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
         if (arg_legend && (arg_json_format_flags & JSON_FORMAT_OFF)) {

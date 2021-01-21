@@ -2550,3 +2550,30 @@ int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
 
         return fflush_and_check(f);
 }
+
+int table_print_with_pager(
+                Table *t,
+                JsonFormatFlags json_format_flags,
+                PagerFlags pager_flags,
+                bool show_header) {
+
+        bool saved_header;
+        int r;
+
+        assert(t);
+
+        /* A all-in-one solution for showing tables, and turning on a pager first. Also optionally suppresses
+         * the table header and logs about any error. */
+
+        if (json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                (void) pager_open(pager_flags);
+
+        saved_header = t->header;
+        t->header = show_header;
+        r = table_print_json(t, stdout, json_format_flags);
+        t->header = saved_header;
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
+}

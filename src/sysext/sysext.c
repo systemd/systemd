@@ -35,6 +35,7 @@ static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
@@ -226,12 +227,9 @@ static int verb_status(int argc, char **argv, void *userdata) {
 
         (void) table_set_sort(t, (size_t) 0, (size_t) -1);
 
-        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(arg_pager_flags);
-
-        r = table_print_json(t, stdout, arg_json_format_flags);
+        r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         if (r < 0)
-                return table_log_add_error(r);
+                return r;
 
         return ret;
 }
@@ -860,14 +858,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         (void) table_set_sort(t, (size_t) 0, (size_t) -1);
 
-        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(arg_pager_flags);
-
-        r = table_print_json(t, stdout, arg_json_format_flags);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
@@ -890,6 +881,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
                "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
                "     --root=PATH          Operate relative to root path\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
@@ -909,18 +901,20 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_ROOT,
                 ARG_JSON,
                 ARG_FORCE,
         };
 
         static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
-                { "root",     required_argument, NULL, ARG_ROOT     },
-                { "json",     required_argument, NULL, ARG_JSON     },
-                { "force",    no_argument,       NULL, ARG_FORCE    },
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
+                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
+                { "root",      required_argument, NULL, ARG_ROOT      },
+                { "json",      required_argument, NULL, ARG_JSON      },
+                { "force",     no_argument,       NULL, ARG_FORCE     },
                 {}
         };
 
@@ -941,6 +935,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_ROOT:

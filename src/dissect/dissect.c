@@ -46,6 +46,8 @@ static const char *arg_target = NULL;
 static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 
@@ -63,6 +65,8 @@ static int help(void) {
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
                "%5$sDissect a file system OS image.%6$s\n\n"
                "%3$sOptions:%4$s\n"
+               "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
                "  -r --read-only          Mount read-only\n"
                "     --fsck=BOOL          Run fsck before mounting\n"
                "     --mkdir              Make mount directory before mounting, if missing\n"
@@ -96,6 +100,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_DISCARD,
                 ARG_FSCK,
                 ARG_ROOT_HASH,
@@ -108,6 +114,8 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",          no_argument,       NULL, 'h'               },
                 { "version",       no_argument,       NULL, ARG_VERSION       },
+                { "no-pager",      no_argument,       NULL, ARG_NO_PAGER      },
+                { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
                 { "mount",         no_argument,       NULL, 'm'               },
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
@@ -136,6 +144,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case 'm':
                         arg_action = ACTION_MOUNT;
@@ -339,6 +355,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         assert(m);
         assert(d);
 
+        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                (void) pager_open(arg_pager_flags);
+
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Name: %s\n", basename(arg_image));
 
@@ -482,7 +501,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         }
 
         if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                r = table_print(t, stdout);
+                (void) table_set_header(t, arg_legend);
+
+                r = table_print(t, NULL);
                 if (r < 0)
                         return table_log_print_error(r);
         } else {

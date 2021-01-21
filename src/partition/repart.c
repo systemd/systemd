@@ -107,6 +107,8 @@ static int arg_pretty = -1;
 static uint64_t arg_size = UINT64_MAX;
 static bool arg_size_auto = false;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static char *arg_tpm2_device = NULL;
@@ -1918,11 +1920,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                         return table_log_add_error(r);
         }
 
-        r = table_print_json(t, stdout, arg_json_format_flags);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static void context_bar_char_process_partition(
@@ -3479,6 +3477,8 @@ static int help(void) {
                "\n%sGrow and add partitions to partition table.%s\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
+               "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
                "     --dry-run=BOOL       Whether to run dry-run operation\n"
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
@@ -3510,6 +3510,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_DRY_RUN,
                 ARG_EMPTY,
                 ARG_DISCARD,
@@ -3529,6 +3531,8 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",              no_argument,       NULL, 'h'                   },
                 { "version",           no_argument,       NULL, ARG_VERSION           },
+                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
+                { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
                 { "dry-run",           required_argument, NULL, ARG_DRY_RUN           },
                 { "empty",             required_argument, NULL, ARG_EMPTY             },
                 { "discard",           required_argument, NULL, ARG_DISCARD           },
@@ -3560,6 +3564,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case ARG_DRY_RUN:
                         r = parse_boolean(optarg);
