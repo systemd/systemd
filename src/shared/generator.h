@@ -27,10 +27,6 @@ int generator_write_timeouts(
         const char *opts,
         char **filtered);
 
-int generator_write_blockdev_dependency(
-                FILE *f,
-                const char *what);
-
 int generator_write_cryptsetup_unit_section(
                 FILE *f,
                 const char *source);

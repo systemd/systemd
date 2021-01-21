@@ -126,16 +126,10 @@ static int add_swap(
         fprintf(f,
                 "[Unit]\n"
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
-                "SourcePath=%s\n",
-                fstab_path());
-
-        r = generator_write_blockdev_dependency(f, what);
-        if (r < 0)
-                return r;
-
-        fprintf(f,
+                "SourcePath=%s\n"
                 "\n"
-                "[Swap]\n");
+                "[Swap]\n",
+                fstab_path());
 
         r = write_what(f, what);
         if (r < 0)
@@ -438,10 +432,6 @@ static int add_mount(
                 if (r < 0)
                         return r;
         }
-
-        r = generator_write_blockdev_dependency(f, what);
-        if (r < 0)
-                return r;
 
         fprintf(f,
                 "\n"

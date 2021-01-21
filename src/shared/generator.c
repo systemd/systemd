@@ -523,30 +523,6 @@ int generator_enable_remount_fs_service(const char *dir) {
                                      SYSTEM_DATA_UNIT_PATH "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
-int generator_write_blockdev_dependency(
-                FILE *f,
-                const char *what) {
-
-        _cleanup_free_ char *escaped = NULL;
-        int r;
-
-        assert(f);
-        assert(what);
-
-        if (!path_startswith(what, "/dev/"))
-                return 0;
-
-        r = unit_name_path_escape(what, &escaped);
-        if (r < 0)
-                return log_error_errno(r, "Failed to escape device node path %s: %m", what);
-
-        fprintf(f,
-                "After=blockdev@%s.target\n",
-                escaped);
-
-        return 0;
-}
-
 int generator_write_cryptsetup_unit_section(
                 FILE *f,
                 const char *source) {
