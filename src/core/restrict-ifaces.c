@@ -58,14 +58,6 @@ static int prepare_restrict_ifaces_bpf(Unit* u, bool is_allow_list,
                 return log_unit_error_errno(u, map_fd, "Failed to get BPF map fd");
 
 
-        /* Key zero indicates whether this is an allow or deny-list approach */
-        ifindex = 0;
-        dummy = (uint8_t) is_allow_list;
-        r = bpf_map_update_elem(map_fd, &ifindex, &dummy, BPF_ANY);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to update BPF map '%s' fd: %m", map_name);
-        dummy = 0;
-
         SET_FOREACH(iface, restrict_network_interfaces) {
                 ifindex = if_nametoindex(iface);
                 if (ifindex == 0) {
