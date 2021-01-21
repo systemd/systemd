@@ -2082,7 +2082,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
          * compatible with kernels that are not absolutely recent. */
         r = seccomp_rule_add_exact(
                         seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_ACT_ERRNO(ENOSYS),
                         SCMP_SYS(openat2),
                         0);
         if (r < 0)
