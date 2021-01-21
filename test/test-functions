@@ -357,7 +357,7 @@ $KERNEL_APPEND \
 -m $QEMU_MEM \
 -nographic \
 -kernel $KERNEL_BIN \
--drive format=raw,cache=unsafe,file=$image \
+-drive format=raw,cache=unsafe,file=$image -snapshot \
 $QEMU_OPTIONS \
 "
 
