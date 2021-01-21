@@ -191,6 +191,12 @@ fuzzers += [
 ]
 
 tests += [
+        [['src/udev/test-udev-event.c'],
+         [libudevd_core,
+          libshared],
+         [threads,
+          libacl]],
+
         [['src/udev/fido_id/test-fido-id-desc.c',
           'src/udev/fido_id/fido_id_desc.c']],
 ]
