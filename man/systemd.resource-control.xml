@@ -856,6 +856,52 @@ SocketBindDeny=any
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestrictNetworkInterfaces=</varname></term>
+
+        <listitem>
+          <para>Takes a list of space-separated network interface names. This option restricts the network
+          interfaces that processes of this unit can use. By default processes can only use the network interfaces
+          listed (allow-list). If the first character of the rule is <literal>~</literal>, the effect is inverted:
+          the processes can only use network interfaces not listed (deny-list).
+          </para>
+
+          <para>This option can appear multiple times, in which case the network interface names are merged. If the
+          empty string is assigned the set is reset, all prior assigments will have not effect.
+          </para>
+
+          <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first encountered
+          will take precedence and will dictate the default action (allow vs deny). Then the next occurrences of this
+          option will add or delete the listed network interface names from the set, depending of its type and the
+          default action.
+          </para>
+
+          <para>The loopback interface ("lo") is not treated in any special way, you have to configure it explicitly
+          in the unit file.
+          </para>
+          <para>Example 1: allow-list
+          <programlisting>
+RestrictNetworkInterfaces=eth1
+RestrictNetworkInterfaces=eth2</programlisting>
+          Programs in the unit will be only able to use the eth1 and eth2 network
+          interfaces.
+          </para>
+
+          <para>Example 2: deny-list
+          <programlisting>
+RestrictNetworkInterfaces=~eth1 eth2</programlisting>
+          Programs in the unit will be able to use any network interface but eth1 and eth2.
+          </para>
+
+          <para>Example 3: mixed
+          <programlisting>
+RestrictNetworkInterfaces=eth1 eth2
+RestrictNetworkInterfaces=~eth1</programlisting>
+          Programs in the unit will be only able to use the eth2 network interface.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
