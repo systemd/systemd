@@ -3842,6 +3842,9 @@ int manager_reload(Manager *m) {
         /* Clean up runtime objects no longer referenced */
         manager_vacuum(m);
 
+        /* Clean up deserialized tracked clients */
+        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
