@@ -2079,10 +2079,11 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
         /* The new openat2() system call can't be filtered sensibly, since it moves the flags parameter into
          * an indirect structure. Let's block it entirely for now. That should be a reasonably OK thing to do
          * for now, since openat2() is very new and code generally needs fallback logic anyway to be
-         * compatible with kernels that are not absolutely recent. */
+         * compatible with kernels that are not absolutely recent. We return ENOSYS since this is more likely
+         * to trigger fallback logic than EPERM. */
         r = seccomp_rule_add_exact(
                         seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_ACT_ERRNO(ENOSYS),
                         SCMP_SYS(openat2),
                         0);
         if (r < 0)
