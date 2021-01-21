@@ -369,7 +369,7 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         journal_file_set_offline(f, true);
 
-        if (f->mmap && f->cache_fd)
+        if (f->mmap)
                 mmap_cache_free_fd(f->mmap, f->cache_fd);
 
         if (f->fd >= 0 && f->defrag_on_close) {
@@ -1576,18 +1576,10 @@ static int journal_file_append_field(
         hash = journal_file_hash_data(f, field, size);
 
         r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
+        if (r > 0)
+                goto found;
         if (r < 0)
                 return r;
-        else if (r > 0) {
-
-                if (ret)
-                        *ret = o;
-
-                if (ret_offset)
-                        *ret_offset = p;
-
-                return 0;
-        }
 
         osize = offsetof(Object, field.payload) + size;
         r = journal_file_append_object(f, OBJECT_FIELD, osize, &o, &p);
@@ -1612,7 +1604,7 @@ static int journal_file_append_field(
         if (r < 0)
                 return r;
 #endif
-
+found:
         if (ret)
                 *ret = o;
 
@@ -1639,18 +1631,10 @@ static int journal_file_append_data(
         hash = journal_file_hash_data(f, data, size);
 
         r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
+        if (r > 0)
+                goto found;
         if (r < 0)
                 return r;
-        if (r > 0) {
-
-                if (ret)
-                        *ret = o;
-
-                if (ret_offset)
-                        *ret_offset = p;
-
-                return 0;
-        }
 
         osize = offsetof(Object, data.payload) + size;
         r = journal_file_append_object(f, OBJECT_DATA, osize, &o, &p);
@@ -1714,6 +1698,7 @@ static int journal_file_append_data(
                 fo->field.head_data_offset = le64toh(p);
         }
 
+found:
         if (ret)
                 *ret = o;
 
