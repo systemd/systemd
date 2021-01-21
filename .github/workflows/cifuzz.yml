@@ -14,7 +14,7 @@ on:
       - 'tools/oss-fuzz.sh'
   push:
     branches:
-      - master
+      - main
 jobs:
  Fuzzing:
    runs-on: ubuntu-latest
