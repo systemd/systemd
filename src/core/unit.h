@@ -7,6 +7,7 @@
 
 #include "sd-id128.h"
 
+#include "bpf-link.h"
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
@@ -316,6 +317,12 @@ typedef struct Unit {
          * address. */
         struct bpf_link *ipv4_socket_bind_link;
         struct bpf_link *ipv6_socket_bind_link;
+#endif
+
+        FDSet *restrict_ifaces_restored_fds;
+#if BPF_FRAMEWORK
+        struct bpf_link *restrict_ifaces_ingress_bpf_link;
+        struct bpf_link *restrict_ifaces_egress_bpf_link;
 #endif
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];

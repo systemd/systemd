@@ -26,6 +26,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "restrict-ifaces.h"
 #include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
@@ -244,6 +245,8 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->bpf_foreign_programs)
                 cgroup_context_remove_bpf_foreign_program(c, c->bpf_foreign_programs);
+
+        c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
@@ -590,6 +593,14 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         cgroup_context_dump_socket_bind_item(bi, f);
                 fputc('\n', f);
         }
+
+#if BPF_FRAMEWORK
+        if (c->restrict_network_interfaces) {
+                char *iface;
+                SET_FOREACH(iface, c->restrict_network_interfaces)
+                        fprintf(f, "%sRestrictNetworkInterfaces: %s\n", prefix, iface);
+        }
+#endif
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
@@ -1099,6 +1110,12 @@ static void cgroup_apply_socket_bind(Unit *u) {
         (void) socket_bind_install(u);
 }
 
+static void cgroup_apply_restrict_network_interfaces(Unit *u) {
+        assert(u);
+
+        (void) restrict_network_interfaces_install(u);
+}
+
 static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         const char *path;
@@ -1530,6 +1547,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
                 cgroup_apply_socket_bind(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
+                cgroup_apply_restrict_network_interfaces(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1582,6 +1602,17 @@ static bool unit_get_needs_socket_bind(Unit *u) {
                 return false;
 
         return c->socket_bind_allow || c->socket_bind_deny;
+}
+
+static bool unit_get_needs_restrict_network_interfaces(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->restrict_network_interfaces != NULL;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1638,6 +1669,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_socket_bind(u))
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
+
+        if (unit_get_needs_restrict_network_interfaces(u))
+                mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
 
         return mask;
 }
@@ -3124,6 +3158,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = socket_bind_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
+
+        /* BPF-based cgroup_skb/{egress|ingress} hooks */
+        r = restrict_network_interfaces_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
 
         *ret = mask;
         return 0;

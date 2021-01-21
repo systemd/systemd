@@ -739,6 +739,10 @@ Unit* unit_free(Unit *u) {
 
         bpf_program_unref(u->bpf_device_control_installed);
 
+        bpf_link_free(u->restrict_ifaces_ingress_bpf_link);
+        bpf_link_free(u->restrict_ifaces_egress_bpf_link);
+        fdset_free(u->restrict_ifaces_restored_fds);
+
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
 
