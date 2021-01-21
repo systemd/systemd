@@ -534,65 +534,126 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
         return 0;
 }
 
-static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Spawn *spawn = userdata;
-        char buf[4096], *p;
-        size_t size;
-        ssize_t l;
+static void spawn_read(Spawn *spawn) {
+        _cleanup_close_ int fd_ep = -1;
+        struct epoll_event ep_outpipe = {
+                .events = EPOLLIN,
+                .data.ptr = &spawn->fd_stdout,
+        };
+        struct epoll_event ep_errpipe = {
+                .events = EPOLLIN,
+                .data.ptr = &spawn->fd_stderr,
+        };
         int r;
 
-        assert(spawn);
-        assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
-        assert(!spawn->result || spawn->result_len < spawn->result_size);
+        /* read from child if requested */
+        if (spawn->fd_stdout < 0 && spawn->fd_stderr < 0)
+                return;
 
-        if (fd == spawn->fd_stdout && spawn->result) {
-                p = spawn->result + spawn->result_len;
-                size = spawn->result_size - spawn->result_len;
-        } else {
-                p = buf;
-                size = sizeof(buf);
+        fd_ep = epoll_create1(EPOLL_CLOEXEC);
+        if (fd_ep < 0) {
+                log_device_error_errno(spawn->device, errno, "error creating epoll fd: %m");
+                return;
         }
 
-        l = read(fd, p, size - 1);
-        if (l < 0) {
-                if (errno == EAGAIN)
-                        goto reenable;
-
-                log_device_error_errno(spawn->device, errno,
-                                       "Failed to read stdout of '%s': %m", spawn->cmd);
-
-                return 0;
+        if (spawn->fd_stdout >= 0) {
+                r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, spawn->fd_stdout, &ep_outpipe);
+                if (r < 0) {
+                        log_device_error_errno(spawn->device, errno, "fail to add stdout fd to epoll: %m");
+                        return;
+                }
         }
 
-        p[l] = '\0';
-        if (fd == spawn->fd_stdout && spawn->result)
-                spawn->result_len += l;
-
-        /* Log output only if we watch stderr. */
-        if (l > 0 && spawn->fd_stderr >= 0) {
-                _cleanup_strv_free_ char **v = NULL;
-                char **q;
-
-                v = strv_split_newlines(p);
-                if (!v)
-                        return 0;
-
-                STRV_FOREACH(q, v)
-                        log_device_debug(spawn->device, "'%s'(%s) '%s'", spawn->cmd,
-                                         fd == spawn->fd_stdout ? "out" : "err", *q);
+        if (spawn->fd_stderr >= 0) {
+                r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, spawn->fd_stderr, &ep_errpipe);
+                if (r < 0) {
+                        log_device_error_errno(spawn->device, errno, "fail to add stderr fd to epoll: %m");
+                        return;
+                }
         }
 
+        /* read child output */
+        while (spawn->fd_stdout >= 0 || spawn->fd_stderr >= 0) {
+                int timeout;
+                int fdcount;
+                struct epoll_event ev[4];
+                int i;
 
-        if (l == 0)
-                return 0;
+                if (spawn->timeout_usec > 0) {
+                        usec_t age_usec;
 
-        /* Re-enable the event source if we did not encounter EOF */
-reenable:
-        r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
-        if (r < 0)
-                log_device_error_errno(spawn->device, r,
-                                       "Failed to reactivate IO source of '%s'", spawn->cmd);
-        return 0;
+                        age_usec = now(CLOCK_MONOTONIC) - spawn->event_birth_usec;
+                        if (age_usec >= spawn->timeout_usec) {
+                                log_device_error(spawn->device, "timeout '%s'", spawn->cmd);
+                                return;
+                        }
+                        timeout = ((spawn->timeout_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
+                } else {
+                        timeout = -1;
+                }
+
+                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
+                if (fdcount < 0) {
+                        if (errno == EINTR)
+                                continue;
+                        log_device_error_errno(spawn->device, errno, "failed to poll: %m");
+                        return;
+                } else if (fdcount == 0) {
+                        log_device_error(spawn->device, "timeout '%s'", spawn->cmd);
+                        return;
+                }
+
+                for (i = 0; i < fdcount; i++) {
+                        int *fd = (int *)ev[i].data.ptr;
+
+                        if (*fd < 0)
+                                continue;
+
+                        if (ev[i].events & EPOLLIN) {
+                                ssize_t count;
+                                char buf[4096];
+
+                                count = read(*fd, buf, sizeof(buf)-1);
+                                if (count <= 0)
+                                        continue;
+                                buf[count] = '\0';
+
+                                /* store stdout result */
+                                if (spawn->result != NULL && *fd == spawn->fd_stdout) {
+                                        if (spawn->result_len + count < spawn->result_size) {
+                                                memcpy(&spawn->result[spawn->result_len], buf, count);
+                                                spawn->result_len += count;
+                                        } else {
+                                                log_device_error(spawn->device, "'%s' ressize %zu too short", spawn->cmd, spawn->result_size);
+                                        }
+                                }
+
+                                /* log debug output only if we watch stderr */
+                                if (spawn->fd_stderr >= 0) {
+                                        char *pos;
+                                        char *line;
+
+                                        pos = buf;
+                                        while ((line = strsep(&pos, "\n"))) {
+                                                if (pos != NULL || line[0] != '\0')
+                                                        log_device_debug(spawn->device, "'%s'(%s) '%s'",
+                                                                         spawn->cmd, *fd == spawn->fd_stdout ? "out" : "err", line);
+                                        }
+                                }
+                        } else if (ev[i].events & EPOLLHUP) {
+                                r = epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL);
+                                if (r < 0) {
+                                        log_device_error_errno(spawn->device, errno, "failed to remove fd from epoll: %m");
+                                        return;
+                                }
+                                *fd = -1;
+                        }
+                }
+        }
+
+        /* return the child's stdout string */
+        if (spawn->result != NULL)
+                spawn->result[spawn->result_len] = '\0';
 }
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -652,9 +713,6 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
 
 static int spawn_wait(Spawn *spawn) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
         int r;
 
         assert(spawn);
@@ -690,29 +748,7 @@ static int spawn_wait(Spawn *spawn) {
                 }
         }
 
-        if (spawn->fd_stdout >= 0) {
-                r = sd_event_add_io(e, &stdout_source, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
-                if (r < 0)
-                        return r;
-                r = sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return r;
-        }
-
-        if (spawn->fd_stderr >= 0) {
-                r = sd_event_add_io(e, &stderr_source, spawn->fd_stderr, EPOLLIN, on_spawn_io, spawn);
-                if (r < 0)
-                        return r;
-                r = sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_event_add_child(e, &sigchld_source, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
-        if (r < 0)
-                return r;
-        /* SIGCHLD should be processed after IO is complete */
-        r = sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1);
+        r = sd_event_add_child(e, NULL, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
         if (r < 0)
                 return r;
 
@@ -805,13 +841,13 @@ int udev_event_spawn(UdevEvent *event,
                 .result = result,
                 .result_size = ressize,
         };
+        
+        spawn_read(&spawn);
+        
         r = spawn_wait(&spawn);
         if (r < 0)
                 return log_device_error_errno(event->dev, r,
                                               "Failed to wait for spawned command '%s': %m", cmd);
-
-        if (result)
-                result[spawn.result_len] = '\0';
 
         return r; /* 0 for success, and positive if the program failed */
 }
