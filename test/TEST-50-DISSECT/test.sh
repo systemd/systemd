@@ -6,7 +6,7 @@ TEST_DESCRIPTION="test systemd-dissect"
 IMAGE_NAME="dissect"
 TEST_NO_NSPAWN=1
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 command -v mksquashfs >/dev/null 2>&1 || exit 0
 command -v veritysetup >/dev/null 2>&1 || exit 0

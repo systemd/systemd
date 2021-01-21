@@ -4,7 +4,7 @@ TEST_DESCRIPTION="systemd-nspawn smoke test"
 IMAGE_NAME="nspawn"
 TEST_NO_NSPAWN=1
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 test_create_image() {
     create_empty_image_rootdir

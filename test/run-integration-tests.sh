@@ -1,14 +1,46 @@
 #!/usr/bin/env bash
 set -e
 
-BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
+if [ "$NO_BUILD" ]; then
+    BUILD_DIR=""
+elif BUILD_DIR="$($(dirname "${BASH_SOURCE[0]}")/../tools/find-build-dir.sh)"; then
+    ninja -C "$BUILD_DIR"
+else
+    echo "No build found, please set BUILD_DIR or NO_BUILD" >&2
+    exit 1
+fi
+
 if [ $# -gt 0 ]; then
     args="$@"
 else
     args="setup run clean-again"
 fi
-args_no_clean=$(sed -r 's/\bclean.*\b//g' <<<$args)
-do_clean=$( [ "$args" = "$args_no_clean" ]; echo $? )
+
+VALID_TARGETS="all setup run clean clean-again"
+
+is_valid_target() {
+    for target in $VALID_TARGETS; do
+        [ "$1" = "$target" ] && return 0
+    done
+    return 1
+}
+
+# reject invalid make targets in $args
+for arg in $args; do
+    if ! is_valid_target "$arg"; then
+        echo "Invalid target: $arg" >&2
+        exit 1
+    fi
+done
+
+CLEAN=0
+CLEANAGAIN=0
+
+# separate 'clean' and 'clean-again' operations
+[[ "$args" =~ "clean-again" ]] && CLEANAGAIN=1
+args=${args/clean-again}
+[[ "$args" =~ "clean" ]] && CLEAN=1
+args=${args/clean}
 
 declare -A results
 declare -A times
@@ -17,16 +49,6 @@ COUNT=0
 FAILURES=0
 
 cd "$(dirname "$0")"
-
-# Let's always do the cleaning operation first, because it destroys the image
-# cache.
-if [ $do_clean = 1 ]; then
-    for TEST in TEST-??-* ; do
-        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean )
-    done
-
-    [ -n "$args_no_clean" ] || exit 0
-fi
 
 pass_deny_list() {
     for marker in $DENY_LIST_MARKERS $BLACKLIST_MARKERS; do
@@ -38,28 +60,40 @@ pass_deny_list() {
     return 0
 }
 
-for TEST in TEST-??-* ; do
-    COUNT=$(($COUNT+1))
+# Let's always do the cleaning operation first, because it destroys the image
+# cache.
+if [ $CLEAN = 1 ]; then
+    for TEST in TEST-??-* ; do
+        ( set -x ; make -C "$TEST" clean )
+    done
+fi
 
-    pass_deny_list $TEST || continue
-    start=$(date +%s)
+# Run actual tests (if requested)
+if [[ $args =~ [a-z] ]]; then
+    for TEST in TEST-??-* ; do
+        COUNT=$(($COUNT+1))
 
-    echo -e "\n--x-- Running $TEST --x--"
-    set +e
-    ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args_no_clean )
-    RESULT=$?
-    set -e
-    echo "--x-- Result of $TEST: $RESULT --x--"
+        pass_deny_list $TEST || continue
+        start=$(date +%s)
 
-    results["$TEST"]="$RESULT"
-    times["$TEST"]=$(( $(date +%s) - $start ))
+        echo -e "\n--x-- Running $TEST --x--"
+        set +e
+        ( set -x ; make -C "$TEST" $args )
+        RESULT=$?
+        set -e
+        echo "--x-- Result of $TEST: $RESULT --x--"
 
-    [ "$RESULT" -ne "0" ] && FAILURES=$(($FAILURES+1))
-done
+        results["$TEST"]="$RESULT"
+        times["$TEST"]=$(( $(date +%s) - $start ))
 
-if [ $FAILURES -eq 0 -a $do_clean = 1 ]; then
+        [ "$RESULT" -ne "0" ] && FAILURES=$(($FAILURES+1))
+    done
+fi
+
+# Run clean-again, if requested, and if no tests failed
+if [ $FAILURES -eq 0 -a $CLEANAGAIN = 1 ]; then
     for TEST in ${!results[@]}; do
-        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean-again )
+        ( set -x ; make -C "$TEST" clean-again )
     done
 fi
 
