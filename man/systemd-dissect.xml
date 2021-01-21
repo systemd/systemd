@@ -237,6 +237,8 @@
         url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
     </variablelist>
 
   </refsect1>
