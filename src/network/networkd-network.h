@@ -47,6 +47,17 @@ typedef enum IPv6LinkLocalAddressGenMode {
        _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID        = -1
 } IPv6LinkLocalAddressGenMode;
 
+typedef enum ActivationPolicy {
+        ACTIVATION_POLICY_UP,
+        ACTIVATION_POLICY_ALWAYS_UP,
+        ACTIVATION_POLICY_MANUAL,
+        ACTIVATION_POLICY_ALWAYS_DOWN,
+        ACTIVATION_POLICY_DOWN,
+        ACTIVATION_POLICY_BOUND,
+        _ACTIVATION_POLICY_MAX,
+        _ACTIVATION_POLICY_INVALID = -1
+} ActivationPolicy;
+
 typedef struct Manager Manager;
 
 typedef struct NetworkDHCPServerEmitAddress {
@@ -93,6 +104,7 @@ struct Network {
         bool unmanaged;
         bool required_for_online; /* Is this network required to be considered online? */
         LinkOperationalStateRange required_operstate_for_online;
+        ActivationPolicy activation_policy;
 
         /* misc settings */
         bool configure_without_carrier;
@@ -334,6 +346,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_rx_tx_queues);
+CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
@@ -342,3 +355,6 @@ KeepConfiguration keep_configuration_from_string(const char *s) _pure_;
 
 const char* ipv6_link_local_address_gen_mode_to_string(IPv6LinkLocalAddressGenMode s) _const_;
 IPv6LinkLocalAddressGenMode ipv6_link_local_address_gen_mode_from_string(const char *s) _pure_;
+
+const char* activation_policy_to_string(ActivationPolicy i) _const_;
+ActivationPolicy activation_policy_from_string(const char *s) _pure_;

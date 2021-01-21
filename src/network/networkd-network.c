@@ -225,9 +225,6 @@ int network_verify(Network *network) {
         if (network->dhcp_use_gateway < 0)
                 network->dhcp_use_gateway = network->dhcp_use_routes;
 
-        if (network->ignore_carrier_loss < 0)
-                network->ignore_carrier_loss = network->configure_without_carrier;
-
         if (network->dhcp_critical >= 0) {
                 if (network->keep_configuration >= 0)
                         log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
@@ -238,6 +235,30 @@ int network_verify(Network *network) {
                 else
                         network->keep_configuration = KEEP_CONFIGURATION_NO;
         }
+
+        if (!strv_isempty(network->bind_carrier)) {
+                if (!IN_SET(network->activation_policy, _ACTIVATION_POLICY_INVALID, ACTIVATION_POLICY_BOUND))
+                        log_warning("%s: ActivationPolicy=bound is required with BindCarrier=. "
+                                    "Setting ActivationPolicy=bound.", network->filename);
+                network->activation_policy = ACTIVATION_POLICY_BOUND;
+        } else if (network->activation_policy == ACTIVATION_POLICY_BOUND) {
+                log_warning("%s: ActivationPolicy=bound requires BindCarrier=. "
+                            "Ignoring ActivationPolicy=bound.", network->filename);
+                network->activation_policy = ACTIVATION_POLICY_UP;
+        }
+
+        if (network->activation_policy == _ACTIVATION_POLICY_INVALID)
+                network->activation_policy = ACTIVATION_POLICY_UP;
+
+        if (network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+                if (network->ignore_carrier_loss == false)
+                        log_warning("%s: IgnoreCarrierLoss=false conflicts with ActivationPolicy=always-up. "
+                                    "Setting IgnoreCarrierLoss=true.", network->filename);
+                network->ignore_carrier_loss = true;
+        }
+
+        if (network->ignore_carrier_loss < 0)
+                network->ignore_carrier_loss = network->configure_without_carrier;
 
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
@@ -316,6 +337,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .arp = -1,
                 .multicast = -1,
                 .allmulticast = -1,
@@ -1247,3 +1269,15 @@ static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL
 
 DEFINE_STRING_TABLE_LOOKUP(ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_link_local_address_gen_mode, ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode, "Failed to parse IPv6 link local address generation mode");
+
+static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
+        [ACTIVATION_POLICY_UP] =          "up",
+        [ACTIVATION_POLICY_ALWAYS_UP] =   "always-up",
+        [ACTIVATION_POLICY_MANUAL] =      "manual",
+        [ACTIVATION_POLICY_ALWAYS_DOWN] = "always-down",
+        [ACTIVATION_POLICY_DOWN] =        "down",
+        [ACTIVATION_POLICY_BOUND] =       "bound",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy, "Failed to parse activation policy");
