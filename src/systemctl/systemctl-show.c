@@ -1023,7 +1023,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
 
-                } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies")) {
+                } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies", "RestrictNetworkInterfaces")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int allow_list;
 
