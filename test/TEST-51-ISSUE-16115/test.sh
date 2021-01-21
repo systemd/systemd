@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Test ExecCondition= does not restart on abnormal or failure"
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 do_test "$@" 51

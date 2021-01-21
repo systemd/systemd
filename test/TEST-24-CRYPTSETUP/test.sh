@@ -4,7 +4,7 @@ TEST_DESCRIPTION="cryptsetup systemd setup"
 IMAGE_NAME="cryptsetup"
 TEST_NO_NSPAWN=1
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 check_result_qemu() {
     ret=1

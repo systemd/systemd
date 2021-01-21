@@ -4,7 +4,7 @@ TEST_DESCRIPTION="UDEV ID_RENAMING property"
 IMAGE_NAME="udev-id-renaming"
 TEST_NO_NSPAWN=1
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 QEMU_TIMEOUT=300
 
 test_create_image() {

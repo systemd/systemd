@@ -38,12 +38,37 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
+TEST_DIR=$(realpath $(dirname ${BASH_SOURCE[0]}))
+SOURCE_DIR=$(realpath $TEST_DIR/..)
+TOOLS_DIR=$SOURCE_DIR/tools
+
+# note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
+if ! BUILD_DIR=$($TOOLS_DIR/find-build-dir.sh 2>/dev/null); then
+    if [ "$NO_BUILD" ]; then
+        BUILD_DIR=$SOURCE_DIR
+    else
+        echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
+        exit 1
+    fi
+fi
+
 PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_JOURNALD" ] || SYSTEMD_JOURNALD=$(which -a $BUILD_DIR/systemd-journald $ROOTLIBDIR/systemd-journald 2>/dev/null | grep '^/' -m1)
 [ "$SYSTEMD_JOURNAL_REMOTE" ] || SYSTEMD_JOURNAL_REMOTE=$(which -a $BUILD_DIR/systemd-journal-remote $ROOTLIBDIR/systemd-journal-remote 2>/dev/null | grep '^/' -m1)
 [ "$SYSTEMD" ] || SYSTEMD=$(which -a $BUILD_DIR/systemd $ROOTLIBDIR/systemd 2>/dev/null | grep '^/' -m1)
 [ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
+
+TESTFILE=${BASH_SOURCE[1]}
+if [ -z "$TESTFILE" ]; then
+    echo "ERROR: test-functions must be sourced from one of the TEST-*/test.sh scripts" >&2
+    exit 1
+fi
+TESTNAME=$(basename $(dirname $(realpath $TESTFILE)))
+STATEDIR="$BUILD_DIR/test/$TESTNAME"
+STATEFILE="$STATEDIR/.testdir"
+IMAGESTATEDIR="$STATEDIR/.."
+TESTLOG="$STATEDIR/test.log"
 
 BASICTOOLS=(
     awk
@@ -142,11 +167,6 @@ DEBUGTOOLS=(
     tty
     vi
 )
-
-STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
-STATEFILE="$STATEDIR/.testdir"
-IMAGESTATEDIR="$STATEDIR/.."
-TESTLOG="$STATEDIR/test.log"
 
 is_built_with_asan() {
     if ! type -P objdump >/dev/null; then
@@ -658,7 +678,7 @@ install_dmevent() {
     fi
 }
 
-install_systemd() {
+install_compiled_systemd() {
     ddebug "Install compiled systemd"
 
     local _ninja_bin=$(type -P ninja || type -P ninja-build)
@@ -667,6 +687,42 @@ install_systemd() {
         exit 1
     fi
     (set -x; DESTDIR=$initdir "$_ninja_bin" -C $BUILD_DIR install)
+}
+
+install_debian_systemd() {
+    ddebug "Install debian systemd"
+
+    local _systemd_pkgs=$(apt-cache showsrc systemd | grep -m 1 -E '^Binary:' | cut -d ':' -f 2 | tr -d ,)
+    local _files=""
+    for deb in $_systemd_pkgs; do
+        _files=$(dpkg-query -L $deb 2>/dev/null) || continue
+        ddebug "Install debian files from package $deb"
+        for file in $_files; do
+            [ -e "$file" ] || continue
+            [ -d "$file" ] && continue
+            inst $file
+        done
+    done
+}
+
+install_distro_systemd() {
+    ddebug "Install distro systemd"
+
+    if [ "$LOOKS_LIKE_DEBIAN" ]; then
+        install_debian_systemd
+    else
+        dfatal "NO_BUILD not supported for this distro"
+        exit 1
+    fi
+}
+
+install_systemd() {
+    if [ "$NO_BUILD" ]; then
+        install_distro_systemd
+    else
+        install_compiled_systemd
+    fi
+
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc}
 
@@ -955,7 +1011,7 @@ install_depmod_files() {
 install_plymouth() {
     # install plymouth, if found... else remove plymouth service files
     # if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
-    #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
+    #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="${BASH_SOURCE[0]}" \
     #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
     #         dracut_install plymouth plymouthd
     # else
