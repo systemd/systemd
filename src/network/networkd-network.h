@@ -135,6 +135,7 @@ struct Network {
         int dhcp_use_gateway;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
+        bool dhcp_set_static_hostname;
         bool dhcp_route_table_set;
         bool dhcp_send_release;
         bool dhcp_send_decline;

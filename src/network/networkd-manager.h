@@ -97,6 +97,7 @@ void manager_dirty(Manager *m);
 Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
+int manager_set_static_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

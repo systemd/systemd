@@ -1204,6 +1204,52 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         return 0;
 }
 
+static int set_static_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        const sd_bus_error *e;
+        int r;
+
+        assert(m);
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r, "Could not set static hostname: %s", bus_error_message(e, r));
+        }
+
+        return 1;
+}
+
+int manager_set_static_hostname(Manager *m, const char *hostname) {
+        int r;
+
+        assert(m);
+
+        log_debug("Setting static hostname: '%s'", strna(hostname));
+
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, setting hostname later.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "SetStaticHostname",
+                        set_static_hostname_handler,
+                        m,
+                        "sb",
+                        hostname,
+                        false);
+
+        if (r < 0)
+                return log_error_errno(r, "Could not set static hostname: %m");
+
+        return 0;
+}
+
 static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         const sd_bus_error *e;
         int r;
