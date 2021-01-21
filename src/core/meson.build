@@ -121,6 +121,11 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+if conf.get('BUILD_BPF') == 1
+        subdir('bpf')
+        libcore_sources += [restrict_network_interfaces_hexdump_h]
+
+endif
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
