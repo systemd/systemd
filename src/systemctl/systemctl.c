@@ -162,6 +162,8 @@ static int systemctl_help(void) {
                "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
                "  bind UNIT PATH [PATH]               Bind-mount a path from the host into a\n"
                "                                      unit's namespace\n"
+               "  mount-image UNIT PATH [PATH [OPTS]] Mount an image from the host into a\n"
+               "                                      unit's namespace\n"
                "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
                "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
@@ -292,7 +294,7 @@ static int systemctl_help(void) {
                "                         'utc': 'Day YYYY-MM-DD HH:MM:SS UTC\n"
                "                         'us+utc': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC\n"
                "     --read-only         Create read-only bind mount\n"
-               "     --mkdir             Create directory before bind-mounting, if missing\n"
+               "     --mkdir             Create directory before mounting, if missing\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -1065,6 +1067,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "add-requires",          3,        VERB_ANY, 0,                add_dependency          },
                 { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, edit                    },
                 { "bind",                  3,        4,        VERB_ONLINE_ONLY, mount_bind              },
+                { "mount-image",           4,        5,        VERB_ONLINE_ONLY, mount_image             },
                 {}
         };
 
