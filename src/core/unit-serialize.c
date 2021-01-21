@@ -7,6 +7,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
+#include "restrict-ifaces.h"
 #include "serialize.h"
 #include "string-table.h"
 #include "unit-serialize.h"
@@ -172,6 +173,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-ingress-installed", u->ip_bpf_custom_ingress_installed);
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-egress-installed", u->ip_bpf_custom_egress_installed);
+
+        (void) serialize_restrict_network_interfaces(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -412,6 +415,21 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "ip-bpf-custom-egress-installed")) {
                          (void) bpf_program_deserialize_attachment_set(v, fds, &u->ip_bpf_custom_egress_installed);
                          continue;
+
+                } else if (streq(l, "restrict-ifaces-bpf-fd")) {
+                        int fd;
+
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
+                                log_unit_debug(u, "Failed to parse restrict-ifaces-bpf-fd value: %s", v);
+                                continue;
+                        }
+                        if (fdset_remove(fds, fd) < 0) {
+                                log_unit_debug(u, "Failed to remove restrict-ifaces-bpf-fd %d from fdset", fd);
+                                continue;
+                        }
+
+                        (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
+                        continue;
 
                 } else if (streq(l, "ref-uid")) {
                         uid_t uid;

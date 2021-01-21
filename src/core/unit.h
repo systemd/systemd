@@ -335,6 +335,12 @@ typedef struct Unit {
         struct bpf_link *ipv6_socket_bind_link;
 #endif
 
+        FDSet *initial_restric_ifaces_link_fds;
+#if BPF_FRAMEWORK
+        struct bpf_link *restrict_ifaces_ingress_bpf_link;
+        struct bpf_link *restrict_ifaces_egress_bpf_link;
+#endif
+
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
          * ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
