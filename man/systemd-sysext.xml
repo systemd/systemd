@@ -229,6 +229,7 @@
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
     </variablelist>
   </refsect1>
 
