@@ -287,3 +287,24 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+
+SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
+        switch (state) {
+                case UNIT_ACTIVE:
+                    return SPECIAL_GLYPH_BLACK_CIRCLE;
+                case UNIT_RELOADING:
+                    return SPECIAL_GLYPH_CIRCLE_ARROW;
+                case UNIT_INACTIVE:
+                    return SPECIAL_GLYPH_WHITE_CIRCLE;
+                case UNIT_FAILED:
+                    return SPECIAL_GLYPH_MULTIPLICATION_SIGN;
+                case UNIT_ACTIVATING:
+                case UNIT_DEACTIVATING:
+                    return SPECIAL_GLYPH_BLACK_CIRCLE;
+                case UNIT_MAINTENANCE:
+                    return SPECIAL_GLYPH_WHITE_CIRCLE;
+
+                default:
+                    return SPECIAL_GLYPH_BLACK_CIRCLE;
+            }
+}
