@@ -5695,6 +5695,75 @@ int config_parse_cgroup_socket_bind(
         return 0;
 }
 
+int config_parse_restrict_network_interfaces(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        CGroupContext *c = data;
+        bool is_allow_rule = true;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                is_allow_rule = false;
+                rvalue++;
+        }
+
+        if (!c->restrict_network_interfaces) {
+                c->restrict_network_interfaces = set_new(&string_hash_ops_free);
+                if (!c->restrict_network_interfaces)
+                        return log_oom();
+
+                /* Only initialize this when creating the set */
+                c->restrict_network_interfaces_is_allow_list = is_allow_rule;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Trailing garbage in %s, ignoring: %s", lvalue, rvalue);
+                        break;
+                }
+
+                if (c->restrict_network_interfaces_is_allow_list != is_allow_rule)
+                        set_remove(c->restrict_network_interfaces, word);
+                else {
+                        r = set_put_strdup(&c->restrict_network_interfaces, word);
+                        if (r < 0) {
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                return r;
+                        }
+                }
+        }
+
+        return 0;
+}
+
 static int merge_by_names(Unit **u, Set *names, const char *id) {
         char *k;
         int r;
