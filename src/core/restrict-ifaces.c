@@ -52,14 +52,6 @@ static int prepare_restrict_ifaces_bpf(Unit* u, bool is_allow_list,
 
         map_fd = bpf_map__fd(obj->maps.ifaces_map);
 
-        /* Key zero indicates whether this is an allow or deny-list approach */
-        ifindex = 0;
-        dummy = (uint8_t) is_allow_list;
-        r = bpf_map_update_elem(map_fd, &ifindex, &dummy, BPF_ANY);
-        if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to update BPF map '%s' fd: %m", map_name);
-        dummy = 0;
-
         SET_FOREACH(iface, restrict_network_interfaces) {
                 ifindex = resolve_ifname(NULL, iface);
                 if (ifindex < 0) {
@@ -157,7 +149,7 @@ static int restrict_network_interfaces_install_impl(Unit *u) {
 
 int restrict_network_interfaces_install(Unit *u) {
         int r = restrict_network_interfaces_install_impl(u);
-        fdset_close(u->restrict_ifaces_restored_fds);
+        fdset_close(u->initial_restric_ifaces_link_fds);
         return r;
 }
 
@@ -178,13 +170,13 @@ int restrict_network_interfaces_add_initial_link_fd(Unit *u, int fd) {
 
         assert(u);
 
-        if (!u->restrict_ifaces_restored_fds) {
-                u->restrict_ifaces_restored_fds = fdset_new();
-                if (!u->restrict_ifaces_restored_fds)
+        if (!u->initial_restric_ifaces_link_fds) {
+                u->initial_restric_ifaces_link_fds = fdset_new();
+                if (!u->initial_restric_ifaces_link_fds)
                         return log_oom();
         }
 
-        r = fdset_put(u->restrict_ifaces_restored_fds, fd);
+        r = fdset_put(u->initial_restric_ifaces_link_fds, fd);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to put restrict-ifaces-bpf-fd %d to restored fdset", fd);
 
