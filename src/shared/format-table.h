@@ -7,6 +7,7 @@
 
 #include "json.h"
 #include "macro.h"
+#include "pager.h"
 
 typedef enum TableDataType {
         TABLE_EMPTY,
@@ -128,6 +129,8 @@ const void *table_get_at(Table *t, size_t row, size_t column);
 
 int table_to_json(Table *t, JsonVariant **ret);
 int table_print_json(Table *t, FILE *f, JsonFormatFlags json_flags);
+
+int table_print_with_pager(Table *t, JsonFormatFlags json_format_flags, PagerFlags pager_flags, bool show_header);
 
 #define table_log_add_error(r) \
         log_error_errno(r, "Failed to add cell(s) to table: %m")

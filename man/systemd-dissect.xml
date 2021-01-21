@@ -162,15 +162,6 @@
         operation begins.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--json=</option><replaceable>MODE</replaceable></term>
-
-        <listitem><para>Shows output formatted as JSON. Expects one of <literal>short</literal> (for the
-        shortest possible output without any redundant whitespace or line breaks), <literal>pretty</literal>
-        (for a pretty version of the same, with indentation and line breaks) or <literal>off</literal> (to turn
-        off json output).</para></listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -237,6 +228,9 @@
         url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
 
   </refsect1>
