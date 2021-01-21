@@ -160,6 +160,9 @@ struct CGroupContext {
         char **ip_filters_egress;
         LIST_HEAD(CGroupBPFForeignProgram, bpf_foreign_programs);
 
+        Set *restrict_network_interfaces;
+        bool restrict_network_interfaces_is_allow_list;
+
         /* For legacy hierarchies */
         uint64_t cpu_shares;
         uint64_t startup_cpu_shares;
