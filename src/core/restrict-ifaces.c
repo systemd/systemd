@@ -153,7 +153,7 @@ int restrict_network_interfaces_install(Unit *u) {
         /* Swap pointers to close FDs of detached programs on exit. */
         SWAP_TWO(u->restrict_network_interfaces_progs, old_progs);
 
-        r = cgroup_bpf_attach_programs(u, new_progs, /*attach_flags*/0);
+        r = cgroup_bpf_attach_programs(u, new_progs, BPF_F_ALLOW_MULTI);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to attach restrict_network_interfaces BPF programs: %m");
 
