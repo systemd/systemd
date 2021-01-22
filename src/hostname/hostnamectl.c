@@ -222,7 +222,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         }
 }
 
-static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
+static int set_simple_string_full(sd_bus *bus, const char *target, const char *method, const char *value, bool ignore_error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -237,19 +237,28 @@ static int set_simple_string(sd_bus *bus, const char *target, const char *method
                         &error, NULL,
                         "sb", value, arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Could not set %s: %s", target, bus_error_message(&error, r));
+                log_full_errno(ignore_error ? LOG_WARNING : LOG_ERR, r,
+                               "Could not set %s%s: %s",
+                               target,
+                               ignore_error ? ", ignoring" : "",
+                               bus_error_message(&error, r));
 
-        return 0;
+        return r;
+}
+
+static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
+        return set_simple_string_full(bus, target, method, value, false);
 }
 
 static int set_hostname(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *h = NULL;
         const char *hostname = argv[1];
         sd_bus *bus = userdata;
+        bool implicit = false;
         int r;
 
         if (!arg_pretty && !arg_static && !arg_transient)
-                arg_pretty = arg_static = arg_transient = true;
+                arg_pretty = arg_static = arg_transient = implicit = true;
 
         if (arg_pretty) {
                 const char *p;
@@ -262,7 +271,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
 
-                r = set_simple_string(bus, "pretty hostname", "SetPrettyHostname", p);
+                r = set_simple_string_full(bus, "pretty hostname", "SetPrettyHostname", p, implicit);
                 if (r < 0)
                         return r;
 
@@ -280,7 +289,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         }
 
         if (arg_static) {
-                r = set_simple_string(bus, "static hostname", "SetStaticHostname", hostname);
+                r = set_simple_string_full(bus, "static hostname", "SetStaticHostname", hostname, implicit);
                 if (r < 0)
                         return r;
         }
