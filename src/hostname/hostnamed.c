@@ -790,7 +790,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = free_and_strdup(&c->data[PROP_STATIC_HOSTNAME], name);
+        r = free_and_strdup_warn(&c->data[PROP_STATIC_HOSTNAME], name);
         if (r < 0)
                 return r;
 
@@ -870,7 +870,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = free_and_strdup(&c->data[prop], name);
+        r = free_and_strdup_warn(&c->data[prop], name);
         if (r < 0)
                 return r;
 
