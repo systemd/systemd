@@ -15,6 +15,7 @@
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-tar.h"
+#include "install-file.h"
 #include "io-util.h"
 #include "machine-pool.h"
 #include "mkdir.h"
@@ -54,7 +55,7 @@ struct TarImport {
         uint64_t written_compressed;
         uint64_t written_uncompressed;
 
-        struct stat st;
+        struct stat input_stat;
 
         pid_t tar_pid;
 
@@ -136,13 +137,13 @@ static void tar_import_report_progress(TarImport *i) {
         assert(i);
 
         /* We have no size information, unless the source is a regular file */
-        if (!S_ISREG(i->st.st_mode))
+        if (!S_ISREG(i->input_stat.st_mode))
                 return;
 
-        if (i->written_compressed >= (uint64_t) i->st.st_size)
+        if (i->written_compressed >= (uint64_t) i->input_stat.st_size)
                 percent = 100;
         else
-                percent = (unsigned) ((i->written_compressed * UINT64_C(100)) / (uint64_t) i->st.st_size);
+                percent = (unsigned) ((i->written_compressed * UINT64_C(100)) / (uint64_t) i->input_stat.st_size);
 
         if (percent == i->last_percent)
                 return;
@@ -157,12 +158,11 @@ static void tar_import_report_progress(TarImport *i) {
 }
 
 static int tar_import_finish(TarImport *i) {
+        const char *d;
         int r;
 
         assert(i);
         assert(i->tar_fd >= 0);
-        assert(i->temp_path);
-        assert(i->final_path);
 
         i->tar_fd = safe_close(i->tar_fd);
 
@@ -175,22 +175,20 @@ static int tar_import_finish(TarImport *i) {
                         return -EPROTO;
         }
 
-        r = import_mangle_os_tree(i->temp_path);
+        assert_se(d = i->temp_path ?: i->local);
+
+        r = import_mangle_os_tree(d);
         if (r < 0)
                 return r;
 
-        if (i->flags & IMPORT_READ_ONLY) {
-                r = import_make_read_only(i->temp_path);
-                if (r < 0)
-                        return r;
-        }
-
-        if (i->flags & IMPORT_FORCE)
-                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-
-        r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
+        r = install_file(
+                        AT_FDCWD, d,
+                        AT_FDCWD, i->final_path,
+                        (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                        (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
+                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed to move image into place: %m");
+                return log_error_errno(r, "Failed to move '%s' into place: %m", i->final_path ?: i->local);
 
         i->temp_path = mfree(i->temp_path);
 
@@ -198,33 +196,54 @@ static int tar_import_finish(TarImport *i) {
 }
 
 static int tar_import_fork_tar(TarImport *i) {
+        const char *d, *root;
         int r;
 
         assert(i);
-
+        assert(i->local);
         assert(!i->final_path);
         assert(!i->temp_path);
         assert(i->tar_fd < 0);
 
-        i->final_path = path_join(i->image_root, i->local);
-        if (!i->final_path)
-                return log_oom();
+        if (i->flags & IMPORT_DIRECT) {
+                d = i->local;
+                root = NULL;
+        } else {
+                i->final_path = path_join(i->image_root, i->local);
+                if (!i->final_path)
+                        return log_oom();
 
-        r = tempfn_random(i->final_path, NULL, &i->temp_path);
-        if (r < 0)
-                return log_oom();
+                r = tempfn_random(i->final_path, NULL, &i->temp_path);
+                if (r < 0)
+                        return log_oom();
 
-        (void) mkdir_parents_label(i->temp_path, 0700);
-
-        r = btrfs_subvol_make_fallback(i->temp_path, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create directory/subvolume %s: %m", i->temp_path);
-        if (r > 0) { /* actually btrfs subvol */
-                (void) import_assign_pool_quota_and_warn(i->image_root);
-                (void) import_assign_pool_quota_and_warn(i->temp_path);
+                d = i->temp_path;
+                root = i->image_root;
         }
 
-        i->tar_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
+        assert(d);
+
+        (void) mkdir_parents_label(d, 0700);
+
+        if (FLAGS_SET(i->flags, IMPORT_DIRECT|IMPORT_FORCE))
+                (void) rm_rf(d, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+
+        if (i->flags & IMPORT_BTRFS_SUBVOL)
+                r = btrfs_subvol_make_fallback(d, 0755);
+        else
+                r = mkdir(d, 0755) < 0 ? -errno : 0;
+        if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
+                                                         * because in that case our temporary path collided */
+                r = 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory/subvolume %s: %m", d);
+        if (r > 0 && (i->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
+                if (!(i->flags & IMPORT_DIRECT))
+                        (void) import_assign_pool_quota_and_warn(root);
+                (void) import_assign_pool_quota_and_warn(d);
+        }
+
+        i->tar_fd = import_fork_tar_x(d, &i->tar_pid);
         if (i->tar_fd < 0)
                 return i->tar_fd;
 
@@ -327,9 +346,9 @@ int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags)
         assert(i);
         assert(fd >= 0);
         assert(local);
-        assert(!(flags & ~IMPORT_FLAGS_MASK));
+        assert(!(flags & ~IMPORT_FLAGS_MASK_TAR));
 
-        if (!hostname_is_valid(local, 0))
+        if (!import_validate_local(local, flags))
                 return -EINVAL;
 
         if (i->input_fd >= 0)
@@ -345,7 +364,7 @@ int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags)
 
         i->flags = flags;
 
-        if (fstat(fd, &i->st) < 0)
+        if (fstat(fd, &i->input_stat) < 0)
                 return -errno;
 
         r = sd_event_add_io(i->event, &i->input_event_source, fd, EPOLLIN, tar_import_on_input, i);
@@ -361,5 +380,5 @@ int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags)
                 return r;
 
         i->input_fd = fd;
-        return r;
+        return 0;
 }
