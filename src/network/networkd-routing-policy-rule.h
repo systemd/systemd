@@ -15,6 +15,13 @@ typedef struct Network Network;
 typedef struct Link Link;
 typedef struct Manager Manager;
 
+typedef enum AddressType {
+        ADDRESS_TYPE_DHCP4_IP,
+        ADDRESS_TYPE_DHCP4_GATEWAY,
+        _ADDRESS_TYPE_MAX,
+        _ADDRESS_TYPE_INVALID = -1,
+} AddressType;
+
 typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
@@ -34,6 +41,9 @@ typedef struct RoutingPolicyRule {
         uint32_t fwmark;
         uint32_t fwmask;
         uint32_t priority;
+
+        AddressType to_type;
+        AddressType from_type;
 
         AddressFamily address_family; /* Specified by Family= */
         int family; /* Automatically determined by From= or To= */
@@ -56,6 +66,8 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 void network_drop_invalid_routing_policy_rules(Network *network);
 
 int link_set_routing_policy_rules(Link *link);
+int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link);
+int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *manager);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
