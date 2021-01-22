@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1008,4 +1009,155 @@ int mount_image_in_namespace(
                 const MountOptions *options) {
 
         return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, true);
+}
+
+typedef struct dir_to_visit_callback_data {
+        const char *root;
+        const char *extension;
+        char ***mounts_list;
+        char ***overlays_list;
+} DirToVisitCallbackData;
+
+static int visit_callback(PathVisitHookType hook, int node_fd, void *userdata) {
+        _cleanup_free_ char *extension_path = NULL, *extension_parent = NULL;
+        const char *extension_relative_path, *extension_parent_relative_path;
+        DirToVisitCallbackData *callback_data = userdata;
+        const char *root_path;
+        int r, root_fd = -1;
+
+        assert(callback_data);
+
+        /* Pre-compute some of the paths we'll need in the hooks */
+        r = fd_get_path(node_fd, &extension_path);
+        if (r != 0)
+                return log_debug_errno(r, "fd_get_path() on current directory in extension hierarchy failed: %m");
+        extension_parent = dirname_malloc(extension_path);
+        if (!extension_parent)
+                return -ENOMEM;
+        /* First time down the tree we get the root, so NULL from path_startswith.
+         * Subsequent times we want to return absolute paths, but we get a relative path
+         * from path_startswith. */
+        extension_relative_path = prefix_roota("/", strempty(path_startswith(extension_path, callback_data->extension)));
+        extension_parent_relative_path = prefix_roota("/", strempty(path_startswith(extension_parent, callback_data->extension)));
+
+        /* Get the equivalent path in the root hierarchy. It's OK if it's not there, there's specific handling for that.
+         * The relevant file descriptor is used a few times so open it immediately. */
+        root_path = prefix_roota(callback_data->root, path_startswith(extension_path, callback_data->extension));
+        root_fd = openat(-1, root_path, O_NOFOLLOW|O_CLOEXEC);
+        if (root_fd < 0 && errno != ENOENT)
+                return log_debug_errno(errno, "Failed to openat() %s in root hierarchy: %m", root_path);
+
+        if (hook == PATH_VISIT_HOOK_ENTER) {
+                /* First encounter of a directory, when opening it. Check for some shortcuts, and if we are
+                 * lucky we can just skip to the next (returning 1). */
+
+                /* Already added its parent? Skip it. */
+                if (path_startswith_strv(extension_relative_path, *callback_data->mounts_list))
+                        return 1;
+                if (path_startswith_strv(extension_relative_path, *callback_data->overlays_list))
+                        return 1;
+
+                /* Shortcut: if the directory is empty in the extension, just skip it. */
+                r = dir_is_empty_all_at(node_fd, NULL);
+                if (r < 0 && r != -ENOENT)
+                        return log_debug_errno(r, "Failed to check whether directory in the extension is empty: %m");
+                if (r > 0)
+                        return 1;
+
+                /* Shortcut: if the directory is empty in the root, just overmount the extension. */
+                if (root_fd < 0) {
+                        r = strv_extend(callback_data->mounts_list, extension_relative_path);
+                        if (r != 0)
+                                return -ENOMEM;
+                        return 1;
+                }
+                r = dir_is_empty_all_at(root_fd, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check whether directory in the root is empty: %m");
+                if (r > 0) {
+                        r = strv_extend(callback_data->mounts_list, extension_relative_path);
+                        if (r != 0)
+                                return -ENOMEM;
+                        return 1;
+                }
+        } else if (hook == PATH_VISIT_HOOK_DIR) {
+                /* We are now looking at a directory while visiting the siblings of a parent. By returning 0 or 1
+                 * we can stop the algorithm from recursing into it later on. */
+                if (root_fd < 0) {
+                        /* We have a directory that the root doesn't have, and the parent isn't empty: need an overlay. */
+                        r = strv_extend(callback_data->overlays_list, extension_parent_relative_path);
+                        if (r != 0)
+                                return -ENOMEM;
+
+                        /* We are setting up an overlay on the parent directory, so the rest of the sibling nodes do not
+                         * matter, and we can skip them by returning 0. */
+                        return 0;
+                }
+        } else if (hook == PATH_VISIT_HOOK_FILE) {
+                /* Visiting a file is quite simple: either it's in the root too and thus we bind mount over it,
+                 * or it is not and then we need an overlay on the parent node. */
+                if (root_fd < 0) {
+                        /* We have a file that the root doesn't have, and the parent isn't empty: need an overlay */
+                        r = strv_extend(callback_data->overlays_list, extension_parent_relative_path);
+                        if (r != 0)
+                                return -ENOMEM;
+
+                        return 0;
+                } else {
+                        struct stat st;
+
+                        /* Exists in the root, check whether it's a file or a directory, as they need to match. */
+                        r = fstat(root_fd, &st);
+                        if (r != 0)
+                                return log_debug_errno(errno, "Failed to fstat() %s in root hierarchy: %m", root_path);
+
+                        /* One volume has a file/symlink, the other a directory - cannot handle this, error out. */
+                        if (S_ISDIR(st.st_mode))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s is a directory in the root hierarchy but a file in the extension hierarchy", root_path);
+
+                        /* Individual file - just overmount it. */
+                        r = strv_extend(callback_data->mounts_list, extension_relative_path);
+                        if (r != 0)
+                                return -ENOMEM;
+                }
+        }
+
+        return 2;
+}
+
+int mount_compute_shallow_overlays(
+                const char *root,
+                const char *extension,
+                char ***ret_mounts_list,
+                char ***ret_overlays_list) {
+
+        _cleanup_strv_free_ char **mounts_list = NULL, **overlays_list = NULL;
+        DirToVisitCallbackData data;
+        char **p;
+        int r;
+
+        assert(root);
+        assert(extension);
+        assert(ret_mounts_list);
+        assert(ret_overlays_list);
+
+        data = (DirToVisitCallbackData) {
+                .root = root,
+                .extension = extension,
+                .mounts_list = &mounts_list,
+                .overlays_list = &overlays_list,
+        };
+
+        r = path_breadth_first_visit(extension, visit_callback, &data);
+        if (r < 0)
+                return r;
+
+        /* Normalize: depending on visiting order, we might have a node in the mounts list
+         * and its parent in the overlays list. Remove the formers. */
+        STRV_FOREACH(p, overlays_list)
+                mounts_list = strv_remove_prefix(mounts_list, *p);
+
+        *ret_mounts_list = TAKE_PTR(mounts_list);
+        *ret_overlays_list = TAKE_PTR(overlays_list);
+        return 0;
 }
