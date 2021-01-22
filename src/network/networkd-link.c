@@ -1831,17 +1831,38 @@ static int link_joined(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!hashmap_isempty(link->bound_to_links)) {
+        switch (link->network->activation_policy) {
+        case ACTIVATION_POLICY_BOUND:
                 r = link_handle_bound_to_list(link);
                 if (r < 0)
                         return r;
-        } else if (!(link->flags & IFF_UP)) {
+                break;
+        case ACTIVATION_POLICY_UP:
+                if (link->activated)
+                        break;
+                _fallthrough_;
+        case ACTIVATION_POLICY_ALWAYS_UP:
                 r = link_up(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
                 }
+                break;
+        case ACTIVATION_POLICY_DOWN:
+                if (link->activated)
+                        break;
+                _fallthrough_;
+        case ACTIVATION_POLICY_ALWAYS_DOWN:
+                r = link_down(link, NULL);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+                break;
+        default:
+                break;
         }
+        link->activated = true;
 
         if (link->network->bridge) {
                 r = link_set_bridge(link);
@@ -2254,6 +2275,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 return r;
 
         link_set_state(link, LINK_STATE_INITIALIZED);
+        link->activated = false;
         link_dirty(link);
 
         /* link_configure_duid() returns 0 if it requests product UUID. In that case,
@@ -2658,6 +2680,16 @@ int link_carrier_reset(Link *link) {
 static int link_admin_state_up(Link *link) {
         int r;
 
+        assert(link);
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
+                log_link_info(link, "ActivationPolicy is \"always-off\", forcing link down");
+                return link_down(link, NULL);
+        }
+
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it.  The check for
          * ipv6_mtu_set prevents this from trying to set it too early before
@@ -2667,6 +2699,21 @@ static int link_admin_state_up(Link *link) {
                 r = link_set_ipv6_mtu(link);
                 if (r < 0)
                         return r;
+        }
+
+        return 0;
+}
+
+static int link_admin_state_down(Link *link) {
+
+        assert(link);
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+                log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
+                return link_up(link);
         }
 
         return 0;
@@ -2784,8 +2831,13 @@ int link_update(Link *link, sd_netlink_message *m) {
                 r = link_admin_state_up(link);
                 if (r < 0)
                         return r;
-        } else if (link_was_admin_up && !(link->flags & IFF_UP))
+        } else if (link_was_admin_up && !(link->flags & IFF_UP)) {
                 log_link_info(link, "Link DOWN");
+
+                r = link_admin_state_down(link);
+                if (r < 0)
+                        return r;
+        }
 
         r = link_update_lldp(link);
         if (r < 0)
@@ -2958,6 +3010,9 @@ int link_save(Link *link) {
                         strempty(link_operstate_to_string(st.min)),
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
+
+                fprintf(f, "ACTIVATION_POLICY=%s\n",
+                        activation_policy_to_string(link->network->activation_policy));
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 

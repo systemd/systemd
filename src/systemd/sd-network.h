@@ -103,6 +103,11 @@ int sd_network_link_get_address_state(int ifindex, char **state);
  */
 int sd_network_link_get_required_for_online(int ifindex);
 
+/* Get activation policy for ifindex.
+ * Possible values are as specified for ActivationPolicy=
+ */
+int sd_network_link_get_activation_policy(int ifindex, char **policy);
+
 /* Get path to .network file applied to link */
 int sd_network_link_get_network_file(int ifindex, char **filename);
 

@@ -66,6 +66,7 @@ Link.Multicast,                              config_parse_tristate,             
 Link.AllMulticast,                           config_parse_tristate,                                    0,                             offsetof(Network, allmulticast)
 Link.Promiscuous,                            config_parse_tristate,                                    0,                             offsetof(Network, promiscuous)
 Link.Unmanaged,                              config_parse_bool,                                        0,                             offsetof(Network, unmanaged)
+Link.ActivationPolicy,                       config_parse_activation_policy,                           0,                             offsetof(Network, activation_policy)
 Link.RequiredForOnline,                      config_parse_required_for_online,                         0,                             0
 SR-IOV.VirtualFunction,                      config_parse_sr_iov_uint32,                               0,                             0
 SR-IOV.VLANId,                               config_parse_sr_iov_uint32,                               0,                             0
