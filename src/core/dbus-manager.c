@@ -731,6 +731,11 @@ static int method_bind_mount_unit(sd_bus_message *message, void *userdata, sd_bu
         return method_generic_unit_operation(message, userdata, error, bus_service_method_bind_mount, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
+static int method_mount_image_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* Only add mounts on fully loaded units */
+        return method_generic_unit_operation(message, userdata, error, bus_service_method_mount_image, GENERIC_UNIT_VALIDATE_LOADED);
+}
+
 static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only allow reffing of fully loaded units, and make sure reffing a unit loads it. */
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
@@ -2775,6 +2780,17 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(mkdir),
                                  NULL,,
                                  method_bind_mount_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("MountImageUnit",
+                                 "sssbba(ss)",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(source)
+                                 SD_BUS_PARAM(destination)
+                                 SD_BUS_PARAM(read_only)
+                                 SD_BUS_PARAM(mkdir)
+                                 SD_BUS_PARAM(options),
+                                 NULL,,
+                                 method_mount_image_unit,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("RefUnit",
                                  "s",

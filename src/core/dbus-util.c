@@ -3,6 +3,7 @@
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "dbus-util.h"
+#include "escape.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "unit-printf.h"
@@ -185,4 +186,79 @@ int bus_verify_manage_units_async_full(
                         UID_INVALID,
                         &u->manager->polkit_registry,
                         error);
+}
+
+/* ret_format_str is an accumulator, so if it has any pre-existing content, new options will be appended to it */
+int bus_read_mount_options(
+                sd_bus_message *message,
+                sd_bus_error *error,
+                MountOptions **ret_options,
+                char **ret_format_str,
+                const char *separator) {
+
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_free_ char *format_str = NULL;
+        const char *mount_options, *partition;
+        int r;
+
+        assert(message);
+        assert(ret_options);
+        assert(separator);
+
+        r = sd_bus_message_enter_container(message, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
+                _cleanup_free_ char *previous = NULL, *escaped = NULL;
+                _cleanup_free_ MountOptions *o = NULL;
+                PartitionDesignator partition_designator;
+
+                if (chars_intersect(mount_options, WHITESPACE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Invalid mount options string, contains whitespace character(s): %s", mount_options);
+
+                partition_designator = partition_designator_from_string(partition);
+                if (partition_designator < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid partition name %s", partition);
+
+                /* Need to store the options with the escapes, so that they can be parsed again */
+                escaped = shell_escape(mount_options, ":");
+                if (!escaped)
+                        return -ENOMEM;
+
+                previous = TAKE_PTR(format_str);
+                format_str = strjoin(previous, previous ? separator : "", partition, ":", escaped);
+                if (!format_str)
+                        return -ENOMEM;
+
+                o = new(MountOptions, 1);
+                if (!o)
+                        return -ENOMEM;
+                *o = (MountOptions) {
+                        .partition_designator = partition_designator,
+                        .options = strdup(mount_options),
+                };
+                if (!o->options)
+                        return -ENOMEM;
+                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!LIST_IS_EMPTY(options)) {
+                if (ret_format_str) {
+                        char *final = strjoin(*ret_format_str, !isempty(*ret_format_str) ? separator : "", format_str);
+                        if (!final)
+                                return -ENOMEM;
+                        free_and_replace(*ret_format_str, final);
+                }
+                LIST_JOIN(mount_options, *ret_options, options);
+        }
+
+        return 0;
 }

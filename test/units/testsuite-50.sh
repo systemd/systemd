@@ -205,6 +205,28 @@ grep -q -F "MARKER=1" ${image_dir}/result/c
 grep -F "squashfs" ${image_dir}/result/c | grep -q -F "noatime"
 grep -F "squashfs" ${image_dir}/result/c | grep -q -F -v "nosuid"
 
+# Adding a new mounts at runtime works if the unit is in the active state,
+# so use Type=notify to make sure there's no race condition in the test
+cat > /run/systemd/system/testservice-50d.service <<EOF
+[Service]
+RuntimeMaxSec=300
+Type=notify
+RemainAfterExit=yes
+MountAPIVFS=yes
+PrivateTmp=yes
+ExecStart=/bin/sh -c 'systemd-notify --ready; while ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do sleep 0.1; done; mount | grep -F "/tmp/img" | grep -q -F "nosuid"'
+EOF
+systemctl start testservice-50d.service
+
+systemctl mount-image --mkdir testservice-50d.service ${image}.raw /tmp/img root:nosuid
+
+while systemctl show -P SubState testservice-50d.service | grep -q running
+do
+    sleep 0.1
+done
+
+systemctl is-active testservice-50d.service
+
 echo OK >/testok
 
 exit 0
