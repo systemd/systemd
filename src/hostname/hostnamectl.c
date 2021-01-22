@@ -263,7 +263,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                 /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
                  * hostnames, so let's unset the pretty hostname, and just set the passed hostname as static/dynamic
                  * hostname. */
-                if (arg_static && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
+                if (implicit && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
                         p = ""; /* No pretty hostname (as it is redundant), just a static one */
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
