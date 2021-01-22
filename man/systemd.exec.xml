@@ -660,7 +660,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>ProtectClock=</varname>, <varname>MemoryDenyWriteExecute=</varname>,
         <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname>
         or <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by them,
-        <command>systemctl show</command> shows the original value of this setting.
+        <command>systemctl show</command> shows the original value of this setting. In case the service will
+        be run in a new mount namespace anyway, all file systems are mounted with MS_NOSUID flag.
         Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
         Flag</ulink>.</para></listitem>
       </varlistentry>
