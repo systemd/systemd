@@ -196,6 +196,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 goto finish;
 
+        (void) import_assign_pool_quota_and_warn(arg_image_root);
         (void) import_assign_pool_quota_and_warn(temp_path);
 
         if (arg_read_only) {

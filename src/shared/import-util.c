@@ -143,15 +143,7 @@ int raw_strip_suffixes(const char *p, char **ret) {
 int import_assign_pool_quota_and_warn(const char *path) {
         int r;
 
-        r = btrfs_subvol_auto_qgroup("/var/lib/machines", 0, true);
-        if (r == -ENOTTY)  {
-                log_debug_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, as directory is not on btrfs or not a subvolume. Ignoring.");
-                return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines: %m");
-        if (r > 0)
-                log_info("Set up default quota hierarchy for /var/lib/machines.");
+        assert(path);
 
         r = btrfs_subvol_auto_qgroup(path, 0, true);
         if (r == -ENOTTY) {
