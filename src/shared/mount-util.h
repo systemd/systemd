@@ -101,3 +101,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
 int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
 int mount_image_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options);
+
+/* Given two directory trees, compute the list of direct mounts
+ * and overlay mounts required to set up a merge of /usr and /opt from the
+ * two layers, as relative paths from the root of the extra_image.
+ * Leaf nodes (files, empty directories) are listed in the mount list,
+ * while divergent non-empty directories are listed in the overlay list. */
+int mount_compute_shallow_overlays(const char *root_image, const char *extra_image, char ***ret_mounts_list, char ***ret_overlays_list);
