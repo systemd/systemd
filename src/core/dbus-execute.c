@@ -1047,6 +1047,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtensionImages", "as", NULL, offsetof(ExecContext, extension_images), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3385,6 +3386,41 @@ int bus_exec_context_set_transient_property(
                 }
 
                 mount_images = mount_image_free_many(mount_images, &n_mount_images);
+
+                return 1;
+        } else if (streq(name, "ExtensionImages")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(p, l) {
+                        if (!path_is_absolute(*p) || !path_is_normalized(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid path in %s", name);
+
+                        path_simplify(*p, false);
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (strv_isempty(l)) {
+                                c->extension_images = strv_free(c->extension_images);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                _cleanup_free_ char *joined = NULL;
+
+                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                r = strv_extend_strv(&c->extension_images, l, true);
+                                if (r < 0)
+                                        return -ENOMEM;
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, joined);
+                        }
+                }
 
                 return 1;
         }

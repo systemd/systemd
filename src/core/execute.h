@@ -168,6 +168,7 @@ struct ExecContext {
         void *root_hash, *root_hash_sig;
         size_t root_hash_size, root_hash_sig_size;
         LIST_HEAD(MountOptions, root_image_options);
+        char **extension_images;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
 
