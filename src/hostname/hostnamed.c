@@ -693,7 +693,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         /* We always go through with the procedure below without comparing to the current hostname, because
          * we might want to adjust hostname source information even if the actual hostname is unchanged. */
 
-        if (!hostname_is_valid(name, 0))
+        if (name && !hostname_is_valid(name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
 
         context_read_etc_hostname(c);
