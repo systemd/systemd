@@ -98,7 +98,7 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
 
         /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
         if (m->dynamic_hostname)
-                (void) manager_set_hostname(m, m->dynamic_hostname);
+                (void) manager_set_hostname(m, m->dynamic_hostname, false);
         if (m->dynamic_timezone)
                 (void) manager_set_timezone(m, m->dynamic_timezone);
         if (m->links_requesting_uuid)
@@ -1172,18 +1172,28 @@ static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error 
         return 1;
 }
 
-int manager_set_hostname(Manager *m, const char *hostname) {
+int manager_set_hostname(Manager *m, const char *hostname, bool static_hostname) {
+        _cleanup_free_ char *kind = NULL;
         int r;
 
-        log_debug("Setting transient hostname: '%s'", strna(hostname));
+        log_debug("Setting %s hostname: '%s'", static_hostname ? "static" : "transient", strna(hostname));
 
-        if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
-                return log_oom();
+        if (!static_hostname)
+                if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
+                        return log_oom();
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
                 log_debug("Not connected to system bus, setting hostname later.");
                 return 0;
         }
+
+        if (static_hostname)
+                kind = strdup("SetHostname");
+        else
+                kind = strdup("SetStaticHostname");
+
+        if (!kind)
+                return log_oom();
 
         r = sd_bus_call_method_async(
                         m->bus,
@@ -1191,7 +1201,7 @@ int manager_set_hostname(Manager *m, const char *hostname) {
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         "org.freedesktop.hostname1",
-                        "SetHostname",
+                        kind,
                         set_hostname_handler,
                         m,
                         "sb",
@@ -1199,7 +1209,7 @@ int manager_set_hostname(Manager *m, const char *hostname) {
                         false);
 
         if (r < 0)
-                return log_error_errno(r, "Could not set transient hostname: %m");
+                return log_error_errno(r, "Could not set %s hostname: %m", static_hostname ? "static" : "transient");
 
         return 0;
 }

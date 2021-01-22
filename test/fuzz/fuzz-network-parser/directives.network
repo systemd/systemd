@@ -105,6 +105,7 @@ VendorClassIdentifier=
 Hostname=
 DUIDType=
 UseHostname=
+SetStaticHostname=
 CriticalConnection=
 DUIDRawData=
 RequestBroadcast=

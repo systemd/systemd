@@ -1667,8 +1667,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>UseHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the hostname received from
-            the DHCP server will be set as the transient hostname of the system.
+            <para>When true (the default), the hostname received from the DHCP server will be set as the transient hostname of the system.
+            Takes one of <literal>yes</literal>, <literal>no</literal>, <literal>static</literal> or <literal>both</literal>. When set to
+            <literal>static</literal> the static hostname of the system will be configured. When set to <literal>both</literal>, the
+            transient and the static hostname will be connfigured.
             </para>
           </listitem>
         </varlistentry>
