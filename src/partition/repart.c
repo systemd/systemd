@@ -3488,7 +3488,7 @@ static int help(void) {
                "                          them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
                "     --root=PATH          Operate relative to root path\n"
-               "     --definitions=DIR    Find partitions in specified directory\n"
+               "     --definitions=DIR    Find partition definitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
                "     --tpm2-pcrs=PCR1,PCR2,…\n"
