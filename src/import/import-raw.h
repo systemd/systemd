@@ -3,6 +3,7 @@
 
 #include "sd-event.h"
 
+#include "import-common.h"
 #include "import-util.h"
 #include "macro.h"
 
@@ -15,4 +16,4 @@ RawImport* raw_import_unref(RawImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
-int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, bool read_only);
+int raw_import_start(RawImport *i, int fd, const char *local, ImportFlags flags);
