@@ -14,6 +14,7 @@
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-raw.h"
+#include "install-file.h"
 #include "io-util.h"
 #include "machine-pool.h"
 #include "mkdir.h"
@@ -52,23 +53,27 @@ struct RawImport {
         uint64_t written_compressed;
         uint64_t written_uncompressed;
 
-        struct stat st;
+        struct stat input_stat;
+        struct stat output_stat;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
+
+        uint64_t offset;
+        uint64_t size_max;
 };
 
 RawImport* raw_import_unref(RawImport *i) {
         if (!i)
                 return NULL;
 
-        sd_event_unref(i->event);
+        sd_event_source_unref(i->input_event_source);
 
         unlink_and_free(i->temp_path);
 
         import_compress_free(&i->compress);
 
-        sd_event_source_unref(i->input_event_source);
+        sd_event_unref(i->event);
 
         safe_close(i->output_fd);
 
@@ -107,6 +112,8 @@ int raw_import_new(
                 .last_percent = UINT_MAX,
                 .image_root = TAKE_PTR(root),
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
+                .offset = UINT64_MAX,
+                .size_max = UINT64_MAX,
         };
 
         if (event)
@@ -118,7 +125,6 @@ int raw_import_new(
         }
 
         *ret = TAKE_PTR(i);
-
         return 0;
 }
 
@@ -127,13 +133,13 @@ static void raw_import_report_progress(RawImport *i) {
         assert(i);
 
         /* We have no size information, unless the source is a regular file */
-        if (!S_ISREG(i->st.st_mode))
+        if (!S_ISREG(i->input_stat.st_mode))
                 return;
 
-        if (i->written_compressed >= (uint64_t) i->st.st_size)
+        if (i->written_compressed >= (uint64_t) i->input_stat.st_size)
                 percent = 100;
         else
-                percent = (unsigned) ((i->written_compressed * UINT64_C(100)) / (uint64_t) i->st.st_size);
+                percent = (unsigned) ((i->written_compressed * UINT64_C(100)) / (uint64_t) i->input_stat.st_size);
 
         if (percent == i->last_percent)
                 return;
@@ -149,10 +155,17 @@ static void raw_import_report_progress(RawImport *i) {
 
 static int raw_import_maybe_convert_qcow2(RawImport *i) {
         _cleanup_close_ int converted_fd = -1;
-        _cleanup_free_ char *t = NULL;
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_free_ char *f = NULL;
         int r;
 
         assert(i);
+
+        /* Do QCOW2 conversion if enabled and not in direct mode */
+        if ((i->flags & (IMPORT_CONVERT_QCOW2|IMPORT_DIRECT)) != IMPORT_CONVERT_QCOW2)
+                return 0;
+
+        assert(i->final_path);
 
         r = qcow2_detect(i->output_fd);
         if (r < 0)
@@ -161,26 +174,26 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
                 return 0;
 
         /* This is a QCOW2 image, let's convert it */
-        r = tempfn_random(i->final_path, NULL, &t);
+        r = tempfn_random(i->final_path, NULL, &f);
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        converted_fd = open(f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
         if (converted_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", t);
+                return log_error_errno(errno, "Failed to create %s: %m", f);
+
+        t = TAKE_PTR(f);
 
         (void) import_set_nocow_and_log(converted_fd, t);
 
         log_info("Unpacking QCOW2 file.");
 
         r = qcow2_convert(i->output_fd, converted_fd);
-        if (r < 0) {
-                (void) unlink(t);
+        if (r < 0)
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
-        }
 
-        (void) unlink(i->temp_path);
-        free_and_replace(i->temp_path, t);
+        unlink_and_free(i->temp_path);
+        i->temp_path = TAKE_PTR(t);
         CLOSE_AND_REPLACE(i->output_fd, converted_fd);
 
         return 1;
@@ -191,34 +204,45 @@ static int raw_import_finish(RawImport *i) {
 
         assert(i);
         assert(i->output_fd >= 0);
-        assert(i->temp_path);
-        assert(i->final_path);
 
-        /* In case this was a sparse file, make sure the file system is right */
-        if (i->written_uncompressed > 0) {
-                if (ftruncate(i->output_fd, i->written_uncompressed) < 0)
-                        return log_error_errno(errno, "Failed to truncate file: %m");
+        /* Nothing of what is below applies to block devices */
+        if (S_ISBLK(i->output_stat.st_mode)) {
+
+                if (i->flags & IMPORT_SYNC) {
+                        if (fsync(i->output_fd) < 0)
+                                return log_error_errno(errno, "Failed to synchronize block device: %m");
+                }
+
+                return 0;
         }
 
-        r = raw_import_maybe_convert_qcow2(i);
-        if (r < 0)
-                return r;
+        assert(S_ISREG(i->output_stat.st_mode));
 
-        if (S_ISREG(i->st.st_mode)) {
-                (void) copy_times(i->input_fd, i->output_fd, COPY_CRTIME);
-                (void) copy_xattr(i->input_fd, i->output_fd, 0);
-        }
+        /* If an offset is specified we only are supposed to affect part of an existing output file or block
+         * device, thus don't manipulate file properties in that case */
 
-        if (i->flags & IMPORT_READ_ONLY) {
-                r = import_make_read_only_fd(i->output_fd);
+        if (i->offset == UINT64_MAX) {
+                /* In case this was a sparse file, make sure the file size is right */
+                if (i->written_uncompressed > 0) {
+                        if (ftruncate(i->output_fd, i->written_uncompressed) < 0)
+                                return log_error_errno(errno, "Failed to truncate file: %m");
+                }
+
+                r = raw_import_maybe_convert_qcow2(i);
                 if (r < 0)
                         return r;
+
+                if (S_ISREG(i->input_stat.st_mode)) {
+                        (void) copy_times(i->input_fd, i->output_fd, COPY_CRTIME);
+                        (void) copy_xattr(i->input_fd, i->output_fd, 0);
+                }
         }
 
-        if (i->flags & IMPORT_FORCE)
-                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-
-        r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
+        r = install_file(AT_FDCWD, i->temp_path ?: i->local,
+                         AT_FDCWD, i->final_path,
+                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                         (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
+                         (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move image into place: %m");
 
@@ -231,26 +255,56 @@ static int raw_import_open_disk(RawImport *i) {
         int r;
 
         assert(i);
-
+        assert(i->local);
         assert(!i->final_path);
         assert(!i->temp_path);
         assert(i->output_fd < 0);
 
-        i->final_path = strjoin(i->image_root, "/", i->local, ".raw");
-        if (!i->final_path)
-                return log_oom();
+        if (i->flags & IMPORT_DIRECT) {
+                (void) mkdir_parents_label(i->local, 0700);
 
-        r = tempfn_random(i->final_path, NULL, &i->temp_path);
-        if (r < 0)
-                return log_oom();
+                /* In direct mode we just open/create the local path and truncate it (like shell >
+                 * redirection would do it) — except if an offset was passed, in which case we are supposed
+                 * to operate on a section of the file only, in which case we apparently work on an some
+                 * existing thing (i.e. are not the sole thing stored in the file), in which case we will
+                 * neither truncate nor create. */
 
-        (void) mkdir_parents_label(i->temp_path, 0700);
+                i->output_fd = open(i->local, O_RDWR|O_NOCTTY|O_CLOEXEC|(i->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), 0664);
+                if (i->output_fd < 0)
+                        return log_error_errno(errno, "Failed to open destination '%s': %m", i->local);
 
-        i->output_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
-        if (i->output_fd < 0)
-                return log_error_errno(errno, "Failed to open destination %s: %m", i->temp_path);
+                if (i->offset == UINT64_MAX)
+                        (void) import_set_nocow_and_log(i->output_fd, i->local);
+        } else {
+                i->final_path = strjoin(i->image_root, "/", i->local, ".raw");
+                if (!i->final_path)
+                        return log_oom();
 
-        (void) import_set_nocow_and_log(i->output_fd, i->temp_path);
+                r = tempfn_random(i->final_path, NULL, &i->temp_path);
+                if (r < 0)
+                        return log_oom();
+
+                (void) mkdir_parents_label(i->temp_path, 0700);
+
+                i->output_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+                if (i->output_fd < 0)
+                        return log_error_errno(errno, "Failed to open destination '%s': %m", i->temp_path);
+
+                (void) import_set_nocow_and_log(i->output_fd, i->temp_path);
+        }
+
+        if (fstat(i->output_fd, &i->output_stat) < 0)
+                return log_error_errno(errno, "Failed to stat() output file: %m");
+
+        if (!S_ISREG(i->output_stat.st_mode) && !S_ISBLK(i->output_stat.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
+                                       "Target file is not a regular file or block device");
+
+        if (i->offset != UINT64_MAX) {
+                if (lseek(i->output_fd, i->offset, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to offset: %m");
+        }
+
         return 0;
 }
 
@@ -265,7 +319,7 @@ static int raw_import_try_reflink(RawImport *i) {
         if (i->compress.type != IMPORT_COMPRESS_UNCOMPRESSED)
                 return 0;
 
-        if (!S_ISREG(i->st.st_mode))
+        if (!S_ISREG(i->input_stat.st_mode) || !S_ISREG(i->output_stat.st_mode))
                 return 0;
 
         p = lseek(i->input_fd, 0, SEEK_CUR);
@@ -280,20 +334,56 @@ static int raw_import_try_reflink(RawImport *i) {
         if (r >= 0)
                 return 1;
 
+        log_debug_errno(r, "Couldn't establish reflink, using copy: %m");
         return 0;
 }
 
 static int raw_import_write(const void *p, size_t sz, void *userdata) {
         RawImport *i = userdata;
-        ssize_t n;
+        bool too_much = false;
+        int r;
 
-        n = sparse_write(i->output_fd, p, sz, 64);
-        if (n < 0)
-                return (int) n;
-        if ((size_t) n < sz)
-                return -EIO;
+        assert(i);
+        assert(p);
+        assert(sz > 0);
+
+        if (i->written_uncompressed >= UINT64_MAX - sz)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
+
+        if (i->size_max != UINT64_MAX) {
+                if (i->written_uncompressed >= i->size_max) {
+                        too_much = true;
+                        goto finish;
+                }
+
+                if (i->written_uncompressed + sz > i->size_max) {
+                        too_much = true;
+                        sz = i->size_max - i->written_uncompressed; /* since we have the data in memory
+                                                                     * already, we might as well write it to
+                                                                     * disk to the max */
+                }
+        }
+
+        /* Generate sparse file if we created/truncated the file */
+        if (S_ISREG(i->output_stat.st_mode)) {
+                ssize_t n;
+
+                n = sparse_write(i->output_fd, p, sz, 64);
+                if (n < 0)
+                        return log_error_errno((int) n, "Failed to write file: %m");
+                if ((size_t) n < sz)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
+        } else {
+                r = loop_write(i->output_fd, p, sz, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write file: %m");
+        }
 
         i->written_uncompressed += sz;
+
+finish:
+        if (too_much)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "File too large");
 
         return 0;
 }
@@ -382,15 +472,22 @@ static int raw_import_on_defer(sd_event_source *s, void *userdata) {
         return raw_import_process(i);
 }
 
-int raw_import_start(RawImport *i, int fd, const char *local, ImportFlags flags) {
+int raw_import_start(
+                RawImport *i,
+                int fd,
+                const char *local,
+                uint64_t offset,
+                uint64_t size_max,
+                ImportFlags flags) {
         int r;
 
         assert(i);
         assert(fd >= 0);
         assert(local);
-        assert(!(flags & ~IMPORT_FLAGS_MASK));
+        assert(!(flags & ~IMPORT_FLAGS_MASK_RAW));
+        assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
 
-        if (!hostname_is_valid(local, 0))
+        if (!import_validate_local(local, flags))
                 return -EINVAL;
 
         if (i->input_fd >= 0)
@@ -405,8 +502,10 @@ int raw_import_start(RawImport *i, int fd, const char *local, ImportFlags flags)
                 return r;
 
         i->flags = flags;
+        i->offset = offset;
+        i->size_max = size_max;
 
-        if (fstat(fd, &i->st) < 0)
+        if (fstat(fd, &i->input_stat) < 0)
                 return -errno;
 
         r = sd_event_add_io(i->event, &i->input_event_source, fd, EPOLLIN, raw_import_on_input, i);
@@ -422,5 +521,5 @@ int raw_import_start(RawImport *i, int fd, const char *local, ImportFlags flags)
                 return r;
 
         i->input_fd = fd;
-        return r;
+        return 0;
 }

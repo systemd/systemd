@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hostname-util.h"
 #include "import-common.h"
 #include "os-util.h"
 #include "process-util.h"
@@ -325,5 +326,40 @@ int import_mangle_os_tree(const char *path) {
 
         log_info("Successfully rearranged OS tree.");
 
+        return 0;
+}
+
+bool import_validate_local(const char *name, ImportFlags flags) {
+
+        /* By default we insist on a valid hostname for naming images. But optionally we relax that, in which
+         * case it can be any path name */
+
+        if (FLAGS_SET(flags, IMPORT_DIRECT))
+                return path_is_valid(name);
+
+        return hostname_is_valid(name, 0);
+}
+
+static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        log_notice("Transfer aborted.");
+        sd_event_exit(sd_event_source_get_event(s), EINTR);
+        return 0;
+}
+
+int import_allocate_event_with_signals(sd_event **ret) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+
+        *ret = TAKE_PTR(event);
         return 0;
 }
