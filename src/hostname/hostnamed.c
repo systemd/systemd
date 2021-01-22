@@ -367,20 +367,41 @@ static int context_update_kernel_hostname(
         return r; /* 0 if no change, 1 if something was done  */
 }
 
+static void unset_statp(struct stat **p) {
+        if (!*p)
+                return;
+
+        **p = (struct stat) {};
+}
+
 static int context_write_data_static_hostname(Context *c) {
+        _cleanup_(unset_statp) struct stat *s = NULL;
+        int r;
+
         assert(c);
 
+        /* Make sure that if we fail here, we invalidate the cached information, since it was updated
+         * already, even if we can't make it hit the disk. */
+        s = &c->etc_hostname_stat;
+
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
-                if (unlink("/etc/hostname") < 0)
-                        return errno == ENOENT ? 0 : -errno;
+                if (unlink("/etc/hostname") < 0 && errno != ENOENT)
+                        return -errno;
+
+                TAKE_PTR(s);
                 return 0;
         }
 
-        return write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
+        r = write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
+        return 0;
 }
 
 static int context_write_data_machine_info(Context *c) {
-
+        _cleanup_(unset_statp) struct stat *s = NULL;
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
                 [PROP_ICON_NAME] = "ICON_NAME",
@@ -388,11 +409,14 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
                 [PROP_LOCATION] = "LOCATION",
         };
-
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(c);
+
+        /* Make sure that if we fail here, we invalidate the cached information, since it was updated
+         * already, even if we can't make it hit the disk. */
+        s = &c->etc_machine_info_stat;
 
         r = load_env_file(NULL, "/etc/machine-info", &l);
         if (r < 0 && r != -ENOENT)
@@ -421,13 +445,19 @@ static int context_write_data_machine_info(Context *c) {
         }
 
         if (strv_isempty(l)) {
-                if (unlink("/etc/machine-info") < 0)
-                        return errno == ENOENT ? 0 : -errno;
+                if (unlink("/etc/machine-info") < 0 && errno != ENOENT)
+                        return -errno;
 
+                TAKE_PTR(s);
                 return 0;
         }
 
-        return write_env_file_label("/etc/machine-info", l);
+        r = write_env_file_label("/etc/machine-info", l);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
+        return 0;
 }
 
 static int property_get_hardware_vendor(
