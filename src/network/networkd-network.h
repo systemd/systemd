@@ -146,10 +146,10 @@ struct Network {
         bool dhcp_use_routes;
         int dhcp_use_gateway;
         bool dhcp_use_timezone;
-        bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         bool dhcp_send_release;
         bool dhcp_send_decline;
+        UseHostname dhcp_use_hostname;
         DHCPUseDomains dhcp_use_domains;
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
