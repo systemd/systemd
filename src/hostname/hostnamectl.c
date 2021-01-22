@@ -222,9 +222,9 @@ static int show_status(int argc, char **argv, void *userdata) {
         }
 }
 
-static int set_simple_string(sd_bus *bus, const char *method, const char *value) {
+static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r = 0;
+        int r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -237,7 +237,7 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
                         &error, NULL,
                         "sb", value, arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Could not set property: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Could not set %s: %s", target, bus_error_message(&error, r));
 
         return 0;
 }
@@ -262,7 +262,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
 
-                r = set_simple_string(bus, "SetPrettyHostname", p);
+                r = set_simple_string(bus, "pretty hostname", "SetPrettyHostname", p);
                 if (r < 0)
                         return r;
 
@@ -280,13 +280,13 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         }
 
         if (arg_static) {
-                r = set_simple_string(bus, "SetStaticHostname", hostname);
+                r = set_simple_string(bus, "static hostname", "SetStaticHostname", hostname);
                 if (r < 0)
                         return r;
         }
 
         if (arg_transient) {
-                r = set_simple_string(bus, "SetHostname", hostname);
+                r = set_simple_string(bus, "transient hostname", "SetHostname", hostname);
                 if (r < 0)
                         return r;
         }
@@ -295,19 +295,19 @@ static int set_hostname(int argc, char **argv, void *userdata) {
 }
 
 static int set_icon_name(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetIconName", argv[1]);
+        return set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
 static int set_chassis(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetChassis", argv[1]);
+        return set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
 static int set_deployment(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetDeployment", argv[1]);
+        return set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
 static int set_location(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetLocation", argv[1]);
+        return set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
 static int help(void) {
