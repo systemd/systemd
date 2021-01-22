@@ -563,7 +563,13 @@ tests += [
 
 if conf.get('BUILD_BPF') == 1
 tests += [
-
+        [['src/test/test-restrict-ifaces.c'],
+          [libshared,
+          libcore],
+          [libbpf],
+          [core_includes],
+          'HAVE_LIBBPF',
+          ],
 ]
 endif
 
