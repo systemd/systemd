@@ -788,7 +788,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
 
         r = free_and_strdup(&c->data[PROP_STATIC_HOSTNAME], name);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
@@ -868,7 +868,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
 
         r = free_and_strdup(&c->data[prop], name);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = context_write_data_machine_info(c);
         if (r < 0) {
