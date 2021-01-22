@@ -48,14 +48,12 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (argc >= 2)
-                path = argv[1];
-        path = empty_or_dash_to_null(path);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
+                local = empty_or_dash_to_null(argv[2]);
         else if (path)
                 local = basename(path);
-        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = tar_strip_suffixes(local, &ll);
@@ -143,14 +141,12 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (argc >= 2)
-                path = argv[1];
-        path = empty_or_dash_to_null(path);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
+                local = empty_or_dash_to_null(argv[2]);
         else if (path)
                 local = basename(path);
-        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = raw_strip_suffixes(local, &ll);
