@@ -16,4 +16,4 @@ RawImport* raw_import_unref(RawImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
-int raw_import_start(RawImport *i, int fd, const char *local, ImportFlags flags);
+int raw_import_start(RawImport *i, int fd, const char *local, uint64_t offset, uint64_t size_max, ImportFlags flags);
