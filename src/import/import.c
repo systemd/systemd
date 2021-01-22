@@ -71,11 +71,10 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        } else {
+                        } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                                        "Image '%s' already exists.",
                                                        local);
-                        }
                 }
         } else
                 local = "imported";
@@ -164,11 +163,10 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        } else {
+                        } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                                        "Image '%s' already exists.",
                                                        local);
-                        }
                 }
         } else
                 local = "imported";
