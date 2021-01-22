@@ -186,3 +186,27 @@ bool path_strv_contains(char **l, const char *path);
 bool prefixed_path_strv_contains(char **l, const char *path);
 
 bool credential_name_valid(const char *s);
+
+typedef enum PathVisitHookType {
+        PATH_VISIT_HOOK_ENTER,
+        PATH_VISIT_HOOK_FILE,
+        PATH_VISIT_HOOK_DIR,
+        _PATH_VISIT_HOOK_MAX,
+        _PATH_VISIT_HOOK_INVALID = -1,
+} PathVisitHookType;
+
+typedef int (*path_visit_hook_callback_t)(PathVisitHookType hook, int node_fd, void *userdata);
+
+/* Perform a pre-order, breadth-first visit on the subtree identified by the "root" path.
+ * For each node, invoke callback() when a directory is first opened (PATH_VISIT_HOOK_ENTER),
+ * when a file is visited (PATH_VISIT_HOOK_FILE), and when a directory is visited while iterating
+ * over all the children of a node (PATH_VISIT_HOOK_DIR). Note that in the latter case, a return code
+ * < 2 will mean the directory is not recursed into.
+ * The callback will be invoked with the userdata pointer, which is untouched through the execution,
+ * the file descriptor of the node under visit, and the hook identifier.
+ * The callback might return:
+ * - -1 to error out and halt the visit - the error will be propagated to the caller
+ * -  0 to cause the current iteration to be interrupted early (eg: do not visit further siblings of the same parent)
+ * -  1 to skip to the next sibling and avoid taking any action on the currently visited one (eg: do not add a directory to the to-be-visisted list)
+ * -  2 to continue normally */
+int path_breadth_first_visit(const char *root, path_visit_hook_callback_t callback, void *userdata);

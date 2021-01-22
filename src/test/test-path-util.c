@@ -6,7 +6,9 @@
 #include "alloc-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -14,6 +16,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static void test_print_paths(void) {
@@ -741,6 +745,145 @@ static void test_path_startswith_strv(void) {
         assert_se(streq_ptr(path_startswith_strv("/foo2/bar", STRV_MAKE("/foo/quux", "", "/zzz")), NULL));
 }
 
+typedef struct dir_to_visit_callback_data {
+        char ***nodes_enter_list;
+        char ***nodes_file_list;
+        char ***nodes_dir_list;
+} DirToVisitCallbackData;
+
+static int visit_callback(PathVisitHookType hook, int node_fd, void *userdata) {
+        DirToVisitCallbackData *callback_data = userdata;
+        _cleanup_free_ char *node_path = NULL;
+        const char *node_basename;
+        int r;
+
+        assert(callback_data);
+
+        r = fd_get_path(node_fd, &node_path);
+        if (r != 0)
+                return log_error_errno(r, "fd_get_path() on current directory in extension hierarchy failed: %m");
+
+        if (hook == PATH_VISIT_HOOK_ENTER) {
+                if (!strv_contains(*callback_data->nodes_enter_list, node_path))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "%s not found in nodes_enter_list: %m", node_path);
+                *callback_data->nodes_enter_list = strv_remove(*callback_data->nodes_enter_list, node_path);
+        } else if (hook == PATH_VISIT_HOOK_DIR) {
+                if (!strv_contains(*callback_data->nodes_dir_list, node_path))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "%s not found in nodes_dir_list: %m", node_path);
+                *callback_data->nodes_dir_list = strv_remove(*callback_data->nodes_dir_list, node_path);
+        } else if (hook == PATH_VISIT_HOOK_FILE) {
+                if (!strv_contains(*callback_data->nodes_file_list, node_path))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "%s not found in nodes_file_list: %m", node_path);
+                *callback_data->nodes_file_list = strv_remove(*callback_data->nodes_file_list, node_path);
+        }
+
+        node_basename = basename(node_path);
+        if (streq(node_basename, "continue"))
+                return 1;
+        if (streq(node_basename, "break"))
+                return 0;
+
+        return 2;
+}
+
+static void test_breadth_first_visit(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _cleanup_strv_free_ char **nodes_enter_list = NULL, **nodes_file_list = NULL, **nodes_dir_list = NULL;
+        DirToVisitCallbackData data;
+        char *p, **q, **s;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+
+        data = (DirToVisitCallbackData) {
+                .nodes_enter_list = &nodes_enter_list,
+                .nodes_file_list = &nodes_file_list,
+                .nodes_dir_list = &nodes_dir_list,
+        };
+
+        /* First check: add a bunch of files and directories, and check that they
+         * are all visited. Vectors should all be empty at the end. */
+
+        q = STRV_MAKE("/opt", "/opt/somedir", "/usr", "/etc", "/etc/otherdir", "/etc/otherdir/moredir");
+        STRV_FOREACH(s, q) {
+                assert_se(p = strjoin(d, *s));
+                assert_se(mkdir_p(p, 0755) >= 0);
+                assert_se(strv_consume(&nodes_enter_list, p) == 0);
+        }
+
+        p = strjoina(d, "/etc/otherdir/file");
+        assert_se(touch_file(p, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) >= 0);
+        assert_se(strv_extend(&nodes_file_list, p) == 0);
+
+        p = strjoina(d, "/otherfile");
+        assert_se(touch_file(p, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) >= 0);
+        assert_se(strv_extend(&nodes_file_list, p) == 0);
+
+        assert_se(nodes_dir_list = strv_copy(nodes_enter_list));
+        assert_se(strv_extend(&nodes_enter_list, d) == 0);
+
+        assert_se(path_breadth_first_visit(d, visit_callback, &data) >= 0);
+        assert_se(strv_isempty(nodes_enter_list));
+        assert_se(strv_isempty(nodes_file_list));
+        assert_se(strv_isempty(nodes_dir_list));
+
+        /* Second check, breaking out of a visit: /etc/break will be encountered, but not added
+         * to the visit list, and the rest of /etc will be ignored as well. */
+
+        q = STRV_MAKE("/opt", "/opt/somedir", "/usr", "/etc");
+        STRV_FOREACH(s, q) {
+                assert_se(p = strjoin(d, *s));
+                assert_se(mkdir_p(p, 0755) >= 0);
+                assert_se(strv_consume(&nodes_enter_list, p) == 0);
+        }
+        assert_se(nodes_dir_list = strv_copy(nodes_enter_list));
+        assert_se(strv_extend(&nodes_enter_list, d) == 0);
+
+        p = strjoina(d, "/etc/break");
+        assert_se(mkdir_p(p, 0755) >= 0);
+        assert_se(strv_extend(&nodes_dir_list, p) == 0);
+
+        p = strjoina(d, "/otherfile");
+        assert_se(touch_file(p, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) >= 0);
+        assert_se(strv_extend(&nodes_file_list, p) == 0);
+
+        assert_se(path_breadth_first_visit(d, visit_callback, &data) >= 0);
+        assert_se(strv_isempty(nodes_enter_list));
+        assert_se(strv_isempty(nodes_file_list));
+        assert_se(strv_isempty(nodes_dir_list));
+
+        /* Third check, skipping a directory: we encounter /etc/continue but we don't add it
+         * to the list of nodes to visit, so /opt/continue/notvisited is never visited. */
+
+        q = STRV_MAKE("/opt", "/opt/somedir", "/usr", "/etc");
+        STRV_FOREACH(s, q) {
+                assert_se(p = strjoin(d, *s));
+                assert_se(strv_consume(&nodes_enter_list, p) == 0);
+        }
+        assert_se(nodes_dir_list = strv_copy(nodes_enter_list));
+        assert_se(strv_extend(&nodes_enter_list, d) == 0);
+
+        p = strjoina(d, "/opt/continue");
+        assert_se(mkdir_p(p, 0755) >= 0);
+        assert_se(strv_extend(&nodes_dir_list, p) == 0);
+
+        p = strjoina(d, "/opt/continue/notvisited");
+        assert_se(mkdir_p(p, 0755) >= 0);
+
+        p = strjoina(d, "/etc/break");
+        assert_se(mkdir_p(p, 0755) >= 0);
+        assert_se(strv_extend(&nodes_dir_list, p) == 0);
+
+        p = strjoina(d, "/otherfile");
+        assert_se(strv_extend(&nodes_file_list, p) == 0);
+
+        assert_se(path_breadth_first_visit(d, visit_callback, &data) >= 0);
+        assert_se(strv_isempty(nodes_enter_list));
+        assert_se(strv_isempty(nodes_file_list));
+        assert_se(strv_isempty(nodes_dir_list));
+}
+
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
@@ -766,6 +909,7 @@ int main(int argc, char **argv) {
         test_empty_or_root();
         test_path_startswith_set();
         test_path_startswith_strv();
+        test_breadth_first_visit();
 
         test_systemd_installation_has_version(argv[1]); /* NULL is OK */
 
