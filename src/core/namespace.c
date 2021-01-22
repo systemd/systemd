@@ -1273,6 +1273,29 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
         return 0;
 }
 
+static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
+        unsigned long new_flags = 0, flags_mask = 0;
+        bool submounts = false;
+        int r = 0;
+
+        assert(m);
+        assert(proc_self_mountinfo);
+
+        submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+
+        if (submounts)
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, NULL, proc_self_mountinfo);
+        else
+                r = bind_remount_one_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, proc_self_mountinfo);
+
+        if (r == -ENOENT && m->ignore)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to re-mount '%s'%s: %m", mount_entry_path(m),
+                                       submounts ? " and its submounts" : "");
+        return 0;
+}
+
 static bool namespace_info_mount_apivfs(const NamespaceInfo *ns_info) {
         assert(ns_info);
 
@@ -1935,6 +1958,17 @@ int setup_namespace(
                                 goto finish;
                         }
                 }
+
+                /* Fourth round, flip the nosuid bits without a deny list. */
+                if (ns_info->mount_nosuid)
+                        for (m = mounts; m < mounts + n_mounts; ++m) {
+                                r = make_nosuid(m, proc_self_mountinfo);
+                                if (r < 0) {
+                                        if (error_path && mount_entry_path(m))
+                                                *error_path = strdup(mount_entry_path(m));
+                                        goto finish;
+                                }
+                        }
         }
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
