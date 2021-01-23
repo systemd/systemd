@@ -593,14 +593,13 @@ int safe_atod(const char *s, double *ret_d) {
 }
 
 int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
-        size_t i;
         unsigned val = 0;
         const char *s;
 
         s = *p;
 
         /* accept any number of digits, strtoull is limited to 19 */
-        for (i=0; i < digits; i++,s++) {
+        for (size_t i = 0; i < digits; i++,s++) {
                 if (*s < '0' || *s > '9') {
                         if (i == 0)
                                 return -EINVAL;
