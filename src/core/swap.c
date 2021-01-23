@@ -1183,15 +1183,13 @@ static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userd
 }
 
 static int swap_load_proc_swaps(Manager *m, bool set_flags) {
-        unsigned i;
-
         assert(m);
 
         rewind(m->proc_swaps);
 
         (void) fscanf(m->proc_swaps, "%*s %*s %*s %*s %*s\n");
 
-        for (i = 1;; i++) {
+        for (unsigned i = 1;; i++) {
                 _cleanup_free_ char *dev = NULL, *d = NULL;
                 int prio = 0, k;
 
