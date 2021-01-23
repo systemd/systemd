@@ -136,3 +136,65 @@ For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 
 - [Setting up a new project - OSS-Fuzz](https://google.github.io/oss-fuzz/getting-started/new-project-guide/)
 - [Tutorials - OSS-Fuzz](https://google.github.io/oss-fuzz/reference/useful-links/#tutorials)
+
+## mkosi + clangd
+
+[clangd](https://clangd.llvm.org/) is a language server that provides code completion, diagnostics and more
+right in your editor of choice (with the right plugin installed). When using mkosi, we can run clangd in the
+mkosi build container to avoid needing to build systemd on the host machine just to make clangd work. To
+achieve this, create a script with the following contents in systemd's project directory on the host:
+
+```sh
+#!/usr/bin/env sh
+tee mkosi-clangd.build > /dev/null << EOF
+#!/usr/bin/env sh
+exec clangd \\
+        --compile-commands-dir=/root/build \\
+        --path-mappings=\\
+"\\
+$(pwd)=/root/src,\\
+$(pwd)/mkosi.builddir=/root/build,\\
+$(pwd)/mkosi.includedir=/usr/include,\\
+$(pwd)/mkosi.installdir=/root/dest\\
+" \\
+        --header-insertion=never
+EOF
+chmod +x mkosi-clangd.build
+exec sudo mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
+```
+
+Next, mark the script as executable and point your editor plugin to use this script to start clangd. For
+vscode's clangd extension, this is done via setting the `clangd.path` option to the path of the
+mkosi-clangd.sh script.
+
+To be able to navigate to include files of systemd's dependencies, we need to make the /usr/include folder of
+the build image available on the host. mkosi supports this by setting the `IncludeDirectory` option in
+mkosi's config. The easiest way to set the option is to create a file 20-local.conf in mkosi.default.d/ and
+add the following contents:
+
+```
+[Packages]
+IncludeDirectory=mkosi.includedir
+```
+
+This will make the contents of /usr/include available in mkosi.includedir in the systemd project directory.
+We already configured clangd to map any paths in /usr/include in the build image to mkosi.includedir/ on the
+host in the mkosi-clangd.sh script.
+
+We also need to make sure clangd is installed in the build image. To have mkosi install clangd in the build
+image, edit the 20-local.conf file we created earlier and add the following contents under the `[Packages]`
+section:
+
+```
+BuildPackages=<clangd-package>
+```
+
+Note that the exact package containing clangd will differ depending on the distribution used. Some
+distributions have a separate clangd package, others put the clangd binary in a clang-tools-extra package and
+some bundle clangd in the clang package.
+
+Finally, to ensure clangd starts up quickly in the editor, run an incremental build with mkosi to make sure
+the cached images are initialized (`mkosi -i`).
+
+Now, your editor will start clangd in the mkosi build image and all of clangd's features will work as
+expected.
