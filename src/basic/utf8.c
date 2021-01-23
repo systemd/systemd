@@ -81,7 +81,7 @@ static size_t utf8_encoded_expected_len(uint8_t c) {
 /* decode one unicode char */
 int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         char32_t unichar;
-        size_t len, i;
+        size_t len;
 
         assert(str);
 
@@ -110,7 +110,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
                 return -EINVAL;
         }
 
-        for (i = 1; i < len; i++) {
+        for (size_t i = 1; i < len; i++) {
                 if (((char32_t)str[i] & 0xc0) != 0x80)
                         return -EINVAL;
 
@@ -302,14 +302,12 @@ char *ascii_is_valid(const char *str) {
 }
 
 char *ascii_is_valid_n(const char *str, size_t len) {
-        size_t i;
-
         /* Very similar to ascii_is_valid(), but checks exactly len
          * bytes and rejects any NULs in that range. */
 
         assert(str);
 
-        for (i = 0; i < len; i++)
+        for (size_t i = 0; i < len; i++)
                 if ((unsigned char) str[i] >= 128 || str[i] == 0)
                         return NULL;
 
@@ -436,7 +434,6 @@ size_t utf16_encode_unichar(char16_t *out, char32_t c) {
 
 char16_t *utf8_to_utf16(const char *s, size_t length) {
         char16_t *n, *p;
-        size_t i;
         int r;
 
         assert(s);
@@ -447,7 +444,7 @@ char16_t *utf8_to_utf16(const char *s, size_t length) {
 
         p = n;
 
-        for (i = 0; i < length;) {
+        for (size_t i = 0; i < length;) {
                 char32_t unichar;
                 size_t e;
 
@@ -505,7 +502,7 @@ static int utf8_unichar_to_encoded_len(char32_t unichar) {
 /* validate one encoded unicode char and return its length */
 int utf8_encoded_valid_unichar(const char *str, size_t length /* bytes */) {
         char32_t unichar;
-        size_t len, i;
+        size_t len;
         int r;
 
         assert(str);
@@ -526,7 +523,7 @@ int utf8_encoded_valid_unichar(const char *str, size_t length /* bytes */) {
                 return 1;
 
         /* check if expected encoded chars are available */
-        for (i = 0; i < len; i++)
+        for (size_t i = 0; i < len; i++)
                 if ((str[i] & 0x80) != 0x80)
                         return -EINVAL;
 
