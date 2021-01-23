@@ -50,13 +50,13 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
 }
 
 int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {
-        int i, r;
+        int r;
 
         assert(rlim);
 
         /* On failure returns the limit's index that failed in *which_failed, but only if non-NULL */
 
-        for (i = 0; i < _RLIMIT_MAX; i++) {
+        for (int i = 0; i < _RLIMIT_MAX; i++) {
                 if (!rlim[i])
                         continue;
 
