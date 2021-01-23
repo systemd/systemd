@@ -159,10 +159,9 @@ static int detect_vm_dmi(void) {
                 /* https://wiki.freebsd.org/bhyve */
                 { "BHYVE",               VIRTUALIZATION_BHYVE     },
         };
-        unsigned i;
         int r;
 
-        for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
+        for (unsigned i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
                 _cleanup_free_ char *s = NULL;
                 unsigned j;
 
