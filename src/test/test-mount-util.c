@@ -135,6 +135,8 @@ static void test_overlay(void) {
         strv_sort(mounts_list);
 
         s = STRV_MAKE("/opt/original", "/opt/overwritten");
+        // DBG
+        strv_print(mounts_list);
         assert_se(strv_equal(s, mounts_list));
         s = STRV_MAKE("/usr/lib");
         assert_se(strv_equal(s, overlays_list));
