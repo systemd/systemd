@@ -605,7 +605,7 @@ bool strv_is_uniq(char * const *l) {
         return true;
 }
 
-char **strv_remove(char **l, const char *s) {
+static char **strv_remove_internal(char **l, const char *s, bool is_prefix) {
         char **f, **t;
 
         if (!l)
@@ -617,13 +617,21 @@ char **strv_remove(char **l, const char *s) {
          * in-place. */
 
         for (f = t = l; *f; f++)
-                if (streq(*f, s))
+                if ((is_prefix && startswith(*f, s)) || streq(*f, s))
                         free(*f);
                 else
                         *(t++) = *f;
 
         *t = NULL;
         return l;
+}
+
+char **strv_remove(char **l, const char *s) {
+        return strv_remove_internal(l, s, false);
+}
+
+char **strv_remove_prefix(char **l, const char *s) {
+        return strv_remove_internal(l, s, true);
 }
 
 char **strv_parse_nulstr(const char *s, size_t l) {

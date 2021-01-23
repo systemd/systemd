@@ -953,6 +953,24 @@ static void test_strv_free_free(void) {
         t = strv_free_free(t);
 }
 
+static void test_strv_remove(void) {
+        _cleanup_strv_free_ char **v = NULL;
+        char **t;
+
+        log_info("/* %s */", __func__);
+
+        v = strv_new("/aa", "/aa/bb", "/bb", "/bb/cc", "/cc", "/aa/bb/cc");
+        assert_se(v);
+        t = STRV_MAKE("/aa", "/bb", "/bb/cc", "/cc", "/aa/bb/cc");
+
+        strv_remove(v, "/aa/bb");
+        assert_se(strv_equal(v, t));
+
+        t = STRV_MAKE("/bb", "/bb/cc", "/cc");
+        strv_remove_prefix(v, "/aa");
+        assert_se(strv_equal(v, t));
+}
+
 static void test_foreach_string(void) {
         const char * const t[] = {
                 "foo",
@@ -1051,6 +1069,7 @@ int main(int argc, char *argv[]) {
         test_strv_extend_n();
         test_strv_make_nulstr();
         test_strv_free_free();
+        test_strv_remove();
 
         test_foreach_string();
         test_strv_fnmatch();
