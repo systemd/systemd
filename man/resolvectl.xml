@@ -53,6 +53,12 @@
     <variablelist>
 
       <varlistentry>
+        <term><command>help</command></term>
+
+        <listitem><para>Print a short help text and exit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>query</command> <replaceable>HOSTNAME|ADDRESS</replaceable>…</term>
 
         <listitem><para>Resolve domain names, IPv4 and IPv6 addresses.</para></listitem>

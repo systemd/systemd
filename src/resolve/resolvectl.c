@@ -2591,6 +2591,7 @@ static int native_help(void) {
                "%sSend control commands to the network name resolution manager, or%s\n"
                "%sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%s\n"
                "\nCommands:\n"
+               "  help                         Show this help\n"
                "  query HOSTNAME|ADDRESS...    Resolve domain names, IPv4 and IPv6 addresses\n"
                "  service [[NAME] TYPE] DOMAIN Resolve service (SRV)\n"
                "  openpgp EMAIL@DOMAIN...      Query OpenPGP public key\n"
