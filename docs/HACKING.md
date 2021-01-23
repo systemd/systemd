@@ -44,28 +44,37 @@ generate a disk image `image.raw` you can boot either in `systemd-nspawn` or in
 an UEFI-capable VM:
 
 ```
-# systemd-nspawn -bi image.raw
+# mkosi boot
 ```
 
 or:
 
 ```
-# qemu-system-x86_64 -enable-kvm -m 512 -smp 2 -bios /usr/share/edk2/ovmf/OVMF_CODE.fd -hda image.raw
+# mkosi qemu
 ```
 
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
-all current changes you made to the project tree.
+all current changes you made to the project tree. To save time when rebuilding,
+you can use mkosi's incremental mode (`-i`). This instructs mkosi to build a set
+of cache images that make future builds a lot faster. Note that the `-i` flag
+both instructs mkosi to build cached images if they don't exist yet and to use
+cached images if they already exist so make sure to always specify `-i` if you
+want mkosi to use the cached images.
 
-Alternatively, you may install the systemd version from your git check-out
-directly on top of your host system's directory tree. This mostly works fine,
-but of course you should know what you are doing as you might make your system
-unbootable in case of a bug in your changes. Also, you might step into your
-package manager's territory with this. Be careful!
+If you're going to build mkosi images that use the same distribution and release
+that you're currently using, you can speed up the initial mkosi run by having it
+reuse the host's package cache. To do this, create a mkosi override file in
+mkosi.default.d/ (e.g 20-local.conf) and add the following contents:
 
-And never forget: most distributions provide very simple and convenient ways to
-install all development packages necessary to build systemd. For example, on
-Fedora the following command line should be sufficient to install all of
-systemd's build dependencies:
+```
+[Packages]
+Cache=<full-path-to-package-manager-cache> # (e.g. /var/cache/dnf)
+```
+
+If you want to do a local build without mkosi, most distributions also provide
+very simple and convenient ways to install all development packages necessary
+to build systemd. For example, on Fedora the following command line should be
+sufficient to install all of systemd's build dependencies:
 
 ```
 # dnf builddep systemd
@@ -84,9 +93,8 @@ $ meson build                             # configure the build
 $ meson compile -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build                     # run some simple regression tests
 $ ln -s .mkosi/mkosi.fedora mkosi.default # Configure mkosi to build a fedora image
-$ (umask 077; echo 123 > mkosi.rootpw)    # set root password used by mkosi
 $ sudo mkosi                              # build a test image
-$ sudo systemd-nspawn -bi image.raw       # boot up the test image
+$ sudo mkosi boot                         # boot up the test image
 $ git add -p                              # interactively put together your patch
 $ git commit                              # commit it
 $ git push REMOTE HEAD:refs/heads/BRANCH
