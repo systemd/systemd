@@ -218,6 +218,7 @@ global:
         sd_bus_send_to;
         sd_bus_call;
         sd_bus_call_async;
+        sd_bus_reply;
         sd_bus_get_fd;
         sd_bus_get_events;
         sd_bus_get_timeout;
