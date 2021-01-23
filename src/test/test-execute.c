@@ -408,6 +408,11 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
+static void test_exec_noexecpaths(Manager *m) {
+
+        test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+}
+
 static void test_exec_temporaryfilesystem(Manager *m) {
 
         test(m, "exec-temporaryfilesystem-options.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
@@ -865,6 +870,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
+                entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),
                 entry(test_exec_passenvironment),
                 entry(test_exec_personality),
