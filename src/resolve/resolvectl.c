@@ -2500,6 +2500,90 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static const char *resolve_flags_to_string(uint64_t flags) {
+        return flags & SD_RESOLVED_DNS         ? "DNS" :
+                flags & SD_RESOLVED_LLMNR_IPV4 ? "LLMNR/IPv4" :
+                flags & SD_RESOLVED_LLMNR_IPV6 ? "LLMNR/IPv6" :
+                flags & SD_RESOLVED_MDNS_IPV4  ? "mDNS/IPv4" :
+                flags & SD_RESOLVED_MDNS_IPV6  ? "mDNS/IPv6" :
+                                                 "";
+}
+
+static int verb_list_discovered(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        table = table_new("Hostname", "Address", "Source");
+        if (!table)
+                return log_oom();
+
+        r = bus_call_method(bus, bus_resolve_mgr, "ListDiscovered", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query systemd-resolved: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(stiiay)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(reply, 'r', "stiiay")) > 0) {
+                char *canonical;
+                uint64_t flags;
+                _cleanup_free_ char *pretty = NULL;
+                int ifindex, family;
+                union in_addr_union a;
+
+                r = sd_bus_message_read(reply, "st", &canonical, &flags);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read(reply, "i", &ifindex);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                sd_bus_error_free(&error);
+                r = bus_message_read_in_addr_auto(reply, &error, &family, &a);
+                if (r < 0)
+                        return log_error_errno(
+                                r,
+                                "systemd-resolved returned invalid result: %s",
+                                bus_error_message(&error, r));
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = in_addr_ifindex_to_string(family, &a, ifindex, &pretty);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print address: %m");
+
+                r = table_add_many(
+                        table,
+                        TABLE_STRING,
+                        canonical,
+                        TABLE_STRING,
+                        pretty,
+                        TABLE_STRING,
+                        resolve_flags_to_string((flags)));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
+}
+
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
@@ -2610,6 +2694,7 @@ static int native_help(void) {
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
                "  log-level [LEVEL]            Get/set logging threshold for systemd-resolved\n"
+               "  discover                     Show discovered domain names\n"
                "\nOptions:\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
@@ -2627,14 +2712,13 @@ static int native_help(void) {
                "                                                              (default: yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
                "     --legend=BOOL             Print headers and additional info (default: yes)\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -3154,7 +3238,7 @@ static int native_parse_argv(int argc, char *argv[]) {
 }
 
 static int native_main(int argc, char *argv[], sd_bus *bus) {
-
+        /* clang-format off */
         static const Verb verbs[] = {
                 { "help",                  VERB_ANY, VERB_ANY, 0,            verb_help             },
                 { "status",                VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_status           },
@@ -3176,8 +3260,10 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
                 { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
                 { "log-level",             VERB_ANY, 2,        0,            verb_log_level        },
+                { "list-discovered",       VERB_ANY, VERB_ANY, 0,            verb_list_discovered  },
                 {}
         };
+        /* clang-format on */
 
         return dispatch_verb(argc, argv, verbs, bus);
 }
