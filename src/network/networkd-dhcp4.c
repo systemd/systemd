@@ -22,6 +22,15 @@
 #include "sysctl-util.h"
 #include "web-util.h"
 
+static const char *const use_hostname_table[_USE_HOSTNAME_MAX] = {
+        [USE_HOSTNAME_NO]     = "no",
+        [USE_HOSTNAME_YES]    = "yes",
+        [USE_HOSTNAME_STATIC] = "static",
+        [USE_HOSTNAME_BOTH]   = "both",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_hostname, UseHostname, USE_HOSTNAME_YES);
+
 static int dhcp4_update_address(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
 
@@ -461,7 +470,7 @@ static int dhcp_reset_hostname(Link *link) {
                 return 0;
 
         /* If a hostname was set due to the lease, then unset it now. */
-        r = manager_set_hostname(link->manager, NULL);
+        r = manager_set_hostname(link->manager, NULL, false);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Failed to reset transient hostname: %m");
 
@@ -928,8 +937,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_use_hostname) {
-                const char *dhcpname = NULL;
                 _cleanup_free_ char *hostname = NULL;
+                const char *dhcpname = NULL;
 
                 if (link->network->dhcp_hostname)
                         dhcpname = link->network->dhcp_hostname;
@@ -944,10 +953,18 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                 log_link_notice(link, "Overlong DHCP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
                 }
 
-                if (hostname) {
-                        r = manager_set_hostname(link->manager, hostname);
+                log_link_debug(link, "Setting DHCP4 hostname '%s'", use_hostname_to_string(link->network->dhcp_use_hostname));
+
+                if (hostname && IN_SET(link->network->dhcp_use_hostname, USE_HOSTNAME_YES, USE_HOSTNAME_BOTH)) {
+                        r = manager_set_hostname(link->manager, hostname, false);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
+                }
+
+                if (hostname && IN_SET(link->network->dhcp_use_hostname, USE_HOSTNAME_STATIC, USE_HOSTNAME_BOTH)) {
+                        r = manager_set_hostname(link->manager, hostname, true);
+                        if (r < 0)
+                                log_link_error_errno(link, r, "Failed to set static hostname to '%s': %m", hostname);
                 }
         }
 
@@ -1692,6 +1709,40 @@ int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
 
         network->dhcp_fallback_lease_lifetime = k;
 
+        return 0;
+}
+
+int config_parse_dhcp_use_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        UseHostname k, *h = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *h = USE_HOSTNAME_NO;
+                return 0;
+        }
+
+        k = use_hostname_from_string(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse UseHostname=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *h = k;
         return 0;
 }
 
