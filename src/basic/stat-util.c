@@ -75,7 +75,9 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         if (path)
                 fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         else
-                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                /* Note that DUPing is not enough, as the internal pointer
+                 * would still be shared and moved by FOREACH_DIRENT. */
+                fd = fd_reopen(dir_fd, O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
