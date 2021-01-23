@@ -32,7 +32,6 @@ static int property_get_cgroup_mask(
                 sd_bus_error *error) {
 
         CGroupMask *mask = userdata;
-        CGroupController ctrl;
         int r;
 
         assert(bus);
@@ -42,7 +41,7 @@ static int property_get_cgroup_mask(
         if (r < 0)
                 return r;
 
-        for (ctrl = 0; ctrl < _CGROUP_CONTROLLER_MAX; ctrl++) {
+        for (CGroupController ctrl = 0; ctrl < _CGROUP_CONTROLLER_MAX; ctrl++) {
                 if ((*mask & CGROUP_CONTROLLER_TO_MASK(ctrl)) == 0)
                         continue;
 
