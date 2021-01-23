@@ -11,7 +11,6 @@ manpages = [
  ['coredump.conf', '5', ['coredump.conf.d'], 'ENABLE_COREDUMP'],
  ['coredumpctl', '1', [], 'ENABLE_COREDUMP'],
  ['crypttab', '5', [], 'HAVE_LIBCRYPTSETUP'],
- ['veritytab', '5', [], 'HAVE_LIBCRYPTSETUP'],
  ['daemon', '7', [], ''],
  ['dnssec-trust-anchors.d',
   '5',
@@ -405,7 +404,10 @@ manpages = [
    'sd_bus_reply_method_errorf',
    'sd_bus_reply_method_errorfv'],
   ''],
- ['sd_bus_reply_method_return', '3', ['sd_bus_reply_method_returnv'], ''],
+ ['sd_bus_reply_method_return',
+  '3',
+  ['sd_bus_reply', 'sd_bus_reply_method_returnv'],
+  ''],
  ['sd_bus_request_name',
   '3',
   ['sd_bus_release_name',
@@ -1128,6 +1130,7 @@ manpages = [
   ['systemd-user-runtime-dir', 'user-runtime-dir@.service'],
   ''],
  ['userdbctl', '1', [], 'ENABLE_USERDB'],
- ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE']
+ ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE'],
+ ['veritytab', '5', [], 'HAVE_LIBCRYPTSETUP']
 ]
 # Really, do not edit.
