@@ -132,15 +132,17 @@ static int reply_query_state(DnsQuery *q) {
         }
 }
 
-static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifindex) {
+static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifindex, bool is_container) {
         int r;
 
         assert(reply);
         assert(rr);
 
-        r = sd_bus_message_open_container(reply, 'r', "iiay");
-        if (r < 0)
-                return r;
+        if (is_container) {
+                r = sd_bus_message_open_container(reply, 'r', "iiay");
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_append(reply, "i", ifindex);
         if (r < 0)
@@ -165,9 +167,11 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
+        if (is_container) {
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -216,7 +220,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 if (r == 0)
                         continue;
 
-                r = append_address(reply, rr, ifindex);
+                r = append_address(reply, rr, ifindex, true);
                 if (r < 0)
                         goto finish;
 
@@ -851,7 +855,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
                                 if (r == 0)
                                         continue;
 
-                                r = append_address(reply, zz, ifindex);
+                                r = append_address(reply, zz, ifindex, true);
                                 if (r < 0)
                                         return r;
                         }
@@ -2000,6 +2004,76 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
         return call_dnssd_method(m, message, bus_dnssd_method_unregister, error);
 }
 
+static int bus_method_list_discovered(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        DnsScope *s;
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(stiiay)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(scopes, s, m->dns_scopes) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+                DnsResourceRecord *rr;
+                DnsAnswerFlags flags;
+                int ifindex;
+
+                if (s->protocol == DNS_PROTOCOL_DNS)
+                        continue;
+
+                r = dns_cache_dump_to_answer(&s->cache, &answer);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
+                        _cleanup_free_ char *normalized = NULL;
+                        bool authenticated = FLAGS_SET(flags, DNS_ANSWER_AUTHENTICATED);
+
+                        r = dns_name_normalize(dns_resource_key_name(rr->key), 0, &normalized);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_open_container(reply, 'r', "stiiay");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(
+                                reply,
+                                "st",
+                                normalized,
+                                SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, authenticated));
+                        if (r < 0)
+                                return r;
+
+                        r = append_address(reply, rr, ifindex, false);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(reply);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply(message, reply);
+}
+
+/* clang-format off */
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -2138,9 +2212,14 @@ static const sd_bus_vtable resolve_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_method_reset_server_features,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
-
+        SD_BUS_METHOD_WITH_ARGS("ListDiscovered",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("a(stiiay)", addresses),
+                                bus_method_list_discovered,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
+/* clang-format on */
 
 const BusObjectImplementation manager_object = {
         "/org/freedesktop/resolve1",
