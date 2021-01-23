@@ -180,6 +180,13 @@
         automatically, an explicit reverting is not necessary in that case.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>show-multicast</command></term>
+
+        <listitem><para>Display the discovered LLMNR and mDNS hostnames along with their IPv4/IPv6 addresses.
+        </para></listitem>
+      </varlistentry>
+
       <xi:include href="systemctl.xml" xpointer="log-level" />
     </variablelist>
   </refsect1>
