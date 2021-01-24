@@ -1,13 +1,13 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
-# A S Alam <amanpreet.alam@gmail.com>, 2020.
+# A S Alam <amanpreet.alam@gmail.com>, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-12-21 07:36+0000\n"
+"PO-Revision-Date: 2021-01-24 16:38+0000\n"
 "Last-Translator: A S Alam <amanpreet.alam@gmail.com>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
 "master/pa/>\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.3.2\n"
+"X-Generator: Weblate 4.4.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -25,7 +25,7 @@ msgstr "ਵਾਕ ਵਾਪਸ ਸਿਸਟਮ ਨੂੰ ਭੇਜੋ"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr "ਦਿੱਤਾ ਵਾਕ ਸਿਸਟਮ ਨੂੰ ਵਾਪਸ ਭੇਜਣ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦਾ ਹੈ।"
+msgstr "ਦਿੱਤਾ ਵਾਕ ਸਿਸਟਮ ਨੂੰ ਵਾਪਸ ਭੇਜਣ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -55,7 +55,7 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "systemd ਹਾਲਤ ਮੁੜ ਲੋਡ ਕਰੋ"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
