@@ -6,6 +6,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "memory-util.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "path-util.h"
@@ -294,9 +295,15 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                 return log_error_errno(r, "Failed to update monitored memory pressure cgroup contexts");
 
         r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
-        /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM */
-        if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
+        /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM.
+         * Allow ENOENT in the event that swap is disabled on the system. */
+        if (r == -ENOMEM || (r < 0 && r != -ENOENT && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
                 return log_error_errno(r, "Failed to acquire system context");
+        else if (r == -ENOENT)
+                zero(m->system_context);
+
+        if (oomd_memory_reclaim(m->monitored_mem_pressure_cgroup_contexts))
+                m->last_reclaim_at = usec_now;
 
         /* If we're still recovering from a kill, don't try to kill again yet */
         if (m->post_action_delay_start > 0) {
@@ -306,16 +313,16 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                         m->post_action_delay_start = 0;
         }
 
-        r = oomd_pressure_above(m->monitored_mem_pressure_cgroup_contexts, PRESSURE_DURATION_USEC, &targets);
+        r = oomd_pressure_above(m->monitored_mem_pressure_cgroup_contexts, m->default_mem_pressure_duration_usec, &targets);
         if (r == -ENOMEM)
                 return log_error_errno(r, "Failed to check if memory pressure exceeded limits");
         else if (r == 1) {
-                /* Check if there was reclaim activity in the last interval. The concern is the following case:
+                /* Check if there was reclaim activity in the given interval. The concern is the following case:
                  * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
                  * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
                  * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
                  * to kill something (it won't help anyways). */
-                if (oomd_memory_reclaim(m->monitored_mem_pressure_cgroup_contexts)) {
+                if ((usec_now - m->last_reclaim_at) <= RECLAIM_DURATION_USEC) {
                         _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                         OomdCGroupContext *t;
 
@@ -325,7 +332,7 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
 
                         SET_FOREACH(t, targets) {
                                 log_notice("Memory pressure for %s is greater than %lu for more than %"PRIu64" seconds and there was reclaim activity",
-                                        t->path, LOAD_INT(t->mem_pressure_limit), PRESSURE_DURATION_USEC / USEC_PER_SEC);
+                                        t->path, LOAD_INT(t->mem_pressure_limit), m->default_mem_pressure_duration_usec / USEC_PER_SEC);
 
                                 r = oomd_kill_by_pgscan(candidates, t->path, m->dry_run);
                                 if (r == -ENOMEM)
@@ -471,7 +478,7 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit) {
+int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit, usec_t mem_pressure_usec) {
         unsigned long l;
         int r;
 
@@ -486,6 +493,8 @@ int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressur
         r = store_loadavg_fixed_point(l, 0, &m->default_mem_pressure_limit);
         if (r < 0)
                 return r;
+
+        m->default_mem_pressure_duration_usec = mem_pressure_usec ?: DEFAULT_MEM_PRESSURE_DURATION_USEC;
 
         r = manager_connect_bus(m);
         if (r < 0)
@@ -505,6 +514,7 @@ int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressur
 int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        char buf[FORMAT_TIMESPAN_MAX];
         OomdCGroupContext *c;
         size_t size;
         char *key;
@@ -521,10 +531,12 @@ int manager_get_dump_string(Manager *m, char **ret) {
                 "Dry Run: %s\n"
                 "Swap Used Limit: %u%%\n"
                 "Default Memory Pressure Limit: %lu%%\n"
+                "Default Memory Pressure Duration: %s\n"
                 "System Context:\n",
                 yes_no(m->dry_run),
                 m->swap_used_limit,
-                LOAD_INT(m->default_mem_pressure_limit));
+                LOAD_INT(m->default_mem_pressure_limit),
+                format_timespan(buf, sizeof(buf), m->default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
 
         fprintf(f, "Swap Monitored CGroups:\n");

@@ -6,7 +6,6 @@ systemd-analyze log-level debug
 systemd-analyze log-target console
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
-[[ "$( awk '/SwapTotal/ { print $2 }' /proc/meminfo )" != "0" ]] || echo "no swap" >> /skipped
 [[ -e /proc/pressure ]] || echo "no PSI" >> /skipped
 cgroup_type=$(stat -fc %T /sys/fs/cgroup/)
 if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
@@ -14,12 +13,15 @@ if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]
 fi
 [[ -e /skipped ]] && exit 0 || true
 
-systemctl start testsuite-56-testbloat.service
+echo "DefaultMemoryPressureDurationSec=5s" >> /etc/systemd/oomd.conf
+
 systemctl start testsuite-56-testchill.service
+systemctl start testsuite-56-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
 oomctl | grep "/testsuite-56-workload.slice"
 oomctl | grep "1%"
+oomctl | grep "Default Memory Pressure Duration: 5s"
 
 # systemd-oomd watches for elevated pressure for 30 seconds before acting.
 # It can take time to build up pressure so either wait 5 minutes or for the service to fail.
