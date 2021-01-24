@@ -20,6 +20,7 @@
 #define DEFAULT_MEM_PRESSURE_LIMIT 60
 #define DEFAULT_SWAP_USED_LIMIT 90
 
+#define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
 #define POST_ACTION_DELAY_USEC (15 * USEC_PER_SEC)
 
 typedef struct Manager Manager;
@@ -42,6 +43,7 @@ struct Manager {
 
         OomdSystemContext system_context;
 
+        usec_t last_reclaim_at;
         usec_t post_action_delay_start;
 
         sd_event_source *cgroup_context_event_source;
