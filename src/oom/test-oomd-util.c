@@ -159,6 +159,11 @@ static void test_oomd_system_context_acquire(void) {
         assert_se(ctx.swap_total == 0);
         assert_se(ctx.swap_used == 0);
 
+        assert_se(write_string_file(path, "Filename                                Type            Size    Used    Priority", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(oomd_system_context_acquire(path, &ctx) == 0);
+        assert_se(ctx.swap_total == 0);
+        assert_se(ctx.swap_used == 0);
+
         assert_se(write_string_file(path, "Filename                                Type            Size    Used    Priority\n"
                                           "/swapvol/swapfile                       file            18971644        0       -3\n"
                                           "/dev/vda2                               partition       1999868 993780  -2", WRITE_STRING_FILE_CREATE) == 0);
@@ -266,6 +271,12 @@ static void test_oomd_swap_free_below(void) {
         ctx = (OomdSystemContext) {
                 .swap_total = 20971512 * 1024U,
                 .swap_used = 3310136 * 1024U,
+        };
+        assert_se(oomd_swap_free_below(&ctx, 20) == false);
+
+        ctx = (OomdSystemContext) {
+                .swap_total = 0,
+                .swap_used = 0,
         };
         assert_se(oomd_swap_free_below(&ctx, 20) == false);
 }

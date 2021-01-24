@@ -19,11 +19,13 @@
 static bool arg_dry_run = false;
 static int arg_swap_used_limit = -1;
 static int arg_mem_pressure_limit = -1;
+static usec_t arg_mem_pressure_usec = 0;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "OOM", "SwapUsedLimitPercent",              config_parse_percent, 0, &arg_swap_used_limit    },
                 { "OOM", "DefaultMemoryPressureLimitPercent", config_parse_percent, 0, &arg_mem_pressure_limit },
+                { "OOM", "DefaultMemoryPressureDurationSec",  config_parse_sec,     0, &arg_mem_pressure_usec  },
                 {}
         };
 
@@ -140,10 +142,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to get SwapTotal from /proc/meminfo: %m");
 
         r = safe_atollu(swap, &s);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse SwapTotal from /proc/meminfo: %s: %m", swap);
-        if (s == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires swap to operate");
+        if (r < 0 || s == 0)
+                log_warning("Swap is currently not detected; memory pressure usage will be degraded");
 
         if (!is_pressure_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
@@ -160,7 +160,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 
-        r = manager_start(m, arg_dry_run, arg_swap_used_limit, arg_mem_pressure_limit);
+        r = manager_start(m, arg_dry_run, arg_swap_used_limit, arg_mem_pressure_limit, arg_mem_pressure_usec);
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
