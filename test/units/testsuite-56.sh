@@ -6,7 +6,6 @@ systemd-analyze log-level debug
 systemd-analyze log-target console
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
-[[ "$( awk '/SwapTotal/ { print $2 }' /proc/meminfo )" != "0" ]] || echo "no swap" >> /skipped
 [[ -e /proc/pressure ]] || echo "no PSI" >> /skipped
 cgroup_type=$(stat -fc %T /sys/fs/cgroup/)
 if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
