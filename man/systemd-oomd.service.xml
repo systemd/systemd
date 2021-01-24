@@ -56,8 +56,8 @@
 
     <para>You will need a kernel compiled with PSI support. This is available in Linux 4.20 and above.</para>
 
-    <para>The system must also have swap enabled for <command>systemd-oomd</command> to function correctly. With swap
-    enabled, the system spends enough time swapping pages to let <command>systemd-oomd</command> react.
+    <para>It is highly recommended for the system to have swap enabled for <command>systemd-oomd</command> to function
+    optimally. With swap enabled, the system spends enough time swapping pages to let <command>systemd-oomd</command> react.
     Without swap, the system enters a livelocked state much more quickly and may prevent <command>systemd-oomd</command>
     from responding in a reasonable amount of time. See
     <ulink url="https://chrisdown.name/2018/01/02/in-defence-of-swap.html">"In defence of swap: common misconceptions"</ulink>
