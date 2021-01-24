@@ -31,6 +31,7 @@ struct OomdCGroupContext {
 
         /* These are only used by oomd_pressure_above for acting on high memory pressure. */
         loadavg_t mem_pressure_limit;
+        usec_t mem_pressure_duration_usec;
         usec_t last_hit_mem_pressure_limit;
 };
 

@@ -14,12 +14,15 @@ if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]
 fi
 [[ -e /skipped ]] && exit 0 || true
 
+echo "DefaultMemoryPressureDurationSec=5s" >> /etc/systemd/oomd.conf
+
 systemctl start testsuite-56-testbloat.service
 systemctl start testsuite-56-testchill.service
 
 # Verify systemd-oomd is monitoring the expected units
 oomctl | grep "/testsuite-56-workload.slice"
 oomctl | grep "1%"
+oomctl | grep "Default Memory Pressure Duration: 5s"
 
 # systemd-oomd watches for elevated pressure for 30 seconds before acting.
 # It can take time to build up pressure so either wait 5 minutes or for the service to fail.
