@@ -1547,7 +1547,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*940X3G*:*
  KEYBOARD_KEY_96=!kbdillumup                            # Fn+F10 keyboard backlight up
  KEYBOARD_KEY_b3=!prog3                                 # Fn+F11 fan/cooling mode changer
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900X[34][AB]*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900X3A*:*
  KEYBOARD_KEY_ce=!                                      # Fn+F8 keyboard backlight up
  KEYBOARD_KEY_8d=!                                      # Fn+F7 keyboard backlight down
  KEYBOARD_KEY_96=!                                      # Fn+F1 performance mode (?)
