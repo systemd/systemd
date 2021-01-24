@@ -140,10 +140,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to get SwapTotal from /proc/meminfo: %m");
 
         r = safe_atollu(swap, &s);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse SwapTotal from /proc/meminfo: %s: %m", swap);
-        if (s == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires swap to operate");
+        if (r < 0 || s == 0)
+                log_warning("Swap is currently not detected; memory pressure usage will be degraded");
 
         if (!is_pressure_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
