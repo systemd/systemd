@@ -302,6 +302,9 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
         else if (r == -ENOENT)
                 zero(m->system_context);
 
+        if (oomd_memory_reclaim(m->monitored_mem_pressure_cgroup_contexts))
+                m->last_reclaim_at = usec_now;
+
         /* If we're still recovering from a kill, don't try to kill again yet */
         if (m->post_action_delay_start > 0) {
                 if (m->post_action_delay_start + POST_ACTION_DELAY_USEC > usec_now)
@@ -314,12 +317,12 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
         if (r == -ENOMEM)
                 return log_error_errno(r, "Failed to check if memory pressure exceeded limits");
         else if (r == 1) {
-                /* Check if there was reclaim activity in the last interval. The concern is the following case:
+                /* Check if there was reclaim activity in the given interval. The concern is the following case:
                  * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
                  * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
                  * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
                  * to kill something (it won't help anyways). */
-                if (oomd_memory_reclaim(m->monitored_mem_pressure_cgroup_contexts)) {
+                if ((usec_now - m->last_reclaim_at) <= RECLAIM_DURATION_USEC) {
                         _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                         OomdCGroupContext *t;
 
