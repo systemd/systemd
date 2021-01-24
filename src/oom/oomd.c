@@ -19,11 +19,13 @@
 static bool arg_dry_run = false;
 static int arg_swap_used_limit = -1;
 static int arg_mem_pressure_limit = -1;
+static usec_t arg_mem_pressure_usec = 0;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "OOM", "SwapUsedLimitPercent",              config_parse_percent, 0, &arg_swap_used_limit    },
                 { "OOM", "DefaultMemoryPressureLimitPercent", config_parse_percent, 0, &arg_mem_pressure_limit },
+                { "OOM", "DefaultMemoryPressureDurationSec",  config_parse_sec,     0, &arg_mem_pressure_usec  },
                 {}
         };
 
@@ -160,7 +162,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 
-        r = manager_start(m, arg_dry_run, arg_swap_used_limit, arg_mem_pressure_limit);
+        r = manager_start(m, arg_dry_run, arg_swap_used_limit, arg_mem_pressure_limit, arg_mem_pressure_usec);
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
