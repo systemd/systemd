@@ -16,34 +16,27 @@ test -f /usr/share/selinux/devel/include/system/systemd.if || exit 0
 SETUP_SELINUX=yes
 KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
 
-test_create_image() {
-    create_empty_image_rootdir
-
-    # Create what will eventually be our root filesystem onto an overlay
+test_append_files() {
     (
-        LOG_LEVEL=5
-
-        setup_basic_environment
-        mask_supporting_services
-
+        setup_selinux
         local _modules_dir=/var/lib/selinux
-        rm -rf $initdir/$_modules_dir
-        if ! cp -ar $_modules_dir $initdir/$_modules_dir; then
+        rm -rf $1/$_modules_dir
+        if ! cp -ar $_modules_dir $1/$_modules_dir; then
             dfatal "Failed to copy $_modules_dir"
             exit 1
         fi
 
         local _policy_headers_dir=/usr/share/selinux/devel
-        rm -rf $initdir/$_policy_headers_dir
+        rm -rf $1/$_policy_headers_dir
         inst_dir /usr/share/selinux
-        if ! cp -ar $_policy_headers_dir $initdir/$_policy_headers_dir; then
+        if ! cp -ar $_policy_headers_dir $1/$_policy_headers_dir; then
             dfatal "Failed to copy $_policy_headers_dir"
             exit 1
         fi
 
-        mkdir $initdir/systemd-test-module
-        cp systemd_test.te $initdir/systemd-test-module
-        cp systemd_test.if $initdir/systemd-test-module
+        mkdir $1/systemd-test-module
+        cp systemd_test.te $1/systemd-test-module
+        cp systemd_test.if $1/systemd-test-module
         dracut_install -o sesearch
         dracut_install runcon
         dracut_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
