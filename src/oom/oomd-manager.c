@@ -6,6 +6,7 @@
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "memory-util.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "path-util.h"
@@ -294,9 +295,12 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                 return log_error_errno(r, "Failed to update monitored memory pressure cgroup contexts");
 
         r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
-        /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM */
-        if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
+        /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM.
+         * Allow ENOENT in the event that swap is disabled on the system. */
+        if (r == -ENOMEM || (r < 0 && r != -ENOENT && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
                 return log_error_errno(r, "Failed to acquire system context");
+        else if (r == -ENOENT)
+                zero(m->system_context);
 
         /* If we're still recovering from a kill, don't try to kill again yet */
         if (m->post_action_delay_start > 0) {
