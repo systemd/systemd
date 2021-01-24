@@ -97,7 +97,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
 fi
 
 cd "$BUILDDIR"
-ninja
+ninja $@
 if [ "$WITH_TESTS" = 1 ] ; then
         for id in 1 2 3; do
                 getent group $id > /dev/null || groupadd -g $id testgroup$id
