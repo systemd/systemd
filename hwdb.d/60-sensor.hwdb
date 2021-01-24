@@ -325,6 +325,12 @@ sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 0, 0, -1; -1, 0, 0
 
 #########################################
+# Estar
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*:svnEstar:pneSTARBEAUTYHDIntelQuadcore:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Eve Technology
 #########################################
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnEVE*:pnEveV:*
@@ -447,6 +453,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrjumperx.T87.KFBNEE:*
 # EZpad 6 Pro
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnJumper:pnEZpad:*:rvr.A006:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# EZpad 7
+sensor:modalias:acpi:KIOX0009*:dmi:*:bvrJumper12x.WJ2012.bsBKRCP*:svnJumper:pnEZpad:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # EZpad Go
 sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnjumper:pnEZpad:*:ct31:*
