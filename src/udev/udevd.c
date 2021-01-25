@@ -537,7 +537,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
 
         /* Reset the log level, as it might be changed by "OPTIONS=log_level=". */
-        log_set_max_level_all_realms(manager->log_level);
+        log_set_max_level(manager->log_level);
 
         return 1;
 }
@@ -1062,7 +1062,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         switch (type) {
         case UDEV_CTRL_SET_LOG_LEVEL:
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
-                log_set_max_level_all_realms(value->intval);
+                log_set_max_level(value->intval);
                 manager->log_level = value->intval;
                 manager_kill_workers(manager);
                 break;
@@ -1851,8 +1851,6 @@ int run_udevd(int argc, char *argv[]) {
                 log_set_target(LOG_TARGET_CONSOLE);
                 log_set_max_level(LOG_DEBUG);
         }
-
-        log_set_max_level_realm(LOG_REALM_SYSTEMD, log_get_max_level());
 
         r = must_be_root();
         if (r < 0)
