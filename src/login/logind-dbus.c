@@ -1797,7 +1797,8 @@ static int verify_shutdown_creds(
                 const char *action,
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                bool root_enforce_inhibit) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, blocked;
@@ -1832,6 +1833,9 @@ static int verify_shutdown_creds(
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
         }
 
+        if (blocked && uid == 0 && root_enforce_inhibit)
+                return -EPERM;
+
         if (blocked && action_ignore_inhibit) {
                 r = bus_verify_polkit_async(message, CAP_SYS_BOOT, action_ignore_inhibit, NULL, interactive, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
@@ -1860,9 +1864,10 @@ static int method_do_shutdown_or_sleep(
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
                 const char *sleep_verb,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                bool is_ext) {
 
-        int interactive, r;
+        int interactive, root_enforce_inhibit, r;
 
         assert(m);
         assert(message);
@@ -1870,7 +1875,10 @@ static int method_do_shutdown_or_sleep(
         assert(w >= 0);
         assert(w <= _INHIBIT_WHAT_MAX);
 
-        r = sd_bus_message_read(message, "b", &interactive);
+        if (is_ext)
+                r = sd_bus_message_read(message, "bb", &interactive, &root_enforce_inhibit);
+        else
+                r = sd_bus_message_read(message, "b", &interactive);
         if (r < 0)
                 return r;
 
@@ -1892,7 +1900,7 @@ static int method_do_shutdown_or_sleep(
         }
 
         r = verify_shutdown_creds(m, message, w, interactive, action, action_multiple_sessions,
-                                  action_ignore_inhibit, error);
+                                  action_ignore_inhibit, error, root_enforce_inhibit);
         if (r != 0)
                 return r;
 
@@ -1914,7 +1922,23 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
                         "org.freedesktop.login1.power-off-multiple-sessions",
                         "org.freedesktop.login1.power-off-ignore-inhibit",
                         NULL,
-                        error);
+                        error,
+                        false);
+}
+
+static int method_poweroff_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_POWEROFF_TARGET,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.power-off",
+                        "org.freedesktop.login1.power-off-multiple-sessions",
+                        "org.freedesktop.login1.power-off-ignore-inhibit",
+                        NULL,
+                        error,
+                        true);
 }
 
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1928,7 +1952,23 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
                         "org.freedesktop.login1.reboot-multiple-sessions",
                         "org.freedesktop.login1.reboot-ignore-inhibit",
                         NULL,
-                        error);
+                        error,
+                        false);
+}
+
+static int method_reboot_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_REBOOT_TARGET,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.reboot",
+                        "org.freedesktop.login1.reboot-multiple-sessions",
+                        "org.freedesktop.login1.reboot-ignore-inhibit",
+                        NULL,
+                        error,
+                        true);
 }
 
 static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1942,7 +1982,23 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
                         "org.freedesktop.login1.halt-multiple-sessions",
                         "org.freedesktop.login1.halt-ignore-inhibit",
                         NULL,
-                        error);
+                        error,
+                        false);
+}
+
+static int method_halt_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HALT_TARGET,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.halt",
+                        "org.freedesktop.login1.halt-multiple-sessions",
+                        "org.freedesktop.login1.halt-ignore-inhibit",
+                        NULL,
+                        error,
+                        true);
 }
 
 static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1956,7 +2012,23 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
                         "org.freedesktop.login1.suspend-multiple-sessions",
                         "org.freedesktop.login1.suspend-ignore-inhibit",
                         "suspend",
-                        error);
+                        error,
+                        false);
+}
+
+static int method_suspend_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_SUSPEND_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.suspend",
+                        "org.freedesktop.login1.suspend-multiple-sessions",
+                        "org.freedesktop.login1.suspend-ignore-inhibit",
+                        "suspend",
+                        error,
+                        true);
 }
 
 static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1970,7 +2042,23 @@ static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_erro
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hibernate",
-                        error);
+                        error,
+                        false);
+}
+
+static int method_hibernate_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HIBERNATE_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hibernate",
+                        error,
+                        true);
 }
 
 static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1984,7 +2072,23 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hybrid-sleep",
-                        error);
+                        error,
+                        false);
+}
+
+static int method_hybrid_sleep_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HYBRID_SLEEP_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hybrid-sleep",
+                        error,
+                        true);
 }
 
 static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1998,7 +2102,23 @@ static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hybrid-sleep",
-                        error);
+                        error,
+                        false);
+}
+
+static int method_suspend_then_hibernate_ext(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hybrid-sleep",
+                        error,
+                        true);
 }
 
 static int nologin_timeout_handler(
@@ -2186,7 +2306,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
 
         r = verify_shutdown_creds(m, message, INHIBIT_SHUTDOWN, false,
-                                  action, action_multiple_sessions, action_ignore_inhibit, error);
+                                  action, action_multiple_sessions, action_ignore_inhibit, error, false);
         if (r != 0)
                 return r;
 
@@ -3538,11 +3658,25 @@ static const sd_bus_vtable manager_vtable[] = {
                                  NULL,,
                                  method_poweroff,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PowerOff1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_poweroff_ext,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Reboot",
                                  "b",
                                  SD_BUS_PARAM(interactive),
                                  NULL,,
                                  method_reboot,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Reboot1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_reboot_ext,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Halt",
                                  "b",
@@ -3550,11 +3684,25 @@ static const sd_bus_vtable manager_vtable[] = {
                                  NULL,,
                                  method_halt,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Halt1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_halt_ext,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Suspend",
                                  "b",
                                  SD_BUS_PARAM(interactive),
                                  NULL,,
                                  method_suspend,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Suspend1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_suspend_ext,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Hibernate",
                                  "b",
@@ -3562,17 +3710,38 @@ static const sd_bus_vtable manager_vtable[] = {
                                  NULL,,
                                  method_hibernate,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Hibernate1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_hibernate_ext,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("HybridSleep",
                                  "b",
                                  SD_BUS_PARAM(interactive),
                                  NULL,,
                                  method_hybrid_sleep,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("HybridSleep1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_hybrid_sleep_ext,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("SuspendThenHibernate",
                                  "b",
                                  SD_BUS_PARAM(interactive),
                                  NULL,,
                                  method_suspend_then_hibernate,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SuspendThenHibernate1",
+                                 "bb",
+                                 SD_BUS_PARAM(interactive)
+                                 SD_BUS_PARAM(root_enforce_inhibit),
+                                 NULL,,
+                                 method_suspend_then_hibernate_ext,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("CanPowerOff",
                                  NULL,,
