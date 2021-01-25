@@ -898,14 +898,31 @@ bool filename_is_valid(const char *p) {
 }
 
 bool path_is_valid(const char *p) {
+        const char *e;
 
         if (isempty(p))
                 return false;
 
-        if (strlen(p) >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
-                return false;
+        e = p;
+        for (;;) {
+                size_t n;
 
-        return true;
+                /* Skip over slashes */
+                e += strspn(e, "/");
+                if (e - p >= PATH_MAX) /* Already reached the maximum lengths for a path? (PATH_MAX is
+                                        * counted *with* the trailing NUL byte) */
+                        return false;
+                if (*e == 0)           /* End of string? Yay! */
+                        return true;
+
+                /* Skip over one component */
+                n = strcspn(e, "/");
+                if (n > FILENAME_MAX) /* One component larger than FILENAME_MAX? (FILENAME_MAX is counted
+                                       * *without* the trailing NUL byte) */
+                        return false;
+
+                e += n;
+        }
 }
 
 bool path_is_normalized(const char *p) {
