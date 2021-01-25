@@ -1159,7 +1159,7 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
 
         if (!dns_cache_is_empty(&s->cache)) {
                 fputs("CACHE:\n", f);
-                dns_cache_dump(&s->cache, f);
+                dns_cache_dump_to_file(&s->cache, f);
         }
 }
 

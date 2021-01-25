@@ -1066,7 +1066,55 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
         return 0;
 }
 
-void dns_cache_dump(DnsCache *cache, FILE *f) {
+int dns_cache_dump_to_answer(DnsCache *cache, DnsAnswer **ret) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnsCacheItem *i;
+        size_t n = 0;
+        int r;
+
+        assert(cache);
+        assert(ret);
+
+        HASHMAP_FOREACH(i, cache->by_key) {
+                DnsCacheItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        if (!j->rr)
+                                continue;
+
+                        n++;
+                }
+        }
+
+        if (n == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        answer = dns_answer_new(n);
+        if (!answer)
+                return -ENOMEM;
+
+        HASHMAP_FOREACH(i, cache->by_key) {
+                DnsCacheItem *j;
+
+                LIST_FOREACH(by_key, j, i) {
+                        if (!j->rr)
+                                continue;
+
+                        r = dns_answer_add(
+                                answer, j->rr, j->ifindex, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(answer);
+
+        return n;
+}
+
+void dns_cache_dump_to_file(DnsCache *cache, FILE *f) {
         DnsCacheItem *i;
 
         if (!cache)
