@@ -65,10 +65,12 @@ struct sd_bus_vtable {
                         const char *result;
                         sd_bus_message_handler_t handler;
                         size_t offset;
+                        const char *names;
                 } method;
                 struct {
                         const char *member;
                         const char *signature;
+                        const char *names;
                 } signal;
                 struct {
                         const char *member;
@@ -91,7 +93,10 @@ struct sd_bus_vtable {
                 },                                                      \
         }
 
-#define SD_BUS_METHOD_WITH_OFFSET(_member, _signature, _result, _handler, _offset, _flags)   \
+/* helper macro to format method and signal parameters, one at a time */
+#define SD_BUS_PARAM(x) #x "\0"
+
+#define SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, _in_names, _result, _out_names, _handler, _offset, _flags) \
         {                                                               \
                 .type = _SD_BUS_VTABLE_METHOD,                          \
                 .flags = _flags,                                        \
@@ -102,13 +107,18 @@ struct sd_bus_vtable {
                         .result = _result,                              \
                         .handler = _handler,                            \
                         .offset = _offset,                              \
+                        .names = _in_names _out_names,                  \
                     },                                                  \
                 },                                                      \
         }
+#define SD_BUS_METHOD_WITH_OFFSET(_member, _signature, _result, _handler, _offset, _flags)   \
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, "", _result, "", _handler, _offset, _flags)
+#define SD_BUS_METHOD_WITH_NAMES(_member, _signature, _in_names, _result, _out_names, _handler, _flags)   \
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, _in_names, _result, _out_names, _handler, 0, _flags)
 #define SD_BUS_METHOD(_member, _signature, _result, _handler, _flags)   \
-        SD_BUS_METHOD_WITH_OFFSET(_member, _signature, _result, _handler, 0, _flags)
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, "", _result, "", _handler, 0, _flags)
 
-#define SD_BUS_SIGNAL(_member, _signature, _flags)                      \
+#define SD_BUS_SIGNAL_WITH_NAMES(_member, _signature, _out_names, _flags)                      \
         {                                                               \
                 .type = _SD_BUS_VTABLE_SIGNAL,                          \
                 .flags = _flags,                                        \
@@ -116,9 +126,12 @@ struct sd_bus_vtable {
                     .signal = {                                         \
                         .member = _member,                              \
                         .signature = _signature,                        \
+                        .names = _out_names,                            \
                     },                                                  \
                 },                                                      \
         }
+#define SD_BUS_SIGNAL(_member, _signature, _flags)   \
+        SD_BUS_SIGNAL_WITH_NAMES(_member, _signature, "", _flags)
 
 #define SD_BUS_PROPERTY(_member, _signature, _get, _offset, _flags)     \
         {                                                               \
