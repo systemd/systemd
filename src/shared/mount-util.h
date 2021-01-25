@@ -106,5 +106,7 @@ int mount_image_in_namespace(pid_t target, const char *propagate_path, const cha
  * and overlay mounts required to set up a merge of /usr and /opt from the
  * two layers, as relative paths from the root of the extra_image.
  * Leaf nodes (files, empty directories) are listed in the mount list,
- * while divergent non-empty directories are listed in the overlay list. */
+ * while divergent non-empty directories are listed in the overlay list.
+ * Note that, as special cases, both /usr/lib/os-release and
+ * /usr/lib/extension-release.d/ will be skipped. */
 int mount_compute_shallow_overlays(const char *root_image, const char *extra_image, char ***ret_mounts_list, char ***ret_overlays_list);
