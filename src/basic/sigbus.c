@@ -23,12 +23,10 @@ static void* volatile sigbus_queue[SIGBUS_QUEUE_MAX];
 static volatile sig_atomic_t n_sigbus_queue = 0;
 
 static void sigbus_push(void *addr) {
-        unsigned u;
-
         assert(addr);
 
         /* Find a free place, increase the number of entries and leave, if we can */
-        for (u = 0; u < SIGBUS_QUEUE_MAX; u++)
+        for (size_t u = 0; u < SIGBUS_QUEUE_MAX; u++)
                 if (__sync_bool_compare_and_swap(&sigbus_queue[u], NULL, addr)) {
                         __sync_fetch_and_add(&n_sigbus_queue, 1);
                         return;
