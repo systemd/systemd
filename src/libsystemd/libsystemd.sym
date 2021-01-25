@@ -745,4 +745,4 @@ global:
         sd_event_source_set_ratelimit;
         sd_event_source_get_ratelimit;
         sd_event_source_is_ratelimited;
-} LIBSYSTEMD_246;
+} LIBSYSTEMD_247;
