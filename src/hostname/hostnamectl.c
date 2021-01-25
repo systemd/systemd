@@ -11,8 +11,10 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
@@ -116,11 +118,16 @@ static void print_status_info(StatusInfo *i) {
                 printf("    Hardware Model: %s\n", i->hardware_model);
 }
 
-static int show_one_name(sd_bus *bus, const char* attr) {
+static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *str = NULL;
         const char *s;
         int r;
+
+        assert(bus);
+        assert(attr);
+        assert(ret);
 
         r = sd_bus_get_property(
                         bus,
@@ -135,6 +142,25 @@ static int show_one_name(sd_bus *bus, const char* attr) {
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        str = strdup(s);
+        if (!str)
+                return log_oom();
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
+static int show_one_name(sd_bus *bus, const char* attr) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(bus);
+        assert(attr);
+
+        r = get_one_name(bus, attr, &s);
+        if (r < 0)
+                return r;
 
         printf("%s\n", s);
 
@@ -222,22 +248,26 @@ static int show_status(int argc, char **argv, void *userdata) {
         }
 }
 
-static int set_simple_string(sd_bus *bus, const char *method, const char *value) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r = 0;
-
+static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *method, const char *value) {
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(
+        return sd_bus_call_method(
                         bus,
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         "org.freedesktop.hostname1",
                         method,
-                        &error, NULL,
+                        error, NULL,
                         "sb", value, arg_ask_password);
+}
+
+static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = set_simple_string_internal(bus, &error, method, value);
         if (r < 0)
-                return log_error_errno(r, "Could not set property: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Could not set %s: %s", target, bus_error_message(&error, r));
 
         return 0;
 }
@@ -246,10 +276,26 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *h = NULL;
         const char *hostname = argv[1];
         sd_bus *bus = userdata;
+        bool implicit = false, show_hint = false;
         int r;
 
         if (!arg_pretty && !arg_static && !arg_transient)
-                arg_pretty = arg_static = arg_transient = true;
+                arg_pretty = arg_static = arg_transient = implicit = true;
+
+        if (arg_transient) {
+                _cleanup_free_ char *source = NULL;
+
+                r = get_one_name(bus, "HostnameSource", &source);
+                if (r < 0)
+                        return r;
+
+                if (streq(source, hostname_source_to_string(HOSTNAME_STATIC))) {
+                        if (!implicit)
+                                log_warning("--transient option is specified, but the static hostname specified in /etc/hostname is used. "
+                                            "Skipping to set transient hostname, as the static hostname has higher precedence than transient hostname.");
+                        arg_transient = false;
+                }
+        }
 
         if (arg_pretty) {
                 const char *p;
@@ -257,14 +303,29 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                 /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
                  * hostnames, so let's unset the pretty hostname, and just set the passed hostname as static/dynamic
                  * hostname. */
-                if (arg_static && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
+                if (implicit && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
                         p = ""; /* No pretty hostname (as it is redundant), just a static one */
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
 
-                r = set_simple_string(bus, "SetPrettyHostname", p);
-                if (r < 0)
-                        return r;
+                if (!implicit || !arg_transient) {
+                        r = set_simple_string(bus, "pretty hostname", "SetPrettyHostname", p);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        r = set_simple_string_internal(bus, &error, "SetPrettyHostname", p);
+                        if (r < 0) {
+                                if (sd_bus_error_has_names(&error,
+                                                           BUS_ERROR_NO_PRIVILEGE_TO_UPDATE_FILE,
+                                                           BUS_ERROR_FILE_IS_IN_READONLY_FILESYSTEM)) {
+                                        log_warning_errno(r, "Could not set pretty hostname, ignoring: %s", bus_error_message(&error, r));
+                                        show_hint = true;
+                                } else
+                                        return log_error_errno(r, "Could not set pretty hostname: %s", bus_error_message(&error, r));
+                        }
+                }
 
                 /* Now that we set the pretty hostname, let's clean up the parameter and use that as static
                  * hostname. If the hostname was already valid as static hostname, this will only chop off the trailing
@@ -280,34 +341,52 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         }
 
         if (arg_static) {
-                r = set_simple_string(bus, "SetStaticHostname", hostname);
+                if (!implicit || !arg_transient) {
+                        r = set_simple_string(bus, "static hostname", "SetStaticHostname", hostname);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        r = set_simple_string_internal(bus, &error, "SetStaticHostname", hostname);
+                        if (r < 0) {
+                                if (sd_bus_error_has_names(&error,
+                                                           BUS_ERROR_NO_PRIVILEGE_TO_UPDATE_FILE,
+                                                           BUS_ERROR_FILE_IS_IN_READONLY_FILESYSTEM)) {
+                                        log_warning_errno(r, "Could not set static hostname, ignoring: %s", bus_error_message(&error, r));
+                                        show_hint = true;
+                                } else
+                                        return log_error_errno(r, "Could not set static hostname: %s", bus_error_message(&error, r));
+                        }
+                }
+        }
+
+        if (arg_transient) {
+                r = set_simple_string(bus, "transient hostname", "SetHostname", hostname);
                 if (r < 0)
                         return r;
         }
 
-        if (arg_transient) {
-                r = set_simple_string(bus, "SetHostname", hostname);
-                if (r < 0)
-                        return r;
-        }
+        if (show_hint)
+                log_info("Hint: use --transient option when /etc/machine-info or /etc/hostname cannot be modified (e.g. located in read-only filesystem).");
 
         return 0;
 }
 
 static int set_icon_name(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetIconName", argv[1]);
+        return set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
 static int set_chassis(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetChassis", argv[1]);
+        return set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
 static int set_deployment(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetDeployment", argv[1]);
+        return set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
 static int set_location(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetLocation", argv[1]);
+        return set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
 static int help(void) {

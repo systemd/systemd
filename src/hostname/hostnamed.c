@@ -367,20 +367,39 @@ static int context_update_kernel_hostname(
         return r; /* 0 if no change, 1 if something was done  */
 }
 
+static void unset_statp(struct stat **p) {
+        if (!*p)
+                return;
+
+        **p = (struct stat) {};
+}
+
 static int context_write_data_static_hostname(Context *c) {
+        _cleanup_(unset_statp) struct stat *s = NULL;
+        int r;
+
         assert(c);
 
+        s = &c->etc_hostname_stat;
+
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
-                if (unlink("/etc/hostname") < 0)
-                        return errno == ENOENT ? 0 : -errno;
+                if (unlink("/etc/hostname") < 0 && errno != ENOENT)
+                        return -errno;
+
+                TAKE_PTR(s);
                 return 0;
         }
 
-        return write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
+        r = write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
+        return 0;
 }
 
 static int context_write_data_machine_info(Context *c) {
-
+        _cleanup_(unset_statp) struct stat *s = NULL;
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
                 [PROP_ICON_NAME] = "ICON_NAME",
@@ -388,11 +407,12 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
                 [PROP_LOCATION] = "LOCATION",
         };
-
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(c);
+
+        s = &c->etc_machine_info_stat;
 
         r = load_env_file(NULL, "/etc/machine-info", &l);
         if (r < 0 && r != -ENOENT)
@@ -421,13 +441,19 @@ static int context_write_data_machine_info(Context *c) {
         }
 
         if (strv_isempty(l)) {
-                if (unlink("/etc/machine-info") < 0)
-                        return errno == ENOENT ? 0 : -errno;
+                if (unlink("/etc/machine-info") < 0 && errno != ENOENT)
+                        return -errno;
 
+                TAKE_PTR(s);
                 return 0;
         }
 
-        return write_env_file_label("/etc/machine-info", l);
+        r = write_env_file_label("/etc/machine-info", l);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
+        return 0;
 }
 
 static int property_get_hardware_vendor(
@@ -762,11 +788,15 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
 
         r = free_and_strdup(&c->data[PROP_STATIC_HOSTNAME], name);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to write static hostname: %m");
+                if (ERRNO_IS_PRIVILEGE(r))
+                        return sd_bus_error_set(error, BUS_ERROR_NO_PRIVILEGE_TO_UPDATE_FILE, "No privilege to update /etc/hostname.");
+                if (r == -EROFS)
+                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_IN_READONLY_FILESYSTEM, "/etc/hostname is in a read-only filesystem.");
                 return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %m");
         }
 
@@ -838,11 +868,15 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
 
         r = free_and_strdup(&c->data[prop], name);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = context_write_data_machine_info(c);
         if (r < 0) {
                 log_error_errno(r, "Failed to write machine info: %m");
+                if (ERRNO_IS_PRIVILEGE(r))
+                        return sd_bus_error_set(error, BUS_ERROR_NO_PRIVILEGE_TO_UPDATE_FILE, "No privilege to update /etc/machine-info.");
+                if (r == -EROFS)
+                        return sd_bus_error_set(error, BUS_ERROR_FILE_IS_IN_READONLY_FILESYSTEM, "/etc/machine-info is in a read-only filesystem.");
                 return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %m");
         }
 
