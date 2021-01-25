@@ -897,11 +897,27 @@ bool filename_is_valid(const char *p) {
 }
 
 bool path_is_valid(const char *p) {
+        const char *e;
 
         if (isempty(p))
                 return false;
 
-        if (strlen(p) >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
+        e = p;
+        for (;;) {
+                size_t n;
+
+                e += strspn(e, "/");
+                if (*e == 0)
+                        break;
+
+                n = strcspn(e, "/");
+                if (n > FILENAME_MAX) /* One component larger than FILENAME_MAX? */
+                        return false;
+
+                e += n;
+        }
+
+        if (e - p >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
                 return false;
 
         return true;
