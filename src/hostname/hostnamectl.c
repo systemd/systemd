@@ -14,6 +14,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
@@ -117,11 +118,16 @@ static void print_status_info(StatusInfo *i) {
                 printf("    Hardware Model: %s\n", i->hardware_model);
 }
 
-static int show_one_name(sd_bus *bus, const char* attr) {
+static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *str = NULL;
         const char *s;
         int r;
+
+        assert(bus);
+        assert(attr);
+        assert(ret);
 
         r = sd_bus_get_property(
                         bus,
@@ -136,6 +142,25 @@ static int show_one_name(sd_bus *bus, const char* attr) {
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        str = strdup(s);
+        if (!str)
+                return log_oom();
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
+
+static int show_one_name(sd_bus *bus, const char* attr) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(bus);
+        assert(attr);
+
+        r = get_one_name(bus, attr, &s);
+        if (r < 0)
+                return r;
 
         printf("%s\n", s);
 
@@ -257,6 +282,21 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         if (!arg_pretty && !arg_static && !arg_transient)
                 arg_pretty = arg_static = arg_transient = implicit = true;
 
+        if (arg_transient) {
+                _cleanup_free_ char *source = NULL;
+
+                r = get_one_name(bus, "HostnameSource", &source);
+                if (r < 0)
+                        return r;
+
+                if (streq(source, hostname_source_to_string(HOSTNAME_STATIC))) {
+                        if (!implicit)
+                                log_warning("--transient option is specified, but the static hostname specified in /etc/hostname is used. "
+                                            "Skipping to set transient hostname, as the static hostname has higher precedence than transient hostname.");
+                        arg_transient = false;
+                }
+        }
+
         if (arg_pretty) {
                 const char *p;
 
@@ -268,7 +308,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
 
-                if (!implicit) {
+                if (!implicit || !arg_transient) {
                         r = set_simple_string(bus, "pretty hostname", "SetPrettyHostname", p);
                         if (r < 0)
                                 return r;
@@ -301,7 +341,7 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         }
 
         if (arg_static) {
-                if (!implicit) {
+                if (!implicit || !arg_transient) {
                         r = set_simple_string(bus, "static hostname", "SetStaticHostname", hostname);
                         if (r < 0)
                                 return r;
