@@ -27,7 +27,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
 
-void dns_cache_dump(DnsCache *cache, FILE *f);
+void dns_cache_dump_to_file(DnsCache *cache, FILE *f);
+int dns_cache_dump_to_answer(DnsCache *cache, DnsAnswer **answer);
 bool dns_cache_is_empty(DnsCache *cache);
 
 unsigned dns_cache_size(DnsCache *cache);
