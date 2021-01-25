@@ -52,7 +52,7 @@
 #DefaultLimitFSIZE=
 #DefaultLimitDATA=
 #DefaultLimitSTACK=
-#DefaultLimitCORE=
+DefaultLimitCORE=0
 #DefaultLimitRSS=
 #DefaultLimitNOFILE=
 #DefaultLimitAS=
