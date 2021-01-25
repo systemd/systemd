@@ -878,6 +878,7 @@ RemoveIPC=
 ReserveVT=
 RestrictAddressFamilies=
 RestrictNamespaces=
+RestrictNetworkInterfaces=
 RestrictRealtime=
 RestrictSUIDSGID=
 RuntimeDirectory=
