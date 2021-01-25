@@ -1057,13 +1057,12 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
 }
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
-        unsigned i;
         int r = 0;
 
         assert_return(server, -EINVAL);
         assert(server->bound_leases);
 
-        for (i = 0; i < server->pool_size; i++) {
+        for (uint32_t i = 0; i < server->pool_size; i++) {
                 DHCPLease *lease = server->bound_leases[i];
 
                 if (!lease || lease == &server->invalid_lease)

@@ -319,16 +319,14 @@ int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, ch
 }
 
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
-        size_t i;
-
-        for (i = 0; i < iovw->count; i++)
+        for (size_t i = 0; i < iovw->count; i++)
                 iovw->iovec[i].iov_base = (char *)iovw->iovec[i].iov_base - old + new;
 }
 
 size_t iovw_size(struct iovec_wrapper *iovw) {
-        size_t n = 0, i;
+        size_t n = 0;
 
-        for (i = 0; i < iovw->count; i++)
+        for (size_t i = 0; i < iovw->count; i++)
                 n += iovw->iovec[i].iov_len;
 
         return n;

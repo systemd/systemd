@@ -1951,10 +1951,9 @@ static int install_error(
                 UnitFileChange *changes,
                 size_t n_changes) {
 
-        size_t i;
         int r;
 
-        for (i = 0; i < n_changes; i++)
+        for (size_t i = 0; i < n_changes; i++)
 
                 switch(changes[i].type) {
 
@@ -2021,7 +2020,6 @@ static int reply_unit_file_changes_and_free(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool bad = false, good = false;
-        size_t i;
         int r;
 
         if (unit_file_changes_have_modification(changes, n_changes)) {
@@ -2044,7 +2042,7 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        for (i = 0; i < n_changes; i++) {
+        for (size_t i = 0; i < n_changes; i++) {
 
                 if (changes[i].type < 0) {
                         bad = true;
