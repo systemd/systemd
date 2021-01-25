@@ -580,7 +580,6 @@ static const char * const rlmap_initrd[] = {
 
 const char* runlevel_to_target(const char *word) {
         const char * const *rlmap_ptr;
-        size_t i;
 
         if (!word)
                 return NULL;
@@ -593,7 +592,7 @@ const char* runlevel_to_target(const char *word) {
 
         rlmap_ptr = in_initrd() ? rlmap_initrd : rlmap;
 
-        for (i = 0; rlmap_ptr[i]; i += 2)
+        for (size_t i = 0; rlmap_ptr[i]; i += 2)
                 if (streq(word, rlmap_ptr[i]))
                         return rlmap_ptr[i+1];
 

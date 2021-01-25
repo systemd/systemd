@@ -862,9 +862,8 @@ char *strextend_with_separator_internal(char **x, const char *separator, ...) {
 }
 
 char *strrep(const char *s, unsigned n) {
-        size_t l;
         char *r, *p;
-        unsigned i;
+        size_t l;
 
         assert(s);
 
@@ -873,7 +872,7 @@ char *strrep(const char *s, unsigned n) {
         if (!r)
                 return NULL;
 
-        for (i = 0; i < n; i++)
+        for (unsigned i = 0; i < n; i++)
                 p = stpcpy(p, s);
 
         *p = 0;

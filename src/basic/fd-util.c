@@ -91,11 +91,9 @@ void safe_close_pair(int p[static 2]) {
 }
 
 void close_many(const int fds[], size_t n_fd) {
-        size_t i;
-
         assert(fds || n_fd <= 0);
 
-        for (i = 0; i < n_fd; i++)
+        for (size_t i = 0; i < n_fd; i++)
                 safe_close(fds[i]);
 }
 
@@ -179,11 +177,9 @@ int fd_cloexec(int fd, bool cloexec) {
 }
 
 _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
-        size_t i;
-
         assert(n_fdset == 0 || fdset);
 
-        for (i = 0; i < n_fdset; i++)
+        for (size_t i = 0; i < n_fdset; i++)
                 if (fdset[i] == fd)
                         return true;
 

@@ -15,9 +15,9 @@ int reset_all_signal_handlers(void) {
                 .sa_handler = SIG_DFL,
                 .sa_flags = SA_RESTART,
         };
-        int sig, r = 0;
+        int r = 0;
 
-        for (sig = 1; sig < _NSIG; sig++) {
+        for (int sig = 1; sig < _NSIG; sig++) {
 
                 /* These two cannot be caught... */
                 if (IN_SET(sig, SIGKILL, SIGSTOP))

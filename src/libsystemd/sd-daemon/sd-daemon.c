@@ -40,7 +40,7 @@ static void unsetenv_all(bool unset_environment) {
 
 _public_ int sd_listen_fds(int unset_environment) {
         const char *e;
-        int n, r, fd;
+        int n, r;
         pid_t pid;
 
         e = getenv("LISTEN_PID");
@@ -75,7 +75,7 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
                 r = fd_cloexec(fd, true);
                 if (r < 0)
                         goto finish;
