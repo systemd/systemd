@@ -135,3 +135,8 @@ the Github CI status.
 To add new dependencies or new binaries to the packages used during the tests,
 a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
 targeting the 'upstream-ci' branch.
+
+The cloud-side infrastructure, that is hooked into the Github interface, is
+located at:
+
+https://git.launchpad.net/autopkgtest-cloud/
