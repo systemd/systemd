@@ -112,6 +112,10 @@ static void test_overlay(void) {
         assert_se(mkdir_p(p, 0755) >= 0);
         p = strjoina(d, "/extra/usr/lib/newdir/b/1");
         assert_se(touch_file(p, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) >= 0);
+        p = strjoina(d, "/extra/usr/lib/os-release");
+        assert_se(touch_file(p, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) >= 0);
+        p = strjoina(d, "/extra/usr/lib/extension-release.d");
+        assert_se(mkdir_p(p, 0755) >= 0);
         p = strjoina(d, "/extra/usr/lib/newdir/b/2");
         assert_se(touch_file(p, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID) >= 0);
         p = strjoina(d, "/extra/opt/original/extension_file");

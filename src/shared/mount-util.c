@@ -1051,6 +1051,10 @@ static int visit_callback(PathVisitHookType hook, int node_fd, void *userdata) {
                 /* First encounter of a directory, when opening it. Check for some shortcuts, and if we are
                  * lucky we can just skip to the next (returning 1). */
 
+                /* Special case: extension-release files are always mounted individually */
+                if (endswith(extension_path, "/usr/lib/extension-release.d"))
+                        return 1;
+
                 /* Already added its parent? Skip it. */
                 if (path_startswith_strv(extension_relative_path, *callback_data->mounts_list))
                         return 1;
@@ -1096,6 +1100,11 @@ static int visit_callback(PathVisitHookType hook, int node_fd, void *userdata) {
         } else if (hook == PATH_VISIT_HOOK_FILE) {
                 /* Visiting a file is quite simple: either it's in the root too and thus we bind mount over it,
                  * or it is not and then we need an overlay on the parent node. */
+
+                /* Special case: never overwrite the host's /usr/lib/os-release */
+                if (endswith(extension_path, "/usr/lib/os-release"))
+                        return 2;
+
                 if (root_fd < 0) {
                         /* We have a file that the root doesn't have, and the parent isn't empty: need an overlay */
                         r = strv_extend(callback_data->overlays_list, extension_parent_relative_path);
