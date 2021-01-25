@@ -45,15 +45,16 @@ int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
         static const struct {
                 const char *method;
+                const char *method_new;
                 const char *description;
         } actions[_ACTION_MAX] = {
-                [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
-                [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
-                [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
-                [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
-                [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
-                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "put system into hybrid sleep"    },
-                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "suspend system, hibernate later" },
+                [ACTION_POWEROFF]               = { "PowerOff",             "PowerOff1",             "power off system"                },
+                [ACTION_REBOOT]                 = { "Reboot",               "Reboot1",               "reboot system"                   },
+                [ACTION_HALT]                   = { "Halt",                 "Halt1",                 "halt system"                     },
+                [ACTION_SUSPEND]                = { "Suspend",              "Suspend1",              "suspend system"                  },
+                [ACTION_HIBERNATE]              = { "Hibernate",            "Hibernate1",            "hibernate system"                },
+                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "HybridSleep1",          "put system into hybrid sleep"    },
+                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "SuspendThenHibernate1", "suspend system, hibernate later" },
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -74,6 +75,16 @@ int logind_reboot(enum action a) {
 
         if (arg_dry_run)
                 return 0;
+
+        /* Try calling new dbus method first */
+        r = bus_call_method(bus, bus_login_mgr, actions[a].method_new, &error, NULL, "bb", arg_ask_password, arg_check_inhibitors == 1);
+        if (r < 0) {
+                if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                        return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
+
+                log_notice("Failed to call %s via logind: %s. Retrying %s", actions[a].method_new, bus_error_message(&error, r), actions[a].method);
+                sd_bus_error_free(&error);
+        }
 
         r = bus_call_method(bus, bus_login_mgr, actions[a].method, &error, NULL, "b", arg_ask_password);
         if (r < 0)

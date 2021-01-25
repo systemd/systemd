@@ -102,12 +102,26 @@ node /org/freedesktop/login1 {
                    in  b interactive);
       FlushDevices(in  b interactive);
       PowerOff(in  b interactive);
+      PowerOff1(in  b interactive
+                in  b root_enforce_inhibit);
       Reboot(in  b interactive);
+      Reboot1(in  b interactive
+              in  b root_enforce_inhibit);
       Halt(in  b interactive);
+      Halt1(in  b interactive
+            in  b root_enforce_inhibit);
       Suspend(in  b interactive);
+      Suspend1(in  b interactive
+               in  b root_enforce_inhibit);
       Hibernate(in  b interactive);
+      Hibernate1(in  b interactive
+                 in  b root_enforce_inhibit);
       HybridSleep(in  b interactive);
+      HybridSleep1(in  b interactive
+                   in  b root_enforce_inhibit);
       SuspendThenHibernate(in  b interactive);
+      SuspendThenHibernate1(in  b interactive
+                            in  b root_enforce_inhibit);
       CanPowerOff(out s result);
       CanReboot(out s result);
       CanHalt(out s result);
@@ -526,7 +540,13 @@ node /org/freedesktop/login1 {
       <varname>interactive</varname> (see below). The main purpose of these calls is that they enforce
       polkit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
       users. They also enforce inhibition locks. UIs should expose these calls as the primary mechanism to
-      poweroff/reboot/suspend/hibernate the machine.</para>
+      poweroff/reboot/suspend/hibernate the machine. <function>PowerOff1()</function>,
+      <function>Reboot1()</function>, <function>Halt1()</function>, <function>Suspend1()</function>,
+      <function>Hibernate1()</function>, <function>HybridSleep1()</function> and
+      <function>SuspendThenHibernate()</function> are new methods which support enforcing inhibitors
+      for root user. These methods add new argument <varname>root_enforce_inhibit</varname>. For
+      root user, polkit policy is not checked. With <varname>root_enforce_inhibit</varname> set to
+      true an, active block inhibitor will be honoured.</para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in
