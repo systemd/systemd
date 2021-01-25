@@ -6,6 +6,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "login-util.h"
 #include "process-util.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
@@ -57,6 +58,8 @@ int logind_reboot(enum action a) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *method_with_flags;
+        uint64_t flags = 0;
         sd_bus *bus;
         int r;
 
@@ -74,6 +77,20 @@ int logind_reboot(enum action a) {
 
         if (arg_dry_run)
                 return 0;
+
+        SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
+
+        method_with_flags = strjoina(actions[a].method, "WithFlags");
+
+        r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+        if (r >= 0)
+                return 0;
+        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
+
+        /* Fallback to original methods in case there is older version of systemd-logind */
+        log_debug("Method %s not available: %s. Falling back to %s", method_with_flags, bus_error_message(&error, r), actions[a].method);
+        sd_bus_error_free(&error);
 
         r = bus_call_method(bus, bus_login_mgr, actions[a].method, &error, NULL, "b", arg_ask_password);
         if (r < 0)
