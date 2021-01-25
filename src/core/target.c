@@ -45,7 +45,6 @@ static int target_add_default_dependencies(Target *t) {
         };
 
         int r;
-        unsigned k;
 
         assert(t);
 
@@ -55,7 +54,7 @@ static int target_add_default_dependencies(Target *t) {
         /* Imply ordering for requirement dependencies on target units. Note that when the user created a contradicting
          * ordering manually we won't add anything in here to make sure we don't create a loop. */
 
-        for (k = 0; k < ELEMENTSOF(deps); k++) {
+        for (size_t k = 0; k < ELEMENTSOF(deps); k++) {
                 Unit *other;
                 void *v;
 
