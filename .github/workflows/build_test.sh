@@ -80,7 +80,7 @@ elif [[ "$COMPILER" == gcc ]]; then
     AR="gcc-ar-$COMPILER_VERSION"
     # Latest gcc stack deb packages provided by
     # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
-    sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    add-apt-repository -y ppa:ubuntu-toolchain-r/test
     PACKAGES+=(gcc-$COMPILER_VERSION)
 else
     fatal "Unknown compiler: $COMPILER"
