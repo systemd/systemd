@@ -14,6 +14,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
@@ -117,11 +118,16 @@ static void print_status_info(StatusInfo *i) {
                 printf("    Hardware Model: %s\n", i->hardware_model);
 }
 
-static int show_one_name(sd_bus *bus, const char* attr) {
+static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *s;
         int r;
+
+        assert(bus);
+        assert(attr);
+
+        /* This obtains one string property, and copy it if 'ret' is set, or print it otherwise. */
 
         r = sd_bus_get_property(
                         bus,
@@ -137,7 +143,16 @@ static int show_one_name(sd_bus *bus, const char* attr) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%s\n", s);
+        if (ret) {
+                char *str;
+
+                str = strdup(s);
+                if (!str)
+                        return log_oom();
+
+                *ret = str;
+        } else
+                printf("%s\n", s);
 
         return 0;
 }
@@ -211,7 +226,7 @@ static int show_status(int argc, char **argv, void *userdata) {
                 attr = arg_pretty ? "PrettyHostname" :
                         arg_static ? "StaticHostname" : "Hostname";
 
-                return show_one_name(bus, attr);
+                return get_one_name(bus, attr, NULL);
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -259,6 +274,17 @@ static int set_hostname(int argc, char **argv, void *userdata) {
 
         if (!arg_pretty && !arg_static && !arg_transient)
                 arg_pretty = arg_static = arg_transient = implicit = true;
+
+        if (!implicit && !arg_static && arg_transient) {
+                _cleanup_free_ char *source = NULL;
+
+                r = get_one_name(bus, "HostnameSource", &source);
+                if (r < 0)
+                        return r;
+
+                if (hostname_source_from_string(source) == HOSTNAME_STATIC)
+                        log_info("Hint: static hostname is already set, so the specified transient hostname will not be used.");
+        }
 
         if (arg_pretty) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
