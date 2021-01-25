@@ -14,6 +14,8 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
+#define SD_LOGIND_ROOT_CHECK_INHIBITORS  (UINT64_C(1) << 0)
+
 int logind_set_wall_message(void) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -45,18 +47,21 @@ int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
         static const struct {
                 const char *method;
+                const char *method_with_flags;
                 const char *description;
         } actions[_ACTION_MAX] = {
-                [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
-                [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
-                [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
-                [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
-                [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
-                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "put system into hybrid sleep"    },
-                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "suspend system, hibernate later" },
+                [ACTION_POWEROFF]               = { "PowerOff",             "PowerOffWithFlags",             "power off system"                },
+                [ACTION_REBOOT]                 = { "Reboot",               "RebootWithFlags",               "reboot system"                   },
+                [ACTION_HALT]                   = { "Halt",                 "HaltWithFlags",                 "halt system"                     },
+                [ACTION_SUSPEND]                = { "Suspend",              "SuspendWithFlags",              "suspend system"                  },
+                [ACTION_HIBERNATE]              = { "Hibernate",            "HibernateWithFlags",            "hibernate system"                },
+                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "HybridSleepWithFlags",          "put system into hybrid sleep"    },
+                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "SuspendThenHibernateWithFlags", "suspend system, hibernate later" },
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        uint64_t flags = 0;
         sd_bus *bus;
         int r;
 
@@ -74,6 +79,32 @@ int logind_reboot(enum action a) {
 
         if (arg_dry_run)
                 return 0;
+
+        r = sd_bus_message_new_method_call(bus, &m, bus_login_mgr->destination, bus_login_mgr->path,
+                                           bus_login_mgr->interface, actions[a].method_with_flags);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors);
+
+        r = sd_bus_message_append(m, "t", flags);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0) {
+                if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                        return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
+        } else
+                return 0;
+
+        /* Fallback to original methods in case there is older version of systemd-logind */
+        log_notice("Method %s not available: %s. Falling back to %s", actions[a].method_with_flags, bus_error_message(&error, r), actions[a].method);
+        sd_bus_error_free(&error);
 
         r = bus_call_method(bus, bus_login_mgr, actions[a].method, &error, NULL, "b", arg_ask_password);
         if (r < 0)

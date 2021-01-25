@@ -21,6 +21,7 @@ liblogind_core_sources = files('''
         logind-core.c
         logind-dbus.c
         logind-dbus.h
+        logind-def.h
         logind-device.c
         logind-device.h
         logind-inhibit.c
