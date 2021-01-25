@@ -14,6 +14,8 @@ typedef struct DnsCache {
         unsigned n_miss;
 } DnsCache;
 
+typedef void (*DnsFilterCallback)(int);
+
 #include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
@@ -26,6 +28,8 @@ int dns_cache_put(DnsCache *c, DnsCacheMode cache_mode, DnsResourceKey *key, int
 int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **answer, bool *authenticated);
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
+
+int dns_cache_filter(DnsCache *cache, DnsAnswer **answer);
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
 bool dns_cache_is_empty(DnsCache *cache);
