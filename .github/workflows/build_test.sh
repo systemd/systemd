@@ -99,6 +99,8 @@ pip3 install --user -U meson ninja
 export PATH="$HOME/.local/bin:$PATH"
 
 $CC --version
+meson --version
+ninja --version
 
 for args in "${ARGS[@]}"; do
     SECONDS=0
@@ -108,9 +110,8 @@ for args in "${ARGS[@]}"; do
         fatal "meson failed with $args"
     fi
 
-    ninja --version
-    if ! ninja -C build; then
-        fatal "ninja failed with $args"
+    if ! meson compile -C build; then
+        fatal "'meson compile' failed with $args"
     fi
 
     git clean -dxf
