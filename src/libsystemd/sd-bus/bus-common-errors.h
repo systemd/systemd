@@ -81,6 +81,8 @@
 #define BUS_ERROR_TRANSFER_IN_PROGRESS         "org.freedesktop.import1.TransferInProgress"
 
 #define BUS_ERROR_NO_PRODUCT_UUID              "org.freedesktop.hostname1.NoProductUUID"
+#define BUS_ERROR_FILE_IS_PROTECTED            "org.freedesktop.hostname1.FileIsProtected"
+#define BUS_ERROR_READ_ONLY_FILESYSTEM         "org.freedesktop.hostname1.ReadOnlyFilesystem"
 
 #define BUS_ERROR_SPEED_METER_INACTIVE         "org.freedesktop.network1.SpeedMeterInactive"
 #define BUS_ERROR_UNMANAGED_INTERFACE          "org.freedesktop.network1.UnmanagedInterface"
