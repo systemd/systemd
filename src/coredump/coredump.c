@@ -210,14 +210,13 @@ static int fix_xattr(int fd, const Context *context) {
         };
 
         int r = 0;
-        unsigned i;
 
         assert(fd >= 0);
 
         /* Attach some metadata to coredumps via extended
          * attributes. Just because we can. */
 
-        for (i = 0; i < _META_MAX; i++) {
+        for (unsigned i = 0; i < _META_MAX; i++) {
                 int k;
 
                 if (isempty(context->meta[i]) || !xattrs[i])
@@ -808,7 +807,7 @@ log:
 }
 
 static int save_context(Context *context, const struct iovec_wrapper *iovw) {
-        unsigned n, i, count = 0;
+        unsigned count = 0;
         const char *unit;
         int r;
 
@@ -818,10 +817,10 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 
         /* The context does not allocate any memory on its own */
 
-        for (n = 0; n < iovw->count; n++) {
+        for (size_t n = 0; n < iovw->count; n++) {
                 struct iovec *iovec = iovw->iovec + n;
 
-                for (i = 0; i < ELEMENTSOF(meta_field_names); i++) {
+                for (size_t i = 0; i < ELEMENTSOF(meta_field_names); i++) {
                         char *p;
 
                         /* Note that these strings are NUL terminated, because we made sure that a
@@ -858,7 +857,7 @@ static int process_socket(int fd) {
         Context context = {};
         struct iovec_wrapper iovw = {};
         struct iovec iovec;
-        int i, r;
+        int r;
 
         assert(fd >= 0);
 
@@ -936,7 +935,7 @@ static int process_socket(int fd) {
                 goto finish;
 
         /* Make sure we received at least all fields we need. */
-        for (i = 0; i < _META_MANDATORY_MAX; i++)
+        for (int i = 0; i < _META_MANDATORY_MAX; i++)
                 if (!context.meta[i]) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "A mandatory argument (%i) has not been sent, aborting.",
@@ -958,7 +957,6 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
                 .un.sun_path = "/run/systemd/coredump",
         };
         _cleanup_close_ int fd = -1;
-        size_t i;
         int r;
 
         assert(iovw);
@@ -971,7 +969,7 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return log_error_errno(errno, "Failed to connect to coredump service: %m");
 
-        for (i = 0; i < iovw->count; i++) {
+        for (size_t i = 0; i < iovw->count; i++) {
                 struct msghdr mh = {
                         .msg_iov = iovw->iovec + i,
                         .msg_iovlen = 1,
@@ -1022,7 +1020,7 @@ static int gather_pid_metadata_from_argv(
                 int argc, char **argv) {
 
         _cleanup_free_ char *free_timestamp = NULL;
-        int i, r, signo;
+        int r, signo;
         char *t;
 
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
@@ -1033,7 +1031,7 @@ static int gather_pid_metadata_from_argv(
                                        "Not enough arguments passed by the kernel (%i, expected %i).",
                                        argc, _META_ARGV_MAX);
 
-        for (i = 0; i < _META_ARGV_MAX; i++) {
+        for (int i = 0; i < _META_ARGV_MAX; i++) {
 
                 t = argv[i];
 
@@ -1224,7 +1222,6 @@ static int process_backtrace(int argc, char *argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
         char *message;
-        size_t i;
         int r;
          _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
 
@@ -1274,7 +1271,7 @@ static int process_backtrace(int argc, char *argv[]) {
                 /* The imported iovecs are not supposed to be freed by us so let's store
                  * them at the end of the array so we can skip them while freeing the
                  * rest. */
-                for (i = 0; i < importer.iovw.count; i++) {
+                for (size_t i = 0; i < importer.iovw.count; i++) {
                         struct iovec *iovec = importer.iovw.iovec + i;
 
                         iovw_put(iovw, iovec->iov_base, iovec->iov_len);
