@@ -159,7 +159,8 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
                 return -ENOMEM;
 
         HASHMAP_FOREACH(item, h) {
-                if (item->path && prefix && !path_startswith(item->path, prefix))
+                /* Skip over cgroups that are not valid candidates or are explicitly marked for omission */
+                if ((item->path && prefix && !path_startswith(item->path, prefix)) || item->omit)
                         continue;
 
                 sorted[k++] = item;
@@ -219,9 +220,10 @@ int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run) {
                 return r;
 
         for (int i = 0; i < r; i++) {
-                /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure */
+                /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure. */
+                /* Don't break since there might be "avoid" cgroups at the end. */
                 if (sorted[i]->pgscan == 0 && sorted[i]->current_memory_usage == 0)
-                        break;
+                        continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
                 if (r > 0 || r == -ENOMEM)
@@ -244,8 +246,10 @@ int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run) {
         /* Try to kill cgroups with non-zero swap usage until we either succeed in
          * killing or we get to a cgroup with no swap usage. */
         for (int i = 0; i < r; i++) {
+                /* Skip over cgroups with no resource usage. Don't break since there might be "avoid"
+                 * cgroups at the end. */
                 if (sorted[i]->swap_usage == 0)
-                        break;
+                        continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
                 if (r > 0 || r == -ENOMEM)
@@ -257,7 +261,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run) {
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
-        _cleanup_free_ char *p = NULL, *val = NULL;
+        _cleanup_free_ char *p = NULL, *val = NULL, *avoid_val = NULL, *omit_val = NULL;
         bool is_root;
         int r;
 
@@ -277,6 +281,20 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         r = read_resource_pressure(p, PRESSURE_TYPE_FULL, &ctx->memory_pressure);
         if (r < 0)
                 return log_debug_errno(r, "Error parsing memory pressure from %s: %m", p);
+
+        /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used as
+         * an optional feature of systemd-oomd (and the system might not even support them). */
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, path, "trusted.oomd_avoid", &avoid_val);
+        if (r >= 0 && streq(avoid_val, "1"))
+                ctx->avoid = true;
+        else if (r == -ENOMEM)
+                return r;
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, path, "trusted.oomd_omit", &omit_val);
+        if (r >= 0 && streq(omit_val, "1"))
+                ctx->omit = true;
+        else if (r == -ENOMEM)
+                return r;
 
         if (is_root) {
                 r = procfs_memory_get_used(&ctx->current_memory_usage);
