@@ -846,6 +846,42 @@ int path_extract_filename(const char *p, char **ret) {
         return 0;
 }
 
+int path_extract_directory(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *c;
+
+        /* The inverse of path_extract_directory(), i.e. returns the directory path prefix. Returns
+         * -EADDRNOTAVAIL if the passed in parameter simply had no path prefix (which can be because only a
+         * filename was specified or the root dir "/" was specified) */
+
+        if (!path_is_valid(p))
+                return -EINVAL;
+
+        /* Special case the root dir, because otherwise for an input of "///" last_path_component() returns
+         * the pointer to the last slash only, which might be seen as a valid path below. */
+        if (path_equal(p, "/"))
+                return -EADDRNOTAVAIL;
+
+        c = last_path_component(p);
+
+        /* Delete trailing slashes, but keep one */
+        while (c > p+1 && c[-1] == '/')
+                c--;
+
+        if (p == c) /* No path whatsoever? Then return a recognizable error */
+                return -EADDRNOTAVAIL;
+
+        a = strndup(p, c - p);
+        if (!a)
+                return -ENOMEM;
+
+        if (!path_is_valid(a))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
 bool filename_is_valid(const char *p) {
         const char *e;
 
