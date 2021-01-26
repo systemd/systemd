@@ -1157,15 +1157,36 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static bool should_parse_proc_cmdline(void) {
+        const char *e;
+
+        /* PID1 always reads the kernel command line. */
+        if (getpid_cached() == 1)
+                return true;
+
+        /* If the process is directly executed through a unit, then reads the command line.
+         * If it is invoked by a script executed in a unit, then skip to read the command line. */
+        e = getenv("SYSTEMD_EXEC_PID");
+        if (e) {
+                pid_t p;
+
+                if (parse_pid(e, &p) >= 0)
+                        return getpid_cached() == p;
+                else
+                        log_warning("Failed to parse $SYSTEMD_EXEC_PID=%s. Ignoring.", e);
+        }
+
+        /* Assume that anything that has a controlling tty is user stuff. In that case, skip to read
+         * the command line. */
+        return get_ctty_devnr(0, NULL) < 0;
+}
+
 void log_parse_environment(void) {
         const char *e;
 
         /* Do not call from library code. */
 
-        if (getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
-                /* Only try to read the command line in daemons. We assume that anything that has a
-                 * controlling tty is user stuff. For PID1 we do a special check in case it hasn't
-                 * closed the console yet. */
+        if (should_parse_proc_cmdline())
                 (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = getenv("SYSTEMD_LOG_TARGET");
