@@ -65,8 +65,8 @@ static sd_device *device_free(sd_device *device) {
         free(device->properties_strv);
         free(device->properties_nulstr);
 
-        ordered_hashmap_free_free_free(device->properties);
-        ordered_hashmap_free_free_free(device->properties_db);
+        ordered_hashmap_free(device->properties);
+        ordered_hashmap_free(device->properties_db);
         hashmap_free_free_free(device->sysattr_values);
         set_free(device->sysattrs);
         set_free(device->all_tags);
@@ -93,7 +93,7 @@ int device_add_property_aux(sd_device *device, const char *_key, const char *_va
                 _cleanup_free_ char *key = NULL, *value = NULL, *old_key = NULL, *old_value = NULL;
                 int r;
 
-                r = ordered_hashmap_ensure_allocated(properties, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(properties, &string_hash_ops_free_free);
                 if (r < 0)
                         return r;
 
