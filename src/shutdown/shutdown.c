@@ -519,7 +519,9 @@ int main(int argc, char *argv[]) {
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC,
+                                   NULL, NULL, arguments, NULL,
+                                   EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         (void) rlimit_nofile_safe();
 

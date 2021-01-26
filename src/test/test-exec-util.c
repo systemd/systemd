@@ -118,10 +118,11 @@ static void test_execute_directory(bool gather_stdout) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        if (gather_stdout)
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        else
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC,
+                            gather_stdout ? ignore_stdout : NULL,
+                            gather_stdout ? ignore_stdout_args : NULL,
+                            NULL, NULL,
+                            EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(chdir(template_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -189,7 +190,9 @@ static void test_execution_order(void) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC,
+                            ignore_stdout, ignore_stdout_args, NULL, NULL,
+                            EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
@@ -274,7 +277,9 @@ static void test_stdout_gathering(void) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC,
+                                gather_stdout, args, NULL, NULL,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
@@ -343,7 +348,9 @@ static void test_environment_gathering(void) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC,
+                                gather_environment, args, NULL, NULL,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -360,7 +367,9 @@ static void test_environment_gathering(void) {
         env = strv_new("PATH=" DEFAULT_PATH);
         assert_se(env);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC,
+                                gather_environment, args, NULL, env,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -407,7 +416,7 @@ static void test_error_catching(void) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
+        r = execute_directories(dirs, DEFAULT_GENERATOR_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
 
         /* we should exit with the error code of the first script that failed */
         assert_se(r == 42);
