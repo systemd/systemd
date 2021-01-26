@@ -1416,31 +1416,38 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
              _cleanup_(table_unrefp) Table *output_table = NULL;
              JsonFormatFlags format_flags;
              BootEntry *entry;
-             TableCell **cell;
+             _cleanup_(table_unrefp) TableCell *cell;
              const char data = "";
              char *data_ptr = &data;
              printf("[\n");
              for (n = 0; n < config.n_entries; n++) {
                  entry = config.entries + n;
                  output_table = table_new("title", "id", "source", "linux", "initrd", "options");
-                 &&cell = table_get_cell(output_table, 1, 0);
-                 *data_ptr = boot_entry_title(entry)
-                 table_add_cell_stringf(output_table, cell, data);
-                 &&cell = table_get_cell(output_table, 1, 1);
-                 *data_ptr = entry->id;
-                 table_add_cell_stringf(output_table, cell, data);
-                 &&cell = table_get_cell(output_table, 1, 2);
-                 *data_ptr = entry->path;
-                 table_add_cell_stringf(output_table, cell, data);
-                 &&cell = table_get_cell(output_table, 1, 3);
-                 *data_ptr = entry->kernel;
-                 table_add_cell_stringf(output_table, cell, data);
-                 &&cell = table_get_cell(output_table, 1, 4);
-                 *data_ptr = entry->initrd;
-                 table_add_cell_stringf(output_table, cell, data);
-                 &&cell = table_get_cell(output_table, 1, 5);
-                 *data_ptr = entry->options;
-                 table_add_cell_stringf(output_table, cell, data);
+                 output_table = table_add_many(output_table,
+                                TABLE_STRING, boot_entry_title(entry),
+                                TABLE_STRING, entry->id,
+                                TABLE_STRING, entry->path,
+                                TABLE_STRING, entry->kernel,
+                                TABLE_STRING, entry->initrd,
+                                TABLE_STRING, entry->options);
+                 // cell = table_get_cell(output_table, 1, 0);
+                 // *data_ptr = boot_entry_title(entry);
+                 // table_add_cell_stringf(output_table, cell, data);
+                 // cell = table_get_cell(output_table, 1, 1);
+                 // *data_ptr = entry->id;
+                 // table_add_cell_stringf(output_table, cell, data);
+                 // cell = table_get_cell(output_table, 1, 2);
+                 // *data_ptr = entry->path;
+                 // table_add_cell_stringf(output_table, cell, data);
+                 // cell = table_get_cell(output_table, 1, 3);
+                 // *data_ptr = entry->kernel;
+                 // table_add_cell_stringf(output_table, cell, data);
+                 // cell = table_get_cell(output_table, 1, 4);
+                 // *data_ptr = entry->initrd;
+                 // table_add_cell_stringf(output_table, cell, data);
+                 // cell = table_get_cell(output_table, 1, 5);
+                 // *data_ptr = entry->options;
+                 // table_add_cell_stringf(output_table, cell, data);
 
 
                  table_print_json(output_table, NULL, format_flags);
