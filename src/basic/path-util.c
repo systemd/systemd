@@ -823,6 +823,8 @@ const char *last_path_component(const char *path) {
          *    Also, the empty string is mapped to itself.
          *
          * This is different than basename(), which returns "" when a trailing slash is present.
+         *
+         * This always succeeds (except if you pass NULL in which case it returns NULL, too)
          */
 
         unsigned l, k;
@@ -851,19 +853,21 @@ int path_extract_filename(const char *p, char **ret) {
         const char *c, *e = NULL, *q;
 
         /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
-         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. */
+         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. Returns
+         * -EADDRNOTAVAIL if specified parameter includes no filename (i.e. is "/" or so). Returns -EINVAL if
+         * not a valid path in the first place. */
 
-        if (!p)
+        if (!path_is_valid(p))
                 return -EINVAL;
 
         c = last_path_component(p);
 
-        for (q = c; *q != 0; q++)
+        for (q = c; *q != 0; q++) /* Find trailing slashes */
                 if (*q != '/')
                         e = q + 1;
 
-        if (!e) /* no valid character? */
-                return -EINVAL;
+        if (!e) /* not a single non-slash character, then there is no filename to extract, return recognizable error */
+                return -EADDRNOTAVAIL;
 
         a = strndup(c, e - c);
         if (!a)
@@ -897,11 +901,29 @@ bool filename_is_valid(const char *p) {
 }
 
 bool path_is_valid(const char *p) {
+        const char *e;
 
         if (isempty(p))
                 return false;
 
-        if (strlen(p) >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
+        e = p;
+        for (;;) {
+                const char *n;
+
+                n = strchrnul(e, '/');
+
+                if (n - e > FILENAME_MAX) /* One component larger than FILENAME_MAX? */
+                        return false;
+
+                if (*n == 0) {
+                        e = n;
+                        break;
+                }
+
+                e = n + 1;
+        }
+
+        if (e - p >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
                 return false;
 
         return true;
