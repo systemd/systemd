@@ -135,7 +135,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

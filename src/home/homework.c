@@ -1633,7 +1633,7 @@ static int run(int argc, char *argv[]) {
 
         start = now(CLOCK_MONOTONIC);
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
