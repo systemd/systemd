@@ -38,7 +38,7 @@ static int ipv6_proxy_ndp_address_configure(Link *link, const struct in6_addr *a
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
 
-        r = sd_rtnl_message_neigh_set_flags(req, NLM_F_REQUEST | NTF_PROXY);
+        r = sd_rtnl_message_neigh_set_flags(req, NTF_PROXY);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set neighbor flags: %m");
 
