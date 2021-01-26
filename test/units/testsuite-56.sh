@@ -23,19 +23,42 @@ oomctl | grep "/testsuite-56-workload.slice"
 oomctl | grep "1%"
 oomctl | grep "Default Memory Pressure Duration: 5s"
 
-# systemd-oomd watches for elevated pressure for 30 seconds before acting.
-# It can take time to build up pressure so either wait 5 minutes or for the service to fail.
-timeout=$(date -ud "5 minutes" +%s)
+# systemd-oomd watches for elevated pressure for 5 seconds before acting.
+# It can take time to build up pressure so either wait 2 minutes or for the service to fail.
+timeout=$(date -ud "2 minutes" +%s)
 while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl status testsuite-56-testbloat.service; then
         break
     fi
-    sleep 15
+    sleep 5
 done
 
 # testbloat should be killed and testchill should be fine
 if systemctl status testsuite-56-testbloat.service; then exit 42; fi
 if ! systemctl status testsuite-56-testchill.service; then exit 24; fi
+
+# only run this portion of the test if we can set xattrs
+if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
+    sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
+
+    systemctl start testsuite-56-testchill.service
+    systemctl start testsuite-56-testmunch.service
+    systemctl start testsuite-56-testbloat.service
+    setfattr -n user.oomd_avoid -v 1 /sys/fs/cgroup/testsuite.slice/testsuite-56.slice/testsuite-56-workload.slice/testsuite-56-testbloat.service
+
+    timeout=$(date -ud "2 minutes" +%s)
+    while [[ $(date -u +%s) -le $timeout ]]; do
+        if ! systemctl status testsuite-56-testmunch.service; then
+            break
+        fi
+        sleep 5
+    done
+
+    # testmunch should be killed since testbloat had the avoid xattr on it
+    if ! systemctl status testsuite-56-testbloat.service; then exit 25; fi
+    if systemctl status testsuite-56-testmunch.service; then exit 43; fi
+    if ! systemctl status testsuite-56-testchill.service; then exit 24; fi
+fi
 
 systemd-analyze log-level info
 
