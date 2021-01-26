@@ -561,6 +561,18 @@ tests += [
          [], [], [], 'ENABLE_NSCD', 'manual'],
 ]
 
+if conf.get('BUILD_BPF') == 1
+tests += [
+        [['src/test/test-restrict-ifaces.c'],
+          [libshared,
+          libcore],
+          [libbpf],
+          [core_includes],
+          'HAVE_LIBBPF',
+          ],
+]
+endif
+
 ############################################################
 
 # define some tests here, because the link_with deps were not defined earlier
