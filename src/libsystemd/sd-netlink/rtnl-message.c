@@ -462,7 +462,7 @@ int sd_rtnl_message_link_set_flags(sd_netlink_message *m, unsigned flags, unsign
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(change, -EINVAL);
+        assert_return(change != 0, -EINVAL);
 
         ifi = NLMSG_DATA(m->hdr);
 
