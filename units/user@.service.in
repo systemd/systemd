@@ -23,6 +23,6 @@ Slice=user-%i.slice
 KillMode=mixed
 Delegate=pids memory cpu
 TasksMax=infinity
-TimeoutStopSec=120s
+TimeoutStopSec={{ DEFAULT_USER_TIMEOUT_SEC*4//3 }}s
 KeyringMode=inherit
 OOMScoreAdjust=100

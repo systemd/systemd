@@ -835,10 +835,10 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .default_tasks_accounting = true,
                 .default_tasks_max = TASKS_MAX_UNSET,
-                .default_timeout_start_usec = DEFAULT_TIMEOUT_USEC,
-                .default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC,
+                .default_timeout_start_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_timeout_stop_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
                 .default_restart_usec = DEFAULT_RESTART_USEC,
-                .default_device_timeout_usec = DEFAULT_TIMEOUT_USEC,
+                .default_device_timeout_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
 
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,

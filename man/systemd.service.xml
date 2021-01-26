@@ -612,11 +612,12 @@
 
       <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
-        <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal start-up
-        completion within the configured time, the service will be considered failed and will be shut down again. The
-        precise action depends on the <varname>TimeoutStartFailureMode=</varname> option. Takes a unit-less value in
-        seconds, or a time span value such as "5min 20s". Pass <literal>infinity</literal> to disable the timeout logic.
-        Defaults to <varname>DefaultTimeoutStartSec=</varname> from the manager configuration file, except when
+        <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal
+        start-up completion within the configured time, the service will be considered failed and will be
+        shut down again. The precise action depends on the <varname>TimeoutStartFailureMode=</varname>
+        option. Takes a unit-less value in seconds, or a time span value such as "5min 20s". Pass
+        <literal>infinity</literal> to disable the timeout logic. Defaults to
+        <varname>DefaultTimeoutStartSec=</varname> set in the manager, except when
         <varname>Type=oneshot</varname> is used, in which case the timeout is disabled by default (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         </para>
