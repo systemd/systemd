@@ -14,7 +14,8 @@ typedef enum RemoveFlags {
         REMOVE_CHMOD            = 1 << 5, /* chmod() for write access if we cannot delete something */
 } RemoveFlags;
 
-int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
+int rm_rf_children(int fd, RemoveFlags flags, const struct stat *root_dev);
+int rm_rf_child(int fd, const char *name, RemoveFlags flags);
 int rm_rf(const char *path, RemoveFlags flags);
 
 /* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
