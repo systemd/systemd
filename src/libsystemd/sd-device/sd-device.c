@@ -107,6 +107,7 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
 
                 old_value = ordered_hashmap_get2(*properties, key, (void**) &old_key);
 
+                /* ordered_hashmap_replace() does not fail when the hashmap already has the entry. */
                 r = ordered_hashmap_replace(*properties, new_key, new_value);
                 if (r < 0)
                         return r;
