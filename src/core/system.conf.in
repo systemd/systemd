@@ -43,10 +43,10 @@
 #DefaultTimerAccuracySec=1min
 #DefaultStandardOutput=journal
 #DefaultStandardError=inherit
-#DefaultTimeoutStartSec=90s
-#DefaultTimeoutStopSec=90s
+#DefaultTimeoutStartSec={{DEFAULT_TIMEOUT_SEC}}s
+#DefaultTimeoutStopSec={{DEFAULT_TIMEOUT_SEC}}s
 #DefaultTimeoutAbortSec=
-#DefaultDeviceTimeoutSec=90s
+#DefaultDeviceTimeoutSec={{DEFAULT_TIMEOUT_SEC}}s
 #DefaultRestartSec=100ms
 #DefaultStartLimitIntervalSec=10s
 #DefaultStartLimitBurst=5
