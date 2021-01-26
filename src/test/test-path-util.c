@@ -606,6 +606,61 @@ static void test_path_extract_filename(void) {
         test_path_extract_filename_one("./", NULL, -EINVAL);
 }
 
+static void test_path_extract_directory_one(const char *input, const char *output, int ret) {
+        _cleanup_free_ char *k = NULL;
+        int r;
+
+        r = path_extract_directory(input, &k);
+        log_info("%s → %s/%s [expected: %s/%s]", strnull(input), strnull(k), strerror_safe(r), strnull(output), strerror_safe(ret));
+        assert_se(streq_ptr(k, output));
+        assert_se(r == ret);
+
+        /* Extra safety check: let's make sure that if we split out the filename too (and it works) the
+         * joined parts are identical to the original again */
+        if (r >= 0) {
+                _cleanup_free_ char *f = NULL;
+
+                r = path_extract_filename(input, &f);
+                if (r >= 0) {
+                        _cleanup_free_ char *j = NULL;
+
+                        assert_se(j = path_join(k, f));
+                        assert_se(path_equal(input, j));
+                }
+        }
+}
+
+static void test_path_extract_directory(void) {
+        log_info("/* %s */", __func__);
+
+        test_path_extract_directory_one(NULL, NULL, -EINVAL);
+        test_path_extract_directory_one("a/b/c", "a/b", 0);
+        test_path_extract_directory_one("a/b/c/", "a/b", 0);
+        test_path_extract_directory_one("/", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("//", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("///", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one(".", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("./.", ".", 0);
+        test_path_extract_directory_one("././", ".", 0);
+        test_path_extract_directory_one("././/", ".", 0);
+        test_path_extract_directory_one("/foo/a", "/foo", 0);
+        test_path_extract_directory_one("/foo/a/", "/foo", 0);
+        test_path_extract_directory_one("", NULL, -EINVAL);
+        test_path_extract_directory_one("a", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("a/", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("/a", "/", 0);
+        test_path_extract_directory_one("/a/", "/", 0);
+        test_path_extract_directory_one("/////////////a/////////////", "/", 0);
+        test_path_extract_directory_one("xx/.", "xx", 0);
+        test_path_extract_directory_one("xx/..", "xx", 0);
+        test_path_extract_directory_one("..", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("/..", "/", 0);
+        test_path_extract_directory_one("../", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one(".", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("/.", "/", 0);
+        test_path_extract_directory_one("./", NULL, -EADDRNOTAVAIL);
+}
+
 static void test_filename_is_valid(void) {
         char foo[NAME_MAX+2];
 
@@ -793,6 +848,7 @@ int main(int argc, char **argv) {
         test_file_in_same_dir();
         test_last_path_component();
         test_path_extract_filename();
+        test_path_extract_directory();
         test_filename_is_valid();
         test_path_is_valid();
         test_hidden_or_backup_file();
