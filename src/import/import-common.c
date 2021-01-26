@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "tmpfile-util.h"
 #include "util.h"
 
@@ -195,10 +196,10 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 }
 
 int import_mangle_os_tree(const char *path) {
+        _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
         _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
-        _cleanup_free_ char *child = NULL, *t = NULL;
-        const char *joined;
         struct dirent *de;
+        struct stat st;
         int r;
 
         assert(path);
@@ -244,7 +245,17 @@ int import_mangle_os_tree(const char *path) {
                 return 0;
         }
 
-        joined = prefix_roota(path, child);
+        if (fstatat(dirfd(d), child, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                return log_debug_errno(errno, "Failed to stat file '%s/%s': %m", path, child);
+        r = stat_verify_directory(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
+                return 0;
+        }
+
+        joined = path_join(path, child);
+        if (!joined)
+                return log_oom();
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
                 log_debug("Directory '%s' does not look like an OS tree, and contains a single regular file only, leaving as it is.", path);
@@ -292,6 +303,14 @@ int import_mangle_os_tree(const char *path) {
 
         if (unlinkat(dirfd(d), t, AT_REMOVEDIR) < 0)
                 return log_error_errno(errno, "Failed to remove temporary directory '%s/%s': %m", path, t);
+
+        r = futimens(dirfd(d), (struct timespec[2]) { st.st_atim, st.st_mtim });
+        if (r < 0)
+                log_debug_errno(r, "Failed to adjust top-level timestamps '%s', ignoring: %m", path);
+
+        r = fchmod_and_chown(dirfd(d), st.st_mode, st.st_uid, st.st_gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust top-level directory mode/ownership '%s': %m", path);
 
         log_info("Successfully rearranged OS tree.");
 
