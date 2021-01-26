@@ -44,6 +44,7 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
+#include "json.h"
 
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
@@ -1024,6 +1025,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                      Query or set system options string in EFI variable\n"
                "\n%3$sBoot Loader Specification Commands:%4$s\n"
                "  list                List boot loader entries\n"
+               "  list-json           List boot loader entries, in JSON format\n"
                "  set-default ID      Set default boot loader entry\n"
                "  set-oneshot ID      Set default boot loader entry, for next boot only\n"
                "\n%3$ssystemd-boot Commands:%4$s\n"
@@ -1362,6 +1364,91 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
         return 0;
 }
+
+static int verb_list_json(int argc, char *argv[], void *userdata) {
+    // This is going to be VERY similar to verb_list(), but print in JSON, not the standard format
+    _cleanup_(boot_config_free) BootConfig config = {};
+    _cleanup_strv_free_ char **efi_entries = NULL;
+    int r;
+
+    /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
+     * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
+     * the latter but not the former, hence request the mode, and log about EACCES. */
+
+    r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, NULL);
+    if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+            return log_error_errno(r, "Failed to determine ESP: %m");
+    if (r < 0)
+            return r;
+
+    r = acquire_xbootldr(geteuid() != 0, NULL);
+    if (r == -EACCES)
+            return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
+    if (r < 0)
+            return r;
+
+    r = boot_entries_load_config(arg_esp_path, arg_xbootldr_path, &config);
+    if (r < 0)
+            return r;
+
+    r = efi_loader_get_entries(&efi_entries);
+    if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+            log_debug_errno(r, "Boot loader reported no entries.");
+    else if (r < 0)
+            log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
+    else
+            (void) boot_entries_augment_from_loader(&config, efi_entries, false);
+
+    if (config.n_entries == 0)
+            log_info("No boot loader entries found.");
+    else {
+            size_t n;
+
+            /* This is were we diverge from verb_list(): We don't want to open a pager
+             * verb_list_json() is meant to be used by other programs, so a pager will just
+             * make everyone's lives harder.
+             *
+             * Also, yes I am commenting how I do this for posterity. That way other devs might have SOMETHING
+             * To teach them how to do this.
+             *
+             *
+             * If we look at the source for json.c and json.h, we can see that there are builders
+             * and dispatchers. json_build() calls json_buildv(), which appears to try to parse something
+             * and make an object. json_dispatch(), however seems to try to parse an opject. So we need that.
+             */
+
+             // We need to know what kind of dispatcher to use for each value in the JSON output. So define that here.
+             static const JsonDispatch boot_entry_table[] = {
+                 {"title",   _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {"id",      _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {"source",  _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {"linux",   _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {"initrd",  _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {"options", _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {}
+             };
+             // Need to know what variant to use. Still figuring out how to do that.
+
+             // Pass userdata as void:
+             void *userdata;
+
+             /* Define JsonDispatchFlags, see JsonDispatchFlags in json.h for a
+              * discription of what these control. Use:
+              *  `grep -n "typedef enum JsonDispatchFlags" json.h`
+              * to find what line number the definition lies on, in case it moves in the future.
+              */
+             JsonDispatchFlags flags;
+             flags.JSON_PERMISSIVE = 1;
+             flags.JSON_MANDATORY = 0;
+             flags.JSON_SAFE = 1;
+             flags.JSON_RELAX = 1;
+
+             // Call the dispatcher
+             printf(json_dispatch(variant, boot_entry_table, NULL, flags, userdata));
+    }
+    return 0;
+
+};
 
 static int install_random_seed(const char *esp) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
@@ -1820,6 +1907,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "remove",              VERB_ANY, 1,        0,            verb_remove              },
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
+                { "list-json",           VERB_ANY, 1,        0,            verb_list_json           },
                 { "set-default",         2,        2,        0,            verb_set_default         },
                 { "set-oneshot",         2,        2,        0,            verb_set_default         },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
