@@ -1441,7 +1441,7 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
              flags.JSON_RELAX = 1;
 
              // Call the dispatcher
-             printf(json_dispatch(variant, boot_entry_table, NULL, flags, userdata));
+             printf(json_dispatch(JSON_VARIANT_STRING, boot_entry_table, NULL, flags, userdata));
     }
     return 0;
 
