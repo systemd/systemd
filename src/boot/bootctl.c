@@ -44,7 +44,7 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
-#include "json.h"
+#include "format-table.h"
 
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
@@ -1410,34 +1410,30 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
              *
              * Also, yes I am commenting how I do this for posterity. That way other devs might have SOMETHING
              * To teach them how to do this.
-             *
-             *
-             * If we look at the source for json.c and json.h, we can see that there are builders
-             * and dispatchers. json_build() calls json_buildv(), which appears to try to parse something
-             * and make an object. json_dispatch(), however seems to try to parse an opject. So we need that.
              */
 
-             // We need to know what kind of dispatcher to use for each value in the JSON output. So define that here.
-             static const JsonDispatch boot_entry_table[] = {
-                 {"title",   JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
-                 {"id",      JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
-                 {"source",  JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
-                 {"linux",   JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
-                 {"initrd",  JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
-                 {"options", JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
-                 {}
-             };
-             // Need to know what variant to use. Still figuring out how to do that.
+             // Couldn't figure out how to format our output using normal JSON API, using format-table instead
+             Table output_table;
+             printf("[\n");
+             for (n = 0; n < config.n_entries; n++) {
+                 output_table = table_new("title", "id", "source", "linux", "initrd", "options");
+                 table_add_cell_stringf(output_table, "title", config);
+                 table_add_cell_stringf(output_table, "id", config->id);
+                 table_add_cell_stringf(output_table, "source", config->path);
+                 table_add_cell_stringf(output_table, "linux", config->root + "/" + config->kernel);
+                 table_add_cell_stringf(output_table, "initrd", config->initrd);
+                 table_add_cell_stringf(output_table, "options", config->options);
 
-             /* Define JsonDispatchFlags, see JsonDispatchFlags in json.h for a
-              * discription of what these control. Use:
-              *  `grep -n "typedef enum JsonDispatchFlags" json.h`
-              * to find what line number the definition lies on, in case it moves in the future.
-              */
-             JsonDispatchFlags flags;
 
-             // Call the dispatcher
-             printf(json_dispatch(JSON_VARIANT_STRING, boot_entry_table, NULL, flags, userdata));
+                 table_print_json(output_table);
+                 if (r < 0)
+                         return r;
+
+                 if (n+1 < config.n_entries)
+                         printf(",\n");
+             }
+             printf("]\n");
+
     }
     return 0;
 
