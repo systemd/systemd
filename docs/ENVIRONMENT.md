@@ -254,6 +254,14 @@ systemd itself:
   it is either set to `system` or `user` depending on whether the NSS/PAM
   module is called by systemd in `--system` or `--user` mode.
 
+* `$SYSTEMD_EXEC_PID=…` — set for all invocations that are done by the service
+  manager on behalf of a specific unit, in child processes that are later
+  (after execve()) going to become unit processes (e.g. process invoked by
+  ExecStart=). Contains the process ID (PID) of the child process. The child
+  process can use this information to determine whether the process is directly
+  invoked by the service manager or indirectly through a script by comparing
+  this value with the current process ID.
+
 systemd-remount-fs:
 
 * `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory
