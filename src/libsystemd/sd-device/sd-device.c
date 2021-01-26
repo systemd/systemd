@@ -231,8 +231,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
 }
 
 _public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum) {
-        char *syspath;
-        char id[DECIMAL_STR_MAX(unsigned) * 2 + 1];
+        char id[DECIMAL_STR_MAX(unsigned) * 2 + 1], *syspath;
 
         assert_return(ret, -EINVAL);
         assert_return(IN_SET(type, 'b', 'c'), -EINVAL);
@@ -399,7 +398,7 @@ int device_set_devmode(sd_device *device, const char *_devmode) {
 }
 
 int device_set_devnum(sd_device *device, const char *major, const char *minor) {
-        unsigned maj = 0, min = 0;
+        unsigned maj, min = 0;
         int r;
 
         assert(device);
@@ -408,7 +407,7 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor) {
         r = safe_atou(major, &maj);
         if (r < 0)
                 return r;
-        if (!maj)
+        if (maj == 0)
                 return 0;
 
         if (minor) {
