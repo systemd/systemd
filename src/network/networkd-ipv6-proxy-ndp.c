@@ -18,7 +18,7 @@ static int set_ipv6_proxy_ndp_address_handler(sd_netlink *rtnl, sd_netlink_messa
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not add IPv6 proxy ndp address entry, ignoring");
 
         return 1;
