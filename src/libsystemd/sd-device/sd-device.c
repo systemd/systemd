@@ -65,9 +65,9 @@ static sd_device *device_free(sd_device *device) {
         free(device->properties_strv);
         free(device->properties_nulstr);
 
-        ordered_hashmap_free_free_free(device->properties);
-        ordered_hashmap_free_free_free(device->properties_db);
-        hashmap_free_free_free(device->sysattr_values);
+        ordered_hashmap_free(device->properties);
+        ordered_hashmap_free(device->properties_db);
+        hashmap_free(device->sysattr_values);
         set_free(device->sysattrs);
         set_free(device->all_tags);
         set_free(device->current_tags);
@@ -78,46 +78,46 @@ static sd_device *device_free(sd_device *device) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device_free);
 
-int device_add_property_aux(sd_device *device, const char *_key, const char *_value, bool db) {
+int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db) {
         OrderedHashmap **properties;
 
         assert(device);
-        assert(_key);
+        assert(key);
 
         if (db)
                 properties = &device->properties_db;
         else
                 properties = &device->properties;
 
-        if (_value) {
-                _cleanup_free_ char *key = NULL, *value = NULL, *old_key = NULL, *old_value = NULL;
+        if (value) {
+                _cleanup_free_ char *new_key = NULL, *new_value = NULL, *old_key = NULL, *old_value = NULL;
                 int r;
 
-                r = ordered_hashmap_ensure_allocated(properties, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(properties, &string_hash_ops_free_free);
                 if (r < 0)
                         return r;
 
-                key = strdup(_key);
-                if (!key)
+                new_key = strdup(key);
+                if (!new_key)
                         return -ENOMEM;
 
-                value = strdup(_value);
-                if (!value)
+                new_value = strdup(value);
+                if (!new_value)
                         return -ENOMEM;
 
                 old_value = ordered_hashmap_get2(*properties, key, (void**) &old_key);
 
-                r = ordered_hashmap_replace(*properties, key, value);
+                /* ordered_hashmap_replace() does not fail when the hashmap already has the entry. */
+                r = ordered_hashmap_replace(*properties, new_key, new_value);
                 if (r < 0)
                         return r;
 
-                key = NULL;
-                value = NULL;
+                TAKE_PTR(new_key);
+                TAKE_PTR(new_value);
         } else {
-                _cleanup_free_ char *key = NULL;
-                _cleanup_free_ char *value = NULL;
+                _cleanup_free_ char *old_key = NULL, *old_value = NULL;
 
-                value = ordered_hashmap_remove2(*properties, _key, (void**) &key);
+                old_value = ordered_hashmap_remove2(*properties, key, (void**) &old_key);
         }
 
         if (!db) {
@@ -1780,30 +1780,28 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         return 0;
 }
 
-/* replaces the value if it already exists */
-static int device_add_sysattr_value(sd_device *device, const char *_key, char *value) {
-        _cleanup_free_ char *key = NULL;
-        _cleanup_free_ char *value_old = NULL;
+static int device_add_sysattr_value(sd_device *device, const char *key, char *value) {
+        _cleanup_free_ char *new_key = NULL, *old_value = NULL;
         int r;
 
         assert(device);
-        assert(_key);
+        assert(key);
 
-        r = hashmap_ensure_allocated(&device->sysattr_values, &string_hash_ops);
-        if (r < 0)
-                return r;
+        /* This takes the reference of the input value. The input value may be NULL.
+         * This replaces the value if it already exists. */
 
-        value_old = hashmap_remove2(device->sysattr_values, _key, (void **)&key);
-        if (!key) {
-                key = strdup(_key);
-                if (!key)
+        old_value = hashmap_remove2(device->sysattr_values, key, (void **) &new_key);
+        if (!new_key) {
+                new_key = strdup(key);
+                if (!new_key)
                         return -ENOMEM;
         }
 
-        r = hashmap_put(device->sysattr_values, key, value);
+        r = hashmap_ensure_put(&device->sysattr_values, &string_hash_ops_free_free, new_key, value);
         if (r < 0)
                 return r;
-        TAKE_PTR(key);
+
+        TAKE_PTR(new_key);
 
         return 0;
 }
