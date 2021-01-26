@@ -201,9 +201,9 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         if (r < 0)
                 return r;
 
-        r = increment_oomd_xattr(path, "user.systemd_oomd_kill", set_size(pids_killed));
+        r = increment_oomd_xattr(path, "user.oomd_kill", set_size(pids_killed));
         if (r < 0)
-                log_debug_errno(r, "Failed to set user.systemd_oomd_kill on kill: %m");
+                log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
 
         return set_size(pids_killed) != 0;
 }
