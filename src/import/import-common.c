@@ -240,14 +240,14 @@ int import_mangle_os_tree(const char *path) {
                 if (errno != 0)
                         return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
-                log_debug("Directory '%s' does not look like a directory tree, and has multiple children, leaving as it is.", path);
+                log_debug("Directory '%s' does not look like an OS tree, and has multiple children, leaving as it is.", path);
                 return 0;
         }
 
         joined = prefix_roota(path, child);
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
-                log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.", path);
+                log_debug("Directory '%s' does not look like an OS tree, and contains a single regular file only, leaving as it is.", path);
                 return 0;
         }
         if (r < 0)
