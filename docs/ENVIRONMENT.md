@@ -134,18 +134,6 @@ systemd-logind:
   hibernation is available even if the swap devices do not provide enough room
   for it.
 
-systemd-udevd:
-
-* `$NET_NAMING_SCHEME=` – if set, takes a network naming scheme (i.e. one of
-  "v238", "v239", "v240"…, or the special value "latest") as parameter. If
-  specified udev's net_id builtin will follow the specified naming scheme when
-  determining stable network interface names. This may be used to revert to
-  naming schemes of older udev versions, in order to provide more stable naming
-  across updates. This environment variable takes precedence over the kernel
-  command line option `net.naming-scheme=`, except if the value is prefixed
-  with `:` in which case the kernel command line option takes precedence, if it
-  is specified as well.
-
 * `$SYSTEMD_REBOOT_TO_FIRMWARE_SETUP` — if set overrides systemd-logind's
   built-in EFI logic of requesting a reboot into the firmware. Takes a
   boolean. If set to false the functionality is turned off entirely. If set to
@@ -190,6 +178,18 @@ systemd-udevd:
   loader configuration changes. A foreign boot loader installer script should
   hence synthesize drop-in snippets and symlinks for all boot entries at boot
   or whenever they change if it wants to integrate with systemd-logind's APIs.
+
+systemd-udevd:
+
+* `$NET_NAMING_SCHEME=` – if set, takes a network naming scheme (i.e. one of
+  "v238", "v239", "v240"…, or the special value "latest") as parameter. If
+  specified udev's net_id builtin will follow the specified naming scheme when
+  determining stable network interface names. This may be used to revert to
+  naming schemes of older udev versions, in order to provide more stable naming
+  across updates. This environment variable takes precedence over the kernel
+  command line option `net.naming-scheme=`, except if the value is prefixed
+  with `:` in which case the kernel command line option takes precedence, if it
+  is specified as well.
 
 installed systemd tests:
 
