@@ -448,7 +448,6 @@ int device_new_from_strv(sd_device **ret, char **strv) {
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
-        unsigned i = 0;
         int r;
 
         assert(ret);
@@ -459,11 +458,11 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
         if (r < 0)
                 return r;
 
-        while (i < len) {
+        for (size_t i = 0; i < len; ) {
                 char *key;
                 const char *end;
 
-                key = (char*)&nulstr[i];
+                key = (char*) &nulstr[i];
                 end = memchr(key, '\0', len - i);
                 if (!end)
                         return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
