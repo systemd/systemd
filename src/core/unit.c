@@ -13,6 +13,7 @@
 #include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
+#include "cgroup-bpf.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "core-varlink.h"
