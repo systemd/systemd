@@ -679,7 +679,7 @@ int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
 }
 
 int sd_rtnl_message_new_addr_update(sd_netlink *rtnl, sd_netlink_message **ret,
-                             int index, int family) {
+                                    int index, int family) {
         int r;
 
         r = sd_rtnl_message_new_addr(rtnl, ret, RTM_NEWADDR, index, family);
