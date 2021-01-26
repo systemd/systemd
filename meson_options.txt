@@ -189,7 +189,7 @@ option('dbus-interfaces-dir', type : 'string',
        description : 'export D-Bus introspection XML as standalone files')
 option('default-timeout-sec', type : 'integer', value : 90,
        description : 'default timeout for system unit start/stop')
-option('default-user-timeout-sec', type : 'integer', value : 90,
+option('default-user-timeout-sec', type : 'integer', value : 15,
        description : 'default timeout for user unit start/stop')
 option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for arch-independent pkg-config files')
