@@ -1419,18 +1419,15 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
 
              // We need to know what kind of dispatcher to use for each value in the JSON output. So define that here.
              static const JsonDispatch boot_entry_table[] = {
-                 {"title",   _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
-                 {"id",      _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
-                 {"source",  _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
-                 {"linux",   _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
-                 {"initrd",  _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
-                 {"options", _JSON_VARIANT_STRING_CONST, json_dispatch_const_string, 0, 0},
+                 {"title",   JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
+                 {"id",      JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
+                 {"source",  JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
+                 {"linux",   JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
+                 {"initrd",  JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
+                 {"options", JSON_VARIANT_STRING, json_dispatch_string, 0, 0},
                  {}
              };
              // Need to know what variant to use. Still figuring out how to do that.
-
-             // Pass userdata as void:
-             void *userdata;
 
              /* Define JsonDispatchFlags, see JsonDispatchFlags in json.h for a
               * discription of what these control. Use:
@@ -1438,10 +1435,10 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
               * to find what line number the definition lies on, in case it moves in the future.
               */
              JsonDispatchFlags flags;
-             flags.JSON_PERMISSIVE = 1;
-             flags.JSON_MANDATORY = 0;
-             flags.JSON_SAFE = 1;
-             flags.JSON_RELAX = 1;
+             flags->JSON_PERMISSIVE = 1;
+             flags->JSON_MANDATORY = 0;
+             flags->JSON_SAFE = 1;
+             flags->JSON_RELAX = 1;
 
              // Call the dispatcher
              printf(json_dispatch(variant, boot_entry_table, NULL, flags, userdata));
