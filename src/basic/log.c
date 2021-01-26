@@ -1157,15 +1157,37 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+static bool should_parse_proc_cmdline(void) {
+        const char *e;
+        pid_t p;
+
+        /* PID1 always reads the kernel command line. */
+        if (getpid_cached() == 1)
+                return true;
+
+        /* If the process is directly executed by PID1 (e.g. ExecStart= or generator), systemd-importd,
+         * or systemd-homed, then $SYSTEMD_EXEC_PID= is set, and read the command line. */
+        e = getenv("SYSTEMD_EXEC_PID");
+        if (!e)
+                return false;
+
+        if (streq(e, "*"))
+                /* For testing. */
+                return true;
+
+        if (parse_pid(e, &p) < 0)
+                /* We know that systemd sets the variable correctly. Something else must have set it. */
+                log_debug("Failed to parse \"$SYSTEMD_EXEC_PID=%s\". Ignoring.", e);
+
+        return getpid_cached() == p;
+}
+
 void log_parse_environment(void) {
         const char *e;
 
         /* Do not call from library code. */
 
-        if (getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
-                /* Only try to read the command line in daemons. We assume that anything that has a
-                 * controlling tty is user stuff. For PID1 we do a special check in case it hasn't
-                 * closed the console yet. */
+        if (should_parse_proc_cmdline())
                 (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = getenv("SYSTEMD_LOG_TARGET");
