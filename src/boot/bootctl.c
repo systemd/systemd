@@ -1413,19 +1413,20 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
              */
 
              // Couldn't figure out how to format our output using normal JSON API, using format-table instead
-             Table output_table;
+             Table output_table = table_new("title", "id", "source", "linux", "initrd", "options");
+             JsonFormatFlags format_flags;
              printf("[\n");
              for (n = 0; n < config.n_entries; n++) {
                  output_table = table_new("title", "id", "source", "linux", "initrd", "options");
-                 table_add_cell_stringf(output_table, "title", config);
-                 table_add_cell_stringf(output_table, "id", config->id);
-                 table_add_cell_stringf(output_table, "source", config->path);
-                 table_add_cell_stringf(output_table, "linux", config->root + "/" + config->kernel);
-                 table_add_cell_stringf(output_table, "initrd", config->initrd);
-                 table_add_cell_stringf(output_table, "options", config->options);
+                 table_add_cell_stringf(output_table, table_get_cell(output_table, 1, 0), (config.entries + n));
+                 table_add_cell_stringf(output_table, table_get_cell(output_table, 1, 1), (config.entries + n)->id);
+                 table_add_cell_stringf(output_table, table_get_cell(output_table, 1, 2), (config.entries + n)->path);
+                 table_add_cell_stringf(output_table, table_get_cell(output_table, 1, 3), (config.entries + n)->root + "/" + (config.entries + n)->kernel);
+                 table_add_cell_stringf(output_table, table_get_cell(output_table, 1, 4), (config.entries + n)->initrd);
+                 table_add_cell_stringf(output_table, table_get_cell(output_table, 1, 5), (config.entries + n)->options);
 
 
-                 table_print_json(output_table);
+                 table_print_json(output_table, NULL, format_flags);
                  if (r < 0)
                          return r;
 
