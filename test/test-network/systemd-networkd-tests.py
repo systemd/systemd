@@ -3429,10 +3429,16 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['veth99:degraded', 'veth-peer:degraded'])
 
-        output = check_output(*networkctl_cmd, 'lldp', env=env)
-        print(output)
-        self.assertRegex(output, 'veth-peer')
-        self.assertRegex(output, 'veth99')
+        for trial in range(10):
+            if trial > 0:
+                time.sleep(1)
+
+            output = check_output(*networkctl_cmd, 'lldp', env=env)
+            print(output)
+            if re.search(r'veth99 .* veth-peer', output):
+                break
+        else:
+            self.fail()
 
 class NetworkdRATests(unittest.TestCase, Utilities):
     links = ['veth99']
