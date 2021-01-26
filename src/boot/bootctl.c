@@ -1403,41 +1403,47 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
             log_info("No boot loader entries found.");
     else {
             size_t n;
-
-            /* This is were we diverge from verb_list(): We don't want to open a pager
-             * verb_list_json() is meant to be used by other programs, so a pager will just
-             * make everyone's lives harder.
-             *
-             * Also, yes I am commenting how I do this for posterity. That way other devs might have SOMETHING
-             * To teach them how to do this.
-             */
-
-             // Couldn't figure out how to format our output using normal JSON API, using format-table instead
-             _cleanup_(table_unrefp) Table *output_table = NULL;
-             JsonFormatFlags format_flags;
-             format_flags.JSON_FORMAT_PRETTY = 0;
-             BootEntry *entry;
              printf("[\n");
              for (n = 0; n < config.n_entries; n++) {
                  entry = config.entries + n;
-                 output_table = table_new("title", "id", "source", "linux", "initrd", "options");
-                 table_add_many(output_table,
-                                TABLE_STRING, boot_entry_title(entry),
-                                TABLE_STRING, entry->id,
-                                TABLE_STRING, entry->path,
-                                TABLE_STRING, entry->kernel,
-                                TABLE_STRING, entry->initrd,
-                                TABLE_STRING, entry->options);
+                 //output_table = table_new("title", "id", "source", "linux", "initrd", "options");
+                 // table_add_many(output_table,
+                 //                TABLE_STRING, boot_entry_title(entry),
+                 //                TABLE_STRING, entry->id,
+                 //                TABLE_STRING, entry->path,
+                 //                TABLE_STRING, entry->kernel,
+                 //                TABLE_STRING, entry->initrd,
+                 //                TABLE_STRING, entry->options);
 
 
-                 table_print_json(output_table, NULL, format_flags);
+                 //table_print_json(output_table, NULL, format_flags);
+
+                 printf("\t{\n");
+                 printf("\t\t'title': ");
+                 printf(boot_entry_title(entry));
+                 printf(",\n");
+                 printf("\t\t'id': ");
+                 printf(entry->id);
+                 printf(",\n");
+                 printf("\t\t'source': ");
+                 printf(entry->path);
+                 printf(",\n");
+                 printf("\t\t'linux': ");
+                 printf(entry->kernel);
+                 printf(",\n");
+                 printf("\t\t'initrd': ");
+                 printf(entry->initrd);
+                 printf(",\n");
+                 printf("\t\t'options': ");
+                 printf(entry->options);
+                 printf("\t}");
                  if (r < 0)
                          return r;
 
                  if (n+1 < config.n_entries)
                          printf(",\n");
              }
-             printf("]\n");
+             printf("\n]\n");
 
     }
     return 0;
