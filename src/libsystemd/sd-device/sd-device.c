@@ -78,46 +78,45 @@ static sd_device *device_free(sd_device *device) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device_free);
 
-int device_add_property_aux(sd_device *device, const char *_key, const char *_value, bool db) {
+int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db) {
         OrderedHashmap **properties;
 
         assert(device);
-        assert(_key);
+        assert(key);
 
         if (db)
                 properties = &device->properties_db;
         else
                 properties = &device->properties;
 
-        if (_value) {
-                _cleanup_free_ char *key = NULL, *value = NULL, *old_key = NULL, *old_value = NULL;
+        if (value) {
+                _cleanup_free_ char *new_key = NULL, *new_value = NULL, *old_key = NULL, *old_value = NULL;
                 int r;
 
                 r = ordered_hashmap_ensure_allocated(properties, &string_hash_ops_free_free);
                 if (r < 0)
                         return r;
 
-                key = strdup(_key);
-                if (!key)
+                new_key = strdup(key);
+                if (!new_key)
                         return -ENOMEM;
 
-                value = strdup(_value);
-                if (!value)
+                new_value = strdup(value);
+                if (!new_value)
                         return -ENOMEM;
 
                 old_value = ordered_hashmap_get2(*properties, key, (void**) &old_key);
 
-                r = ordered_hashmap_replace(*properties, key, value);
+                r = ordered_hashmap_replace(*properties, new_key, new_value);
                 if (r < 0)
                         return r;
 
-                key = NULL;
-                value = NULL;
+                TAKE_PTR(new_key);
+                TAKE_PTR(new_value);
         } else {
-                _cleanup_free_ char *key = NULL;
-                _cleanup_free_ char *value = NULL;
+                _cleanup_free_ char *old_key = NULL, *old_value = NULL;
 
-                value = ordered_hashmap_remove2(*properties, _key, (void**) &key);
+                old_value = ordered_hashmap_remove2(*properties, key, (void**) &old_key);
         }
 
         if (!db) {
