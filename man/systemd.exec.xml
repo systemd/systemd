@@ -3046,6 +3046,17 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </varlistentry>
 
         <varlistentry>
+          <term><varname>$SYSTEMD_EXEC_PID</varname></term>
+
+          <listitem><para>The PID of the unit process (e.g. process invoked by
+          <varname>ExecStart=</varname>). The child process can use this information to determine
+          whether the process is directly invoked by the service manager or indirectly as a child of
+          another process by comparing this value with the current PID (as similar to the scheme used in
+          <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          with <varname>$LISTEN_PID</varname> and <varname>$LISTEN_FDS</varname>).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>$TERM</varname></term>
 
           <listitem><para>Terminal type, set only for units connected to
