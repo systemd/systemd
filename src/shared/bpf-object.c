@@ -5,10 +5,23 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include "architecture.h"
 #include "bpf-object.h"
 #include "bpf-program-v2.h"
 #include "fd-util.h"
 #include "set.h"
+
+static const int supported_archs[] = {
+        ARCHITECTURE_X86_64
+};
+
+int bpf_object_cpu_arch_supported(int arch) {
+        for (size_t i = 0; i < ELEMENTSOF(supported_archs); i++)
+                if (arch == supported_archs[i])
+                        return 1;
+
+        return 0;
+}
 
 int bpf_object_new(const unsigned char *mem_buf, size_t size, struct bpf_object **object) {
         _cleanup_(bpf_object_freep) struct bpf_object *p = NULL;

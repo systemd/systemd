@@ -8,6 +8,8 @@
 
 typedef struct Set Set;
 
+int bpf_object_cpu_arch_supported(int arch) _const_;
+
 int bpf_object_new(const unsigned char *mem_buf, size_t size, struct bpf_object **object);
 struct bpf_object *bpf_object_free(struct bpf_object *object);
 

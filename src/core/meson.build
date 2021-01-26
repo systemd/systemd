@@ -151,6 +151,7 @@ libcore = static_library(
         dependencies : [versiondep,
                         threads,
                         librt,
+                        libbpf,
                         libseccomp,
                         libpam,
                         libaudit,
