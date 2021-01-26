@@ -45,15 +45,16 @@ int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
         static const struct {
                 const char *method;
+                const char *method_new;
                 const char *description;
         } actions[_ACTION_MAX] = {
-                [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
-                [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
-                [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
-                [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
-                [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
-                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "put system into hybrid sleep"    },
-                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "suspend system, hibernate later" },
+                [ACTION_POWEROFF]               = { "PowerOff",             "PowerOffWithInhibitors",             "power off system"                },
+                [ACTION_REBOOT]                 = { "Reboot",               "RebootWithInhibitors",               "reboot system"                   },
+                [ACTION_HALT]                   = { "Halt",                 "HaltWithInhibitors",                 "halt system"                     },
+                [ACTION_SUSPEND]                = { "Suspend",              "SuspendWithInhibitors",              "suspend system"                  },
+                [ACTION_HIBERNATE]              = { "Hibernate",            "HibernateWithInhibitors",            "hibernate system"                },
+                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "HybridSleepWithInhibitors",          "put system into hybrid sleep"    },
+                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "SuspendThenHibernateWithInhibitors", "suspend system, hibernate later" },
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -74,6 +75,22 @@ int logind_reboot(enum action a) {
 
         if (arg_dry_run)
                 return 0;
+
+        if (arg_check_inhibitors == 1) {
+                /* Call new *WithInhibitors method whenever --check-inhibitors=yes is set.
+                 * This will make sure inhibitors are honoured for a call from root users also. */
+                r = bus_call_method(bus, bus_login_mgr, actions[a].method_new, &error, NULL, "b", arg_ask_password);
+                if (r == 0)
+                        return 0;
+                if (r < 0) {
+                        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                                return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
+                }
+
+                /* Fallback to original methods in case old systemd-logind */
+                log_notice("Method %s not available: %s. Fallback to %s", actions[a].method_new, bus_error_message(&error, r), actions[a].method);
+                sd_bus_error_free(&error);
+        }
 
         r = bus_call_method(bus, bus_login_mgr, actions[a].method, &error, NULL, "b", arg_ask_password);
         if (r < 0)

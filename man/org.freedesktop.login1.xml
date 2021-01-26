@@ -102,12 +102,19 @@ node /org/freedesktop/login1 {
                    in  b interactive);
       FlushDevices(in  b interactive);
       PowerOff(in  b interactive);
+      PowerOffWithInhibitors(in  b interactive);
       Reboot(in  b interactive);
+      RebootWithInhibitors(in  b interactive);
       Halt(in  b interactive);
+      HaltWithInhibitors(in  b interactive);
       Suspend(in  b interactive);
+      SuspendWithInhibitors(in  b interactive);
       Hibernate(in  b interactive);
+      HibernateWithInhibitors(in  b interactive);
       HybridSleep(in  b interactive);
+      HybridSleepWithInhibitors(in  b interactive);
       SuspendThenHibernate(in  b interactive);
+      SuspendThenHibernateWithInhibitors(in  b interactive);
       CanPowerOff(out s result);
       CanReboot(out s result);
       CanHalt(out s result);
@@ -525,8 +532,13 @@ node /org/freedesktop/login1 {
       using an RTC timer and hibernated. The only argument is the polkit interactivity boolean
       <varname>interactive</varname> (see below). The main purpose of these calls is that they enforce
       polkit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
-      users. They also enforce inhibition locks. UIs should expose these calls as the primary mechanism to
-      poweroff/reboot/suspend/hibernate the machine.</para>
+      users. They also enforce inhibition locks for non-root users. UIs should expose these calls
+      as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Additionally
+      <function>PowerOffWithInhibitors()</function>, <function>RebootWithInhibitors()</function>,
+      <function>HaltWithInhibitors()</function>, <function>SuspendWithInhibitors()</function>,
+      <function>HibernateWithInhibitors()</function>, <function>HybridSleepWithInhibitors()</function> and
+      <function>SuspendThenHibernateWithInhibitors()</function> are methods which support enforcing
+      inhibitors for root user.</para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in
