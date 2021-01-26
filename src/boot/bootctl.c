@@ -1435,10 +1435,6 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
               * to find what line number the definition lies on, in case it moves in the future.
               */
              JsonDispatchFlags flags;
-             flags.JSON_PERMISSIVE = 1;
-             flags.JSON_MANDATORY = 0;
-             flags.JSON_SAFE = 1;
-             flags.JSON_RELAX = 1;
 
              // Call the dispatcher
              printf(json_dispatch(JSON_VARIANT_STRING, boot_entry_table, NULL, flags, userdata));
