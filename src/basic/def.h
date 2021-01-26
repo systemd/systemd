@@ -3,6 +3,7 @@
 
 #define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)           /* Many different things, but also system unit start/stop */
 #define DEFAULT_USER_TIMEOUT_USEC (10*USEC_PER_SEC)      /* User unit start/stop */
+#define DEFAULT_GENERATOR_TIMEOUT_USEC (10*USEC_PER_SEC) /* Generator execution */
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
 
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)

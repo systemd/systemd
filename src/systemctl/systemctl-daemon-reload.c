@@ -42,12 +42,7 @@ int daemon_reload(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* Note we use an extra-long timeout here. This is because a reload or reexec means generators are
-         * rerun which are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the
-         * generators can have their timeout, and for everything else there's the same time budget in
-         * place. */
-
-        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
 
         /* On reexecution, we expect a disconnect, not a reply */
         if (IN_SET(r, -ETIMEDOUT, -ECONNRESET) && streq(method, "Reexecute"))
