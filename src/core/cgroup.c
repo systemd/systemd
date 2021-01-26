@@ -3110,7 +3110,7 @@ int manager_setup_cgroup(Manager *m) {
                 (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
         /* 8. Figure out which controllers are supported */
-        r = cg_mask_supported(&m->cgroup_supported);
+        r = cg_mask_supported_subtree(m->cgroup_root, &m->cgroup_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
