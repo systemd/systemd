@@ -1403,47 +1403,71 @@ static int verb_list_json(int argc, char *argv[], void *userdata) {
             log_info("No boot loader entries found.");
     else {
             size_t n;
-             printf("[\n");
-             for (n = 0; n < config.n_entries; n++) {
-                 entry = config.entries + n;
-                 //output_table = table_new("title", "id", "source", "linux", "initrd", "options");
-                 // table_add_many(output_table,
-                 //                TABLE_STRING, boot_entry_title(entry),
-                 //                TABLE_STRING, entry->id,
-                 //                TABLE_STRING, entry->path,
-                 //                TABLE_STRING, entry->kernel,
-                 //                TABLE_STRING, entry->initrd,
-                 //                TABLE_STRING, entry->options);
+            BootEntry *entry;
+            printf("[\n");
+            for (n = 0; n < config.n_entries; n++) {
+                entry = config.entries + n;
 
+                printf("\t{\n");
+                printf("\t\t\"title\": \"%s\",\n", boot_entry_title(entry));
+                printf("\t\t\"id\": \"%s\",\n", entry->id);
+                printf("\t\t\"source\": \"%s\",\n", entry->path);
+                if (entry->kernel)
+                {
+                    printf("\t\t\"linux\": \"%s\",\n", entry->kernel);
+                }
+                else
+                {
+                    printf("\t\t\"linux\": null,\n");
+                }
+                if (entry->initrd)
+                {
 
-                 //table_print_json(output_table, NULL, format_flags);
+                    // I can't believe this works! lol
+                    printf("\t\t\"initrd\": \"%s\",\n", *(entry->initrd));
+                }
+                else
+                {
+                    printf("\t\t\"initrd\": null,\n");
+                }
+                if (!strv_isempty(entry->options)) {
+                        _cleanup_free_ char *t = NULL, *t2 = NULL;
+                        _cleanup_strv_free_ char **ts = NULL;
 
-                 printf("\t{\n");
-                 printf("\t\t'title': ");
-                 printf(boot_entry_title(entry));
-                 printf(",\n");
-                 printf("\t\t'id': ");
-                 printf(entry->id);
-                 printf(",\n");
-                 printf("\t\t'source': ");
-                 printf(entry->path);
-                 printf(",\n");
-                 printf("\t\t'linux': ");
-                 printf(entry->kernel);
-                 printf(",\n");
-                 printf("\t\t'initrd': ");
-                 printf(entry->initrd);
-                 printf(",\n");
-                 printf("\t\t'options': ");
-                 printf(entry->options);
-                 printf("\t}");
-                 if (r < 0)
-                         return r;
+                        t = strv_join(entry->options, " ");
+                        if (!t)
+                                return log_oom();
 
-                 if (n+1 < config.n_entries)
-                         printf(",\n");
-             }
-             printf("\n]\n");
+                        ts = strv_split_newlines(t);
+                        if (!ts)
+                                return log_oom();
+
+                        t2 = strv_join(ts, "\n              ");
+                        if (!t2)
+                                return log_oom();
+
+                        printf("\t\t\"options\": \"%s\",\n", t2);
+                }
+                else
+                {
+                    printf("\t\t\"options\": null,\n");
+                }
+                if (n == (size_t) config.default_entry)
+                {
+                    printf("\t\t\"default\": true\n");
+                }
+                else
+                {
+                    printf("\t\t\"default\": false\n");
+                }
+                printf("\t}");
+                if (r < 0)
+                        return r;
+
+                if (n+1 < config.n_entries)
+                        printf(",\n");
+            }
+            printf("\n]\n");
 
     }
     return 0;
