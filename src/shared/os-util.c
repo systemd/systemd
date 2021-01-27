@@ -180,3 +180,15 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 
         return 0;
 }
+
+int load_extension_release_pairs(const char *root, const char *extension, char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = fopen_extension_release(root, extension, &p, &f);
+        if (r < 0)
+                return r;
+
+        return load_env_file_pairs(f, p, ret);
+}

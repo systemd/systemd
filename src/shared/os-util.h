@@ -23,5 +23,6 @@ static inline int fopen_os_release(const char *root, char **ret_path, FILE **ret
 
 int parse_extension_release(const char *root, const char *extension, ...) _sentinel_;
 int parse_os_release(const char *root, ...) _sentinel_;
+int load_extension_release_pairs(const char *root, const char *extension, char ***ret);
 int load_os_release_pairs(const char *root, char ***ret);
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
