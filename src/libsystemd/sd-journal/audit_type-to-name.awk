@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 BEGIN{
         print "const char *audit_type_to_string(int type) {\n\tswitch(type) {"
 }
