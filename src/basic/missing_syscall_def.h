@@ -1,4 +1,5 @@
-/* This file is generated. Do not edit! */
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ * This file is generated. Do not edit! */
 
 #ifndef __IGNORE_bpf
 #  if defined(__aarch64__)
