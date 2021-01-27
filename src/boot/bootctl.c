@@ -1024,6 +1024,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                      Query or set system options string in EFI variable\n"
                "\n%3$sBoot Loader Specification Commands:%4$s\n"
                "  list                List boot loader entries\n"
+               "  list-json           List boot loader entries, in JSON format\n"
                "  set-default ID      Set default boot loader entry\n"
                "  set-oneshot ID      Set default boot loader entry, for next boot only\n"
                "\n%3$ssystemd-boot Commands:%4$s\n"
@@ -1362,6 +1363,115 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
         return 0;
 }
+
+static int verb_list_json(int argc, char *argv[], void *userdata) {
+    // This is going to be VERY similar to verb_list(), but print in JSON, not the standard format
+    _cleanup_(boot_config_free) BootConfig config = {};
+    _cleanup_strv_free_ char **efi_entries = NULL;
+    int r;
+
+    /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
+     * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
+     * the latter but not the former, hence request the mode, and log about EACCES. */
+
+    r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, NULL);
+    if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+            return log_error_errno(r, "Failed to determine ESP: %m");
+    if (r < 0)
+            return r;
+
+    r = acquire_xbootldr(geteuid() != 0, NULL);
+    if (r == -EACCES)
+            return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
+    if (r < 0)
+            return r;
+
+    r = boot_entries_load_config(arg_esp_path, arg_xbootldr_path, &config);
+    if (r < 0)
+            return r;
+
+    r = efi_loader_get_entries(&efi_entries);
+    if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+            log_debug_errno(r, "Boot loader reported no entries.");
+    else if (r < 0)
+            log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
+    else
+            (void) boot_entries_augment_from_loader(&config, efi_entries, false);
+
+    if (config.n_entries == 0)
+            log_info("No boot loader entries found.");
+    else {
+            size_t n;
+            BootEntry *entry;
+            printf("[\n");
+            for (n = 0; n < config.n_entries; n++) {
+                entry = config.entries + n;
+
+                printf("\t{\n");
+                printf("\t\t\"title\": \"%s\",\n", boot_entry_title(entry));
+                printf("\t\t\"id\": \"%s\",\n", entry->id);
+                printf("\t\t\"source\": \"%s\",\n", entry->path);
+                if (entry->kernel)
+                {
+                    printf("\t\t\"linux\": \"%s\",\n", entry->kernel);
+                }
+                else
+                {
+                    printf("\t\t\"linux\": null,\n");
+                }
+                if (entry->initrd)
+                {
+
+                    // I can't believe this works! lol
+                    printf("\t\t\"initrd\": \"%s\",\n", *(entry->initrd));
+                }
+                else
+                {
+                    printf("\t\t\"initrd\": null,\n");
+                }
+                if (!strv_isempty(entry->options)) {
+                        _cleanup_free_ char *t = NULL, *t2 = NULL;
+                        _cleanup_strv_free_ char **ts = NULL;
+
+                        t = strv_join(entry->options, " ");
+                        if (!t)
+                                return log_oom();
+
+                        ts = strv_split_newlines(t);
+                        if (!ts)
+                                return log_oom();
+
+                        t2 = strv_join(ts, "\n              ");
+                        if (!t2)
+                                return log_oom();
+
+                        printf("\t\t\"options\": \"%s\",\n", t2);
+                }
+                else
+                {
+                    printf("\t\t\"options\": null,\n");
+                }
+                if (n == (size_t) config.default_entry)
+                {
+                    printf("\t\t\"default\": true\n");
+                }
+                else
+                {
+                    printf("\t\t\"default\": false\n");
+                }
+                printf("\t}");
+                if (r < 0)
+                        return r;
+
+                if (n+1 < config.n_entries)
+                        printf(",\n");
+            }
+            printf("\n]\n");
+
+    }
+    return 0;
+
+};
 
 static int install_random_seed(const char *esp) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
@@ -1820,6 +1930,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "remove",              VERB_ANY, 1,        0,            verb_remove              },
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
+                { "list-json",           VERB_ANY, 1,        0,            verb_list_json           },
                 { "set-default",         2,        2,        0,            verb_set_default         },
                 { "set-oneshot",         2,        2,        0,            verb_set_default         },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
