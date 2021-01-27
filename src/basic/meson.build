@@ -365,7 +365,7 @@ syscall_list_txt = files('syscall-list.txt')
 
 syscall_lists = []
 foreach arch: arch_list
-        syscall_lists += files('syscalls-@0@'.format(arch))
+        syscall_lists += files('syscalls-@0@.txt'.format(arch))
 endforeach
 
 missing_syscalls_py = find_program('missing_syscalls.py')
