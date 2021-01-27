@@ -16,15 +16,14 @@ for line in open(sys.argv[1]):
     if match:
         s = match.group(1)
         if s == 'sd_bus_object_vtable_format':
-            print('    &{},'.format(s))
+            print(f'    &{s},')
         else:
-            print('    {},'.format(s))
+            print(f'    {s},')
 
 print('''};
 
 int main(void) {
-    unsigned i;
-    for (i = 0; i < sizeof(symbols)/sizeof(void*); i++)
+    for (unsigned i = 0; i < sizeof(symbols)/sizeof(void*); i++)
          printf("%p\\n", symbols[i]);
     return 0;
 }''')
