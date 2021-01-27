@@ -41,7 +41,7 @@ available functionality:
    symbols of `libsystemd.so` and `libudev.so` with the list of man pages. Symbols
    lacking documentation are highlighted.
 
-7. Use `meson compile -C build hwdb-update` to automatically download and import the
+7. Use `meson compile -C build update-hwdb` to automatically download and import the
    PCI, USB and OUI databases into hwdb.
 
 8. Use `meson compile -C build update-man-rules` to update the meson rules for
