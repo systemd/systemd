@@ -71,6 +71,7 @@ static Image *image_free(Image *i) {
         free(i->hostname);
         strv_free(i->machine_info);
         strv_free(i->os_release);
+        strv_free(i->extension_release);
 
         return mfree(i);
 }
@@ -1129,7 +1130,7 @@ int image_read_metadata(Image *i) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY: {
-                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
+                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
@@ -1176,10 +1177,15 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
+                r = load_extension_release_pairs(i->path, i->name, &extension_release);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
+
                 free_and_replace(i->hostname, hostname);
                 i->machine_id = machine_id;
                 strv_free_and_replace(i->machine_info, machine_info);
                 strv_free_and_replace(i->os_release, os_release);
+                strv_free_and_replace(i->extension_release, extension_release);
 
                 break;
         }
@@ -1205,6 +1211,7 @@ int image_read_metadata(Image *i) {
                 i->machine_id = m->machine_id;
                 strv_free_and_replace(i->machine_info, m->machine_info);
                 strv_free_and_replace(i->os_release, m->os_release);
+                strv_free_and_replace(i->extension_release, m->extension_release);
 
                 break;
         }
