@@ -40,10 +40,8 @@ void close_and_munmap(int fd, void *address, size_t size) {
 }
 
 void bus_flush_memfd(sd_bus *b) {
-        unsigned i;
-
         assert(b);
 
-        for (i = 0; i < b->n_memfd_cache; i++)
+        for (unsigned i = 0; i < b->n_memfd_cache; i++)
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].mapped);
 }

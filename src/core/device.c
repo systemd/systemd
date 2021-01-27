@@ -193,11 +193,10 @@ static const struct {
 
 static int device_found_to_string_many(DeviceFound flags, char **ret) {
         _cleanup_free_ char *s = NULL;
-        unsigned i;
 
         assert(ret);
 
-        for (i = 0; i < ELEMENTSOF(device_found_map); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(device_found_map); i++) {
                 if (!FLAGS_SET(flags, device_found_map[i].flag))
                         continue;
 

@@ -698,7 +698,6 @@ static int property_get_bind_paths(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        unsigned i;
         bool ro;
         int r;
 
@@ -713,7 +712,7 @@ static int property_get_bind_paths(
         if (r < 0)
                 return r;
 
-        for (i = 0; i < c->n_bind_mounts; i++) {
+        for (size_t i = 0; i < c->n_bind_mounts; i++) {
 
                 if (ro != c->bind_mounts[i].read_only)
                         continue;
@@ -741,7 +740,6 @@ static int property_get_temporary_filesystems(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        unsigned i;
         int r;
 
         assert(bus);
@@ -753,7 +751,7 @@ static int property_get_temporary_filesystems(
         if (r < 0)
                 return r;
 
-        for (i = 0; i < c->n_temporary_filesystems; i++) {
+        for (unsigned i = 0; i < c->n_temporary_filesystems; i++) {
                 TemporaryFileSystem *t = c->temporary_filesystems + i;
 
                 r = sd_bus_message_append(
@@ -777,7 +775,6 @@ static int property_get_log_extra_fields(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        size_t i;
         int r;
 
         assert(bus);
@@ -789,7 +786,7 @@ static int property_get_log_extra_fields(
         if (r < 0)
                 return r;
 
-        for (i = 0; i < c->n_log_extra_fields; i++) {
+        for (size_t i = 0; i < c->n_log_extra_fields; i++) {
                 r = sd_bus_message_append_array(reply, 'y', c->log_extra_fields[i].iov_base, c->log_extra_fields[i].iov_len);
                 if (r < 0)
                         return r;

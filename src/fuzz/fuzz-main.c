@@ -18,14 +18,14 @@
 #define MIN_NUMBER_OF_RUNS 4
 
 int main(int argc, char **argv) {
-        int i, r;
-        size_t size;
-        char *name;
+        int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 _cleanup_free_ char *buf = NULL;
+                size_t size;
+                char *name;
 
                 name = argv[i];
                 r = read_full_file(name, &buf, &size);

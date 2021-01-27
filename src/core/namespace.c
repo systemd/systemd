@@ -312,11 +312,9 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
 }
 
 static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) {
-        size_t i;
-
         assert(p);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 const BindMount *b = binds + i;
 
                 *((*p)++) = (MountEntry) {
@@ -390,14 +388,12 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
 }
 
 static int append_static_mounts(MountEntry **p, const MountEntry *mounts, size_t n, bool ignore_protect) {
-        size_t i;
-
         assert(p);
         assert(mounts);
 
         /* Adds a list of static pre-defined entries */
 
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 *((*p)++) = (MountEntry) {
                         .path_const = mount_entry_path(mounts+i),
                         .mode = mounts[i].mode,
@@ -464,11 +460,11 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
 }
 
 static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directory) {
-        size_t i;
-
         /* Prefixes all paths in the bind mount table with the root directory if the entry needs that. */
 
-        for (i = 0; i < n; i++) {
+        assert(m || n == 0);
+
+        for (size_t i = 0; i < n; i++) {
                 char *s;
 
                 if (m[i].has_prefix)
@@ -1913,11 +1909,9 @@ finish:
 }
 
 void bind_mount_free_many(BindMount *b, size_t n) {
-        size_t i;
-
         assert(b || n == 0);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 free(b[i].source);
                 free(b[i].destination);
         }
@@ -1960,12 +1954,10 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
 }
 
 MountImage* mount_image_free_many(MountImage *m, size_t *n) {
-        size_t i;
-
         assert(n);
         assert(m || *n == 0);
 
-        for (i = 0; i < *n; i++) {
+        for (size_t i = 0; i < *n; i++) {
                 free(m[i].source);
                 free(m[i].destination);
                 mount_options_free_all(m[i].mount_options);
@@ -2028,11 +2020,9 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
 }
 
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n) {
-        size_t i;
-
         assert(t || n == 0);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 free(t[i].path);
                 free(t[i].options);
         }

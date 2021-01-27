@@ -132,7 +132,6 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         const char *fn;
         char *t, *x;
         uint64_t u;
-        unsigned i;
 
         assert(ret);
 
@@ -162,7 +161,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         x = stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn);
 
         u = random_u64();
-        for (i = 0; i < 16; i++) {
+        for (unsigned i = 0; i < 16; i++) {
                 *(x++) = hexchar(u & 0xF);
                 u >>= 4;
         }
@@ -176,7 +175,6 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
 int tempfn_random_child(const char *p, const char *extra, char **ret) {
         char *t, *x;
         uint64_t u;
-        unsigned i;
         int r;
 
         assert(ret);
@@ -205,7 +203,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
                 x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
 
         u = random_u64();
-        for (i = 0; i < 16; i++) {
+        for (unsigned i = 0; i < 16; i++) {
                 *(x++) = hexchar(u & 0xF);
                 u >>= 4;
         }

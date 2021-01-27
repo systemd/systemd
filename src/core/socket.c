@@ -1319,7 +1319,7 @@ static int usbffs_select_ep(const struct dirent *d) {
 
 static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ struct dirent **ent = NULL;
-        size_t n, k, i;
+        size_t n, k;
         int r;
 
         r = scandir(p->path, &ent, usbffs_select_ep, alphasort);
@@ -1336,7 +1336,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
         p->n_auxiliary_fds = n;
 
         k = 0;
-        for (i = 0; i < n; ++i) {
+        for (size_t i = 0; i < n; ++i) {
                 _cleanup_free_ char *ep = NULL;
 
                 ep = path_make_absolute(ent[i]->d_name, p->path);
@@ -1363,7 +1363,7 @@ fail:
         p->n_auxiliary_fds = 0;
 
 clear:
-        for (i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i)
                 free(ent[i]);
 
         return r;
