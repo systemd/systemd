@@ -412,13 +412,23 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                        *p, *q);
                 }
 
+                if (!strv_isempty(m->extension_release)) {
+                        char **p, **q;
+
+                        STRV_FOREACH_PAIR(p, q, m->extension_release)
+                                printf("%s %s=%s\n",
+                                       p == m->extension_release ? "Extension Release:" : "                  ",
+                                       *p, *q);
+                }
+
                 if (m->hostname ||
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
+                    !strv_isempty(m->extension_release) ||
                     !strv_isempty(m->os_release))
                         putc('\n', stdout);
         } else {
-                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *exr = NULL;
 
                 if (!strv_isempty(m->machine_info)) {
                         r = strv_pair_to_json(m->machine_info, &mi);
@@ -432,13 +442,20 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                 return log_oom();
                 }
 
+                if (!strv_isempty(m->extension_release)) {
+                        r = strv_pair_to_json(m->extension_release, &exr);
+                        if (r < 0)
+                                return log_oom();
+                }
+
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(basename(arg_image))),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
                                                JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
-                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr))));
+                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr)),
+                                               JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr))));
                 if (r < 0)
                         return log_oom();
         }
