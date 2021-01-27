@@ -400,76 +400,6 @@ static int strverscmpp(char *const* a, char *const* b) {
         return strverscmp(*a, *b);
 }
 
-static int validate_version(
-                const char *root,
-                const char *name,
-                const char *host_os_release_id,
-                const char *host_os_release_version_id,
-                const char *host_os_release_sysext_level) {
-
-        _cleanup_free_ char *extension_release_id = NULL, *extension_release_version_id = NULL, *extension_release_sysext_level = NULL;
-        int r;
-
-        assert(root);
-        assert(name);
-
-        if (arg_force) {
-                log_debug("Force mode enabled, skipping version validation.");
-                return 1;
-        }
-
-        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
-         * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
-         * merged.) */
-        r = chase_symlinks("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
-
-        /* Now that we can look into the extension image, let's see if the OS version is compatible */
-        r = parse_extension_release(
-                        root,
-                        name,
-                        "ID", &extension_release_id,
-                        "VERSION_ID", &extension_release_version_id,
-                        "SYSEXT_LEVEL", &extension_release_sysext_level,
-                        NULL);
-        if (r == -ENOENT) {
-                log_notice_errno(r, "Extension '%s' carries no extension-release data, ignoring extension.", name);
-                return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire 'os-release' data of extension '%s': %m", name);
-
-        if (!streq_ptr(host_os_release_id, extension_release_id)) {
-                log_notice("Extension '%s' is for OS '%s', but running on '%s', ignoring extension.",
-                           name, strna(extension_release_id), strna(host_os_release_id));
-                return 0;
-        }
-
-        /* If the extension has a sysext API level declared, then it must match the host API
-         * level. Otherwise, compare OS version as a whole */
-        if (extension_release_sysext_level) {
-                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
-                        log_notice("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s', ignoring extension.",
-                                   name, extension_release_sysext_level, strna(host_os_release_sysext_level));
-                        return 0;
-                }
-        } else {
-                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
-                        log_notice("Extension '%s' is for OS version '%s', but running on OS version '%s', ignoring extension.",
-                                   name, extension_release_version_id, strna(host_os_release_version_id));
-                        return 0;
-                }
-        }
-
-        log_debug("Version info of extension '%s' matches host.", name);
-        return 1;
-}
-
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
                 *buf = NULL;
@@ -593,18 +523,32 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         assert_not_reached("Unsupported image type");
                 }
 
-                r = validate_version(
-                                p,
-                                img->name,
-                                host_os_release_id,
-                                host_os_release_version_id,
-                                host_os_release_sysext_level);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        n_ignored++;
-                        continue;
-                }
+                /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
+                * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
+                * merged.) */
+                r = chase_symlinks("/usr/lib/os-release", p, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
+
+                if (!arg_force) {
+                        r = extension_release_validate(
+                                        img->name,
+                                        host_os_release_id,
+                                        host_os_release_version_id,
+                                        host_os_release_sysext_level,
+                                        img->extension_release);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                n_ignored++;
+                                continue;
+                        }
+                } else
+                        log_debug("Force mode enabled, skipping version validation.");
 
                 /* Noice! This one is an extension we want. */
                 r = strv_extend(&extensions, img->name);
@@ -743,6 +687,7 @@ static int merge(Hashmap *images) {
 
 static int verb_merge(int argc, char **argv, void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        Image *img;
         char **p;
         int r;
 
@@ -756,6 +701,12 @@ static int verb_merge(int argc, char **argv, void *userdata) {
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
+
+        HASHMAP_FOREACH(img, images) {
+                r = image_read_metadata(img);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
+        }
 
         /* In merge mode fail if things are already merged. (In --refresh mode below we'll unmerge if we find
          * things are already merged...) */
@@ -783,6 +734,7 @@ static int verb_merge(int argc, char **argv, void *userdata) {
 
 static int verb_refresh(int argc, char **argv, void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        Image *img;
         int r;
 
         if (!have_effective_cap(CAP_SYS_ADMIN))
@@ -795,6 +747,12 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
+
+        HASHMAP_FOREACH(img, images) {
+                r = image_read_metadata(img);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
+        }
 
         r = merge(images); /* Returns > 0 if it did something, i.e. a new overlayfs is mounted now. When it
                             * does so it implicitly unmounts any overlayfs placed there before. Returns == 0
