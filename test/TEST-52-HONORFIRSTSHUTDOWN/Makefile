@@ -1,7 +1,5 @@
-BUILD_DIR=$(shell ../../tools/find-build-dir.sh)
-
 all setup run clean clean-again:
-	@basedir=../.. TEST_BASE_DIR=../ BUILD_DIR=$(BUILD_DIR) ./test.sh --$@
+	@TEST_BASE_DIR=../ ./test.sh --$@
 
 # finish option is used to run checks that can only be run outside of
 # the test execution. Example case, honor first shutdown, proof is obtained
@@ -11,6 +9,6 @@ all setup run clean clean-again:
 # the test will loop and will be terminated via a command timeout.
 # This just provides concrete confirmation.
 finish:
-	@basedir=../.. TEST_BASE_DIR=../ BUILD_DIR=$(BUILD_DIR) ./fini.sh --$@
+	@TEST_BASE_DIR=../ ./fini.sh --$@
 
 .PHONY: all setup run clean clean-again finish

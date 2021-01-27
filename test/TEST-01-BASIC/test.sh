@@ -9,8 +9,9 @@ TEST_REQUIRE_INSTALL_TESTS=0
 
 test_append_files() {
     # install tests manually so the test is functional even when -Dinstall-tests=false
-    mkdir -p $1/usr/lib/systemd/tests/testdata/units/
-    cp -v $(dirname $0)/../units/{testsuite-01,end}.service $1/usr/lib/systemd/tests/testdata/units/
+    local dst="$1/usr/lib/systemd/tests/testdata/units/"
+    mkdir -p "$dst"
+    cp -v $TEST_UNITS_DIR/{testsuite-01,end}.service $TEST_UNITS_DIR/testsuite.target "$dst"
 }
 
 do_test "$@" 01
