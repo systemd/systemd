@@ -44,7 +44,6 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
-#include "format-table.h"
 
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
