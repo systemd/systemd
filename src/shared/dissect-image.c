@@ -472,7 +472,7 @@ int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL;
+        const char *pttype = NULL, *sysname = NULL;
         blkid_partlist pl;
         int r, generic_nr, n_partitions;
         struct stat st;
@@ -578,6 +578,39 @@ int dissect_image(
         m = new0(DissectedImage, 1);
         if (!m)
                 return -ENOMEM;
+
+        r = sd_device_get_sysname(d, &sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device sysname: %m");
+        if (startswith(sysname, "loop")) {
+                _cleanup_free_ char *sys = NULL, *full_path = NULL;
+                const char *syspath;
+                char *e;
+
+                r = sd_device_get_syspath(d, &syspath);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to lookup image loop device %s devpath: %m", sysname);
+
+                sys = path_join(syspath, "loop/backing_file");
+                if (!sys)
+                        return -ENOMEM;
+
+                r = read_one_line_file(sys, &full_path);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to lookup image name via loop device backing file %s, ignoring: %m", sys);
+
+                r = free_and_strdup(&m->name, basename(full_path));
+                if (r < 0)
+                        return r;
+
+                e = endswith(m->name, ".raw");
+                if (e)
+                        *e = 0;
+        } else {
+                r = free_and_strdup(&m->name, sysname);
+                if (r < 0)
+                        return r;
+        }
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_REQUIRE_ROOT)) ||
@@ -1197,6 +1230,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 free(m->partitions[i].mount_options);
         }
 
+        free(m->name);
         free(m->hostname);
         strv_free(m->machine_info);
         strv_free(m->os_release);
