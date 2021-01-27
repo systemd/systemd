@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: CC0-1.0
+#
 # This script is called by "systemctl enable/disable" when the given unit is a
 # SysV init.d script. It needs to call the distribution's mechanism for
 # enabling/disabling those, such as chkconfig, update-rc.d, or similar. This
