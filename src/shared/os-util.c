@@ -11,7 +11,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-int path_is_os_tree(const char *path) {
+int path_is_extension_tree(const char *path, const char *extension) {
         int r;
 
         assert(path);
@@ -22,8 +22,9 @@ int path_is_os_tree(const char *path) {
         if (laccess(path, F_OK) < 0)
                 return -errno;
 
-        /* We use {/etc|/usr/lib}/os-release as flag file if something is an OS */
-        r = open_os_release(path, NULL, NULL);
+        /* We use /usr/lib/extension-release.d/extension-release.NAME as flag file if something is a system extension,
+         * and {/etc|/usr/lib}/os-release as flag file if something is an OS (in case extension == NULL) */
+        r = open_extension_release(path, extension, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
         if (r < 0)
