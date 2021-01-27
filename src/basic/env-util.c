@@ -455,6 +455,18 @@ char *strv_env_get(char **l, const char *name) {
         return strv_env_get_n(l, name, strlen(name), 0);
 }
 
+char *strv_env_pairs_get(char **l, const char *name) {
+        char **key, **value, *result = NULL;
+
+        assert(name);
+
+        STRV_FOREACH_PAIR(key, value, l)
+                if (streq(*key, name))
+                        result = *value;
+
+        return result;
+}
+
 char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         char **p, **q;
         int k = 0;

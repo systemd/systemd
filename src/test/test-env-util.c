@@ -44,6 +44,17 @@ static void test_strv_env_get(void) {
         assert_se(streq(strv_env_get(l, "FOUR"), "4"));
 }
 
+static void test_strv_env_pairs_get(void) {
+        log_info("/* %s */", __func__);
+
+        char **l = STRV_MAKE("ONE_OR_TWO", "1", "THREE", "3", "ONE_OR_TWO", "2", "FOUR", "4", "FIVE", "5", "SIX", "FIVE", "SEVEN", "7");
+
+        assert_se(streq(strv_env_pairs_get(l, "ONE_OR_TWO"), "2"));
+        assert_se(streq(strv_env_pairs_get(l, "THREE"), "3"));
+        assert_se(streq(strv_env_pairs_get(l, "FOUR"), "4"));
+        assert_se(streq(strv_env_pairs_get(l, "FIVE"), "5"));
+}
+
 static void test_strv_env_unset(void) {
         log_info("/* %s */", __func__);
 
@@ -390,6 +401,7 @@ int main(int argc, char *argv[]) {
 
         test_strv_env_delete();
         test_strv_env_get();
+        test_strv_env_pairs_get();
         test_strv_env_unset();
         test_strv_env_merge();
         test_strv_env_replace_strdup();
