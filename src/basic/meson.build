@@ -359,7 +359,7 @@ arch_list = [
 
 run_target(
         'update-syscall-tables',
-        command : [syscall_table_update_sh, meson.current_source_dir()] + arch_list)
+        command : [update_syscall_tables_sh, meson.current_source_dir()] + arch_list)
 
 syscall_list_txt = files('syscall-list.txt')
 
