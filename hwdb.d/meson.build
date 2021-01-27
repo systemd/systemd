@@ -70,5 +70,5 @@ run_target(
         command : [update_hwdb_sh, meson.current_source_dir()])
 
 run_target(
-        'autosuspend-update',
-        command : [autosuspend_update_sh, project_source_root])
+        'update-hwdb-autosuspend',
+        command : [update_hwdb_autosuspend_sh, project_source_root])

@@ -1589,8 +1589,8 @@ conf.set10('ENABLE_EFI', have)
 
 ############################################################
 
-autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
 update_hwdb_sh = find_program('tools/update-hwdb.sh')
+update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
