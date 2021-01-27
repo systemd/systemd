@@ -322,6 +322,15 @@ if conf.get('HAVE_KMOD') == 1
         shared_sources += files('module-util.c')
 endif
 
+if conf.get('HAVE_LIBBPF') == 1
+        shared_sources += files('''
+        bpf-object.c
+        bpf-object.h
+        bpf-program-v2.c
+        bpf-program-v2.h
+'''.split())
+endif
+
 if conf.get('HAVE_PAM') == 1
         shared_sources += files(
                 'pam-util.c',
@@ -377,6 +386,7 @@ libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 libshared_deps = [threads,
                   libacl,
                   libblkid,
+                  libbpf,
                   libcap,
                   libcrypt,
                   libgcrypt,
