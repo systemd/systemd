@@ -1368,12 +1368,44 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 if (arg_json_format > 0) {
                         //Format flags
                         JsonFormatFlags format_flags = JSON_FORMAT_PRETTY;
+                        BootEntry *entry = NULL;
+                        _cleanup_(json_variant_unrefp) JsonVariant *output;
+                        char *options = NULL;
+                        char *initrd = NULL;
 
+                        printf("{");
                         if (arg_json_format == 2)
                                 format_flags = JSON_FORMAT_OFF;
-                        printf("OUTPUT JSON!!!!");
-                }
-                else {
+                        else
+                                printf("\n");
+
+                        for (n = 0; n < config.n_entries; n++) {
+                                entry = config.entries + n;
+                                if (entry->options == NULL)
+                                        options = NULL;
+                                else
+                                        options = *(entry->options);
+                                if (entry->initrd == NULL)
+                                        initrd = NULL;
+                                else
+                                        initrd = *(entry->initrd);
+                                printf("\"%s\": ", boot_entry_title(entry));
+                                json_build(&output, JSON_BUILD_OBJECT(
+                                                    JSON_BUILD_PAIR("id", JSON_BUILD_STRING(entry->id)),
+                                                    JSON_BUILD_PAIR("source", JSON_BUILD_STRING(entry->path)),
+                                                    JSON_BUILD_PAIR("linux", JSON_BUILD_STRING(entry->kernel)),
+                                                    JSON_BUILD_PAIR("initrd", JSON_BUILD_STRING(initrd)),
+                                                    JSON_BUILD_PAIR("options", JSON_BUILD_STRING(options))));
+                                json_variant_dump(output, format_flags, stdout, NULL);
+                                if (arg_json_format == 1)
+                                        printf("\x1B[A}");
+                                if (n+1 < config.n_entries)
+                                        printf(",");
+                                if (arg_json_format == 1)
+                                        printf("\n");
+                        }
+                        printf("}");
+                } else {
                         (void) pager_open(arg_pager_flags);
 
                         printf("Boot Loader Entries:\n");
