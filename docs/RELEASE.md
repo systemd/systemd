@@ -10,7 +10,7 @@ layout: default
 2. Update the contributors list in NEWS (`meson compile -C build git-contrib`)
 3. Update the time and place in NEWS
 4. [RC1] Update version and library numbers in `meson.build`
-5. Check dbus docs with `meson compile -C build man/update-dbus-docs`
+5. Check dbus docs with `meson compile -C build update-dbus-docs`
 6. Tag the release: `version=vXXX-rcY && git tag -s "${version}" -m "systemd ${version}"`
 7. Do `meson compile -C build`
 8. Make sure that the version string and package string match: `build/systemctl --version`

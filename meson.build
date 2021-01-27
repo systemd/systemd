@@ -1589,8 +1589,8 @@ conf.set10('ENABLE_EFI', have)
 
 ############################################################
 
-autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
-hwdb_update_sh = find_program('tools/hwdb-update.sh')
+update_hwdb_sh = find_program('tools/update-hwdb.sh')
+update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
@@ -3604,6 +3604,34 @@ run_target(
         'check-api-docs',
         depends : [man, libsystemd, libudev],
         command : [check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
+
+############################################################
+
+if dbus_docs.length() > 0
+        custom_target(
+                'update-dbus-docs',
+                output : 'update-dbus-docs',
+                command : [update_dbus_docs_py,
+                           '--build-dir=@0@'.format(project_build_root),
+                           '@INPUT@'],
+                input : dbus_docs)
+
+        if conf.get('BUILD_MODE') == 'BUILD_MODE_DEVELOPER'
+                test('dbus-docs-fresh',
+                     update_dbus_docs_py,
+                     args : ['--build-dir=@0@'.format(project_build_root),
+                             '--test'] + dbus_docs)
+        endif
+endif
+
+custom_target(
+        'update-man-rules',
+        output : 'update-man-rules',
+        command : ['sh', '-c',
+                   'cd @0@ && '.format(meson.build_root()) +
+                   'python3 @0@/tools/update-man-rules.py $(find @0@ -wholename "*/man/*.xml") >t && '.format(project_source_root) +
+                   'mv t @0@/man/rules/meson.build'.format(meson.current_source_dir())],
+        depend_files : custom_entities_ent)
 
 ############################################################
 watchdog_opt = service_watchdog == '' ? 'disabled' : service_watchdog

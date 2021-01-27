@@ -322,4 +322,4 @@ if __name__ == '__main__':
 
     if opts.test and outdated:
         exit(f'Outdated pages: {", ".join(outdated)}\n'
-             f'Hint: ninja -C {opts.build_dir} man/update-dbus-docs')
+             f'Hint: ninja -C {opts.build_dir} update-dbus-docs')

@@ -66,9 +66,9 @@ endif
 ############################################################
 
 run_target(
-        'hwdb-update',
-        command : [hwdb_update_sh, meson.current_source_dir()])
+        'update-hwdb',
+        command : [update_hwdb_sh, meson.current_source_dir()])
 
 run_target(
-        'autosuspend-update',
-        command : [autosuspend_update_sh, project_source_root])
+        'update-hwdb-autosuspend',
+        command : [update_hwdb_autosuspend_sh, project_source_root])
