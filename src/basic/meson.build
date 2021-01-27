@@ -361,7 +361,7 @@ run_target(
         'update-syscall-tables',
         command : [syscall_table_update_sh, meson.current_source_dir()] + arch_list)
 
-syscall_names_text = files('syscall-names.text')
+syscall_list_txt = files('syscall-list.txt')
 
 syscall_lists = []
 foreach arch: arch_list
