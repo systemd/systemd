@@ -34,6 +34,7 @@
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
+#include "import-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -472,7 +473,7 @@ int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL;
+        const char *pttype = NULL, *sysname = NULL;
         blkid_partlist pl;
         int r, generic_nr, n_partitions;
         struct stat st;
@@ -578,6 +579,34 @@ int dissect_image(
         m = new0(DissectedImage, 1);
         if (!m)
                 return -ENOMEM;
+
+        r = sd_device_get_sysname(d, &sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device sysname: %m");
+        if (startswith(sysname, "loop")) {
+                _cleanup_free_ char *name_stripped = NULL;
+                const char *full_path;
+
+                r = sd_device_get_sysattr_value(d, "loop/backing_file", &full_path);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
+                else {
+                        r = raw_strip_suffixes(basename(full_path), &name_stripped);
+                        if (r < 0)
+                                return r;
+                }
+
+                free_and_replace(m->image_name, name_stripped);
+        } else {
+                r = free_and_strdup(&m->image_name, sysname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!image_name_is_valid(m->image_name)) {
+                log_debug("Image name %s is not valid, ignoring", strempty(m->image_name));
+                m->image_name = mfree(m->image_name);
+        }
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_REQUIRE_ROOT)) ||
@@ -1197,6 +1226,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 free(m->partitions[i].mount_options);
         }
 
+        free(m->image_name);
         free(m->hostname);
         strv_free(m->machine_info);
         strv_free(m->os_release);
