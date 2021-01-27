@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 COMMAND="$1"
 KERNEL_VERSION="$2"
@@ -73,11 +89,11 @@ else
 fi
 
 cp "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" &&
-   chown root:root "$ENTRY_DIR_ABS/linux" &&
-   chmod 0644 "$ENTRY_DIR_ABS/linux" || {
-    echo "Could not copy '$KERNEL_IMAGE to '$ENTRY_DIR_ABS/linux'." >&2
-    exit 1
-}
+    chown root:root "$ENTRY_DIR_ABS/linux" &&
+    chmod 0644 "$ENTRY_DIR_ABS/linux" || {
+        echo "Could not copy '$KERNEL_IMAGE to '$ENTRY_DIR_ABS/linux'." >&2
+        exit 1
+    }
 
 INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
 
@@ -89,9 +105,9 @@ for initrd in "${INITRD_OPTIONS[@]}"; do
         cp "${initrd}" "$ENTRY_DIR_ABS/${initrd_basename}" &&
             chown root:root "$ENTRY_DIR_ABS/${initrd_basename}" &&
             chmod 0644 "$ENTRY_DIR_ABS/${initrd_basename}" || {
-             echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
-             exit 1
-        }
+                echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
+                exit 1
+            }
     fi
 done
 

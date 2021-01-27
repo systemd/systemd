@@ -292,7 +292,7 @@ generate_syscall_list = find_program('generate-syscall-list.py')
 fname = 'syscall-list.h'
 syscall_list_h = custom_target(
         fname,
-        input : syscall_names_text,
+        input : syscall_list_txt,
         output : fname,
         command : [generate_syscall_list,
                    '@INPUT@'],

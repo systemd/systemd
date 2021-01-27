@@ -359,13 +359,13 @@ arch_list = [
 
 run_target(
         'update-syscall-tables',
-        command : [syscall_table_update_sh, meson.current_source_dir()] + arch_list)
+        command : [update_syscall_tables_sh, meson.current_source_dir()] + arch_list)
 
-syscall_names_text = files('syscall-names.text')
+syscall_list_txt = files('syscall-list.txt')
 
 syscall_lists = []
 foreach arch: arch_list
-        syscall_lists += files('syscalls-@0@'.format(arch))
+        syscall_lists += files('syscalls-@0@.txt'.format(arch))
 endforeach
 
 missing_syscalls_py = find_program('missing_syscalls.py')

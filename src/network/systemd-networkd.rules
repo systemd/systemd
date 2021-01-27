@@ -1,3 +1,6 @@
+// This file is part of systemd.
+// See systemd-networkd.service(8) and polkit(8) for more information.
+
 // Allow systemd-networkd to set timezone, get product UUID,
 // and transient hostname
 polkit.addRule(function(action, subject) {

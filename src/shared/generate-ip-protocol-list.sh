@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 set -eu
 
 $1 -dM -include netinet/in.h - </dev/null | \

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 import sys
 import functools
 
@@ -99,7 +101,10 @@ def print_syscall_def(syscall, tables, out):
           file=out)
 
 def print_syscall_defs(syscalls, tables, out):
-    print('/* This file is generated. Do not edit! */\n', file=out)
+    print('''\
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ * This file is generated. Do not edit! */
+''' , file=out)
     for syscall in syscalls:
         print_syscall_def(syscall, tables, out)
 
