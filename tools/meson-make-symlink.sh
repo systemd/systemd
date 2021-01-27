@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -eu
 
 if [ "${MESON_INSTALL_QUIET:-0}" = 1 ] ; then

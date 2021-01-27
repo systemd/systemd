@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -eu
 
 $1 -E -dM -include sys/socket.h -include "$2" -include "$3" - </dev/null | \
