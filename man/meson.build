@@ -198,17 +198,6 @@ run_target(
 
 ############################################################
 
-custom_target(
-        'update-man-rules',
-        output : 'update-man-rules',
-        command : ['sh', '-c',
-                        'cd @0@ && '.format(meson.build_root()) +
-                        'python3 @0@/tools/update-man-rules.py $(find @0@ -wholename "*/man/*.xml") >t && '.format(project_source_root) +
-                        'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
-        depend_files : custom_entities_ent)
-
-############################################################
-
 configure_file(
         input : 'man.in',
         output : 'man',
