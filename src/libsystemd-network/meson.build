@@ -6,6 +6,7 @@ sources = files('''
         dhcp-client-internal.h
         dhcp-network.c
         dhcp-option.c
+        dhcp-static-lease.c
         dhcp-packet.c
         dhcp-internal.h
         dhcp-server-internal.h
