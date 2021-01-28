@@ -57,7 +57,7 @@ static bool arg_graceful = false;
  * but, I do an int here so that other formats can be added in the future if the
  * need arrises.
  */
-static int arg_json_format = 0;
+static JsonFormatFlags arg_json_format = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -1142,15 +1142,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_graceful = true;
                         break;
                 case ARG_JSON_FORMAT:
-                        if (strcmp(optarg, "short") == 0)
-                                arg_json_format = 2;
-                        else if (strcmp(optarg, "pretty") == 0)
-                                arg_json_format = 1;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Not a valid JSON format mode.");
-                        break;
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format);
+                        if (r <= 0)
+                                return r;
 
+                        break;
                 case '?':
                         return -EINVAL;
 
@@ -1367,16 +1363,13 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 size_t n;
                 if (arg_json_format > 0) {
                         //Format flags
-                        JsonFormatFlags format_flags = JSON_FORMAT_PRETTY;
                         BootEntry *entry = NULL;
                         _cleanup_(json_variant_unrefp) JsonVariant *output;
                         char *options = NULL;
                         char *initrd = NULL;
 
                         printf("{");
-                        if (arg_json_format == 2)
-                                format_flags = JSON_FORMAT_OFF;
-                        else
+                        if (arg_json_format != JSON_FORMAT_OFF)
                                 printf("\n");
 
                         for (n = 0; n < config.n_entries; n++) {
@@ -1396,12 +1389,12 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                                                     JSON_BUILD_PAIR("linux", JSON_BUILD_STRING(entry->kernel)),
                                                     JSON_BUILD_PAIR("initrd", JSON_BUILD_STRING(initrd)),
                                                     JSON_BUILD_PAIR("options", JSON_BUILD_STRING(options))));
-                                json_variant_dump(output, format_flags, stdout, NULL);
-                                if (arg_json_format == 1)
+                                json_variant_dump(output, arg_json_format, stdout, NULL);
+                                if (arg_json_format == JSON_FORMAT_PRETTY)
                                         printf("\x1B[A}");
                                 if (n+1 < config.n_entries)
                                         printf(",");
-                                if (arg_json_format == 1)
+                                if (arg_json_format == JSON_FORMAT_PRETTY)
                                         printf("\n");
                         }
                         printf("}");
