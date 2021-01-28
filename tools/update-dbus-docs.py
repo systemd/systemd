@@ -17,6 +17,10 @@ try:
     from shlex import join as shlex_join
 except ImportError as e:
     shlex_join = e
+    try:
+        from shlex import quote as shlex_quote
+    except ImportError as e:
+        shlex_quote = e
 
 class NoCommand(Exception):
     pass
@@ -186,7 +190,10 @@ def subst_output(document, programlisting, stats):
     interface = programlisting.get('interface')
 
     argv = [f'{opts.build_dir}/{executable}', f'--bus-introspect={interface}']
-    print(f'COMMAND: {shlex_join(argv)}')
+    if isinstance(shlex_join, Exception):
+        print(f'COMMAND: {" ".join([shlex_quote(arg) for arg in argv])}')
+    else:
+        print(f'COMMAND: {shlex_join(argv)}')
 
     try:
         out = subprocess.check_output(argv, text=True)
@@ -296,7 +303,7 @@ def parse_args():
 if __name__ == '__main__':
     opts = parse_args()
 
-    for item in (etree, shlex_join):
+    for item in (etree, shlex_quote):
         if isinstance(item, Exception):
             print(item, file=sys.stderr)
             exit(77 if opts.test else 1)
@@ -308,7 +315,7 @@ if __name__ == '__main__':
 
     # Let's print all statistics at the end
     mlen = max(len(page) for page in stats)
-    total = sum((item['stats'] for item in stats.values()), start=collections.Counter())
+    total = sum((item['stats'] for item in stats.values()), collections.Counter())
     total = 'total', dict(stats=total, outdated=False)
     outdated = []
     for page, info in sorted(stats.items()) + [total]:
