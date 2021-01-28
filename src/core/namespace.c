@@ -983,6 +983,8 @@ static int mount_images(const MountEntry *m) {
         assert(m);
 
         r = verity_dissect_and_mount(mount_entry_source(m), mount_entry_path(m), m->image_options);
+        if (r == -ENOENT && m->ignore)
+                return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
