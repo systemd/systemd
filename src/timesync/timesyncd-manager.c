@@ -73,6 +73,13 @@ static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
 }
 
+static uint32_t graceful_add_offset_1900_1970(time_t t) {
+        /* Adds OFFSET_1900_1970 to t and returns it as 32bit value. This is handles overflows
+         * gracefully in a deterministic and well-defined way by cutting off the top bits. */
+        uint64_t a = (uint64_t) t + OFFSET_1900_1970;
+        return (uint32_t) (a & UINT64_C(0xFFFFFFFF));
+}
+
 static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
         Manager *m = userdata;
@@ -122,7 +129,7 @@ static int manager_send_request(Manager *m) {
          */
         assert_se(clock_gettime(clock_boottime_or_monotonic(), &m->trans_time_mon) >= 0);
         assert_se(clock_gettime(CLOCK_REALTIME, &m->trans_time) >= 0);
-        ntpmsg.trans_time.sec = htobe32(m->trans_time.tv_sec + OFFSET_1900_1970);
+        ntpmsg.trans_time.sec = htobe32(graceful_add_offset_1900_1970(m->trans_time.tv_sec));
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
 
         server_address_pretty(m->current_server_address, &pretty);
@@ -477,7 +484,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->missed_replies = 0;
 
         /* check our "time cookie" (we just stored nanoseconds in the fraction field) */
-        if (be32toh(ntpmsg.origin_time.sec) != m->trans_time.tv_sec + OFFSET_1900_1970 ||
+        if (be32toh(ntpmsg.origin_time.sec) != graceful_add_offset_1900_1970(m->trans_time.tv_sec) ||
             be32toh(ntpmsg.origin_time.frac) != (unsigned long) m->trans_time.tv_nsec) {
                 log_debug("Invalid reply; not our transmit time. Ignoring.");
                 return 0;
