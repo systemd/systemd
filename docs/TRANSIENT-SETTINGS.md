@@ -273,6 +273,7 @@ All cgroup/resource control settings are available for transient units
 ✓ ManagedOOMSwap=
 ✓ ManagedOOMMemoryPressure=
 ✓ ManagedOOMMemoryPressureLimitPercent=
+✓ ManagedOOMPreference=
 ```
 
 ## Process Killing Settings

@@ -94,6 +94,15 @@ struct CGroupBlockIODeviceBandwidth {
         uint64_t wbps;
 };
 
+typedef enum ManagedOOMPreference {
+        MANAGED_OOM_PREFERENCE_NONE,
+        MANAGED_OOM_PREFERENCE_AVOID,
+        MANAGED_OOM_PREFERENCE_OMIT,
+
+        _MANAGED_OOM_PREFERENCE_MAX,
+        _MANAGED_OOM_PREFERENCE_INVALID = -1
+} ManagedOOMPreference;
+
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -164,6 +173,7 @@ struct CGroupContext {
         ManagedOOMMode moom_swap;
         ManagedOOMMode moom_mem_pressure;
         int moom_mem_pressure_limit;
+        ManagedOOMPreference moom_preference;
 };
 
 /* Used when querying IP accounting data */
@@ -203,6 +213,8 @@ void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODe
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+
+void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
@@ -294,3 +306,6 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
 const char* freezer_action_to_string(FreezerAction a) _const_;
 FreezerAction freezer_action_from_string(const char *s) _pure_;
+
+const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
+ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
