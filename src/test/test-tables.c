@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
         test_table(log_target, LOG_TARGET);
         test_table(mac_address_policy, MAC_ADDRESS_POLICY);
         test_table(managed_oom_mode, MANAGED_OOM_MODE);
+        test_table(managed_oom_preference, MANAGED_OOM_PREFERENCE);
         test_table(manager_state, MANAGER_STATE);
         test_table(manager_timestamp, MANAGER_TIMESTAMP);
         test_table(mount_exec_command, MOUNT_EXEC_COMMAND);

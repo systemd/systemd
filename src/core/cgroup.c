@@ -131,6 +131,7 @@ void cgroup_context_init(CGroupContext *c) {
 
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
+                .moom_preference = MANAGED_OOM_PREFERENCE_NONE,
         };
 }
 
@@ -417,7 +418,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sDelegate: %s\n"
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
-                "%sManagedOOMMemoryPressureLimit: %" PRIu32 ".%02" PRIu32 "%%\n",
+                "%sManagedOOMMemoryPressureLimit: %" PRIu32 ".%02" PRIu32 "%%\n"
+                "%sManagedOOMPreference: %s%%\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -450,7 +452,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, yes_no(c->delegate),
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
-                prefix, c->moom_mem_pressure_limit_permyriad / 100, c->moom_mem_pressure_limit_permyriad % 100);
+                prefix, c->moom_mem_pressure_limit_permyriad / 100, c->moom_mem_pressure_limit_permyriad % 100,
+                prefix, managed_oom_preference_to_string(c->moom_preference));
 
         if (c->delegate) {
                 _cleanup_free_ char *t = NULL;
@@ -600,6 +603,35 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
 
+void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
+        CGroupContext *c;
+        int r;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return;
+
+        r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_avoid");
+        if (r != -ENODATA)
+                log_unit_debug_errno(u, r, "Failed to remove oomd_avoid flag on control group %s, ignoring: %m", cgroup_path);
+
+        r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_omit");
+        if (r != -ENODATA)
+                log_unit_debug_errno(u, r, "Failed to remove oomd_omit flag on control group %s, ignoring: %m", cgroup_path);
+
+        if (c->moom_preference == MANAGED_OOM_PREFERENCE_AVOID) {
+                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_avoid", "1", 1, 0);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to set oomd_avoid flag on control group %s, ignoring: %m", cgroup_path);
+        } else if (c->moom_preference == MANAGED_OOM_PREFERENCE_OMIT) {
+                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_omit", "1", 1, 0);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to set oomd_omit flag on control group %s, ignoring: %m", cgroup_path);
+        }
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         char ids[SD_ID128_STRING_MAX];
         int r;
@@ -630,6 +662,8 @@ static void cgroup_xattr_apply(Unit *u) {
                 if (r != -ENODATA)
                         log_unit_debug_errno(u, r, "Failed to remove delegate flag on control group %s, ignoring: %m", u->cgroup_path);
         }
+
+        cgroup_oomd_xattr_apply(u, u->cgroup_path);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
@@ -3737,12 +3771,6 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         return 1;
 }
 
-static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
-        [CGROUP_DEVICE_POLICY_AUTO]   = "auto",
-        [CGROUP_DEVICE_POLICY_CLOSED] = "closed",
-        [CGROUP_DEVICE_POLICY_STRICT] = "strict",
-};
-
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         _cleanup_free_ char *v = NULL;
         int r;
@@ -3771,6 +3799,12 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         return parse_cpu_set_full(v, cpus, false, NULL, NULL, 0, NULL);
 }
 
+static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
+        [CGROUP_DEVICE_POLICY_AUTO]   = "auto",
+        [CGROUP_DEVICE_POLICY_CLOSED] = "closed",
+        [CGROUP_DEVICE_POLICY_STRICT] = "strict",
+};
+
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
 
 static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
@@ -3779,3 +3813,11 @@ static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
+
+static const char* const managed_oom_preference_table[_MANAGED_OOM_PREFERENCE_MAX] = {
+        [MANAGED_OOM_PREFERENCE_NONE] = "none",
+        [MANAGED_OOM_PREFERENCE_AVOID] = "avoid",
+        [MANAGED_OOM_PREFERENCE_OMIT] = "omit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);
