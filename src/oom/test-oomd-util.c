@@ -292,16 +292,20 @@ static void test_oomd_sort_cgroups(void) {
         OomdCGroupContext ctx[4] = {
                 { .path = paths[0],
                   .swap_usage = 20,
-                  .pgscan = 60 },
+                  .pgscan = 60,
+                  .current_memory_usage = 10 },
                 { .path = paths[1],
                   .swap_usage = 60,
-                  .pgscan = 40 },
+                  .pgscan = 40,
+                  .current_memory_usage = 20 },
                 { .path = paths[2],
                   .swap_usage = 40,
-                  .pgscan = 20 },
+                  .pgscan = 40,
+                  .current_memory_usage = 40 },
                 { .path = paths[3],
                   .swap_usage = 10,
-                  .pgscan = 80 },
+                  .pgscan = 80,
+                  .current_memory_usage = 10 },
         };
 
         assert_se(h = hashmap_new(&string_hash_ops));
@@ -318,16 +322,16 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[3] == &ctx[3]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan, NULL, &sorted_cgroups) == 4);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, NULL, &sorted_cgroups) == 4);
         assert_se(sorted_cgroups[0] == &ctx[3]);
         assert_se(sorted_cgroups[1] == &ctx[0]);
-        assert_se(sorted_cgroups[2] == &ctx[1]);
-        assert_se(sorted_cgroups[3] == &ctx[2]);
+        assert_se(sorted_cgroups[2] == &ctx[2]);
+        assert_se(sorted_cgroups[3] == &ctx[1]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
-        assert_se(sorted_cgroups[0] == &ctx[1]);
-        assert_se(sorted_cgroups[1] == &ctx[2]);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
+        assert_se(sorted_cgroups[0] == &ctx[2]);
+        assert_se(sorted_cgroups[1] == &ctx[1]);
         assert_se(sorted_cgroups[2] == 0);
         assert_se(sorted_cgroups[3] == 0);
         sorted_cgroups = mfree(sorted_cgroups);
