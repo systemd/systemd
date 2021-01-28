@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # The official unmodified version of the script can be found at
 # https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh

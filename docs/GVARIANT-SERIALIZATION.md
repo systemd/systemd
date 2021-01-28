@@ -1,5 +1,10 @@
-How we use GVariant for serializing D-Bus messages
---------------------------------------------------
+---
+title: GVariant D-Bus Message Serialization
+category: Interfaces
+layout: default
+---
+
+# GVariant D-Bus Message Serialization
 
 We stay close to the original dbus1 framing as possible, but make
 certain changes to adapt for GVariant. dbus1 has the following

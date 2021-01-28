@@ -1,3 +1,4 @@
+m4_dnl SPDX-License-Identifier: LGPL-2.1-or-later
 %{
 #if __GNUC__ >= 7
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")

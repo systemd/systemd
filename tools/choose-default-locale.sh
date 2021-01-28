@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
 # Fedora uses C.utf8 but Debian uses C.UTF-8
