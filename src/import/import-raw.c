@@ -64,10 +64,7 @@ RawImport* raw_import_unref(RawImport *i) {
 
         sd_event_unref(i->event);
 
-        if (i->temp_path) {
-                (void) unlink(i->temp_path);
-                free(i->temp_path);
-        }
+        unlink_and_free(i->temp_path);
 
         import_compress_free(&i->compress);
 

@@ -73,10 +73,7 @@ TarImport* tar_import_unref(TarImport *i) {
                 (void) wait_for_terminate(i->tar_pid, NULL);
         }
 
-        if (i->temp_path) {
-                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-                free(i->temp_path);
-        }
+        rm_rf_subvolume_and_free(i->temp_path);
 
         import_compress_free(&i->compress);
 
