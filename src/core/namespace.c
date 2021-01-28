@@ -997,6 +997,8 @@ static int mount_images(const MountEntry *m) {
                 return log_debug_errno(r, "Failed to umount under destination directory %s: %m", mount_entry_path(m));
 
         r = dissected_image_mount(dissected_image, mount_entry_path(m), UID_INVALID, dissect_image_flags);
+        if (r == -ENOENT && m->ignore)
+                return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image: %m");
 
