@@ -36,8 +36,8 @@
     <para><command>userdbctl</command> may be used to inspect user and groups (as well as group memberships)
     of the system. This client utility inquires user/group information provided by various system services,
     both operating on JSON user/group records (as defined by the <ulink
-    url="https://systemd.io/USER_RECORD">JSON User Record</ulink> and <ulink
-    url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> definitions), and classic UNIX NSS/glibc
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> and <ulink
+    url="https://systemd.io/GROUP_RECORD">JSON Group Records</ulink> definitions), and classic UNIX NSS/glibc
     user and group records. This tool is primarily a client to the <ulink
     url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>.</para>
   </refsect1>

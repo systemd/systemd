@@ -2274,13 +2274,38 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--timestamp=</option></term>
 
         <listitem>
-          <para>Takes one of <literal>pretty</literal> (the default),
-          <literal>us</literal>, <literal>µs</literal>, <literal>utc</literal>.
-          Changes the format of printed timestamps.
-          <literal>pretty</literal>: <literal>Day YYYY-MM-DD HH:MM:SS TZ</literal>
-          <literal>us</literal> or <literal>µs</literal>: <literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ</literal>
-          <literal>utc</literal>: <literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para>
-          <literal>us+utc</literal> or <literal>µs+utc</literal>: <literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC</literal>
+          <para>Change the format of printed timestamps. The following values may be used:
+          </para>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>pretty</option> (this is the default)</term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS TZ</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>us</option></term>
+              <term><option>µs</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>utc</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
+
+          <variablelist>
+            <varlistentry>
+              <term><option>us+utc</option></term>
+              <term><option>µs+utc</option></term>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC</literal></para></listitem>
+            </varlistentry>
+          </variablelist>
         </listitem>
       </varlistentry>
 

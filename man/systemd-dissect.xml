@@ -207,7 +207,7 @@
 
         <listitem><para>Takes one of <literal>disabled</literal>, <literal>loop</literal>,
         <literal>all</literal>, <literal>crypto</literal>. If <literal>disabled</literal> the image is
-        accessed with empty block discarding turned off. if <literal>loop</literal> discarding is enabled if
+        accessed with empty block discarding turned off. If <literal>loop</literal> discarding is enabled if
         operating on a regular file. If <literal>crypt</literal> discarding is enabled even on encrypted file
         systems. If <literal>all</literal> discarding is unconditionally enabled.</para></listitem>
       </varlistentry>
@@ -217,15 +217,16 @@
         <term><option>--root-hash-sig=</option></term>
         <term><option>--verity-data=</option></term>
 
-        <listitem><para>Configure various aspects of Verity data integrity for the OS
-        image. <option>--root-hash=</option> expects a hex-encoding top-level Verity hash to use for setting
-        up the Verity integrity protection. <option>--root-hash-sig=</option> expects the path to a file
-        containing a PKCS#7 signature file for the hash. This signature is passed to the kernel during
-        activation, which will match it against signature keys available in the kernel
-        keyring. <option>--verity-data=</option> expects the path to a file with the Verity data to use for
-        the OS image, in case it is stored in a detached file. It is recommended to embed the Verity data
-        directly in the image, using the Verity mechanisms in the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</para></listitem>
+        <listitem><para>Configure various aspects of Verity data integrity for the OS image. Option
+        <option>--root-hash=</option> specifies a hex-encoded top-level Verity hash to use for setting up the
+        Verity integrity protection. Option <option>--root-hash-sig=</option> specifies the path to a file
+        containing a PKCS#7 signature for the hash. This signature is passed to the kernel during activation,
+        which will match it against signature keys available in the kernel keyring.  Option
+        <option>--verity-data=</option> specifies a path to a file with the Verity data to use for the OS
+        image, in case it is stored in a detached file. It is recommended to embed the Verity data directly
+        in the image, using the Verity mechanisms in the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

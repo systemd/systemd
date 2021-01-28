@@ -1281,9 +1281,9 @@
             <para>The XDG specification defines a way to autostart applications using XDG desktop files.
             systemd ships
             <citerefentry><refentrytitle>systemd-xdg-autostart-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            for the XDG desktop files in autostart directories.
-            Desktop Environments can opt-in to use this service by adding a <varname>Wants=</varname>
-            dependency on <literal>xdg-desktop-autostart.target</literal>.</para>
+            for the XDG desktop files in autostart directories. Desktop Environments can opt-in to use this
+            service by adding a <varname>Wants=</varname> dependency on
+            <filename>xdg-desktop-autostart.target</filename>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
