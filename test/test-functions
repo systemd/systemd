@@ -2088,6 +2088,10 @@ _test_cleanup() {
         set +e
         _umount_dir $initdir
         rm -vf "$IMAGE_PUBLIC"
+        # If multiple setups/cleans are ran in parallel, this can cause a race
+        if [ ${TEST_PARALLELIZE} -ne 1 ]; then
+            rm -vf "${IMAGESTATEDIR}/default.img"
+        fi
         rm -vfr "$TESTDIR"
         rm -vf "$STATEFILE"
     ) || :
