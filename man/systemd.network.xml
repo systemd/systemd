@@ -665,8 +665,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>DNS=</varname></term>
           <listitem>
-            <para>A DNS server address, which must be in the format
-            described in
+            <para>A DNS server address, which must be in the format described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This option may be specified more than once. Each address can optionally take a port number
             separated with <literal>:</literal>, a network interface name or index separated with
@@ -674,9 +673,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             When IPv6 address is specified with a port number, then the address must be in the square
             brackets. That is, the acceptable full formats are
             <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
-            <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. This setting can be
-            specified multiple times. If an empty string is assigned, then the all previous assignments
-            are cleared. This setting is read by
+            <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. If an empty string is
+            assigned, then the all previous assignments are cleared. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
@@ -1074,13 +1072,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>PreferredLifetime=</varname></term>
           <listitem>
-            <para>Allows the default "preferred lifetime" of the address to be overridden.
-            Only three settings are accepted: <literal>forever</literal> or <literal>infinity</literal>
-            which is the default and means that the address never expires, and <literal>0</literal> which means
-            that the address is considered immediately "expired" and will not be used,
-            unless explicitly requested. A setting of PreferredLifetime=0 is useful for
-            addresses which are added to be used only by a specific application,
-            which is then configured to use them explicitly.</para>
+            <para>Allows the default "preferred lifetime" of the address to be overridden. Only three
+            settings are accepted: <literal>forever</literal>, <literal>infinity</literal>, which is the
+            default and means that the address never expires, and <literal>0</literal>, which means that the
+            address is considered immediately "expired" and will not be used, unless explicitly requested. A
+            setting of <option>PreferredLifetime=0</option> is useful for addresses which are added to be
+            used only by a specific application, which is then configured to use them explicitly.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1882,8 +1879,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RequestOptions=</varname></term>
           <listitem>
-            <para>When configured, allows to set arbitrary request options in the DHCPv4 request options list and will be
-            sent to the DHCPV4 server. A whitespace-separated list of integers in the range 1..254. Defaults to unset.</para>
+            <para>Sets request options to be sent to the server in the DHCPv4 request options list. A
+            whitespace-separated list of integers in the range 1..254. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -1965,7 +1962,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>MUDURL=</varname></term>
           <listitem>
             <para>When configured, the specified Manufacturer Usage Description (MUD) URL will be sent to
-            the DHCPV6 server. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
+            the DHCPv6 server. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
             [DHCPv4] section described above.</para>
           </listitem>
         </varlistentry>
@@ -1974,7 +1971,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>RequestOptions=</varname></term>
           <listitem>
             <para>When configured, allows to set arbitrary request options in the DHCPv6 request options list
-            that will be sent to the DHCPV6 server. A whitespace-separated list of integers in the range
+            that will be sent to the DHCPv6 server. A whitespace-separated list of integers in the range
             1..254. Defaults to unset.</para>
           </listitem>
         </varlistentry>
@@ -2306,7 +2303,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         servers set. The "uplink" interface is determined by the default route of the system with the highest
         priority. Note that this information is acquired at the time the lease is handed out, and does not
         take uplink interfaces into account that acquire DNS server information at a later point. If no
-        suitable uplinkg interface is found the DNS server data from <filename>/etc/resolv.conf</filename> is
+        suitable uplink interface is found the DNS server data from <filename>/etc/resolv.conf</filename> is
         used. Also, note that the leases are not refreshed if the uplink network configuration changes. To
         ensure clients regularly acquire the most current uplink DNS server information, it is thus advisable
         to shorten the DHCP lease time via <varname>MaxLeaseTimeSec=</varname> described
@@ -3022,8 +3019,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
-          dropped. An unsigned integer ranges 1 to 4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
+          incoming packets are dropped. An unsigned integer ranges 1 to 4294967294. Defaults to unset and
+          kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3101,10 +3099,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the FIFO size in number of packets. The size limit (a buffer
-          size) to prevent it from overflowing in case it is unable to dequeue packets as quickly as it
-          receives them. When this limit is reached, incoming packets are dropped. An unsigned integer in the
-          range 0–4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the number of packets in the FIFO queue. The size limit prevents
+          overflow in case the kernel is unable to dequeue packets as quickly as it receives them. When this
+          limit is reached, incoming packets are dropped. An unsigned integer in the range
+          0–4294967294. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3682,9 +3680,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>MaxPacketBytes=</varname></term>
         <listitem>
-          <para>Specifies the maximum packet size in bytes for the class. When suffixed with K, M, or G, the specified
-          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. When unset,
-          the kernel default is used.</para>
+          <para>Specifies the maximum packet size in bytes for the class. When suffixed with K, M, or G, the
+          specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of
+          1024. When unset, the kernel default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

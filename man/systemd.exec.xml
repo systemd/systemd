@@ -338,10 +338,10 @@
         <term><varname>ProcSubset=</varname></term>
 
         <listitem><para>Takes one of <literal>all</literal> (the default) and <literal>pid</literal>. If
-        the latter all files and directories not directly associated with process management and introspection
-        are made invisible in the <filename>/proc/</filename> file system configured for the unit's
-        processes. This controls the <literal>subset=</literal> mount option of the <literal>procfs</literal>
-        instance for the unit. For further details see <ulink
+        <literal>pid</literal>, all files and directories not directly associated with process management and
+        introspection are made invisible in the <filename>/proc/</filename> file system configured for the
+        unit's processes. This controls the <literal>subset=</literal> mount option of the
+        <literal>procfs</literal> instance for the unit. For further details see <ulink
         url="https://www.kernel.org/doc/html/latest/filesystems/proc.html#mount-options">The /proc
         Filesystem</ulink>. Note that Linux exposes various kernel APIs via <filename>/proc/</filename>,
         which are made unavailable with this setting. Since these APIs are used frequently this option is
@@ -1443,14 +1443,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         executed processes and mounts private <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
         directories inside it that are not shared by processes outside of the namespace. This is useful to
         secure access to temporary files of the process, but makes sharing between processes via
-        <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If this is enabled, all
-        temporary files created by a service in these directories will be removed after the service is
-        stopped. Defaults to false. It is possible to run two or more units within the same private
-        <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using the
-        <varname>JoinsNamespaceOf=</varname> directive, see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
-        restrictions regarding mount propagation and privileges apply as for
+        <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If true, all temporary files
+        created by a service in these directories will be removed after the service is stopped. Defaults to
+        false. It is possible to run two or more units within the same private <filename>/tmp/</filename> and
+        <filename>/var/tmp/</filename> namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
+        see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the
+        same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Enabling this setting has the side
         effect of adding <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount
         units necessary to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. Moreover an
@@ -2762,8 +2761,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varname>ExecStart=</varname> command line use <literal>${CREDENTIALS_DIRECTORY}/mycred</literal>,
         e.g. <literal>ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred</literal>.</para>
 
-        <para>Currently, an accumulated credential size limit of 1M bytes per unit is
-        enforced.</para>
+        <para>Currently, an accumulated credential size limit of 1 MB per unit is enforced.</para>
 
         <para>If referencing an <constant>AF_UNIX</constant> stream socket to connect to, the connection will
         originate from an abstract namespace socket, that includes information about the unit and the

@@ -905,10 +905,11 @@ DeviceAllow=/dev/loop-control
 
         <listitem>
           <para>Overrides the default memory pressure limit set by
-          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for this unit
-          (cgroup). Takes a percentage value between 0% and 100%, inclusive. This property is ignored unless
-          <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>. Defaults to 0%, which means use the
-          default set by <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          this unit (cgroup). Takes a percentage value between 0% and 100%, inclusive. This property is
+          ignored unless <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>. Defaults to 0%,
+          which means to use the default set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
         </listitem>
       </varlistentry>

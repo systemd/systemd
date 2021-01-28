@@ -34,10 +34,10 @@
     thus preserving the existing information contained in the pstore, and clearing
     pstore storage for future error events.</para>
 
-    <para>Linux provides a persistent storage file system, pstore, that can store
-    error records when the kernel dies (or reboots or powers-off). These records in
-    turn can be referenced to debug kernel problems (currently the kernel stuffs
-    the tail of the dmesg, which also contains a stack backtrace, into pstore).</para>
+    <para>Linux provides a persistent storage file system, pstore, that can store error records when the
+    kernel dies (or reboots or powers-off). These records in turn can be referenced to debug kernel problems
+    (currently the kernel stores the tail of the kernel log, which also contains a stack backtrace, into
+    pstore).</para>
 
     <para>The pstore file system supports a variety of backends that map onto persistent
     storage, such as the ACPI ERST and UEFI variables. The pstore backends
@@ -48,7 +48,7 @@
     pstore.</para>
 
     <para>The pstore service is independent of the kdump service. In cloud environments
-    specifically, host and guest filesystems are on remote filesystems (eg. iSCSI
+    specifically, host and guest filesystems are on remote filesystems (e.g. iSCSI
     or NFS), thus kdump relies (implicitly and/or explicitly) upon proper operation
     of networking software *and* hardware *and* infrastructure. Thus it may not be
     possible to capture a kernel coredump to a file since writes over the network
@@ -59,9 +59,9 @@
     debugging.</para>
 
     <para>The <command>systemd-pstore</command> executable does the actual work. Upon starting,
-    the <filename>pstore.conf</filename> file is read and the <filename>/sys/fs/pstore</filename>
+    the <filename>pstore.conf</filename> file is read and the <filename>/sys/fs/pstore/</filename>
     directory contents are processed according to the options. Pstore files are written to the
-    journal, and optionally saved into <filename>/var/lib/systemd/pstore</filename>.</para>
+    journal, and optionally saved into <filename>/var/lib/systemd/pstore/</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -83,17 +83,14 @@
     </refsect2>
 
     <refsect2>
-      <title>Controlling kernel parameters</title>
+      <title>Kernel parameters</title>
 
       <para> The kernel has two parameters,
       <filename>/sys/module/kernel/parameters/crash_kexec_post_notifiers</filename> and
-      <filename>/sys/module/printk/parameters/always_kmsg_dump</filename>,
-      that control writes into pstore.
-      The crash_kexec_post_notifiers parameter enables the kernel to write
-      dmesg (including stack trace) into pstore upon a panic or crash, and
-      printk.always_kmsg_dump parameter enables the kernel to write dmesg
-      upon a normal shutdown (shutdown, reboot, halt). These kernel
-      parameters are managed via the
+      <filename>/sys/module/printk/parameters/always_kmsg_dump</filename>, that control writes into pstore.
+      The first enables storing of the kernel log (including stack trace) into pstore upon a panic or crash,
+      and the second enables storing of the kernel log upon a normal shutdown (shutdown, reboot, halt). These
+      parameters can be managed via the
       <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       mechanism, specifically the file <filename>/usr/lib/tmpfiles/systemd-pstore.conf</filename>.
       </para>
