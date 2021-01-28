@@ -25,6 +25,7 @@ QEMU_MEM="${QEMU_MEM:-512M}"
 IMAGE_NAME=${IMAGE_NAME:-default}
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
+TEST_FORCE_NEWIMAGE="${TEST_FORCE_NEWIMAGE:-${TEST_PARALLELIZE}}"
 LOOPDEV=
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
@@ -2088,6 +2089,7 @@ _test_cleanup() {
         set +e
         _umount_dir $initdir
         rm -vf "$IMAGE_PUBLIC"
+        rm -vf "${IMAGESTATEDIR}/default.img"
         rm -vfr "$TESTDIR"
         rm -vf "$STATEFILE"
     ) || :
