@@ -1794,7 +1794,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 16
+#define N_ENV_VARS 17
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -1949,6 +1949,11 @@ static int build_environment(
 
                 our_env[n_env++] = x;
         }
+
+        if (asprintf(&x, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached()) < 0)
+                return -ENOMEM;
+
+        our_env[n_env++] = x;
 
         our_env[n_env++] = NULL;
         assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);

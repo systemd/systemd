@@ -123,7 +123,7 @@ static int run(int argc, char *argv[]) {
         unsigned long long s = 0;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
