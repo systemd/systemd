@@ -13,6 +13,8 @@ if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]
 fi
 [[ -e /skipped ]] && exit 0 || true
 
+rm -rf /etc/systemd/system/testsuite-56-testbloat.service.d
+
 echo "DefaultMemoryPressureDurationSec=5s" >> /etc/systemd/oomd.conf
 
 systemctl start testsuite-56-testchill.service
@@ -41,10 +43,14 @@ if ! systemctl status testsuite-56-testchill.service; then exit 24; fi
 if setfattr -n trusted.xattr_test -v 1 /sys/fs/cgroup/; then
     sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
+    mkdir -p /etc/systemd/system/testsuite-56-testbloat.service.d/
+    echo "[Service]" > /etc/systemd/system/testsuite-56-testbloat.service.d/override.conf
+    echo "ManagedOOMPreference=avoid" >> /etc/systemd/system/testsuite-56-testbloat.service.d/override.conf
+
+    systemctl daemon-reload
     systemctl start testsuite-56-testchill.service
     systemctl start testsuite-56-testmunch.service
     systemctl start testsuite-56-testbloat.service
-    setfattr -n trusted.oomd_avoid -v 1 /sys/fs/cgroup/testsuite.slice/testsuite-56.slice/testsuite-56-workload.slice/testsuite-56-testbloat.service
 
     timeout=$(date -ud "2 minutes" +%s)
     while [[ $(date -u +%s) -le $timeout ]]; do
