@@ -83,6 +83,13 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
         return 1;
 }
 
+void import_uncompress_force_off(ImportCompress *c) {
+        assert(c);
+
+        c->type = IMPORT_COMPRESS_UNCOMPRESSED;
+        c->encoding = false;
+}
+
 int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata) {
         int r;
 
