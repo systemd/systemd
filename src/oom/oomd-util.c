@@ -219,7 +219,8 @@ int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run) {
                 return r;
 
         for (int i = 0; i < r; i++) {
-                if (sorted[i]->pgscan == 0)
+                /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure */
+                if (sorted[i]->pgscan == 0 && sorted[i]->current_memory_usage == 0)
                         break;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
