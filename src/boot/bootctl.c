@@ -44,6 +44,7 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
+#include "json.h"
 
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
@@ -52,6 +53,11 @@ static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_graceful = false;
+/* Because JSON output only supports 'short' and 'pretty', this could be a bool,
+ * but, I do an int here so that other formats can be added in the future if the
+ * need arrises.
+ */
+static JsonFormatFlags arg_json_format = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -1043,6 +1049,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
+               "     --json=MODE       When used with 'list', provides output in JSON format.\n"
+               "                       Accepted modes are 'short', for shortest possible output,\n"
+               "                       and 'pretty', for an easier-to-read output.\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -1061,6 +1070,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
                 ARG_GRACEFUL,
+                ARG_JSON_FORMAT
         };
 
         static const struct option options[] = {
@@ -1075,6 +1085,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-variables",    no_argument,       NULL, ARG_NO_VARIABLES    },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "graceful",        no_argument,       NULL, ARG_GRACEFUL        },
+                { "json",            required_argument, NULL, ARG_JSON_FORMAT     },
                 {}
         };
 
@@ -1130,7 +1141,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_GRACEFUL:
                         arg_graceful = true;
                         break;
+                case ARG_JSON_FORMAT:
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format);
+                        if (r <= 0)
+                                return r;
 
+                        break;
                 case '?':
                         return -EINVAL;
 
@@ -1345,18 +1361,56 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 log_info("No boot loader entries found.");
         else {
                 size_t n;
+                if (arg_json_format > 0) {
+                        //Format flags
+                        BootEntry *entry = NULL;
+                        _cleanup_(json_variant_unrefp) JsonVariant *output;
+                        char *options = NULL;
+                        char *initrd = NULL;
 
-                (void) pager_open(arg_pager_flags);
+                        printf("{");
+                        if (arg_json_format != JSON_FORMAT_OFF)
+                                printf("\n");
 
-                printf("Boot Loader Entries:\n");
+                        for (n = 0; n < config.n_entries; n++) {
+                                entry = config.entries + n;
+                                if (entry->options == NULL)
+                                        options = NULL;
+                                else
+                                        options = *(entry->options);
+                                if (entry->initrd == NULL)
+                                        initrd = NULL;
+                                else
+                                        initrd = *(entry->initrd);
+                                printf("\"%s\": ", boot_entry_title(entry));
+                                json_build(&output, JSON_BUILD_OBJECT(
+                                                    JSON_BUILD_PAIR("id", JSON_BUILD_STRING(entry->id)),
+                                                    JSON_BUILD_PAIR("source", JSON_BUILD_STRING(entry->path)),
+                                                    JSON_BUILD_PAIR("linux", JSON_BUILD_STRING(entry->kernel)),
+                                                    JSON_BUILD_PAIR("initrd", JSON_BUILD_STRING(initrd)),
+                                                    JSON_BUILD_PAIR("options", JSON_BUILD_STRING(options))));
+                                json_variant_dump(output, arg_json_format, stdout, NULL);
+                                if (arg_json_format == JSON_FORMAT_PRETTY)
+                                        printf("\x1B[A}");
+                                if (n+1 < config.n_entries)
+                                        printf(",");
+                                if (arg_json_format == JSON_FORMAT_PRETTY)
+                                        printf("\n");
+                        }
+                        printf("}");
+                } else {
+                        (void) pager_open(arg_pager_flags);
 
-                for (n = 0; n < config.n_entries; n++) {
-                        r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
-                        if (r < 0)
-                                return r;
+                        printf("Boot Loader Entries:\n");
 
-                        if (n+1 < config.n_entries)
-                                putchar('\n');
+                        for (n = 0; n < config.n_entries; n++) {
+                                r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
+                                if (r < 0)
+                                        return r;
+
+                                if (n+1 < config.n_entries)
+                                        putchar('\n');
+                        }
                 }
         }
 
