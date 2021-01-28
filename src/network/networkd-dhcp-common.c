@@ -551,13 +551,13 @@ int config_parse_dhcp_user_or_vendor_class(
                 if (ltype == AF_INET) {
                         if (len > UINT8_MAX || len == 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1-255, ignoring.", w);
+                                           "%s length is not in the range 1…255, ignoring.", w);
                                 continue;
                         }
                 } else {
                         if (len > UINT16_MAX || len == 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1-65535, ignoring.", w);
+                                           "%s length is not in the range 1…65535, ignoring.", w);
                                 continue;
                         }
                 }

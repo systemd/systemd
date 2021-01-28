@@ -212,20 +212,20 @@
           <para>Link groups are similar to port ranges found in managed switches.
           When network interfaces are added to a numbered group, operations on
           all the interfaces from that group can be performed at once. An unsigned
-          integer in the range 0—4294967294. Defaults to unset.</para>
+          integer in the range 0…4294967294. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TransmitQueues=</varname></term>
         <listitem>
-          <para>Specifies the devices's number of transmit queues. An integer in the range 1...4096.
+          <para>Specifies the devices's number of transmit queues. An integer in the range 1…4096.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>ReceiveQueues=</varname></term>
         <listitem>
-          <para>Specifies the devices's number of receive queues. An integer in the range 1...4096.
+          <para>Specifies the devices's number of receive queues. An integer in the range 1…4096.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
@@ -295,21 +295,21 @@
           <term><varname>VirtualFunction=</varname></term>
           <listitem>
             <para>Specifies a Virtual Function (VF), lightweight PCIe function designed solely to move data
-            in and out. Takes an unsigned integer in the range 0..2147483646. This option is compulsory.</para>
+            in and out. Takes an unsigned integer in the range 0…2147483646. This option is compulsory.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>VLANId=</varname></term>
           <listitem>
-            <para>Specifies VLAN ID of the virtual function. Takes an unsigned integer in the range 1..4095.</para>
+            <para>Specifies VLAN ID of the virtual function. Takes an unsigned integer in the range 1…4095.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>QualityOfService=</varname></term>
           <listitem>
-            <para>Specifies quality of service of the virtual function. Takes an unsigned integer in the range 1..4294967294.</para>
+            <para>Specifies quality of service of the virtual function. Takes an unsigned integer in the range 1…4294967294.</para>
           </listitem>
         </varlistentry>
 
@@ -1087,7 +1087,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <literal>global</literal> (valid everywhere on the network, even through a gateway),
             <literal>link</literal> (only valid on this device, will not traverse a gateway) or
             <literal>host</literal> (only valid within the device itself, e.g. 127.0.0.1)
-            or an unsigned integer in the range 0—255.
+            or an unsigned integer in the range 0…255.
             Defaults to <literal>global</literal>.</para>
           </listitem>
         </varlistentry>
@@ -1306,7 +1306,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>SuppressPrefixLength=</varname></term>
           <listitem>
-            <para>Takes a number <replaceable>N</replaceable> in the range 0-128 and rejects routing
+            <para>Takes a number <replaceable>N</replaceable> in the range 0…128 and rejects routing
             decisions that have a prefix length of <replaceable>N</replaceable> or less. Defaults to
             unset.</para>
           </listitem>
@@ -1880,7 +1880,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>RequestOptions=</varname></term>
           <listitem>
             <para>Sets request options to be sent to the server in the DHCPv4 request options list. A
-            whitespace-separated list of integers in the range 1..254. Defaults to unset.</para>
+            whitespace-separated list of integers in the range 1…254. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -1890,10 +1890,11 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Send an arbitrary raw option in the DHCPv4 request. Takes a DHCP option number, data type
             and data separated with a colon
             (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
-            The option number must be an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
-            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
-            <literal>string</literal>. Special characters in the data string may be escaped using
-            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            The option number must be an integer in the range 1…254. The type takes one of
+            <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
+            <literal>ipv4address</literal>, or <literal>string</literal>. Special characters in the data
+            string may be escaped using <ulink
+            url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
             escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
             then all options specified earlier are cleared. Defaults to unset.</para>
           </listitem>
@@ -1902,13 +1903,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>SendVendorOption=</varname></term>
           <listitem>
-            <para>Send an arbitrary vendor option in the DHCPv4 request. Takes a DHCP option number, data type
-            and data separated with a colon
+            <para>Send an arbitrary vendor option in the DHCPv4 request. Takes a DHCP option number, data
+            type and data separated with a colon
             (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
-            The option number must be an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
-            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
-            <literal>string</literal>. Special characters in the data string may be escaped using
-            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            The option number must be an integer in the range 1…254. The type takes one of
+            <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
+            <literal>ipv4address</literal>, or <literal>string</literal>. Special characters in the data
+            string may be escaped using <ulink
+            url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
             escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
             then all options specified earlier are cleared. Defaults to unset.</para>
           </listitem>
@@ -1972,7 +1974,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>When configured, allows to set arbitrary request options in the DHCPv6 request options list
             that will be sent to the DHCPv6 server. A whitespace-separated list of integers in the range
-            1..254. Defaults to unset.</para>
+            1…254. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -2032,7 +2034,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>SendOption=</varname></term>
           <listitem>
             <para>As in the [DHCPv4] section, however because DHCPv6 uses 16-bit fields to store
-            option numbers, the option number is an integer in the range 1..65536.</para>
+            option numbers, the option number is an integer in the range 1…65536.</para>
           </listitem>
         </varlistentry>
 
@@ -2357,7 +2359,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option number, data type
           and data (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
-          The option number is an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
+          The option number is an integer in the range 1…254. The type takes one of <literal>uint8</literal>,
           <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, <literal>ipv6address</literal>, or
           <literal>string</literal>. Special characters in the data string may be escaped using
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
@@ -2371,7 +2373,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Send a vendor option with value via DHCPv4 server. Takes a DHCP option number, data type
           and data (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
-          The option number is an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
+          The option number is an integer in the range 1…254. The type takes one of <literal>uint8</literal>,
           <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
           <literal>string</literal>. Special characters in the data string may be escaped using
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
@@ -2696,7 +2698,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>VNI=</varname></term>
           <listitem>
             <para>The VXLAN Network Identifier (or VXLAN Segment ID) to use to connect to
-            the remote VXLAN tunnel endpoint. Takes a number in the range 1-16777215.
+            the remote VXLAN tunnel endpoint. Takes a number in the range 1…16777215.
             Defaults to unset.</para>
           </listitem>
         </varlistentry>
@@ -2764,7 +2766,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>BitRate=</varname></term>
           <listitem>
             <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
-            be used here. Takes a number in the range 1..4294967295.</para>
+            be used here. Takes a number in the range 1…4294967295.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3000,8 +3002,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
-          dropped. An unsigned integer in the range 1–4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
+          incoming packets are dropped. An unsigned integer in the range 1…4294967294. Defaults to unset and
+          kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3292,7 +3295,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           separated list of numbers. The first number indicates which band the packets with priority 0 should
           be put to, the second is for priority 1, and so on. There can be up to 16 numbers in the list. If
           there are fewer, the default band that traffic with one of the unmentioned priorities goes to is
-          the last one. Each band number must be in the range 0..255. This setting can be specified multiple
+          the last one. Each band number must be in the range 0…255. This setting can be specified multiple
           times. If an empty string is assigned, then the all previous assignments are cleared.</para>
         </listitem>
       </varlistentry>
@@ -3311,7 +3314,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>VirtualQueues=</varname></term>
         <listitem>
-          <para>Specifies the number of virtual queues. Takes a integer in the range 1-16. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the number of virtual queues. Takes a integer in the range 1…16. Defaults to unset
+          and kernel's default is used.</para>
         </listitem>
       </varlistentry>
 
@@ -3672,7 +3676,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Weight=</varname></term>
         <listitem>
-          <para>Specifies the weight of the class. Takes an integer in the range 1..1023. Defaults to
+          <para>Specifies the weight of the class. Takes an integer in the range 1…1023. Defaults to
           unset in which case the kernel default is used.</para>
         </listitem>
       </varlistentry>

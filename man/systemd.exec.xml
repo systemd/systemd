@@ -766,8 +766,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         enforcement. For example, time limits specified for <varname>LimitCPU=</varname> will be rounded up
         implicitly to multiples of 1s. For <varname>LimitNICE=</varname> the value may be specified in two
         syntaxes: if prefixed with <literal>+</literal> or <literal>-</literal>, the value is understood as
-        regular Linux nice value in the range -20..19. If not prefixed like this the value is understood as
-        raw resource limit parameter in the range 0..40 (with 0 being equivalent to 1).</para>
+        regular Linux nice value in the range -20…19. If not prefixed like this the value is understood as
+        raw resource limit parameter in the range 0…40 (with 0 being equivalent to 1).</para>
 
         <para>Note that most process resource limits configured with these options are per-process, and
         processes may fork in order to acquire a new set of resources that are accounted independently of the
