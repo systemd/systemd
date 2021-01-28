@@ -35,6 +35,8 @@
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
 /* Generator execution */
 #define GENERATOR_TIMEOUT_USEC (1*USEC_PER_SEC)
+/* Shutdown and sleep callouts */
+#define CALLOUT_TIMEOUT_USEC (30*USEC_PER_SEC)
 
 /* A reload or reexec means generators are rerun with a timeout of GENERATOR_TIMEOUT_USEC. We generally
  * expect to call a bunch of generators. Unit generators run in parallel, but environment generators run

@@ -240,7 +240,9 @@ static int execute(
         if (r != 0)
                 log_warning_errno(errno, "Error setting SYSTEMD_SLEEP_ACTION=%s, ignoring: %m", action);
 
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(dirs, CALLOUT_TIMEOUT_USEC,
+                                   NULL, NULL, arguments, NULL,
+                                   EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         (void) lock_all_homes();
 
         log_struct(LOG_INFO,
@@ -261,7 +263,9 @@ static int execute(
                            "SLEEP=%s", sleep_operation_to_string(arg_operation));
 
         arguments[1] = (char*) "post";
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(dirs, CALLOUT_TIMEOUT_USEC,
+                                   NULL, NULL, arguments, NULL,
+                                   EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         return r;
 }
