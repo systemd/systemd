@@ -214,7 +214,7 @@ int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run) {
 
         assert(h);
 
-        r = oomd_sort_cgroup_contexts(h, compare_pgscan, prefix, &sorted);
+        r = oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, prefix, &sorted);
         if (r < 0)
                 return r;
 
