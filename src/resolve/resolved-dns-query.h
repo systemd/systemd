@@ -16,12 +16,14 @@ typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 #include "resolved-dns-transaction.h"
 
 struct DnsQueryCandidate {
+        unsigned n_ref;
+        int error_code;
+
         DnsQuery *query;
         DnsScope *scope;
 
         DnsSearchDomain *search_domain;
 
-        int error_code;
         Set *transactions;
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
@@ -31,19 +33,19 @@ struct DnsQueryCandidate {
 struct DnsQuery {
         Manager *manager;
 
-        /* When resolving a service, we first create a TXT+SRV query,
-         * and then for the hostnames we discover auxiliary A+AAAA
-         * queries. This pointer always points from the auxiliary
-         * queries back to the TXT+SRV query. */
+        /* When resolving a service, we first create a TXT+SRV query, and then for the hostnames we discover
+         * auxiliary A+AAAA queries. This pointer always points from the auxiliary queries back to the
+         * TXT+SRV query. */
         DnsQuery *auxiliary_for;
         LIST_HEAD(DnsQuery, auxiliary_queries);
         unsigned n_auxiliary_queries;
         int auxiliary_result;
 
-        /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note that even
-         * on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names (in contrast to their
-         * domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference between these two fields is mostly
-         * relevant only for explicit *hostname* lookups as well as the domain suffixes of service lookups. */
+        /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
+         * that even on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names
+         * (in contrast to their domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference
+         * between these two fields is mostly relevant only for explicit *hostname* lookups as well as the
+         * domain suffixes of service lookups. */
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
 
@@ -101,8 +103,9 @@ enum {
         DNS_QUERY_RESTARTED,
 };
 
-DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_free);
+DnsQueryCandidate* dns_query_candidate_ref(DnsQueryCandidate*);
+DnsQueryCandidate* dns_query_candidate_unref(DnsQueryCandidate*);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_unref);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
