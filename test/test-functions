@@ -2088,6 +2088,7 @@ _test_cleanup() {
         set +e
         _umount_dir $initdir
         rm -vf "$IMAGE_PUBLIC"
+        rm -vf "${IMAGESTATEDIR}/default.img"
         rm -vfr "$TESTDIR"
         rm -vf "$STATEFILE"
     ) || :
