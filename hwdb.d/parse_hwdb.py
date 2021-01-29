@@ -246,10 +246,19 @@ def check_one_keycode(prop, value):
                 'KBD_LCD_MENU' in key):
             error('Keycode {} unknown', key)
 
+def check_wheel_clicks(properties):
+    pairs = (('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', 'MOUSE_WHEEL_CLICK_COUNT'),
+             ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', 'MOUSE_WHEEL_CLICK_ANGLE'),
+             ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', 'MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL'),
+             ('MOUSE_WHEEL_CLICK_COUNT', 'MOUSE_WHEEL_CLICK_ANGLE'))
+    for pair in pairs:
+        if pair[0] in properties and pair[1] not in properties:
+            error('{} requires {} to be specified', *pair)
+
 def check_properties(groups):
     grammar = property_grammar()
     for matches, props in groups:
-        prop_names = set()
+        seen_props = {}
         for prop in props:
             # print('--', prop)
             prop = prop.partition('#')[0].rstrip()
@@ -259,9 +268,9 @@ def check_properties(groups):
                 error('Failed to parse: {!r}', prop)
                 continue
             # print('{!r}'.format(parsed))
-            if parsed.NAME in prop_names:
+            if parsed.NAME in seen_props:
                 error('Property {} is duplicated', parsed.NAME)
-            prop_names.add(parsed.NAME)
+            seen_props[parsed.NAME] = parsed.VALUE
             if parsed.NAME == 'MOUSE_DPI':
                 check_one_default(prop, parsed.VALUE.SETTINGS)
             elif parsed.NAME == 'ACCEL_MOUNT_MATRIX':
@@ -269,6 +278,8 @@ def check_properties(groups):
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
                 val = parsed.VALUE if isinstance(parsed.VALUE, str) else parsed.VALUE[0]
                 check_one_keycode(prop, val)
+
+        check_wheel_clicks(seen_props)
 
 def print_summary(fname, groups):
     n_matches = sum(len(matches) for matches, props in groups)
