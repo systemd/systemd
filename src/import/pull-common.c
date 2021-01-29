@@ -490,12 +490,15 @@ finish:
 
 int pull_verify(ImportVerify verify,
                 PullJob *main_job,
-                PullJob *roothash_job,
-                PullJob *settings_job,
                 PullJob *checksum_job,
-                PullJob *signature_job) {
+                PullJob *signature_job,
+                PullJob *settings_job,
+                PullJob *roothash_job,
+                PullJob *roothash_signature_job,
+                PullJob *verity_job) {
 
         VerificationStyle style;
+        PullJob *j;
         int r;
 
         assert(main_job);
@@ -513,17 +516,11 @@ int pull_verify(ImportVerify verify,
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Checksum is empty, cannot verify.");
 
-        r = verify_one(checksum_job, main_job);
-        if (r < 0)
-                return r;
-
-        r = verify_one(checksum_job, roothash_job);
-        if (r < 0)
-                return r;
-
-        r = verify_one(checksum_job, settings_job);
-        if (r < 0)
-                return r;
+        FOREACH_POINTER(j, main_job, settings_job, roothash_job, roothash_signature_job, verity_job) {
+                r = verify_one(checksum_job, j);
+                if (r < 0)
+                        return r;
+        }
 
         if (verify == IMPORT_VERIFY_CHECKSUM)
                 return 0;

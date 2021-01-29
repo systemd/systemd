@@ -64,10 +64,7 @@ RawImport* raw_import_unref(RawImport *i) {
 
         sd_event_unref(i->event);
 
-        if (i->temp_path) {
-                (void) unlink(i->temp_path);
-                free(i->temp_path);
-        }
+        unlink_and_free(i->temp_path);
 
         import_compress_free(&i->compress);
 
@@ -316,27 +313,23 @@ static int raw_import_process(RawImport *i) {
                 r = log_error_errno(errno, "Failed to read input file: %m");
                 goto finish;
         }
-        if (l == 0) {
-                if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
-                        log_error("Premature end of file.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                r = raw_import_finish(i);
-                goto finish;
-        }
 
         i->buffer_size += l;
 
         if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
-                r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to detect file compression: %m");
-                        goto finish;
+
+                if (l == 0) { /* EOF */
+                        log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
+                        import_uncompress_force_off(&i->compress);
+                } else {
+                        r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to detect file compression: %m");
+                                goto finish;
+                        }
+                        if (r == 0) /* Need more data */
+                                return 0;
                 }
-                if (r == 0) /* Need more data */
-                        return 0;
 
                 r = raw_import_open_disk(i);
                 if (r < 0)
@@ -345,10 +338,8 @@ static int raw_import_process(RawImport *i) {
                 r = raw_import_try_reflink(i);
                 if (r < 0)
                         goto finish;
-                if (r > 0) {
-                        r = raw_import_finish(i);
-                        goto finish;
-                }
+                if (r > 0)
+                        goto complete;
         }
 
         r = import_uncompress(&i->compress, i->buffer, i->buffer_size, raw_import_write, i);
@@ -360,9 +351,15 @@ static int raw_import_process(RawImport *i) {
         i->written_compressed += i->buffer_size;
         i->buffer_size = 0;
 
+        if (l == 0) /* EOF */
+                goto complete;
+
         raw_import_report_progress(i);
 
         return 0;
+
+complete:
+        r = raw_import_finish(i);
 
 finish:
         if (i->on_finished)

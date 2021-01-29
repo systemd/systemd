@@ -336,7 +336,14 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_VERIFYING);
 
-                r = pull_verify(i->verify, i->tar_job, NULL, i->settings_job, i->checksum_job, i->signature_job);
+                r = pull_verify(i->verify,
+                                i->tar_job,
+                                i->checksum_job,
+                                i->signature_job,
+                                i->settings_job,
+                                /* roothash_job = */ NULL,
+                                /* roothash_signature_job = */ NULL,
+                                /* verity_job = */ NULL);
                 if (r < 0)
                         goto finish;
 
