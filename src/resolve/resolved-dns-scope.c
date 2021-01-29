@@ -105,7 +105,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         dns_scope_abort_transactions(s);
 
         while (s->query_candidates)
-                dns_query_candidate_free(s->query_candidates);
+                dns_query_candidate_unref(s->query_candidates);
 
         hashmap_free(s->transactions_by_key);
 
