@@ -1361,7 +1361,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 log_info("No boot loader entries found.");
         else {
                 size_t n;
-                if (arg_json_format > 0) {
+                if (arg_json_format != JSON_FORMAT_OFF) {
                         //Format flags
                         BootEntry *entry = NULL;
                         _cleanup_(json_variant_unrefp) JsonVariant *output;
@@ -1369,7 +1369,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                         char *initrd = NULL;
 
                         printf("{");
-                        if (arg_json_format != JSON_FORMAT_OFF)
+                        if (arg_json_format == JSON_FORMAT_PRETTY)
                                 printf("\n");
 
                         for (n = 0; n < config.n_entries; n++) {
@@ -1390,10 +1390,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                                                     JSON_BUILD_PAIR("initrd", JSON_BUILD_STRING(initrd)),
                                                     JSON_BUILD_PAIR("options", JSON_BUILD_STRING(options))));
                                 json_variant_dump(output, arg_json_format, stdout, NULL);
-                                if (arg_json_format == JSON_FORMAT_PRETTY)
-                                        printf("\x1B[A}");
-                                if (n+1 < config.n_entries)
-                                        printf(",");
+                                printf("\x1B[A},");
                                 if (arg_json_format == JSON_FORMAT_PRETTY)
                                         printf("\n");
                         }
