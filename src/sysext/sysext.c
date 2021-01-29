@@ -38,6 +38,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
+static bool arg_shallow = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -95,6 +96,43 @@ static int is_our_mount_point(const char *p) {
         return true;
 }
 
+static int umount_shallow(const char *p) {
+        _cleanup_free_ char *buf = NULL, *shallow_meta_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        shallow_meta_path = path_join(p, ".systemd-sysext/shallow");
+        if (!shallow_meta_path)
+                return log_oom();
+
+        f = fopen(shallow_meta_path, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0; /* Not a shallow overlay */
+                return log_error_errno(errno, "Failed to open %s: %m", shallow_meta_path);
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *mount_point = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to read line from %s: %m", shallow_meta_path);
+                if (r == 0)
+                        break;
+
+                mount_point = path_join(p, line);
+                if (!mount_point)
+                        return log_oom();
+
+                r = umount_verbose(LOG_ERR, mount_point, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unmount file system '%s': %m", mount_point);
+        }
+
+        return 1;
+}
+
 static int unmerge_hierarchy(const char *p) {
         int r;
 
@@ -107,6 +145,10 @@ static int unmerge_hierarchy(const char *p) {
                         return r;
                 if (r == 0)
                         break;
+
+                r = umount_shallow(p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unmount shallow overlays on '%s': %m", p);
 
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
@@ -271,6 +313,126 @@ static int mount_overlayfs(
         return 0;
 }
 
+static int mount_shallow_root(const char *source, const char *dest) {
+        int r;
+
+        assert(source);
+        assert(dest);
+
+        /* If /usr or /opt are empty and not a tmpfs already, mount them as such so that we can overlay. */
+        if (dir_is_empty(source) && !path_is_temporary_fs(source)) {
+                (void) mkdir_p_label(dest, 0755);
+
+                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", dest, "tmpfs", 0, NULL);
+                if (r < 0)
+                        return r;
+        } else {
+                r = mount_nofollow_verbose(LOG_ERR, source, dest, NULL, MS_BIND, NULL);
+                if (r < 0)
+                        return r;
+
+                /* Make this a read-only bind mount */
+                r = bind_remount_recursive(dest, MS_RDONLY, MS_RDONLY, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", dest);
+
+        }
+
+        return 0;
+}
+
+static int mount_shallow(
+                const char *where,
+                char **layers) {
+
+        _cleanup_free_ char *root = NULL, *meta = NULL, *buf = NULL;
+        const char *meta_shallow_path;
+        bool root_mounted = false;
+        char **l;
+        int r;
+
+        assert(where);
+
+        if (strv_length(layers) < 2)
+                return 0; /* Nothing to do */
+
+        root = TAKE_PTR(*(layers + strv_length(layers) - 1));
+        meta_shallow_path = prefix_roota(*layers, ".systemd-sysext/shallow");
+
+        STRV_FOREACH(l, layers) {
+                _cleanup_strv_free_ char **mounts_list = NULL, **overlays_list = NULL;
+                _cleanup_free_ char *mounts_list_joined = NULL, *overlays_list_joined = NULL;
+                char **q;
+
+                r = mount_compute_shallow_overlays(root, *l, &mounts_list, &overlays_list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to compute overlays between %s and %s: %m", root, *l);
+
+                STRV_FOREACH(q, mounts_list) {
+                        _cleanup_free_ char *source = NULL, *dest = NULL;
+
+                        /* Mount the top level, but only if we got something to do, and only the first time. */
+                        if (!root_mounted) {
+                                r = mount_shallow_root(root, where);
+                                if (r < 0)
+                                        return r;
+                                root_mounted = true;
+                        }
+
+                        source = path_join(*l, *q);
+                        dest = path_join(where, *q);
+                        if (!source || !dest)
+                                return log_oom();
+
+                        (void) mkdir_p_label(dest, 0755);
+
+                        r = mount_nofollow_verbose(LOG_ERR, source, dest, NULL, MS_BIND, NULL);
+                        if (r < 0)
+                                return r;
+
+                        /* Make this a read-only bind mount */
+                        r = bind_remount_recursive(dest, MS_RDONLY, MS_RDONLY, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", dest);
+
+                        if (!strextend_with_separator(&buf, "\n", *q))
+                                return log_oom();
+                }
+
+                STRV_FOREACH(q, overlays_list) {
+                        _cleanup_free_ char *source = NULL, *dest = NULL;
+                        _cleanup_strv_free_ char **v = NULL;
+
+                        if (!root_mounted) {
+                                r = mount_shallow_root(root, where);
+                                if (r < 0)
+                                        return r;
+                                root_mounted = true;
+                        }
+
+                        source = path_join(*l, *q);
+                        dest = path_join(where, *q);
+                        v = strv_new(dest, source);
+                        if (!source || !dest || !v)
+                                return log_oom();
+
+                        /* Existing path at the bottom, new layer at the top */
+                        r = mount_overlayfs(dest, v);
+                        if (r < 0)
+                                return r;
+
+                        if (!strextend_with_separator(&buf, "\n", *q))
+                                return log_oom();
+                }
+        }
+
+        r = write_string_file(meta_shallow_path, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write shallow meta file '%s': %m", meta_shallow_path);
+
+        return 0;
+}
+
 static int merge_hierarchy(
                 const char *hierarchy,
                 char **extensions,
@@ -364,7 +526,10 @@ static int merge_hierarchy(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", overlay_path);
 
-        r = mount_overlayfs(overlay_path, layers);
+        if (arg_shallow)
+                r = mount_shallow(overlay_path, layers);
+        else
+                r = mount_overlayfs(overlay_path, layers);
         if (r < 0)
                 return r;
 
@@ -845,6 +1010,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --force              Ignore version incompatibilities\n"
+               "     --shallow            Setup shallow overlays and bind mounts\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -864,6 +1030,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_JSON,
                 ARG_FORCE,
+                ARG_SHALLOW,
         };
 
         static const struct option options[] = {
@@ -874,6 +1041,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root",      required_argument, NULL, ARG_ROOT      },
                 { "json",      required_argument, NULL, ARG_JSON      },
                 { "force",     no_argument,       NULL, ARG_FORCE     },
+                { "shallow",   no_argument,       NULL, ARG_SHALLOW   },
                 {}
         };
 
@@ -915,6 +1083,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORCE:
                         arg_force = true;
+                        break;
+
+                case ARG_SHALLOW:
+                        arg_shallow = true;
                         break;
 
                 case '?':
