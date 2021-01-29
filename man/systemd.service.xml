@@ -780,7 +780,7 @@
         abnormally by a signal, or hit a timeout.</para>
 
         <table>
-          <title>Exit causes and the effect of the <varname>Restart=</varname> settings on them</title>
+          <title>Exit causes and the effect of the <varname>Restart=</varname> settings</title>
 
           <tgroup cols='2'>
             <colspec colname='path' />

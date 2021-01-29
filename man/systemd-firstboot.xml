@@ -237,8 +237,8 @@
       <varlistentry>
         <term><option>--copy</option></term>
 
-        <listitem><para>Copy locale, keymap, time zone and root password from
-        the host. This is equivalent to specifying
+        <listitem><para>Copy locale, keymap, time zone, root password and shell from the host. This is
+        equivalent to specifying
         <option>--copy-locale</option>,
         <option>--copy-keymap</option>,
         <option>--copy-timezone</option>,
