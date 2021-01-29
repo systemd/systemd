@@ -240,6 +240,27 @@ int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix) {
         return 0;
 }
 
+int strv_extend_strv_prefix(char ***a, char * const *b, const char *prefix) {
+        char * const *s;
+        int r;
+
+        STRV_FOREACH(s, b) {
+                char *v;
+
+                v = strjoin(prefix, *s);
+                if (!v)
+                        return -ENOMEM;
+
+                r = strv_push(a, v);
+                if (r < 0) {
+                        free(v);
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 char **strv_split_newlines(const char *s) {
         char **l;
         size_t n;
