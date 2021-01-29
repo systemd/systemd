@@ -1133,3 +1133,66 @@ int string_contains_word_strv(const char *string, const char *separators, char *
                 *ret_word = found;
         return !!found;
 }
+
+static bool is_digit(int c) {
+        return c >= '0' && c <= '9';
+}
+
+static int c_order(int c) {
+        if (c == 0 || is_digit(c))
+                return 0;
+
+        if ((c >= 'a') && (c <= 'z'))
+                return c;
+
+        return c + 0x10000;
+}
+
+int str_verscmp(const char *s1, const char *s2) {
+        const char *os1, *os2;
+
+        assert(s1);
+        assert(s2);
+
+        /* This is a direct translation of str_verscmp from boot.c */
+
+        os1 = s1;
+        os2 = s2;
+
+        while (*s1 || *s2) {
+                int first;
+
+                while ((*s1 && !is_digit(*s1)) || (*s2 && !is_digit(*s2))) {
+                        int order;
+
+                        order = c_order(*s1) - c_order(*s2);
+                        if (order != 0)
+                                return order;
+                        s1++;
+                        s2++;
+                }
+
+                while (*s1 == '0')
+                        s1++;
+                while (*s2 == '0')
+                        s2++;
+
+                first = 0;
+                while (is_digit(*s1) && is_digit(*s2)) {
+                        if (first == 0)
+                                first = *s1 - *s2;
+                        s1++;
+                        s2++;
+                }
+
+                if (is_digit(*s1))
+                        return 1;
+                if (is_digit(*s2))
+                        return -1;
+
+                if (first != 0)
+                        return first;
+        }
+
+        return strcmp(os1, os2);
+}
