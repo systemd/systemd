@@ -220,6 +220,22 @@
         not.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--shallow</option></term>
+
+        <listitem><para>When merging system extensions into <filename>/usr/</filename> and <filename>/opt/</filename>,
+        a variable overlay will be set up. Nodes in the image that are leaves in the root (empty
+        directories or files) are bind-mounted individually. Existing directories with differing content will be
+        set up with a read-only OverlayFS. If <filename>/usr/</filename> or <filename>/opt/</filename> are empty
+        or writable, first-level child nodes will be bind-mounted directly.</para>
+
+        <para>For example, if the root has the <filename>/opt/</filename> directory and a <filename>/usr/foo</filename>
+        file, and the image has a <filename>/opt/boo/bar</filename> file and a <filename>/usr/baz</filename> file,
+        the end result will be that <filename>/opt/boo</filename> from the image is bind-mounted inside
+        <filename>/opt/</filename> on the root, and the <filename>/usr/</filename> directories from the root
+        and the image will both be part of an OverlayFS mount.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
