@@ -21,6 +21,11 @@ int dir_is_empty_at(int dir_fd, const char *path);
 static inline int dir_is_empty(const char *path) {
         return dir_is_empty_at(AT_FDCWD, path);
 }
+/* Will not ignore hidden/backup files */
+int dir_is_empty_all_at(int dir_fd, const char *path);
+static inline int dir_is_empty_all(const char *path) {
+        return dir_is_empty_all_at(AT_FDCWD, path);
+}
 
 static inline int dir_is_populated(const char *path) {
         int r;
