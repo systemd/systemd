@@ -5059,7 +5059,7 @@ CHANGES WITH 232:
 
         * Support for dynamically creating users for the lifetime of a service
           has been added. If DynamicUser=yes is specified, user and group IDs
-          will be allocated from the range 61184..65519 for the lifetime of the
+          will be allocated from the range 61184…65519 for the lifetime of the
           service. They can be resolved using the new nss-systemd.so NSS
           module. The module must be enabled in /etc/nsswitch.conf. Services
           started in this way have PrivateTmp= and RemoveIPC= enabled, so that
@@ -5801,7 +5801,7 @@ CHANGES WITH 230:
 
         * The LimitNICE= setting now optionally takes normal UNIX nice values
           in addition to the raw integer limit value. If the specified
-          parameter is prefixed with "+" or "-" and is in the range -20..19 the
+          parameter is prefixed with "+" or "-" and is in the range -20…19 the
           value is understood as UNIX nice value. If not prefixed like this it
           is understood as raw RLIMIT_NICE limit.
 
@@ -6139,10 +6139,10 @@ CHANGES WITH 228:
           individual indexes.
 
         * The various memory-related resource limit settings (such as
-          LimitAS=) now understand the usual K, M, G, ... suffixes to
+          LimitAS=) now understand the usual K, M, G, … suffixes to
           the base of 1024 (IEC). Similar, the time-related resource
-          limit settings understand the usual min, h, day, ...
-          suffixes now.
+          limit settings understand the usual min, h, day, … suffixes
+          now.
 
         * There's a new system.conf setting DefaultTasksMax= to
           control the default TasksMax= setting for services and
@@ -7076,7 +7076,7 @@ CHANGES WITH 220:
 
         * /usr/lib/os-release gained a new optional field VARIANT= for
           distributions that support multiple variants (such as a
-          desktop edition, a server edition, ...)
+          desktop edition, a server edition, …)
 
         Contributions from: Aaro Koskinen, Adam Goode, Alban Crequy,
         Alberto Fanjul Alonso, Alexander Sverdlin, Alex Puchades, Alin
@@ -7575,7 +7575,7 @@ CHANGES WITH 218:
           into account when storing rfkill state on disk, as the name
           might be dynamically assigned and not stable. Instead, the
           ID_PATH udev variable combined with the rfkill type (wlan,
-          bluetooth, ...) is used.
+          bluetooth, …) is used.
 
         * A new service systemd-machine-id-commit.service has been
           added. When used on systems where /etc is read-only during
@@ -7805,7 +7805,7 @@ CHANGES WITH 217:
         * Calendar time specifications in .timer units now also
           understand the strings "semi-annually", "quarterly" and
           "minutely" as shortcuts (in addition to the preexisting
-          "annually", "hourly", ...).
+          "annually", "hourly", …).
 
         * systemd-tmpfiles will now correctly create files in /dev
           at boot which are marked for creation only at boot. It is
@@ -9025,7 +9025,7 @@ CHANGES WITH 209:
           match against MAC address, device path, driver name and type,
           and will apply attributes like the naming policy, link speed,
           MTU, duplex settings, Wake-on-LAN settings, MAC address, MAC
-          address assignment policy (randomized, ...).
+          address assignment policy (randomized, …).
 
         * The configuration of network interface naming rules for
           "permanent interface names" has changed: a new NamePolicy=
@@ -9102,7 +9102,7 @@ CHANGES WITH 209:
           recent boots with their times and boot IDs.
 
         * The various tools like systemctl, loginctl, timedatectl,
-          busctl, systemd-run, ... have gained a new switch "-M" to
+          busctl, systemd-run, … have gained a new switch "-M" to
           connect to a specific, local OS container (as direct
           connection, without requiring SSH). This works on any
           container that is registered with machined, such as those
@@ -9851,7 +9851,7 @@ CHANGES WITH 205:
         * If a privileged process logs a journal message with the
           OBJECT_PID= field set, then journald will automatically
           augment this with additional OBJECT_UID=, OBJECT_GID=,
-          OBJECT_COMM=, OBJECT_EXE=, ... fields. This is useful if
+          OBJECT_COMM=, OBJECT_EXE=, … fields. This is useful if
           system services want to log events about specific client
           processes. journactl/systemctl has been updated to make use
           of this information if all log messages regarding a specific
@@ -10991,7 +10991,7 @@ CHANGES WITH 190:
           inhibitors during their runtime. A simple way to achieve
           that is to invoke the DE wrapped in an invocation of:
 
-          systemd-inhibit --what=handle-power-key:handle-sleep-key:handle-lid-switch ...
+          systemd-inhibit --what=handle-power-key:handle-sleep-key:handle-lid-switch …
 
         * Access to unit operations is now checked via SELinux taking
           the unit file label and client process label into account.
@@ -11398,7 +11398,7 @@ CHANGES WITH 183:
           should be used to create dead device nodes as workarounds for broken
           subsystems.
 
-        * udev: RUN+="socket:..."  and udev_monitor_new_from_socket() is
+        * udev: RUN+="socket:…"  and udev_monitor_new_from_socket() is
           no longer supported. udev_monitor_new_from_netlink() needs to be
           used to subscribe to events.
 

@@ -413,7 +413,7 @@
         <term><varname>TxQueueLength=</varname></term>
         <listitem>
           <para>Specifies the transmit queue length of the device in number of packets. An unsigned integer
-          in the range 0..4294967294. When unset, the kernel's default will be used.</para>
+          in the range 0…4294967294. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -755,15 +755,15 @@
         <listitem>
           <para>Specifies the maximum size of a Generic Segment Offload (GSO) packet the
           device should accept. The usual suffixes K, M, G, are supported and are
-          understood to the base of 1024. An unsigned integer in the range 1—65536.
+          understood to the base of 1024. An unsigned integer in the range 1…65536.
           Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>GenericSegmentOffloadMaxSegments=</varname></term>
         <listitem>
-          <para>Specifies the maximum number of a Generic Segment Offload (GSO) segments the device should accept.
-          An unsigned integer in the range 1—65535. Defaults to unset.</para>
+          <para>Specifies the maximum number of a Generic Segment Offload (GSO) segments the device should
+          accept.  An unsigned integer in the range 1…65535. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
