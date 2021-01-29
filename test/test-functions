@@ -124,6 +124,7 @@ BASICTOOLS=(
     rmdir
     sed
     seq
+    setfattr
     setfont
     setsid
     sfdisk

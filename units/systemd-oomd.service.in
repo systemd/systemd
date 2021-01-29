@@ -15,9 +15,9 @@ Before=multi-user.target shutdown.target
 Conflicts=shutdown.target
 
 [Service]
-AmbientCapabilities=CAP_KILL CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_KILL CAP_DAC_OVERRIDE CAP_SYS_ADMIN
 BusName=org.freedesktop.oom1
-CapabilityBoundingSet=CAP_KILL CAP_DAC_OVERRIDE
+CapabilityBoundingSet=CAP_KILL CAP_DAC_OVERRIDE CAP_SYS_ADMIN
 ExecStart=@rootlibexecdir@/systemd-oomd
 IPAddressDeny=any
 LockPersonality=yes

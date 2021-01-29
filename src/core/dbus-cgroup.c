@@ -21,6 +21,7 @@ BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_res
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_mode, managed_oom_mode, ManagedOOMMode);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_preference, managed_oom_preference, ManagedOOMPreference);
 
 static int property_get_cgroup_mask(
                 sd_bus *bus,
@@ -395,6 +396,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMSwap", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_swap), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimitPercent", "s", bus_property_get_percent, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
+        SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1706,6 +1708,26 @@ int bus_cgroup_set_property(
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
                         (void) manager_varlink_send_managed_oom_update(u);
+
+                return 1;
+        }
+
+        if (streq(name, "ManagedOOMPreference")) {
+                ManagedOOMPreference p;
+                const char *pref;
+
+                r = sd_bus_message_read(message, "s", &pref);
+                if (r < 0)
+                        return r;
+
+                p = managed_oom_preference_from_string(pref);
+                if (p < 0)
+                        return -EINVAL;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->moom_preference = p;
+                        unit_write_settingf(u, flags, name, "ManagedOOMPreference=%s", pref);
+                }
 
                 return 1;
         }
