@@ -1084,7 +1084,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment_cli();
+        log_parse_environment();
         log_open();
 
         /* The journal merging logic potentially needs a lot of fds. */

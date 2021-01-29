@@ -69,7 +69,6 @@ void log_close(void);
 void log_forget_fds(void);
 
 void log_parse_environment(void);
-void log_parse_environment_cli(void);
 
 int log_dispatch_internal(
                 int level,
@@ -301,5 +300,4 @@ int log_syntax_invalid_utf8_internal(
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
-void log_setup_service(void);
-void log_setup_cli(void);
+void log_setup(void);

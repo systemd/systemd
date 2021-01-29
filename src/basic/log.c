@@ -1157,20 +1157,42 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-void log_parse_environment(void) {
-        if (getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
-                /* Only try to read the command line in daemons. We assume that anything that has a
-                 * controlling tty is user stuff. For PID1 we do a special check in case it hasn't
-                 * closed the console yet. */
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+static bool should_parse_proc_cmdline(void) {
+        const char *e;
 
-        log_parse_environment_cli();
+        /* PID1 always reads the kernel command line. */
+        if (getpid_cached() == 1)
+                return true;
+
+        /* If the process is directly executed through a unit, then read the command line. If it is
+         * invoked indirectly as a child of another process, then skip reading the command line. */
+        e = getenv("SYSTEMD_EXEC_PID");
+        if (e) {
+                pid_t p;
+
+                if (streq(e, "*"))
+                        /* For testing. */
+                        return true;
+
+                if (parse_pid(e, &p) >= 0)
+                        return getpid_cached() == p;
+                else
+                        /* We know that systemd sets the variable correctly. Something else must have set it. */
+                        log_debug("Failed to parse \"$SYSTEMD_EXEC_PID=%s\". Ignoring.", e);
+        }
+
+        /* Assume that anything that has a controlling tty is user stuff. In that case, skip reading
+         * the command line. */
+        return get_ctty_devnr(0, NULL) < 0;
 }
 
-void log_parse_environment_cli(void) {
+void log_parse_environment(void) {
+        const char *e;
+
         /* Do not call from library code. */
 
-        const char *e;
+        if (should_parse_proc_cmdline())
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1460,21 +1482,9 @@ int log_dup_console(void) {
         return 0;
 }
 
-void log_setup_service(void) {
-        /* Sets up logging the way it is most appropriate for running a program as a service. Note that using this
-         * doesn't make the binary unsuitable for invocation on the command line, as log output will still go to the
-         * terminal if invoked interactively. */
-
+void log_setup(void) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
-        (void) log_open();
-}
-
-void log_setup_cli(void) {
-        /* Sets up logging the way it is most appropriate for running a program as a CLI utility. */
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment_cli();
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
