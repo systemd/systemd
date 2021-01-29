@@ -38,11 +38,9 @@ static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScop
 }
 
 static void dns_query_candidate_stop(DnsQueryCandidate *c) {
-        DnsTransaction *t;
-
         assert(c);
 
-        while ((t = set_steal_first(c->transactions))) {
+        for (DnsTransaction *t; (t = set_steal_first(c->transactions)); ) {
                 set_remove(t->notify_query_candidates, c);
                 set_remove(t->notify_query_candidates_done, c);
                 dns_transaction_gc(t);
@@ -50,7 +48,6 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
 }
 
 DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
-
         if (!c)
                 return NULL;
 
@@ -69,7 +66,7 @@ DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
 }
 
 static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
-        DnsSearchDomain *next = NULL;
+        DnsSearchDomain *next;
 
         assert(c);
 
@@ -602,8 +599,8 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 
         assert(q);
 
-        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is done. The
-         * data from /etc/hosts hence takes precedence over the network. */
+        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is
+         * done. The data from /etc/hosts hence takes precedence over the network. */
 
         r = manager_etc_hosts_lookup(
                         q->manager,
