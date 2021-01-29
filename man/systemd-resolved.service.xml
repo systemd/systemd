@@ -223,7 +223,7 @@
 
     <para>This section provides a short summary of differences in the stub resolver implemented by
     <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry> together
-    with <command>systemd-resolved</command> and the tranditional stub resolver implemented in
+    with <command>systemd-resolved</command> and the traditional stub resolver implemented in
     <citerefentry><refentrytitle>nss-dns</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <itemizedlist>

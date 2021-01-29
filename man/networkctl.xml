@@ -104,7 +104,7 @@
                 <term>carrier</term>
                 <listitem>
                   <para>the link has a carrier, or for bond or bridge master, all bonding or bridge slave
-                  network interfaces are enslaved to the master.</para>
+                  network interfaces are enslaved to the master</para>
                 </listitem>
               </varlistentry>
               <varlistentry>

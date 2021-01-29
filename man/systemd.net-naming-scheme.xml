@@ -271,7 +271,7 @@
     <title>History</title>
 
     <para>The following "naming schemes" have been defined (which may be chosen at system boot-up time via
-    the <varname>net.naming-scheme=</varname> kernel command line switch, see above:</para>
+    the <varname>net.naming-scheme=</varname> kernel command line switch, see above):</para>
 
     <variablelist>
         <varlistentry>
@@ -362,11 +362,11 @@
         <varlistentry>
           <term><constant>v247</constant></term>
 
-          <listitem><para>If the PCI slot is associated with PCI bridge and that has multiple child network
-          controllers then all of them might derive the same value of <varname>ID_NET_NAME_SLOT</varname>
-          property. That could cause naming conflict if the property is selected as a device name. Now, we detect the
-          situation, slot - bridge relation, and we don't produce the <varname>ID_NET_NAME_SLOT</varname> property to
-          avoid possible naming conflict.</para></listitem>
+          <listitem><para>When a PCI slot is associated with a PCI bridge that has multiple child network
+          controllers, the same value of the <varname>ID_NET_NAME_SLOT</varname> property might be derived
+          for those controllers. This would cause a naming conflict if the property is selected as the device
+          name. Now, we detect this situation and don't produce the <varname>ID_NET_NAME_SLOT</varname>
+          property.</para></listitem>
         </varlistentry>
 
       </variablelist>

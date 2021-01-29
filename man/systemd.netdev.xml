@@ -550,7 +550,7 @@
         <term><varname>BroadcastMulticastQueueLength=</varname></term>
         <listitem>
           <para>Specifies the length of the receive queue for broadcast/multicast packets. An unsigned
-          integer in the range 0—4294967294. Defaults to unset.</para>
+          integer in the range 0…4294967294. Defaults to unset.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -608,7 +608,7 @@
       <varlistentry>
         <term><varname>VNI=</varname></term>
         <listitem>
-          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1-16777215.</para>
+          <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1…16777215.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -907,7 +907,7 @@
       <varlistentry>
         <term><varname>PeerTunnelId=</varname></term>
         <listitem>
-          <para>Specifies the peer tunnel id. Takes a number in the range 1—4294967295. The value used must
+          <para>Specifies the peer tunnel id. Takes a number in the range 1…4294967295. The value used must
           match the <literal>TunnelId=</literal> value being used at the peer. This setting is compulsory.
           </para>
         </listitem>
@@ -1390,7 +1390,7 @@
       <varlistentry>
         <term><varname>ERSPANIndex=</varname></term>
         <listitem>
-          <para>Specifies the ERSPAN index field for the interface, an integer in the range 1-1048575 associated with
+          <para>Specifies the ERSPAN index field for the interface, an integer in the range 1…1048575 associated with
           the ERSPAN traffic's source port and direction. This field is mandatory.
           </para>
         </listitem>
@@ -1442,7 +1442,7 @@
           <para>The <varname>Protocol=</varname> specifies the protocol number of the packets arriving
           at the UDP port. When <varname>Encapsulation=FooOverUDP</varname>, this field is mandatory
           and is not set by default. Takes an IP protocol name such as <literal>gre</literal> or
-          <literal>ipip</literal>, or an integer within the range 1-255. When
+          <literal>ipip</literal>, or an integer within the range 1…255. When
           <varname>Encapsulation=GenericUDPEncapsulation</varname>, this must not be specified.</para>
         </listitem>
       </varlistentry>
@@ -1801,7 +1801,7 @@
       <varlistentry>
         <term><varname>AdActorSystemPriority=</varname></term>
         <listitem>
-          <para>Specifies the 802.3ad actor system priority. Takes a number in the range 1—65535.</para>
+          <para>Specifies the 802.3ad actor system priority. Takes a number in the range 1…65535.</para>
         </listitem>
       </varlistentry>
 
