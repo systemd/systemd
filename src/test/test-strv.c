@@ -533,6 +533,24 @@ static void test_strv_sort(void) {
         assert_se(streq(input_table[4], "durian"));
 }
 
+static void test_strv_extend_strv_prefix(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+
+        log_info("/* %s */", __func__);
+
+        a = strv_new("without", "prefix");
+        b = strv_new("with", "prefix");
+        assert_se(a);
+        assert_se(b);
+
+        assert_se(strv_extend_strv_prefix(&a, b, "prefix_") >= 0);
+
+        assert_se(streq(a[0], "without"));
+        assert_se(streq(a[1], "prefix"));
+        assert_se(streq(a[2], "prefix_with"));
+        assert_se(streq(a[3], "prefix_prefix"));
+}
+
 static void test_strv_extend_strv_concat(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
@@ -1055,6 +1073,7 @@ int main(int argc, char *argv[]) {
         test_strv_sort();
         test_strv_extend_strv();
         test_strv_extend_strv_concat();
+        test_strv_extend_strv_prefix();
         test_strv_extend();
         test_strv_extendf();
         test_strv_from_stdarg_alloca();

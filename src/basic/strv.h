@@ -34,6 +34,7 @@ size_t strv_length(char * const *l) _pure_;
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
 int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix);
+int strv_extend_strv_prefix(char ***a, char * const *b, const char *prefix);
 int strv_prepend(char ***l, const char *value);
 int strv_extend(char ***l, const char *value);
 int strv_extendf(char ***l, const char *format, ...) _printf_(2,0);
