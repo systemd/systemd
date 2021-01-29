@@ -127,6 +127,7 @@ FallbackLeaseLifetimeSec=
 UseAddress=
 UseNTP=
 UseDNS=
+UseFQDN=
 RapidCommit=
 ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=
