@@ -886,6 +886,50 @@ static void test_string_contains_word(void) {
         assert_se(!string_contains_word("a:b:cc", ":#", ":cc"));
 }
 
+static void test_str_verscmp_one(const char *a, const char *b, bool try_append) {
+        log_info("/* %s(%s, %s) */", __func__, a, b);
+
+        assert_se(str_verscmp(a, a) == 0);
+        assert_se(str_verscmp(b, b) == 0);
+        assert_se(str_verscmp(a, b) > 0);
+        assert_se(str_verscmp(b, a) < 0);
+
+        if (try_append) {
+                _cleanup_free_ char *c = NULL, *d = NULL;
+
+                c = strjoin(a, ".fc33.x86_64");
+                d = strjoin(b, ".fc32.x86_64");
+
+                assert_se(str_verscmp(c, c) == 0);
+                assert_se(str_verscmp(d, d) == 0);
+                assert_se(str_verscmp(c, d) > 0);
+                assert_se(str_verscmp(d, c) < 0);
+        }
+}
+
+static void test_str_verscmp(void) {
+        log_info("/* %s */", __func__);
+
+        test_str_verscmp_one("123.456-78.9", "123.456-78.8", true);
+        test_str_verscmp_one("123.456-78.10", "123.456-78.9", true);
+        test_str_verscmp_one("123.456-79.1", "123.456-78.9", true);
+        test_str_verscmp_one("123.456-80.1", "123.456-78.9", true);
+        test_str_verscmp_one("123.457-10.1", "123.456-78.9", true);
+        test_str_verscmp_one("123.456-78.9", "123.437-10.1", true);
+        test_str_verscmp_one("123.456-78.9", "122.457-10.1", true);
+        test_str_verscmp_one("124.457-10.1", "123.456-78.9", true);
+        test_str_verscmp_one("123.456-78.9", "123.456-78", false);
+        test_str_verscmp_one("123.456-78.9", "123.456-7", false);
+        test_str_verscmp_one("123.456-78.9", "123.456", false);
+        test_str_verscmp_one("123.456-78.9", "123.45", false);
+        test_str_verscmp_one("123.456-78.9", "123.4", false);
+        test_str_verscmp_one("123.456-78.9", "123", false);
+        test_str_verscmp_one("123.456-78.9", "12", false);
+        test_str_verscmp_one("123.456-78.9", "1", false);
+        test_str_verscmp_one("123~rc1", "123", false); /* Hmm?? */
+        test_str_verscmp_one("123~rc2", "123~rc1", true);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -923,6 +967,7 @@ int main(int argc, char *argv[]) {
         test_string_extract_line();
         test_string_contains_word_strv();
         test_string_contains_word();
+        test_str_verscmp();
 
         return 0;
 }
