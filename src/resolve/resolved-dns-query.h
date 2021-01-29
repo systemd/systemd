@@ -14,12 +14,14 @@ typedef struct DnsQuery DnsQuery;
 #include "resolved-dns-transaction.h"
 
 struct DnsQueryCandidate {
+        unsigned n_ref;
+        int error_code;
+
         DnsQuery *query;
         DnsScope *scope;
 
         DnsSearchDomain *search_domain;
 
-        int error_code;
         Set *transactions;
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
@@ -101,8 +103,9 @@ enum {
         DNS_QUERY_RESTARTED,
 };
 
-DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_free);
+DnsQueryCandidate* dns_query_candidate_ref(DnsQueryCandidate*);
+DnsQueryCandidate* dns_query_candidate_unref(DnsQueryCandidate*);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_unref);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
