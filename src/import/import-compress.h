@@ -37,6 +37,7 @@ typedef int (*ImportCompressCallback)(const void *data, size_t size, void *userd
 void import_compress_free(ImportCompress *c);
 
 int import_uncompress_detect(ImportCompress *c, const void *data, size_t size);
+void import_uncompress_force_off(ImportCompress *c);
 int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata);
 
 int import_compress_init(ImportCompress *c, ImportCompressType t);

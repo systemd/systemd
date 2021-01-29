@@ -83,6 +83,13 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
         return 1;
 }
 
+void import_uncompress_force_off(ImportCompress *c) {
+        assert(c);
+
+        c->type = IMPORT_COMPRESS_UNCOMPRESSED;
+        c->encoding = false;
+}
+
 int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata) {
         int r;
 
@@ -125,9 +132,11 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                         if (!IN_SET(lzr, LZMA_OK, LZMA_STREAM_END))
                                 return -EIO;
 
-                        r = callback(buffer, sizeof(buffer) - c->xz.avail_out, userdata);
-                        if (r < 0)
-                                return r;
+                        if (c->xz.avail_out < sizeof(buffer)) {
+                                r = callback(buffer, sizeof(buffer) - c->xz.avail_out, userdata);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 break;
@@ -146,9 +155,11 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                         if (!IN_SET(r, Z_OK, Z_STREAM_END))
                                 return -EIO;
 
-                        r = callback(buffer, sizeof(buffer) - c->gzip.avail_out, userdata);
-                        if (r < 0)
-                                return r;
+                        if (c->gzip.avail_out < sizeof(buffer)) {
+                                r = callback(buffer, sizeof(buffer) - c->gzip.avail_out, userdata);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 break;
@@ -168,9 +179,11 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                         if (!IN_SET(r, BZ_OK, BZ_STREAM_END))
                                 return -EIO;
 
-                        r = callback(buffer, sizeof(buffer) - c->bzip2.avail_out, userdata);
-                        if (r < 0)
-                                return r;
+                        if (c->bzip2.avail_out < sizeof(buffer)) {
+                                r = callback(buffer, sizeof(buffer) - c->bzip2.avail_out, userdata);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 break;
