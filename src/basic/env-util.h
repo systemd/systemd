@@ -49,9 +49,13 @@ int strv_env_replace(char ***l, char *p); /* In place ... */
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
+char *strv_env_pairs_get(char **l, const char *name) _pure_;
 
 int getenv_bool(const char *p);
 int getenv_bool_secure(const char *p);
 
 /* Like setenv, but calls unsetenv if value == NULL. */
 int set_unset_env(const char *name, const char *value, bool overwrite);
+
+/* Parses and does sanity checks on SYSTEMD_SYSEXT_HIERARCHIES */
+int env_parse_extension_hierarchies(char ***ret_hierarchies);
