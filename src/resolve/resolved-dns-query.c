@@ -50,7 +50,6 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
 }
 
 DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
-
         if (!c)
                 return NULL;
 
@@ -69,7 +68,7 @@ DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
 }
 
 static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
-        DnsSearchDomain *next = NULL;
+        DnsSearchDomain *next;
 
         assert(c);
 
@@ -602,8 +601,8 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 
         assert(q);
 
-        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is done. The
-         * data from /etc/hosts hence takes precedence over the network. */
+        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is
+         * done. The data from /etc/hosts hence takes precedence over the network. */
 
         r = manager_etc_hosts_lookup(
                         q->manager,
