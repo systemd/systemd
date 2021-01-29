@@ -31,19 +31,19 @@ struct DnsQueryCandidate {
 struct DnsQuery {
         Manager *manager;
 
-        /* When resolving a service, we first create a TXT+SRV query,
-         * and then for the hostnames we discover auxiliary A+AAAA
-         * queries. This pointer always points from the auxiliary
-         * queries back to the TXT+SRV query. */
+        /* When resolving a service, we first create a TXT+SRV query, and then for the hostnames we discover
+         * auxiliary A+AAAA queries. This pointer always points from the auxiliary queries back to the
+         * TXT+SRV query. */
         DnsQuery *auxiliary_for;
         LIST_HEAD(DnsQuery, auxiliary_queries);
         unsigned n_auxiliary_queries;
         int auxiliary_result;
 
-        /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note that even
-         * on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names (in contrast to their
-         * domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference between these two fields is mostly
-         * relevant only for explicit *hostname* lookups as well as the domain suffixes of service lookups. */
+        /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
+         * that even on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names
+         * (in contrast to their domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference
+         * between these two fields is mostly relevant only for explicit *hostname* lookups as well as the
+         * domain suffixes of service lookups. */
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
 
