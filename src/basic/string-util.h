@@ -282,3 +282,5 @@ int string_contains_word_strv(const char *string, const char *separators, char *
 static inline int string_contains_word(const char *string, const char *separators, const char *word) {
         return string_contains_word_strv(string, separators, STRV_MAKE(word), NULL);
 }
+
+int strverscmp_improved(const char *a, const char *b);

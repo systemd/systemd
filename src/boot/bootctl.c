@@ -471,7 +471,7 @@ static int compare_version(const char *a, const char *b) {
         b += strcspn(b, " ");
         b += strspn(b, " ");
 
-        return strverscmp(a, b);
+        return strverscmp_improved(a, b);
 }
 
 static int version_check(int fd_from, const char *from, int fd_to, const char *to) {
