@@ -117,6 +117,13 @@ static const char* const freezer_state_table[_FREEZER_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
 
+static const char* const unit_marker_table[_UNIT_MARKER_MAX] = {
+        [UNIT_MARKER_NEEDS_RELOAD]  = "needs-reload",
+        [UNIT_MARKER_NEEDS_RESTART] = "needs-restart",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);
+
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = "dead",
         [AUTOMOUNT_WAITING] = "waiting",

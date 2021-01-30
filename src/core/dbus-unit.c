@@ -323,6 +323,40 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", NULL, NULL);
 }
 
+static int property_get_markers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        unsigned *markers = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(markers);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        /* Make sure out values fit in the bitfield. */
+        static_assert(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8,
+                      "Too many UNIT_MARKER_FLAGS defined");
+
+        for (UnitMarker m = 0; m < _UNIT_MARKER_MAX; m++)
+                if (FLAGS_SET(*markers, 1u << m)) {
+                        r = sd_bus_message_append(reply, "s", unit_marker_to_string(m));
+                        if (r < 0)
+                                return r;
+                }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
         [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
         [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
@@ -864,6 +898,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Markers", "as", property_get_markers, offsetof(Unit, markers), 0),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobRunningTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_running_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_emergency_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
