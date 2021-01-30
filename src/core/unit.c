@@ -2390,9 +2390,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                SET_FLAG(u->markers, UNIT_MARKER_NEEDS_RELOAD|UNIT_MARKER_NEEDS_RESTART, 0);
                 unit_prune_cgroup(u);
                 unit_unlink_state_files(u);
-        }
+        } else if (ns != os && ns == UNIT_RELOADING)
+                SET_FLAG(u->markers, UNIT_MARKER_NEEDS_RELOAD, 0);
 
         unit_update_on_console(u);
 
