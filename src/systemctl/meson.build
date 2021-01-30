@@ -45,6 +45,8 @@ systemctl_sources = files(
         'systemctl-logind.h',
         'systemctl-mount.c',
         'systemctl-mount.h',
+        'systemctl-needs-restart.c',
+        'systemctl-needs-restart.h',
         'systemctl-preset-all.c',
         'systemctl-preset-all.h',
         'systemctl-reset-failed.c',

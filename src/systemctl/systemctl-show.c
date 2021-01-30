@@ -1900,11 +1900,7 @@ static int show_one(
         return 0;
 }
 
-static int get_unit_dbus_path_by_pid(
-                sd_bus *bus,
-                uint32_t pid,
-                char **unit) {
-
+int get_unit_dbus_path_by_pid(sd_bus *bus, uint32_t pid, char **unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         char *u;
@@ -2115,7 +2111,7 @@ int show(int argc, char *argv[], void *userdata) {
                                 return r;
 
                         STRV_FOREACH(name, names) {
-                                _cleanup_free_ char *path;
+                                _cleanup_free_ char *path = NULL;
 
                                 path = unit_dbus_path_from_name(*name);
                                 if (!path)
