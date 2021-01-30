@@ -63,6 +63,4 @@ int container_get_leader(const char *machine, pid_t *pid);
 
 int version(void);
 
-int str_verscmp(const char *s1, const char *s2);
-
 void disable_coredumps(void);

@@ -37,6 +37,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strverscmp.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
@@ -471,7 +472,7 @@ static int compare_version(const char *a, const char *b) {
         b += strcspn(b, " ");
         b += strspn(b, " ");
 
-        return strverscmp(a, b);
+        return strverscmp_improved(a, b);
 }
 
 static int version_check(int fd_from, const char *from, int fd_to, const char *to) {
