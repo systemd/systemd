@@ -131,6 +131,9 @@ if have_gnu_efi
 endif
 
 if have_gnu_efi
+        efi_config_path = join_paths(meson.build_root(), '@0@'.format(efi_config_h))
+        efi_config_dir = run_command('dirname', efi_config_path).stdout().strip()
+
         compile_args = ['-Wall',
                         '-Wextra',
                         '-std=gnu90',
@@ -144,8 +147,8 @@ if have_gnu_efi
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
                         '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
-                        '-include', efi_config_h,
-                        '-include', version_h]
+                        '-I', efi_config_dir,
+                        '-I', '.']
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
