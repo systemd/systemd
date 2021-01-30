@@ -235,7 +235,7 @@
         <listitem>
           <para>Restrict processes to be executed on specific memory NUMA nodes. Takes a list of memory NUMA nodes indices
           or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
-          CPU indices separated by a dash.</para>
+          NUMA nodes indices separated by a dash.</para>
 
           <para>Setting <varname>AllowedMemoryNodes=</varname> doesn't guarantee that all of the memory NUMA nodes will
           be used by the processes as it may be limited by parent units. The effective configuration is reported as
