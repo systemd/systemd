@@ -847,37 +847,37 @@ static void test_conservative_rename(void) {
 
         /* Check that the hardlinked "copy" is detected */
         assert_se(link(p, q) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that a manual copy is detected */
         assert_se(copy_file(p, q, 0, (mode_t) -1, 0, 0, COPY_REFLINK) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that a manual new writeout is also detected */
         assert_se(write_string_file(q, "this is a test", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that a minimally changed version is detected */
         assert_se(write_string_file(q, "this is a_test", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) > 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that this really is new updated version */
         assert_se(write_string_file(q, "this is a_test", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) == 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Make sure we detect extended files */
         assert_se(write_string_file(q, "this is a_testx", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) > 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Make sure we detect truncated files */
         assert_se(write_string_file(q, "this is a_test", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(conservative_rename(AT_FDCWD, q, AT_FDCWD, p) > 0);
+        assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 }
 
