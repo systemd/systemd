@@ -37,7 +37,7 @@ struct bmp_map {
         UINT8 reserved;
 } __attribute__((packed));
 
-EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
+static EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
                             struct bmp_map **ret_map, UINT8 **pixmap) {
         struct bmp_file *file;
         struct bmp_dib *dib;
@@ -147,7 +147,7 @@ static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
         *dst = (rb | g);
 }
 
-EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
+static EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
                       struct bmp_dib *dib, struct bmp_map *map,
                       UINT8 *pixmap) {
         UINT8 *in;
