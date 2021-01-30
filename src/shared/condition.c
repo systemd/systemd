@@ -247,7 +247,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
                         }
 
-                        r = test_order(str_verscmp(u.release, s), order);
+                        r = test_order(strverscmp_improved(u.release, s), order);
                 } else
                         /* No prefix? Then treat as glob string */
                         r = fnmatch(s, u.release, 0) == 0;
