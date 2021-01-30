@@ -886,6 +886,38 @@ static void test_string_contains_word(void) {
         assert_se(!string_contains_word("a:b:cc", ":#", ":cc"));
 }
 
+static void test_strverscmp_improved_one(const char *newer, const char *older) {
+        log_info("/* %s(%s, %s) */", __func__, strnull(newer), strnull(older));
+
+        assert_se(strverscmp_improved(newer, newer) == 0);
+        assert_se(strverscmp_improved(newer, older) >  0);
+        assert_se(strverscmp_improved(older, newer) <  0);
+        assert_se(strverscmp_improved(older, older) == 0);
+}
+
+static void test_strverscmp_improved(void) {
+        test_strverscmp_improved_one("123", NULL);
+        test_strverscmp_improved_one("123", "");
+        test_strverscmp_improved_one("123.45-67.89", "123.45-67.88");
+        test_strverscmp_improved_one("123.45-67.89a", "123.45-67.89");
+        test_strverscmp_improved_one("123.45-67.89", "123.45-67.ab");
+        test_strverscmp_improved_one("123.45-67.89", "123.45-67.9");
+        test_strverscmp_improved_one("123.45-67.89", "123.45-67");
+        test_strverscmp_improved_one("123.45-67.89", "123.45-66.89");
+        test_strverscmp_improved_one("123.45-67.89", "123.45-9.99");
+        test_strverscmp_improved_one("123.45-67.89", "123.42-99.99");
+        test_strverscmp_improved_one("123.45-67.89", "123-99.99");
+        test_strverscmp_improved_one("123.45-67.89", "123~rc1-99.99");
+        test_strverscmp_improved_one("123-67.89", "123~rc1-99.99");
+        test_strverscmp_improved_one("123~rc2-67.89", "123~rc1-99.99");
+        test_strverscmp_improved_one("123^aa2-67.89", "123.45-99.99");
+        test_strverscmp_improved_one("123^aa2-67.89", "123-99.99");
+        test_strverscmp_improved_one("123^aa2-67.89", "123^aa1-99.99");
+        test_strverscmp_improved_one("123^aa2-67.89", "123~rc1-99.99");
+        test_strverscmp_improved_one("123.45-67.89", "~1");
+        test_strverscmp_improved_one("^1", "123.45-67.89");
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -923,6 +955,7 @@ int main(int argc, char *argv[]) {
         test_string_extract_line();
         test_string_contains_word_strv();
         test_string_contains_word();
+        test_strverscmp_improved();
 
         return 0;
 }
