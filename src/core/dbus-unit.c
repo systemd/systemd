@@ -1717,6 +1717,89 @@ void bus_unit_send_removed_signal(Unit *u) {
                 log_unit_debug_errno(u, r, "Failed to send unit remove signal for %s: %m", u->id);
 }
 
+int bus_unit_queue_job_one(
+                sd_bus_message *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                BusUnitQueueFlags flags,
+                sd_bus_message *reply,
+                sd_bus_error *error) {
+
+        _cleanup_set_free_ Set *affected = NULL;
+        _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
+        Job *j, *a;
+        int r;
+
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
+                affected = set_new(NULL);
+                if (!affected)
+                        return -ENOMEM;
+        }
+
+        r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
+        if (r < 0)
+                return r;
+
+        r = bus_job_track_sender(j, message);
+        if (r < 0)
+                return r;
+
+        /* Before we send the method reply, force out the announcement JobNew for this job */
+        bus_job_send_pending_change_signal(j, true);
+
+        job_path = job_dbus_path(j);
+        if (!job_path)
+                return -ENOMEM;
+
+        /* The classic response is just a job object path */
+        if (!FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY))
+                return sd_bus_message_append(reply, "o", job_path);
+
+        /* In verbose mode respond with the anchor job plus everything that has been affected */
+
+        unit_path = unit_dbus_path(j->unit);
+        if (!unit_path)
+                return -ENOMEM;
+
+        r = sd_bus_message_append(reply, "uosos",
+                                  j->id, job_path,
+                                  j->unit->id, unit_path,
+                                  job_type_to_string(j->type));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(uosos)");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(a, affected) {
+                if (a->id == j->id)
+                        continue;
+
+                /* Free paths from previous iteration */
+                job_path = mfree(job_path);
+                unit_path = mfree(unit_path);
+
+                job_path = job_dbus_path(a);
+                if (!job_path)
+                        return -ENOMEM;
+
+                unit_path = unit_dbus_path(a->unit);
+                if (!unit_path)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(uosos)",
+                                          a->id, job_path,
+                                          a->unit->id, unit_path,
+                                          job_type_to_string(a->type));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 int bus_unit_queue_job(
                 sd_bus_message *message,
                 Unit *u,
@@ -1726,9 +1809,6 @@ int bus_unit_queue_job(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
-        _cleanup_set_free_ Set *affected = NULL;
-        Job *j, *a;
         int r;
 
         assert(message);
@@ -1761,77 +1841,11 @@ int bus_unit_queue_job(
             (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
 
-        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
-                affected = set_new(NULL);
-                if (!affected)
-                        return -ENOMEM;
-        }
-
-        r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
-        if (r < 0)
-                return r;
-
-        r = bus_job_track_sender(j, message);
-        if (r < 0)
-                return r;
-
-        /* Before we send the method reply, force out the announcement JobNew for this job */
-        bus_job_send_pending_change_signal(j, true);
-
-        job_path = job_dbus_path(j);
-        if (!job_path)
-                return -ENOMEM;
-
-        /* The classic response is just a job object path */
-        if (!FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY))
-                return sd_bus_reply_method_return(message, "o", job_path);
-
-        /* In verbose mode respond with the anchor job plus everything that has been affected */
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
 
-        unit_path = unit_dbus_path(j->unit);
-        if (!unit_path)
-                return -ENOMEM;
-
-        r = sd_bus_message_append(reply, "uosos",
-                                  j->id, job_path,
-                                  j->unit->id, unit_path,
-                                  job_type_to_string(j->type));
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "(uosos)");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(a, affected) {
-
-                if (a->id == j->id)
-                        continue;
-
-                /* Free paths from previous iteration */
-                job_path = mfree(job_path);
-                unit_path = mfree(unit_path);
-
-                job_path = job_dbus_path(a);
-                if (!job_path)
-                        return -ENOMEM;
-
-                unit_path = unit_dbus_path(a->unit);
-                if (!unit_path)
-                        return -ENOMEM;
-
-                r = sd_bus_message_append(reply, "(uosos)",
-                                          a->id, job_path,
-                                          a->unit->id, unit_path,
-                                          job_type_to_string(a->type));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
+        r = bus_unit_queue_job_one(message, u, type, mode, flags, reply, error);
         if (r < 0)
                 return r;
 
