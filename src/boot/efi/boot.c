@@ -15,6 +15,7 @@
 #include "random-seed.h"
 #include "shim.h"
 #include "util.h"
+#include "secure-boot.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
@@ -359,7 +360,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key;
         UINTN i;
-        _cleanup_freepool_ CHAR8 *bootvar = NULL, *modevar = NULL, *indvar = NULL;
+        _cleanup_freepool_ CHAR8 *modevar = NULL, *indvar = NULL;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y, size;
 
@@ -376,8 +377,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         if (uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x, &y) == EFI_SUCCESS)
                 Print(L"console size:           %d x %d\n", x, y);
 
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &bootvar, &size) == EFI_SUCCESS)
-                Print(L"SecureBoot:             %s\n", yes_no(*bootvar > 0));
+        Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
         if (efivar_get_raw(&global_guid, L"SetupMode", &modevar, &size) == EFI_SUCCESS)
                 Print(L"SetupMode:              %s\n", *modevar > 0 ? L"setup" : L"user");
