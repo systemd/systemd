@@ -1807,6 +1807,63 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int method_restart_needing_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = mac_selinux_access_check(message, "start", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        log_debug("Queuing restart jobs…");
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "o");
+        if (r < 0)
+                return r;
+
+        Unit *u;
+        char *k;
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
+                /* ignore aliases */
+                if (u->id != k)
+                        continue;
+
+                if (!u->needs_restart)
+                        continue;
+
+                r = mac_selinux_unit_access_check(
+                                u, message,
+                                job_type_to_access_method(JOB_RESTART),
+                                error);
+                if (r < 0)
+                        return r;
+
+                r = bus_unit_queue_job_one(message, u, JOB_RESTART, JOB_FAIL, 0, reply, error);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
@@ -3006,6 +3063,12 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(assignments),
                                  NULL,,
                                  method_unset_and_set_environment,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("RestartNeedingRestart",
+                                 NULL,,
+                                 "ao",
+                                 SD_BUS_PARAM(jobs),
+                                 method_restart_needing_restart,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ListUnitFiles",
                                  NULL,,
