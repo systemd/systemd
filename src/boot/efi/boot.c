@@ -24,8 +24,6 @@
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
-
 enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
@@ -379,13 +377,13 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
-        if (efivar_get_raw(&global_guid, L"SetupMode", &modevar, &size) == EFI_SUCCESS)
+        if (efivar_get_raw(EFI_GLOBAL_GUID, L"SetupMode", &modevar, &size) == EFI_SUCCESS)
                 Print(L"SetupMode:              %s\n", *modevar > 0 ? L"setup" : L"user");
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
 
-        if (efivar_get_raw(&global_guid, L"OsIndicationsSupported", &indvar, &size) == EFI_SUCCESS)
+        if (efivar_get_raw(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &indvar, &size) == EFI_SUCCESS)
                 Print(L"OsIndicationsSupported: %d\n", (UINT64)*indvar);
 
         Print(L"\n--- press key ---\n\n");
@@ -2020,10 +2018,8 @@ static VOID config_entry_add_linux(
         uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
 }
 
-/* Note that this is in GUID format, i.e. the first 32bit, and the following pair of 16bit are byteswapped. */
-static const UINT8 xbootldr_guid[16] = {
-        0xff, 0xc2, 0x13, 0xbc, 0xe6, 0x59, 0x62, 0x42, 0xa3, 0x52, 0xb2, 0x75, 0xfd, 0x6f, 0x71, 0x72
-};
+#define XBOOTLDR_GUID \
+        &(const EFI_GUID) { 0xbc13c2ff, 0x59e6, 0x4262, { 0xa3, 0x52, 0xb2, 0x75, 0xfd, 0x6f, 0x71, 0x72 } }
 
 static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
         EFI_DEVICE_PATH *parent;
@@ -2168,7 +2164,7 @@ static VOID config_load_xbootldr(
 
                                 entry = (EFI_PARTITION_ENTRY*) ((UINT8*) entries + h->SizeOfPartitionEntry * i);
 
-                                if (CompareMem(&entry->PartitionTypeGUID, xbootldr_guid, 16) == 0) {
+                                if (CompareMem(&entry->PartitionTypeGUID, XBOOTLDR_GUID, 16) == 0) {
                                         UINT64 end;
 
                                         /* Let's use memcpy(), in case the structs are not aligned (they really should be though) */
@@ -2297,11 +2293,11 @@ static EFI_STATUS reboot_into_firmware(VOID) {
 
         osind = EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
-        err = efivar_get_raw(&global_guid, L"OsIndications", &b, &size);
+        err = efivar_get_raw(EFI_GLOBAL_GUID, L"OsIndications", &b, &size);
         if (!EFI_ERROR(err))
                 osind |= (UINT64)*b;
 
-        err = efivar_set_raw(&global_guid, L"OsIndications", &osind, sizeof(UINT64), TRUE);
+        err = efivar_set_raw(EFI_GLOBAL_GUID, L"OsIndications", &osind, sizeof(UINT64), TRUE);
         if (EFI_ERROR(err))
                 return err;
 
@@ -2342,7 +2338,7 @@ static VOID config_write_entries_to_variable(Config *config) {
         }
 
         /* Store the full list of discovered entries. */
-        (void) efivar_set_raw(&loader_guid, L"LoaderEntries", buffer, (UINT8*) p - (UINT8*) buffer, FALSE);
+        (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8*) p - (UINT8*) buffer, FALSE);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -2379,7 +2375,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(L"LoaderFirmwareType", typestr, FALSE);
 
-        (void) efivar_set_raw(&loader_guid, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
+        (void) efivar_set_raw(LOADER_GUID, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -2436,7 +2432,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_osx(&config);
 
-        if (config.auto_firmware && efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
+        if (config.auto_firmware && efivar_get_raw(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)

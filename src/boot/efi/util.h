@@ -55,7 +55,14 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
         uefi_call_wrapper((*handle)->Close, 1, *handle);
 }
 
-extern const EFI_GUID loader_guid;
+/*
+ * Allocated random UUID, intended to be shared across tools that implement
+ * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
+ * associated EFI variables.
+ */
+#define LOADER_GUID \
+        &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
+#define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
