@@ -7,6 +7,7 @@
 #include "console.h"
 #include "crc32.h"
 #include "disk.h"
+#include "efi_config.h"
 #include "graphics.h"
 #include "linux.h"
 #include "loader-features.h"
@@ -15,6 +16,7 @@
 #include "random-seed.h"
 #include "shim.h"
 #include "util.h"
+#include "version.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
