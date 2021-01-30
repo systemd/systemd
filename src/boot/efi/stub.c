@@ -8,19 +8,15 @@
 #include "linux.h"
 #include "measure.h"
 #include "pe.h"
+#include "secure-boot.h"
 #include "splash.h"
 #include "util.h"
 
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
 
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
-
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
-        _cleanup_freepool_ CHAR8 *b = NULL;
-        UINTN size;
-        BOOLEAN secure = FALSE;
         CHAR8 *sections[] = {
                 (CHAR8 *)".cmdline",
                 (CHAR8 *)".linux",
@@ -46,10 +42,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return err;
         }
 
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
-                if (*b > 0)
-                        secure = TRUE;
-
         err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, offs, szs);
         if (EFI_ERROR(err)) {
                 Print(L"Unable to locate embedded .linux section: %r ", err);
@@ -63,7 +55,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         cmdline_len = szs[0];
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
-        if ((!secure || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
+        if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
+            *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
                 CHAR16 *options;
                 CHAR8 *line;
                 UINTN i;

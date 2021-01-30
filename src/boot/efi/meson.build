@@ -21,6 +21,7 @@ common_sources = '''
         graphics.c
         measure.c
         pe.c
+        secure-boot.c
         util.c
 '''.split()
 
