@@ -38,6 +38,7 @@
 #include "systemctl-list-units.h"
 #include "systemctl-log-setting.h"
 #include "systemctl-logind.h"
+#include "systemctl-needs-restart.h"
 #include "systemctl-mount.h"
 #include "systemctl-preset-all.h"
 #include "systemctl-reset-failed.h"
@@ -160,6 +161,7 @@ static int systemctl_help(void) {
                "  freeze PATTERN...                   Freeze execution of unit processes\n"
                "  thaw PATTERN...                     Resume execution of a frozen unit\n"
                "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
+               "  set-needs-restart PATTERN...        Mark units as needing restart\n"
                "  bind UNIT PATH [PATH]               Bind-mount a path from the host into a\n"
                "                                      unit's namespace\n"
                "  mount-image UNIT PATH [PATH [OPTS]] Mount an image from the host into a\n"
@@ -1063,6 +1065,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "set-default",           2,        2,        0,                set_default             },
                 { "get-default",           VERB_ANY, 1,        0,                get_default             },
                 { "set-property",          3,        VERB_ANY, VERB_ONLINE_ONLY, set_property            },
+                { "set-needs-restart",     2,        VERB_ANY, VERB_ONLINE_ONLY, set_needs_restart       },
                 { "is-system-running",     VERB_ANY, 1,        0,                is_system_running       },
                 { "add-wants",             3,        VERB_ANY, 0,                add_dependency          },
                 { "add-requires",          3,        VERB_ANY, 0,                add_dependency          },
