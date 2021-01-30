@@ -356,8 +356,8 @@ static int help(void) {
                "  -e --export-db              Export the content of the udev database\n"
                "  -c --cleanup-db             Clean up the udev database\n"
                "  -w --wait-for-initialization[=SECONDS]\n"
-               "                              Wait for device to be initialized\n"
-               , program_invocation_short_name);
+               "                              Wait for device to be initialized\n",
+               program_invocation_short_name);
 
         return 0;
 }

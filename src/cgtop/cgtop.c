@@ -722,11 +722,10 @@ static int help(void) {
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
                "  -M --machine=       Show container\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , arg_depth
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               arg_depth,
+               link);
 
         return 0;
 }

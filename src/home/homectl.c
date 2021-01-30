@@ -2026,12 +2026,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-processes=BOOL    Whether to kill user processes when sessions\n"
                "                              terminate\n"
                "     --auto-login=BOOL        Try to log this user in automatically\n"
-               "\nSee the %6$s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , ansi_underline(), ansi_normal()
-               , link
-        );
+               "\nSee the %6$s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

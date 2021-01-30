@@ -954,10 +954,9 @@ static int help(void) {
                "     --force                                Overwrite existing files\n"
                "     --delete-root-password                 Delete root password\n"
                "     --welcome=no                           Disable the welcome text\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

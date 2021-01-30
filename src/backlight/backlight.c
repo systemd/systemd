@@ -33,12 +33,12 @@ static int help(void) {
                "\n%sSave and restore backlight brightness at shutdown and boot.%s\n\n"
                "  save            Save current brightness\n"
                "  load            Set brightness to be the previously saved value\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

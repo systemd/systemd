@@ -23,8 +23,8 @@ static int help(void) {
                "  -r --root=PATH       Alternative root path in the filesystem\n\n"
                "NOTE:\n"
                "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
-               "Please use systemd-hwdb instead.\n"
-               , program_invocation_short_name);
+               "Please use systemd-hwdb instead.\n",
+               program_invocation_short_name);
 
         return 0;
 }

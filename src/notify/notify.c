@@ -48,11 +48,11 @@ static int help(void) {
                "     --status=TEXT     Set status text\n"
                "     --booted          Check if the system was booted up with systemd\n"
                "     --no-block        Do not wait until operation finished\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

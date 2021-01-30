@@ -27,12 +27,11 @@ static int help(void) {
                "\n%sVerify system operational state.%s\n\n"
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

@@ -53,10 +53,9 @@ static int help(void) {
                "     --version              Show package version\n"
                "     --dry-run              Only print destructive actions instead of doing them\n"
                "     --bus-introspect=PATH  Write D-Bus XML introspection data\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
