@@ -242,6 +242,9 @@ typedef struct Unit {
         RateLimit start_ratelimit;
         EmergencyAction start_limit_action;
 
+        /* The unit has been marked for reload, restart, etc. Stored as 1u << marker1 | 1u << marker2. */
+        unsigned markers;
+
         /* What to do on failure or success */
         EmergencyAction success_action, failure_action;
         int success_action_exit_status, failure_action_exit_status;
