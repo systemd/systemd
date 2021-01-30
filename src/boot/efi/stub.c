@@ -10,6 +10,7 @@
 #include "pe.h"
 #include "splash.h"
 #include "util.h"
+#include "version.h"
 
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
