@@ -176,6 +176,7 @@ node /org/freedesktop/systemd1 {
       UnsetEnvironment(in  as names);
       UnsetAndSetEnvironment(in  as names,
                              in  as assignments);
+      RestartNeedingRestart(out ao jobs);
       ListUnitFiles(out a(ss) unit_files);
       ListUnitFilesByPatterns(in  as states,
                               in  as patterns,
@@ -848,6 +849,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnsetAndSetEnvironment()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="RestartNeedingRestart()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFilesByPatterns()"/>
@@ -1170,6 +1173,9 @@ node /org/freedesktop/systemd1 {
       running and fails otherwise. If a service is restarted that isn't running, it will be started unless
       the "Try" flavor is used in which case a service that isn't running is not affected by the restart. The
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
+
+      <para><function>RestartNeedingRestart()</function> calls <function>TryRestartUnit()</function> for any
+      units which have the <varname>NeedsRestart</varname> property set to true.</para>
 
       <para><function>BindMountUnit()</function> can be used to bind mount new files or directories into
       a running service mount namespace.</para>
