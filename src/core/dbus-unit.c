@@ -1832,8 +1832,8 @@ static int bus_unit_set_live_property(
         assert(name);
         assert(message);
 
-        /* Handles setting properties both "live" (i.e. at any time during runtime), and during creation (for transient
-         * units that are being created). */
+        /* Handles setting properties both "live" (i.e. at any time during runtime), and during creation (for
+         * transient units that are being created). */
 
         if (streq(name, "Description")) {
                 const char *d;
@@ -2024,8 +2024,8 @@ static int bus_unit_set_transient_property(
         assert(name);
         assert(message);
 
-        /* Handles settings when transient units are created. This settings cannot be altered anymore after the unit
-         * has been created. */
+        /* Handles settings when transient units are created. This settings cannot be altered anymore after
+         * the unit has been created. */
 
         if (streq(name, "SourcePath"))
                 return bus_set_transient_path(u, name, &u->source_path, message, flags, error);
@@ -2333,7 +2333,8 @@ int bus_unit_set_properties(
                         return r;
 
                 if (!UNIT_VTABLE(u)->bus_set_property)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Objects of this type do not support setting properties.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY,
+                                                 "Objects of this type do not support setting properties.");
 
                 r = sd_bus_message_enter_container(message, 'v', NULL);
                 if (r < 0)
@@ -2351,7 +2352,8 @@ int bus_unit_set_properties(
                         return r;
 
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Cannot set property %s, or unknown property.", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY,
+                                                 "Cannot set property %s, or unknown property.", name);
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -2469,8 +2471,8 @@ int bus_unit_track_add_sender(Unit *u, sd_bus_message *m) {
 int bus_unit_track_remove_sender(Unit *u, sd_bus_message *m) {
         assert(u);
 
-        /* If we haven't allocated the bus track object yet, then there's definitely no reference taken yet, return an
-         * error */
+        /* If we haven't allocated the bus track object yet, then there's definitely no reference taken yet,
+         * return an error */
         if (!u->bus_track)
                 return -EUNATCH;
 
