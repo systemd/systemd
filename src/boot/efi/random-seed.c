@@ -5,9 +5,9 @@
 
 #include "missing_efi.h"
 #include "random-seed.h"
+#include "secure-boot.h"
 #include "sha256.h"
 #include "util.h"
-#include "shim.h"
 
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)

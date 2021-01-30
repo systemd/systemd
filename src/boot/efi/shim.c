@@ -31,7 +31,6 @@ struct ShimLock {
 };
 
 static const EFI_GUID simple_fs_guid = SIMPLE_FILE_SYSTEM_PROTOCOL;
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 static const EFI_GUID security_protocol_guid = { 0xa46423e3, 0x4617, 0x49f1, {0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } };
 static const EFI_GUID security2_protocol_guid = { 0x94ab2f58, 0x1438, 0x4ef1, {0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } };
@@ -56,16 +55,6 @@ static BOOLEAN shim_validate(VOID *data, UINT32 size) {
                 return FALSE;
 
         return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
-}
-
-BOOLEAN secure_boot_enabled(void) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
-        UINTN size;
-
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
-                return *b > 0;
-
-        return FALSE;
 }
 
 /*
