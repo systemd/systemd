@@ -121,6 +121,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
         (void) serialize_item_format(f, "freezer-state", "%s", freezer_state_to_string(unit_freezer_state(u)));
+        (void) serialize_item_format(f, "state-flags", "0x%"PRIx64, u->state_flags);
 
         bus_track_serialize(u->bus_track, f, "ref");
 
@@ -362,6 +363,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (MATCH_DESERIALIZE("freezer-state", l, v, freezer_state_from_string, u->freezer_state))
                         continue;
 
+                else if (MATCH_DESERIALIZE_IMMEDIATE("state-flags", l, v, safe_atou64, u->state_flags))
+                        continue;
+
                 /* Check if this is an IP accounting metric serialization field */
                 m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
                 if (m >= 0) {
@@ -532,6 +536,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInactive Enter Timestamp: %s\n"
                 "%s\tMay GC: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
+                "%s\tState Flags: 0x%"PRIx64"\n"
                 "%s\tTransient: %s\n"
                 "%s\tPerpetual: %s\n"
                 "%s\tGarbage Collection Mode: %s\n"
@@ -549,6 +554,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp[4], sizeof(timestamp[4]), u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
+                prefix, u->state_flags,
                 prefix, yes_no(u->transient),
                 prefix, yes_no(u->perpetual),
                 prefix, collect_mode_to_string(u->collect_mode),

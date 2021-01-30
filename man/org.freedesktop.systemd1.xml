@@ -1685,6 +1685,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b IgnoreOnIsolate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b NeedDaemonReload = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StateFlags = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t JobTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1969,6 +1971,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="NeedDaemonReload"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StateFlags"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="JobTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="JobRunningTimeoutUSec"/>
@@ -2160,8 +2164,17 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>NeedDaemonReload</varname> is a boolean that indicates whether the configuration file
       this unit is loaded from (i.e. <varname>FragmentPath</varname> or <varname>SourcePath</varname>) has
-      changed since the configuration was read and hence whether a configuration reload is
-      recommended.</para>
+      changed since the configuration was read and hence whether a configuration reload is recommended.
+      </para>
+
+      <para><varname>StateFlags</varname> is a field for flags that can be set using
+      <function>SetUnitProperties()</function> to indicate that the service should be reloaded or
+      restarted. Package scripts may use this to mark units for later restart when a new version of the
+      package is installed using <command>systemctl set-property <replaceable>unit</replaceable>
+      NeedsRestart=true</command>.  Configuration management scripts may use this to mark units for later
+      reload when the configuration is adjusted using <command>systemctl set-property
+      <replaceable>unit</replaceable> NeedsReload=true</command>. This property is not set by the manager,
+      except to unset the appropriate bits when when the unit is stopped, restarted, or reloaded.</para>
 
       <para><varname>JobTimeoutUSec</varname> maps directly to the corresponding configuration setting in the
       unit file.</para>
