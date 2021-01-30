@@ -142,7 +142,7 @@ static EFI_STATUS mangle_random_seed(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
+static EFI_STATUS acquire_system_token(VOID **ret, UINTN *ret_size) {
         _cleanup_freepool_ CHAR8 *data = NULL;
         EFI_STATUS err;
         UINTN size;
