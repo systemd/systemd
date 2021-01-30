@@ -172,6 +172,29 @@ static int unit_deserialize_job(Unit *u, FILE *f) {
         return 0;
 }
 
+#define MATCH_DESERIALIZE(key, l, v, parse_func, target)                \
+        ({                                                              \
+                bool _deserialize_matched = streq(l, key);              \
+                if (_deserialize_matched) {                             \
+                        int _deserialize_r = parse_func(v);             \
+                        if (_deserialize_r < 0)                         \
+                                log_unit_debug(u, "Failed to parse \"%s=%s\", ignoring.", l, v); \
+                        else                                            \
+                                target = _deserialize_r;                \
+                };                                                      \
+                _deserialize_matched;                                   \
+        })
+
+#define MATCH_DESERIALIZE_IMMEDIATE(key, l, v, parse_func, target)      \
+        ({                                                              \
+                bool _deserialize_matched = streq(l, key);              \
+                if (_deserialize_matched) {                             \
+                        if (parse_func(v, &target) < 0)                 \
+                                log_unit_debug(u,  "Failed to parse \"%s=%s\", ignoring", l, v); \
+                };                                                      \
+                _deserialize_matched;                                   \
+        })
+
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
@@ -233,130 +256,48 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "assert-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->assert_timestamp);
                         continue;
-                } else if (streq(l, "condition-result")) {
 
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse condition result value %s, ignoring.", v);
-                        else
-                                u->condition_result = r;
-
+                } else if (MATCH_DESERIALIZE("condition-result", l, v, parse_boolean, u->condition_result))
                         continue;
 
-                } else if (streq(l, "assert-result")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse assert result value %s, ignoring.", v);
-                        else
-                                u->assert_result = r;
-
+                else if (MATCH_DESERIALIZE("assert-result", l, v, parse_boolean, u->assert_result))
                         continue;
 
-                } else if (streq(l, "transient")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse transient bool %s, ignoring.", v);
-                        else
-                                u->transient = r;
-
+                else if (MATCH_DESERIALIZE("transient", l, v, parse_boolean, u->transient))
                         continue;
 
-                } else if (streq(l, "in-audit")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse in-audit bool %s, ignoring.", v);
-                        else
-                                u->in_audit = r;
-
+                else if (MATCH_DESERIALIZE("in-audit", l, v, parse_boolean, u->in_audit))
                         continue;
 
-                } else if (streq(l, "exported-invocation-id")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse exported invocation ID bool %s, ignoring.", v);
-                        else
-                                u->exported_invocation_id = r;
-
+                else if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))
                         continue;
 
-                } else if (streq(l, "exported-log-level-max")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse exported log level max bool %s, ignoring.", v);
-                        else
-                                u->exported_log_level_max = r;
-
+                else if (MATCH_DESERIALIZE("exported-log-level-max", l, v, parse_boolean, u->exported_log_level_max))
                         continue;
 
-                } else if (streq(l, "exported-log-extra-fields")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse exported log extra fields bool %s, ignoring.", v);
-                        else
-                                u->exported_log_extra_fields = r;
-
+                else if (MATCH_DESERIALIZE("exported-log-extra-fields", l, v, parse_boolean, u->exported_log_extra_fields))
                         continue;
 
-                } else if (streq(l, "exported-log-rate-limit-interval")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse exported log rate limit interval %s, ignoring.", v);
-                        else
-                                u->exported_log_ratelimit_interval = r;
-
+                else if (MATCH_DESERIALIZE("exported-log-rate-limit-interval", l, v, parse_boolean, u->exported_log_ratelimit_interval))
                         continue;
 
-                } else if (streq(l, "exported-log-rate-limit-burst")) {
-
-                        r = parse_boolean(v);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse exported log rate limit burst %s, ignoring.", v);
-                        else
-                                u->exported_log_ratelimit_burst = r;
-
+                else if (MATCH_DESERIALIZE("exported-log-rate-limit-burst", l, v, parse_boolean, u->exported_log_ratelimit_burst))
                         continue;
 
-                } else if (STR_IN_SET(l, "cpu-usage-base", "cpuacct-usage-base")) {
-
-                        r = safe_atou64(v, &u->cpu_usage_base);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse CPU usage base %s, ignoring.", v);
-
+                else if (MATCH_DESERIALIZE_IMMEDIATE("cpu-usage-base", l, v, safe_atou64, u->cpu_usage_base) ||
+                         MATCH_DESERIALIZE_IMMEDIATE("cpuacct-usage-base", l, v, safe_atou64, u->cpu_usage_base))
                         continue;
 
-                } else if (streq(l, "cpu-usage-last")) {
-
-                        r = safe_atou64(v, &u->cpu_usage_last);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to read CPU usage last %s, ignoring.", v);
-
+                else if (MATCH_DESERIALIZE_IMMEDIATE("cpu-usage-last", l, v, safe_atou64, u->cpu_usage_last))
                         continue;
 
-                } else if (streq(l, "managed-oom-kill-last")) {
-
-                        r = safe_atou64(v, &u->managed_oom_kill_last);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to read managed OOM kill last %s, ignoring.", v);
-
+                else if (MATCH_DESERIALIZE_IMMEDIATE("managed-oom-kill-last", l, v, safe_atou64, u->managed_oom_kill_last))
                         continue;
 
-                } else if (streq(l, "oom-kill-last")) {
-
-                        r = safe_atou64(v, &u->oom_kill_last);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to read OOM kill last %s, ignoring.", v);
-
+                else if (MATCH_DESERIALIZE_IMMEDIATE("oom-kill-last", l, v, safe_atou64, u->oom_kill_last))
                         continue;
 
-                } else if (streq(l, "cgroup")) {
-
+                else if (streq(l, "cgroup")) {
                         r = unit_set_cgroup_path(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", v);
@@ -365,47 +306,27 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         (void) unit_watch_cgroup_memory(u);
 
                         continue;
-                } else if (streq(l, "cgroup-realized")) {
-                        int b;
 
-                        b = parse_boolean(v);
-                        if (b < 0)
-                                log_unit_debug(u, "Failed to parse cgroup-realized bool %s, ignoring.", v);
-                        else
-                                u->cgroup_realized = b;
-
+                } else if (MATCH_DESERIALIZE("cgroup-realized", l, v, parse_boolean, u->cgroup_realized))
                         continue;
 
-                } else if (streq(l, "cgroup-realized-mask")) {
-
-                        r = cg_mask_from_string(v, &u->cgroup_realized_mask);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse cgroup-realized-mask %s, ignoring.", v);
+                else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-realized-mask", l, v, cg_mask_from_string, u->cgroup_realized_mask))
                         continue;
 
-                } else if (streq(l, "cgroup-enabled-mask")) {
-
-                        r = cg_mask_from_string(v, &u->cgroup_enabled_mask);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse cgroup-enabled-mask %s, ignoring.", v);
+                else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-enabled-mask", l, v, cg_mask_from_string, u->cgroup_enabled_mask))
                         continue;
 
-                } else if (streq(l, "cgroup-invalidated-mask")) {
-
-                        r = cg_mask_from_string(v, &u->cgroup_invalidated_mask);
-                        if (r < 0)
-                                log_unit_debug(u, "Failed to parse cgroup-invalidated-mask %s, ignoring.", v);
+                else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-invalidated-mask", l, v, cg_mask_from_string, u->cgroup_invalidated_mask))
                         continue;
 
-                } else if (streq(l, "ref-uid")) {
+                else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
                         if (r < 0)
-                                log_unit_debug(u, "Failed to parse referenced UID %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse \"%s=%s\", ignoring.", l, v);
                         else
                                 unit_ref_uid_gid(u, uid, GID_INVALID);
-
                         continue;
 
                 } else if (streq(l, "ref-gid")) {
@@ -413,25 +334,23 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = parse_gid(v, &gid);
                         if (r < 0)
-                                log_unit_debug(u, "Failed to parse referenced GID %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse \"%s=%s\", ignoring.", l, v);
                         else
                                 unit_ref_uid_gid(u, UID_INVALID, gid);
-
                         continue;
 
                 } else if (streq(l, "ref")) {
-
                         r = strv_extend(&u->deserialized_refs, v);
                         if (r < 0)
                                 return log_oom();
-
                         continue;
+
                 } else if (streq(l, "invocation-id")) {
                         sd_id128_t id;
 
                         r = sd_id128_from_string(v, &id);
                         if (r < 0)
-                                log_unit_debug(u, "Failed to parse invocation id %s, ignoring.", v);
+                                log_unit_debug(u, "Failed to parse \"%s=%s\", ignoring.", l, v);
                         else {
                                 r = unit_set_invocation_id(u, id);
                                 if (r < 0)
@@ -439,17 +358,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         }
 
                         continue;
-                } else if (streq(l, "freezer-state")) {
-                        FreezerState s;
 
-                        s = freezer_state_from_string(v);
-                        if (s < 0)
-                                log_unit_debug(u, "Failed to deserialize freezer-state '%s', ignoring.", v);
-                        else
-                                u->freezer_state = s;
-
+                } else if (MATCH_DESERIALIZE("freezer-state", l, v, freezer_state_from_string, u->freezer_state))
                         continue;
-                }
 
                 /* Check if this is an IP accounting metric serialization field */
                 m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
