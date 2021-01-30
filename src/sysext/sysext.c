@@ -395,9 +395,9 @@ static int merge_hierarchy(
         return 1;
 }
 
-static int strverscmpp(char *const* a, char *const* b) {
-        /* usable in qsort() for sorting a string array with strverscmp() */
-        return strverscmp(*a, *b);
+static int strverscmp_improvedp(char *const* a, char *const* b) {
+        /* usable in qsort() for sorting a string array with strverscmp_improved() */
+        return strverscmp_improved(*a, *b);
 }
 
 static int validate_version(
@@ -623,8 +623,8 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 return 0;
         }
 
-        /* Order by version sort (i.e. libc strverscmp()) */
-        typesafe_qsort(extensions, n_extensions, strverscmpp);
+        /* Order by version sort with strverscmp_improved() */
+        typesafe_qsort(extensions, n_extensions, strverscmp_improvedp);
 
         buf = strv_join(extensions, "', '");
         if (!buf)

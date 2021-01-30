@@ -244,7 +244,7 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
-        return str_verscmp(a->id, b->id);
+        return strverscmp_improved(a->id, b->id);
 }
 
 static int boot_entries_find(
