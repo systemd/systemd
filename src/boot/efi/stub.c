@@ -83,14 +83,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* Export the device path this image is started from, if it's not set yet */
         if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
                 if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                        efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
+                        efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, FALSE);
 
         /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
         if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = DevicePathToStr(loaded_image->FilePath);
-                efivar_set(L"LoaderImageIdentifier", s, FALSE);
+                efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, FALSE);
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
@@ -98,7 +98,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(L"LoaderFirmwareInfo", s, FALSE);
+                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, FALSE);
         }
 
         /* ditto for LoaderFirmwareType */
@@ -106,12 +106,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(L"LoaderFirmwareType", s, FALSE);
+                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, FALSE);
         }
 
         /* add StubInfo */
         if (efivar_get_raw(LOADER_GUID, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
-                efivar_set(L"StubInfo", L"systemd-stub " GIT_VERSION, FALSE);
+                efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, FALSE);
 
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
