@@ -31,11 +31,11 @@ static int telinit_help(void) {
                "\nOptions:\n"
                "     --help      Show this help\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

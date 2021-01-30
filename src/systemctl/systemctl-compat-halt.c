@@ -36,16 +36,15 @@ static int halt_help(void) {
                "  -w --wtmp-only Don't halt/power-off/reboot, just write wtmp record\n"
                "  -d --no-wtmp   Don't write wtmp record\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , arg_action == ACTION_REBOOT   ? " [ARG]" : ""
-               , ansi_highlight()
-               , arg_action == ACTION_REBOOT   ? "Reboot" :
-                 arg_action == ACTION_POWEROFF ? "Power off" :
-                                                 "Halt"
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               arg_action == ACTION_REBOOT ? " [ARG]" : "",
+               ansi_highlight(),
+               arg_action == ACTION_REBOOT           ? "Reboot" :
+                       arg_action == ACTION_POWEROFF ? "Power off" :
+                                                       "Halt",
+               ansi_normal(),
+               link);
 
         return 0;
 }

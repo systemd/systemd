@@ -43,10 +43,9 @@ static int resolvconf_help(void) {
                "implementations are not supported and will cause the invocation to fail: -u,\n"
                "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
                "--updates-are-enabled.\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

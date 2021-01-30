@@ -2534,14 +2534,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --verify=MODE            Verification mode for downloaded images (no,\n"
                "                              checksum, signature)\n"
                "     --force                  Download image even if already exists\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

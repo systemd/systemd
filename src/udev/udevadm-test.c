@@ -34,8 +34,8 @@ static int help(void) {
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -a --action=ACTION|help              Set action string\n"
-               "  -N --resolve-names=early|late|never  When to resolve names\n"
-               , program_invocation_short_name);
+               "  -N --resolve-names=early|late|never  When to resolve names\n",
+               program_invocation_short_name);
 
         return 0;
 }

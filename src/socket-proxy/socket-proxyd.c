@@ -595,11 +595,10 @@ static int help(void) {
                "                         the %3$s for time span format\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , time_link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               time_link);
 
         return 0;
 }

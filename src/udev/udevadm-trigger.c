@@ -133,8 +133,8 @@ static int help(void) {
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
-               "                                    before triggering uevents\n"
-               , program_invocation_short_name);
+               "                                    before triggering uevents\n",
+               program_invocation_short_name);
 
         return 0;
 }

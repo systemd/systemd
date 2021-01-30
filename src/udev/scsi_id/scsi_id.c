@@ -299,9 +299,8 @@ static void help(void) {
                "  -g --whitelisted                 Treat device as whitelisted\n"
                "  -u --replace-whitespace          Replace all whitespace by underscores\n"
                "  -v --verbose                     Verbose logging\n"
-               "  -x --export                      Print values as environment keys\n"
-               , program_invocation_short_name);
-
+               "  -x --export                      Print values as environment keys\n",
+               program_invocation_short_name);
 }
 
 static int set_options(int argc, char **argv,
