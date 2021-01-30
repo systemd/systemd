@@ -28,6 +28,45 @@ static int serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
         return serialize_item(f, key, s);
 }
 
+/* Make sure out values fit in the bitfield. */
+assert_cc(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8);
+
+static int serialize_markers(FILE *f, unsigned markers) {
+        assert(f);
+
+        if (markers == 0)
+                return 0;
+
+        fputs("markers=", f);
+        for (UnitMarker m = 0; m < _UNIT_MARKER_MAX; m++)
+                if (FLAGS_SET(markers, 1u << m))
+                        fputs(unit_marker_to_string(m), f);
+        fputc('\n', f);
+        return 0;
+}
+
+static int deserialize_markers(Unit *u, const char *value) {
+        assert(u);
+        assert(value);
+        int r;
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r <= 0)
+                        return r;
+
+                UnitMarker m = unit_marker_from_string(word);
+                if (m < 0) {
+                        log_unit_debug_errno(u, m, "Unknown unit marker \"%s\", ignoring.", word);
+                        continue;
+                }
+
+                u->markers |= 1u << m;
+        }
+}
+
 static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
@@ -121,6 +160,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                 (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
         (void) serialize_item_format(f, "freezer-state", "%s", freezer_state_to_string(unit_freezer_state(u)));
+        (void) serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
 
@@ -365,6 +405,13 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (MATCH_DESERIALIZE("freezer-state", l, v, freezer_state_from_string, u->freezer_state))
                         continue;
 
+                else if (streq(l, "markers")) {
+                        r = deserialize_markers(u, v);
+                        if (r < 0)
+                                log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
+                        continue;
+                }
+
                 /* Check if this is an IP accounting metric serialization field */
                 m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
                 if (m >= 0) {
@@ -558,6 +605,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized));
+
+        if (u->markers != 0) {
+                fprintf(f, "%s\tMarkers:", prefix);
+
+                for (UnitMarker marker = 0; marker < _UNIT_MARKER_MAX; marker++)
+                        if (FLAGS_SET(u->markers, 1u << marker))
+                                fprintf(f, " %s", unit_marker_to_string(marker));
+                fputs("\n", f);
+        }
 
         if (u->cgroup_realized_mask != 0) {
                 _cleanup_free_ char *s = NULL;
