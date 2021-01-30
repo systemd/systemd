@@ -85,24 +85,25 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID
         return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, flags, size, (VOID*) buf);
 }
 
-EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(LOADER_GUID, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
+EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
+        return efivar_set_raw(
+                vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, persistent);
 }
 
-EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
+EFI_STATUS efivar_set_int(const EFI_GUID *vendor, CHAR16 *name, UINTN i, BOOLEAN persistent) {
         CHAR16 str[32];
 
         SPrint(str, 32, L"%u", i);
-        return efivar_set(name, str, persistent);
+        return efivar_set(vendor, name, str, persistent);
 }
 
-EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
+EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
         CHAR16 *val;
         UINTN size;
 
-        err = efivar_get_raw(LOADER_GUID, name, &buf, &size);
+        err = efivar_get_raw(vendor, name, &buf, &size);
         if (EFI_ERROR(err))
                 return err;
 
@@ -131,11 +132,11 @@ EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_int(const CHAR16 *name, UINTN *i) {
+EFI_STATUS efivar_get_int(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
 
-        err = efivar_get(name, &val);
+        err = efivar_get(vendor, name, &val);
         if (!EFI_ERROR(err) && i)
                 *i = Atoi(val);
 
@@ -165,7 +166,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         return err;
 }
 
-VOID efivar_set_time_usec(CHAR16 *name, UINT64 usec) {
+VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
         if (usec == 0)
@@ -174,7 +175,7 @@ VOID efivar_set_time_usec(CHAR16 *name, UINT64 usec) {
                 return;
 
         SPrint(str, 32, L"%ld", usec);
-        efivar_set(name, str, FALSE);
+        efivar_set(vendor, name, str, FALSE);
 }
 
 static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
