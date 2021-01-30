@@ -1807,6 +1807,76 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int method_start_automatic_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = mac_selinux_access_check(message, "start", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        log_debug("Queuing reload/restart jobs…");
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "o");
+        if (r < 0)
+                return r;
+
+        Unit *u;
+        char *k;
+        int ret = 0;
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
+                /* ignore aliases */
+                if (u->id != k)
+                        continue;
+
+                JobType type;
+                if (FLAGS_SET(u->state_flags, UNIT_STATE_NEEDS_RESTART))
+                        type = JOB_TRY_RESTART;
+                else if (FLAGS_SET(u->state_flags, UNIT_STATE_NEEDS_RELOAD))
+                        type = JOB_TRY_RELOAD;
+                else
+                        continue;
+
+                r = mac_selinux_unit_access_check(
+                                u, message,
+                                job_type_to_access_method(type),
+                                error);
+                if (r >= 0)
+                        r = bus_unit_queue_job_one(message, u, type, JOB_FAIL, 0, reply, error);
+
+                if (r < 0) {
+                        if (ERRNO_IS_RESOURCE(r))
+                                return r;
+                        if (ret >= 0)
+                                ret = r;
+                }
+        }
+
+        if (ret < 0)
+                return sd_bus_error_set_errnof(error, ret,
+                                               "Failed to enqueue some jobs, see logs for details: %m");
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
@@ -3006,6 +3076,12 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(assignments),
                                  NULL,,
                                  method_unset_and_set_environment,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("StartAutomaticJobs",
+                                 NULL,,
+                                 "ao",
+                                 SD_BUS_PARAM(jobs),
+                                 method_start_automatic_jobs,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ListUnitFiles",
                                  NULL,,
