@@ -24,8 +24,6 @@
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] = "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
 
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
-
 enum loader_type {
         LOADER_UNDEFINED,
         LOADER_EFI,
@@ -379,13 +377,13 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
-        if (efivar_get_raw(&global_guid, L"SetupMode", &modevar, &size) == EFI_SUCCESS)
+        if (efivar_get_raw(GLOBAL_GUID, L"SetupMode", &modevar, &size) == EFI_SUCCESS)
                 Print(L"SetupMode:              %s\n", *modevar > 0 ? L"setup" : L"user");
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
 
-        if (efivar_get_raw(&global_guid, L"OsIndicationsSupported", &indvar, &size) == EFI_SUCCESS)
+        if (efivar_get_raw(GLOBAL_GUID, L"OsIndicationsSupported", &indvar, &size) == EFI_SUCCESS)
                 Print(L"OsIndicationsSupported: %d\n", (UINT64)*indvar);
 
         Print(L"\n--- press key ---\n\n");
@@ -2297,11 +2295,11 @@ static EFI_STATUS reboot_into_firmware(VOID) {
 
         osind = EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
-        err = efivar_get_raw(&global_guid, L"OsIndications", &b, &size);
+        err = efivar_get_raw(GLOBAL_GUID, L"OsIndications", &b, &size);
         if (!EFI_ERROR(err))
                 osind |= (UINT64)*b;
 
-        err = efivar_set_raw(&global_guid, L"OsIndications", &osind, sizeof(UINT64), TRUE);
+        err = efivar_set_raw(GLOBAL_GUID, L"OsIndications", &osind, sizeof(UINT64), TRUE);
         if (EFI_ERROR(err))
                 return err;
 
@@ -2342,7 +2340,7 @@ static VOID config_write_entries_to_variable(Config *config) {
         }
 
         /* Store the full list of discovered entries. */
-        (void) efivar_set_raw(&loader_guid, L"LoaderEntries", buffer, (UINT8*) p - (UINT8*) buffer, FALSE);
+        (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8*) p - (UINT8*) buffer, FALSE);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -2379,7 +2377,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(L"LoaderFirmwareType", typestr, FALSE);
 
-        (void) efivar_set_raw(&loader_guid, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
+        (void) efivar_set_raw(LOADER_GUID, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -2436,7 +2434,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_osx(&config);
 
-        if (config.auto_firmware && efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
+        if (config.auto_firmware && efivar_get_raw(GLOBAL_GUID, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)

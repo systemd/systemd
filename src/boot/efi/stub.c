@@ -81,12 +81,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* Export the device path this image is started from, if it's not set yet */
-        if (efivar_get_raw(&loader_guid, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
+        if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
                 if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                         efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
         /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
-        if (efivar_get_raw(&loader_guid, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS) {
+        if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = DevicePathToStr(loaded_image->FilePath);
@@ -94,7 +94,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
-        if (efivar_get_raw(&loader_guid, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
+        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
@@ -102,7 +102,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* ditto for LoaderFirmwareType */
-        if (efivar_get_raw(&loader_guid, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
+        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
@@ -110,7 +110,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* add StubInfo */
-        if (efivar_get_raw(&loader_guid, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
+        if (efivar_get_raw(LOADER_GUID, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
                 efivar_set(L"StubInfo", L"systemd-stub " GIT_VERSION, FALSE);
 
         if (szs[3] > 0)
