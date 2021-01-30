@@ -5,13 +5,6 @@
 
 #include "util.h"
 
-/*
- * Allocated random UUID, intended to be shared across tools that implement
- * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
- * associated EFI variables.
- */
-const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
-
 #ifdef __x86_64__
 UINT64 ticks_read(VOID) {
         UINT64 a, d;
@@ -93,7 +86,7 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID
 }
 
 EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
+        return efivar_set_raw(LOADER_GUID, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
 }
 
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
@@ -109,7 +102,7 @@ EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
         CHAR16 *val;
         UINTN size;
 
-        err = efivar_get_raw(&loader_guid, name, &buf, &size);
+        err = efivar_get_raw(LOADER_GUID, name, &buf, &size);
         if (EFI_ERROR(err))
                 return err;
 
