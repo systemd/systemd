@@ -131,6 +131,8 @@ if have_gnu_efi
 endif
 
 if have_gnu_efi
+        fs = import('fs')
+
         compile_args = ['-Wall',
                         '-Wextra',
                         '-std=gnu90',
@@ -144,8 +146,8 @@ if have_gnu_efi
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
                         '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
-                        '-include', efi_config_h,
-                        '-include', version_h]
+                        '-I', fs.parent('@0@'.format(efi_config_h)),
+                        '-I', '.']
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
