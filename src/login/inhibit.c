@@ -173,11 +173,11 @@ static int help(void) {
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"
                "     --list               List active inhibitors\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

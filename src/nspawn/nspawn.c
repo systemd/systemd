@@ -429,12 +429,13 @@ static int help(void) {
                "     --load-credential=ID:PATH\n"
                "                            Load credential to pass to container from file or\n"
                "                            AF_UNIX stream socket.\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }

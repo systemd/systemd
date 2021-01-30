@@ -118,10 +118,9 @@ static int help(void) {
                "     --cat-config       Show configuration files\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --unregister       Unregister all existing entries\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

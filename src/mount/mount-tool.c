@@ -114,11 +114,10 @@ static int help(void) {
                "     --list                       List mountable block devices\n"
                "  -u --umount                     Unmount mount points\n"
                "  -G --collect                    Unload unit after it stopped, even when failed\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount "
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ",
+               link);
 
         return 0;
 }

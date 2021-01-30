@@ -38,8 +38,8 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "  -V --version              Show package version\n"
                "  -t --timeout=SEC          Maximum time to wait for events\n"
-               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n"
-               , program_invocation_short_name);
+               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n",
+               program_invocation_short_name);
 
         return 0;
 }

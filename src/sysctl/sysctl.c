@@ -294,10 +294,9 @@ static int help(void) {
                "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

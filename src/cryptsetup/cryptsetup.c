@@ -1334,11 +1334,10 @@ static int help(void) {
         printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
                "%s detach VOLUME\n\n"
                "Attaches or detaches an encrypted block device.\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

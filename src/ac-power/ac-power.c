@@ -12,8 +12,8 @@ static void help(void) {
                "Report whether we are connected to an external power source.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "  -v --verbose          Show state as text\n"
-               , program_invocation_short_name);
+               "  -v --verbose          Show state as text\n",
+               program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {

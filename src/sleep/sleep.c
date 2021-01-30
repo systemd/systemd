@@ -308,10 +308,9 @@ static int help(void) {
                "  hybrid-sleep           Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
                "                         the system after a fixed period of time\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

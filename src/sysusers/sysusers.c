@@ -1762,10 +1762,9 @@ static int help(void) {
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

@@ -336,12 +336,11 @@ static int help(void) {
                "     --transient         Only set transient hostname\n"
                "     --static            Only set static hostname\n"
                "     --pretty            Only set pretty hostname\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

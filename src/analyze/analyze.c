@@ -2221,13 +2221,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
                "     --iterations=N        Show the specified number of iterations\n"
                "     --base-time=TIMESTAMP Calculate calendar times relative to specified time\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , dot_link
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               dot_link,
+               link);
 
         /* When updating this list, including descriptions, apply changes to
          * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */

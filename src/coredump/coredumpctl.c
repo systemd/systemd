@@ -178,12 +178,11 @@ static int help(void) {
                "     --file=PATH               Use journal file\n"
                "  -D --directory=DIR           Use journal files from directory\n\n"
                "  -q --quiet                   Do not show info messages and privilege warning\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

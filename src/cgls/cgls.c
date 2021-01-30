@@ -57,10 +57,9 @@ static int help(void) {
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

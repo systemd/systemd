@@ -600,11 +600,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -N                         Do not synthesize or include glibc NSS data\n"
                "                             (Same as --synthesize=no --with-nss=no)\n"
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

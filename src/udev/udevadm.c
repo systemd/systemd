@@ -37,8 +37,8 @@ static int help(void) {
 
         printf("%s [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n\n"
                "Send control commands or test the device manager.\n\n"
-               "Commands:\n"
-               , program_invocation_short_name);
+               "Commands:\n",
+               program_invocation_short_name);
 
         for (i = 0; i < ELEMENTSOF(short_descriptions); i++)
                 printf("  %-12s  %s\n", short_descriptions[i][0], short_descriptions[i][1]);

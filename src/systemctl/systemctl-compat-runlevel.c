@@ -21,11 +21,11 @@ static int runlevel_help(void) {
                "\n%sPrints the previous and current runlevel of the init system.%s\n"
                "\nOptions:\n"
                "     --help      Show this help\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

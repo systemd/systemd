@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         printf("%s [-h,--help] <device file>\n\n"
                                "Video4Linux device identification.\n\n"
-                               "  -h  Print this message\n"
-                               , program_invocation_short_name);
+                               "  -h  Print this message\n",
+                               program_invocation_short_name);
                         return 0;
                 case '?':
                         return -EINVAL;

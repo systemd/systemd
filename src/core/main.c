@@ -1108,12 +1108,13 @@ static int help(void) {
                "     --log-time[=BOOL]           Prefix log messages with current time\n"
                "     --default-standard-output=  Set default standard output for services\n"
                "     --default-standard-error=   Set default standard error output for services\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , ansi_underline(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

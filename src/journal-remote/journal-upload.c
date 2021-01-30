@@ -606,10 +606,9 @@ static int help(void) {
                "     --follow[=BOOL]        Do [not] wait for input\n"
                "     --save-state[=FILE]    Save uploaded cursors (default \n"
                "                            " STATE_FILE ")\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

@@ -35,10 +35,9 @@ static int help(void) {
                "     --root=ROOT        Filesystem root\n"
                "     --commit           Commit transient ID\n"
                "     --print            Print used machine ID\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

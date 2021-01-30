@@ -167,11 +167,11 @@ static int help(void) {
                "  -p --pretty             Generate samples of program code\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
                "  -u --uuid               Output in UUID format\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

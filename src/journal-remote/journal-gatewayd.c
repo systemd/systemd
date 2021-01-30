@@ -852,10 +852,9 @@ static int help(void) {
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
                "  -D --directory=PATH Serve journal files in directory\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }

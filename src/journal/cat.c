@@ -40,11 +40,11 @@ static int help(void) {
                "  -p --priority=PRIORITY         Set priority value (0..7)\n"
                "     --stderr-priority=PRIORITY  Set priority value (0..7) used for stderr\n"
                "     --level-prefix=BOOL         Control whether level prefix shall be parsed\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

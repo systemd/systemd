@@ -946,12 +946,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --now                    Immediately start/stop the portable service after\n"
                "                              attach/before detach\n"
                "     --no-block               Don't block waiting for attach --now to complete\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }

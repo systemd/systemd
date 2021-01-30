@@ -402,12 +402,13 @@ static int help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --setup-keys            Generate a new FSS key pair\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
