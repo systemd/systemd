@@ -421,7 +421,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"entry EFI var idx:      %d\n", config->idx_default_efivar);
         Print(L"\n");
 
-        if (efivar_get_int(LOADER_GUID, L"LoaderConfigTimeout", &timeout) == EFI_SUCCESS)
+        if (efivar_get_uintn(LOADER_GUID, L"LoaderConfigTimeout", &timeout) == EFI_SUCCESS)
                 Print(L"LoaderConfigTimeout:    %u\n", timeout);
 
         if (config->entry_oneshot)
@@ -781,7 +781,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'T'):
                         if (config->timeout_sec_efivar > 0) {
                                 config->timeout_sec_efivar--;
-                                efivar_set_int(
+                                efivar_set_uintn(
                                         LOADER_GUID, L"LoaderConfigTimeout", config->timeout_sec_efivar, TRUE);
                                 if (config->timeout_sec_efivar > 0)
                                         status = PoolPrint(L"Menu timeout set to %d sec.", config->timeout_sec_efivar);
@@ -803,7 +803,7 @@ static BOOLEAN menu_run(
                         if (config->timeout_sec_efivar == -1 && config->timeout_sec_config == 0)
                                 config->timeout_sec_efivar++;
                         config->timeout_sec_efivar++;
-                        efivar_set_int(LOADER_GUID, L"LoaderConfigTimeout", config->timeout_sec_efivar, TRUE);
+                        efivar_set_uintn(LOADER_GUID, L"LoaderConfigTimeout", config->timeout_sec_efivar, TRUE);
                         if (config->timeout_sec_efivar > 0)
                                 status = PoolPrint(L"Menu timeout set to %d sec.",
                                                    config->timeout_sec_efivar);
@@ -1460,14 +1460,14 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         if (!EFI_ERROR(err))
                 config_defaults_load_from_file(config, content);
 
-        err = efivar_get_int(LOADER_GUID, L"LoaderConfigTimeout", &sec);
+        err = efivar_get_uintn(LOADER_GUID, L"LoaderConfigTimeout", &sec);
         if (!EFI_ERROR(err)) {
                 config->timeout_sec_efivar = sec > INTN_MAX ? INTN_MAX : sec;
                 config->timeout_sec = sec;
         } else
                 config->timeout_sec_efivar = -1;
 
-        err = efivar_get_int(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &sec);
+        err = efivar_get_uintn(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &sec);
         if (!EFI_ERROR(err)) {
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, TRUE);
