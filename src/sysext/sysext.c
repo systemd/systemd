@@ -7,6 +7,7 @@
 
 #include "capability-util.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -37,6 +38,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
+static bool arg_shallow = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -94,6 +96,43 @@ static int is_our_mount_point(const char *p) {
         return true;
 }
 
+static int umount_shallow(const char *p) {
+        _cleanup_free_ char *buf = NULL, *shallow_meta_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        shallow_meta_path = path_join(p, ".systemd-sysext/shallow");
+        if (!shallow_meta_path)
+                return log_oom();
+
+        f = fopen(shallow_meta_path, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0; /* Not a shallow overlay */
+                return log_error_errno(errno, "Failed to open %s: %m", shallow_meta_path);
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *mount_point = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to read line from %s: %m", shallow_meta_path);
+                if (r == 0)
+                        break;
+
+                mount_point = path_join(p, line);
+                if (!mount_point)
+                        return log_oom();
+
+                r = umount_verbose(LOG_ERR, mount_point, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unmount file system '%s': %m", mount_point);
+        }
+
+        return 1;
+}
+
 static int unmerge_hierarchy(const char *p) {
         int r;
 
@@ -106,6 +145,10 @@ static int unmerge_hierarchy(const char *p) {
                         return r;
                 if (r == 0)
                         break;
+
+                r = umount_shallow(p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unmount shallow overlays on '%s': %m", p);
 
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
@@ -270,6 +313,126 @@ static int mount_overlayfs(
         return 0;
 }
 
+static int mount_shallow_root(const char *source, const char *dest) {
+        int r;
+
+        assert(source);
+        assert(dest);
+
+        /* If /usr or /opt are empty and not a tmpfs already, mount them as such so that we can overlay. */
+        if (dir_is_empty(source) && !path_is_temporary_fs(source)) {
+                (void) mkdir_p_label(dest, 0755);
+
+                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", dest, "tmpfs", 0, NULL);
+                if (r < 0)
+                        return r;
+        } else {
+                r = mount_nofollow_verbose(LOG_ERR, source, dest, NULL, MS_BIND, NULL);
+                if (r < 0)
+                        return r;
+
+                /* Make this a read-only bind mount */
+                r = bind_remount_recursive(dest, MS_RDONLY, MS_RDONLY, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", dest);
+
+        }
+
+        return 0;
+}
+
+static int mount_shallow(
+                const char *where,
+                char **layers) {
+
+        _cleanup_free_ char *root = NULL, *meta = NULL, *buf = NULL;
+        const char *meta_shallow_path;
+        bool root_mounted = false;
+        char **l;
+        int r;
+
+        assert(where);
+
+        if (strv_length(layers) < 2)
+                return 0; /* Nothing to do */
+
+        root = TAKE_PTR(*(layers + strv_length(layers) - 1));
+        meta_shallow_path = prefix_roota(*layers, ".systemd-sysext/shallow");
+
+        STRV_FOREACH(l, layers) {
+                _cleanup_strv_free_ char **mounts_list = NULL, **overlays_list = NULL;
+                _cleanup_free_ char *mounts_list_joined = NULL, *overlays_list_joined = NULL;
+                char **q;
+
+                r = mount_compute_shallow_overlays(root, *l, &mounts_list, &overlays_list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to compute overlays between %s and %s: %m", root, *l);
+
+                STRV_FOREACH(q, mounts_list) {
+                        _cleanup_free_ char *source = NULL, *dest = NULL;
+
+                        /* Mount the top level, but only if we got something to do, and only the first time. */
+                        if (!root_mounted) {
+                                r = mount_shallow_root(root, where);
+                                if (r < 0)
+                                        return r;
+                                root_mounted = true;
+                        }
+
+                        source = path_join(*l, *q);
+                        dest = path_join(where, *q);
+                        if (!source || !dest)
+                                return log_oom();
+
+                        (void) mkdir_p_label(dest, 0755);
+
+                        r = mount_nofollow_verbose(LOG_ERR, source, dest, NULL, MS_BIND, NULL);
+                        if (r < 0)
+                                return r;
+
+                        /* Make this a read-only bind mount */
+                        r = bind_remount_recursive(dest, MS_RDONLY, MS_RDONLY, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", dest);
+
+                        if (!strextend_with_separator(&buf, "\n", *q))
+                                return log_oom();
+                }
+
+                STRV_FOREACH(q, overlays_list) {
+                        _cleanup_free_ char *source = NULL, *dest = NULL;
+                        _cleanup_strv_free_ char **v = NULL;
+
+                        if (!root_mounted) {
+                                r = mount_shallow_root(root, where);
+                                if (r < 0)
+                                        return r;
+                                root_mounted = true;
+                        }
+
+                        source = path_join(*l, *q);
+                        dest = path_join(where, *q);
+                        v = strv_new(dest, source);
+                        if (!source || !dest || !v)
+                                return log_oom();
+
+                        /* Existing path at the bottom, new layer at the top */
+                        r = mount_overlayfs(dest, v);
+                        if (r < 0)
+                                return r;
+
+                        if (!strextend_with_separator(&buf, "\n", *q))
+                                return log_oom();
+                }
+        }
+
+        r = write_string_file(meta_shallow_path, buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write shallow meta file '%s': %m", meta_shallow_path);
+
+        return 0;
+}
+
 static int merge_hierarchy(
                 const char *hierarchy,
                 char **extensions,
@@ -363,7 +526,10 @@ static int merge_hierarchy(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", overlay_path);
 
-        r = mount_overlayfs(overlay_path, layers);
+        if (arg_shallow)
+                r = mount_shallow(overlay_path, layers);
+        else
+                r = mount_overlayfs(overlay_path, layers);
         if (r < 0)
                 return r;
 
@@ -398,76 +564,6 @@ static int merge_hierarchy(
 static int strverscmpp(char *const* a, char *const* b) {
         /* usable in qsort() for sorting a string array with strverscmp() */
         return strverscmp(*a, *b);
-}
-
-static int validate_version(
-                const char *root,
-                const char *name,
-                const char *host_os_release_id,
-                const char *host_os_release_version_id,
-                const char *host_os_release_sysext_level) {
-
-        _cleanup_free_ char *extension_release_id = NULL, *extension_release_version_id = NULL, *extension_release_sysext_level = NULL;
-        int r;
-
-        assert(root);
-        assert(name);
-
-        if (arg_force) {
-                log_debug("Force mode enabled, skipping version validation.");
-                return 1;
-        }
-
-        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
-         * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
-         * merged.) */
-        r = chase_symlinks("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
-
-        /* Now that we can look into the extension image, let's see if the OS version is compatible */
-        r = parse_extension_release(
-                        root,
-                        name,
-                        "ID", &extension_release_id,
-                        "VERSION_ID", &extension_release_version_id,
-                        "SYSEXT_LEVEL", &extension_release_sysext_level,
-                        NULL);
-        if (r == -ENOENT) {
-                log_notice_errno(r, "Extension '%s' carries no extension-release data, ignoring extension.", name);
-                return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire 'os-release' data of extension '%s': %m", name);
-
-        if (!streq_ptr(host_os_release_id, extension_release_id)) {
-                log_notice("Extension '%s' is for OS '%s', but running on '%s', ignoring extension.",
-                           name, strna(extension_release_id), strna(host_os_release_id));
-                return 0;
-        }
-
-        /* If the extension has a sysext API level declared, then it must match the host API
-         * level. Otherwise, compare OS version as a whole */
-        if (extension_release_sysext_level) {
-                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
-                        log_notice("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s', ignoring extension.",
-                                   name, extension_release_sysext_level, strna(host_os_release_sysext_level));
-                        return 0;
-                }
-        } else {
-                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
-                        log_notice("Extension '%s' is for OS version '%s', but running on OS version '%s', ignoring extension.",
-                                   name, extension_release_version_id, strna(host_os_release_version_id));
-                        return 0;
-                }
-        }
-
-        log_debug("Version info of extension '%s' matches host.", name);
-        return 1;
 }
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
@@ -593,18 +689,32 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         assert_not_reached("Unsupported image type");
                 }
 
-                r = validate_version(
-                                p,
-                                img->name,
-                                host_os_release_id,
-                                host_os_release_version_id,
-                                host_os_release_sysext_level);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        n_ignored++;
-                        continue;
-                }
+                /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
+                * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
+                * merged.) */
+                r = chase_symlinks("/usr/lib/os-release", p, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
+
+                if (!arg_force) {
+                        r = extension_release_validate(
+                                        img->name,
+                                        host_os_release_id,
+                                        host_os_release_version_id,
+                                        host_os_release_sysext_level,
+                                        img->extension_release);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                n_ignored++;
+                                continue;
+                        }
+                } else
+                        log_debug("Force mode enabled, skipping version validation.");
 
                 /* Noice! This one is an extension we want. */
                 r = strv_extend(&extensions, img->name);
@@ -743,6 +853,7 @@ static int merge(Hashmap *images) {
 
 static int verb_merge(int argc, char **argv, void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        Image *img;
         char **p;
         int r;
 
@@ -756,6 +867,12 @@ static int verb_merge(int argc, char **argv, void *userdata) {
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
+
+        HASHMAP_FOREACH(img, images) {
+                r = image_read_metadata(img);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
+        }
 
         /* In merge mode fail if things are already merged. (In --refresh mode below we'll unmerge if we find
          * things are already merged...) */
@@ -783,6 +900,7 @@ static int verb_merge(int argc, char **argv, void *userdata) {
 
 static int verb_refresh(int argc, char **argv, void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        Image *img;
         int r;
 
         if (!have_effective_cap(CAP_SYS_ADMIN))
@@ -795,6 +913,12 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
+
+        HASHMAP_FOREACH(img, images) {
+                r = image_read_metadata(img);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
+        }
 
         r = merge(images); /* Returns > 0 if it did something, i.e. a new overlayfs is mounted now. When it
                             * does so it implicitly unmounts any overlayfs placed there before. Returns == 0
@@ -886,6 +1010,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --force              Ignore version incompatibilities\n"
+               "     --shallow            Setup shallow overlays and bind mounts\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -906,6 +1031,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_JSON,
                 ARG_FORCE,
+                ARG_SHALLOW,
         };
 
         static const struct option options[] = {
@@ -916,6 +1042,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root",      required_argument, NULL, ARG_ROOT      },
                 { "json",      required_argument, NULL, ARG_JSON      },
                 { "force",     no_argument,       NULL, ARG_FORCE     },
+                { "shallow",   no_argument,       NULL, ARG_SHALLOW   },
                 {}
         };
 
@@ -959,6 +1086,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_force = true;
                         break;
 
+                case ARG_SHALLOW:
+                        arg_shallow = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -967,46 +1098,6 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         return 1;
-}
-
-static int parse_env(void) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char *e;
-        char **p;
-        int r;
-
-        e = secure_getenv("SYSTEMD_SYSEXT_HIERARCHIES");
-        if (!e)
-                return 0;
-
-        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
-         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
-         * switch. */
-
-        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES: %m");
-
-        STRV_FOREACH(p, l) {
-                if (!path_is_absolute(*p))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is not absolute, refusing.", *p);
-
-                if (!path_is_normalized(*p))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is not normalized, refusing.", *p);
-
-                if (path_equal(*p, "/"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is the root fs, refusing.", *p);
-        }
-
-        if (strv_isempty(l))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No hierarchies specified, refusing.");
-
-        strv_free_and_replace(arg_hierarchies, l);
-        return 0;
 }
 
 static int sysext_main(int argc, char *argv[]) {
@@ -1033,7 +1124,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = parse_env();
+        r = env_parse_extension_hierarchies(&arg_hierarchies);
         if (r < 0)
                 return r;
 

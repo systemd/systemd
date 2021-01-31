@@ -492,6 +492,79 @@ setup_basic_environment() {
     if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
         create_asan_wrapper
     fi
+    if [ -n "$TEST_INSTALL_VERITY_MINIMAL" ]; then
+        if ! command -v mksquashfs >/dev/null 2>&1; then
+            dfatal "mksquashfs not found"
+            exit 1
+        fi
+        if ! command -v veritysetup >/dev/null 2>&1; then
+            dfatal "veritysetup not found"
+            exit 1
+        fi
+        (
+            touch $initdir/etc/resolv.conf
+            BASICTOOLS=(
+                bash
+                cat
+                grep
+                mount
+            )
+            oldinitdir=$initdir
+            export initdir=$TESTDIR/minimal
+            mkdir -p $initdir/usr/lib $initdir/usr/lib/extension-release.d $initdir/etc $initdir/var/tmp $initdir/opt
+            setup_basic_dirs
+            install_basic_tools
+            cp $os_release $initdir/usr/lib/os-release
+            ln -s ../usr/lib/os-release $initdir/etc/os-release
+            echo MARKER=1 >> $initdir/usr/lib/os-release
+            touch $initdir/etc/machine-id
+            touch $initdir/etc/resolv.conf
+            touch $initdir/opt/some_file
+            mksquashfs $initdir $oldinitdir/usr/share/minimal.raw
+            veritysetup format $oldinitdir/usr/share/minimal.raw $oldinitdir/usr/share/minimal.verity | \
+                grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal.roothash
+
+            export initdir=$TESTDIR/app0
+            mkdir -p $initdir/usr/lib/extension-release.d $initdir/usr/lib/systemd/system $initdir/opt
+            grep "^ID=" $os_release > $initdir/usr/lib/extension-release.d/extension-release.app0
+            grep "^VERSION_ID=" $os_release >> $initdir/usr/lib/extension-release.d/extension-release.app0
+            cat <<EOF > $initdir/usr/lib/systemd/system/app0.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/script0.sh
+EOF
+            cat <<EOF > $initdir/opt/script0.sh
+#!/bin/bash
+set -e
+test -e /usr/lib/os-release
+cat /usr/lib/extension-release.d/extension-release.app0
+EOF
+            chmod +x $initdir/opt/script0.sh
+            echo MARKER=1 > $initdir/usr/lib/systemd/system/some_file
+            mksquashfs $initdir $oldinitdir/usr/share/app0.raw
+
+            export initdir=$TESTDIR/app1
+            mkdir -p $initdir/usr/lib/extension-release.d $initdir/usr/lib/systemd/system $initdir/opt
+            grep "^ID=" $os_release > $initdir/usr/lib/extension-release.d/extension-release.app1
+            grep "^VERSION_ID=" $os_release >> $initdir/usr/lib/extension-release.d/extension-release.app1
+            cat <<EOF > $initdir/usr/lib/systemd/system/app1.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/script1.sh
+EOF
+            cat <<EOF > $initdir/opt/script1.sh
+#!/bin/bash
+set -e
+test -e /usr/lib/os-release
+cat /usr/lib/extension-release.d/extension-release.app1
+EOF
+            chmod +x $initdir/opt/script1.sh
+            echo MARKER=1 > $initdir/usr/lib/systemd/system/other_file
+            mksquashfs $initdir $oldinitdir/usr/share/app1.raw
+        )
+    fi
 }
 
 setup_selinux() {

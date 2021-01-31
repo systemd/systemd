@@ -433,6 +433,64 @@
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtensionImages=</varname></term>
+
+        <listitem><para>This setting is similar to <varname>MountImages=</varname> in that it mounts a file
+        system hierarchy from a block device node or loopback file, but instead of providing a destination path,
+        an overlay will be set up. This option expects a whitespace separated list of mount
+        definitions. Each definition consists of a colon-separated tuple of source path and overlay type (either
+        <varname>overlay</varname> (the default, if omitted) or <varname>shallow</varname>), optionally followed
+        by another colon and a list of mount options.</para>
+
+        <para>In the <varname>shallow</varname> case, a variable overlay of <filename>/usr/</filename> and
+        <filename>/opt/</filename> will be set up. Nodes in the image that are leaves in the root (empty
+        directories or files) are bind-mounted individually. Existing directories with differing content will be
+        set up with a read-only OverlayFS. If <filename>/usr/</filename> or <filename>/opt/</filename> are empty
+        or writable, first-level child nodes will be bind-mounted directly.
+        For example, if the root has the <filename>/opt/</filename> directory and a <filename>/usr/foo</filename>
+        file, and the image has a <filename>/opt/boo/bar</filename> file and a <filename>/usr/baz</filename> file,
+        the end result will be that <filename>/opt/boo</filename> from the image is bind-mounted inside
+        <filename>/opt/</filename> on the root, and the <filename>/usr/</filename> directories from the root
+        and the image will both be part of an OverlayFS mount.</para>
+
+        <para>In the <varname>overlay</varname> case, OverlayFS will be setup at the top of
+        <filename>/usr/</filename> and <filename>/opt/</filename>.</para>
+
+        <para>Mount options may be defined as a single comma-separated list of options, in which case they
+        will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
+        of partition name and mount options. Valid partition names and mount options are the same as for
+        <varname>RootImageOptions=</varname> setting described above.</para>
+
+        <para>Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
+        ignored when its source path does not exist. The source argument is a path to a block device node or
+        regular file. If the source path contains a <literal>:</literal>, it needs to be escaped as
+        <literal>\:</literal>. The device node or file system image file needs to follow the same rules as
+        specified for <varname>RootImage=</varname>. Any mounts created with this option are specific to the
+        unit, and are not visible in the host's mount table.</para>
+
+        <para>These settings may be used more than once, each usage appends to the unit's list of mount
+        paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
+        reset.</para>
+
+        <para>Note that the destination directories/files must exist or systemd must be able to create it.
+        Thus, it is not possible to use those options for mount points nested underneath paths specified in
+        <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
+        directories if <varname>ProtectHome=yes</varname> is specified.</para>
+
+        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
+        <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
+        set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
+        <literal>block-loop</literal> and <literal>block-blkext</literal> with <constant>rwm</constant> mode
+        to <varname>DeviceAllow=</varname>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
+        <varname>PrivateDevices=</varname> below, as it may change the setting of
+        <varname>DevicePolicy=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

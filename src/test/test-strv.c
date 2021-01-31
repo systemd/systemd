@@ -533,6 +533,24 @@ static void test_strv_sort(void) {
         assert_se(streq(input_table[4], "durian"));
 }
 
+static void test_strv_extend_strv_prefix(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+
+        log_info("/* %s */", __func__);
+
+        a = strv_new("without", "prefix");
+        b = strv_new("with", "prefix");
+        assert_se(a);
+        assert_se(b);
+
+        assert_se(strv_extend_strv_prefix(&a, b, "prefix_") >= 0);
+
+        assert_se(streq(a[0], "without"));
+        assert_se(streq(a[1], "prefix"));
+        assert_se(streq(a[2], "prefix_with"));
+        assert_se(streq(a[3], "prefix_prefix"));
+}
+
 static void test_strv_extend_strv_concat(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
@@ -953,6 +971,24 @@ static void test_strv_free_free(void) {
         t = strv_free_free(t);
 }
 
+static void test_strv_remove(void) {
+        _cleanup_strv_free_ char **v = NULL;
+        char **t;
+
+        log_info("/* %s */", __func__);
+
+        v = strv_new("/aa", "/aa/bb", "/bb", "/bb/cc", "/cc", "/aa/bb/cc");
+        assert_se(v);
+        t = STRV_MAKE("/aa", "/bb", "/bb/cc", "/cc", "/aa/bb/cc");
+
+        strv_remove(v, "/aa/bb");
+        assert_se(strv_equal(v, t));
+
+        t = STRV_MAKE("/bb", "/bb/cc", "/cc");
+        strv_remove_prefix(v, "/aa");
+        assert_se(strv_equal(v, t));
+}
+
 static void test_foreach_string(void) {
         const char * const t[] = {
                 "foo",
@@ -1037,6 +1073,7 @@ int main(int argc, char *argv[]) {
         test_strv_sort();
         test_strv_extend_strv();
         test_strv_extend_strv_concat();
+        test_strv_extend_strv_prefix();
         test_strv_extend();
         test_strv_extendf();
         test_strv_from_stdarg_alloca();
@@ -1051,6 +1088,7 @@ int main(int argc, char *argv[]) {
         test_strv_extend_n();
         test_strv_make_nulstr();
         test_strv_free_free();
+        test_strv_remove();
 
         test_foreach_string();
         test_strv_fnmatch();

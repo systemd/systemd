@@ -93,11 +93,20 @@ struct TemporaryFileSystem {
         char *options;
 };
 
+typedef enum MountImageType {
+        MOUNT_IMAGE_DISCRETE,
+        MOUNT_IMAGE_OVERLAY,
+        MOUNT_IMAGE_SHALLOW_OVERLAY,
+        _MOUNT_IMAGE_TYPE_MAX,
+        _MOUNT_IMAGE_TYPE_INVALID = -1,
+} MountImageType;
+
 struct MountImage {
         char *source;
         char *destination;
         LIST_HEAD(MountOptions, mount_options);
         bool ignore_enoent;
+        MountImageType type;
 };
 
 int setup_namespace(
@@ -129,6 +138,8 @@ int setup_namespace(
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
                 const char *root_verity,
+                const MountImage *extension_images,
+                size_t n_extension_images,
                 const char *propagate_dir,
                 const char *incoming_dir,
                 const char *notify_socket,

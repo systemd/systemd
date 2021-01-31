@@ -67,7 +67,7 @@ int is_device_node(const char *path) {
         return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
 }
 
-int dir_is_empty_at(int dir_fd, const char *path) {
+static int dir_is_empty_at_internal(int dir_fd, const char *path, bool check_hidden) {
         _cleanup_close_ int fd = -1;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -75,7 +75,9 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         if (path)
                 fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         else
-                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                /* Note that DUPing is not enough, as the internal pointer
+                 * would still be shared and moved by FOREACH_DIRENT. */
+                fd = fd_reopen(dir_fd, O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -83,10 +85,22 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         if (!d)
                 return -errno;
 
-        FOREACH_DIRENT(de, d, return -errno)
-                return 0;
+        if (check_hidden)
+                FOREACH_DIRENT_ALL(de, d, return -errno)
+                        return 0;
+        else
+                FOREACH_DIRENT(de, d, return -errno)
+                        return 0;
 
         return 1;
+}
+
+int dir_is_empty_at(int dir_fd, const char *path) {
+        return dir_is_empty_at_internal(dir_fd, path, false);
+}
+
+int dir_is_empty_all_at(int dir_fd, const char *path) {
+        return dir_is_empty_at_internal(dir_fd, path, true);
 }
 
 bool null_or_empty(struct stat *st) {
