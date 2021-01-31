@@ -7,6 +7,7 @@
 #include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_strv_env_delete(void) {
@@ -335,6 +336,8 @@ static void test_env_assignment_is_valid(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_strv_env_delete();
         test_strv_env_get();
         test_strv_env_unset();
