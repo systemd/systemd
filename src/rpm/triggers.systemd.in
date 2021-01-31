@@ -82,7 +82,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -p <lua> -- @udevhwdbdir@
+%transfiletriggerin udev -p <lua> -- @udevhwdbdir@
 -- This script will automatically invoke hwdb update if files have been
 -- installed or updated in @udevhwdbdir@.
 if posix.access("/run/systemd/system") then
@@ -106,7 +106,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -p <lua> -- @udevrulesdir@
+%transfiletriggerin udev -p <lua> -- @udevrulesdir@
 -- This script will automatically update udev with new rules if files
 -- have been installed or updated in @udevrulesdir@.
 if posix.access("/run/systemd/system") then
