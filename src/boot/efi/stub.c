@@ -59,12 +59,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
             *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
                 CHAR16 *options;
                 CHAR8 *line;
-                UINTN i;
 
                 options = (CHAR16 *)loaded_image->LoadOptions;
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
                 line = AllocatePool(cmdline_len);
-                for (i = 0; i < cmdline_len; i++)
+                for (UINTN i = 0; i < cmdline_len; i++)
                         line[i] = options[i];
                 cmdline = line;
 
