@@ -7,6 +7,7 @@
 #include "console.h"
 #include "crc32.h"
 #include "disk.h"
+#include "efi_config.h"
 #include "graphics.h"
 #include "linux.h"
 #include "loader-features.h"
@@ -15,6 +16,7 @@
 #include "random-seed.h"
 #include "shim.h"
 #include "util.h"
+#include "version.h"
 
 #ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
@@ -2025,7 +2027,7 @@ static const UINT8 xbootldr_guid[16] = {
         0xff, 0xc2, 0x13, 0xbc, 0xe6, 0x59, 0x62, 0x42, 0xa3, 0x52, 0xb2, 0x75, 0xfd, 0x6f, 0x71, 0x72
 };
 
-EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
+static EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
         EFI_DEVICE_PATH *parent;
         UINTN len;
 
