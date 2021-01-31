@@ -1,0 +1,111 @@
+#  -*- Mode: rpm-spec; indent-tabs-mode: nil -*- */
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  Copyright 2015 Zbigniew Jędrzejewski-Szmek
+#  Copyright 2018 Neal Gompa
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+# The contents of this are an example to be copied into systemd.spec.
+#
+# Minimum rpm version supported: 4.13.0
+
+%transfiletriggerin -P 900900 -- /usr/lib/systemd/system /etc/systemd/system
+# This script will run after any package is initially installed or
+# upgraded. We care about the case where a package is initially
+# installed, because other cases are covered by the *un scriptlets,
+# so sometimes we will reload needlessly.
+if test -d /run/systemd/system; then
+  %{_bindir}/systemctl daemon-reload
+fi
+
+%transfiletriggerun -- /usr/lib/systemd/system /etc/systemd/system
+# On removal, we need to run daemon-reload after any units have been
+# removed. %transfiletriggerpostun would be ideal, but it does not get
+# executed for some reason.
+# On upgrade, we need to run daemon-reload after any new unit files
+# have been installed, but before %postun scripts in packages get
+# executed. %transfiletriggerun gets the right list of files
+# but it is invoked too early (before changes happen).
+# %filetriggerpostun happens at the right time, but it fires for
+# every package.
+# To execute the reload at the right time, we create a state
+# file in %transfiletriggerun and execute the daemon-reload in
+# the first %filetriggerpostun.
+
+if test -d "/run/systemd/system"; then
+    mkdir -p "%{_localstatedir}/lib/rpm-state/systemd"
+    touch "%{_localstatedir}/lib/rpm-state/systemd/needs-reload"
+fi
+
+%filetriggerpostun -P 1000100 -- /usr/lib/systemd/system /etc/systemd/system
+if test -f "%{_localstatedir}/lib/rpm-state/systemd/needs-reload"; then
+    rm -rf "%{_localstatedir}/lib/rpm-state/systemd"
+    %{_bindir}/systemctl daemon-reload
+fi
+
+%transfiletriggerin -P 100700 -- /usr/lib/sysusers.d
+# This script will process files installed in /usr/lib/sysusers.d to create
+# specified users automatically. The priority is set such that it
+# will run before the tmpfiles file trigger.
+if test -d /run/systemd/system; then
+  %{_bindir}/systemd-sysusers || :
+fi
+
+%transfiletriggerin -P 100500 -- /usr/lib/tmpfiles.d
+# This script will process files installed in /usr/lib/tmpfiles.d to create
+# tmpfiles automatically. The priority is set such that it will run
+# after the sysusers file trigger, but before any other triggers.
+if test -d /run/systemd/system; then
+  %{_bindir}/systemd-tmpfiles --create || :
+fi
+
+%transfiletriggerin udev -- /usr/lib/udev/hwdb.d
+# This script will automatically invoke hwdb update if files have been
+# installed or updated in /usr/lib/udev/hwdb.d.
+if test -d /run/systemd/system; then
+  %{_bindir}/systemd-hwdb update || :
+fi
+
+%transfiletriggerin -- /usr/lib/systemd/catalog
+# This script will automatically invoke journal catalog update if files
+# have been installed or updated in /usr/lib/systemd/catalog.
+if test -d /run/systemd/system; then
+  %{_bindir}/journalctl --update-catalog || :
+fi
+
+%transfiletriggerin udev -- /usr/lib/udev/rules.d
+# This script will automatically update udev with new rules if files
+# have been installed or updated in /usr/lib/udev/rules.d.
+if test -e /run/udev/control; then
+  %{_bindir}/udevadm control --reload || :
+fi
+
+%transfiletriggerin -- /usr/lib/sysctl.d
+# This script will automatically apply sysctl rules if files have been
+# installed or updated in /usr/lib/sysctl.d.
+if test -d /run/systemd/system; then
+  /usr/lib/systemd/systemd-sysctl || :
+fi
+
+%transfiletriggerin -- /usr/lib/binfmt.d
+# This script will automatically apply binfmt rules if files have been
+# installed or updated in /usr/lib/binfmt.d.
+if test -d /run/systemd/system; then
+  # systemd-binfmt might fail if binfmt_misc kernel module is not loaded
+  # during install
+  /usr/lib/systemd/systemd-binfmt || :
+fi
