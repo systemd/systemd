@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         print_mode(argc > 1 ? argv[1] : "");
 

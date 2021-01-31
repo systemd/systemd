@@ -77,7 +77,7 @@ static int run(int argc, char *argv[]) {
         struct mntent* me;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

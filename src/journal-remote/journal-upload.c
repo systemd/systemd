@@ -820,7 +820,7 @@ static int run(int argc, char **argv) {
         int r;
 
         log_show_color(true);
-        log_parse_environment_cli();
+        log_parse_environment();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);

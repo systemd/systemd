@@ -11,6 +11,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "def.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "float.h"
 #include "hostname-util.h"
@@ -402,6 +403,10 @@ static int transfer_start(Transfer *t) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+                r = setenv_systemd_exec_pid(true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
 
                 switch (t->type) {
 
@@ -1361,7 +1366,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-importd.service",
                                "VM and container image import and export service.",

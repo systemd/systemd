@@ -1395,7 +1395,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program requires at least two arguments.");
 
-        log_setup_service();
+        log_setup();
 
         cryptsetup_enable_logging(cd);
 

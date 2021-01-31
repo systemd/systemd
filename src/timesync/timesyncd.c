@@ -97,7 +97,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_facility(LOG_CRON);
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

@@ -662,7 +662,7 @@ static int run(int argc, char *argv[]) {
         unsigned n_iterations = 0;
         int m, listen_fd, r;
 
-        log_setup_service();
+        log_setup();
 
         m = sd_listen_fds(false);
         if (m < 0)
