@@ -190,7 +190,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

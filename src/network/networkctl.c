@@ -2822,7 +2822,7 @@ static void warn_networkd_missing(void) {
 static int run(int argc, char* argv[]) {
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -684,7 +684,7 @@ static int ask_on_consoles(char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

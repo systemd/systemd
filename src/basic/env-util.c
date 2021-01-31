@@ -12,6 +12,8 @@
 #include "extract-word.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "process-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -748,4 +750,25 @@ int set_unset_env(const char *name, const char *value, bool overwrite) {
         if (r < 0)
                 return -errno;
         return 0;
+}
+
+int setenv_systemd_exec_pid(bool update_only) {
+        char str[DECIMAL_STR_MAX(pid_t)];
+        const char *e;
+
+        /* Update $SYSTEMD_EXEC_PID=pid except when '*' is set for the variable. */
+
+        e = secure_getenv("SYSTEMD_EXEC_PID");
+        if (!e && update_only)
+                return 0;
+
+        if (streq_ptr(e, "*"))
+                return 0;
+
+        xsprintf(str, PID_FMT, getpid_cached());
+
+        if (setenv("SYSTEMD_EXEC_PID", str, 1) < 0)
+                return -errno;
+
+        return 1;
 }

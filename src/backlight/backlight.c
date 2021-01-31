@@ -380,7 +380,7 @@ static int run(int argc, char *argv[]) {
         unsigned max_brightness, brightness;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (strv_contains(strv_skip(argv, 1), "--help"))
                 return help();

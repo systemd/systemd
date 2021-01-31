@@ -1038,6 +1038,10 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                                 _exit(EXIT_FAILURE);
                         }
 
+                r = setenv_systemd_exec_pid(true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
+
                 r = rearrange_stdio(stdin_fd, stdout_fd, STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout/stderr: %m");

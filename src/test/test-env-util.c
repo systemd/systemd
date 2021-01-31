@@ -4,9 +4,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "parse-util.h"
+#include "process-util.h"
 #include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_strv_env_delete(void) {
@@ -334,7 +337,44 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
+static void test_setenv_systemd_exec_pid(void) {
+        _cleanup_free_ char *saved = NULL;
+        const char *e;
+        pid_t p;
+
+        log_info("/* %s */", __func__);
+
+        e = getenv("SYSTEMD_EXEC_PID");
+        if (e)
+                assert_se(saved = strdup(e));
+
+        assert_se(unsetenv("SYSTEMD_EXEC_PID") >= 0);
+        assert_se(setenv_systemd_exec_pid(true) == 0);
+        assert_se(!getenv("SYSTEMD_EXEC_PID"));
+
+        assert_se(setenv("SYSTEMD_EXEC_PID", "*", 1) >= 0);
+        assert_se(setenv_systemd_exec_pid(true) == 0);
+        assert_se(e = getenv("SYSTEMD_EXEC_PID"));
+        assert_se(streq(e, "*"));
+
+        assert_se(setenv("SYSTEMD_EXEC_PID", "123abc", 1) >= 0);
+        assert_se(setenv_systemd_exec_pid(true) == 1);
+        assert_se(e = getenv("SYSTEMD_EXEC_PID"));
+        assert_se(parse_pid(e, &p) >= 0);
+        assert_se(p == getpid_cached());
+
+        assert_se(unsetenv("SYSTEMD_EXEC_PID") >= 0);
+        assert_se(setenv_systemd_exec_pid(false) == 1);
+        assert_se(e = getenv("SYSTEMD_EXEC_PID"));
+        assert_se(parse_pid(e, &p) >= 0);
+        assert_se(p == getpid_cached());
+
+        assert_se(set_unset_env("SYSTEMD_EXEC_PID", saved, 1) >= 0);
+}
+
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_strv_env_delete();
         test_strv_env_get();
         test_strv_env_unset();
@@ -350,6 +390,7 @@ int main(int argc, char *argv[]) {
         test_env_name_is_valid();
         test_env_value_is_valid();
         test_env_assignment_is_valid();
+        test_setenv_systemd_exec_pid();
 
         return 0;
 }
