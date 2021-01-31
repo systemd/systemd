@@ -37,6 +37,7 @@ VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec);
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size);
 EFI_STATUS efivar_get_int(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i);
+EFI_STATUS efivar_get_uint64(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *i);
 EFI_STATUS efivar_get_boolean(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *value);
 
 CHAR8 *strchra(CHAR8 *s, CHAR8 c);
