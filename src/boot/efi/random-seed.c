@@ -86,7 +86,6 @@ static EFI_STATUS hash_many(
                 VOID **ret) {
 
         _cleanup_freepool_ VOID *output = NULL;
-        UINTN i;
 
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
          * range counter_start…counter_start+n-1. */
@@ -95,7 +94,7 @@ static EFI_STATUS hash_many(
         if (!output)
                 return log_oom();
 
-        for (i = 0; i < n; i++)
+        for (UINTN i = 0; i < n; i++)
                 hash_once(old_seed, rng, size,
                           system_token, system_token_size,
                           counter_start + i,
@@ -201,9 +200,7 @@ static VOID validate_sha256(void) {
                     0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1 }},
         };
 
-        UINTN i;
-
-        for (i = 0; i < ELEMENTSOF(array); i++) {
+        for (UINTN i = 0; i < ELEMENTSOF(array); i++) {
                 struct sha256_ctx hash;
                 uint8_t result[HASH_VALUE_SIZE];
 
