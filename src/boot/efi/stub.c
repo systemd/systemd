@@ -50,7 +50,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         if (szs[0] > 0)
-                cmdline = (CHAR8 *)(loaded_image->ImageBase + addrs[0]);
+                cmdline = (CHAR8 *)(loaded_image->ImageBase) + addrs[0];
 
         cmdline_len = szs[0];
 
