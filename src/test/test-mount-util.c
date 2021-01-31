@@ -136,6 +136,7 @@ static void test_overlay(void) {
         /* Depending on the filesystem, traversal order changes - sort the vectors */
         strv_sort(mounts_list);
 
+        strv_print(mounts_list); // DBG
         s = STRV_MAKE("/opt/original", "/opt/overwritten");
         assert_se(strv_equal(s, mounts_list));
         s = STRV_MAKE("/usr/lib");
