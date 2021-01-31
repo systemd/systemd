@@ -34,7 +34,7 @@
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
-static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
+static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, bool set_systemd_exec_pid) {
         pid_t _pid;
         int r;
 
@@ -56,6 +56,12 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 }
 
                 (void) rlimit_nofile_safe();
+
+                if (set_systemd_exec_pid) {
+                        r = setenv_systemd_exec_pid(false);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set $SYSTEMD_EXEC_PID, ignoring: %m");
+                }
 
                 if (!argv) {
                         _argv[0] = (char*) path;
@@ -132,7 +138,7 @@ static int do_execute(
                                 return log_error_errno(fd, "Failed to open serialization file: %m");
                 }
 
-                r = do_spawn(t, argv, fd, &pid);
+                r = do_spawn(t, argv, fd, &pid, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID));
                 if (r <= 0)
                         continue;
 
