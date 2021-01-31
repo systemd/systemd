@@ -20,6 +20,13 @@ if posix.access("/run/systemd/system") then
     elseif pid > 0 then
         posix.wait(pid)
     end
+
+    pid = posix.fork()
+    if pid == 0 then
+        assert(posix.exec("%{_bindir}/systemctl", "reload-or-restart", "--needing"))
+    elseif pid > 0 then
+        posix.wait(pid)
+    end
 end
 
 %transfiletriggerpostun -P 1000100 -p <lua> -- @systemunitdir@ /etc/systemd/system
@@ -32,6 +39,17 @@ if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
         assert(posix.exec("%{_bindir}/systemctl", "daemon-reload"))
+    elseif pid > 0 then
+        posix.wait(pid)
+    end
+end
+
+%transfiletriggerpostun -P 10000 -p <lua> -- @systemunitdir@ /etc/systemd/system
+-- We restart remaining services that should be restarted here.
+if posix.access("/run/systemd/system") then
+    pid = posix.fork()
+    if pid == 0 then
+        assert(posix.exec("%{_bindir}/systemctl", "reload-or-restart", "--needing"))
     elseif pid > 0 then
         posix.wait(pid)
     end
