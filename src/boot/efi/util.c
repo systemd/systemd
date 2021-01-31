@@ -143,6 +143,24 @@ EFI_STATUS efivar_get_int(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) 
         return err;
 }
 
+EFI_STATUS efivar_get_uint64(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *i) {
+        _cleanup_freepool_ CHAR8 *buf = NULL;
+        UINTN size;
+        EFI_STATUS err;
+
+        err = efivar_get_raw(vendor, name, &buf, &size);
+        if (!EFI_ERROR(err) && i) {
+                if (size != sizeof(UINT64))
+                        return EFI_BUFFER_TOO_SMALL;
+
+                *i = (UINT64) buf[0] + ((UINT64) buf[1] << 8) + ((UINT64) buf[2] << 16) +
+                        ((UINT64) buf[3] << 24) + ((UINT64) buf[4] << 32) + ((UINT64) buf[5] << 40) +
+                        ((UINT64) buf[6] << 48) + ((UINT64) buf[7] << 56);
+        }
+
+        return err;
+}
+
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
         UINTN l;

@@ -356,11 +356,11 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 }
 
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
-        UINT64 key;
+        UINT64 key, indvar;
         UINTN i;
-        _cleanup_freepool_ CHAR8 *modevar = NULL, *indvar = NULL;
+        BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
-        UINTN x, y, size;
+        UINTN x, y;
 
         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
@@ -377,14 +377,14 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
 
         Print(L"SecureBoot:             %s\n", yes_no(secure_boot_enabled()));
 
-        if (efivar_get_raw(GLOBAL_GUID, L"SetupMode", &modevar, &size) == EFI_SUCCESS)
-                Print(L"SetupMode:              %s\n", *modevar > 0 ? L"setup" : L"user");
+        if (efivar_get_boolean(GLOBAL_GUID, L"SetupMode", &modevar) == EFI_SUCCESS)
+                Print(L"SetupMode:              %s\n", modevar > 0 ? L"setup" : L"user");
 
         if (shim_loaded())
                 Print(L"Shim:                   present\n");
 
-        if (efivar_get_raw(GLOBAL_GUID, L"OsIndicationsSupported", &indvar, &size) == EFI_SUCCESS)
-                Print(L"OsIndicationsSupported: %d\n", (UINT64)*indvar);
+        if (efivar_get_uint64(GLOBAL_GUID, L"OsIndicationsSupported", &indvar) == EFI_SUCCESS)
+                Print(L"OsIndicationsSupported: %d\n", indvar);
 
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, TRUE);
@@ -2293,18 +2293,16 @@ out_unload:
 }
 
 static EFI_STATUS reboot_into_firmware(VOID) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
-        UINTN size;
-        UINT64 osind;
+        UINT64 old, new;
         EFI_STATUS err;
 
-        osind = EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+        new = EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
-        err = efivar_get_raw(GLOBAL_GUID, L"OsIndications", &b, &size);
+        err = efivar_get_uint64(GLOBAL_GUID, L"OsIndications", &old);
         if (!EFI_ERROR(err))
-                osind |= (UINT64)*b;
+                new |= old;
 
-        err = efivar_set_raw(GLOBAL_GUID, L"OsIndications", &osind, sizeof(UINT64), TRUE);
+        err = efivar_set_int(GLOBAL_GUID, L"OsIndications", new, TRUE);
         if (EFI_ERROR(err))
                 return err;
 
@@ -2360,8 +2358,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 0;
 
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
-        CHAR8 *b;
-        UINTN size;
+        UINT64 osind = 0;
         EFI_LOADED_IMAGE *loaded_image;
         EFI_FILE *root_dir;
         CHAR16 *loaded_image_path;
@@ -2382,7 +2379,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareType", typestr, FALSE);
 
-        (void) efivar_set_raw(LOADER_GUID, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
+        (void) efivar_set_int(LOADER_GUID, L"LoaderFeatures", loader_features, FALSE);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -2439,15 +2436,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_osx(&config);
 
-        if (config.auto_firmware && efivar_get_raw(GLOBAL_GUID, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
-                UINT64 osind = (UINT64)*b;
-
+        if (config.auto_firmware && efivar_get_uint64(GLOBAL_GUID, L"OsIndicationsSupported", &osind) == EFI_SUCCESS) {
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
                         config_entry_add_call(&config,
                                               L"auto-reboot-to-firmware-setup",
                                               L"Reboot Into Firmware Interface",
                                               reboot_into_firmware);
-                FreePool(b);
         }
 
         if (config.entry_count == 0) {
