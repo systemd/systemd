@@ -166,6 +166,18 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         return err;
 }
 
+EFI_STATUS efivar_get_boolean(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret_value) {
+        _cleanup_freepool_ CHAR8 *b = NULL;
+        UINTN size;
+        EFI_STATUS err;
+
+        err = efivar_get_raw(vendor, name, &b, &size);
+        if (!EFI_ERROR(err))
+                *ret_value = *b > 0;
+
+        return err;
+}
+
 VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
