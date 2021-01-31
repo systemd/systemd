@@ -4,11 +4,10 @@
 #include "util.h"
 
 BOOLEAN secure_boot_enabled(void) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
-        UINTN size;
+        BOOLEAN secure = FALSE;
+        EFI_STATUS err;
 
-        if (efivar_get_raw(EFI_GLOBAL_GUID, L"SecureBoot", &b, &size) == EFI_SUCCESS)
-                return *b > 0;
+        err = efivar_get_boolean(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
 
-        return FALSE;
+        return !EFI_ERROR(err) && secure;
 }
