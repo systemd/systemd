@@ -16,6 +16,7 @@
 # so sometimes we will reload needlessly.
 if test -d "/run/systemd/system"; then
   %{_bindir}/systemctl daemon-reload || :
+  %{_bindir}/systemctl reload-or-restart --marked || :
 fi
 
 %transfiletriggerpostun -P 1000100 -- @systemunitdir@ /etc/systemd/system
@@ -26,6 +27,12 @@ fi
 # executed.
 if test -d "/run/systemd/system"; then
   %{_bindir}/systemctl daemon-reload || :
+fi
+
+%transfiletriggerpostun -P 10000 -- @systemunitdir@ /etc/systemd/system
+# We restart remaining services that should be restarted here.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemctl reload-or-restart --marked || :
 fi
 
 %transfiletriggerin -P 1000700 -- @sysusersdir@
