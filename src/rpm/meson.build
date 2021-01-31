@@ -6,9 +6,13 @@ configure_file(
         configuration : substs,
         install_dir : rpmmacrosdir == 'no' ? '' : rpmmacrosdir)
 
+# Those doesn't get installed anywhere, one of them needs to included in the
+# rpm spec file definition.
 configure_file(
         input : 'triggers.systemd.in',
         output : 'triggers.systemd',
         configuration : substs)
-# This doesn't get installed anywhere, it needs to included in the rpm spec
-# file definition.
+configure_file(
+        input : 'triggers.systemd.sh.in',
+        output : 'triggers.systemd.sh',
+        configuration : substs)
