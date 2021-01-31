@@ -13,6 +13,4 @@
 
 BOOLEAN shim_loaded(void);
 
-BOOLEAN secure_boot_enabled(void);
-
 EFI_STATUS security_policy_install(void);

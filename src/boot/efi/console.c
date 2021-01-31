@@ -10,7 +10,7 @@
 #define SYSTEM_FONT_HEIGHT 19
 
 #define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID \
-        { 0xdd9e7534, 0x7762, 0x4698, { 0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa } }
+        &(EFI_GUID) { 0xdd9e7534, 0x7762, 0x4698, { 0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa } }
 
 struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL;
 
@@ -67,7 +67,6 @@ typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
 } EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL;
 
 EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
-        EFI_GUID EfiSimpleTextInputExProtocolGuid = EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID;
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *TextInputEx;
         static BOOLEAN checked;
         UINTN index;
@@ -75,7 +74,7 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         EFI_STATUS err;
 
         if (!checked) {
-                err = LibLocateProtocol(&EfiSimpleTextInputExProtocolGuid, (VOID **)&TextInputEx);
+                err = LibLocateProtocol(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID, (VOID **)&TextInputEx);
                 if (EFI_ERROR(err))
                         TextInputEx = NULL;
 
