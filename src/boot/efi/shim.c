@@ -30,17 +30,18 @@ struct ShimLock {
         EFI_STATUS __sysv_abi__ (*read_header) (VOID *data, UINT32 datasize, VOID *context);
 };
 
-static const EFI_GUID simple_fs_guid = SIMPLE_FILE_SYSTEM_PROTOCOL;
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
-
-static const EFI_GUID security_protocol_guid = { 0xa46423e3, 0x4617, 0x49f1, {0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } };
-static const EFI_GUID security2_protocol_guid = { 0x94ab2f58, 0x1438, 0x4ef1, {0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } };
-static const EFI_GUID shim_lock_guid = { 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23} };
+#define SIMPLE_FS_GUID &(EFI_GUID) SIMPLE_FILE_SYSTEM_PROTOCOL
+#define SECURITY_PROTOCOL_GUID \
+        &(EFI_GUID) { 0xa46423e3, 0x4617, 0x49f1, { 0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } }
+#define SECURITY_PROTOCOL2_GUID \
+        &(EFI_GUID) { 0x94ab2f58, 0x1438, 0x4ef1, { 0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } }
+#define SHIM_LOCK_GUID \
+        &(EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
 BOOLEAN shim_loaded(void) {
         struct ShimLock *shim_lock;
 
-        return uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &shim_lock_guid, NULL, (VOID**) &shim_lock) == EFI_SUCCESS;
+        return uefi_call_wrapper(BS->LocateProtocol, 3, SHIM_LOCK_GUID, NULL, (VOID**) &shim_lock) == EFI_SUCCESS;
 }
 
 static BOOLEAN shim_validate(VOID *data, UINT32 size) {
@@ -49,23 +50,13 @@ static BOOLEAN shim_validate(VOID *data, UINT32 size) {
         if (!data)
                 return FALSE;
 
-        if (uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &shim_lock_guid, NULL, (VOID**) &shim_lock) != EFI_SUCCESS)
+        if (uefi_call_wrapper(BS->LocateProtocol, 3, SHIM_LOCK_GUID, NULL, (VOID**) &shim_lock) != EFI_SUCCESS)
                 return FALSE;
 
         if (!shim_lock)
                 return FALSE;
 
         return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
-}
-
-BOOLEAN secure_boot_enabled(void) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
-        UINTN size;
-
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
-                return *b > 0;
-
-        return FALSE;
 }
 
 /*
@@ -157,7 +148,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
 
         dev_path = DuplicateDevicePath((EFI_DEVICE_PATH*) device_path_const);
 
-        status = uefi_call_wrapper(BS->LocateDevicePath, 3, (EFI_GUID*) &simple_fs_guid, &dev_path, &h);
+        status = uefi_call_wrapper(BS->LocateDevicePath, 3, SIMPLE_FS_GUID, &dev_path, &h);
         if (status != EFI_SUCCESS)
                 return status;
 
@@ -191,9 +182,9 @@ EFI_STATUS security_policy_install(void) {
          * to fail, since SECURITY2 was introduced in PI 1.2.1.
          * Use security2_protocol == NULL as indicator.
          */
-        uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security2_protocol_guid, NULL, (VOID**) &security2_protocol);
+        uefi_call_wrapper(BS->LocateProtocol, 3, SECURITY_PROTOCOL2_GUID, NULL, (VOID**) &security2_protocol);
 
-        status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security_protocol_guid, NULL, (VOID**) &security_protocol);
+        status = uefi_call_wrapper(BS->LocateProtocol, 3, SECURITY_PROTOCOL_GUID, NULL, (VOID**) &security_protocol);
          /* This one is mandatory, so there's a serious problem */
         if (status != EFI_SUCCESS)
                 return status;

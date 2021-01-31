@@ -10,9 +10,10 @@
 #include "graphics.h"
 #include "util.h"
 
+#define EFI_CONSOLE_CONTROL_GUID \
+        &(EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
+
 EFI_STATUS graphics_mode(BOOLEAN on) {
-        #define EFI_CONSOLE_CONTROL_PROTOCOL_GUID \
-                { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } };
 
         struct _EFI_CONSOLE_CONTROL_PROTOCOL;
 
@@ -45,7 +46,6 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
                 EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN LockStdIn;
         } EFI_CONSOLE_CONTROL_PROTOCOL;
 
-        EFI_GUID ConsoleControlProtocolGuid = EFI_CONSOLE_CONTROL_PROTOCOL_GUID;
         EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;
         EFI_CONSOLE_CONTROL_SCREEN_MODE new;
         EFI_CONSOLE_CONTROL_SCREEN_MODE current;
@@ -53,7 +53,7 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         BOOLEAN stdin_locked;
         EFI_STATUS err;
 
-        err = LibLocateProtocol(&ConsoleControlProtocolGuid, (VOID **)&ConsoleControl);
+        err = LibLocateProtocol(EFI_CONSOLE_CONTROL_GUID, (VOID **)&ConsoleControl);
         if (EFI_ERROR(err))
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
