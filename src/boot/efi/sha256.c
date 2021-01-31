@@ -94,7 +94,7 @@ void sha256_init_ctx(struct sha256_ctx *ctx) {
 void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         /* Take yet unprocessed bytes into account.  */
         UINT32 bytes = ctx->buflen;
-        UINTN pad, i;
+        UINTN pad;
 
         /* Now count remaining bytes.  */
         ctx->total64 += bytes;
@@ -111,7 +111,7 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         sha256_process_block (ctx->buffer, bytes + pad + 8, ctx);
 
         /* Put result from CTX in first 32 bytes following RESBUF.  */
-        for (i = 0; i < 8; ++i)
+        for (UINTN i = 0; i < 8; ++i)
                 ((UINT32 *) resbuf)[i] = SWAP (ctx->H[i]);
 
         return resbuf;
@@ -214,7 +214,6 @@ static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ct
                 UINT32 f_save = f;
                 UINT32 g_save = g;
                 UINT32 h_save = h;
-                UINTN t;
 
                 /* Operators defined in FIPS 180-2:4.1.2.  */
 #define Ch(x, y, z) ((x & y) ^ (~x & z))
@@ -229,15 +228,15 @@ static void sha256_process_block(const void *buffer, UINTN len, struct sha256_ct
 #define CYCLIC(w, s) ((w >> s) | (w << (32 - s)))
 
                 /* Compute the message schedule according to FIPS 180-2:6.2.2 step 2.  */
-                for (t = 0; t < 16; ++t) {
+                for (UINTN t = 0; t < 16; ++t) {
                         W[t] = SWAP (*words);
                         ++words;
                 }
-                for (t = 16; t < 64; ++t)
+                for (UINTN t = 16; t < 64; ++t)
                         W[t] = R1 (W[t - 2]) + W[t - 7] + R0 (W[t - 15]) + W[t - 16];
 
                 /* The actual computation according to FIPS 180-2:6.2.2 step 3.  */
-                for (t = 0; t < 64; ++t) {
+                for (UINTN t = 0; t < 64; ++t) {
                         UINT32 T1 = h + S1 (e) + Ch (e, f, g) + K[t] + W[t];
                         UINT32 T2 = S0 (a) + Maj (a, b, c);
                         h = g;

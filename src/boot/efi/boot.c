@@ -118,17 +118,20 @@ static BOOLEAN line_edit(
         while (!exit) {
                 EFI_STATUS err;
                 UINT64 key;
-                UINTN i;
 
-                i = len - first;
-                if (i >= x_max-1)
-                        i = x_max-1;
-                CopyMem(print, line + first, i * sizeof(CHAR16));
-                while (clear > 0 && i < x_max-1) {
-                        clear--;
-                        print[i++] = ' ';
+                {
+                        UINTN i;
+
+                        i = len - first;
+                        if (i >= x_max-1)
+                                i = x_max-1;
+                        CopyMem(print, line + first, i * sizeof(CHAR16));
+                        while (clear > 0 && i < x_max-1) {
+                                clear--;
+                                print[i++] = ' ';
+                        }
+                        print[i] = '\0';
                 }
-                print[i] = '\0';
 
                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_pos);
                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, print);
@@ -212,12 +215,16 @@ static BOOLEAN line_edit(
                 case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
                         /* kill-word */
                         clear = 0;
-                        for (i = first + cursor; i < len && line[i] == ' '; i++)
-                                clear++;
-                        for (; i < len && line[i] != ' '; i++)
-                                clear++;
 
-                        for (i = first + cursor; i + clear < len; i++)
+                        {
+                                UINTN i;
+                                for (i = first + cursor; i < len && line[i] == ' '; i++)
+                                        clear++;
+                                for (; i < len && line[i] != ' '; i++)
+                                        clear++;
+                        }
+
+                        for (UINTN i = first + cursor; i + clear < len; i++)
                                 line[i] = line[i + clear];
                         len -= clear;
                         line[len] = '\0';
@@ -242,7 +249,7 @@ static BOOLEAN line_edit(
                         }
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
 
-                        for (i = first + cursor; i + clear < len; i++)
+                        for (UINTN i = first + cursor; i + clear < len; i++)
                                 line[i] = line[i + clear];
                         len -= clear;
                         line[len] = '\0';
@@ -255,7 +262,7 @@ static BOOLEAN line_edit(
                                 continue;
                         if (first + cursor == len)
                                 continue;
-                        for (i = first + cursor; i < len; i++)
+                        for (UINTN i = first + cursor; i < len; i++)
                                 line[i] = line[i+1];
                         clear = 1;
                         len--;
@@ -284,7 +291,7 @@ static BOOLEAN line_edit(
                                 continue;
                         if (first == 0 && cursor == 0)
                                 continue;
-                        for (i = first + cursor-1; i < len; i++)
+                        for (UINTN i = first + cursor-1; i < len; i++)
                                 line[i] = line[i+1];
                         clear = 1;
                         len--;
@@ -312,7 +319,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(0, 0, 0x80) ... KEYPRESS(0, 0, 0xffff):
                         if (len+1 == size)
                                 continue;
-                        for (i = len; i > first + cursor; i--)
+                        for (UINTN i = len; i > first + cursor; i--)
                                 line[i] = line[i-1];
                         line[first + cursor] = KEYCHAR(key);
                         len++;
@@ -330,25 +337,23 @@ static BOOLEAN line_edit(
 }
 
 static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
-        UINTN i;
-
         if (key == 0)
                 return -1;
 
         /* select entry by number key */
         if (key >= '1' && key <= '9') {
-                i = key - '0';
+                UINTN i = key - '0';
                 if (i > config->entry_count)
                         i = config->entry_count;
                 return i-1;
         }
 
         /* find matching key in config entries */
-        for (i = start; i < config->entry_count; i++)
+        for (UINTN i = start; i < config->entry_count; i++)
                 if (config->entries[i]->key == key)
                         return i;
 
-        for (i = 0; i < start; i++)
+        for (UINTN i = 0; i < start; i++)
                 if (config->entries[i]->key == key)
                         return i;
 
@@ -357,7 +362,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 
 static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         UINT64 key, indvar;
-        UINTN i;
+        UINTN timeout;
         BOOLEAN modevar;
         _cleanup_freepool_ CHAR16 *partstr = NULL, *defaultstr = NULL;
         UINTN x, y;
@@ -421,8 +426,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"entry EFI var idx:      %d\n", config->idx_default_efivar);
         Print(L"\n");
 
-        if (efivar_get_int(LOADER_GUID, L"LoaderConfigTimeout", &i) == EFI_SUCCESS)
-                Print(L"LoaderConfigTimeout:    %u\n", i);
+        if (efivar_get_int(LOADER_GUID, L"LoaderConfigTimeout", &timeout) == EFI_SUCCESS)
+                Print(L"LoaderConfigTimeout:    %u\n", timeout);
 
         if (config->entry_oneshot)
                 Print(L"LoaderEntryOneShot:     %s\n", config->entry_oneshot);
@@ -434,7 +439,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, TRUE);
 
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry;
 
                 if (key == KEYPRESS(0, SCAN_ESC, 0) || key == KEYPRESS(0, 0, 'q'))
@@ -501,7 +506,6 @@ static BOOLEAN menu_run(
         UINTN idx_last;
         BOOLEAN refresh;
         BOOLEAN highlight;
-        UINTN i;
         UINTN line_width;
         CHAR16 **lines;
         UINTN x_start;
@@ -562,7 +566,7 @@ static BOOLEAN menu_run(
 
         /* length of the longest entry */
         line_width = 5;
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN entry_len;
 
                 entry_len = StrLen(config->entries[i]->title_show);
@@ -581,14 +585,14 @@ static BOOLEAN menu_run(
 
         /* menu entries title lines */
         lines = AllocatePool(sizeof(CHAR16 *) * config->entry_count);
-        for (i = 0; i < config->entry_count; i++) {
-                UINTN j, k;
+        for (UINTN i = 0; i < config->entry_count; i++) {
+                UINTN j;
 
                 lines[i] = AllocatePool(((x_max+1) * sizeof(CHAR16)));
                 for (j = 0; j < x_start; j++)
                         lines[i][j] = ' ';
 
-                for (k = 0; config->entries[i]->title_show[k] != '\0' && j < x_max; j++, k++)
+                for (UINTN k = 0; config->entries[i]->title_show[k] != '\0' && j < x_max; j++, k++)
                         lines[i][j] = config->entries[i]->title_show[k];
 
                 for (; j < x_max; j++)
@@ -598,15 +602,15 @@ static BOOLEAN menu_run(
 
         status = NULL;
         clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
-        for (i = 0; i < x_max; i++)
+        for (UINTN i = 0; i < x_max; i++)
                 clearline[i] = ' ';
-        clearline[i] = 0;
+        clearline[x_max] = 0;
 
         while (!exit) {
                 UINT64 key;
 
                 if (refresh) {
-                        for (i = 0; i < config->entry_count; i++) {
+                        for (UINTN i = 0; i < config->entry_count; i++) {
                                 if (i < idx_first || i > idx_last)
                                         continue;
                                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + i - idx_first);
@@ -866,7 +870,7 @@ static BOOLEAN menu_run(
 
         *chosen_entry = config->entries[idx_highlight];
 
-        for (i = 0; i < config->entry_count; i++)
+        for (UINTN i = 0; i < config->entry_count; i++)
                 FreePool(lines[i]);
         FreePool(lines);
         FreePool(clearline);
@@ -1556,14 +1560,11 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
 }
 
 static VOID config_sort_entries(Config *config) {
-        UINTN i;
-
-        for (i = 1; i < config->entry_count; i++) {
+        for (UINTN i = 1; i < config->entry_count; i++) {
                 BOOLEAN more;
-                UINTN k;
 
                 more = FALSE;
-                for (k = 0; k < config->entry_count - i; k++) {
+                for (UINTN k = 0; k < config->entry_count - i; k++) {
                         ConfigEntry *entry;
 
                         if (config_entry_compare(config->entries[k], config->entries[k+1]) <= 0)
@@ -1580,9 +1581,7 @@ static VOID config_sort_entries(Config *config) {
 }
 
 static INTN config_entry_find(Config *config, CHAR16 *id) {
-        UINTN i;
-
-        for (i = 0; i < config->entry_count; i++)
+        for (UINTN i = 0; i < config->entry_count; i++)
                 if (StrCmp(config->entries[i]->id, id) == 0)
                         return (INTN) i;
 
@@ -1663,13 +1662,12 @@ static VOID config_default_entry_select(Config *config) {
 
 static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
         BOOLEAN non_unique = FALSE;
-        UINTN i, k;
 
-        for (i = 0; i < entry_count; i++)
+        for (UINTN i = 0; i < entry_count; i++)
                 entries[i]->non_unique = FALSE;
 
-        for (i = 0; i < entry_count; i++)
-                for (k = 0; k < entry_count; k++) {
+        for (UINTN i = 0; i < entry_count; i++)
+                for (UINTN k = 0; k < entry_count; k++) {
                         if (i == k)
                                 continue;
                         if (StrCmp(entries[i]->title_show, entries[k]->title_show) != 0)
@@ -1683,10 +1681,8 @@ static BOOLEAN find_nonunique(ConfigEntry **entries, UINTN entry_count) {
 
 /* generate a unique title, avoiding non-distinguishable menu entries */
 static VOID config_title_generate(Config *config) {
-        UINTN i;
-
         /* set title */
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 CHAR16 *title;
 
                 FreePool(config->entries[i]->title_show);
@@ -1700,7 +1696,7 @@ static VOID config_title_generate(Config *config) {
                 return;
 
         /* add version to non-unique titles */
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 CHAR16 *s;
 
                 if (!config->entries[i]->non_unique)
@@ -1717,7 +1713,7 @@ static VOID config_title_generate(Config *config) {
                 return;
 
         /* add machine-id to non-unique titles */
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 CHAR16 *s;
                 _cleanup_freepool_ CHAR16 *m = NULL;
 
@@ -1737,7 +1733,7 @@ static VOID config_title_generate(Config *config) {
                 return;
 
         /* add file name to non-unique titles */
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 CHAR16 *s;
 
                 if (!config->entries[i]->non_unique)
@@ -1830,10 +1826,9 @@ static BOOLEAN config_entry_add_loader_auto(
                 /* look for systemd-boot magic string */
                 err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
                 if (!EFI_ERROR(err)) {
-                        CHAR8 *start = content;
                         CHAR8 *last = content + len - sizeof(magic) - 1;
 
-                        for (; start <= last; start++)
+                        for (CHAR8 *start = content; start <= last; start++)
                                 if (start[0] == magic[0] && CompareMem(start, magic, sizeof(magic) - 1) == 0)
                                         return FALSE;
                 }
@@ -1865,9 +1860,7 @@ static VOID config_entry_add_osx(Config *config) {
 
         err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
         if (!EFI_ERROR(err)) {
-                UINTN i;
-
-                for (i = 0; i < handle_count; i++) {
+                for (UINTN i = 0; i < handle_count; i++) {
                         EFI_FILE *root;
                         BOOLEAN found;
 
@@ -2044,7 +2037,7 @@ static VOID config_load_xbootldr(
                 Config *config,
                 EFI_HANDLE *device) {
 
-        EFI_DEVICE_PATH *partition_path, *node, *disk_path, *copy;
+        EFI_DEVICE_PATH *partition_path, *disk_path, *copy;
         UINT32 found_partition_number = (UINT32) -1;
         UINT64 found_partition_start = (UINT64) -1;
         UINT64 found_partition_size = (UINT64) -1;
@@ -2057,11 +2050,10 @@ static VOID config_load_xbootldr(
         if (!partition_path)
                 return;
 
-        for (node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
+        for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
                 EFI_HANDLE disk_handle;
                 EFI_BLOCK_IO *block_io;
                 EFI_DEVICE_PATH *p;
-                UINTN nr;
 
                 /* First, Let's look for the SCSI/SATA/USB/… device path node, i.e. one above the media
                  * devices */
@@ -2088,7 +2080,7 @@ static VOID config_load_xbootldr(
                         continue;
 
                 /* Try both copies of the GPT header, in case one is corrupted */
-                for (nr = 0; nr < 2; nr++) {
+                for (UINTN nr = 0; nr < 2; nr++) {
                         _cleanup_freepool_ EFI_PARTITION_ENTRY* entries = NULL;
                         union {
                                 EFI_PARTITION_TABLE_HEADER gpt_header;
@@ -2096,7 +2088,7 @@ static VOID config_load_xbootldr(
                         } gpt_header_buffer;
                         const EFI_PARTITION_TABLE_HEADER *h = &gpt_header_buffer.gpt_header;
                         UINT64 where;
-                        UINTN i, sz;
+                        UINTN sz;
                         UINT32 c;
 
                         if (nr == 0)
@@ -2166,7 +2158,7 @@ static VOID config_load_xbootldr(
                         if (c != h->PartitionEntryArrayCRC32)
                                 continue;
 
-                        for (i = 0; i < h->NumberOfPartitionEntries; i++) {
+                        for (UINTN i = 0; i < h->NumberOfPartitionEntries; i++) {
                                 EFI_PARTITION_ENTRY *entry;
 
                                 entry = (EFI_PARTITION_ENTRY*) ((UINT8*) entries + h->SizeOfPartitionEntry * i);
@@ -2200,7 +2192,7 @@ found:
         copy = DuplicateDevicePath(partition_path);
 
         /* Patch in the data we found */
-        for (node = copy; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
+        for (EFI_DEVICE_PATH *node = copy; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
                 HARDDRIVE_DEVICE_PATH *hd;
 
                 if (DevicePathType(node) != MEDIA_DEVICE_PATH)
@@ -2313,9 +2305,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
 }
 
 static VOID config_free(Config *config) {
-        UINTN i;
-
-        for (i = 0; i < config->entry_count; i++)
+        for (UINTN i = 0; i < config->entry_count; i++)
                 config_entry_free(config->entries[i]);
         FreePool(config->entries);
         FreePool(config->entry_default_pattern);
@@ -2325,15 +2315,15 @@ static VOID config_free(Config *config) {
 
 static VOID config_write_entries_to_variable(Config *config) {
         _cleanup_freepool_ CHAR16 *buffer = NULL;
-        UINTN i, sz = 0;
+        UINTN sz = 0;
         CHAR16 *p;
 
-        for (i = 0; i < config->entry_count; i++)
+        for (UINTN i = 0; i < config->entry_count; i++)
                 sz += StrLen(config->entries[i]->id) + 1;
 
         p = buffer = AllocatePool(sz * sizeof(CHAR16));
 
-        for (i = 0; i < config->entry_count; i++) {
+        for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN l;
 
                 l = StrLen(config->entries[i]->id) + 1;
