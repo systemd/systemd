@@ -7,7 +7,7 @@
 
 # The contents of this are an example to be copied into systemd.spec.
 #
-# Minimum rpm version supported: 4.13.0
+# Minimum rpm version supported: 4.14.0
 
 %transfiletriggerin -P 900900 -- @systemunitdir@ /etc/systemd/system
 # This script will run after any package is initially installed or
@@ -18,28 +18,13 @@ if test -d "/run/systemd/system"; then
   %{_bindir}/systemctl daemon-reload || :
 fi
 
-%transfiletriggerun -- @systemunitdir@ /etc/systemd/system
+%transfiletriggerpostun -P 1000100 -- @systemunitdir@ /etc/systemd/system
 # On removal, we need to run daemon-reload after any units have been
-# removed. %transfiletriggerpostun would be ideal, but it does not get
-# executed for some reason.
+# removed.
 # On upgrade, we need to run daemon-reload after any new unit files
 # have been installed, but before %postun scripts in packages get
-# executed. %transfiletriggerun gets the right list of files
-# but it is invoked too early (before changes happen).
-# %filetriggerpostun happens at the right time, but it fires for
-# every package.
-# To execute the reload at the right time, we create a state
-# file in %transfiletriggerun and execute the daemon-reload in
-# the first %filetriggerpostun.
-
+# executed.
 if test -d "/run/systemd/system"; then
-  mkdir -p "%{_localstatedir}/lib/rpm-state/systemd"
-  touch "%{_localstatedir}/lib/rpm-state/systemd/needs-reload"
-fi
-
-%filetriggerpostun -P 1000100 -- @systemunitdir@ /etc/systemd/system
-if test -f "%{_localstatedir}/lib/rpm-state/systemd/needs-reload"; then
-  rm -rf "%{_localstatedir}/lib/rpm-state/systemd"
   %{_bindir}/systemctl daemon-reload || :
 fi
 
