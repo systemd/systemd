@@ -166,8 +166,6 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
                 log_link_debug(link, "Removing old NDisc information obtained from %s.", strna(buf));
         }
 
-        link_dirty(link);
-
         SET_FOREACH(na, link->ndisc_addresses)
                 if (na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router)) {
                         k = address_remove(na->address, link, NULL);
