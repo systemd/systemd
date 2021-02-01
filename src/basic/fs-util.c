@@ -1472,8 +1472,7 @@ int fsync_path_at(int at_fd, const char *path) {
                 } else
                         fd = at_fd;
         } else {
-
-                opened_fd = openat(at_fd, path, O_RDONLY|O_CLOEXEC);
+                opened_fd = openat(at_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (opened_fd < 0)
                         return -errno;
 
