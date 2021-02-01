@@ -5,13 +5,6 @@
 
 #include "util.h"
 
-/*
- * Allocated random UUID, intended to be shared across tools that implement
- * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
- * associated EFI variables.
- */
-const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
-
 #ifdef __x86_64__
 UINT64 ticks_read(VOID) {
         UINT64 a, d;
@@ -92,24 +85,51 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID
         return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, flags, size, (VOID*) buf);
 }
 
-EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
+EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
+        return efivar_set_raw(
+                vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, persistent);
 }
 
-EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
-        CHAR16 str[32];
+EFI_STATUS efivar_set_uint(const EFI_GUID *vendor, CHAR16 *name, UINTN i, BOOLEAN persistent) {
+        assert_cc(sizeof(UINTN) == sizeof(UINT64) || sizeof(UINTN) == sizeof(UINT32));
 
-        SPrint(str, 32, L"%u", i);
-        return efivar_set(name, str, persistent);
+        return sizeof(UINTN) == sizeof(UINT32) ? efivar_set_uint32(vendor, name, i, persistent) :
+                                                 efivar_set_uint64(vendor, name, i, persistent);
 }
 
-EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
+EFI_STATUS efivar_set_uint32(const EFI_GUID *vendor, CHAR16 *name, UINT32 i, BOOLEAN persistent) {
+        UINT8 buf[4];
+
+        buf[0] = (UINT8)(i >> 0U & 0xFF);
+        buf[1] = (UINT8)(i >> 8U & 0xFF);
+        buf[2] = (UINT8)(i >> 16U & 0xFF);
+        buf[3] = (UINT8)(i >> 24U & 0xFF);
+
+        return efivar_set_raw(vendor, name, buf, sizeof(buf), persistent);
+}
+
+EFI_STATUS efivar_set_uint64(const EFI_GUID *vendor, CHAR16 *name, UINT64 i, BOOLEAN persistent) {
+        UINT8 buf[8];
+
+        buf[0] = (UINT8)(i >> 0U & 0xFF);
+        buf[1] = (UINT8)(i >> 8U & 0xFF);
+        buf[2] = (UINT8)(i >> 16U & 0xFF);
+        buf[3] = (UINT8)(i >> 24U & 0xFF);
+        buf[4] = (UINT8)(i >> 32U & 0xFF);
+        buf[5] = (UINT8)(i >> 40U & 0xFF);
+        buf[6] = (UINT8)(i >> 48U & 0xFF);
+        buf[7] = (UINT8)(i >> 56U & 0xFF);
+
+        return efivar_set_raw(vendor, name, buf, sizeof(buf), persistent);
+}
+
+EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
         CHAR16 *val;
         UINTN size;
 
-        err = efivar_get_raw(&loader_guid, name, &buf, &size);
+        err = efivar_get_raw(vendor, name, &buf, &size);
         if (EFI_ERROR(err))
                 return err;
 
@@ -138,13 +158,44 @@ EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_int(const CHAR16 *name, UINTN *i) {
-        _cleanup_freepool_ CHAR16 *val = NULL;
+EFI_STATUS efivar_get_uint(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
+        assert_cc(sizeof(UINTN) == sizeof(UINT64) || sizeof(UINTN) == sizeof(UINT32));
+
+        return sizeof(UINTN) == sizeof(UINT32) ? efivar_get_uint32(vendor, name, (UINT32 *) i) :
+                                                 efivar_get_uint64(vendor, name, (UINT64 *) i);
+}
+
+EFI_STATUS efivar_get_uint32(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *i) {
+        _cleanup_freepool_ CHAR8 *buf = NULL;
+        UINTN size;
         EFI_STATUS err;
 
-        err = efivar_get(name, &val);
-        if (!EFI_ERROR(err) && i)
-                *i = Atoi(val);
+        err = efivar_get_raw(vendor, name, &buf, &size);
+        if (!EFI_ERROR(err) && i) {
+                if (size != sizeof(UINT32))
+                        return EFI_BUFFER_TOO_SMALL;
+
+                *i = (UINT32) buf[0] << 0U | (UINT32) buf[1] << 8U | (UINT32) buf[2] << 16U |
+                        (UINT32) buf[3] << 24U;
+        }
+
+        return err;
+}
+
+EFI_STATUS efivar_get_uint64(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *i) {
+        _cleanup_freepool_ CHAR8 *buf = NULL;
+        UINTN size;
+        EFI_STATUS err;
+
+        err = efivar_get_raw(vendor, name, &buf, &size);
+        if (!EFI_ERROR(err) && i) {
+                if (size != sizeof(UINT64))
+                        return EFI_BUFFER_TOO_SMALL;
+
+                *i = (UINT64) buf[0] << 0U | (UINT64) buf[1] << 8U | (UINT64) buf[2] << 16U |
+                        (UINT64) buf[3] << 24U | (UINT64) buf[4] << 32U | (UINT64) buf[5] << 40U |
+                        (UINT64) buf[6] << 48U | (UINT64) buf[7] << 56U;
+        }
 
         return err;
 }
@@ -172,7 +223,19 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         return err;
 }
 
-VOID efivar_set_time_usec(CHAR16 *name, UINT64 usec) {
+EFI_STATUS efivar_get_u8_boolean(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret_value) {
+        _cleanup_freepool_ CHAR8 *b = NULL;
+        UINTN size;
+        EFI_STATUS err;
+
+        err = efivar_get_raw(vendor, name, &b, &size);
+        if (!EFI_ERROR(err))
+                *ret_value = *b > 0;
+
+        return err;
+}
+
+VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
         CHAR16 str[32];
 
         if (usec == 0)
@@ -181,13 +244,12 @@ VOID efivar_set_time_usec(CHAR16 *name, UINT64 usec) {
                 return;
 
         SPrint(str, 32, L"%ld", usec);
-        efivar_set(name, str, FALSE);
+        efivar_set(vendor, name, str, FALSE);
 }
 
 static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
         CHAR16 unichar;
         UINTN len;
-        UINTN i;
 
         if (!(stra[0] & 0x80))
                 len = 1;
@@ -225,7 +287,7 @@ static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
                 break;
         }
 
-        for (i = 1; i < len; i++) {
+        for (UINTN i = 1; i < len; i++) {
                 if ((stra[i] & 0xc0) != 0x80)
                         return -1;
                 unichar <<= 6;

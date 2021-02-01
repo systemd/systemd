@@ -62,7 +62,6 @@ struct PeSectionHeader {
 EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs, UINTN *offsets, UINTN *sizes) {
         struct DosFileHeader *dos;
         struct PeHeader *pe;
-        UINTN i;
         UINTN offset;
 
         dos = (struct DosFileHeader *)base;
@@ -85,12 +84,11 @@ EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs
 
         offset = dos->ExeHeader + sizeof(*pe) + pe->FileHeader.SizeOfOptionalHeader;
 
-        for (i = 0; i < pe->FileHeader.NumberOfSections; i++) {
+        for (UINTN i = 0; i < pe->FileHeader.NumberOfSections; i++) {
                 struct PeSectionHeader *sect;
-                UINTN j;
 
                 sect = (struct PeSectionHeader *)&base[offset];
-                for (j = 0; sections[j]; j++) {
+                for (UINTN j = 0; sections[j]; j++) {
                         if (CompareMem(sect->Name, sections[j], strlena(sections[j])) != 0)
                                 continue;
 
