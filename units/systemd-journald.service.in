@@ -17,11 +17,13 @@ Before=sysinit.target
 
 [Service]
 DeviceAllow=char-* rw
+ExecPaths=-/lib -/lib64 -/usr/lib -/usr/lib64 @rootlibexecdir@
 ExecStart=@rootlibexecdir@/systemd-journald
 FileDescriptorStoreMax=4224
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoExecPaths=/
 NoNewPrivileges=yes
 OOMScoreAdjust=-250
 ProtectClock=yes
