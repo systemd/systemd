@@ -391,9 +391,10 @@ static int fd_copy_symlink(
                      uid_is_valid(override_uid) ? override_uid : st->st_uid,
                      gid_is_valid(override_gid) ? override_gid : st->st_gid,
                      AT_SYMLINK_NOFOLLOW) < 0)
-                return -errno;
+                r = -errno;
 
-        return 0;
+        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+        return r;
 }
 
 /* Encapsulates the database we store potential hardlink targets in */
@@ -693,6 +694,8 @@ static int fd_copy_fifo(
         if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
                 r = -errno;
 
+        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+
         (void) memorize_hardlink(hardlink_context, st, dt, to);
         return r;
 }
@@ -738,6 +741,8 @@ static int fd_copy_node(
 
         if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
                 r = -errno;
+
+        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
 
         (void) memorize_hardlink(hardlink_context, st, dt, to);
         return r;
