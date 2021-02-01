@@ -88,7 +88,6 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 return NULL;
 
         *entry = (struct udev_list_entry) {
-                .list = list,
                 .name = TAKE_PTR(name),
                 .value = TAKE_PTR(value),
         };
@@ -102,6 +101,8 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 list->uptodate = false;
         } else
                 LIST_APPEND(entries, list->entries, entry);
+
+        entry->list = list;
 
         return TAKE_PTR(entry);
 }
