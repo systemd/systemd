@@ -1041,6 +1041,7 @@ int copy_file_fd_full(
                 void *userdata) {
 
         _cleanup_close_ int fdf = -1;
+        struct stat st;
         int r;
 
         assert(from);
@@ -1050,12 +1051,23 @@ int copy_file_fd_full(
         if (fdf < 0)
                 return -errno;
 
+        r = fd_verify_regular(fdf);
+        if (r < 0)
+                return r;
+
+        if (fstat(fdt, &st) < 0)
+                return -errno;
+
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress_bytes, userdata);
+        if (r < 0)
+                return r;
 
-        (void) copy_times(fdf, fdt, copy_flags);
-        (void) copy_xattr(fdf, fdt);
+        if (S_ISREG(fdt)) {
+                (void) copy_times(fdf, fdt, copy_flags);
+                (void) copy_xattr(fdf, fdt);
+        }
 
-        return r;
+        return 0;
 }
 
 int copy_file_full(
@@ -1080,9 +1092,12 @@ int copy_file_full(
         if (fdf < 0)
                 return -errno;
 
-        if (mode == MODE_INVALID)
-                if (fstat(fdf, &st) < 0)
-                        return -errno;
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
 
         RUN_WITH_UMASK(0000) {
                 if (copy_flags & COPY_MAC_CREATE) {
@@ -1096,6 +1111,12 @@ int copy_file_full(
                         mac_selinux_create_file_clear();
                 if (fdt < 0)
                         return -errno;
+        }
+
+        if (!FLAGS_SET(flags, O_EXCL)) { /* if O_EXCL was used we created the thing as regular file, no need to check again */
+                r = fd_verify_regular(fdt);
+                if (r < 0)
+                        goto fail;
         }
 
         if (chattr_mask != 0)
