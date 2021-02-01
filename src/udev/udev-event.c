@@ -575,19 +575,19 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
                 v = strv_split_newlines(p);
                 if (!v)
-                        return 0;
+                        log_oom_debug();
 
                 STRV_FOREACH(q, v)
                         log_device_debug(spawn->device, "'%s'(%s) '%s'", spawn->cmd,
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-
         if (l == 0)
                 return 0;
 
-        /* Re-enable the event source if we did not encounter EOF */
 reenable:
+        /* Re-enable the event source if we did not encounter EOF */
+
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
         if (r < 0)
                 log_device_error_errno(spawn->device, r,
