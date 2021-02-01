@@ -197,7 +197,7 @@ def subst_output(document, programlisting, stats):
         print(f'COMMAND: {shlex_join(argv)}')
 
     try:
-        out = subprocess.check_output(argv, text=True)
+        out = subprocess.check_output(argv, universal_newlines=True)
     except FileNotFoundError:
         print(f'{executable} not found, ignoring', file=sys.stderr)
         return
