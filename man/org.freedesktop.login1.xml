@@ -102,12 +102,19 @@ node /org/freedesktop/login1 {
                    in  b interactive);
       FlushDevices(in  b interactive);
       PowerOff(in  b interactive);
+      PowerOffWithFlags(in  t flags);
       Reboot(in  b interactive);
+      RebootWithFlags(in  t flags);
       Halt(in  b interactive);
+      HaltWithFlags(in  t flags);
       Suspend(in  b interactive);
+      SuspendWithFlags(in  t flags);
       Hibernate(in  b interactive);
+      HibernateWithFlags(in  t flags);
       HybridSleep(in  b interactive);
+      HybridSleepWithFlags(in  t flags);
       SuspendThenHibernate(in  b interactive);
+      SuspendThenHibernateWithFlags(in  t flags);
       CanPowerOff(out s result);
       CanReboot(out s result);
       CanHalt(out s result);
@@ -291,17 +298,31 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="PowerOff()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="PowerOffWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Reboot()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RebootWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Halt()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="HaltWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Suspend()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SuspendWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Hibernate()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="HibernateWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="HybridSleep()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="HybridSleepWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="SuspendThenHibernate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SuspendThenHibernateWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CanPowerOff()"/>
 
@@ -525,8 +546,19 @@ node /org/freedesktop/login1 {
       using an RTC timer and hibernated. The only argument is the polkit interactivity boolean
       <varname>interactive</varname> (see below). The main purpose of these calls is that they enforce
       polkit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
-      users. They also enforce inhibition locks. UIs should expose these calls as the primary mechanism to
-      poweroff/reboot/suspend/hibernate the machine.</para>
+      users. They also enforce inhibition locks for non-privileged users. UIs should expose these calls
+      as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Methods
+      <function>PowerOffWithFlags()</function>, <function>RebootWithFlags()</function>,
+      <function>HaltWithFlags()</function>, <function>SuspendWithFlags()</function>,
+      <function>HibernateWithFlags()</function>, <function>HybridSleepWithFlags()</function> and
+      <function>SuspendThenHibernateWithFlags()</function> add <varname>flags</varname> to allow for
+      extendability, defined as follows:</para>
+      <programlisting>
+#define SD_LOGIND_ROOT_CHECK_INHIBITORS  (UINT64_C(1) &lt;&lt; 0)
+      </programlisting>
+      <para> When the <varname>flags</varname> is 0 then these methods behave just like the versions
+      without flags. When <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is set, active
+      inhibitors are honoured for privileged users too.</para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in
