@@ -479,6 +479,7 @@ install_verity_minimal() {
             bash
             cat
             mount
+            sleep
         )
         oldinitdir=$initdir
         rm -rfv $TESTDIR/minimal
@@ -490,7 +491,7 @@ install_verity_minimal() {
         ln -s ../usr/lib/os-release $initdir/etc/os-release
         touch $initdir/etc/machine-id $initdir/etc/resolv.conf
         echo MARKER=1 >> $initdir/usr/lib/os-release
-        echo -e "[Service]\nExecStart=cat /usr/lib/os-release" > $initdir/usr/lib/systemd/system/app0.service
+        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 10000" > $initdir/usr/lib/systemd/system/app0.service
         mksquashfs $initdir $oldinitdir/usr/share/minimal.raw
         veritysetup format $oldinitdir/usr/share/minimal.raw $oldinitdir/usr/share/minimal.verity | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal.roothash
@@ -1309,7 +1310,7 @@ setup_basic_dirs() {
     mkdir -p $initdir/etc/systemd/system
     mkdir -p $initdir/var/log/journal
 
-    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log dev proc sys sysroot root run run/lock run/initramfs; do
+    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log var/tmp dev proc sys sysroot root run run/lock run/initramfs; do
         if [ -L "/$d" ]; then
             inst_symlink "/$d"
         else
