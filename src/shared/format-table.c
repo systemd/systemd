@@ -2258,6 +2258,12 @@ int table_print(Table *t, FILE *f) {
                                                 if (!aligned)
                                                         return -ENOMEM;
 
+                                                /* Drop trailing white spaces of last column when no cosmetics is set. */
+                                                if (j == display_columns - 1 &&
+                                                    (!colors_enabled() || !table_data_color(d)) &&
+                                                    (!urlify_enabled() || !d->url))
+                                                        delete_trailing_chars(aligned, NULL);
+
                                                 free_and_replace(buffer, aligned);
                                                 field = buffer;
                                         }
