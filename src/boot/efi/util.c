@@ -90,7 +90,7 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
                 vendor, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, persistent);
 }
 
-EFI_STATUS efivar_set_int(const EFI_GUID *vendor, CHAR16 *name, UINTN i, BOOLEAN persistent) {
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, CHAR16 *name, UINTN i, BOOLEAN persistent) {
         CHAR16 str[32];
 
         SPrint(str, 32, L"%u", i);
@@ -132,7 +132,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_int(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
+EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
 
