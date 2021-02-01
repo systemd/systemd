@@ -29,7 +29,7 @@ static void test_issue_9549(void) {
 
         printf("%s\n", formatted);
         assert_se(streq(formatted,
-                        "NAME  TYPE RO  USAGE CREATED                    MODIFIED                   \n"
+                        "NAME  TYPE RO  USAGE CREATED                    MODIFIED\n"
                         "foooo raw  no 673.6M Wed 2018-07-11 00:10:33 J… Wed 2018-07-11 00:16:00 JST\n"
                         ));
 }
@@ -493,17 +493,17 @@ int main(int argc, char *argv[]) {
         if (isatty(STDOUT_FILENO))
                 assert_se(streq(formatted,
                                 "  no a long f…   no a long f… a long fi…\n"
-                                "  no fäää        no fäää      fäää      \n"
-                                " yes fäää       yes fäää      fäää      \n"
-                                " yes xxx        yes xxx       xxx       \n"
-                                "5min           5min                     \n"));
+                                "  no fäää        no fäää      fäää\n"
+                                " yes fäää       yes fäää      fäää\n"
+                                " yes xxx        yes xxx       xxx\n"
+                                "5min           5min           \n"));
         else
                 assert_se(streq(formatted,
                                 "  no a long field   no a long field a long field\n"
-                                "  no fäää           no fäää         fäää        \n"
-                                " yes fäää          yes fäää         fäää        \n"
-                                " yes xxx           yes xxx          xxx         \n"
-                                "5min              5min                          \n"));
+                                "  no fäää           no fäää         fäää\n"
+                                " yes fäää          yes fäää         fäää\n"
+                                " yes xxx           yes xxx          xxx\n"
+                                "5min              5min              \n"));
 
         test_issue_9549();
         test_multiline();
