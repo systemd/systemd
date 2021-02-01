@@ -973,6 +973,7 @@ int copy_directory_fd_full(
                 void *userdata) {
 
         struct stat st;
+        int r;
 
         assert(dirfd >= 0);
         assert(to);
@@ -980,8 +981,9 @@ int copy_directory_fd_full(
         if (fstat(dirfd, &st) < 0)
                 return -errno;
 
-        if (!S_ISDIR(st.st_mode))
-                return -ENOTDIR;
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
 
         return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
 }
@@ -995,6 +997,7 @@ int copy_directory_full(
                 void *userdata) {
 
         struct stat st;
+        int r;
 
         assert(from);
         assert(to);
@@ -1002,8 +1005,9 @@ int copy_directory_full(
         if (lstat(from, &st) < 0)
                 return -errno;
 
-        if (!S_ISDIR(st.st_mode))
-                return -ENOTDIR;
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
 
         return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
 }
