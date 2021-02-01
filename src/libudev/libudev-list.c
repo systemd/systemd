@@ -39,9 +39,10 @@ static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entr
                 return NULL;
 
         if (entry->list) {
-                if (entry->list->unique)
+                if (entry->list->unique && entry->name)
                         hashmap_remove(entry->list->unique_entries, entry->name);
-                else
+
+                if (!entry->list->unique || entry->list->uptodate)
                         LIST_REMOVE(entries, entry->list->entries, entry);
         }
 
