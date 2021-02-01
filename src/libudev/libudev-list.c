@@ -70,7 +70,6 @@ struct udev_list *udev_list_new(bool unique) {
 struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *_name, const char *_value) {
         _cleanup_(udev_list_entry_freep) struct udev_list_entry *entry = NULL;
         _cleanup_free_ char *name = NULL, *value = NULL;
-        int r;
 
         assert(list);
 
@@ -95,14 +94,9 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         };
 
         if (list->unique) {
-                r = hashmap_ensure_allocated(&list->unique_entries, &string_hash_ops);
-                if (r < 0)
-                        return NULL;
-
                 udev_list_entry_free(hashmap_get(list->unique_entries, entry->name));
 
-                r = hashmap_put(list->unique_entries, entry->name, entry);
-                if (r < 0)
+                if (hashmap_ensure_put(&list->unique_entries, &string_hash_ops, entry->name, entry) < 0)
                         return NULL;
 
                 list->uptodate = false;
