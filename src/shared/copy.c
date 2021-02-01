@@ -627,10 +627,8 @@ static int fd_copy_regular(
                 return -errno;
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
-        if (r < 0) {
-                (void) unlinkat(dt, to, 0);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         if (fchown(fdt,
                    uid_is_valid(override_uid) ? override_uid : st->st_uid,
@@ -643,15 +641,17 @@ static int fd_copy_regular(
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, fdt);
 
-        q = close(fdt);
-        fdt = -1;
-
+        q = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (q < 0) {
-                r = -errno;
-                (void) unlinkat(dt, to, 0);
+                r = q;
+                goto fail;
         }
 
         (void) memorize_hardlink(hardlink_context, st, dt, to);
+        return r;
+
+fail:
+        (void) unlinkat(dt, to, 0);
         return r;
 }
 
@@ -1054,9 +1054,9 @@ int copy_file_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -1;
+        _cleanup_close_ int fdf = -1, fdt = -1;
         struct stat st;
-        int r, fdt = -1;  /* avoid false maybe-uninitialized warning */
+        int r;
 
         assert(from);
         assert(to);
@@ -1087,11 +1087,8 @@ int copy_file_full(
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress_bytes, userdata);
-        if (r < 0) {
-                close(fdt);
-                (void) unlink(to);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         (void) copy_times(fdf, fdt, copy_flags);
         (void) copy_xattr(fdf, fdt);
@@ -1099,12 +1096,18 @@ int copy_file_full(
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
-        if (close(fdt) < 0) {
-                unlink_noerrno(to);
-                return -errno;
-        }
+        r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
+        if (r < 0)
+                goto fail;
 
         return 0;
+
+fail:
+        /* Only unlink if we definitely are the ones who created the file */
+        if (FLAGS_SET(flags, O_EXCL))
+                (void) unlink(to);
+
+        return r;
 }
 
 int copy_file_atomic_full(
@@ -1181,11 +1184,20 @@ int copy_file_atomic_full(
                         return r;
         }
 
+        t = mfree(t);
+
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
-        t = mfree(t);
+        r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
+        if (r < 0)
+                goto fail;
+
         return 0;
+
+fail:
+        (void) unlink(to);
+        return r;
 }
 
 int copy_times(int fdf, int fdt, CopyFlags flags) {
