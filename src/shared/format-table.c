@@ -2155,6 +2155,9 @@ int table_print(Table *t, FILE *f) {
                                                 if (!aligned)
                                                         return -ENOMEM;
 
+                                                if (j == display_columns - 1 && d->align_percent == 0)
+                                                        delete_trailing_chars(aligned, NULL);
+
                                                 free_and_replace(buffer, aligned);
                                                 field = buffer;
                                         }
