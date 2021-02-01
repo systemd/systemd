@@ -299,6 +299,10 @@ finish:
         return r;
 }
 
+static int method_reattach_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_image(userdata, message, error, bus_image_common_reattach);
+}
+
 static int method_remove_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return redirect_method_to_image(userdata, message, error, bus_image_common_remove);
 }
@@ -362,6 +366,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetImageState", "s", "s", method_get_image_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachImage", "sassbs", "a(sss)", method_attach_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("DetachImage", "sb", "a(sss)", method_detach_image, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReattachImage", "sassbs", "a(sss)a(sss)", method_reattach_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -369,17 +374,12 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, size_t n_changes) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+static int reply_portable_compose_message(sd_bus_message *reply, const PortableChange *changes, size_t n_changes) {
         size_t i;
         int r;
 
-        assert(m);
+        assert(reply);
         assert(changes || n_changes == 0);
-
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(sss)");
         if (r < 0)
@@ -395,6 +395,50 @@ int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, siz
         }
 
         r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, size_t n_changes) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = reply_portable_compose_message(reply, changes, n_changes);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
+int reply_portable_changes_pair(
+                sd_bus_message *m,
+                const PortableChange *changes_first,
+                size_t n_changes_first,
+                const PortableChange *changes_second,
+                size_t n_changes_second) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = reply_portable_compose_message(reply, changes_first, n_changes_first);
+        if (r < 0)
+                return r;
+
+        r = reply_portable_compose_message(reply, changes_second, n_changes_second);
         if (r < 0)
                 return r;
 
