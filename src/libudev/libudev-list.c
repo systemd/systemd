@@ -73,6 +73,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         _cleanup_free_ char *name = NULL, *value = NULL;
 
         assert(list);
+        assert(_name);
 
         name = strdup(_name);
         if (!name)
