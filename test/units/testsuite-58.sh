@@ -18,6 +18,8 @@ portablectl upgrade --now --runtime /tmp/minimal_1.raw app0
 
 systemctl is-active app0.service
 
+portablectl list | grep -q -F "minimal_1"
+
 portablectl detach --now --runtime /tmp/minimal_1.raw app0
 
 portablectl list | grep -q -F "No images."
@@ -35,6 +37,8 @@ systemctl is-active app0.service
 portablectl upgrade --now --runtime /tmp/minimal_1 app0
 
 systemctl is-active app0.service
+
+portablectl list | grep -q -F "minimal_1"
 
 portablectl detach --now --runtime /tmp/minimal_1 app0
 

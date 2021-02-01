@@ -422,6 +422,92 @@ static int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_b
         return bus_image_common_remove(NULL, message, NULL, userdata, error);
 }
 
+int bus_image_common_upgrade(
+                Manager *m,
+                sd_bus_message *message,
+                const char *name_or_path,
+                Image *image,
+                sd_bus_error *error) {
+
+        _cleanup_strv_free_ char **matches = NULL;
+        PortableFlags flags = PORTABLE_UPGRADE;
+        const char *profile, *copy_mode;
+        PortableChange *changes = NULL;
+        size_t n_changes = 0;
+        int runtime, r;
+
+        assert(message);
+        assert(name_or_path || image);
+
+        if (!m) {
+                assert(image);
+                m = image->userdata;
+        }
+
+        r = sd_bus_message_read_strv(message, &matches);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "sbs", &profile, &runtime, &copy_mode);
+        if (r < 0)
+                return r;
+
+        if (streq(copy_mode, "symlink"))
+                flags |= PORTABLE_PREFER_SYMLINK;
+        else if (streq(copy_mode, "copy"))
+                flags |= PORTABLE_PREFER_COPY;
+        else if (!isempty(copy_mode))
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
+
+        if (runtime)
+                flags |= PORTABLE_RUNTIME;
+
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_ALL,
+                              "org.freedesktop.portable1.attach-images",
+                              &image,
+                              error);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Will call us back */
+                return 1;
+
+        r = portable_detach(
+                        sd_bus_message_get_bus(message),
+                        image->path,
+                        flags,
+                        &changes,
+                        &n_changes,
+                        error);
+        if (r < 0)
+                goto finish;
+
+        r = portable_attach(
+                        sd_bus_message_get_bus(message),
+                        image->path,
+                        matches,
+                        profile,
+                        flags,
+                        &changes,
+                        &n_changes,
+                        error);
+        if (r < 0)
+                goto finish;
+
+        r = reply_portable_changes(message, changes, n_changes);
+
+finish:
+        portable_changes_free(changes, n_changes);
+        return r;
+}
+
+static int bus_image_method_upgrade(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_image_common_upgrade(NULL, message, NULL, userdata, error);
+}
+
 int bus_image_common_mark_read_only(
                 Manager *m,
                 sd_bus_message *message,
@@ -532,6 +618,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_METHOD("GetState", NULL, "s", bus_image_method_get_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Attach", "assbs", "a(sss)", bus_image_method_attach, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Detach", "b", "a(sss)", bus_image_method_detach, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Upgrade", "assbs", "a(sss)", bus_image_method_upgrade, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
