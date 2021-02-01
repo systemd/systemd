@@ -1503,16 +1503,11 @@ int syncfs_path(int atfd, const char *path) {
 
 int open_parent(const char *path, int flags, mode_t mode) {
         _cleanup_free_ char *parent = NULL;
-        int fd;
+        int fd, r;
 
-        if (isempty(path))
-                return -EINVAL;
-        if (path_equal(path, "/")) /* requesting the parent of the root dir is fishy, let's prohibit that */
-                return -EINVAL;
-
-        parent = dirname_malloc(path);
-        if (!parent)
-                return -ENOMEM;
+        r = path_extract_directory(path, &parent);
+        if (r < 0)
+                return r;
 
         /* Let's insist on O_DIRECTORY since the parent of a file or directory is a directory. Except if we open an
          * O_TMPFILE file, because in that case we are actually create a regular file below the parent directory. */
