@@ -193,7 +193,6 @@ VOID efivar_set_time_usec(const EFI_GUID *vendor, CHAR16 *name, UINT64 usec) {
 static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
         CHAR16 unichar;
         UINTN len;
-        UINTN i;
 
         if (!(stra[0] & 0x80))
                 len = 1;
@@ -231,7 +230,7 @@ static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
                 break;
         }
 
-        for (i = 1; i < len; i++) {
+        for (UINTN i = 1; i < len; i++) {
                 if ((stra[i] & 0xc0) != 0x80)
                         return -1;
                 unichar <<= 6;
