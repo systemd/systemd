@@ -641,6 +641,13 @@ static int fd_copy_regular(
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, fdt);
 
+        if (copy_flags & COPY_FSYNC) {
+                if (fsync(fdt) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+        }
+
         q = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (q < 0) {
                 r = q;
@@ -933,6 +940,11 @@ static int fd_copy_directory(
                 (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         }
 
+        if (copy_flags & COPY_FSYNC_FULL) {
+                if (fsync(fdt) < 0)
+                        return -errno;
+        }
+
         return r;
 }
 
@@ -949,6 +961,7 @@ int copy_tree_at_full(
                 void *userdata) {
 
         struct stat st;
+        int r;
 
         assert(from);
         assert(to);
@@ -957,17 +970,27 @@ int copy_tree_at_full(
                 return -errno;
 
         if (S_ISREG(st.st_mode))
-                return fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, NULL, progress_bytes, userdata);
+                r = fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, NULL, progress_bytes, userdata);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid, override_gid, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
+                r = fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid, override_gid, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
         else if (S_ISLNK(st.st_mode))
-                return fd_copy_symlink(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
+                r = fd_copy_symlink(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISFIFO(st.st_mode))
-                return fd_copy_fifo(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, NULL);
+                r = fd_copy_fifo(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, NULL);
         else if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode) || S_ISSOCK(st.st_mode))
-                return fd_copy_node(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, NULL);
+                r = fd_copy_node(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, NULL);
         else
                 return -EOPNOTSUPP;
+        if (r < 0)
+                return r;
+
+        if (copy_flags & COPY_FSYNC_FULL) {
+                r = fsync_parent_at(fdt, to);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int copy_directory_fd_full(
@@ -991,7 +1014,28 @@ int copy_directory_fd_full(
         if (r < 0)
                 return r;
 
-        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
+        r = fd_copy_directory(
+                        dirfd, NULL,
+                        &st,
+                        AT_FDCWD, to,
+                        st.st_dev,
+                        COPY_DEPTH_MAX,
+                        UID_INVALID, GID_INVALID,
+                        copy_flags,
+                        NULL, NULL,
+                        progress_path,
+                        progress_bytes,
+                        userdata);
+        if (r < 0)
+                return r;
+
+        if (copy_flags & COPY_FSYNC_FULL) {
+                r = fsync_parent_at(AT_FDCWD, to);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int copy_directory_full(
@@ -1015,7 +1059,28 @@ int copy_directory_full(
         if (r < 0)
                 return r;
 
-        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
+        r = fd_copy_directory(
+                        AT_FDCWD, from,
+                        &st,
+                        AT_FDCWD, to,
+                        st.st_dev,
+                        COPY_DEPTH_MAX,
+                        UID_INVALID, GID_INVALID,
+                        copy_flags,
+                        NULL, NULL,
+                        progress_path,
+                        progress_bytes,
+                        userdata);
+        if (r < 0)
+                return r;
+
+        if (copy_flags & COPY_FSYNC_FULL) {
+                r = fsync_parent_at(AT_FDCWD, to);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int copy_file_fd_full(
@@ -1050,6 +1115,15 @@ int copy_file_fd_full(
         if (S_ISREG(fdt)) {
                 (void) copy_times(fdf, fdt, copy_flags);
                 (void) copy_xattr(fdf, fdt);
+        }
+
+        if (copy_flags & COPY_FSYNC_FULL) {
+                r = fsync_full(fdt);
+                if (r < 0)
+                        return r;
+        } else if (copy_flags & COPY_FSYNC) {
+                if (fsync(fdt) < 0)
+                        return -errno;
         }
 
         return 0;
@@ -1117,9 +1191,22 @@ int copy_file_full(
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
+        if (copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL)) {
+                if (fsync(fdt) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+        }
+
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
                 goto fail;
+
+        if (copy_flags & COPY_FSYNC_FULL) {
+                r = fsync_parent_at(AT_FDCWD, to);
+                if (r < 0)
+                        goto fail;
+        }
 
         return 0;
 
@@ -1196,6 +1283,12 @@ int copy_file_atomic_full(
         if (fchmod(fdt, mode) < 0)
                 return -errno;
 
+        if ((copy_flags & (COPY_FSYNC|COPY_FSYNC_FULL))) {
+                /* Sync the file */
+                if (fsync(fdt) < 0)
+                        return -errno;
+        }
+
         if (copy_flags & COPY_REPLACE) {
                 if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0)
                         return -errno;
@@ -1213,6 +1306,13 @@ int copy_file_atomic_full(
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
                 goto fail;
+
+        if (copy_flags & COPY_FSYNC_FULL) {
+                /* Sync the parent directory */
+                r = fsync_parent_at(AT_FDCWD, to);
+                if (r < 0)
+                        goto fail;
+        }
 
         return 0;
 
