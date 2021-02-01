@@ -1820,11 +1820,10 @@ static BOOLEAN config_entry_add_loader_auto(
 
                 /* look for systemd-boot magic string */
                 err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
-                if (!EFI_ERROR(err)) {
+                if (!EFI_ERROR(err))
                         for (CHAR8 *start = content; start <= content + len - sizeof(magic) - 1; start++)
                                 if (start[0] == magic[0] && CompareMem(start, magic, sizeof(magic) - 1) == 0)
                                         return FALSE;
-                }
         }
 
         /* check existence */
