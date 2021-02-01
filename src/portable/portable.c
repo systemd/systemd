@@ -1003,13 +1003,13 @@ int portable_attach(
                 r = unit_file_exists(UNIT_FILE_SYSTEM, &paths, item->name);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
-                if (r > 0)
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
 
                 r = unit_file_is_active(bus, item->name, error);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
         }
 
@@ -1193,7 +1193,7 @@ int portable_detach(
                 r = unit_file_is_active(bus, de->d_name, error);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", de->d_name);
 
                 r = set_put_strdup(&unit_files, de->d_name);
