@@ -462,6 +462,42 @@ run_nspawn() {
     return 0
 }
 
+install_verity_minimal() {
+    if [ -e $initdir/usr/share/minimal.raw ]; then
+        return
+    fi
+    if ! command -v mksquashfs >/dev/null 2>&1; then
+        dfatal "mksquashfs not found"
+        exit 1
+    fi
+    if ! command -v veritysetup >/dev/null 2>&1; then
+        dfatal "veritysetup not found"
+        exit 1
+    fi
+    (
+        BASICTOOLS=(
+            bash
+            cat
+            mount
+            sleep
+        )
+        oldinitdir=$initdir
+        rm -rfv $TESTDIR/minimal
+        export initdir=$TESTDIR/minimal
+        mkdir -p $initdir/usr/lib/systemd/system $initdir/etc
+        setup_basic_dirs
+        install_basic_tools
+        cp $os_release $initdir/usr/lib/os-release
+        ln -s ../usr/lib/os-release $initdir/etc/os-release
+        touch $initdir/etc/machine-id $initdir/etc/resolv.conf
+        echo MARKER=1 >> $initdir/usr/lib/os-release
+        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 10000" > $initdir/usr/lib/systemd/system/app0.service
+        mksquashfs $initdir $oldinitdir/usr/share/minimal.raw
+        veritysetup format $oldinitdir/usr/share/minimal.raw $oldinitdir/usr/share/minimal.verity | \
+            grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal.roothash
+    )
+}
+
 setup_basic_environment() {
     # create the basic filesystem layout
     setup_basic_dirs
@@ -491,6 +527,9 @@ setup_basic_environment() {
     generate_module_dependencies
     if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
         create_asan_wrapper
+    fi
+    if [ -n "$TEST_INSTALL_VERITY_MINIMAL" ]; then
+        install_verity_minimal
     fi
 }
 
@@ -1056,6 +1095,7 @@ install_config_files() {
     # we want an empty environment
     > $initdir/etc/environment
     > $initdir/etc/machine-id
+    > $initdir/etc/resolv.conf
 
     # set the hostname
     echo systemd-testsuite > $initdir/etc/hostname
@@ -1271,7 +1311,7 @@ setup_basic_dirs() {
     mkdir -p $initdir/etc/systemd/system
     mkdir -p $initdir/var/log/journal
 
-    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log dev proc sys sysroot root run run/lock run/initramfs; do
+    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log var/tmp dev proc sys sysroot root run run/lock run/initramfs; do
         if [ -L "/$d" ]; then
             inst_symlink "/$d"
         else
