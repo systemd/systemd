@@ -433,6 +433,16 @@ fail:
         return 0;
 }
 
+static int http_status_ok(CURLcode status) {
+        /* Consider all HTTP status code in the 2xx range as OK */
+        return status >= 200 && status <= 299;
+}
+
+static int http_status_etag_exists(CURLcode status) {
+        /* This one is special, it's triggered by our etag mgmt logic */
+        return status == 304;
+}
+
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL;
         size_t sz = size * nmemb;
@@ -458,28 +468,31 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                 goto fail;
         }
 
-        if (status < 200 || status >= 300)
-                /* If this is not HTTP 2xx, let's skip these headers, they are probably for
-                 * some redirect or so, and we are not interested in the headers of those. */
-                return sz;
+        if (http_status_ok(status) || http_status_etag_exists(status)) {
+                /* Check Etag on OK and etag exists responses. */
 
-        r = curl_header_strdup(contents, sz, "ETag:", &etag);
-        if (r < 0) {
-                log_oom();
-                goto fail;
-        }
-        if (r > 0) {
-                free_and_replace(j->etag, etag);
+                r = curl_header_strdup(contents, sz, "ETag:", &etag);
+                if (r < 0) {
+                        log_oom();
+                        goto fail;
+                }
+                if (r > 0) {
+                        free_and_replace(j->etag, etag);
 
-                if (strv_contains(j->old_etags, j->etag)) {
-                        log_info("Image already downloaded. Skipping download.");
-                        j->etag_exists = true;
-                        pull_job_finish(j, 0);
+                        if (strv_contains(j->old_etags, j->etag)) {
+                                log_info("Image already downloaded. Skipping download. (%s)", j->etag);
+                                j->etag_exists = true;
+                                pull_job_finish(j, 0);
+                                return sz;
+                        }
+
                         return sz;
                 }
-
-                return sz;
         }
+
+        if (!http_status_ok(status)) /* Let's ignore the rest here, these requests are probably redirects and
+                                      * stuff where the headers aren't interesting to us */
+                return sz;
 
         r = curl_header_strdup(contents, sz, "Content-Length:", &length);
         if (r < 0) {
