@@ -1493,7 +1493,6 @@ static VOID config_load_entries(
                         UINTN bufsize;
                         EFI_FILE_INFO *f;
                         _cleanup_freepool_ CHAR8 *content = NULL;
-                        UINTN len;
 
                         bufsize = sizeof(buf);
                         err = uefi_call_wrapper(entries_dir->Read, 3, entries_dir, &bufsize, buf);
@@ -1506,12 +1505,9 @@ static VOID config_load_entries(
                         if (f->Attribute & EFI_FILE_DIRECTORY)
                                 continue;
 
-                        len = StrLen(f->FileName);
-                        if (len < 6)
+                        if (!endswith_no_case(f->FileName, L".conf"))
                                 continue;
-                        if (StriCmp(f->FileName + len - 5, L".conf") != 0)
-                                continue;
-                        if (StrnCmp(f->FileName, L"auto-", 5) == 0)
+                        if (startswith(f->FileName, L"auto-"))
                                 continue;
 
                         err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
@@ -1894,7 +1890,6 @@ static VOID config_entry_add_linux(
                 UINTN szs[ELEMENTSOF(sections)-1] = {};
                 UINTN addrs[ELEMENTSOF(sections)-1] = {};
                 CHAR8 *content = NULL;
-                UINTN len;
                 CHAR8 *line;
                 UINTN pos = 0;
                 CHAR8 *key, *value;
@@ -1914,12 +1909,9 @@ static VOID config_entry_add_linux(
                         continue;
                 if (f->Attribute & EFI_FILE_DIRECTORY)
                         continue;
-                len = StrLen(f->FileName);
-                if (len < 5)
+                if (!endswith_no_case(f->FileName, L".efi"))
                         continue;
-                if (StriCmp(f->FileName + len - 4, L".efi") != 0)
-                        continue;
-                if (StrnCmp(f->FileName, L"auto-", 5) == 0)
+                if (startswith(f->FileName, L"auto-"))
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
