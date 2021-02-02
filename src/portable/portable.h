@@ -21,6 +21,7 @@ typedef enum PortableFlags {
         PORTABLE_PREFER_COPY    = 1 << 0,
         PORTABLE_PREFER_SYMLINK = 1 << 1,
         PORTABLE_RUNTIME        = 1 << 2,
+        PORTABLE_UPGRADE        = 1 << 3,
 } PortableFlags;
 
 typedef enum PortableChangeType {

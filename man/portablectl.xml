@@ -156,6 +156,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>upgrade</command> <replaceable>IMAGE</replaceable> [<replaceable>PREFIX…</replaceable>]</term>
+
+        <listitem><para>Detaches an existing portable service image from the host, and immediately attaches the new
+        specified version. Running units are not stopped during the process. Partial matching, to allow for different
+        versions in the image name, is allowed: only the part before the first <literal>_</literal> character have
+        to match. If the new image doesn't exist, the existing one will not be detached. The parameters follow the
+        same syntax as the <command>attach</command> command.</para></listitem>
+
+        <para>If <option>--now</option> is passed, the portable service(s) are immediately restarted after the new
+        image is successfully attached. Prefix(es) are also accepted, to be used in case the unit names do not match
+        the image name as described in the <command>attach</command>.</para>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>inspect</command> <replaceable>IMAGE</replaceable> [<replaceable>PREFIX…</replaceable>]</term>
 
         <listitem><para>Extracts various metadata from a portable service image and presents it to the
@@ -328,7 +342,8 @@
       <varlistentry>
         <term><option>--now</option></term>
 
-        <listitem><para>Immediately start/stop the portable service after attaching/before detaching.</para></listitem>
+        <listitem><para>Immediately start/stop/restart the portable service after attaching/before
+        detaching/after upgrading.</para></listitem>
       </varlistentry>
 
       <varlistentry>

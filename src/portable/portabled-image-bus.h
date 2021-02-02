@@ -10,6 +10,7 @@ int bus_image_common_get_os_release(Manager *m, sd_bus_message *message, const c
 int bus_image_common_get_metadata(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_attach(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_remove(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
+int bus_image_common_upgrade(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_mark_read_only(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_set_limit(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 
