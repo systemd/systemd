@@ -823,6 +823,8 @@ const char *last_path_component(const char *path) {
          *    Also, the empty string is mapped to itself.
          *
          * This is different than basename(), which returns "" when a trailing slash is present.
+         *
+         * This always succeeds (except if you pass NULL in which case it returns NULL, too).
          */
 
         unsigned l, k;
@@ -848,24 +850,24 @@ const char *last_path_component(const char *path) {
 
 int path_extract_filename(const char *p, char **ret) {
         _cleanup_free_ char *a = NULL;
-        const char *c, *e = NULL, *q;
+        const char *c;
 
         /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
-         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. */
+         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. Returns
+         * -EADDRNOTAVAIL if specified parameter includes no filename (i.e. is "/" or so). Returns -EINVAL if
+         * not a valid path in the first place. */
 
-        if (!p)
+        if (!path_is_valid(p))
                 return -EINVAL;
+
+        /* Special case the root dir, because in that case we simply have no filename, but
+         * last_path_component() won't complain */
+        if (path_equal(p, "/"))
+                return -EADDRNOTAVAIL;
 
         c = last_path_component(p);
 
-        for (q = c; *q != 0; q++)
-                if (*q != '/')
-                        e = q + 1;
-
-        if (!e) /* no valid character? */
-                return -EINVAL;
-
-        a = strndup(c, e - c);
+        a = strndup(c, strcspn(c, "/"));
         if (!a)
                 return -ENOMEM;
 
@@ -873,7 +875,6 @@ int path_extract_filename(const char *p, char **ret) {
                 return -EINVAL;
 
         *ret = TAKE_PTR(a);
-
         return 0;
 }
 
@@ -897,11 +898,27 @@ bool filename_is_valid(const char *p) {
 }
 
 bool path_is_valid(const char *p) {
+        const char *e;
 
         if (isempty(p))
                 return false;
 
-        if (strlen(p) >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
+        e = p;
+        for (;;) {
+                size_t n;
+
+                e += strspn(e, "/");
+                if (*e == 0)
+                        break;
+
+                n = strcspn(e, "/");
+                if (n > FILENAME_MAX) /* One component larger than FILENAME_MAX? */
+                        return false;
+
+                e += n;
+        }
+
+        if (e - p >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
                 return false;
 
         return true;
