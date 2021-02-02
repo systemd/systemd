@@ -1,20 +1,75 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "strverscmp.h"
+
+#if !defined SD_BOOT
 #include <ctype.h>
 
 #include "string-util.h"
-#include "strverscmp.h"
 
-static bool is_alpha(char a) {
+typedef bool sd_bool;
+#define sd_strcmp(a, b)     strcmp((a), (b))
+#define sd_strncmp(a, b, n) strncmp((a), (b), (n))
+
+#else
+
+#include <efi.h>
+#include <efilib.h>
+
+typedef BOOLEAN sd_bool;
+#define sd_strcmp(a, b)     StrCmp((a), (b))
+#define sd_strncmp(a, b, n) StrnCmp((a), (b), (n))
+
+#define XCONCATENATE(x, y) x ## y
+#define CONCATENATE(x, y) XCONCATENATE(x, y)
+
+#define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
+#define UNIQ __COUNTER__
+
+#define CMP(a, b) __CMP(UNIQ, (a), UNIQ, (b))
+#define __CMP(aq, a, bq, b)                             \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? -1 :    \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? 1 : 0;  \
+        })
+
+#undef MIN
+#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
+#define __MIN(aq, a, bq, b)                             \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
+        })
+
+static sd_bool isdigit(sd_char a) {
+        return a >= '0' && a <= '9';
+}
+
+static sd_bool isempty(const sd_char *a) {
+        return !a || a[0] == '\0';
+}
+
+static sd_int strcmp_ptr(const sd_char *a, const sd_char *b) {
+        if (a && b)
+                return sd_strcmp(a, b);
+
+        return CMP(a, b);
+}
+#endif
+
+static sd_bool is_alpha(sd_char a) {
         /* Loocale independent version of isalpha(). */
         return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
 }
 
-static bool is_valid_version_char(char a) {
-        return isdigit(a) || is_alpha(a) || IN_SET(a, '~', '-', '^', '.');
+static sd_bool is_valid_version_char(sd_char a) {
+        return isdigit(a) || is_alpha(a) || a == '~' || a ==  '-' || a == '^' || a == '.';
 }
 
-int strverscmp_improved(const char *a, const char *b) {
+sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
 
         /* This is based on RPM's rpmvercmp(). But this explicitly handles '-' and '.', as we usually
          * want to directly compare strings which contain both version and release; e.g.
@@ -49,8 +104,8 @@ int strverscmp_improved(const char *a, const char *b) {
                 return strcmp_ptr(a, b);
 
         for (;;) {
-                const char *aa, *bb;
-                int r;
+                const sd_char *aa, *bb;
+                sd_int r;
 
                 /* Drop leading invalid characters. */
                 while (*a != '\0' && !is_valid_version_char(*a))
@@ -74,7 +129,7 @@ int strverscmp_improved(const char *a, const char *b) {
                  * Note that except for '~' prefixed segments, a string has more segments is newer.
                  * So, this check must be after the '~' check. */
                 if (*a == '\0' || *b == '\0')
-                        return strcmp(a, b);
+                        return sd_strcmp(a, b);
 
                 /* Handle '-', which separates version and release, e.g 123.4-3.1.fc33.x86_64 */
                 if (*a == '-' || *b == '-') {
@@ -128,7 +183,7 @@ int strverscmp_improved(const char *a, const char *b) {
                                 return r;
 
                         /* Then, compare them as strings. */
-                        r = strncmp(a, b, aa - a);
+                        r = sd_strncmp(a, b, aa - a);
                         if (r != 0)
                                 return r;
                 } else {
@@ -139,7 +194,7 @@ int strverscmp_improved(const char *a, const char *b) {
                                 ;
 
                         /* Note that the segments are usually not NUL-terminated. */
-                        r = strncmp(a, b, MIN(aa - a, bb - b));
+                        r = sd_strncmp(a, b, MIN(aa - a, bb - b));
                         if (r != 0)
                                 return r;
 
