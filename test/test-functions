@@ -1095,6 +1095,7 @@ install_config_files() {
     # we want an empty environment
     > $initdir/etc/environment
     > $initdir/etc/machine-id
+    > $initdir/etc/resolv.conf
 
     # set the hostname
     echo systemd-testsuite > $initdir/etc/hostname
