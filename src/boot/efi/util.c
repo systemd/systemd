@@ -375,6 +375,34 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
         return NULL;
 }
 
+const CHAR16 *startswith(const CHAR16 *s, const CHAR16 *prefix) {
+        UINTN l;
+
+        l = StrLen(prefix);
+        if (StrnCmp(s, prefix, l) == 0)
+                return s + l;
+
+        return NULL;
+}
+
+const CHAR16 *endswith(const CHAR16 *s, const CHAR16 *postfix) {
+        UINTN sl, pl;
+
+        sl = StrLen(s);
+        pl = StrLen(postfix);
+
+        if (pl == 0)
+                return s + sl;
+
+        if (sl < pl)
+                return NULL;
+
+        if (StrCmp(s + sl - pl, postfix) != 0)
+                return NULL;
+
+        return s + sl - pl;
+}
+
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;

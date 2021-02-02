@@ -39,6 +39,9 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c);
 CHAR16 *stra_to_path(CHAR8 *stra);
 CHAR16 *stra_to_str(CHAR8 *stra);
 
+const CHAR16 *startswith(const CHAR16 *s, const CHAR16 *prefix);
+const CHAR16 *endswith(const CHAR16 *s, const CHAR16 *postfix);
+
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 
 static inline void FreePoolp(void *p) {
