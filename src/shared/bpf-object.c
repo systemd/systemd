@@ -23,7 +23,11 @@ int bpf_object_cpu_arch_supported(int arch) {
         return 0;
 }
 
-int bpf_object_new(const unsigned char *mem_buf, size_t size, struct bpf_object **object) {
+int bpf_object_new(
+                const unsigned char *mem_buf,
+                size_t size,
+                const char *object_name,
+                struct bpf_object **object) {
         _cleanup_(bpf_object_freep) struct bpf_object *p = NULL;
         /* Standard error code. */
         long err;
@@ -32,9 +36,9 @@ int bpf_object_new(const unsigned char *mem_buf, size_t size, struct bpf_object 
         assert(size > 0);
         assert(object);
 
-        DECLARE_LIBBPF_OPTS(
-                        bpf_object_open_opts,
-                        opts);
+        DECLARE_LIBBPF_OPTS(bpf_object_open_opts, opts,
+                .object_name = object_name,
+        );
 
         p = bpf_object__open_mem(mem_buf, size, &opts);
         /* Should either point to a valid BPF object or store standard error code. */
