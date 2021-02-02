@@ -1310,7 +1310,7 @@ setup_basic_dirs() {
     mkdir -p $initdir/etc/systemd/system
     mkdir -p $initdir/var/log/journal
 
-    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log dev proc sys sysroot root run run/lock run/initramfs; do
+    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log var/tmp dev proc sys sysroot root run run/lock run/initramfs; do
         if [ -L "/$d" ]; then
             inst_symlink "/$d"
         else
