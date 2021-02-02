@@ -20,7 +20,7 @@ systemctl start testsuite-56-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
 oomctl | grep "/testsuite-56-workload.slice"
-oomctl | grep "1%"
+oomctl | grep "1.00%"
 oomctl | grep "Default Memory Pressure Duration: 5s"
 
 # systemd-oomd watches for elevated pressure for 30 seconds before acting.

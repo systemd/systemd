@@ -17,7 +17,7 @@
  * Generally 60 or higher might be acceptable for something like system.slice with no memory.high set; processes in
  * system.slice are assumed to be less latency sensitive. */
 #define DEFAULT_MEM_PRESSURE_DURATION_USEC (30 * USEC_PER_SEC)
-#define DEFAULT_MEM_PRESSURE_LIMIT 60
+#define DEFAULT_MEM_PRESSURE_LIMIT_PERCENT 60
 #define DEFAULT_SWAP_USED_LIMIT 90
 
 #define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
@@ -56,7 +56,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_new(Manager **ret);
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit, usec_t mem_pressure_usec);
+int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec);
 
 int manager_get_dump_string(Manager *m, char **ret);
 

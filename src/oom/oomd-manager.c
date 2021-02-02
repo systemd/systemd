@@ -100,10 +100,10 @@ static int process_managed_oom_reply(
                 limit = m->default_mem_pressure_limit;
 
                 if (streq(reply.property, "ManagedOOMMemoryPressure")) {
-                        if (reply.limit > 100)
+                        if (reply.limit > 10000)
                                 continue;
                         else if (reply.limit != 0) {
-                                ret = store_loadavg_fixed_point((unsigned long) reply.limit, 0, &limit);
+                                ret = store_loadavg_fixed_point((unsigned long) reply.limit / 100, (unsigned long) reply.limit % 100, &limit);
                                 if (ret < 0)
                                         continue;
                         }
@@ -478,8 +478,8 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit, usec_t mem_pressure_usec) {
-        unsigned long l;
+int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec) {
+        unsigned long l, f;
         int r;
 
         assert(m);
@@ -489,8 +489,16 @@ int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressur
         m->swap_used_limit = swap_used_limit != -1 ? swap_used_limit : DEFAULT_SWAP_USED_LIMIT;
         assert(m->swap_used_limit <= 100);
 
-        l = mem_pressure_limit != -1 ? mem_pressure_limit : DEFAULT_MEM_PRESSURE_LIMIT;
-        r = store_loadavg_fixed_point(l, 0, &m->default_mem_pressure_limit);
+        if (mem_pressure_limit_permyriad != -1) {
+                assert(mem_pressure_limit_permyriad <= 10000);
+
+                l = mem_pressure_limit_permyriad / 100;
+                f = mem_pressure_limit_permyriad % 100;
+        } else {
+                l = DEFAULT_MEM_PRESSURE_LIMIT_PERCENT;
+                f = 0;
+        }
+        r = store_loadavg_fixed_point(l, f, &m->default_mem_pressure_limit);
         if (r < 0)
                 return r;
 
@@ -530,12 +538,12 @@ int manager_get_dump_string(Manager *m, char **ret) {
         fprintf(f,
                 "Dry Run: %s\n"
                 "Swap Used Limit: %u%%\n"
-                "Default Memory Pressure Limit: %lu%%\n"
+                "Default Memory Pressure Limit: %lu.%02lu%%\n"
                 "Default Memory Pressure Duration: %s\n"
                 "System Context:\n",
                 yes_no(m->dry_run),
                 m->swap_used_limit,
-                LOAD_INT(m->default_mem_pressure_limit),
+                LOAD_INT(m->default_mem_pressure_limit), LOAD_FRAC(m->default_mem_pressure_limit),
                 format_timespan(buf, sizeof(buf), m->default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
 
