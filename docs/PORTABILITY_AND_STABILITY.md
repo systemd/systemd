@@ -120,7 +120,7 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | `/run` | File hierarchy change | yes | yes | numerous | yes | OpenSUSE, Debian, ArchLinux | no |
 | [Generators](https://www.freedesktop.org/software/systemd/man/systemd.generator.html) | Subprocess | yes | yes | - | no | - | no |
 | [System Updates](https://www.freedesktop.org/software/systemd/man/systemd.offline-updates.html) | System Mode | yes | yes | - | no | - | no |
-| [Presets](https://freedesktop.org/wiki/Software/systemd/Preset) | File format | yes | yes | - | no | - | no |
+| [Presets](https://www.freedesktop.org/software/systemd/man/systemd.preset.html) | File format | yes | yes | - | no | - | no |
 | Udev rules | File format | yes | yes | numerous | no | no | partially |
 
 
