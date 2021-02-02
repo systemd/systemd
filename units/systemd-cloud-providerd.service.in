@@ -1,0 +1,49 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Cloud provider Service
+Documentation=man:systemd-cloud-provider.service(8)
+ConditionCapability=CAP_NET_ADMIN
+DefaultDependencies=no
+After=network-online.target
+
+[Service]
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+DeviceAllow=char-* rw
+ExecStart=!!@rootlibexecdir@/systemd-cloud-providerd
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+ProtectProc=invisible
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectSystem=strict
+Restart=on-failure
+RestartKillSignal=SIGUSR2
+RestartSec=0
+RestrictAddressFamilies=AF_NETLINK AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/netif
+RuntimeDirectoryPreserve=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify
+User=systemd-cloud-provider
+@SERVICE_WATCHDOG@
+
+[Install]
+WantedBy=multi-user.target
