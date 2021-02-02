@@ -1450,14 +1450,6 @@ have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
 have = get_option('oomd')
-if have == 'auto'
-        have = get_option('mode') == 'developer'
-else
-        have = have == 'true'
-        if have and get_option('mode') != 'developer'
-                warning('oomd is not ready for release mode (yet)')
-        endif
-endif
 conf.set10('ENABLE_OOMD', have)
 substs.set10('ENABLE_OOMD', have)
 
@@ -3668,8 +3660,8 @@ status = [
                                                                         conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_GID_MIN')),
-        'dynamic UIDs:                      @0@–@1@'.format(dynamic_uid_min, dynamic_uid_max),
-        'container UID bases:               @0@–@1@'.format(container_uid_base_min, container_uid_base_max),
+        'dynamic UIDs:                      @0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
+        'container UID bases:               @0@…@1@'.format(container_uid_base_min, container_uid_base_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),
