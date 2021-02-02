@@ -151,22 +151,18 @@ static EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
                       struct bmp_dib *dib, struct bmp_map *map,
                       UINT8 *pixmap) {
         UINT8 *in;
-        UINTN y;
 
         /* transform and copy pixels */
         in = pixmap;
-        for (y = 0; y < dib->y; y++) {
+        for (UINTN y = 0; y < dib->y; y++) {
                 EFI_GRAPHICS_OUTPUT_BLT_PIXEL *out;
                 UINTN row_size;
-                UINTN x;
 
                 out = &buf[(dib->y - y - 1) * dib->x];
-                for (x = 0; x < dib->x; x++, in++, out++) {
+                for (UINTN x = 0; x < dib->x; x++, in++, out++) {
                         switch (dib->depth) {
                         case 1: {
-                                UINTN i;
-
-                                for (i = 0; i < 8 && x < dib->x; i++) {
+                                for (UINTN i = 0; i < 8 && x < dib->x; i++) {
                                         out->Red = map[((*in) >> (7 - i)) & 1].red;
                                         out->Green = map[((*in) >> (7 - i)) & 1].green;
                                         out->Blue = map[((*in) >> (7 - i)) & 1].blue;
