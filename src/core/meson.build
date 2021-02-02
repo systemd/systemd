@@ -13,6 +13,8 @@ libcore_sources = '''
         bpf-firewall.h
         cgroup.c
         cgroup.h
+        cgroup-bpf.c
+        cgroup-bpf.h
         core-varlink.c
         core-varlink.h
         dbus-automount.c
@@ -89,6 +91,8 @@ libcore_sources = '''
         namespace.h
         path.c
         path.h
+        restrict-ifaces.c
+        restrict-ifaces.h
         scope.c
         scope.h
         selinux-access.c
@@ -119,6 +123,11 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+if conf.get('BUILD_BPF') == 1
+        subdir('bpf')
+        libcore_sources += [restrict_network_interfaces_hexdump_h]
+
+endif
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
@@ -149,6 +158,7 @@ libcore = static_library(
         dependencies : [versiondep,
                         threads,
                         librt,
+                        libbpf,
                         libseccomp,
                         libpam,
                         libaudit,
