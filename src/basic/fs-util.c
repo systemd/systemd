@@ -1657,14 +1657,14 @@ int conservative_renameat(
 
         for (;;) {
                 char buf1[16*1024];
-                char buf2[sizeof(buf1) + 1];
+                char buf2[sizeof(buf1)];
                 ssize_t l1, l2;
 
                 l1 = read(old_fd, buf1, sizeof(buf1));
                 if (l1 < 0)
                         goto do_rename;
 
-                l2 = read(new_fd, buf2, l1 + 1);
+                l2 = read(new_fd, buf2, sizeof(buf2));
                 if (l1 != l2)
                         goto do_rename;
 
