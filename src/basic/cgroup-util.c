@@ -35,6 +35,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strverscmp.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "xattr-util.h"
@@ -2164,7 +2165,7 @@ CGroupMask get_cpu_accounting_mask(void) {
                         struct utsname u;
                         assert_se(uname(&u) >= 0);
 
-                        if (str_verscmp(u.release, "4.15") < 0)
+                        if (strverscmp_improved(u.release, "4.15") < 0)
                                 needed_mask = CGROUP_MASK_CPU;
                         else
                                 needed_mask = 0;

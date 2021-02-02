@@ -451,6 +451,8 @@ tests += [
 
         [['src/test/test-strv.c']],
 
+        [['src/test/test-strverscmp.c']],
+
         [['src/test/test-path-util.c']],
 
         [['src/test/test-rm-rf.c']],

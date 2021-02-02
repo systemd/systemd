@@ -13,6 +13,7 @@ efi_headers = files('''
         sha256.h
         shim.h
         splash.h
+        strverscmp.h
         util.h
 '''.split())
 
@@ -31,6 +32,7 @@ systemd_boot_sources = '''
         random-seed.c
         sha256.c
         shim.c
+        strverscmp.c
 '''.split()
 
 stub_sources = '''
@@ -144,6 +146,7 @@ if have_gnu_efi
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
                         '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
+                        '-DSD_BOOT',
                         '-include', efi_config_h,
                         '-include', version_h]
         if efi_arch == 'x86_64'
