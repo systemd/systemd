@@ -21,6 +21,7 @@ common_sources = '''
         graphics.c
         measure.c
         pe.c
+        secure-boot.c
         util.c
 '''.split()
 
@@ -133,8 +134,8 @@ endif
 if have_gnu_efi
         compile_args = ['-Wall',
                         '-Wextra',
-                        '-std=gnu90',
-                        '-nostdinc',
+                        '-std=gnu99',
+                        '-nostdlib',
                         '-fpic',
                         '-fshort-wchar',
                         '-ffreestanding',
