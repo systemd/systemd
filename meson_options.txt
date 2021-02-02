@@ -99,7 +99,7 @@ option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('pstore', type : 'boolean',
        description : 'install the pstore archival tool')
-option('oomd', type : 'combo', choices : ['auto', 'true', 'false'],
+option('oomd', type : 'boolean',
        description : 'install the userspace oom killer')
 option('logind', type : 'boolean',
        description : 'install the systemd-logind stack')

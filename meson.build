@@ -1450,14 +1450,6 @@ have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
 have = get_option('oomd')
-if have == 'auto'
-        have = get_option('mode') == 'developer'
-else
-        have = have == 'true'
-        if have and get_option('mode') != 'developer'
-                warning('oomd is not ready for release mode (yet)')
-        endif
-endif
 conf.set10('ENABLE_OOMD', have)
 substs.set10('ENABLE_OOMD', have)
 
