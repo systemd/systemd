@@ -1871,8 +1871,8 @@ static int method_do_shutdown_or_sleep(
                 bool with_flags,
                 sd_bus_error *error) {
 
-        int interactive = false, r;
         uint64_t flags = 0;
+        int r;
 
         assert(m);
         assert(message);
@@ -1880,19 +1880,25 @@ static int method_do_shutdown_or_sleep(
         assert(w >= 0);
         assert(w <= _INHIBIT_WHAT_MAX);
 
-        if (with_flags)
+        if (with_flags) {
+                /* New style method: with flags parameter (and interactive bool in the bus message header) */
                 r = sd_bus_message_read(message, "t", &flags);
-        else
+                if (r < 0)
+                        return r;
+                if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+        } else {
+                /* Old style method: no flags parameter, but interactive bool passed as boolean in
+                 * payload. Let's convert this argument to the new-style flags parameter for our internal
+                 * use. */
+                int interactive;
+
                 r = sd_bus_message_read(message, "b", &interactive);
+                if (r < 0)
+                        return r;
 
-        if (r < 0)
-                return r;
-
-        if (with_flags && (flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid flags parameter");
-
-        SET_FLAG(flags, SD_LOGIND_INTERACTIVE, interactive);
+                flags = interactive ? SD_LOGIND_INTERACTIVE : 0;
+        }
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->action_what > 0)
