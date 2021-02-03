@@ -87,7 +87,6 @@ shared_sources = files('''
         dns-domain.h
         dropin.c
         dropin.h
-        efi-loader-features.h
         efi-loader.c
         efi-loader.h
         enable-mempool.c
