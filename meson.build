@@ -68,6 +68,11 @@ if get_option('split-usr') == 'auto'
 else
         split_usr = get_option('split-usr') == 'true'
 endif
+if split_usr
+        warning('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n'
+                + '                    split-usr mode is going to be removed\n' +
+                '\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+endif
 conf.set10('HAVE_SPLIT_USR', split_usr,
            description : '/usr/bin and /bin directories are separate')
 
