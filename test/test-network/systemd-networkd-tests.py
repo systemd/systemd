@@ -2813,7 +2813,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip nexthop list dev veth99')
         print(output)
-        self.assertRegex(output, '192.168.5.1')
+        self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
+        self.assertIn('id 2 dev veth99', output)
+        self.assertIn('id 3 dev veth99', output)
 
     def test_qdisc(self):
         copy_unit_to_networkd_unit_path('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',
