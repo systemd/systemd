@@ -1529,9 +1529,13 @@ int fsync_path_and_parent_at(int at_fd, const char *path) {
 int syncfs_path(int atfd, const char *path) {
         _cleanup_close_ int fd = -1;
 
-        assert(path);
+        if (isempty(path)) {
+                if (atfd != AT_FDCWD)
+                        return syncfs(atfd) < 0 ? -errno : 0;
 
-        fd = openat(atfd, path, O_CLOEXEC|O_RDONLY|O_NONBLOCK);
+                fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        } else
+                fd = openat(atfd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
