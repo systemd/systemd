@@ -2,6 +2,7 @@
 Name=veth-peer
 
 [Network]
+IPv6AcceptRA=no
 IPv6SendRA=yes
 
 [IPv6SendRA]
