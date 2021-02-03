@@ -58,7 +58,7 @@ char *xdg_autostart_service_translate_name(const char *name) {
         if (!escaped)
                 return NULL;
 
-        return strjoin("app-", escaped, "-autostart.service");
+        return strjoin("app-", escaped, "@autostart.service");
 }
 
 static int xdg_config_parse_bool(

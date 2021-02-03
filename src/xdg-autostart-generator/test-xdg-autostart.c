@@ -13,7 +13,7 @@ static void test_translate_name(void) {
         _cleanup_free_ char *t;
 
         assert_se(t = xdg_autostart_service_translate_name("a-b.blub.desktop"));
-        assert_se(streq(t, "app-a\\x2db.blub-autostart.service"));
+        assert_se(streq(t, "app-a\\x2db.blub@autostart.service"));
 }
 
 static void test_xdg_format_exec_start_one(const char *exec, const char *expected) {
