@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
+#include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -22,6 +23,7 @@
 #include "util.h"
 
 int import_make_read_only_fd(int fd) {
+        struct stat st;
         int r;
 
         assert(fd >= 0);
@@ -29,25 +31,34 @@ int import_make_read_only_fd(int fd) {
         /* First, let's make this a read-only subvolume if it refers
          * to a subvolume */
         r = btrfs_subvol_set_read_only_fd(fd, true);
-        if (IN_SET(r, -ENOTTY, -ENOTDIR, -EINVAL)) {
-                struct stat st;
-
-                /* This doesn't refer to a subvolume, or the file
-                 * system isn't even btrfs. In that, case fall back to
-                 * chmod()ing */
-
-                r = fstat(fd, &st);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to stat temporary image: %m");
-
-                /* Drop "w" flag */
-                if (fchmod(fd, st.st_mode & 07555) < 0)
-                        return log_error_errno(errno, "Failed to chmod() final image: %m");
-
+        if (r >= 0)
                 return 0;
 
-        } else if (r < 0)
+        if (!ERRNO_IS_NOT_SUPPORTED(r) && !IN_SET(r, -ENOTDIR, -EINVAL))
                 return log_error_errno(r, "Failed to make subvolume read-only: %m");
+
+        /* This doesn't refer to a subvolume, or the file system isn't even btrfs. In that, case fall back to
+         * chmod()ing */
+
+        r = fstat(fd, &st);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to stat image: %m");
+
+        if (S_ISDIR(st.st_mode)) {
+                /* For directories set the immutable flag on the dir itself */
+
+                r = chattr_fd(fd, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set +i attribute on directory image: %m");
+
+        } else if (S_ISREG(st.st_mode)) {
+                /* For regular files drop "w" flags */
+
+                if ((st.st_mode & 0222) != 0)
+                        if (fchmod(fd, st.st_mode & 07555) < 0)
+                                return log_error_errno(errno, "Failed to chmod() image: %m");
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EBADFD), "Image of unexpected type");
 
         return 0;
 }
