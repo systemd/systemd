@@ -268,6 +268,10 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEXTHOP message: %m");
 
+        r = sd_rtnl_message_nexthop_set_family(req, nexthop->family);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set nexthop family: %m");
+
         r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
@@ -280,10 +284,6 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
                 r = netlink_message_append_in_addr_union(req, NHA_GATEWAY, nexthop->family, &nexthop->gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
-
-                r = sd_rtnl_message_nexthop_set_family(req, nexthop->family);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set nexthop family: %m");
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
@@ -443,8 +443,11 @@ static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
-        if (in_addr_is_null(nh->family, &nh->gw) < 0)
-                return -EINVAL;
+        if (nh->family == AF_UNSPEC)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [NextHop] section without Gateway= or Family= field configured. "
+                                         "Ignoring [NextHop] section from line %u.",
+                                         nh->section->filename, nh->section->line);
 
         return 0;
 }
@@ -522,11 +525,85 @@ int config_parse_nexthop_gateway(
         if (r < 0)
                 return log_oom();
 
+        if (isempty(rvalue)) {
+                n->family = AF_UNSPEC;
+                n->gw = IN_ADDR_NULL;
+
+                TAKE_PTR(n);
+                return 0;
+        }
+
         r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
+        }
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_nexthop_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        Network *network = userdata;
+        AddressFamily a;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = nexthop_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue) &&
+            in_addr_is_null(n->family, &n->gw) != 0) {
+                /* Refuse an empty string when valid Gateway= is already specified. */
+                n->family = AF_UNSPEC;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        a = nexthop_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        if (in_addr_is_null(n->family, &n->gw) == 0 &&
+            ((a == ADDRESS_FAMILY_IPV4 && n->family == AF_INET6) ||
+             (a == ADDRESS_FAMILY_IPV6 && n->family == AF_INET))) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified family '%s' conflicts with the family of the previously specified Gateway=, "
+                           "ignoring assignment.", rvalue);
+                return 0;
+        }
+
+        switch(a) {
+        case ADDRESS_FAMILY_IPV4:
+                n->family = AF_INET;
+                break;
+        case ADDRESS_FAMILY_IPV6:
+                n->family = AF_INET6;
+                break;
+        default:
+                assert_not_reached("Invalid family.");
         }
 
         TAKE_PTR(n);
