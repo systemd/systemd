@@ -3169,6 +3169,7 @@ static int apply_mount_namespace(
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
                         .proc_subset = context->proc_subset,
+                        .mount_nosuid = context->no_new_privileges,
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
