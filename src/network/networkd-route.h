@@ -86,10 +86,8 @@ int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
 
-int route_table_from_string_full(Manager *m, const char *table, uint32_t *ret);
-
-const char *route_table_to_string(int d) _const_;
-int route_table_from_string(const char *d) _pure_;
+int manager_get_route_table_from_string(const Manager *m, const char *table, uint32_t *ret);
+int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
