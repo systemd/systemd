@@ -219,9 +219,10 @@ REQUIREMENTS:
         Note that the build prefix for systemd must be /usr. (Moreover,
         packages systemd relies on — such as D-Bus — really should use the same
         prefix, otherwise you are on your own.) -Dsplit-usr=false (which is the
-        default and does not need to be specified) is the recommended setting,
-        and -Dsplit-usr=true should be used on systems which have /usr on a
-        separate partition.
+        default and does not need to be specified) is the recommended setting.
+        -Dsplit-usr=true can be used to give a semblance of support for systems
+        with programs installed split between / and /usr. Moving everything
+        under /usr is strongly encouraged.
 
         Additional packages are necessary to run some tests:
         - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
