@@ -348,6 +348,7 @@ SendVendorOption=
 [NextHop]
 Id=
 Gateway=
+Family=
 [QDisc]
 Parent=
 Handle=
