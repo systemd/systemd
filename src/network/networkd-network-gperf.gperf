@@ -60,8 +60,6 @@ Match.Architecture,                          config_parse_net_condition,        
 Link.MACAddress,                             config_parse_hwaddr,                                      0,                             offsetof(Network, mac)
 Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
 Link.Group,                                  config_parse_uint32,                                      0,                             offsetof(Network, group)
-Link.TransmitQueues,                         config_parse_rx_tx_queues,                                0,                             offsetof(Network, txqueues)
-Link.ReceiveQueues,                          config_parse_rx_tx_queues,                                0,                             offsetof(Network, rxqueues)
 Link.ARP,                                    config_parse_tristate,                                    0,                             offsetof(Network, arp)
 Link.Multicast,                              config_parse_tristate,                                    0,                             offsetof(Network, multicast)
 Link.AllMulticast,                           config_parse_tristate,                                    0,                             offsetof(Network, allmulticast)
