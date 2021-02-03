@@ -189,7 +189,7 @@ int sd_rtnl_message_nexthop_get_family(const sd_netlink_message *m, uint8_t *fam
 int sd_rtnl_message_neigh_set_flags(sd_netlink_message *m, uint8_t flags);
 int sd_rtnl_message_neigh_set_state(sd_netlink_message *m, uint16_t state);
 int sd_rtnl_message_neigh_get_family(const sd_netlink_message *m, int *family);
-int sd_rtnl_message_neigh_get_ifindex(const sd_netlink_message *m, int *family);
+int sd_rtnl_message_neigh_get_ifindex(const sd_netlink_message *m, int *index);
 int sd_rtnl_message_neigh_get_state(const sd_netlink_message *m, uint16_t *state);
 int sd_rtnl_message_neigh_get_flags(const sd_netlink_message *m, uint8_t *flags);
 
