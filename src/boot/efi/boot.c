@@ -765,12 +765,12 @@ static BOOLEAN menu_run(
                                         LOADER_GUID,
                                         L"LoaderEntryDefault",
                                         config->entries[idx_highlight]->id,
-                                        TRUE);
+                                        EFI_VARIABLE_NON_VOLATILE);
                                 config->idx_default_efivar = idx_highlight;
                                 status = StrDuplicate(L"Default boot entry selected.");
                         } else {
                                 /* clear the default entry EFI variable */
-                                efivar_set(LOADER_GUID, L"LoaderEntryDefault", NULL, TRUE);
+                                efivar_set(LOADER_GUID, L"LoaderEntryDefault", NULL, EFI_VARIABLE_NON_VOLATILE);
                                 config->idx_default_efivar = -1;
                                 status = StrDuplicate(L"Default boot entry cleared.");
                         }
@@ -782,14 +782,18 @@ static BOOLEAN menu_run(
                         if (config->timeout_sec_efivar > 0) {
                                 config->timeout_sec_efivar--;
                                 efivar_set_uint_string(
-                                        LOADER_GUID, L"LoaderConfigTimeout", config->timeout_sec_efivar, TRUE);
+                                        LOADER_GUID,
+                                        L"LoaderConfigTimeout",
+                                        config->timeout_sec_efivar,
+                                        EFI_VARIABLE_NON_VOLATILE);
                                 if (config->timeout_sec_efivar > 0)
                                         status = PoolPrint(L"Menu timeout set to %d sec.", config->timeout_sec_efivar);
                                 else
                                         status = StrDuplicate(L"Menu disabled. Hold down key at bootup to show menu.");
                         } else if (config->timeout_sec_efivar <= 0){
                                 config->timeout_sec_efivar = -1;
-                                efivar_set(LOADER_GUID, L"LoaderConfigTimeout", NULL, TRUE);
+                                efivar_set(
+                                        LOADER_GUID, L"LoaderConfigTimeout", NULL, EFI_VARIABLE_NON_VOLATILE);
                                 if (config->timeout_sec_config > 0)
                                         status = PoolPrint(L"Menu timeout of %d sec is defined by configuration file.",
                                                            config->timeout_sec_config);
@@ -803,7 +807,11 @@ static BOOLEAN menu_run(
                         if (config->timeout_sec_efivar == -1 && config->timeout_sec_config == 0)
                                 config->timeout_sec_efivar++;
                         config->timeout_sec_efivar++;
-                        efivar_set_uint_string(LOADER_GUID, L"LoaderConfigTimeout", config->timeout_sec_efivar, TRUE);
+                        efivar_set_uint_string(
+                                LOADER_GUID,
+                                L"LoaderConfigTimeout",
+                                config->timeout_sec_efivar,
+                                EFI_VARIABLE_NON_VOLATILE);
                         if (config->timeout_sec_efivar > 0)
                                 status = PoolPrint(L"Menu timeout set to %d sec.",
                                                    config->timeout_sec_efivar);
@@ -1295,7 +1303,7 @@ static VOID config_entry_bump_counters(
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
         new_path = PoolPrint(L"%s\\%s", entry->path, entry->next_name);
-        efivar_set(LOADER_GUID, L"LoaderBootCountPath", new_path, FALSE);
+        efivar_set(LOADER_GUID, L"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
         if (StrCmp(entry->loader, old_path) == 0) {
@@ -1470,7 +1478,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &sec);
         if (!EFI_ERROR(err)) {
                 /* Unset variable now, after all it's "one shot". */
-                (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, TRUE);
+                (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
                 config->timeout_sec = sec;
                 config->force_menu = TRUE; /* force the menu when this is set */
@@ -1592,7 +1600,7 @@ static VOID config_default_entry_select(Config *config) {
         if (!EFI_ERROR(err)) {
 
                 config->entry_oneshot = StrDuplicate(entry_oneshot);
-                efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, TRUE);
+                efivar_set(LOADER_GUID, L"LoaderEntryOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
                 i = config_entry_find(config, entry_oneshot);
                 if (i >= 0) {
@@ -2276,7 +2284,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
         if (!EFI_ERROR(err))
                 new |= old;
 
-        err = efivar_set_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", new, TRUE);
+        err = efivar_set_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", new, EFI_VARIABLE_NON_VOLATILE);
         if (EFI_ERROR(err))
                 return err;
 
@@ -2315,7 +2323,7 @@ static VOID config_write_entries_to_variable(Config *config) {
         }
 
         /* Store the full list of discovered entries. */
-        (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8*) p - (UINT8*) buffer, FALSE);
+        (void) efivar_set_raw(LOADER_GUID, L"LoaderEntries", buffer, (UINT8 *) p - (UINT8 *) buffer, 0);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
@@ -2343,15 +2351,15 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         InitializeLib(image, sys_table);
         init_usec = time_usec();
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
-        efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, FALSE);
+        efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
         infostr = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-        efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", infostr, FALSE);
+        efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", infostr, 0);
 
         typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-        efivar_set(LOADER_GUID, L"LoaderFirmwareType", typestr, FALSE);
+        efivar_set(LOADER_GUID, L"LoaderFirmwareType", typestr, 0);
 
-        (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, FALSE);
+        (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, 0);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -2363,7 +2371,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* export the device path this image is started from */
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, FALSE);
+                efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir) {
@@ -2383,7 +2391,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* the filesystem path to this image, to prevent adding ourselves to the menu */
         loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, FALSE);
+        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", loaded_image_path, 0);
 
         config_load_defaults(&config, root_dir);
 
@@ -2481,7 +2489,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 config_entry_bump_counters(entry, root_dir);
 
                 /* Export the selected boot entry to the system */
-                (VOID) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, FALSE);
+                (VOID) efivar_set(LOADER_GUID, L"LoaderEntrySelected", entry->id, 0);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (VOID) process_random_seed(root_dir, config.random_seed_mode);

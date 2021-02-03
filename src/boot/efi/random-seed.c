@@ -315,7 +315,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         }
 
         /* We are good to go */
-        err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, FALSE);
+        err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
         if (EFI_ERROR(err)) {
                 Print(L"Failed to write random seed to EFI variable: %r\n", err);
                 return err;
