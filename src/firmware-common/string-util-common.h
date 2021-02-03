@@ -63,3 +63,5 @@ static inline sd_bool isempty(const sd_char *a) {
 static inline const sd_char *yes_no(sd_bool b) {
         return b ? STR_C("yes") : STR_C("no");
 }
+
+sd_int strverscmp_improved(const sd_char *a, const sd_char *b);
