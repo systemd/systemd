@@ -16,6 +16,7 @@
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -27,7 +28,6 @@
 #include "lockfile-util.h"
 #include "log.h"
 #include "loop-util.h"
-#include "machine-image.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
@@ -1065,7 +1065,6 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         r = asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino);
                 else
                         return -ENOTTY;
-
                 if (r < 0)
                         return -ENOMEM;
         }
@@ -1220,10 +1219,15 @@ int image_read_metadata(Image *i) {
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {
+        const char *p;
+
         assert(name);
         assert(ret);
 
         /* Locks an image name, regardless of the precise path used. */
+
+        if (streq(name, ".host"))
+                return -EBUSY;
 
         if (!image_name_is_valid(name))
                 return -EINVAL;
@@ -1233,11 +1237,9 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
                 return 0;
         }
 
-        if (streq(name, ".host"))
-                return -EBUSY;
-
-        const char *p = strjoina("/run/systemd/nspawn/locks/name-", name);
         (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
+
+        p = strjoina("/run/systemd/nspawn/locks/name-", name);
         return make_lock_file(p, operation, ret);
 }
 

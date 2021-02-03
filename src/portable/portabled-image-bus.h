@@ -3,7 +3,7 @@
 
 #include "sd-bus.h"
 
-#include "machine-image.h"
+#include "discover-image.h"
 #include "portabled.h"
 
 int bus_image_common_get_os_release(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
