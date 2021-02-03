@@ -4,6 +4,8 @@ systemd_coredump_sources = files('''
         coredump.c
         coredump-vacuum.c
         coredump-vacuum.h
+        coredump-ratelimit.c
+        coredump-ratelimit.h
 '''.split())
 
 if conf.get('HAVE_ELFUTILS') == 1
