@@ -124,3 +124,39 @@ int ether_addr_from_string(const char *s, struct ether_addr *ret) {
 
         return 0;
 }
+
+int ether_addr_from_string_full(const char *s, struct ether_addr *ret) {
+        _cleanup_free_ char *p = NULL;
+        const char *hex = HEXDIGITS;
+        char sep = '\0';
+
+        assert(s);
+        assert(ret);
+
+        s += strspn(s, WHITESPACE);
+        sep = s[strspn(s, hex)];
+
+        if (!IN_SET(sep, '.', ':', '-')) {
+                const char *m;
+                size_t i;
+                char *l;
+
+                p = malloc0(strlen(s) + ETHER_ADDR_TO_STRING_MAX);
+                if (!p)
+                        return -ENOMEM;
+
+                /* try to put ':' and parse */
+                for (i = 0, l = p, m = s; i < strlen(s); i++) {
+                        strncpy(l, m, 2);
+                        l += 2;
+
+                        if (m != s + strlen(s) - 2)
+                                *l++ = ':';
+                        m += 2;
+                }
+
+                s = p;
+        }
+
+        return ether_addr_from_string(s, ret);
+}
