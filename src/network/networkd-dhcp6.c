@@ -280,6 +280,8 @@ static int dhcp6_set_pd_route(Link *link, const union in_addr_union *prefix, con
         r = route_configure(route, link, dhcp6_pd_route_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 prefix route: %m");
+        if (r > 0)
+                link->dhcp6_pd_route_configured = false;
 
         link->dhcp6_pd_route_messages++;
 
@@ -393,6 +395,8 @@ static int dhcp6_set_pd_address(
         r = address_configure(address, link, dhcp6_pd_address_handler, true, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 delegated prefix address: %m");
+        if (r > 0)
+                link->dhcp6_pd_address_configured = false;
 
         link->dhcp6_pd_address_messages++;
 
@@ -575,8 +579,6 @@ static int dhcp6_pd_prepare(Link *link) {
         if (!link_dhcp6_pd_is_enabled(link))
                 return 0;
 
-        link->dhcp6_pd_address_configured = false;
-        link->dhcp6_pd_route_configured = false;
         link->dhcp6_pd_prefixes_assigned = true;
 
         while ((address = set_steal_first(link->dhcp6_pd_addresses))) {
@@ -815,6 +817,8 @@ static int dhcp6_set_unreachable_route(Link *link, const union in_addr_union *ad
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set unreachable route for DHCPv6 delegated subnet %s/%u: %m",
                                             strna(buf), prefixlen);
+        if (r > 0)
+                link->dhcp6_route_configured = false;
 
         link->dhcp6_route_messages++;
 
@@ -1037,6 +1041,8 @@ static int dhcp6_update_address(
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 address %s/%u: %m",
                                             strnull(buffer), addr->prefixlen);
+        if (r > 0)
+                link->dhcp6_address_configured = false;
 
         link->dhcp6_address_messages++;
 
@@ -1082,9 +1088,6 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         Address *a;
         Route *rt;
         int r;
-
-        link->dhcp6_address_configured = false;
-        link->dhcp6_route_configured = false;
 
         while ((a = set_steal_first(link->dhcp6_addresses))) {
                 r = set_ensure_put(&link->dhcp6_addresses_old, &address_hash_ops, a);
