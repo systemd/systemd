@@ -2799,7 +2799,23 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip nexthop list dev veth99')
         print(output)
-        self.assertRegex(output, '192.168.5.1')
+        self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
+        self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
+        self.assertIn('id 3 dev veth99', output)
+        self.assertIn('id 4 dev veth99', output)
+        self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
+
+        output = check_output('ip route show dev veth99 10.10.10.10')
+        print(output)
+        self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
+
+        output = check_output('ip route show dev veth99 10.10.10.11')
+        print(output)
+        self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
+
+        output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
+        print(output)
+        self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
 
     def test_qdisc(self):
         copy_unit_to_networkd_unit_path('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',
