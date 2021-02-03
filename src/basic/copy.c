@@ -391,9 +391,10 @@ static int fd_copy_symlink(
                      uid_is_valid(override_uid) ? override_uid : st->st_uid,
                      gid_is_valid(override_gid) ? override_gid : st->st_gid,
                      AT_SYMLINK_NOFOLLOW) < 0)
-                return -errno;
+                r = -errno;
 
-        return 0;
+        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+        return r;
 }
 
 /* Encapsulates the database we store potential hardlink targets in */
@@ -592,7 +593,6 @@ static int fd_copy_regular(
                 void *userdata) {
 
         _cleanup_close_ int fdf = -1, fdt = -1;
-        struct timespec ts[2];
         int r, q;
 
         assert(from);
@@ -634,9 +634,7 @@ static int fd_copy_regular(
         if (fchmod(fdt, st->st_mode & 07777) < 0)
                 r = -errno;
 
-        ts[0] = st->st_atim;
-        ts[1] = st->st_mtim;
-        (void) futimens(fdt, ts);
+        (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, fdt);
 
         q = close(fdt);
@@ -693,6 +691,8 @@ static int fd_copy_fifo(
         if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
                 r = -errno;
 
+        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
+
         (void) memorize_hardlink(hardlink_context, st, dt, to);
         return r;
 }
@@ -738,6 +738,8 @@ static int fd_copy_node(
 
         if (fchmodat(dt, to, st->st_mode & 07777, 0) < 0)
                 r = -errno;
+
+        (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
 
         (void) memorize_hardlink(hardlink_context, st, dt, to);
         return r;
@@ -913,11 +915,6 @@ static int fd_copy_directory(
         }
 
         if (created) {
-                struct timespec ut[2] = {
-                        st->st_atim,
-                        st->st_mtim
-                };
-
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
@@ -927,7 +924,7 @@ static int fd_copy_directory(
                         r = -errno;
 
                 (void) copy_xattr(dirfd(d), fdt);
-                (void) futimens(fdt, ut);
+                (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         }
 
         return r;
@@ -1182,7 +1179,6 @@ int copy_file_atomic_full(
 }
 
 int copy_times(int fdf, int fdt, CopyFlags flags) {
-        struct timespec ut[2];
         struct stat st;
 
         assert(fdf >= 0);
@@ -1191,10 +1187,7 @@ int copy_times(int fdf, int fdt, CopyFlags flags) {
         if (fstat(fdf, &st) < 0)
                 return -errno;
 
-        ut[0] = st.st_atim;
-        ut[1] = st.st_mtim;
-
-        if (futimens(fdt, ut) < 0)
+        if (futimens(fdt, (struct timespec[2]) { st.st_atim, st.st_mtim }) < 0)
                 return -errno;
 
         if (FLAGS_SET(flags, COPY_CRTIME)) {
