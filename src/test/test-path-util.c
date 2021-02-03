@@ -604,8 +604,7 @@ static void test_path_extract_filename(void) {
 }
 
 static void test_filename_is_valid(void) {
-        char foo[FILENAME_MAX+2];
-        int i;
+        char foo[NAME_MAX+2];
 
         log_info("/* %s */", __func__);
 
@@ -618,14 +617,45 @@ static void test_filename_is_valid(void) {
         assert_se(!filename_is_valid("bar/foo/"));
         assert_se(!filename_is_valid("bar//"));
 
-        for (i=0; i<FILENAME_MAX+1; i++)
-                foo[i] = 'a';
-        foo[FILENAME_MAX+1] = '\0';
+        memset(foo, 'a', sizeof(foo) - 1);
+        char_array_0(foo);
 
         assert_se(!filename_is_valid(foo));
 
         assert_se(filename_is_valid("foo_bar-333"));
         assert_se(filename_is_valid("o.o"));
+}
+
+static void test_path_is_valid(void) {
+        char foo[PATH_MAX+2];
+        const char *c;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(!path_is_valid(""));
+        assert_se(path_is_valid("/bar/foo"));
+        assert_se(path_is_valid("/bar/foo/"));
+        assert_se(path_is_valid("/bar/foo/"));
+        assert_se(path_is_valid("//bar//foo//"));
+        assert_se(path_is_valid("/"));
+        assert_se(path_is_valid("/////"));
+        assert_se(path_is_valid("/////.///.////...///..//."));
+        assert_se(path_is_valid("."));
+        assert_se(path_is_valid(".."));
+        assert_se(path_is_valid("bar/foo"));
+        assert_se(path_is_valid("bar/foo/"));
+        assert_se(path_is_valid("bar//"));
+
+        memset(foo, 'a', sizeof(foo) -1);
+        char_array_0(foo);
+
+        assert_se(!path_is_valid(foo));
+
+        c = strjoina("/xxx/", foo, "/yyy");
+        assert_se(!path_is_valid(c));
+
+        assert_se(path_is_valid("foo_bar-333"));
+        assert_se(path_is_valid("o.o"));
 }
 
 static void test_hidden_or_backup_file(void) {
@@ -761,6 +791,7 @@ int main(int argc, char **argv) {
         test_last_path_component();
         test_path_extract_filename();
         test_filename_is_valid();
+        test_path_is_valid();
         test_hidden_or_backup_file();
         test_skip_dev_prefix();
         test_empty_or_root();
