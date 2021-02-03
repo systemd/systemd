@@ -440,8 +440,9 @@ static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
-        if (in_addr_is_null(nh->family, &nh->gw) < 0)
-                return -EINVAL;
+        if (nh->family == AF_UNSPEC)
+                /* When no Gateway= is specified, assume IPv4. */
+                nh->family = AF_INET;
 
         return 0;
 }
