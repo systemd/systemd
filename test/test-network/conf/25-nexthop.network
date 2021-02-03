@@ -25,3 +25,15 @@ Family=ipv4
 
 [NextHop]
 Gateway=192.168.5.2
+
+[Route]
+NextHop=1
+Destination=10.10.10.10
+
+[Route]
+NextHop=2
+Destination=10.10.10.11
+
+[Route]
+NextHop=2
+Destination=2001:1234:5:8f62::1
