@@ -9,3 +9,11 @@ Gateway=192.168.5.1
 [NextHop]
 Id=1
 Gateway=192.168.5.1
+
+[NextHop]
+Id=2
+Family=ipv6
+
+[NextHop]
+Id=3
+Family=ipv4
