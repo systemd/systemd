@@ -59,10 +59,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>DefaultMemoryPressureLimitPercent=</varname></term>
+        <term><varname>DefaultMemoryPressureLimit=</varname></term>
 
         <listitem><para>Sets the limit for memory pressure on the unit's cgroup before <command>systemd-oomd</command>
-        will take action. A unit can override this value with <varname>ManagedOOMMemoryPressureLimitPercent=</varname>.
+        will take action. A unit can override this value with <varname>ManagedOOMMemoryPressureLimit=</varname>.
         The memory pressure for this property represents the fraction of time in a 10 second window in which all tasks
         in the cgroup were delayed. For each monitored cgroup, if the memory pressure on that cgroup exceeds the
         limit set for longer than the duration set by <varname>DefaultMemoryPressureDurationSec=</varname>,
@@ -78,7 +78,7 @@
 
         <listitem><para>Sets the amount of time a unit's cgroup needs to have exceeded memory pressure limits before
         <command>systemd-oomd</command> will take action. Memory pressure limits are defined by
-        <varname>DefaultMemoryPressureLimitPercent=</varname> and <varname>ManagedOOMMemoryPressureLimitPercent=</varname>.
+        <varname>DefaultMemoryPressureLimit=</varname> and <varname>ManagedOOMMemoryPressureLimit=</varname>.
         Defaults to 30 seconds when this property is unset or set to 0.</para></listitem>
       </varlistentry>
 

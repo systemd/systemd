@@ -394,7 +394,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DisableControllers", "as", property_get_cgroup_mask, offsetof(CGroupContext, disable_controllers), 0),
         SD_BUS_PROPERTY("ManagedOOMSwap", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_swap), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
-        SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimitPercent", "s", bus_property_get_percent, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
+        SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimitPermyriad", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit_permyriad), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1696,13 +1696,23 @@ int bus_cgroup_set_property(
                 return 1;
         }
 
-        if (streq(name, "ManagedOOMMemoryPressureLimitPercent")) {
+        if (streq(name, "ManagedOOMMemoryPressureLimitPermyriad")) {
+                uint32_t v;
+
                 if (!UNIT_VTABLE(u)->can_set_managed_oom)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set %s for this unit type", name);
 
-                r = bus_set_transient_percent(u, name, &c->moom_mem_pressure_limit, message, flags, error);
+                r = sd_bus_message_read(message, "u", &v);
                 if (r < 0)
                         return r;
+
+                if (v > 10000)
+                        return -ERANGE;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->moom_mem_pressure_limit_permyriad = v;
+                        unit_write_settingf(u, flags, name, "ManagedOOMMemoryPressureLimit=%" PRIu32 ".%02" PRIu32 "%%", v / 100, v % 100);
+                }
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
                         (void) manager_varlink_send_managed_oom_update(u);

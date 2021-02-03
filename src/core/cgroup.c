@@ -417,7 +417,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sDelegate: %s\n"
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
-                "%sManagedOOMMemoryPressureLimitPercent: %d%%\n",
+                "%sManagedOOMMemoryPressureLimit: %" PRIu32 ".%02" PRIu32 "%%\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -450,7 +450,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, yes_no(c->delegate),
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
-                prefix, c->moom_mem_pressure_limit);
+                prefix, c->moom_mem_pressure_limit_permyriad / 100, c->moom_mem_pressure_limit_permyriad % 100);
 
         if (c->delegate) {
                 _cleanup_free_ char *t = NULL;
