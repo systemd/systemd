@@ -381,6 +381,7 @@ run_target(
 libbasic = static_library(
         'basic',
         basic_sources,
+        firmware_common_sources,
         include_directories : basic_includes,
         dependencies : [versiondep,
                         threads,
