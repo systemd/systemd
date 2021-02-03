@@ -538,3 +538,69 @@ int config_parse_nexthop_gateway(
         TAKE_PTR(n);
         return 0;
 }
+
+int config_parse_nexthop_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        Network *network = userdata;
+        AddressFamily a;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = nexthop_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue) &&
+            in_addr_is_null(n->family, &n->gw) != 0) {
+                /* Refuse an empty string when valid Gateway= is already specified. */
+                n->family = AF_UNSPEC;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        a = nexthop_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        if (in_addr_is_null(n->family, &n->gw) == 0 &&
+            ((a == ADDRESS_FAMILY_IPV4 && n->family == AF_INET6) ||
+             (a == ADDRESS_FAMILY_IPV6 && n->family == AF_INET))) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified family '%s' conflicts with the family of the previously specified Gateway=, "
+                           "ignoring assignment.", rvalue);
+                return 0;
+        }
+
+        switch(a) {
+        case ADDRESS_FAMILY_IPV4:
+                n->family = AF_INET;
+                break;
+        case ADDRESS_FAMILY_IPV6:
+                n->family = AF_INET6;
+                break;
+        default:
+                assert_not_reached("Invalid family.");
+        }
+
+        TAKE_PTR(n);
+        return 0;
+}
