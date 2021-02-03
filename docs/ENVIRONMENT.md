@@ -316,3 +316,22 @@ fuzzers:
 
 Note that is may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
 is suppressed by default.
+
+systemd-importd:
+
+* `SYSTEMD_IMPORT_BTRFS_SUBVOL` – takes a boolean, which controls whether to
+  prefer creating btrfs subvolumes over plain directories for machine
+  images. Has no effect on non-btrfs file systems where subvolumes are not
+  available anyway. If not set, defaults to true.
+
+* `SYSTEMD_IMPORT_BTRFS_QUOTA` – takes a boolean, which controls whether to set
+  up quota automatically for created btrfs subvolumes for machine images. If
+  not set, defaults to true. Has no effect if machines are placed in regular
+  directories, because btrfs subvolumes are not supported or disabled. If
+  enabled, the quota group of the subvolume is automatically added to a
+  combined quota group for all such machine subvolumes.
+
+* `SYSTEMD_IMPORT_SYNC` – takes a boolean, which controls whether to
+  synchronize images to disk after installing them, before completing the
+  operation. If not set, defaults to true. If disabled installation of images
+  will be quicker, but not as safe.
