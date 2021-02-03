@@ -171,7 +171,7 @@ static int neighbor_add_internal(Link *link, Set **neighbors, const Neighbor *in
 
 static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *neighbor;
-        int r;
+        int r, k;
 
         r = neighbor_get(link, in, &neighbor);
         if (r == -ENOENT) {
@@ -179,6 +179,7 @@ static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
                 r = neighbor_add_internal(link, &link->neighbors, in, &neighbor);
                 if (r < 0)
                         return r;
+                k = 1;
         } else if (r == 0) {
                 /* Neighbor is foreign, claim it as recognized */
                 r = set_ensure_put(&link->neighbors, &neighbor_hash_ops, neighbor);
@@ -186,14 +187,16 @@ static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
                         return r;
 
                 set_remove(link->neighbors_foreign, neighbor);
+                k = 0;
         } else if (r == 1) {
                 /* Neighbor already exists */
+                k = 0;
         } else
                 return r;
 
         if (ret)
                 *ret = neighbor;
-        return 0;
+        return k;
 }
 
 static int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret) {
@@ -279,7 +282,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add neighbor: %m");
 
-        return 0;
+        return r;
 }
 
 int link_set_neighbors(Link *link) {

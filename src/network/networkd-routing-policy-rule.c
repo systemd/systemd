@@ -326,7 +326,7 @@ static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *rule, Ro
 static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         RoutingPolicyRule *existing;
-        int r;
+        int r, k;
 
         assert(m);
         assert(in);
@@ -353,6 +353,7 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, int 
 
                 rule->manager = m;
                 existing = TAKE_PTR(rule);
+                k = 1;
         } else if (r == 0) {
                 /* Take over a foreign rule. */
                 r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
@@ -361,16 +362,17 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, int 
                 assert(r > 0);
 
                 set_remove(m->rules_foreign, existing);
+                k = 0;
         } else if (r == 1) {
                 /* Already exists, do nothing. */
-                ;
+                k = 0;
         } else
                 return r;
 
         if (ret)
                 *ret = existing;
 
-        return 0;
+        return k;
 }
 
 static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *rule) {
@@ -633,7 +635,7 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add rule: %m");
 
-        return 1;
+        return r;
 }
 
 static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {

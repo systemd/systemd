@@ -189,7 +189,7 @@ static int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret) {
 
 static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
         NextHop *nexthop;
-        int r;
+        int r, k;
 
         r = nexthop_get(link, in, &nexthop);
         if (r == -ENOENT) {
@@ -197,6 +197,7 @@ static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
                 r = nexthop_add_internal(link, &link->nexthops, in, &nexthop);
                 if (r < 0)
                         return r;
+                k = 1;
         } else if (r == 0) {
                 /* Take over a foreign nexthop */
                 r = set_ensure_put(&link->nexthops, &nexthop_hash_ops, nexthop);
@@ -204,16 +205,17 @@ static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
                         return r;
 
                 set_remove(link->nexthops_foreign, nexthop);
+                k = 0;
         } else if (r == 1) {
                 /* NextHop exists, do nothing */
-                ;
+                k = 0;
         } else
                 return r;
 
         if (ret)
                 *ret = nexthop;
 
-        return 0;
+        return k;
 }
 
 static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -297,7 +299,7 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add nexthop: %m");
 
-        return 1;
+        return r;
 }
 
 int link_set_nexthop(Link *link) {
