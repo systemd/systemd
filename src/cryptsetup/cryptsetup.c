@@ -26,6 +26,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -1383,9 +1384,15 @@ static void remove_and_erasep(const char **p) {
                 log_warning_errno(r, "Unable to erase key file '%s', ignoring: %m", *p);
 }
 
+static void mkdir_run_cryptsetup(void) {
+        /* libcryptsetup expects the locking directory to exists. Let's create it if missing, but only if we
+         * are root. */
+        if (getuid() == 0)
+                (void) mkdir_p_label("/run/cryptsetup", 0700);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        const char *verb;
         int r;
 
         if (argc <= 1)
@@ -1401,7 +1408,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        verb = argv[1];
+        const char *verb = argv[1];
 
         if (streq(verb, "attach")) {
                 _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
@@ -1439,6 +1446,8 @@ static int run(int argc, char *argv[]) {
 
                 log_debug("%s %s ← %s type=%s cipher=%s", __func__,
                           volume, source, strempty(arg_type), strempty(arg_cipher));
+
+                (void) mkdir_run_cryptsetup();
 
                 /* A delicious drop of snake oil */
                 (void) mlockall(MCL_FUTURE);
@@ -1600,6 +1609,8 @@ static int run(int argc, char *argv[]) {
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
+                (void) mkdir_run_cryptsetup();
 
                 r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
