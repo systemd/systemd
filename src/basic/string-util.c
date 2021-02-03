@@ -20,64 +20,6 @@
 #include "utf8.h"
 #include "util.h"
 
-int strcmp_ptr(const char *a, const char *b) {
-        /* Like strcmp(), but tries to make sense of NULL pointers */
-
-        if (a && b)
-                return strcmp(a, b);
-        return CMP(a, b); /* Direct comparison of pointers, one of which is NULL */
-}
-
-int strcasecmp_ptr(const char *a, const char *b) {
-        /* Like strcasecmp(), but tries to make sense of NULL pointers */
-
-        if (a && b)
-                return strcasecmp(a, b);
-        return CMP(a, b); /* Direct comparison of pointers, one of which is NULL */
-}
-
-char* endswith(const char *s, const char *postfix) {
-        size_t sl, pl;
-
-        assert(s);
-        assert(postfix);
-
-        sl = strlen(s);
-        pl = strlen(postfix);
-
-        if (pl == 0)
-                return (char*) s + sl;
-
-        if (sl < pl)
-                return NULL;
-
-        if (memcmp(s + sl - pl, postfix, pl) != 0)
-                return NULL;
-
-        return (char*) s + sl - pl;
-}
-
-char* endswith_no_case(const char *s, const char *postfix) {
-        size_t sl, pl;
-
-        assert(s);
-        assert(postfix);
-
-        sl = strlen(s);
-        pl = strlen(postfix);
-
-        if (pl == 0)
-                return (char*) s + sl;
-
-        if (sl < pl)
-                return NULL;
-
-        if (strcasecmp(s + sl - pl, postfix) != 0)
-                return NULL;
-
-        return (char*) s + sl - pl;
-}
-
 char* first_word(const char *s, const char *word) {
         size_t sl, wl;
         const char *p;
