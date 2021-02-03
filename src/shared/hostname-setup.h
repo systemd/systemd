@@ -11,7 +11,9 @@ typedef enum HostnameSource {
         _HOSTNAME_INVALID = -1,
 } HostnameSource;
 
-const char* hostname_source_to_string(HostnameSource source);
+const char* hostname_source_to_string(HostnameSource source) _const_;
+HostnameSource hostname_source_from_string(const char *str) _pure_;
+
 int sethostname_idempotent(const char *s);
 
 int shorten_overlong(const char *s, char **ret);
