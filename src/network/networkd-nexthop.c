@@ -443,8 +443,11 @@ static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
-        if (in_addr_is_null(nh->family, &nh->gw) < 0)
-                return -EINVAL;
+        if (nh->family == AF_UNSPEC)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [NextHop] section without Gateway= or Family= field configured. "
+                                         "Ignoring [NextHop] section from line %u.",
+                                         nh->section->filename, nh->section->line);
 
         return 0;
 }
