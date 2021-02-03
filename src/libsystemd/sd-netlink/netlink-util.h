@@ -70,8 +70,17 @@ static inline bool rtnl_message_type_is_mdb(uint16_t type) {
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
-int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac,
-                             uint32_t txqueuelen, uint32_t mtu, uint32_t gso_max_size, size_t gso_max_segments);
+int rtnl_set_link_properties(
+                sd_netlink **rtnl,
+                int ifindex,
+                const char *alias,
+                const struct ether_addr *mac,
+                uint32_t txqueues,
+                uint32_t rxqueues,
+                uint32_t txqueuelen,
+                uint32_t mtu,
+                uint32_t gso_max_size,
+                size_t gso_max_segments);
 int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret);
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names);
