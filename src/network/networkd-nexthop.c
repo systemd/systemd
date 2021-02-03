@@ -519,6 +519,14 @@ int config_parse_nexthop_gateway(
         if (r < 0)
                 return log_oom();
 
+        if (isempty(rvalue)) {
+                n->family = AF_UNSPEC;
+                n->gw = IN_ADDR_NULL;
+
+                TAKE_PTR(n);
+                return 0;
+        }
+
         r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
