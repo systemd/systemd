@@ -268,6 +268,10 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEXTHOP message: %m");
 
+        r = sd_rtnl_message_nexthop_set_family(req, nexthop->family);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set nexthop family: %m");
+
         r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
@@ -280,10 +284,6 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
                 r = netlink_message_append_in_addr_union(req, NHA_GATEWAY, nexthop->family, &nexthop->gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
-
-                r = sd_rtnl_message_nexthop_set_family(req, nexthop->family);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set nexthop family: %m");
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
@@ -443,8 +443,9 @@ static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
-        if (in_addr_is_null(nh->family, &nh->gw) < 0)
-                return -EINVAL;
+        if (nh->family == AF_UNSPEC)
+                /* When no Gateway= is specified, assume IPv4. */
+                nh->family = AF_INET;
 
         return 0;
 }
