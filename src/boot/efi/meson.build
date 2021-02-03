@@ -145,6 +145,8 @@ if have_gnu_efi
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
                         '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
+                        '-I', fundamental_path,
+                        '-DSD_BOOT',
                         '-include', efi_config_h,
                         '-include', version_h]
         if efi_arch == 'x86_64'
@@ -194,17 +196,17 @@ if have_gnu_efi
 
         systemd_boot_objects = []
         stub_objects = []
-        foreach file : common_sources + systemd_boot_sources + stub_sources
-                o_file = custom_target(file + '.o',
+        foreach file : fundamental_source_paths + common_sources + systemd_boot_sources + stub_sources
+                o_file = custom_target(file.split('/')[-1] + '.o',
                                        input : file,
-                                       output : file + '.o',
+                                       output : file.split('/')[-1] + '.o',
                                        command : efi_cc + ['-c', '@INPUT@', '-o', '@OUTPUT@']
                                                  + compile_args,
-                                       depend_files : efi_headers)
-                if (common_sources + systemd_boot_sources).contains(file)
+                                       depend_files : efi_headers + fundamental_headers)
+                if (fundamental_source_paths + common_sources + systemd_boot_sources).contains(file)
                         systemd_boot_objects += o_file
                 endif
-                if (common_sources + stub_sources).contains(file)
+                if (fundamental_source_paths + common_sources + stub_sources).contains(file)
                         stub_objects += o_file
                 endif
         endforeach
