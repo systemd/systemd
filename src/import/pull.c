@@ -7,9 +7,9 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "discover-image.h"
 #include "hostname-util.h"
 #include "import-util.h"
-#include "machine-image.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "pull-raw.h"

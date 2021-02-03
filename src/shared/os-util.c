@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "discover-image.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
-#include "machine-image.h"
 #include "os-util.h"
 #include "string-util.h"
 #include "strv.h"
