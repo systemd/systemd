@@ -1077,6 +1077,7 @@ int route_configure(
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r, k = 0;
+        Route *nr;
 
         assert(link);
         assert(link->manager);
@@ -1164,14 +1165,9 @@ int route_configure(
                 return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
 
         if (ordered_set_isempty(route->multipath_routes)) {
-                Route *nr;
-
                 k = route_add_and_setup_timer(link, route, NULL, &nr);
                 if (k < 0)
                         return k;
-
-                if (ret)
-                        *ret = nr;
         } else {
                 MultipathRoute *m;
 
@@ -1192,6 +1188,9 @@ int route_configure(
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+
+        if (ret)
+                *ret = nr;
 
         return k;
 }
