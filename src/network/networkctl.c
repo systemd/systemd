@@ -12,6 +12,7 @@
 #include <linux/if_tunnel.h>
 
 #include "sd-bus.h"
+#include "sd-cloud-provider.h"
 #include "sd-device.h"
 #include "sd-dhcp-client.h"
 #include "sd-hwdb.h"
@@ -61,6 +62,7 @@
 #include "terminal-util.h"
 #include "unit-def.h"
 #include "verbs.h"
+#include "virt.h"
 #include "wifi-util.h"
 
 /* Kernel defines MODULE_NAME_LEN as 64 - sizeof(unsigned long). So, 64 is enough. */
@@ -1379,6 +1381,33 @@ static int show_logs(const LinkInfo *info) {
                         NULL);
 }
 
+static int show_cloud_provider(const LinkInfo *info, Table *table) {
+        int r;
+
+        assert(info);
+        assert(table);
+
+        if (detect_virtualization() == VIRTUALIZATION_MICROSOFT) {
+                _cleanup_strv_free_ char **private_ips = NULL, **public_ips = NULL;
+
+                r = sd_cloud_provider_azure_link_get_ipv4_private_ips(info->ifindex, &private_ips);
+                if (r >= 0) {
+                        r = dump_list(table, "Azure Private IP:", private_ips);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_cloud_provider_azure_link_get_ipv4_public_ips(info->ifindex, &public_ips);
+                if (r >= 0) {
+                        r = dump_list(table, "Azure Public IP:", public_ips);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
@@ -2037,6 +2066,11 @@ static int link_status_one(
         r = dump_addresses(rtnl, lease, table, info->ifindex);
         if (r < 0)
                 return r;
+
+        r = show_cloud_provider(info, table);
+        if (r < 0)
+                return r;
+
         r = dump_gateways(rtnl, hwdb, table, info->ifindex);
         if (r < 0)
                 return r;
