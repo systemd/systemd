@@ -41,33 +41,30 @@
   <refsection id='main-conf'>
     <title>Configuration Directories and Precedence</title>
 
-    <para>The default configuration is defined during compilation, so a
-    configuration file is only needed when it is necessary to deviate
-    from those defaults. By default, the configuration file in
-    <filename>/etc/systemd/</filename> contains commented out entries
-    showing the defaults as a guide to the administrator. This file
-    can be edited to create local overrides.
+    <para>The default configuration is set during compilation, so configuration is only needed when it is
+    necessary to deviate from those defaults. Initially, the main configuration file in
+    <filename>/etc/systemd/</filename> contains commented out entries showing the defaults as a guide to the
+    administrator. Local overrides can be created by editing this file or by creating drop-ins, see below.
     </para>
 
-    <para>When packages need to customize the configuration, they can install configuration snippets in
-    <filename>/usr/lib/systemd/*.conf.d/</filename> or <filename>/usr/local/lib/systemd/*.conf.d/</filename>.
-    The main configuration file is read before any of the configuration directories, and has the lowest
-    precedence; entries in a file in any configuration directory override entries in the single configuration
-    file. Files in the <filename>*.conf.d/</filename> configuration subdirectories are sorted by their
-    filename in lexicographic order, regardless of in which of the subdirectories they reside. When multiple
-    files specify the same option, for options which accept just a single value, the entry in the file with
-    the lexicographically latest name takes precedence. For options which accept a list of values, entries
-    are collected as they occur in files sorted lexicographically.</para>
+    <para>In addition to the "main" configuration file, drop-in configuration snippets are read from
+    <filename>/usr/lib/systemd/*.conf.d/</filename>, <filename>/usr/local/lib/systemd/*.conf.d/</filename>,
+    and <filename>/etc/systemd/*.conf.d/</filename>. Those drop-ins have higher precedence and override the
+    main configuration file. Files in the <filename>*.conf.d/</filename> configuration subdirectories are
+    sorted by their filename in lexicographic order, regardless of in which of the subdirectories they
+    reside. When multiple files specify the same option, for options which accept just a single value, the
+    entry in the file sorted last takes precedence, and for options which accept a list of values, entries
+    are collected as they occur in the sorted files.</para>
 
-    <para>Files in <filename>/etc/</filename> are reserved for the local administrator, who may use this
-    logic to override the configuration files installed by vendor packages. It is recommended to prefix all
-    filenames in those subdirectories with a two-digit number and a dash, to simplify the ordering of the
-    files.</para>
+    <para>When packages need to customize the configuration, they can install drop-ins under
+    <filename>/usr/</filename>. Files in <filename>/etc/</filename> are reserved for the local administrator,
+    who may use this logic to override the configuration files installed by vendor packages. Drop-ins have to
+    be used to override package drop-ins, since the main configuration file has lower precedence. It is
+    recommended to prefix all filenames in those subdirectories with a two-digit number and a dash, to
+    simplify the ordering of the files.</para>
 
-    <para>To disable a configuration file supplied by the vendor, the
-    recommended way is to place a symlink to
-    <filename>/dev/null</filename> in the configuration directory in
-    <filename>/etc/</filename>, with the same filename as the vendor
-    configuration file.</para>
+    <para>To disable a configuration file supplied by the vendor, the recommended way is to place a symlink
+    to <filename>/dev/null</filename> in the configuration directory in <filename>/etc/</filename>, with the
+    same filename as the vendor configuration file.</para>
   </refsection>
 </refsection>
