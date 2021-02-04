@@ -74,6 +74,7 @@ int route_configure(const Route *route, Link *link, link_netlink_message_handler
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_set_routes(Link *link);
+int link_set_routes_with_gateway(Link *link);
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 
