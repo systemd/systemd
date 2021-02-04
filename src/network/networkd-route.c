@@ -2573,6 +2573,17 @@ static int route_section_verify(Route *route, Network *network) {
                 route->gateway_onlink = true;
         }
 
+        if (route->family == AF_INET6) {
+                MultipathRoute *m;
+
+                ORDERED_SET_FOREACH(m, route->multipath_routes)
+                        if (m->gateway.family == AF_INET)
+                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                         "%s: IPv4 multipath route is specified for IPv6 route. "
+                                                         "Ignoring [Route] section from line %u.",
+                                                         route->section->filename, route->section->line);
+        }
+
         return 0;
 }
 
