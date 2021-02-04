@@ -1656,23 +1656,37 @@ int conservative_renameat(
                 goto do_rename;
 
         for (;;) {
-                char buf1[16*1024];
-                char buf2[sizeof(buf1) + 1];
+                uint8_t buf1[16*1024];
+                uint8_t buf2[sizeof(buf1)];
                 ssize_t l1, l2;
 
                 l1 = read(old_fd, buf1, sizeof(buf1));
                 if (l1 < 0)
                         goto do_rename;
 
-                l2 = read(new_fd, buf2, l1 + 1);
-                if (l1 != l2)
-                        goto do_rename;
+                if (l1 == sizeof(buf1))
+                        /* Read the full block, hence read a full block in the other file too */
 
-                if (l1 == 0) /* EOF on both! And everything's the same so far, yay! */
-                        break;
+                        l2 = read(new_fd, buf2, l1);
+                else {
+                        assert((size_t) l1 < sizeof(buf1));
+
+                        /* Short read. This hence was the last block in the first file, and then came
+                         * EOF. Read one byte more in the second file, so that we can verify we hit EOF there
+                         * too. */
+
+                        assert((size_t) (l1 + 1) <= sizeof(buf2));
+                        l2 = read(new_fd, buf2, l1 + 1);
+                }
+                if (l2 != l1)
+                        goto do_rename;
 
                 if (memcmp(buf1, buf2, l1) != 0)
                         goto do_rename;
+
+                if ((size_t) l1 < sizeof(buf1)) /* We hit EOF on the first file, and the second file too, hence exit
+                                                 * now. */
+                        break;
         }
 
 is_same:
