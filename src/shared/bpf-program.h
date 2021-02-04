@@ -43,4 +43,7 @@ int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size
 int bpf_map_update_element(int fd, const void *key, void *value);
 int bpf_map_lookup_element(int fd, const void *key, void *value);
 
+int bpf_cgroup_attach_type_from_string(const char *str) _pure_;
+const char *bpf_cgroup_attach_type_to_string(int attach_type) _const_;
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(BPFProgram*, bpf_program_unref);
