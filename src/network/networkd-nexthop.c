@@ -130,6 +130,31 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
+int link_get_nexthop_by_id(Link *link, uint32_t id, NextHop **ret) {
+        NextHop *nh;
+
+        assert(link);
+
+        if (id == 0)
+                return -EINVAL;
+
+        SET_FOREACH(nh, link->nexthops)
+                if (nh->id == id) {
+                        if (ret)
+                                *ret = nh;
+                        return 1;
+                }
+
+        SET_FOREACH(nh, link->nexthops_foreign)
+                if (nh->id == id) {
+                        if (ret)
+                                *ret = nh;
+                        return 0;
+                }
+
+        return -ENOENT;
+}
+
 static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
         NextHop *existing;
 

@@ -165,6 +165,7 @@ Metric=
 TTLPropagate=
 MultiPathRoute=
 TCPAdvertisedMaximumSegmentSize=
+NextHopId=
 [Network]
 IPv6DuplicateAddressDetection=
 IPMasquerade=
