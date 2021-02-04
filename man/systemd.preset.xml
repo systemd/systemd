@@ -168,7 +168,7 @@ disable *</programlisting>
   </refsect1>
 
   <refsect1>
-    <title>Motiviation for the preset logic</title>
+    <title>Motivation for the preset logic</title>
 
     <para>Different distributions have different policies on which services shall be enabled by default when
     the package they are shipped in is installed. On Fedora all services stay off by default, so that
