@@ -1,5 +1,0 @@
-#!/bin/sh
-set -e
-
-mkdir -p /root/build
-echo "directory /root/build" > ~/.gdbinit
