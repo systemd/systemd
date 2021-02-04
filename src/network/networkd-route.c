@@ -673,12 +673,13 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 (void) manager_get_route_table_to_string(m, route->table, &table);
 
                 log_link_debug(link,
-                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s, nexthop: %"PRIu32,
                                str, strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
                                format_route_scope(route->scope, scope, sizeof(scope)),
                                strna(table),
                                format_route_protocol(route->protocol, protocol, sizeof(protocol)),
-                               strna(route_type_to_string(route->type)));
+                               strna(route_type_to_string(route->type)),
+                               route->nexthop_id);
         }
 }
 
