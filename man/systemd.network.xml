@@ -1318,7 +1318,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Id=</varname></term>
           <listitem>
-            <para>The id of the nexthop (an unsigned integer). If unspecified or '0' then automatically chosen by kernel.</para>
+            <para>The id of the nexthop. Takes an unsigned integer in the range 1–4294967295. If
+            unspecified, then automatically chosen by kernel.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
