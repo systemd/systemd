@@ -10,6 +10,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -237,7 +238,9 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         if (link->nexthop_messages == 0) {
                 log_link_debug(link, "Nexthop set");
                 link->static_nexthops_configured = true;
-                link_check_ready(link);
+                r = link_set_routes(link);
+                if (r < 0)
+                        link_enter_failed(link);
         }
 
         return 1;
@@ -326,7 +329,9 @@ int link_set_nexthop(Link *link) {
 
         if (link->nexthop_messages == 0) {
                 link->static_nexthops_configured = true;
-                link_check_ready(link);
+                r = link_set_routes(link);
+                if (r < 0)
+                        return r;
         } else {
                 log_link_debug(link, "Setting nexthop");
                 link_set_state(link, LINK_STATE_CONFIGURING);

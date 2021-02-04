@@ -1191,7 +1191,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set");
                 link->static_routes_configured = true;
-                link_set_nexthop(link);
+                link_check_ready(link);
         }
 
         return 1;
@@ -1247,7 +1247,7 @@ int link_set_routes(Link *link) {
 
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;
-                link_set_nexthop(link);
+                link_check_ready(link);
         } else {
                 log_link_debug(link, "Setting routes");
                 link_set_state(link, LINK_STATE_CONFIGURING);
