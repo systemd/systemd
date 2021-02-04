@@ -901,7 +901,7 @@ DeviceAllow=/dev/loop-control
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ManagedOOMMemoryPressureLimitPercent=</varname></term>
+        <term><varname>ManagedOOMMemoryPressureLimit=</varname></term>
 
         <listitem>
           <para>Overrides the default memory pressure limit set by

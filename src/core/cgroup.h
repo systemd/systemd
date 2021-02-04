@@ -163,7 +163,7 @@ struct CGroupContext {
         /* Settings for systemd-oomd */
         ManagedOOMMode moom_swap;
         ManagedOOMMode moom_mem_pressure;
-        int moom_mem_pressure_limit;
+        uint32_t moom_mem_pressure_limit_permyriad;
 };
 
 /* Used when querying IP accounting data */

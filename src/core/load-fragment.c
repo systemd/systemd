@@ -3875,7 +3875,7 @@ int config_parse_managed_oom_mem_pressure_limit(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        int *limit = data;
+        uint32_t *limit = data;
         UnitType t;
         int r;
 
@@ -3890,9 +3890,9 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return 0;
         }
 
-        r = parse_percent(rvalue);
+        r = parse_permyriad(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse limit percent value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse memory pressure limit value, ignoring: %s", rvalue);
                 return 0;
         }
 

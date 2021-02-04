@@ -133,6 +133,9 @@ int parse_percent(const char *p);
 int parse_permille_unbounded(const char *p);
 int parse_permille(const char *p);
 
+int parse_permyriad_unbounded(const char *p);
+int parse_permyriad(const char *p);
+
 int parse_nice(const char *p, int *ret);
 
 int parse_ip_port(const char *s, uint16_t *ret);
