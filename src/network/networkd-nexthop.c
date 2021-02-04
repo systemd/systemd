@@ -269,9 +269,11 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEXTHOP message: %m");
 
-        r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
+        if (nexthop->id > 0) {
+                r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
+        }
 
         r = sd_netlink_message_append_u32(req, NHA_OIF, link->ifindex);
         if (r < 0)
@@ -471,6 +473,7 @@ int config_parse_nexthop_id(
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
+        uint32_t id;
         int r;
 
         assert(filename);
@@ -483,13 +486,25 @@ int config_parse_nexthop_id(
         if (r < 0)
                 return log_oom();
 
-        r = safe_atou32(rvalue, &n->id);
+        if (isempty(rvalue)) {
+                n->id = 0;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &id);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse nexthop id \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
+        if (id == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid nexthop id \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
 
+        n->id = id;
         TAKE_PTR(n);
         return 0;
 }
