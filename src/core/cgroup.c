@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-setup.h"
@@ -1074,6 +1075,12 @@ static void set_io_weight(Unit *u, const char *controller, uint64_t weight) {
         (void) set_attribute_and_warn(u, controller, p, buf);
 }
 
+static void cgroup_apply_bpf_foreign_program(Unit *u) {
+        assert(u);
+
+        (void) bpf_foreign_install(u);
+}
+
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
@@ -1387,6 +1394,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
+                cgroup_apply_bpf_foreign_program(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1417,6 +1427,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_bpf_foreign_program(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return !hashmap_isempty(u->bpf_foreign_next_by_key);
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1469,6 +1490,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_bpf_foreign_program(u))
+                mask |= CGROUP_MASK_BPF_FOREIGN;
 
         return mask;
 }
@@ -2965,6 +2989,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF pinned prog */
+        r = cg_all_unified();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_FOREIGN;
 
         *ret = mask;
         return 0;
