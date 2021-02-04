@@ -33,6 +33,7 @@ NextHop *nexthop_free(NextHop *nexthop);
 
 void network_drop_invalid_nexthops(Network *network);
 
+int link_get_nexthop_by_id(Link *link, uint32_t id, NextHop **ret);
 int link_set_nexthop(Link *link);
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
