@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -836,12 +837,24 @@ static void test_path_is_encrypted(void) {
         test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
 }
 
+static void create_binary_file(const char *p, const void *data, size_t l) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_CREAT|O_WRONLY|O_EXCL|O_CLOEXEC, 0600);
+        assert_se(fd >= 0);
+        assert_se(write(fd, data, l) == (ssize_t) l);
+}
+
 static void test_conservative_rename(void) {
         _cleanup_(unlink_and_freep) char *p = NULL;
         _cleanup_free_ char *q = NULL;
+        size_t l = 16*1024 + random_u64() % (32 * 1024); /* some randomly sized buffer 16k…48k */
+        uint8_t buffer[l+1];
+
+        random_bytes(buffer, l);
 
         assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
-        assert_se(write_string_file(p, "this is a test", WRITE_STRING_FILE_CREATE) >= 0);
+        create_binary_file(p, buffer, l);
 
         assert_se(tempfn_random_child(NULL, NULL, &q) >= 0);
 
@@ -856,27 +869,30 @@ static void test_conservative_rename(void) {
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that a manual new writeout is also detected */
-        assert_se(write_string_file(q, "this is a test", WRITE_STRING_FILE_CREATE) >= 0);
+        create_binary_file(q, buffer, l);
         assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that a minimally changed version is detected */
-        assert_se(write_string_file(q, "this is a_test", WRITE_STRING_FILE_CREATE) >= 0);
+        buffer[47] = ~buffer[47];
+        create_binary_file(q, buffer, l);
         assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that this really is new updated version */
-        assert_se(write_string_file(q, "this is a_test", WRITE_STRING_FILE_CREATE) >= 0);
+        create_binary_file(q, buffer, l);
         assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Make sure we detect extended files */
-        assert_se(write_string_file(q, "this is a_testx", WRITE_STRING_FILE_CREATE) >= 0);
+        buffer[l++] = 47;
+        create_binary_file(q, buffer, l);
         assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Make sure we detect truncated files */
-        assert_se(write_string_file(q, "this is a_test", WRITE_STRING_FILE_CREATE) >= 0);
+        l--;
+        create_binary_file(q, buffer, l);
         assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) > 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 }
