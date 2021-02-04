@@ -446,7 +446,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
 }
 
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
         int r;
 
@@ -464,9 +464,11 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
 
                 key = (char*) &nulstr[i];
                 end = memchr(key, '\0', len - i);
-                if (!end)
-                        return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                if (!end) {
+                        r = log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                                       "sd-device: Failed to parse nulstr");
+                        goto failed;
+                }
 
                 i += end - key + 1;
 
@@ -476,22 +478,28 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
 
                 r = device_append(device, key, &major, &minor);
                 if (r < 0)
-                        return r;
+                        goto failed;
         }
 
         if (major) {
                 r = device_set_devnum(device, major, minor);
-                if (r < 0)
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set devnum %s:%s: %m", major, minor);
+                if (r < 0) {
+                        r = log_device_debug_errno(device, r, "sd-device: Failed to set devnum %s:%s: %m", major, minor);
+                        goto failed;
+                }
         }
 
         r = device_verify(device);
         if (r < 0)
-                return r;
+                goto failed;
 
         *ret = TAKE_PTR(device);
 
         return 0;
+
+failed:
+        sd_device_unref(device);
+        return r;
 }
 
 static int device_update_properties_bufs(sd_device *device) {
