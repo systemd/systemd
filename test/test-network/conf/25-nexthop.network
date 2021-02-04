@@ -26,3 +26,11 @@ Family=ipv4
 [Route]
 NextHopId=1
 Destination=10.10.10.10
+
+[Route]
+NextHopId=2
+Destination=10.10.10.11
+
+[Route]
+NextHopId=2
+Destination=2001:1234:5:8f62::1
