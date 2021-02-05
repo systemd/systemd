@@ -215,7 +215,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.NameSeviceSwitch</constant></term>
+        <term><constant>io.systemd.NameServiceSwitch</constant></term>
 
         <listitem><para>This service is (also) provided by
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -232,7 +232,7 @@
 
     <para>Note that <command>userdbctl</command> has internal support for NSS-based lookups too. This means
     that if neither <constant>io.systemd.Multiplexer</constant> nor
-    <constant>io.systemd.NameSeviceSwitch</constant> are running look-ups into the basic user/group
+    <constant>io.systemd.NameServiceSwitch</constant> are running look-ups into the basic user/group
     databases will still work.</para>
   </refsect1>
 
