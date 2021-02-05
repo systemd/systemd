@@ -49,7 +49,7 @@ static int connect_to_resolved(Varlink **ret) {
 static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
         struct in6_addr in6;
 
-        if (family != AF_INET6)
+        if (family != AF_INET6 || ifindex == 0)
                 return 0;
 
         /* Some apps can't deal with the scope ID attached to non-link-local addresses. Hence, let's suppress that. */
