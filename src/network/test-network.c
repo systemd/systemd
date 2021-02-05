@@ -12,6 +12,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void test_deserialize_in_addr(void) {
@@ -99,6 +100,53 @@ static void test_deserialize_dhcp_routes(void) {
                 assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
                 assert_se(size == 0);
         }
+}
+
+static void test_route_tables_one(Manager *manager, const char *name, uint32_t number) {
+        _cleanup_free_ char *str = NULL, *expected = NULL, *num_str = NULL;
+        uint32_t t;
+
+        if (!STR_IN_SET(name, "default", "main", "local")) {
+                assert_se(streq(hashmap_get(manager->route_table_names_by_number, UINT32_TO_PTR(number)), name));
+                assert_se(PTR_TO_UINT32(hashmap_get(manager->route_table_numbers_by_name, name)) == number);
+        }
+
+        assert_se(asprintf(&expected, "%s(%" PRIu32 ")", name, number) >= 0);
+        assert_se(manager_get_route_table_to_string(manager, number, &str) >= 0);
+        assert_se(streq(str, expected));
+
+        assert_se(manager_get_route_table_from_string(manager, name, &t) >= 0);
+        assert_se(t == number);
+
+        assert_se(asprintf(&num_str, "%" PRIu32, number) >= 0);
+        assert_se(manager_get_route_table_from_string(manager, num_str, &t) >= 0);
+        assert_se(t == number);
+}
+
+static void test_route_tables(Manager *manager) {
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "hoge:123 foo:456 aaa:111", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "bbb:11111 ccc:22222", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "ddd:22222", manager, manager) >= 0);
+
+        test_route_tables_one(manager, "hoge", 123);
+        test_route_tables_one(manager, "foo", 456);
+        test_route_tables_one(manager, "aaa", 111);
+        test_route_tables_one(manager, "bbb", 11111);
+        test_route_tables_one(manager, "ccc", 22222);
+
+        assert_se(!hashmap_get(manager->route_table_numbers_by_name, "ddd"));
+
+        test_route_tables_one(manager, "default", 253);
+        test_route_tables_one(manager, "main", 254);
+        test_route_tables_one(manager, "local", 255);
+
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "", manager, manager) >= 0);
+        assert_se(!manager->route_table_names_by_number);
+        assert_se(!manager->route_table_numbers_by_name);
+
+        test_route_tables_one(manager, "default", 253);
+        test_route_tables_one(manager, "main", 254);
+        test_route_tables_one(manager, "local", 255);
 }
 
 static int test_load_config(Manager *manager) {
@@ -240,6 +288,8 @@ int main(void) {
         test_dhcp_hostname_shorten_overlong();
 
         assert_se(manager_new(&manager) >= 0);
+
+        test_route_tables(manager);
 
         r = test_load_config(manager);
         if (r == -EPERM)
