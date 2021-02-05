@@ -133,29 +133,21 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
-int link_get_nexthop_by_id(Link *link, uint32_t id, NextHop **ret) {
-        NextHop *nh;
+int manager_get_nexthop_by_id(Manager *m, uint32_t id, NextHop **ret) {
+        NextHop *nexthop;
 
-        assert(link);
+        assert(m);
 
         if (id == 0)
                 return -EINVAL;
 
-        SET_FOREACH(nh, link->nexthops)
-                if (nh->id == id) {
-                        if (ret)
-                                *ret = nh;
-                        return 1;
-                }
+        nexthop = hashmap_get(m->nexthops_by_id, UINT32_TO_PTR(id));
+        if (!nexthop)
+                return -ENOENT;
 
-        SET_FOREACH(nh, link->nexthops_foreign)
-                if (nh->id == id) {
-                        if (ret)
-                                *ret = nh;
-                        return 0;
-                }
-
-        return -ENOENT;
+        if (ret)
+                *ret = nexthop;
+        return 0;
 }
 
 static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
@@ -534,6 +526,12 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 r = nexthop_update(link, nexthop, tmp);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not update nexthop, ignoring: %m");
+                        return 0;
+                }
+
+                r = manager_process_route_queue(m, tmp->id);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to process route queue, ignoring: %m");
                         return 0;
                 }
                 break;
