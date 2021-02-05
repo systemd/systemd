@@ -93,7 +93,7 @@ static int process_managed_oom_reply(
                                 m->monitored_swap_cgroup_contexts : m->monitored_mem_pressure_cgroup_contexts;
 
                 if (reply.mode == MANAGED_OOM_AUTO) {
-                        (void) oomd_cgroup_context_free(hashmap_remove(monitor_hm, reply.path));
+                        (void) oomd_cgroup_context_free(hashmap_remove(monitor_hm, empty_to_root(reply.path)));
                         continue;
                 }
 
@@ -109,7 +109,7 @@ static int process_managed_oom_reply(
                         }
                 }
 
-                ret = oomd_insert_cgroup_context(NULL, monitor_hm, reply.path);
+                ret = oomd_insert_cgroup_context(NULL, monitor_hm, empty_to_root(reply.path));
                 if (ret == -ENOMEM) {
                         r = ret;
                         goto finish;
@@ -117,7 +117,7 @@ static int process_managed_oom_reply(
 
                 /* Always update the limit in case it was changed. For non-memory pressure detection the value is
                  * ignored so always updating it here is not a problem. */
-                ctx = hashmap_get(monitor_hm, reply.path);
+                ctx = hashmap_get(monitor_hm, empty_to_root(reply.path));
                 if (ctx)
                         ctx->mem_pressure_limit = limit;
         }
