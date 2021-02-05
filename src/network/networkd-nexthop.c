@@ -415,8 +415,14 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = sd_netlink_message_read_u32(message, NHA_ID, &tmp->id);
-        if (r < 0 && r != -ENODATA) {
+        if (r == -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received nexthop message without NHA_ID attribute, ignoring: %m");
+                return 0;
+        } else if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
+                return 0;
+        } else if (tmp->id == 0) {
+                log_link_warning(link, "rtnl: received nexthop message with invalid nexthop ID, ignoring: %m");
                 return 0;
         }
 
