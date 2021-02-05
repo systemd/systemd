@@ -109,6 +109,7 @@ char **arg_clean_what = NULL;
 TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
 bool arg_read_only = false;
 bool arg_mkdir = false;
+bool arg_needing_restart = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -297,6 +298,7 @@ static int systemctl_help(void) {
                "                         'us+utc': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC\n"
                "     --read-only         Create read-only bind mount\n"
                "     --mkdir             Create directory before mounting, if missing\n"
+               "     --needing-restart   Restart units marked with 'set-needs-restart'\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -415,6 +417,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_TIMESTAMP_STYLE,
                 ARG_READ_ONLY,
                 ARG_MKDIR,
+                ARG_NEEDING_RESTART,
         };
 
         static const struct option options[] = {
@@ -473,6 +476,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "timestamp",           required_argument, NULL, ARG_TIMESTAMP_STYLE     },
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
+                { "needing-restart",     no_argument,       NULL, ARG_NEEDING_RESTART     },
                 {}
         };
 
@@ -902,6 +906,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_mkdir = true;
                         break;
 
+                case ARG_NEEDING_RESTART:
+                        arg_needing_restart = true;
+                        break;
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -924,6 +932,27 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         if (arg_wait && arg_no_block)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--wait may not be combined with --no-block.");
+
+        bool do_restart = streq_ptr(argv[optind], "restart");
+        if (arg_needing_restart) {
+                if (!do_restart)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--needing-restart may only be used with 'restart'.");
+                if (optind + 1 < argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "No additional arguments allowed with 'restart --needing-restart'.");
+                if (arg_wait)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--needing-restart --wait is not supported.");
+                if (arg_show_transaction)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--needing-restart --show-transaction is not supported.");
+
+        } else if (do_restart) {
+                if (optind + 1 >= argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "List of units to restart is required.");
+        }
 
         return 1;
 }
@@ -1006,7 +1035,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with ALTLinux */
                 { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
-                { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "restart",               VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "reload-or-restart",     2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with old systemctl <= 228 */
