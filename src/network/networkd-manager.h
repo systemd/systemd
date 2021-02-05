@@ -67,6 +67,7 @@ struct Manager {
         /* Manager stores routes without RTA_OIF attribute. */
         Set *routes;
         Set *routes_foreign;
+        Hashmap *route_queue_by_nexthop_id;
 
         /* Route table name */
         Hashmap *route_tables;

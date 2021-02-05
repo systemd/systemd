@@ -748,6 +748,9 @@ void link_check_ready(Link *link) {
         if (!link->static_routes_configured)
                 return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
 
+        if (link_is_in_route_queue(link))
+                return (void) log_link_debug(link, "%s(): several routes waiting nexthops to be configured.", __func__);
+
         if (!link->static_nexthops_configured)
                 return (void) log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
 

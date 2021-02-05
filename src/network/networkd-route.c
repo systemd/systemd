@@ -595,6 +595,135 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
         return 0;
 }
 
+typedef struct RouteQueue{
+        Link *link;
+        Route *route;
+        LIST_FIELDS(struct RouteQueue, queue);
+} RouteQueue;
+
+static RouteQueue *route_queue_free(RouteQueue *q) {
+        if (!q)
+                return NULL;
+
+        link_unref(q->link);
+        network_unref(q->route->network);
+
+        /* Be careful, this does not remove the entry from the list. */
+
+        return mfree(q);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(RouteQueue *, route_queue_free);
+
+static int manager_queue_route(Manager *m, Link *link, Route *route) {
+        _cleanup_(route_queue_freep) RouteQueue *q = NULL;
+        RouteQueue *head;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(route);
+        assert(route->network); /* The route must be from Network object. */
+        assert(route->nexthop_id > 0);
+
+        q = new(RouteQueue, 1);
+        if (!q)
+                return -ENOMEM;
+
+        *q = (RouteQueue) {
+                .link = link_ref(link),
+                .route = route,
+        };
+
+        network_ref(route->network);
+
+        head = hashmap_get(m->route_queue_by_nexthop_id, UINT32_TO_PTR(route->nexthop_id));
+        if (!head) {
+                r = hashmap_ensure_put(&m->route_queue_by_nexthop_id, NULL, UINT32_TO_PTR(route->nexthop_id), q);
+                if (r < 0)
+                        return r;
+        } else {
+                LIST_PREPEND(queue, head, q);
+                assert_se(hashmap_update(m->route_queue_by_nexthop_id, UINT32_TO_PTR(route->nexthop_id), q) >= 0);
+        }
+
+        TAKE_PTR(q);
+        return 0;
+}
+
+void manager_route_queue_free(Manager *m) {
+        RouteQueue *head;
+
+        if (!m)
+                return;
+
+        while ((head = hashmap_steal_first(m->route_queue_by_nexthop_id))) {
+                RouteQueue *i, *n;
+
+                LIST_FOREACH_SAFE(queue, i, n, head)
+                        route_queue_free(i);
+        }
+
+        m->route_queue_by_nexthop_id = hashmap_free(m->route_queue_by_nexthop_id);
+}
+
+static int route_queue_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set route");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        log_link_debug(link, "Route with nexthop ID set");
+        link_check_ready(link);
+
+        return 1;
+}
+
+int manager_process_route_queue(Manager *m, uint32_t id) {
+        RouteQueue *head, *i, *n;
+        int k, r = 0;
+
+        assert(m);
+        assert(id > 0);
+
+        head = hashmap_remove(m->route_queue_by_nexthop_id, UINT32_TO_PTR(id));
+        if (!head)
+                return 0;
+
+        LIST_FOREACH_SAFE(queue, i, n, head) {
+                k = route_configure(i->route, i->link, route_queue_handler, NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+
+                route_queue_free(i);
+        }
+
+        return r;
+}
+
+bool link_is_in_route_queue(Link *link) {
+        RouteQueue *head, *i;
+
+        assert(link);
+        assert(link->manager);
+
+        HASHMAP_FOREACH(head, link->manager->route_queue_by_nexthop_id)
+                LIST_FOREACH(queue, i, head)
+                        if (i->link == link)
+                                return true;
+
+        return false;
+}
+
 static bool route_type_is_reject(const Route *route) {
         assert(route);
 
@@ -947,21 +1076,18 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
         return 1;
 }
 
-static int route_add_and_setup_timer(Link *link, const Route *route, const MultipathRoute *m, Route **ret) {
+static int route_add_and_setup_timer(Link *link, const Route *route, const MultipathRoute *m, const NextHop *nexthop, Route **ret) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
-        NextHop *nh = NULL;
         Route *nr;
         int r;
 
         assert(link);
         assert(route);
 
-        (void) link_get_nexthop_by_id(link, route->nexthop_id, &nh);
-
         if (route_type_is_reject(route))
                 r = route_add(link->manager, NULL, route, NULL, NULL, &nr);
         else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
-                r = route_add(NULL, link, route, m, nh, &nr);
+                r = route_add(NULL, link, route, m, nexthop, &nr);
         else {
                 Link *link_gw;
 
@@ -1073,12 +1199,13 @@ static int append_nexthops(const Route *route, sd_netlink_message *req) {
 }
 
 int route_configure(
-                const Route *route,
+                Route *route,
                 Link *link,
                 link_netlink_message_handler_t callback,
                 Route **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        NextHop *nexthop = NULL;
         int r;
 
         assert(link);
@@ -1092,6 +1219,15 @@ int route_configure(
             set_size(link->routes) >= routes_max())
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many routes are configured, refusing: %m");
+
+        if (route->nexthop_id > 0 &&
+            manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nexthop) < 0) {
+                log_link_debug(link, "nexthop with id=%"PRIu32" is not configured yet. Configuring the route later.", route->nexthop_id);
+                r = manager_queue_route(link->manager, link, route);
+                if (r < 0)
+                        return r;
+                return -ENOANO;
+        }
 
         log_route_debug(route, "Configuring", link);
 
@@ -1169,7 +1305,7 @@ int route_configure(
         if (ordered_set_isempty(route->multipath_routes)) {
                 Route *nr;
 
-                r = route_add_and_setup_timer(link, route, NULL, &nr);
+                r = route_add_and_setup_timer(link, route, NULL, nexthop, &nr);
                 if (r < 0)
                         return r;
 
@@ -1181,7 +1317,7 @@ int route_configure(
                 assert(!ret);
 
                 ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                        r = route_add_and_setup_timer(link, route, m, NULL);
+                        r = route_add_and_setup_timer(link, route, m, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -1266,6 +1402,9 @@ int link_set_routes(Link *link) {
                                 continue;
 
                         r = route_configure(rt, link, route_handler, NULL);
+                        if (r == -ENOANO) {
+                                continue;
+                        }
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not set routes: %m");
 
@@ -1293,10 +1432,15 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
         assert(tmp);
         assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
 
-        if (link)
-                (void) link_get_nexthop_by_id(link, tmp->nexthop_id, &nh);
+        (void) manager_get_nexthop_by_id(manager, tmp->nexthop_id, &nh);
 
         if (nh) {
+                if (link && link != nh->link)
+                        return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
+                                                      "rtnl: received RTA_OIF and ifindex of nexthop corresponding to RTA_NH_ID do not match, ignoring");
+
+                link = nh->link;
+
                 r = route_new(&nr);
                 if (r < 0)
                         return log_oom();
