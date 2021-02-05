@@ -9,7 +9,7 @@
 
 static int show_installation_targets_client_side(const char *name) {
         UnitFileChange *changes = NULL;
-        size_t n_changes = 0, i;
+        size_t n_changes = 0;
         UnitFileFlags flags;
         char **p;
         int r;
@@ -22,7 +22,7 @@ static int show_installation_targets_client_side(const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
-        for (i = 0; i < n_changes; i++)
+        for (size_t i = 0; i < n_changes; i++)
                 if (changes[i].type == UNIT_FILE_UNLINK)
                         printf("  %s\n", changes[i].path);
 
