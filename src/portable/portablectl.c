@@ -45,6 +45,10 @@ static bool arg_enable = false;
 static bool arg_now = false;
 static bool arg_no_block = false;
 
+static bool is_portable_managed(const char *unit) {
+        return ENDSWITH_SET(unit, ".service", ".target", ".socket", ".path", ".timer");
+}
+
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
 
@@ -436,11 +440,13 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         return 0;
 }
 
-static int maybe_start_stop(sd_bus *bus, const char *path, bool start, BusWaitForJobs *wait) {
+static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *method, BusWaitForJobs *wait) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *name = (char *)basename(path), *job = NULL;
         int r;
+
+        assert(STR_IN_SET(method, "StartUnit", "StopUnit", "RestartUnit"));
 
         if (!arg_now)
                 return 0;
@@ -450,13 +456,13 @@ static int maybe_start_stop(sd_bus *bus, const char *path, bool start, BusWaitFo
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        start ? "StartUnit" : "StopUnit",
+                        method,
                         &error,
                         &reply,
                         "ss", name, "replace");
         if (r < 0)
-                return log_error_errno(r, "Failed to %s the portable service %s: %s",
-                                       start ? "start" : "stop",
+                return log_error_errno(r, "Failed to call %s on the portable service %s: %s",
+                                       method,
                                        path,
                                        bus_error_message(&error, r));
 
@@ -465,13 +471,13 @@ static int maybe_start_stop(sd_bus *bus, const char *path, bool start, BusWaitFo
                 return bus_log_parse_error(r);
 
         if (!arg_quiet)
-                log_info("Queued %s to %s portable service %s.", job, start ? "start" : "stop", name);
+                log_info("Queued %s to call on %s portable service %s.", job, method, name);
 
         if (wait) {
                 r = bus_wait_for_jobs_add(wait, job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to watch %s job for %s %s: %m",
-                                               job, start ? "starting" : "stopping", name);
+                        return log_error_errno(r, "Failed to watch %s job to call %s on %s: %m",
+                                               job, method, name);
         }
 
         return 0;
@@ -506,9 +512,83 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
                 if (r == 0)
                         break;
 
-                if (STR_IN_SET(type, "symlink", "copy") && ENDSWITH_SET(path, ".service", ".target", ".socket")) {
+                if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
                         (void) maybe_enable_disable(bus, path, true);
-                        (void) maybe_start_stop(bus, path, true, wait);
+                        (void) maybe_start_stop_restart(bus, path, "StartUnit", wait);
+                }
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return r;
+
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        int r;
+
+        if (!arg_enable && !arg_now)
+                return 0;
+
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs_new(bus, &wait);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
+        }
+
+        r = sd_bus_message_rewind(reply, true);
+        if (r < 0)
+                return r;
+
+        /* First we get a list of units that were definitely removed, not just re-attached,
+         * so we can also stop them if the user asked us to. */
+        r = sd_bus_message_enter_container(reply, 'a', "(sss)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                char *type, *path, *source;
+
+                r = sd_bus_message_read(reply, "(sss)", &type, &path, &source);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                if (streq(type, "unlink") && is_portable_managed(path))
+                        (void) maybe_start_stop_restart(bus, path, "StopUnit", wait);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return r;
+
+        /* Then we get a list of units that were either added or changed, so that we can
+         * enable them and/or restart them if the user asked us to. */
+        r = sd_bus_message_enter_container(reply, 'a', "(sss)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                char *type, *path, *source;
+
+                r = sd_bus_message_read(reply, "(sss)", &type, &path, &source);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
+                        (void) maybe_enable_disable(bus, path, true);
+                        (void) maybe_start_stop_restart(bus, path, "RestartUnit", wait);
                 }
         }
 
@@ -588,7 +668,7 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                (void) maybe_start_stop(bus, name, false, wait);
+                (void) maybe_start_stop_restart(bus, name, "StopUnit", wait);
                 (void) maybe_enable_disable(bus, name, false);
         }
 
@@ -604,13 +684,15 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         return 0;
 }
 
-static int attach_image(int argc, char *argv[], void *userdata) {
+static int attach_reattach_image(int argc, char *argv[], const char *method) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **matches = NULL;
         _cleanup_free_ char *image = NULL;
         int r;
+
+        assert(method);
 
         r = determine_image(argv[1], false, &image);
         if (r < 0)
@@ -626,7 +708,7 @@ static int attach_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "AttachImage");
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -644,15 +726,26 @@ static int attach_image(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to attach image: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
         (void) maybe_reload(&bus);
 
         print_changes(reply);
 
-        (void) maybe_enable_start(bus, reply);
+        if (streq(method, "AttachImage"))
+                (void) maybe_enable_start(bus, reply);
+        else
+                (void) maybe_stop_enable_restart(bus, reply);
 
         return 0;
+}
+
+static int attach_image(int argc, char *argv[], void *userdata) {
+        return attach_reattach_image(argc, argv, "AttachImage");
+}
+
+static int reattach_image(int argc, char *argv[], void *userdata) {
+        return attach_reattach_image(argc, argv, "ReattachImage");
 }
 
 static int detach_image(int argc, char *argv[], void *userdata) {
@@ -920,6 +1013,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              Attach the specified portable service image\n"
                "  detach NAME|PATH [PREFIX...]\n"
                "                              Detach the specified portable service image\n"
+               "  reattach NAME|PATH [PREFIX...]\n"
+               "                              Reattach and restart the specified portable\n"
+               "                              service image\n"
                "  inspect NAME|PATH [PREFIX...]\n"
                "                              Show details of specified portable service image\n"
                "  is-attached NAME|PATH       Query if portable service image is attached\n"
@@ -1108,6 +1204,7 @@ static int run(int argc, char *argv[]) {
                 { "read-only",   2,        3,        0,            read_only_image   },
                 { "remove",      2,        VERB_ANY, 0,            remove_image      },
                 { "set-limit",   3,        3,        0,            set_limit         },
+                { "reattach",    2,        VERB_ANY, 0,            reattach_image    },
                 {}
         };
 
