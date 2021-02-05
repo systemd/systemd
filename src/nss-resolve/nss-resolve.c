@@ -68,7 +68,7 @@ static int connect_to_resolved(Varlink **ret) {
 static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
         struct in6_addr in6;
 
-        if (family != AF_INET6)
+        if (family != AF_INET6 || ifindex == 0)
                 return 0;
 
         /* Some apps can't deal with the scope ID attached to non-link-local addresses. Hence, let's suppress that. */
@@ -90,7 +90,7 @@ static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDis
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         t = json_variant_integer(variant);
-        if (t <= 0 || t > INT_MAX)
+        if (t > INT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is out of bounds for an interface index.", strna(name));
 
         *ifi = (int) t;
