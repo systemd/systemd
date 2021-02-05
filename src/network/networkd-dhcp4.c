@@ -17,6 +17,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-nexthop.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -748,8 +749,8 @@ static int dhcp4_address_ready_callback(Address *address) {
         if (r < 0)
                 return r;
 
-        /* Reconfigure static routes as kernel may remove some routes when lease expires. */
-        r = link_set_routes(link);
+        /* Reconfigure static routes and nexthops as kernel may remove some routes when lease expires. */
+        r = link_set_nexthop(link);
         if (r < 0)
                 return r;
 
