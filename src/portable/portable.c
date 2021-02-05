@@ -1035,10 +1035,14 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
         a = last_path_component(marker);
 
         if (image_name_is_valid(name_or_path)) {
-                const char *e;
+                const char *e, *underscore;
 
                 /* We shall match against an image name. In that case let's compare the last component, and optionally
-                 * allow either a suffix of ".raw" or a series of "/". */
+                 * allow either a suffix of ".raw" or a series of "/".
+                 * But allow matching on a differen version of the same image, when a "_" is used as a separator. */
+                underscore = strchr(name_or_path, '_');
+                if (underscore)
+                        return memcmp(a, name_or_path, underscore - name_or_path) == 0;
 
                 e = startswith(a, name_or_path);
                 if (!e)
@@ -1048,7 +1052,7 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
                         e[strspn(e, "/")] == 0 ||
                         streq(e, ".raw");
         } else {
-                const char *b;
+                const char *b, *underscore;
                 size_t l;
 
                 /* We shall match against a path. Let's ignore any prefix here though, as often there are many ways to
@@ -1059,6 +1063,10 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
 
                 if (strcspn(b, "/") != l)
                         return false;
+
+                underscore = strchr(b, '_');
+                if (underscore)
+                        l = underscore - b;
 
                 return memcmp(a, b, l) == 0;
         }
