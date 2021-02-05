@@ -36,11 +36,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_read_strv()</function> gives access to an array of strings in message
-    <parameter>m</parameter>. The "read pointer" in the message must be right before an array of strings. On
-    success, a pointer to the <constant>NULL</constant>-terminated array of strings is returned in the output
-    parameter <parameter>l</parameter>. Note that ownership of this array is transferred to the caller.
-    Hence, the caller is responsible for freeing this array and its contents.</para>
+    <para><function>sd_bus_message_read_strv()</function> gives access to an array of string-like items in
+    message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of
+    strings (D-Bus type <literal>as</literal>), object paths (D-Bus type <literal>ao</literal>), or
+    signatures (D-Bus type <literal>ag</literal>). On success, a pointer to a
+    <constant>NULL</constant>-terminated array of strings is returned in the output parameter
+    <parameter>l</parameter>. Note that ownership of this array is transferred to the caller. Hence, the
+    caller is responsible for freeing this array and its contents.</para>
   </refsect1>
 
   <refsect1>
@@ -72,6 +74,13 @@
           <term><constant>-EBADMSG</constant></term>
 
           <listitem><para>The message cannot be parsed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>The message "read pointer" is not right before an array of the appropriate type.
+          </para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
