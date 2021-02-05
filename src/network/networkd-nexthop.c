@@ -217,7 +217,44 @@ static int nexthop_add(Link *link, const NextHop *in, NextHop **ret) {
         return is_new;
 }
 
-static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Link *link) {
+static int nexthop_update(Link *link, NextHop *nexthop, const NextHop *in) {
+        int r;
+
+        assert(link);
+        assert(nexthop);
+        assert(in);
+        assert(in->id > 0);
+
+        /* Currently, this only updates ID. */
+
+        if (nexthop->id > 0)
+                return nexthop->id == in->id ? 0 : -EINVAL;
+
+        nexthop = set_remove(link->nexthops, nexthop);
+        if (!nexthop)
+                return -ENOENT;
+
+        nexthop->id = in->id;
+
+        r = set_put(link->nexthops, nexthop);
+        if (r <= 0) {
+                int k;
+
+                /* On failure, revert the change. */
+                nexthop->id = 0;
+                k = set_put(link->nexthops, nexthop);
+                if (k <= 0) {
+                        nexthop_free(nexthop);
+                        return k < 0 ? k : -EEXIST;
+                }
+
+                return r < 0 ? r : -EEXIST;
+        }
+
+        return 0;
+}
+
+static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *str, const Link *link) {
         assert(nexthop);
         assert(str);
         assert(link);
@@ -227,8 +264,12 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Lin
 
                 (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
 
-                log_link_debug(link, "%s nexthop: id: %"PRIu32", gw: %s",
-                               str, nexthop->id, strna(gw));
+                if (nexthop->id == id)
+                        log_link_debug(link, "%s nexthop: id: %"PRIu32", gw: %s",
+                                       str, nexthop->id, strna(gw));
+                else
+                        log_link_debug(link, "%s nexthop: id: %"PRIu32"→%"PRIu32", gw: %s",
+                                       str, nexthop->id, id, strna(gw));
         }
 }
 
@@ -269,7 +310,7 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
         assert(link->ifindex > 0);
         assert(IN_SET(nexthop->family, AF_INET, AF_INET6));
 
-        log_nexthop_debug(nexthop, "Configuring", link);
+        log_nexthop_debug(nexthop, nexthop->id, "Configuring", link);
 
         r = sd_rtnl_message_new_nexthop(link->manager->rtnl, &req,
                                         RTM_NEWNEXTHOP, nexthop->family,
@@ -426,23 +467,41 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        (void) nexthop_get(link, tmp, &nexthop);
+        r = nexthop_get(link, tmp, &nexthop);
+        if (r < 0) {
+                uint32_t id;
+
+                /* The nexthop may be created without setting NHA_ID. */
+
+                id = tmp->id;
+                tmp->id = 0;
+
+                (void) nexthop_get(link, tmp, &nexthop);
+
+                tmp->id = id;
+        }
 
         switch (type) {
         case RTM_NEWNEXTHOP:
                 if (nexthop)
-                        log_nexthop_debug(tmp, "Received remembered", link);
+                        log_nexthop_debug(nexthop, tmp->id, "Received remembered", link);
                 else {
-                        log_nexthop_debug(tmp, "Remembering foreign", link);
+                        log_nexthop_debug(tmp, tmp->id, "Remembering foreign", link);
                         r = nexthop_add_foreign(link, tmp, &nexthop);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not remember foreign nexthop, ignoring: %m");
                                 return 0;
                         }
                 }
+
+                r = nexthop_update(link, nexthop, tmp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not update nexthop, ignoring: %m");
+                        return 0;
+                }
                 break;
         case RTM_DELNEXTHOP:
-                log_nexthop_debug(tmp, nexthop ? "Forgetting" : "Kernel removed unknown", link);
+                log_nexthop_debug(tmp, tmp->id, nexthop ? "Forgetting" : "Kernel removed unknown", link);
                 nexthop_free(nexthop);
                 break;
 
