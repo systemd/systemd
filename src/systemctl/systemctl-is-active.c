@@ -14,7 +14,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         UnitActiveState active_state;
         sd_bus *bus;
         char **name;
-        int r, i;
+        int r;
         bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
@@ -33,7 +33,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
                 if (!arg_quiet)
                         puts(unit_active_state_to_string(active_state));
 
-                for (i = 0; i < nb_states; ++i)
+                for (int i = 0; i < nb_states; ++i)
                         if (good_states[i] == active_state)
                                 found = true;
         }

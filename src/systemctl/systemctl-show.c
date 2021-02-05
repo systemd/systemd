@@ -1103,7 +1103,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                 } else if (endswith(name, "ExitStatus") && streq(contents, "aiai")) {
                         const int32_t *status, *signal;
-                        size_t n_status, n_signal, i;
+                        size_t n_status, n_signal;
 
                         r = sd_bus_message_enter_container(m, 'r', "aiai");
                         if (r < 0)
@@ -1132,7 +1132,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                         fputc('=', stdout);
                                 }
 
-                                for (i = 0; i < n_status; i++) {
+                                for (size_t i = 0; i < n_status; i++) {
                                         if (first)
                                                 first = false;
                                         else
@@ -1141,7 +1141,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                         printf("%"PRIi32, status[i]);
                                 }
 
-                                for (i = 0; i < n_signal; i++) {
+                                for (size_t i = 0; i < n_signal; i++) {
                                         const char *str;
 
                                         str = signal_to_string((int) signal[i]);
@@ -1900,11 +1900,7 @@ static int show_one(
         return 0;
 }
 
-static int get_unit_dbus_path_by_pid(
-                sd_bus *bus,
-                uint32_t pid,
-                char **unit) {
-
+int get_unit_dbus_path_by_pid(sd_bus *bus, uint32_t pid, char **unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         char *u;
@@ -1933,7 +1929,6 @@ static int show_all(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        const UnitInfo *u;
         unsigned c;
         int r, ret = 0;
 
@@ -1947,7 +1942,7 @@ static int show_all(
 
         typesafe_qsort(unit_infos, c, unit_info_compare);
 
-        for (u = unit_infos; u < unit_infos + c; u++) {
+        for (const UnitInfo *u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *p = NULL;
 
                 p = unit_dbus_path_from_name(u->id);
@@ -2115,7 +2110,7 @@ int show(int argc, char *argv[], void *userdata) {
                                 return r;
 
                         STRV_FOREACH(name, names) {
-                                _cleanup_free_ char *path;
+                                _cleanup_free_ char *path = NULL;
 
                                 path = unit_dbus_path_from_name(*name);
                                 if (!path)
