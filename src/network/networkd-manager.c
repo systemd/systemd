@@ -882,6 +882,8 @@ void manager_free(Manager *m) {
         m->rules = set_free(m->rules);
         m->rules_foreign = set_free(m->rules_foreign);
 
+        m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
+
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);

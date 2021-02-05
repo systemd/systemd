@@ -61,6 +61,9 @@ struct Manager {
         Set *rules;
         Set *rules_foreign;
 
+        /* Manage nexthops by id. */
+        Hashmap *nexthops_by_id;
+
         /* Manager stores routes without RTA_OIF attribute. */
         Set *routes;
         Set *routes_foreign;
