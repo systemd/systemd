@@ -1277,7 +1277,7 @@ static int dot(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, "");
+        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
