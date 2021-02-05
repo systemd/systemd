@@ -672,7 +672,6 @@ int dns_cache_put(
                 bool authenticated,
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
-                usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
@@ -681,6 +680,7 @@ int dns_cache_put(
         DnsAnswerItem *item;
         DnsAnswerFlags flags;
         unsigned cache_keys;
+        usec_t timestamp;
         int r;
 
         assert(c);
@@ -721,8 +721,7 @@ int dns_cache_put(
         /* Make some space for our new entries */
         dns_cache_make_space(c, cache_keys);
 
-        if (timestamp <= 0)
-                timestamp = now(clock_boottime_or_monotonic());
+        timestamp = now(clock_boottime_or_monotonic());
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {

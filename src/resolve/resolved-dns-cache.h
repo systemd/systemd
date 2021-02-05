@@ -33,7 +33,6 @@ int dns_cache_put(
                 bool authenticated,
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
-                usec_t timestamp,
                 int owner_family,
                 const union in_addr_union *owner_address);
 
