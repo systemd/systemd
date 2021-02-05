@@ -19,6 +19,7 @@
 #include "alloc-util.h"
 #include "all-units.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -5417,6 +5418,56 @@ int config_parse_ip_filter_bpf_progs(
 
                 warned = true;
         }
+
+        return 0;
+}
+
+int config_parse_bpf_foreign_program(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *bpffs_path = NULL;
+        _cleanup_free_ char *resolved = NULL;
+        enum bpf_attach_type attach_type;
+        Unit *u = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                bpf_foreign_reset(u);
+                return 0;
+        }
+
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        r = bpf_foreign_program_from_string(resolved, &attach_type, &bpffs_path);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "Failed to resolve foreign BPF program for path='%s', ignoring: %m", resolved);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(bpffs_path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        r = bpf_foreign_prepare(u, attach_type, bpffs_path);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to add program %s to cgroup-bpf context: %m", resolved);
 
         return 0;
 }
