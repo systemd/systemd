@@ -17,6 +17,15 @@ typedef enum DHCPClientIdentifier {
         _DHCP_CLIENT_ID_INVALID = -1,
 } DHCPClientIdentifier;
 
+typedef enum UseHostname {
+        USE_HOSTNAME_NO,
+        USE_HOSTNAME_YES,
+        USE_HOSTNAME_STATIC,
+        USE_HOSTNAME_BOTH,
+        _USE_HOSTNAME_MAX,
+        _USE_HOSTNAM_INVALID = -1,
+} UseHostname;
+
 int dhcp4_configure(Link *link);
 int dhcp4_update_mac(Link *link);
 
@@ -26,3 +35,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_ip_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_fallback_lease_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_hostname);
