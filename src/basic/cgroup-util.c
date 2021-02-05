@@ -1703,6 +1703,28 @@ int cg_get_attribute_as_bool(const char *controller, const char *path, const cha
         return 0;
 }
 
+
+int cg_get_owner(const char *controller, const char *path, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_free_ char *f = NULL;
+        struct stat stats;
+        int r;
+
+        assert(ret_uid);
+        assert(ret_gid);
+
+        r = cg_get_path(controller, path, NULL, &f);
+        if (r < 0)
+                return r;
+
+        r = stat(f, &stats);
+        if (r < 0)
+                return -errno;
+
+        *ret_uid = stats.st_uid;
+        *ret_gid = stats.st_gid;
+        return 0;
+}
+
 int cg_get_keyed_attribute_full(
                 const char *controller,
                 const char *path,

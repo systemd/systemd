@@ -29,6 +29,9 @@ struct OomdCGroupContext {
         uint64_t last_pgscan;
         uint64_t pgscan;
 
+        bool avoid;
+        bool omit;
+
         /* These are only used by oomd_pressure_above for acting on high memory pressure. */
         loadavg_t mem_pressure_limit;
         usec_t mem_pressure_duration_usec;
@@ -61,9 +64,17 @@ bool oomd_memory_reclaim(Hashmap *h);
 /* Returns true if the amount of swap free is below the percentage of swap specified by `threshold_percent`. */
 bool oomd_swap_free_below(const OomdSystemContext *ctx, uint64_t threshold_percent);
 
-static inline int compare_pgscan(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+/* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
+ * (after the smallest values). */
+static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
         assert(c1);
         assert(c2);
+
+        if ((*c1)->avoid != (*c2)->avoid)
+                return CMP((*c1)->avoid, (*c2)->avoid);
+
+        if ((*c2)->pgscan == (*c1)->pgscan)
+                return CMP((*c2)->current_memory_usage, (*c1)->current_memory_usage);
 
         return CMP((*c2)->pgscan, (*c1)->pgscan);
 }
@@ -71,6 +82,9 @@ static inline int compare_pgscan(OomdCGroupContext * const *c1, OomdCGroupContex
 static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
         assert(c1);
         assert(c2);
+
+        if ((*c1)->avoid != (*c2)->avoid)
+                return CMP((*c1)->avoid, (*c2)->avoid);
 
         return CMP((*c2)->swap_usage, (*c1)->swap_usage);
 }

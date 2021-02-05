@@ -2450,6 +2450,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimitPermyriad = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -2973,6 +2975,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimitPermyriad is not documented!-->
+
+    <!--property ManagedOOMPreference is not documented!-->
 
     <!--property EnvironmentFiles is not documented!-->
 
@@ -3537,6 +3541,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimitPermyriad"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -4204,6 +4210,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimitPermyriad = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4755,6 +4763,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimitPermyriad is not documented!-->
+
+    <!--property ManagedOOMPreference is not documented!-->
 
     <!--property EnvironmentFiles is not documented!-->
 
@@ -5317,6 +5327,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimitPermyriad"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -5897,6 +5909,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimitPermyriad = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6377,6 +6391,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ManagedOOMMemoryPressureLimitPermyriad is not documented!-->
 
+    <!--property ManagedOOMPreference is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -6856,6 +6872,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimitPermyriad"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -7557,6 +7575,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimitPermyriad = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8023,6 +8043,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property ManagedOOMMemoryPressureLimitPermyriad is not documented!-->
 
+    <!--property ManagedOOMPreference is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -8488,6 +8510,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimitPermyriad"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -9042,6 +9066,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimitPermyriad = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s ManagedOOMPreference = '...';
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -9177,6 +9203,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimitPermyriad is not documented!-->
+
+    <!--property ManagedOOMPreference is not documented!-->
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -9317,6 +9345,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimitPermyriad"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <!--End of Autogenerated section-->
 
@@ -9477,6 +9507,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly s ManagedOOMMemoryPressure = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u ManagedOOMMemoryPressureLimitPermyriad = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9628,6 +9660,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property ManagedOOMMemoryPressure is not documented!-->
 
     <!--property ManagedOOMMemoryPressureLimitPermyriad is not documented!-->
+
+    <!--property ManagedOOMPreference is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -9794,6 +9828,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressure"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMMemoryPressureLimitPermyriad"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
