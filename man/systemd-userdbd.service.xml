@@ -50,7 +50,7 @@
     group records. Internally it talks to all other user/group record services running on the system in
     parallel and forwards any information discovered. This simplifies clients substantially since they need
     to talk to a single service only instead of all of them in
-    parallel. <constant>io.systemd.NameSeviceSwitch</constant> provides compatibility with classic UNIX/glibc
+    parallel. <constant>io.systemd.NameServiceSwitch</constant> provides compatibility with classic UNIX/glibc
     NSS user records, i.e. converts <type>struct passwd</type> and <type>struct group</type> records as
     acquired with APIs such as <citerefentry
     project='man-pages'><refentrytitle>getpwnam</refentrytitle><manvolnum>1</manvolnum></citerefentry> to JSON
