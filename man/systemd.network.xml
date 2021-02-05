@@ -1316,15 +1316,26 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <variablelist class='network-directives'>
         <varlistentry>
-          <term><varname>Gateway=</varname></term>
+          <term><varname>Id=</varname></term>
           <listitem>
-            <para>As in the [Network] section. This is mandatory.</para>
+            <para>The id of the nexthop. Takes an unsigned integer in the range 1–4294967295. If
+            unspecified, then automatically chosen by kernel.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Id=</varname></term>
+          <term><varname>Gateway=</varname></term>
           <listitem>
-            <para>The id of the nexthop (an unsigned integer). If unspecified or '0' then automatically chosen by kernel.</para>
+            <para>As in the [Network] section. Each [NextHop] section must have either a
+            <varname>Gateway=</varname> or a <varname>Family=</varname> setting.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Family=</varname></term>
+          <listitem>
+            <para>Takes one of the special values <literal>ipv4</literal> or <literal>ipv6</literal>. By
+            default, the address family is determined by the address specified in
+            <varname>Gateway=</varname>. Each [NextHop] section must have either a
+            <varname>Gateway=</varname> or a <varname>Family=</varname> setting.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1540,6 +1551,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             interface name or index separated with <literal>@</literal>, and a weight in 1..256 for
             this multipath route separated with whitespace. This setting can be specified multiple
             times. If an empty string is assigned, then the all previous assignments are cleared.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>NextHopId=</varname></term>
+          <listitem>
+            <para>Specifies the nexthop id. Takes an unsigned integer in the range 1–4294967295.
+            If set, the corresponding [NextHop] section must be configured. Defaults to unset.</para>
           </listitem>
         </varlistentry>
       </variablelist>
