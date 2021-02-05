@@ -93,5 +93,6 @@ extern char **arg_clean_what;
 extern TimestampStyle arg_timestamp_style;
 extern bool arg_read_only;
 extern bool arg_mkdir;
+extern bool arg_needing;
 
 int systemctl_dispatch_parse_argv(int argc, char *argv[]);
