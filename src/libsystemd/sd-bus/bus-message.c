@@ -5587,17 +5587,26 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
 }
 
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
-        const char *s;
+        char type;
+        const char *contents, *s;
         int r;
 
         assert(m);
         assert(l);
 
-        r = sd_bus_message_enter_container(m, 'a', "s");
+        r = sd_bus_message_peek_type(m, &type, &contents);
+        if (r < 0)
+                return r;
+
+        if (type != SD_BUS_TYPE_ARRAY || !STR_IN_SET(contents, "s", "o", "g"))
+                return -ENXIO;
+
+        r = sd_bus_message_enter_container(m, 'a', NULL);
         if (r <= 0)
                 return r;
 
-        while ((r = sd_bus_message_read_basic(m, 's', &s)) > 0) {
+        /* sd_bus_message_read_basic() does content validation for us. */
+        while ((r = sd_bus_message_read_basic(m, *contents, &s)) > 0) {
                 r = strv_extend(l, s);
                 if (r < 0)
                         return r;
