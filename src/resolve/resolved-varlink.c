@@ -180,7 +180,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
 
                 r = json_build(&entry,
                                JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
                                                JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
                 if (r < 0)
@@ -406,7 +406,7 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
 
                 r = json_build(&entry,
                                JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
                 if (r < 0)
                         goto finish;
