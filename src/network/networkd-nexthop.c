@@ -129,7 +129,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
-static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         NextHop *existing;
 
         assert(link);
@@ -152,7 +152,7 @@ static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
         return -ENOENT;
 }
 
-static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop **ret) {
+static int nexthop_add_internal(Link *link, Set **nexthops, const NextHop *in, NextHop **ret) {
         _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
         int r;
 
@@ -183,11 +183,11 @@ static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop
         return 0;
 }
 
-static int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_add_foreign(Link *link, const NextHop *in, NextHop **ret) {
         return nexthop_add_internal(link, &link->nexthops_foreign, in, ret);
 }
 
-static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_add(Link *link, const NextHop *in, NextHop **ret) {
         bool is_new = false;
         NextHop *nexthop;
         int r;
@@ -259,7 +259,7 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int nexthop_configure(NextHop *nexthop, Link *link) {
+static int nexthop_configure(const NextHop *nexthop, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -300,7 +300,7 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
 
         link_ref(link);
 
-        r = nexthop_add(link, nexthop, &nexthop);
+        r = nexthop_add(link, nexthop, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add nexthop: %m");
 
