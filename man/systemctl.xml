@@ -552,6 +552,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
+          <term><command>set-needs-restart <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem><para>Mark the specified units as "needing restart".</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>bind</command> <replaceable>UNIT</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
 
           <listitem><para>Bind mounts a file or directory from the host into the specified unit's view. The first path
@@ -2314,6 +2321,14 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
         directories, this option also creates the destination file node to mount over if the object to mount is not
         a directory, but a regular file, device node, socket or FIFO.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--needing-restart</option></term>
+
+        <listitem><para>Only allowed with <command>restart</command>. Automatically restart all units
+        previously marked with <command>set-needs-restart</command>. Unless <option>--no-block</option> is
+        used, <command>systemctl</command> will wait for the queued jobs to finish.</para></listitem>
       </varlistentry>
 
       <varlistentry>

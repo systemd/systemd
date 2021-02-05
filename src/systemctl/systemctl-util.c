@@ -62,9 +62,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
 }
 
 void release_busses(void) {
-        BusFocus w;
-
-        for (w = 0; w < _BUS_FOCUS_MAX; w++)
+        for (BusFocus w = 0; w < _BUS_FOCUS_MAX; w++)
                 buses[w] = sd_bus_flush_close_unref(buses[w]);
 }
 
@@ -237,7 +235,7 @@ int get_unit_list(
 int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         char **name;
-        int r, i;
+        int r;
 
         assert(bus);
         assert(ret);
@@ -272,7 +270,7 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
                 n = strv_length(mangled);
                 allocated = n + 1;
 
-                for (i = 0; i < r; i++) {
+                for (int i = 0; i < r; i++) {
                         if (!GREEDY_REALLOC(mangled, allocated, n+2))
                                 return log_oom();
 

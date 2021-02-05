@@ -368,6 +368,9 @@ typedef struct Unit {
 
         bool start_limit_hit:1;
 
+        /* The unit has been marked for restart */
+        bool needs_restart;
+
         /* Did we already invoke unit_coldplug() for this unit? */
         bool coldplugged:1;
 

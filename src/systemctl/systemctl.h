@@ -92,3 +92,4 @@ extern char **arg_clean_what;
 extern TimestampStyle arg_timestamp_style;
 extern bool arg_read_only;
 extern bool arg_mkdir;
+extern bool arg_needing_restart;
