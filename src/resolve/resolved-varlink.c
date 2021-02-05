@@ -57,6 +57,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_NETWORK_DOWN:
                 return varlink_error(q->varlink_request, "io.systemd.Resolve.NetworkDown", NULL);
 
+        case DNS_TRANSACTION_NO_SOURCE:
+                return varlink_error(q->varlink_request, "io.systemd.Resolve.NoSource", NULL);
+
         case DNS_TRANSACTION_NOT_FOUND:
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
@@ -103,7 +106,7 @@ static bool validate_and_mangle_flags(
         /* This checks that the specified client-provided flags parameter actually makes sense, and mangles
          * it slightly. Specifically:
          *
-         * 1. We check that only the protocol flags and the NO_CNAME flag are on at most, plus the
+         * 1. We check that only the protocol flags and a bunch of NO_XYZ flags are on at most, plus the
          *    method-specific flags specified in 'ok'.
          *
          * 2. If no protocols are enabled we automatically convert that to "all protocols are enabled".
@@ -114,7 +117,15 @@ static bool validate_and_mangle_flags(
          * "everything".
          */
 
-        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_CNAME|ok))
+        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
+                       SD_RESOLVED_NO_CNAME|
+                       SD_RESOLVED_NO_VALIDATE|
+                       SD_RESOLVED_NO_SYNTHESIZE|
+                       SD_RESOLVED_NO_CACHE|
+                       SD_RESOLVED_NO_ZONE|
+                       SD_RESOLVED_NO_TRUST_ANCHOR|
+                       SD_RESOLVED_NO_NETWORK|
+                       ok))
                 return false;
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
@@ -312,7 +323,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, p.ifindex, p.flags);
+        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, NULL, p.ifindex, p.flags);
         if (r < 0)
                 return r;
 
@@ -481,7 +492,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, question, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 

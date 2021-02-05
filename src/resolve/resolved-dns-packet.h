@@ -176,6 +176,8 @@ static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
 int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, size_t max_size);
 int dns_packet_new_query(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled);
 
+int dns_packet_dup(DnsPacket **ret, DnsPacket *p);
+
 void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool truncated);
 
 DnsPacket *dns_packet_ref(DnsPacket *p);
@@ -201,7 +203,10 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, const DnsAnsw
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, int rcode, size_t *start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
-int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a);
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed);
+
+int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size);
+int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
 int dns_packet_truncate_opt(DnsPacket *p);
