@@ -771,7 +771,6 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_authenticated,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
-                      0,
                       t->received->family,
                       &t->received->sender);
 }
