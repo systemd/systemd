@@ -1003,13 +1003,13 @@ int portable_attach(
                 r = unit_file_exists(UNIT_FILE_SYSTEM, &paths, item->name);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
-                if (r > 0)
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
 
                 r = unit_file_is_active(bus, item->name, error);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
         }
 
@@ -1026,7 +1026,7 @@ int portable_attach(
         return 0;
 }
 
-static bool marker_matches_image(const char *marker, const char *name_or_path) {
+static bool marker_matches_image(const char *marker, const char *name_or_path, bool unversioned_match) {
         const char *a;
 
         assert(marker);
@@ -1035,10 +1035,14 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
         a = last_path_component(marker);
 
         if (image_name_is_valid(name_or_path)) {
-                const char *e;
+                const char *e, *underscore;
 
                 /* We shall match against an image name. In that case let's compare the last component, and optionally
-                 * allow either a suffix of ".raw" or a series of "/". */
+                 * allow either a suffix of ".raw" or a series of "/".
+                 * But If we are doing an upgrade, allow matching on a differen version of the same image. */
+                underscore = strchr(name_or_path, '_');
+                if (unversioned_match && underscore)
+                        return memcmp(a, name_or_path, underscore - name_or_path) == 0;
 
                 e = startswith(a, name_or_path);
                 if (!e)
@@ -1060,6 +1064,15 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
                 if (strcspn(b, "/") != l)
                         return false;
 
+                /* If we are doing an upgrade, allow matching on a differen version of the same image */
+                if (unversioned_match) {
+                        const char *underscore;
+
+                        underscore = strchr(b, '_');
+                        if (underscore)
+                                l = underscore - b;
+                }
+
                 return memcmp(a, b, l) == 0;
         }
 }
@@ -1069,6 +1082,7 @@ static int test_chroot_dropin(
                 const char *where,
                 const char *fname,
                 const char *name_or_path,
+                bool unversioned_match,
                 char **ret_marker) {
 
         _cleanup_free_ char *line = NULL, *marker = NULL;
@@ -1115,7 +1129,7 @@ static int test_chroot_dropin(
         if (!name_or_path)
                 r = true;
         else
-                r = marker_matches_image(marker, name_or_path);
+                r = marker_matches_image(marker, name_or_path, unversioned_match);
 
         if (ret_marker)
                 *ret_marker = TAKE_PTR(marker);
@@ -1170,7 +1184,7 @@ int portable_detach(
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, &marker);
+                r = test_chroot_dropin(d, where, de->d_name, name_or_path, FLAGS_SET(flags, PORTABLE_REATTACH), &marker);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1185,7 +1199,7 @@ int portable_detach(
                 r = unit_file_is_active(bus, de->d_name, error);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", de->d_name);
 
                 r = set_put_strdup(&unit_files, de->d_name);
@@ -1335,7 +1349,7 @@ static int portable_get_state_internal(
                 if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, NULL);
+                r = test_chroot_dropin(d, where, de->d_name, name_or_path, false, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
