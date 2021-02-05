@@ -300,6 +300,11 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
 }
 
 int link_set_nexthop(Link *link) {
+        enum {
+                PHASE_ID,         /* First phase: Nexthops with ID */
+                PHASE_WITHOUT_ID, /* Second phase: Nexthops without ID */
+                _PHASE_MAX,
+        } phase;
         NextHop *nh;
         int r;
 
@@ -313,13 +318,17 @@ int link_set_nexthop(Link *link) {
 
         link->static_nexthops_configured = false;
 
-        HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
-                r = nexthop_configure(nh, link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set nexthop: %m");
+        for (phase = PHASE_ID; phase < _PHASE_MAX; phase++)
+                HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
+                        if ((nh->id > 0) != (phase == PHASE_ID))
+                                continue;
 
-                link->nexthop_messages++;
-        }
+                        r = nexthop_configure(nh, link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not set nexthop: %m");
+
+                        link->nexthop_messages++;
+                }
 
         if (link->nexthop_messages == 0) {
                 link->static_nexthops_configured = true;
