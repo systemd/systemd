@@ -37,6 +37,7 @@ test_append_files() {
         mkdir $1/systemd-test-module
         cp systemd_test.te $1/systemd-test-module
         cp systemd_test.if $1/systemd-test-module
+        cp systemd_test.fc $1/systemd-test-module
         dracut_install -o sesearch
         dracut_install runcon
         dracut_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
