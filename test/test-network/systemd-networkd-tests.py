@@ -2817,6 +2817,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
         self.assertIn('id 3 dev veth99', output)
         self.assertIn('id 4 dev veth99', output)
+        self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
 
         output = check_output('ip route show dev veth99 10.10.10.10')
         print(output)

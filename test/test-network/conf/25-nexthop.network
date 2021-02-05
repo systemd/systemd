@@ -23,6 +23,9 @@ Family=ipv6
 Id=4
 Family=ipv4
 
+[NextHop]
+Gateway=192.168.5.2
+
 [Route]
 NextHopId=1
 Destination=10.10.10.10
