@@ -71,7 +71,7 @@ static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDis
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         t = json_variant_integer(variant);
-        if (t <= 0 || t > INT_MAX)
+        if (t > INT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is out of bounds for an interface index.", strna(name));
 
         *ifi = (int) t;
