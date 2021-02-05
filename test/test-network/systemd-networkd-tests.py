@@ -2809,6 +2809,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_nexthop(self):
         copy_unit_to_networkd_unit_path('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network')
         start_networkd()
+
+        time.sleep(5)
+        call('ip nexthop add dev veth99 id 777 via 192.168.5.3')
+
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         output = check_output('ip nexthop list dev veth99')
