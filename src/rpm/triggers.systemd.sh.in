@@ -28,7 +28,7 @@ if test -d "/run/systemd/system"; then
   %{_bindir}/systemctl daemon-reload || :
 fi
 
-%transfiletriggerin -P 100700 -- @sysusersdir@
+%transfiletriggerin -P 1000700 -- @sysusersdir@
 # This script will process files installed in @sysusersdir@ to create
 # specified users automatically. The priority is set such that it
 # will run before the tmpfiles file trigger.
@@ -36,7 +36,30 @@ if test -d "/run/systemd/system"; then
   %{_bindir}/systemd-sysusers || :
 fi
 
-%transfiletriggerin -P 100500 -- @tmpfilesdir@
+%transfiletriggerin -P 1000700 udev -- @udevhwdbdir@
+# This script will automatically invoke hwdb update if files have been
+# installed or updated in @udevhwdbdir@.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemd-hwdb update || :
+fi
+
+%transfiletriggerin -P 1000700 -- @catalogdir@
+# This script will automatically invoke journal catalog update if files
+# have been installed or updated in @catalogdir@.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/journalctl --update-catalog || :
+fi
+
+%transfiletriggerin -P 1000700 -- @binfmtdir@
+# This script will automatically apply binfmt rules if files have been
+# installed or updated in @binfmtdir@.
+if test -d "/run/systemd/system"; then
+  # systemd-binfmt might fail if binfmt_misc kernel module is not loaded
+  # during install
+  @rootlibexecdir@/systemd-binfmt || :
+fi
+
+%transfiletriggerin -P 1000600 -- @tmpfilesdir@
 # This script will process files installed in @tmpfilesdir@ to create
 # tmpfiles automatically. The priority is set such that it will run
 # after the sysusers file trigger, but before any other triggers.
@@ -44,39 +67,16 @@ if test -d "/run/systemd/system"; then
   %{_bindir}/systemd-tmpfiles --create || :
 fi
 
-%transfiletriggerin udev -- @udevhwdbdir@
-# This script will automatically invoke hwdb update if files have been
-# installed or updated in @udevhwdbdir@.
-if test -d "/run/systemd/system"; then
-  %{_bindir}/systemd-hwdb update || :
-fi
-
-%transfiletriggerin -- @catalogdir@
-# This script will automatically invoke journal catalog update if files
-# have been installed or updated in @catalogdir@.
-if test -d "/run/systemd/system"; then
-  %{_bindir}/journalctl --update-catalog || :
-fi
-
-%transfiletriggerin udev -- @udevrulesdir@
+%transfiletriggerin -P 1000600 udev -- @udevrulesdir@
 # This script will automatically update udev with new rules if files
 # have been installed or updated in @udevrulesdir@.
 if test -e /run/udev/control; then
   %{_bindir}/udevadm control --reload || :
 fi
 
-%transfiletriggerin -- @sysctldir@
+%transfiletriggerin -P 1000500 -- @sysctldir@
 # This script will automatically apply sysctl rules if files have been
 # installed or updated in @sysctldir@.
 if test -d "/run/systemd/system"; then
   @rootlibexecdir@/systemd-sysctl || :
-fi
-
-%transfiletriggerin -- @binfmtdir@
-# This script will automatically apply binfmt rules if files have been
-# installed or updated in @binfmtdir@.
-if test -d "/run/systemd/system"; then
-  # systemd-binfmt might fail if binfmt_misc kernel module is not loaded
-  # during install
-  @rootlibexecdir@/systemd-binfmt || :
 fi
