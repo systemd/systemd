@@ -861,6 +861,8 @@ void manager_free(Manager *m) {
         HASHMAP_FOREACH(link, m->links)
                 (void) link_stop_engines(link, true);
 
+        manager_route_queue_free(m);
+
         m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
         m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);
 
