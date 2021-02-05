@@ -861,6 +861,8 @@ void manager_free(Manager *m) {
         HASHMAP_FOREACH(link, m->links)
                 (void) link_stop_engines(link, true);
 
+        manager_route_queue_free(m);
+
         m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
         m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);
 
@@ -881,6 +883,8 @@ void manager_free(Manager *m) {
          * So, it is necessary to set NULL after the sets are freed. */
         m->rules = set_free(m->rules);
         m->rules_foreign = set_free(m->rules_foreign);
+
+        m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);

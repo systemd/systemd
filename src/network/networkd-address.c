@@ -11,6 +11,7 @@
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-nexthop.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -935,7 +936,7 @@ static int static_address_ready_callback(Address *address) {
 
         link->addresses_ready = true;
 
-        return link_set_routes(link);
+        return link_set_nexthop(link);
 }
 
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1059,7 +1060,7 @@ int link_set_addresses(Link *link) {
         if (link->address_messages == 0) {
                 link->addresses_configured = true;
                 link->addresses_ready = true;
-                r = link_set_routes(link);
+                r = link_set_nexthop(link);
                 if (r < 0)
                         return r;
         } else {
