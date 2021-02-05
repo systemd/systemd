@@ -11,7 +11,7 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-02-03 18:40+0000\n"
+"PO-Revision-Date: 2021-02-05 20:40+0000\n"
 "Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "master/sv/>\n"
@@ -804,56 +804,48 @@ msgstr "Autentisering krävs för att inspektera en portabel tjänsteavbild."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Koppla in eller koppla ifrån en portabel tjänsteavbild"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-#, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr "Autentisering krävs för att binda en enhet till en plats."
+msgstr ""
+"Autentisering krävs för att koppla in eller koppla ifrån en portabel "
+"tjänsteavbild."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Radera eller modifiera en portabel tjänsteavbild"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-#, fuzzy
-#| msgid "Authentication is required to download a VM or container image"
 msgid ""
 "Authentication is required to delete or modify a portable service image."
-msgstr "Autentisering krävs för att hämta ner en VM eller behållaravbildning"
+msgstr ""
+"Autentisering krävs för att radera eller modifiera en portabel tjänsteavbild."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
 msgstr "Registrera en DNS-SD-tjänst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to register a DNS-SD service"
-msgstr "Autentisering krävs för att ställa in ett väggmeddelande"
+msgstr "Autentisering krävs för att registrera en DNS-SD-tjänst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
 msgstr "Avregistrera en DNS-SD-tjänst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr "Autentisering krävs för att ställa in ett väggmeddelande"
+msgstr "Autentisering krävs för att avregistrera en DNS-SD-tjänst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Återställ namnuppslagningsinställningar"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
-#, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset name resolution settings."
-msgstr ""
-"Autentisering krävs för att ställa in systeminställningar för tangentbord."
+msgstr "Autentisering krävs för att återställa namnuppslagningsinställningar."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -914,12 +906,12 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
 #: src/core/dbus-unit.c:535
-#, fuzzy
-#| msgid "Authentication is required to set properties on '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
-msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
+msgstr ""
+"Autentisering krävs för att skicka en UNIX-signal till processerna i "
+"”$(unit)”."
 
 #: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -932,25 +924,18 @@ msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
 #: src/core/dbus-unit.c:708
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
-"Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
-"\"$(unit)\"."
+"Autentisering krävs för att radera filer och kataloger associerade med "
+"”$(unit)”."
 
 #: src/core/dbus-unit.c:757
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
-"Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
-"\"$(unit)\"."
+"Autentisering krävs för att frysa eller töa processerna i enheten ”$(unit)”."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "
