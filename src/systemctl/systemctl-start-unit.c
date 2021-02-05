@@ -36,9 +36,7 @@ static const struct {
 };
 
 static const char *verb_to_method(const char *verb) {
-       size_t i;
-
-       for (i = 0; i < ELEMENTSOF(unit_actions); i++)
+       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
                 if (streq_ptr(unit_actions[i].verb, verb))
                         return unit_actions[i].method;
 
@@ -46,9 +44,7 @@ static const char *verb_to_method(const char *verb) {
 }
 
 static const char *verb_to_job_type(const char *verb) {
-       size_t i;
-
-       for (i = 0; i < ELEMENTSOF(unit_actions); i++)
+       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
                 if (streq_ptr(unit_actions[i].verb, verb))
                         return unit_actions[i].job_type;
 
@@ -200,9 +196,7 @@ const struct action_metadata action_table[_ACTION_MAX] = {
 };
 
 enum action verb_to_action(const char *verb) {
-        enum action i;
-
-        for (i = 0; i < _ACTION_MAX; i++)
+        for (enum action i = 0; i < _ACTION_MAX; i++)
                 if (streq_ptr(action_table[i].verb, verb))
                         return i;
 
