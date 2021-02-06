@@ -1807,14 +1807,17 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_restart_needing_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int method_reload_restart_needing(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+        bool reload;
         int r;
 
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "start", error);
+        reload = sd_bus_message_is_method_call(message, NULL, "ReloadNeedingReload");
+
+        r = mac_selinux_access_check(message, reload ? "reload" : "start", error);
         if (r < 0)
                 return r;
 
@@ -1824,7 +1827,7 @@ static int method_restart_needing_restart(sd_bus_message *message, void *userdat
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        log_debug("Queuing restart jobs…");
+        log_debug("Queuing %s jobs…", reload ? "reload" : "restart");
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = sd_bus_message_new_method_return(message, &reply);
@@ -1842,17 +1845,19 @@ static int method_restart_needing_restart(sd_bus_message *message, void *userdat
                 if (u->id != k)
                         continue;
 
-                if (!u->needs_restart)
+                bool c = reload ? u->needs_reload : u->needs_restart;
+                if (!c)
                         continue;
 
+                JobType type = reload ? JOB_TRY_RELOAD : JOB_TRY_RESTART;
                 r = mac_selinux_unit_access_check(
                                 u, message,
-                                job_type_to_access_method(JOB_TRY_RESTART),
+                                job_type_to_access_method(type),
                                 error);
                 if (r < 0)
                         return r;
 
-                r = bus_unit_queue_job_one(message, u, JOB_TRY_RESTART, JOB_FAIL, 0, reply, error);
+                r = bus_unit_queue_job_one(message, u, type, JOB_FAIL, 0, reply, error);
                 if (r < 0)
                         return r;
         }
@@ -3068,7 +3073,13 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  NULL,,
                                  "ao",
                                  SD_BUS_PARAM(jobs),
-                                 method_restart_needing_restart,
+                                 method_reload_restart_needing,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ReloadNeedingReload",
+                                 NULL,,
+                                 "ao",
+                                 SD_BUS_PARAM(jobs),
+                                 method_reload_restart_needing,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ListUnitFiles",
                                  NULL,,
