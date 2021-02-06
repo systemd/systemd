@@ -296,7 +296,7 @@ static int systemctl_help(void) {
                "                         'us+utc': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC\n"
                "     --read-only         Create read-only bind mount\n"
                "     --mkdir             Create directory before mounting, if missing\n"
-               "     --needing           Restart units with NeedsRestart set\n"
+               "     --needing           Restart/reload units with NeedsRestart/NeedsReload set\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -931,14 +931,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--wait may not be combined with --no-block.");
 
-        bool do_restart = streq_ptr(argv[optind], "restart");
+        bool do_restart_or_reload = STRPTR_IN_SET(argv[optind], "restart", "reload");
         if (arg_needing) {
-                if (!do_restart)
+                if (!do_restart_or_reload)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--needing may only be used with 'restart'.");
+                                               "--needing may only be used with 'restart' or 'reload'.");
                 if (optind + 1 < argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "No additional arguments allowed with 'restart --needing'.");
+                                               "No additional arguments allowed with 'restart/reload --needing'.");
                 if (arg_wait)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--needing --wait is not supported.");
@@ -946,10 +946,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--needing --show-transaction is not supported.");
 
-        } else if (do_restart) {
+        } else if (do_restart_or_reload) {
                 if (optind + 1 >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "List of units to restart is required.");
+                                               "List of units to restart/reload is required.");
         }
 
         return 1;
@@ -1032,7 +1032,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "reload",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "restart",               VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
                 { "reload-or-restart",     2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
