@@ -108,6 +108,7 @@ char **arg_clean_what = NULL;
 TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
 bool arg_read_only = false;
 bool arg_mkdir = false;
+JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -282,6 +283,8 @@ static int systemctl_help(void) {
                "                             short-iso, short-iso-precise, short-full,\n"
                "                             short-monotonic, short-unix,\n"
                "                             verbose, export, json, json-pretty, json-sse, cat)\n"
+               "     --json=MODE         Output as JSON\n"
+               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "     --firmware-setup    Tell the firmware to show the setup menu on next boot\n"
                "     --boot-loader-menu=TIME\n"
                "                         Boot into boot loader menu on next boot\n"
@@ -413,6 +416,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_TIMESTAMP_STYLE,
                 ARG_READ_ONLY,
                 ARG_MKDIR,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -471,6 +475,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "timestamp",           required_argument, NULL, ARG_TIMESTAMP_STYLE     },
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
+                { "json",                required_argument, NULL, ARG_JSON                },
                 {}
         };
 
@@ -482,7 +487,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ht:p:P:alqfs:H:M:n:o:iTr.::j", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -898,6 +903,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_MKDIR:
                         arg_mkdir = true;
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_JSON:
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '.':
