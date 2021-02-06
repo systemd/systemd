@@ -1687,6 +1687,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b NeedDaemonReload = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b NeedsRestart = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b NeedsReload = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t JobTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1973,6 +1975,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="NeedsRestart"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="NeedsReload"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="JobTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="JobRunningTimeoutUSec"/>
@@ -2172,6 +2176,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       scripts may use this to mark units for later restart when a new version of the package is installed.
       This property is not set by the manager, except to reset to <constant>false</constant> when the unit is
       stopped or restarted.</para>
+
+      <para><varname>NeedsReload</varname> is a boolean that can be set using
+      <function>SetUnitProperties()</function> to indicate that the service should be reload. Configuration
+      management scripts may use this to mark units for later reload when the configuration is adjusted.
+      This property is not set by the manager, except to reset to <constant>false</constant> when the unit is
+      stopped, restarted, or reloaded.</para>
 
       <para><varname>JobTimeoutUSec</varname> maps directly to the corresponding configuration setting in the
       unit file.</para>
