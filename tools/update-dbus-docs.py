@@ -31,6 +31,10 @@ BORING_INTERFACES = [
     'org.freedesktop.DBus.Introspectable',
     'org.freedesktop.DBus.Properties',
 ]
+RED = '\x1b[31m'
+GREEN = '\x1b[32m'
+YELLOW = '\x1b[33m'
+RESET = '\x1b[39m'
 
 def xml_parser():
     return etree.XMLParser(no_network=True,
@@ -327,7 +331,8 @@ if __name__ == '__main__':
         c = classification if info['modified'] else ''
         if c:
             modified.append(page)
-        print(f'{p:{mlen + 1}} {t - m}/{t} {c}')
+        color = RED if m > t/2 else (YELLOW if m else GREEN)
+        print(f'{color}{p:{mlen + 1}} {t - m}/{t} {c}{RESET}')
 
     if opts.test and modified:
         exit(f'Outdated pages: {", ".join(modified)}\n'
