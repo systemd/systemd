@@ -7,7 +7,7 @@
 #include "install.h"
 #include "load-fragment.h"
 #include "string-util.h"
-#include "unit.h"
+#include "unit-serialize.h"
 #include "utf8.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
