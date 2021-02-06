@@ -80,6 +80,7 @@
 #include "transaction.h"
 #include "umask-util.h"
 #include "unit-name.h"
+#include "unit-serialize.h"
 #include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
