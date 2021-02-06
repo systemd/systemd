@@ -177,6 +177,7 @@ node /org/freedesktop/systemd1 {
       UnsetAndSetEnvironment(in  as names,
                              in  as assignments);
       RestartNeedingRestart(out ao jobs);
+      ReloadNeedingReload(out ao jobs);
       ListUnitFiles(out a(ss) unit_files);
       ListUnitFilesByPatterns(in  as states,
                               in  as patterns,
@@ -851,6 +852,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="RestartNeedingRestart()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="ReloadNeedingReload()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFilesByPatterns()"/>
@@ -1176,6 +1179,9 @@ node /org/freedesktop/systemd1 {
 
       <para><function>RestartNeedingRestart()</function> calls <function>TryRestartUnit()</function> for any
       units which have the <varname>NeedsRestart</varname> property set to true.</para>
+
+      <para><function>ReloadNeedingReload()</function> calls <function>ReloadOrTryRestartUnit()</function>
+      for any units which have the <varname>NeedsReload</varname> property set to true.</para>
 
       <para><function>BindMountUnit()</function> can be used to bind mount new files or directories into
       a running service mount namespace.</para>
