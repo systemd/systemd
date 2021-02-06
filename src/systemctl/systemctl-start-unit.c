@@ -176,23 +176,27 @@ fail:
         return r;
 }
 
-static int restart_needing(
+static int restart_reload_needing(
                 sd_bus *bus,
+                const char *method,
                 BusWaitForJobs *w) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        log_debug("%s dbus call org.freedesktop.systemd1.Manager RestartNeedingRestart()",
-                  arg_dry_run ? "Would execute" : "Executing");
+        log_debug("%s dbus call org.freedesktop.systemd1.Manager %s()",
+                  arg_dry_run ? "Would execute" : "Executing",
+                  method);
 
         if (arg_dry_run)
                 return 0;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "RestartNeedingRestart", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, method, &error, &reply, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to restart units: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to %s units: %s",
+                                       streq(method, "RestartNeedingRestart") ? "restart" : "reload",
+                                       bus_error_message(&error, r));
 
         _cleanup_strv_free_ char **paths = NULL;
         r = sd_bus_message_read_strv(reply, &paths);
@@ -303,9 +307,9 @@ int start_unit(int argc, char *argv[], void *userdata) {
                                 mode = "isolate";
                                 suffix = ".target";
                         } else if (arg_needing) {
-                                /* systemctl restart --needing */
-                                assert(streq(argv[0], "restart"));
-                                method = "RestartNeedingRestart";
+                                /* systemctl restart/reload --needing */
+                                assert(STR_IN_SET(argv[0], "restart", "reload"));
+                                method = streq(argv[0], "restart") ? "RestartNeedingRestart" : "ReloadNeedingReload";
                         } else {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
@@ -364,7 +368,7 @@ int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_needing)
-                ret = restart_needing(bus, w);
+                ret = restart_reload_needing(bus, method, w);
 
         else
                 STRV_FOREACH(name, names) {
