@@ -1839,6 +1839,26 @@ static int bus_unit_set_live_property(
                 return 1;
         }
 
+        /* Two boolean settings that only apply to active units. We don't actually write those to /run, this
+         * state is managed internally. */
+
+        if (STR_IN_SET(name, "NeedsRestart", "NeedsReload")) {
+                bool b;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (streq(name, "NeedsRestart"))
+                                SET_FLAG(u->state_flags, UNIT_STATE_NEEDS_RESTART, b);
+                        else
+                                SET_FLAG(u->state_flags, UNIT_STATE_NEEDS_RELOAD, b);
+                }
+
+                return 1;
+        }
+
         return 0;
 }
 
