@@ -115,6 +115,8 @@ libcore_sources = '''
         transaction.h
         unit-printf.c
         unit-printf.h
+        unit-serialize.c
+        unit-serialize.h
         unit.c
         unit.h
 '''.split()
