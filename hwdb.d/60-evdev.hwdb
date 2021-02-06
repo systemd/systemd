@@ -44,8 +44,8 @@
 
 # Acecad Flair / Pentagram Quadpen
 evdev:input:b0003v0460p0004*
- EVDEV_ABS_00=::20
- EVDEV_ABS_01=::20
+ EVDEV_ABS_00=::40
+ EVDEV_ABS_01=::40
 
 #########################################
 # AIPTEK
