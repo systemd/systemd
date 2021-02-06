@@ -289,7 +289,7 @@ def process(page):
         with open(page, 'w') as out:
             out.write(out_text)
 
-    return dict(stats=stats, outdated=(out_text != src))
+    return dict(stats=stats, modified=(out_text != src))
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -317,17 +317,18 @@ if __name__ == '__main__':
     # Let's print all statistics at the end
     mlen = max(len(page) for page in stats)
     total = sum((item['stats'] for item in stats.values()), collections.Counter())
-    total = 'total', dict(stats=total, outdated=False)
-    outdated = []
+    total = 'total', dict(stats=total, modified=False)
+    modified = []
+    classification = 'OUTDATED' if opts.test else 'MODIFIED'
     for page, info in sorted(stats.items()) + [total]:
         m = info['stats']['missing']
         t = info['stats']['total']
         p = page + ':'
-        c = 'OUTDATED' if info['outdated'] else ''
+        c = classification if info['modified'] else ''
         if c:
-            outdated.append(page)
+            modified.append(page)
         print(f'{p:{mlen + 1}} {t - m}/{t} {c}')
 
-    if opts.test and outdated:
-        exit(f'Outdated pages: {", ".join(outdated)}\n'
+    if opts.test and modified:
+        exit(f'Outdated pages: {", ".join(modified)}\n'
              f'Hint: ninja -C {opts.build_dir} update-dbus-docs')
