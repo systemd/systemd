@@ -346,8 +346,9 @@ typedef struct Unit {
         /* Is this a unit that is always running and cannot be stopped? */
         bool perpetual;
 
-        /* The unit has been marked for restart */
+        /* The unit has been marked for restart or reload */
         bool needs_restart;
+        bool needs_reload;
 
         /* Booleans indicating membership of this unit in the various queues */
         bool in_load_queue:1;
