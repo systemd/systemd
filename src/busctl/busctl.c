@@ -1177,7 +1177,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         int r;
         usec_t ts;
 
-        r = json_transform_message(m, &v);
+        r = json_transform_message(m, JSON_TRANSFORM_TYPE_DATA, &v);
         if (r < 0)
                 return r;
 
@@ -1707,7 +1707,7 @@ static int call(int argc, char **argv, void *userdata) {
                         if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                                 (void) pager_open(arg_pager_flags);
 
-                        r = json_transform_message(reply, &v);
+                        r = json_transform_message(reply, JSON_TRANSFORM_TYPE_DATA, &v);
                         if (r < 0)
                                 return r;
 
@@ -1816,7 +1816,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                         if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                                 (void) pager_open(arg_pager_flags);
 
-                        r = json_transform_variant(reply, contents, &v);
+                        r = json_transform_variant(reply, contents, JSON_TRANSFORM_TYPE_DATA, &v);
                         if (r < 0)
                                 return r;
 
