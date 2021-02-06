@@ -9,6 +9,7 @@
 #include "netlink-util.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
@@ -903,6 +904,7 @@ int address_configure(
 static int static_address_ready_callback(Address *address) {
         Address *a;
         Link *link;
+        int r;
 
         assert(address);
         assert(address->link);
@@ -926,6 +928,10 @@ static int static_address_ready_callback(Address *address) {
                 a->callback = NULL;
 
         link->addresses_ready = true;
+
+        r = link_set_ipv6_proxy_ndp_addresses(link);
+        if (r < 0)
+                return r;
 
         return link_set_routes(link);
 }
@@ -1046,6 +1052,11 @@ int link_set_addresses(Link *link) {
         if (link->address_messages == 0) {
                 link->addresses_configured = true;
                 link->addresses_ready = true;
+
+                r = link_set_ipv6_proxy_ndp_addresses(link);
+                if (r < 0)
+                        return r;
+
                 r = link_set_routes(link);
                 if (r < 0)
                         return r;

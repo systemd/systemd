@@ -28,7 +28,6 @@
 #include "networkd-dhcp6.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
-#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
@@ -2067,10 +2066,6 @@ int link_configure(Link *link) {
                 return link_configure_can(link);
 
         r = link_set_sysctl(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
 
