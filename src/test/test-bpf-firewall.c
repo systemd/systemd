@@ -12,7 +12,7 @@
 #include "rm-rf.h"
 #include "service.h"
 #include "tests.h"
-#include "unit.h"
+#include "unit-serialize.h"
 #include "virt.h"
 
 int main(int argc, char *argv[]) {

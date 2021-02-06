@@ -176,6 +176,8 @@ node /org/freedesktop/systemd1 {
       UnsetEnvironment(in  as names);
       UnsetAndSetEnvironment(in  as names,
                              in  as assignments);
+      RestartNeedingRestart(out ao jobs);
+      ReloadNeedingReload(out ao jobs);
       ListUnitFiles(out a(ss) unit_files);
       ListUnitFilesByPatterns(in  as states,
                               in  as patterns,
@@ -848,6 +850,10 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnsetAndSetEnvironment()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="RestartNeedingRestart()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReloadNeedingReload()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFilesByPatterns()"/>
@@ -1170,6 +1176,12 @@ node /org/freedesktop/systemd1 {
       running and fails otherwise. If a service is restarted that isn't running, it will be started unless
       the "Try" flavor is used in which case a service that isn't running is not affected by the restart. The
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
+
+      <para><function>RestartNeedingRestart()</function> calls <function>TryRestartUnit()</function> for any
+      units which have the <varname>NeedsRestart</varname> property set to true.</para>
+
+      <para><function>ReloadNeedingReload()</function> calls <function>ReloadOrTryRestartUnit()</function>
+      for any units which have the <varname>NeedsReload</varname> property set to true.</para>
 
       <para><function>BindMountUnit()</function> can be used to bind mount new files or directories into
       a running service mount namespace.</para>
@@ -1685,6 +1697,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b IgnoreOnIsolate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b NeedDaemonReload = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b NeedsRestart = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b NeedsReload = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t JobTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1969,6 +1985,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="NeedDaemonReload"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="NeedsRestart"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NeedsReload"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="JobTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="JobRunningTimeoutUSec"/>
@@ -2160,8 +2180,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>NeedDaemonReload</varname> is a boolean that indicates whether the configuration file
       this unit is loaded from (i.e. <varname>FragmentPath</varname> or <varname>SourcePath</varname>) has
-      changed since the configuration was read and hence whether a configuration reload is
-      recommended.</para>
+      changed since the configuration was read and hence whether a configuration reload is recommended.
+      </para>
+
+      <para><varname>NeedsRestart</varname> is a boolean that can be set using
+      <function>SetUnitProperties()</function> to indicate that the service should be restarted. Package
+      scripts may use this to mark units for later restart when a new version of the package is installed.
+      This property is not set by the manager, except to reset to <constant>false</constant> when the unit is
+      stopped or restarted.</para>
+
+      <para><varname>NeedsReload</varname> is a boolean that can be set using
+      <function>SetUnitProperties()</function> to indicate that the service should be reload. Configuration
+      management scripts may use this to mark units for later reload when the configuration is adjusted.
+      This property is not set by the manager, except to reset to <constant>false</constant> when the unit is
+      stopped, restarted, or reloaded.</para>
 
       <para><varname>JobTimeoutUSec</varname> maps directly to the corresponding configuration setting in the
       unit file.</para>

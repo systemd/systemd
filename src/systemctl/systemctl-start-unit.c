@@ -36,9 +36,7 @@ static const struct {
 };
 
 static const char *verb_to_method(const char *verb) {
-       size_t i;
-
-       for (i = 0; i < ELEMENTSOF(unit_actions); i++)
+       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
                 if (streq_ptr(unit_actions[i].verb, verb))
                         return unit_actions[i].method;
 
@@ -46,9 +44,7 @@ static const char *verb_to_method(const char *verb) {
 }
 
 static const char *verb_to_job_type(const char *verb) {
-       size_t i;
-
-       for (i = 0; i < ELEMENTSOF(unit_actions); i++)
+       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
                 if (streq_ptr(unit_actions[i].verb, verb))
                         return unit_actions[i].job_type;
 
@@ -180,6 +176,47 @@ fail:
         return r;
 }
 
+static int restart_reload_needing(
+                sd_bus *bus,
+                const char *method,
+                BusWaitForJobs *w) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        log_debug("%s dbus call org.freedesktop.systemd1.Manager %s()",
+                  arg_dry_run ? "Would execute" : "Executing",
+                  method);
+
+        if (arg_dry_run)
+                return 0;
+
+        r = bus_call_method(bus, bus_systemd_mgr, method, &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to %s units: %s",
+                                       streq(method, "RestartNeedingRestart") ? "restart" : "reload",
+                                       bus_error_message(&error, r));
+
+        _cleanup_strv_free_ char **paths = NULL;
+        r = sd_bus_message_read_strv(reply, &paths);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (w) {
+                char **path;
+
+                STRV_FOREACH(path, paths) {
+                        log_debug("Adding %s to the set", *path);
+                        r = bus_wait_for_jobs_add(w, *path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to watch job %s: %m", *path);
+                }
+        }
+
+        return 0;
+}
+
 const struct action_metadata action_table[_ACTION_MAX] = {
         [ACTION_HALT]                   = { SPECIAL_HALT_TARGET,                   "halt",                   "replace-irreversibly" },
         [ACTION_POWEROFF]               = { SPECIAL_POWEROFF_TARGET,               "poweroff",               "replace-irreversibly" },
@@ -200,9 +237,7 @@ const struct action_metadata action_table[_ACTION_MAX] = {
 };
 
 enum action verb_to_action(const char *verb) {
-        enum action i;
-
-        for (i = 0; i < _ACTION_MAX; i++)
+        for (enum action i = 0; i < _ACTION_MAX; i++)
                 if (streq_ptr(action_table[i].verb, verb))
                         return i;
 
@@ -271,6 +306,10 @@ int start_unit(int argc, char *argv[], void *userdata) {
                                 job_type = "start";
                                 mode = "isolate";
                                 suffix = ".target";
+                        } else if (arg_needing) {
+                                /* systemctl restart/reload --needing */
+                                assert(STR_IN_SET(argv[0], "restart", "reload"));
+                                method = streq(argv[0], "restart") ? "RestartNeedingRestart" : "ReloadNeedingReload";
                         } else {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
@@ -295,7 +334,7 @@ int start_unit(int argc, char *argv[], void *userdata) {
                 names = strv_new(one_name);
                 if (!names)
                         return log_oom();
-        } else {
+        } else if (!arg_needing) {
                 bool expanded;
 
                 r = expand_unit_names(bus, strv_skip(argv, 1), suffix, &names, &expanded);
@@ -328,19 +367,23 @@ int start_unit(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to allocate unit watch context: %m");
         }
 
-        STRV_FOREACH(name, names) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        if (arg_needing)
+                ret = restart_reload_needing(bus, method, w);
 
-                r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
-                if (ret == EXIT_SUCCESS && r < 0)
-                        ret = translate_bus_error_to_exit_status(r, &error);
+        else
+                STRV_FOREACH(name, names) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                if (r >= 0 && streq(method, "StopUnit")) {
-                        r = strv_push(&stopped_units, *name);
-                        if (r < 0)
-                                return log_oom();
+                        r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
+                        if (ret == EXIT_SUCCESS && r < 0)
+                                ret = translate_bus_error_to_exit_status(r, &error);
+
+                        if (r >= 0 && streq(method, "StopUnit")) {
+                                r = strv_push(&stopped_units, *name);
+                                if (r < 0)
+                                        return log_oom();
+                        }
                 }
-        }
 
         if (!arg_no_block) {
                 const char* extra_args[4];

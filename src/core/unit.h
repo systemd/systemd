@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
@@ -343,6 +345,10 @@ typedef struct Unit {
 
         /* Is this a unit that is always running and cannot be stopped? */
         bool perpetual;
+
+        /* The unit has been marked for restart or reload */
+        bool needs_restart;
+        bool needs_reload;
 
         /* Booleans indicating membership of this unit in the various queues */
         bool in_load_queue:1;
@@ -721,8 +727,6 @@ int unit_freezer_state_kernel(Unit *u, FreezerState *ret);
 
 const char* unit_sub_state_to_string(Unit *u);
 
-void unit_dump(Unit *u, FILE *f, const char *prefix);
-
 bool unit_can_reload(Unit *u) _pure_;
 bool unit_can_start(Unit *u) _pure_;
 bool unit_can_stop(Unit *u) _pure_;
@@ -763,10 +767,6 @@ char *unit_dbus_path_invocation_id(Unit *u);
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
 bool unit_can_serialize(Unit *u) _pure_;
-
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
-int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
-int unit_deserialize_skip(FILE *f);
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
 int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask);
@@ -847,6 +847,7 @@ void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
 void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
+int unit_set_invocation_id(Unit *u, sd_id128_t id);
 int unit_acquire_invocation_id(Unit *u);
 
 bool unit_shall_confirm_spawn(Unit *u);

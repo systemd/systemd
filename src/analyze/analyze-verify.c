@@ -13,6 +13,7 @@
 #include "path-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "unit-serialize.h"
 
 static int prepare_filename(const char *filename, char **ret) {
         int r;
