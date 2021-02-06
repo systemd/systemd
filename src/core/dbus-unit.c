@@ -1872,6 +1872,63 @@ static int bus_unit_set_live_property(
                 return 1;
         }
 
+        /* A setting that only applies to active units. We don't actually write this to /run, this state is
+         * managed internally. "+foo" sets flag foo, "-foo" unsets flag foo, just "foo" resets flags to
+         * foo. The last type cannot be mixed with "+" or "-". */
+
+        if (streq(name, "Markers")) {
+                unsigned settings = 0, mask = 0;
+                bool some_plus_minus = false, some_absolute = false;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *word;
+                        bool b;
+
+                        r = sd_bus_message_read(message, "s", &word);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (IN_SET(word[0], '+', '-')) {
+                                b = word[0] == '+';
+                                word++;
+                                some_plus_minus = true;
+                        } else {
+                                b = true;
+                                some_absolute = true;
+                        }
+
+                        UnitMarker m = unit_marker_from_string(word);
+                        if (m < 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                         "Unknown marker \"%s\".", word);
+
+                        SET_FLAG(settings, 1u << m, b);
+                        SET_FLAG(mask, 1u << m, true);
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (some_plus_minus && some_absolute)
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING, "Bad marker syntax.");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (some_absolute)
+                                u->markers = settings;
+                        else
+                                u->markers = settings | (u->markers & ~mask);
+                }
+
+                return 1;
+        }
+
         return 0;
 }
 
