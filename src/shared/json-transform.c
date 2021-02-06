@@ -4,9 +4,9 @@
 #include "bus-util.h"
 #include "json-transform.h"
 
-static int json_transform_one(sd_bus_message *m, JsonVariant **ret);
+static int json_transform_one(sd_bus_message *m, JsonTransformFlags transform_flags, JsonVariant **ret);
 
-static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) {
+static int json_transform_array_or_struct(sd_bus_message *m, JsonTransformFlags transform_flags, JsonVariant **ret) {
         size_t n_elements = 0, n_allocated = 0;
         JsonVariant **elements = NULL;
         int r;
@@ -28,7 +28,7 @@ static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) 
                         goto finish;
                 }
 
-                r = json_transform_one(m, elements + n_elements);
+                r = json_transform_one(m, transform_flags, elements + n_elements);
                 if (r < 0)
                         goto finish;
 
@@ -44,7 +44,7 @@ finish:
         return r;
 }
 
-int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant **ret) {
+int json_transform_variant(sd_bus_message *m, const char *contents, JsonTransformFlags transform_flags, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *value = NULL;
         int r;
 
@@ -52,19 +52,25 @@ int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant 
         assert(contents);
         assert(ret);
 
-        r = json_transform_one(m, &value);
+        r = json_transform_one(m, transform_flags, &value);
         if (r < 0)
                 return r;
 
-        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type", JSON_BUILD_STRING(contents)),
-                                              JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(value))));
+
+        if (FLAGS_SET(transform_flags, JSON_TRANSFORM_TYPE_DATA))
+            r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type", JSON_BUILD_STRING(contents)),
+                                                  JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(value))));
+        else
+            r = json_build(ret, JSON_BUILD_VARIANT(value));
+
+
         if (r < 0)
                 return log_oom();
 
         return r;
 }
 
-static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
+static int json_transform_dict_array(sd_bus_message *m, JsonTransformFlags transform_flags, JsonVariant **ret) {
         size_t n_elements = 0, n_allocated = 0;
         JsonVariant **elements = NULL;
         int r;
@@ -101,13 +107,13 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
                         goto finish;
                 }
 
-                r = json_transform_one(m, elements + n_elements);
+                r = json_transform_one(m, transform_flags, elements + n_elements);
                 if (r < 0)
                         goto finish;
 
                 n_elements++;
 
-                r = json_transform_one(m, elements + n_elements);
+                r = json_transform_one(m, transform_flags, elements + n_elements);
                 if (r < 0)
                         goto finish;
 
@@ -129,7 +135,7 @@ finish:
         return r;
 }
 
-static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
+static int json_transform_one(sd_bus_message *m, JsonTransformFlags transform_flags, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         const char *contents;
         char type;
@@ -305,11 +311,11 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
                         return bus_log_parse_error(r);
 
                 if (type == SD_BUS_TYPE_VARIANT)
-                        r = json_transform_variant(m, contents, &v);
+                        r = json_transform_variant(m, contents, transform_flags, &v);
                 else if (type == SD_BUS_TYPE_ARRAY && contents[0] == '{')
-                        r = json_transform_dict_array(m, &v);
+                        r = json_transform_dict_array(m, transform_flags, &v);
                 else
-                        r = json_transform_array_or_struct(m, &v);
+                        r = json_transform_array_or_struct(m, transform_flags, &v);
                 if (r < 0)
                         return r;
 
@@ -327,7 +333,7 @@ static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
         return 0;
 }
 
-int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
+int json_transform_message(sd_bus_message *m, JsonTransformFlags transform_flags, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         const char *type;
         int r;
@@ -337,14 +343,19 @@ int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
 
         assert_se(type = sd_bus_message_get_signature(m, false));
 
-        r = json_transform_array_or_struct(m, &v);
+        r = json_transform_array_or_struct(m, transform_flags, &v);
         if (r < 0)
                 return r;
 
-        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type",  JSON_BUILD_STRING(type)),
-                                              JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(v))));
+        if (FLAGS_SET(transform_flags, JSON_TRANSFORM_TYPE_DATA))
+            r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type",  JSON_BUILD_STRING(type)),
+                                                JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(v))));
+        else
+            r = json_build(ret, JSON_BUILD_VARIANT(v));
+
         if (r < 0)
-                return log_oom();
+            return log_oom();
+
 
         return 0;
 }
