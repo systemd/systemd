@@ -1867,6 +1867,56 @@ static int bus_unit_set_live_property(
                 return 1;
         }
 
+        /* A settings that only apply to active units. We don't actually write this to /run, this state is
+         * managed internally. "+foo" sets flag foo, "-foo" unsets flag foo, just "foo" resets flags to
+         * foo. The last type cannot be mixed with "+" or "-". */
+
+        if (streq(name, "Markers")) {
+                _cleanup_free_ char **s = NULL;
+                char **word;
+                UnitMarker settings = 0, mask = 0;
+                bool some_plus_minus = false, some_absolute = false;
+
+                r = sd_bus_message_read_strv(message, &s);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(word, s) {
+                        bool b;
+                        const char *val;
+
+                        if (IN_SET((*word)[0], '+', '-')) {
+                                b = (*word)[0] == '+';
+                                val = (*word) + 1;
+                                some_plus_minus = true;
+                        } else {
+                                b = true;
+                                val = *word;
+                                some_absolute = true;
+                        }
+
+                        UnitMarker m = unit_marker_from_string(val);
+                        if (m < 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                         "Unknown marker \"%s\".", val);
+
+                        SET_FLAG(settings, m, b);
+                        SET_FLAG(mask, m, true);
+                }
+
+                if (some_plus_minus && some_absolute)
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING, "Bad marker syntax.");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (some_absolute)
+                                u->markers = settings;
+                        else
+                                u->markers = settings | (u->markers & ~mask);
+                }
+
+                return 1;
+        }
+
         return 0;
 }
 
