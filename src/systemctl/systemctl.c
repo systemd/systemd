@@ -973,11 +973,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* Hmm, so some other init system is running, we need to forward this request
                                  * to it. */
 
-                                (void) rlimit_nofile_safe();
-                                execv(TELINIT, argv);
-
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                                       "Couldn't find an alternative telinit implementation to spawn.");
+                                arg_action = ACTION_TELINIT;
+                                return 1;
                         }
 
                 } else if (strstr(program_invocation_short_name, "runlevel")) {
@@ -1141,6 +1138,10 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_RUNLEVEL:
                 r = runlevel_main();
+                break;
+
+        case ACTION_TELINIT:
+                r = exec_telinit(argv);
                 break;
 
         case ACTION_EXIT:
