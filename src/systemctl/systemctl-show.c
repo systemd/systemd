@@ -17,6 +17,8 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "journal-file.h"
+#include "json.h"
+#include "json-transform.h"
 #include "list.h"
 #include "locale-util.h"
 #include "memory-util.h"
@@ -1889,13 +1891,28 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                JsonVariant *inner;
 
-        STRV_FOREACH(pp, arg_properties)
-                if (!set_contains(found_properties, *pp))
-                        log_debug("Property %s does not exist.", *pp);
+                if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        (void) pager_open(arg_pager_flags);
+
+                r = json_transform_message(reply, JSON_TRANSFORM_PLAIN, &v);
+                if (r < 0)
+                        return r;
+
+                /* The transform call returns an array, but we only want the single object in it */
+                inner = json_variant_by_index(v, 0);
+
+                json_variant_dump(inner, arg_json_format_flags, NULL, NULL);
+        } else {
+                r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
+
+                STRV_FOREACH(pp, arg_properties)
+                        if (!set_contains(found_properties, *pp))
+                                log_debug("Property %s does not exist.", *pp);
+        }
 
         return 0;
 }
