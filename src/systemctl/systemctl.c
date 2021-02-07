@@ -970,8 +970,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_action = _ACTION_INVALID;
                                 return telinit_parse_argv(argc, argv);
                         } else {
-                                /* Hmm, so some other init system is running, we need to forward this request to
-                                 * it. For now we simply guess that it is Upstart. */
+                                /* Hmm, so some other init system is running, we need to forward this request
+                                 * to it. */
 
                                 (void) rlimit_nofile_safe();
                                 execv(TELINIT, argv);
