@@ -926,7 +926,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
@@ -987,6 +987,7 @@ static int parse_argv(int argc, char *argv[]) {
         return systemctl_parse_argv(argc, argv);
 }
 
+#ifndef FUZZ_SYSTEMCTL_PARSE_ARGV
 static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
@@ -1090,7 +1091,7 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = parse_argv(argc, argv);
+        r = systemctl_dispatch_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
 
@@ -1167,3 +1168,4 @@ finish:
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+#endif
