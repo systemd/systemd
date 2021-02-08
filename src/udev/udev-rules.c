@@ -1730,7 +1730,8 @@ static int udev_rule_apply_token_to_event(
                 return token->op == OP_MATCH;
         }
         case TK_M_IMPORT_PROGRAM: {
-                char result[UDEV_LINE_SIZE], *line, *pos;
+                _cleanup_strv_free_ char **lines = NULL;
+                char result[UDEV_LINE_SIZE], **line;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
@@ -1744,18 +1745,18 @@ static int udev_rule_apply_token_to_event(
                         return token->op == OP_NOMATCH;
                 }
 
-                for (line = result; !isempty(line); line = pos) {
+                lines = strv_split_newlines(result);
+                if (!lines)
+                        return log_oom();
+
+                STRV_FOREACH(line, lines) {
                         char *key, *value;
 
-                        pos = strchr(line, '\n');
-                        if (pos)
-                                *pos++ = '\0';
-
-                        r = get_property_from_string(line, &key, &value);
+                        r = get_property_from_string(*line, &key, &value);
                         if (r < 0) {
                                 log_rule_debug_errno(dev, rules, r,
                                                      "Failed to parse key and value from '%s', ignoring: %m",
-                                                     line);
+                                                     *line);
                                 continue;
                         }
                         if (r == 0)

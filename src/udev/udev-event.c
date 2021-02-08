@@ -575,19 +575,19 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
                 v = strv_split_newlines(p);
                 if (!v)
-                        return 0;
+                        log_oom_debug();
 
                 STRV_FOREACH(q, v)
                         log_device_debug(spawn->device, "'%s'(%s) '%s'", spawn->cmd,
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-
         if (l == 0)
                 return 0;
 
-        /* Re-enable the event source if we did not encounter EOF */
 reenable:
+        /* Re-enable the event source if we did not encounter EOF */
+
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
         if (r < 0)
                 log_device_error_errno(spawn->device, r,
@@ -661,7 +661,7 @@ static int spawn_wait(Spawn *spawn) {
 
         r = sd_event_new(&e);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(spawn->device, r, "Failed to allocate sd-event object: %m");
 
         if (spawn->timeout_usec > 0) {
                 usec_t usec, age_usec;
@@ -678,7 +678,7 @@ static int spawn_wait(Spawn *spawn) {
                                                       usec + spawn->timeout_warn_usec, USEC_PER_SEC,
                                                       on_spawn_timeout_warning, spawn);
                                 if (r < 0)
-                                        return r;
+                                        return log_device_debug_errno(spawn->device, r, "Failed to create timeout warning event source: %m");
                         }
 
                         spawn->timeout_usec -= age_usec;
@@ -686,35 +686,35 @@ static int spawn_wait(Spawn *spawn) {
                         r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
                                               usec + spawn->timeout_usec, USEC_PER_SEC, on_spawn_timeout, spawn);
                         if (r < 0)
-                                return r;
+                                return log_device_debug_errno(spawn->device, r, "Failed to create timeout event source: %m");
                 }
         }
 
         if (spawn->fd_stdout >= 0) {
                 r = sd_event_add_io(e, &stdout_source, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(spawn->device, r, "Failed to create stdio event source: %m");
                 r = sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(spawn->device, r, "Failed to enable stdio event source: %m");
         }
 
         if (spawn->fd_stderr >= 0) {
                 r = sd_event_add_io(e, &stderr_source, spawn->fd_stderr, EPOLLIN, on_spawn_io, spawn);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(spawn->device, r, "Failed to create stderr event source: %m");
                 r = sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(spawn->device, r, "Failed to enable stderr event source: %m");
         }
 
         r = sd_event_add_child(e, &sigchld_source, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(spawn->device, r, "Failed to create sigchild event source: %m");
         /* SIGCHLD should be processed after IO is complete */
         r = sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(spawn->device, r, "Failed to set priority to sigchild event source: %m");
 
         return sd_event_loop(e);
 }
