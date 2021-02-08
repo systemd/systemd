@@ -861,7 +861,7 @@ static int process_socket(int fd) {
 
         assert(fd >= 0);
 
-        log_setup_service();
+        log_setup();
 
         log_debug("Processing coredump received on stdin...");
 
