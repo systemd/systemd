@@ -1843,6 +1843,100 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestrictFileSystems=</varname></term>
+
+        <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a space-separated
+        list of filesystem names. Any filesystem listed is made accessible to the unit's processes, access to filesystem
+        types not listed is prohibited (allow-listing). If the first character of the list is <literal>~</literal>, the
+        effect is inverted: access to the filesystems listed is prohibited (deny-listing). If the empty string is assigned,
+        access to filesystems is not restricted.</para>
+
+        <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first encountered will take
+        precedence and will dictate the default action (allow access to the filesystem or deny it). Then the next occurrences
+        of this option will add or delete the listed filesystems from the set of the restricted filesystems, depending on its
+        type and the default action.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictFileSystems=ext4 tmpfs
+RestrictFileSystems=ext2 ext4</programlisting>
+        then access to <constant>ext4</constant>, <constant>tmpfs</constant>, and <constant>ext2</constant> is allowed
+        and access to other filesystems is denied.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictFileSystems=ext4 tmpfs
+RestrictFileSystems=~ext4</programlisting>
+        then only access <constant>tmpfs</constant> is allowed.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictFileSystems=~ext4 tmpfs
+RestrictFileSystems=ext4</programlisting>
+        then only access to <constant>tmpfs</constant> is denied.</para>
+
+        <para>As the number of possible filesystems is large, predefined sets of filesystems are provided.  A set
+        starts with <literal>@</literal> character, followed by name of the set.</para>
+
+        <table>
+          <title>Currently predefined filesystem sets</title>
+
+          <tgroup cols='2'>
+            <colspec colname='set' />
+            <colspec colname='description' />
+            <thead>
+              <row>
+                <entry>Set</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>@basic-api</entry>
+                <entry>Basic filesystem API.</entry>
+              </row>
+              <row>
+                <entry>@auxiliary-api</entry>
+                <entry>Auxiliary filesystem API.</entry>
+              </row>
+              <row>
+                <entry>@common-block</entry>
+                <entry>Common block device filesystems.</entry>
+              </row>
+              <row>
+                <entry>@historical-block</entry>
+                <entry>Historical block device filesystems.</entry>
+              </row>
+              <row>
+                <entry>@network</entry>
+                <entry>Well-known network filesystems.</entry>
+              </row>
+              <row>
+                <entry>@privileged-api</entry>
+                <entry>Privileged filesystem API.</entry>
+              </row>
+              <row>
+                <entry>@temporary</entry>
+                <entry>Temporary filesystems: tmpfs, ramfs.</entry>
+              </row>
+              <row>
+                <entry>@known</entry>
+                <entry>All known filesystems defined by the kernel. This list is defined statically in systemd based on a kernel
+                version that was available when this systemd version was released. It will become progressively more
+                out-of-date as the kernel is updated.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>filesystems</command> command to retrieve a list of filesystems defined on the local
+        system.</para>
+
+        <para>Note that this setting might not be supported on some systems (for example if the LSM eBPF hook is
+        not enabled in the underlying kernel or if not using the unified control group hierarchy). In that case this setting
+        has no effect.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RestrictNamespaces=</varname></term>
 
         <listitem><para>Restricts access to Linux namespace functionality for the processes of this unit. For details
