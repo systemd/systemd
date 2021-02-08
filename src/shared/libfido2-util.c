@@ -289,6 +289,18 @@ static int fido2_use_hmac_hash_specific_token(
         log_info("Asking FIDO2 token for authentication.");
 
         r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin and without up first */
+        if (r == FIDO_ERR_UNSUPPORTED_OPTION && has_up) {
+                log_debug("Got FIDO_ERR_UNSUPPORTED_OPTION when setting up=false, retrying with up=omit.");
+
+                r = sym_fido_assert_set_up(a, FIDO_OPT_OMIT);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to reset FIDO2 assertion user presence: %s", sym_fido_strerr(r));
+
+                r = sym_fido_dev_get_assert(d, a, NULL);
+                if (r != FIDO_ERR_UNSUPPORTED_OPTION)
+                        log_debug("Token claimed \"up\" support, but didn't allow us to turn it off. Leaving it reset.");
+        }
         if (r == FIDO_ERR_UP_REQUIRED && up) {
 
                 if (!has_up)
@@ -297,7 +309,7 @@ static int fido2_use_hmac_hash_specific_token(
                 r = sym_fido_assert_set_up(a, FIDO_OPT_TRUE);
                 if (r != FIDO_OK)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion user presence: %s", sym_fido_strerr(r));
+                                               "Failed to set FIDO2 assertion user presence: %s", sym_fido_strerr(r));
 
                 log_info("Security token requires user presence.");
 
@@ -610,6 +622,8 @@ int fido2_generate_hmac_hash(
 
         cid_size = sym_fido_cred_id_len(c);
 
+        log_info("Successfully made FIDO2 credential.");
+
         a = sym_fido_assert_new();
         if (!a)
                 return log_oom();
@@ -649,6 +663,22 @@ int fido2_generate_hmac_hash(
         log_info("Generating secret key on FIDO2 security token.");
 
         r = sym_fido_dev_get_assert(d, a, used_pin);
+        if (has_up && r == FIDO_ERR_UNSUPPORTED_OPTION) {
+                /* AuthenTrend ATKey.Pro says it supports "up", but if we disable it as above will fail with
+                 * FIDO_ERR_UNSUPPORTED_OPTION. To my understanding this is not matching the spec, but let's
+                 * try to work around this. */
+
+                log_debug("Got FIDO_ERR_UNSUPPORTED_OPTION when setting up=false, retrying with up=omit.");
+
+                r = sym_fido_assert_set_up(a, FIDO_OPT_OMIT);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to reset FIDO2 assertion user presence: %s", sym_fido_strerr(r));
+
+                r = sym_fido_dev_get_assert(d, a, used_pin);
+                if (r != FIDO_ERR_UNSUPPORTED_OPTION)
+                        log_debug("Token claimed \"up\" support, but didn't allow us to turn it off. Leaving it reset.");
+        }
         if (r == FIDO_ERR_UP_REQUIRED) {
 
                 if (!has_up)
