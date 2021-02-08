@@ -64,7 +64,6 @@ int bpf_object_get_programs(const struct bpf_object *object, Set **ret_progs) {
 
       assert(object);
       assert(ret_progs);
-      assert(*ret_progs == NULL);
 
       bpf_object__for_each_program(prog, object) {
               _cleanup_(bpf_program_v2_freep) BPFProgramV2 *p = NULL;
