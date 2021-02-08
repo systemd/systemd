@@ -3855,6 +3855,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             <entry><constant>EXIT_CREDENTIALS</constant></entry>
             <entry>Failed to set up unit's credentials. See <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> above.</entry>
           </row>
+          <row>
+            <entry>245</entry>
+            <entry><constant>EXIT_BPF</constant></entry>
+            <entry>Failed to apply BPF restrictions. See <varname>RestrictFileSystems=</varname> above.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
