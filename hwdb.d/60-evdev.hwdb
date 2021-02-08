@@ -226,19 +226,19 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*bvn*:bvr*:bd*:svnDellInc.:pnMM061:*
  EVDEV_ABS_00=1008:5793:66
  EVDEV_ABS_01=687:5176:107
 
-# Dell Latitude E6220
-evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6220:*
- EVDEV_ABS_00=76:1815:22
- EVDEV_ABS_01=131:1330:30
- EVDEV_ABS_35=76:1815:22
- EVDEV_ABS_36=131:1330:30
-
 # Dell Latitude E5510
 evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnDellInc.:pnLatitudeE5510:*
  EVDEV_ABS_00=73:1828:26
  EVDEV_ABS_01=101:1319:27
  EVDEV_ABS_35=73:1828:26
  EVDEV_ABS_36=101:1319:27
+
+# Dell Latitude E6220
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6220:*
+ EVDEV_ABS_00=76:1815:22
+ EVDEV_ABS_01=131:1330:30
+ EVDEV_ABS_35=76:1815:22
+ EVDEV_ABS_36=131:1330:30
 
 # Dell Latitude E6320
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6320:*
