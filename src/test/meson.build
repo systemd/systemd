@@ -583,9 +583,8 @@ if conf.get('BUILD_BPF') == 1
 tests += [
         [['src/test/test-bpf-object.c'],
           [libshared,
-          libcore],
+           libcore],
           [libbpf],
-          'HAVE_LIBBPF',
-          ]
+          core_includes],
 ]
 endif
