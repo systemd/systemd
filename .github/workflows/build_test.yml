@@ -21,6 +21,7 @@ jobs:
           - { COMPILER: "gcc",   COMPILER_VERSION: "10" }
           - { COMPILER: "clang", COMPILER_VERSION: "10" }
           - { COMPILER: "clang", COMPILER_VERSION: "11" }
+          - { COMPILER: "clang", COMPILER_VERSION: "12" }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
