@@ -136,7 +136,7 @@ $1.PrivateMounts,                        config_parse_bool,                     
 $1.ProtectSystem,                        config_parse_protect_system,                 0,                                  offsetof($1, exec_context.protect_system)
 $1.ProtectHome,                          config_parse_protect_home,                   0,                                  offsetof($1, exec_context.protect_home)
 $1.MountFlags,                           config_parse_exec_mount_flags,               0,                                  offsetof($1, exec_context.mount_flags)
-$1.MountAPIVFS,                          config_parse_bool,                           0,                                  offsetof($1, exec_context.mount_apivfs)
+$1.MountAPIVFS,                          config_parse_exec_mount_apivfs,              0,                                  offsetof($1, exec_context)
 $1.Personality,                          config_parse_personality,                    0,                                  offsetof($1, exec_context.personality)
 $1.RuntimeDirectoryPreserve,             config_parse_runtime_preserve_mode,          0,                                  offsetof($1, exec_context.runtime_directory_preserve_mode)
 $1.RuntimeDirectoryMode,                 config_parse_mode,                           0,                                  offsetof($1, exec_context.directories[EXEC_DIRECTORY_RUNTIME].mode)
