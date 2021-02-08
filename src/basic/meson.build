@@ -54,6 +54,8 @@ basic_sources = files('''
         fd-util.h
         fileio.c
         fileio.h
+        filesystems.c
+        filesystems.h
         format-util.c
         format-util.h
         fs-util.c
