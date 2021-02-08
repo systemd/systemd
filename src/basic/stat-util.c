@@ -13,10 +13,13 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -198,19 +201,11 @@ int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
 }
 
 bool is_temporary_fs(const struct statfs *s) {
-        return is_fs_type(s, TMPFS_MAGIC) ||
-                is_fs_type(s, RAMFS_MAGIC);
+        return fs_in_group(s, FILESYSTEM_SET_TEMPORARY);
 }
 
 bool is_network_fs(const struct statfs *s) {
-        return is_fs_type(s, CIFS_MAGIC_NUMBER) ||
-                is_fs_type(s, CODA_SUPER_MAGIC) ||
-                is_fs_type(s, NCP_SUPER_MAGIC) ||
-                is_fs_type(s, NFS_SUPER_MAGIC) ||
-                is_fs_type(s, SMB_SUPER_MAGIC) ||
-                is_fs_type(s, V9FS_MAGIC) ||
-                is_fs_type(s, AFS_SUPER_MAGIC) ||
-                is_fs_type(s, OCFS2_SUPER_MAGIC);
+        return fs_in_group(s, FILESYSTEM_SET_NETWORK);
 }
 
 int fd_is_temporary_fs(int fd) {
