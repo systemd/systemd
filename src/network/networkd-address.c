@@ -471,8 +471,8 @@ static void log_address_debug(const Address *address, const char *str, const Lin
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *addr = NULL, *peer = NULL;
-                char valid_buf[FORMAT_TIMESPAN_MAX];
-                const char *valid_str = NULL;
+                char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
+                const char *valid_str = NULL, *preferred_str = NULL;
                 bool has_peer;
 
                 (void) in_addr_to_string(address->family, &address->in_addr, &addr);
@@ -485,10 +485,16 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                                                     address->cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
 
-                log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s)",
+                if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
+                        preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
+                                                        address->cinfo.ifa_prefered * USEC_PER_SEC,
+                                                        USEC_PER_SEC);
+
+                log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s)",
                                str, strnull(addr), has_peer ? " peer " : "",
                                has_peer ? strnull(peer) : "", address->prefixlen,
-                               valid_str ? "for " : "forever", strempty(valid_str));
+                               valid_str ? "for " : "forever", strempty(valid_str),
+                               preferred_str ? "for " : "forever", strempty(preferred_str));
         }
 }
 
@@ -526,7 +532,9 @@ int address_remove(
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_address_debug(address, "Removing", link);
+        log_address_debug(address,
+                          FLAGS_SET(address->flags, IFA_F_DEPRECATED) ? "Removing deprecated" : "Removing",
+                          link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
@@ -799,12 +807,12 @@ int address_configure(
                 const Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback,
-                bool update,
                 Address **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Address *acquired_address, *a;
         uint32_t flags;
+        bool update;
         int r;
 
         assert(address);
@@ -826,6 +834,8 @@ int address_configure(
                 return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
         if (acquired_address)
                 address = acquired_address;
+
+        update = address_get(link, address, NULL) >= 0;
 
         log_address_debug(address, update ? "Updating" : "Configuring", link);
 
@@ -988,14 +998,14 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int static_address_configure(const Address *address, Link *link, bool update) {
+static int static_address_configure(const Address *address, Link *link) {
         Address *ret;
         int r;
 
         assert(address);
         assert(link);
 
-        r = address_configure(address, link, address_handler, update, &ret);
+        r = address_configure(address, link, address_handler, &ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not configure static address: %m");
 
@@ -1030,10 +1040,7 @@ int link_set_addresses(Link *link) {
         }
 
         ORDERED_HASHMAP_FOREACH(ad, link->network->addresses_by_section) {
-                bool update;
-
-                update = address_get(link, ad, NULL) > 0;
-                r = static_address_configure(ad, link, update);
+                r = static_address_configure(ad, link);
                 if (r < 0)
                         return r;
         }
@@ -1057,7 +1064,7 @@ int link_set_addresses(Link *link) {
                         return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
 
                 address->family = AF_INET6;
-                r = static_address_configure(address, link, true);
+                r = static_address_configure(address, link);
                 if (r < 0)
                         return r;
         }
@@ -1245,8 +1252,21 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                 /* address_update() logs internally, so we don't need to here. */
                 r = address_update(address, tmp);
-                if (r < 0)
+                if (r < 0) {
                         link_enter_failed(link);
+                        return 0;
+                }
+
+                /* remove deprecated address. */
+                if (!m->enumerating &&
+                    FLAGS_SET(address->flags, IFA_F_DEPRECATED) &&
+                    !link_is_static_address_configured(link, address)) {
+                        r = address_remove(address, link, NULL);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return 0;
+                        }
+                }
 
                 break;
 
