@@ -328,6 +328,7 @@ void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->initrwnd, sizeof(route->initrwnd), state);
 
                 siphash24_compress(&route->advmss, sizeof(route->advmss), state);
+                siphash24_compress(&route->nexthop_id, sizeof(route->nexthop_id), state);
 
                 break;
         default:
@@ -416,6 +417,10 @@ int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
+                r = CMP(a->nexthop_id, b->nexthop_id);
+                if (r != 0)
+                        return r;
+
                 return 0;
         default:
                 /* treat any other address family as AF_UNSPEC */
@@ -479,7 +484,7 @@ static int route_get(const Manager *manager, const Link *link, const Route *in, 
         return -ENOENT;
 }
 
-static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
+static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, const NextHop *nh) {
         assert(dest);
         assert(src);
 
@@ -498,9 +503,14 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
         dest->initcwnd = src->initcwnd;
         dest->initrwnd = src->initrwnd;
         dest->lifetime = src->lifetime;
-        dest->advmss= src->advmss;
+        dest->advmss = src->advmss;
+        dest->nexthop_id = src->nexthop_id;
 
-        if (m) {
+        if (nh) {
+                dest->gw_family = nh->family;
+                dest->gw = nh->gw;
+                dest->gw_weight = src->gw_weight;
+        } else if (m) {
                 dest->gw_family = m->gateway.family;
                 dest->gw = m->gateway.address;
                 dest->gw_weight = m->weight;
@@ -523,7 +533,7 @@ static int route_add_internal(Manager *manager, Link *link, Set **routes, const 
         if (r < 0)
                 return r;
 
-        route_copy(route, in, NULL);
+        route_copy(route, in, NULL, NULL);
 
         r = set_ensure_put(routes, &route_hash_ops, route);
         if (r < 0)
@@ -547,7 +557,7 @@ static int route_add_foreign(Manager *manager, Link *link, const Route *in, Rout
         return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, ret);
 }
 
-static int route_add(Manager *manager, Link *link, const Route *in, const MultipathRoute *m, Route **ret) {
+static int route_add(Manager *manager, Link *link, const Route *in, const MultipathRoute *m, const NextHop *nh, Route **ret) {
         _cleanup_(route_freep) Route *tmp = NULL;
         bool is_new = false;
         Route *route;
@@ -556,14 +566,21 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
         assert(manager || link);
         assert(in);
 
-        if (m) {
+        if (nh) {
+                r = route_new(&tmp);
+                if (r < 0)
+                        return r;
+
+                route_copy(tmp, in, NULL, nh);
+                in = tmp;
+        } else if (m) {
                 assert(link && (m->ifindex == 0 || m->ifindex == link->ifindex));
 
                 r = route_new(&tmp);
                 if (r < 0)
                         return r;
 
-                route_copy(tmp, in, m);
+                route_copy(tmp, in, m, NULL);
                 in = tmp;
         }
 
@@ -722,12 +739,18 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set route type: %m");
 
-        if (!route_type_is_reject(route)) {
+        if (!route_type_is_reject(route) && route->nexthop_id == 0) {
                 assert(link); /* Those routes must be attached to a specific link */
 
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_OIF attribute: %m");
+        }
+
+        if (route->nexthop_id > 0) {
+                r = sd_netlink_message_append_u32(req, RTA_NH_ID, route->nexthop_id);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append RTA_NH_ID attribute: %m");
         }
 
         r = sd_netlink_message_append_u8(req, RTA_PREF, route->pref);
@@ -893,7 +916,7 @@ int link_drop_foreign_routes(Link *link) {
                         continue;
 
                 if (link_has_route(link, route))
-                        k = route_add(NULL, link, route, NULL, NULL);
+                        k = route_add(NULL, link, route, NULL, NULL, NULL);
                 else
                         k = route_remove(route, NULL, link, NULL);
                 if (k < 0 && r >= 0)
@@ -947,16 +970,20 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 
 static int route_add_and_setup_timer(Link *link, const Route *route, const MultipathRoute *m, Route **ret) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
+        NextHop *nh = NULL;
         Route *nr;
         int r, k;
 
         assert(link);
+        assert(link->manager);
         assert(route);
 
+        (void) manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh);
+
         if (route_type_is_reject(route))
-                k = route_add(link->manager, NULL, route, NULL, &nr);
+                k = route_add(link->manager, NULL, route, NULL, NULL, &nr);
         else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
-                k = route_add(NULL, link, route, m, &nr);
+                k = route_add(NULL, link, route, m, nh, &nr);
         else {
                 Link *link_gw;
 
@@ -964,7 +991,7 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to get link with ifindex %d: %m", m->ifindex);
 
-                k = route_add(NULL, link_gw, route, m, &nr);
+                k = route_add(NULL, link_gw, route, m, NULL, &nr);
         }
         if (k < 0)
                 return log_link_error_errno(link, k, "Could not add route: %m");
@@ -1258,6 +1285,9 @@ static bool route_has_gateway(const Route *route) {
         if (!ordered_set_isempty(route->multipath_routes))
                 return true;
 
+        if (route->nexthop_id > 0)
+                return true;
+
         return false;
 }
 
@@ -1356,13 +1386,30 @@ int link_set_routes(Link *link) {
 static int process_route_one(Manager *manager, Link *link, uint16_t type, const Route *tmp, const MultipathRoute *m) {
         _cleanup_(route_freep) Route *nr = NULL;
         Route *route = NULL;
+        NextHop *nh = NULL;
         int r;
 
         assert(manager);
         assert(tmp);
         assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
 
-        if (m) {
+        (void) manager_get_nexthop_by_id(manager, tmp->nexthop_id, &nh);
+
+        if (nh) {
+                if (link && link != nh->link)
+                        return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
+                                                      "rtnl: received RTA_OIF and ifindex of nexthop corresponding to RTA_NH_ID do not match, ignoring.");
+
+                link = nh->link;
+
+                r = route_new(&nr);
+                if (r < 0)
+                        return log_oom();
+
+                route_copy(nr, tmp, NULL, nh);
+
+                tmp = nr;
+        } else if (m) {
                 if (link)
                         return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
                                                 "rtnl: received route contains both RTA_OIF and RTA_MULTIPATH, ignoring.");
@@ -1381,7 +1428,7 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
                 if (r < 0)
                         return log_oom();
 
-                route_copy(nr, tmp, m);
+                route_copy(nr, tmp, m, NULL);
 
                 tmp = nr;
         }
@@ -1570,6 +1617,12 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: received route message with invalid priority, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, RTA_NH_ID, &tmp->nexthop_id);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid nexthop id, ignoring: %m");
                 return 0;
         }
 
@@ -1962,6 +2015,59 @@ int config_parse_route_scope(
 
         n->scope = r;
         n->scope_set = true;
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_route_nexthop(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        uint32_t id;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                n->nexthop_id = 0;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &id);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse nexthop ID, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (id == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid nexthop ID, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        n->nexthop_id = id;
         TAKE_PTR(n);
         return 0;
 }
@@ -2655,6 +2761,14 @@ static int route_section_verify(Route *route, Network *network) {
                                                          "Ignoring [Route] section from line %u.",
                                                          route->section->filename, route->section->line);
         }
+
+        if (route->nexthop_id > 0 &&
+            (in_addr_is_set(route->gw_family, &route->gw) ||
+             !ordered_set_isempty(route->multipath_routes)))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: NextHopId= cannot be specified with Gateway= or MultiPathRoute=. "
+                                         "Ignoring [Route] section from line %u.",
+                                         route->section->filename, route->section->line);
 
         return 0;
 }

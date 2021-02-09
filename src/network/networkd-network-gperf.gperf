@@ -185,6 +185,7 @@ Route.QuickAck,                              config_parse_route_boolean,        
 Route.FastOpenNoCookie,                      config_parse_route_boolean,                               0,                             0
 Route.TTLPropagate,                          config_parse_route_boolean,                               0,                             0
 Route.MultiPathRoute,                        config_parse_multipath_route,                             0,                             0
+Route.NextHop,                               config_parse_route_nexthop,                               0,                             0
 NextHop.Id,                                  config_parse_nexthop_id,                                  0,                             0
 NextHop.Gateway,                             config_parse_nexthop_gateway,                             0,                             0
 NextHop.Family,                              config_parse_nexthop_family,                              0,                             0
