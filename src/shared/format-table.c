@@ -1993,8 +1993,7 @@ int table_print(Table *t, FILE *f) {
                                 if (width[j] < minimum_width[j])
                                         width[j] = minimum_width[j];
 
-                                assert(width[j] >= requested_width[j]);
-                                delta = width[j] - requested_width[j];
+                                delta = LESS_BY(width[j], requested_width[j]);
 
                                 /* Subtract what we just added from the rest */
                                 if (extra > delta)
