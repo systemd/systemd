@@ -90,6 +90,7 @@ static int print_inhibitors(sd_bus *bus) {
 
         /* If there's not enough space, shorten the "WHY" column, as it's little more than an explaining comment. */
         (void) table_set_weight(table, TABLE_HEADER_CELL(6), 20);
+        (void) table_set_maximum_width(table, TABLE_HEADER_CELL(0), columns()/2);
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         if (r < 0)
