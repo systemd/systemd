@@ -288,3 +288,14 @@ typedef enum ManagedOOMMode {
 
 const char* managed_oom_mode_to_string(ManagedOOMMode m) _const_;
 ManagedOOMMode managed_oom_mode_from_string(const char *s) _pure_;
+
+typedef enum ManagedOOMPreference {
+        MANAGED_OOM_PREFERENCE_NONE = 0,
+        MANAGED_OOM_PREFERENCE_AVOID = 1,
+        MANAGED_OOM_PREFERENCE_OMIT = 2,
+        _MANAGED_OOM_PREFERENCE_MAX,
+        _MANAGED_OOM_PREFERENCE_INVALID = -1
+} ManagedOOMPreference;
+
+const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
+ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
