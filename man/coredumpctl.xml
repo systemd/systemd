@@ -154,20 +154,22 @@
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-
-      <varlistentry>
-        <term><option>--no-legend</option></term>
-
-        <listitem><para>Do not print column headers.</para></listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
 
       <varlistentry>
         <term><option>-1</option></term>
 
-        <listitem><para>Show information of a single core dump only, instead of listing
-        all known core dumps.</para></listitem>
+        <listitem><para>Show information of the most recent core dump only, instead of listing all known core
+        dumps. (Equivalent to <option>--reverse -n 1</option></para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option> <replaceable>INT</replaceable></term>
+
+        <listitem><para>Show at most the specified number of entries. The specified parameter must be an
+        integer greater or equal to 1.</para></listitem>
       </varlistentry>
 
       <varlistentry>
