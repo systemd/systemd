@@ -434,7 +434,7 @@ static int ndisc_address_configure(Address *address, Link *link, sd_ndisc_router
         assert(link);
         assert(rt);
 
-        r = address_configure(address, link, ndisc_address_handler, true, &ret);
+        r = address_configure(address, link, ndisc_address_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set NDisc SLAAC address: %m");
 

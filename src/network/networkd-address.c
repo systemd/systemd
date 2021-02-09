@@ -805,12 +805,12 @@ int address_configure(
                 const Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback,
-                bool update,
                 Address **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Address *acquired_address, *a;
         uint32_t flags;
+        bool update;
         int r;
 
         assert(address);
@@ -832,6 +832,8 @@ int address_configure(
                 return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
         if (acquired_address)
                 address = acquired_address;
+
+        update = address_get(link, address, NULL) >= 0;
 
         log_address_debug(address, update ? "Updating" : "Configuring", link);
 
@@ -994,14 +996,14 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int static_address_configure(const Address *address, Link *link, bool update) {
+static int static_address_configure(const Address *address, Link *link) {
         Address *ret;
         int r;
 
         assert(address);
         assert(link);
 
-        r = address_configure(address, link, address_handler, update, &ret);
+        r = address_configure(address, link, address_handler, &ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not configure static address: %m");
 
@@ -1036,10 +1038,7 @@ int link_set_addresses(Link *link) {
         }
 
         ORDERED_HASHMAP_FOREACH(ad, link->network->addresses_by_section) {
-                bool update;
-
-                update = address_get(link, ad, NULL) > 0;
-                r = static_address_configure(ad, link, update);
+                r = static_address_configure(ad, link);
                 if (r < 0)
                         return r;
         }
@@ -1063,7 +1062,7 @@ int link_set_addresses(Link *link) {
                         return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
 
                 address->family = AF_INET6;
-                r = static_address_configure(address, link, true);
+                r = static_address_configure(address, link);
                 if (r < 0)
                         return r;
         }
