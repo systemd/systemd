@@ -27,6 +27,7 @@
 #include "def.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1614,7 +1615,11 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                 return pfd;
 
         if (subvol) {
-                if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
+                if ((getenv_bool("SYSTEMD_TMPFILES_FORCE_SUBVOL") > 0 && btrfs_is_filesystem(pfd) > 0) ||
+                    btrfs_is_subvol(empty_to_root(arg_root)) > 0) {
+                        RUN_WITH_UMASK((~mode) & 0777)
+                                r = btrfs_subvol_make_fd(pfd, basename(path));
+                } else
 
                         /* Don't create a subvolume unless the root directory is
                          * one, too. We do this under the assumption that if the
@@ -1627,10 +1632,6 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                          * dir too. */
 
                         subvol = false;
-                else {
-                        RUN_WITH_UMASK((~mode) & 0777)
-                                r = btrfs_subvol_make_fd(pfd, basename(path));
-                }
         } else
                 r = 0;
 
