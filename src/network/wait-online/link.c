@@ -130,8 +130,7 @@ int link_update_monitor(Link *l) {
 
                 s = link_operstate_from_string(operstate);
                 if (s < 0)
-                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
-                                                   "Failed to parse operational state, ignoring: %m");
+                        ret = log_link_debug_errno(l, s, "Failed to parse operational state, ignoring: %m");
                 else
                         l->operational_state = s;
         }

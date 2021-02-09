@@ -1085,7 +1085,7 @@ int log_set_target_from_string(const char *e) {
 
         t = log_target_from_string(e);
         if (t < 0)
-                return -EINVAL;
+                return t;
 
         log_set_target(t);
         return 0;
@@ -1096,7 +1096,7 @@ int log_set_max_level_from_string(const char *e) {
 
         t = log_level_from_string(e);
         if (t < 0)
-                return -EINVAL;
+                return t;
 
         log_set_max_level(t);
         return 0;
