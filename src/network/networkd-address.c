@@ -1754,7 +1754,6 @@ int config_parse_duplicate_address_detection(
 
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
-        AddressFamily a;
         int r;
 
         assert(filename);
@@ -1783,14 +1782,14 @@ int config_parse_duplicate_address_detection(
                 return 0;
         }
 
-        a = duplicate_address_detection_address_family_from_string(rvalue);
+        AddressFamily a = duplicate_address_detection_address_family_from_string(rvalue);
         if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, a,
                            "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
-
         n->duplicate_address_detection = a;
+
         TAKE_PTR(n);
         return 0;
 }

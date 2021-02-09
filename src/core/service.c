@@ -2762,14 +2762,14 @@ static int service_deserialize_exec_command(
                 case STATE_EXEC_COMMAND_TYPE:
                         id = service_exec_command_from_string(arg);
                         if (id < 0)
-                                return -EINVAL;
+                                return id;
 
                         state = STATE_EXEC_COMMAND_INDEX;
                         break;
                 case STATE_EXEC_COMMAND_INDEX:
                         r = safe_atou(arg, &idx);
                         if (r < 0)
-                                return -EINVAL;
+                                return r;
 
                         state = STATE_EXEC_COMMAND_PATH;
                         break;

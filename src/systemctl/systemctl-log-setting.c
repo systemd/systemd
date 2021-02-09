@@ -30,9 +30,9 @@ static int log_setting_internal(sd_bus *bus, const BusLocator* bloc, const char 
 
         if (value) {
                 if (level) {
-                        if (log_level_from_string(value) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "\"%s\" is not a valid log level.", value);
+                        r = log_level_from_string(value);
+                        if (r < 0)
+                                return log_error_errno(r, "\"%s\" is not a valid log level.", value);
                 }
 
                 r = bus_set_property(bus, bloc,
