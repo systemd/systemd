@@ -279,3 +279,8 @@ systemd-sysext:
   specify API file systems such as `/proc/` or `/sys/` here, or hierarchies
   that have them as submounts. In particular, do not specify the root directory
   `/` here.
+
+systemd-tmpfiles:
+
+* `$SYSTEMD_TMPFILES_FORCE_SUBVOL=1` - if set, tmpfiles will not check if the
+   system is installed into a btrfs subvolume when evaluating the v/q/Q line types

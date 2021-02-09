@@ -27,6 +27,7 @@
 #include "def.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1614,8 +1615,12 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                 return pfd;
 
         if (subvol) {
-                if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
-
+                r = getenv_bool("SYSTEMD_TMPFILES_FORCE_SUBVOL");
+                if (r < 0) {
+                      log_warning_errno(r, "Cannot parse value of $SYSTEMD_TMPFILES_FORCE_SUBVOL, ignoring.");
+                      r = btrfs_is_subvol(empty_to_root(arg_root)) > 0;
+                }
+                if (!r)
                         /* Don't create a subvolume unless the root directory is
                          * one, too. We do this under the assumption that if the
                          * root directory is just a plain directory (i.e. very
