@@ -1554,6 +1554,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             times. If an empty string is assigned, then the all previous assignments are cleared.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>NextHop=</varname></term>
+          <listitem>
+            <para>Specifies the nexthop id. Takes an unsigned integer in the range 1…4294967295.
+            If set, the corresponding [NextHop] section must be configured. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
