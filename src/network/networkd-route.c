@@ -623,7 +623,7 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 }
                 if (!in_addr_is_null(route->family, &route->src))
                         (void) in_addr_to_string(route->family, &route->src, &src);
-                if (!in_addr_is_null(route->gw_family, &route->gw))
+                if (in_addr_is_null(route->gw_family, &route->gw) == 0)
                         (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
@@ -1260,7 +1260,7 @@ int link_set_routes(Link *link) {
                         if (rt->gateway_from_dhcp_or_ra)
                                 continue;
 
-                        if ((in_addr_is_null(rt->gw_family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
+                        if ((in_addr_is_null(rt->gw_family, &rt->gw) != 0 && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
                                 continue;
 
                         r = route_configure(rt, link, route_handler, NULL);
