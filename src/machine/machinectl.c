@@ -2693,10 +2693,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown output '%s'.", optarg);
+                        r = output_mode_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unknown output '%s'.", optarg);
+                        arg_output = r;
 
                         if (OUTPUT_MODE_IS_JSON(arg_output))
                                 arg_legend = false;
@@ -2720,10 +2720,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse signal string %s.", optarg);
+                        r = signal_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse signal string %s.", optarg);
+                        arg_signal = r;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -2758,10 +2758,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        arg_verify = import_verify_from_string(optarg);
-                        if (arg_verify < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse --verify= setting: %s", optarg);
+                        r = import_verify_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --verify= setting: %s", optarg);
+                        arg_verify = r;
                         break;
 
                 case ARG_FORCE:
