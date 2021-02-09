@@ -23,7 +23,7 @@ typedef enum LogTarget{
         LOG_TARGET_AUTO, /* console if stderr is not journal, JOURNAL_OR_KMSG otherwise */
         LOG_TARGET_NULL,
         _LOG_TARGET_MAX,
-        _LOG_TARGET_INVALID = -1
+        _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
 /* Note to readers: << and >> have lower precedence than & and | */

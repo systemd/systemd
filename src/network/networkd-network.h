@@ -35,7 +35,7 @@ typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_STATIC        = 1 << 2,
         KEEP_CONFIGURATION_YES           = KEEP_CONFIGURATION_DHCP | KEEP_CONFIGURATION_STATIC,
         _KEEP_CONFIGURATION_MAX,
-        _KEEP_CONFIGURATION_INVALID = -1,
+        _KEEP_CONFIGURATION_INVALID = -EINVAL,
 } KeepConfiguration;
 
 typedef enum IPv6LinkLocalAddressGenMode {
@@ -44,7 +44,7 @@ typedef enum IPv6LinkLocalAddressGenMode {
        IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY = IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
        IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM         = IN6_ADDR_GEN_MODE_RANDOM,
        _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX,
-       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID        = -1
+       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID        = -EINVAL,
 } IPv6LinkLocalAddressGenMode;
 
 typedef enum ActivationPolicy {
@@ -55,7 +55,7 @@ typedef enum ActivationPolicy {
         ACTIVATION_POLICY_DOWN,
         ACTIVATION_POLICY_BOUND,
         _ACTIVATION_POLICY_MAX,
-        _ACTIVATION_POLICY_INVALID = -1
+        _ACTIVATION_POLICY_INVALID = -EINVAL,
 } ActivationPolicy;
 
 typedef struct Manager Manager;

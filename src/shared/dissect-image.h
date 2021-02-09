@@ -45,7 +45,7 @@ typedef enum PartitionDesignator {
         PARTITION_TMP,
         PARTITION_VAR,
         _PARTITION_DESIGNATOR_MAX,
-        _PARTITION_DESIGNATOR_INVALID = -1
+        _PARTITION_DESIGNATOR_INVALID = -EINVAL,
 } PartitionDesignator;
 
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {

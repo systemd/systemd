@@ -10,7 +10,7 @@ typedef enum ImportVerify {
         IMPORT_VERIFY_CHECKSUM,
         IMPORT_VERIFY_SIGNATURE,
         _IMPORT_VERIFY_MAX,
-        _IMPORT_VERIFY_INVALID = -1,
+        _IMPORT_VERIFY_INVALID = -EINVAL,
 } ImportVerify;
 
 int import_url_last_component(const char *url, char **ret);

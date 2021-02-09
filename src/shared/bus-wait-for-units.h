@@ -11,7 +11,7 @@ typedef enum BusWaitForUnitsState {
         BUS_WAIT_FAILURE,    /* dito, but something failed */
         BUS_WAIT_RUNNING,    /* Still something to wait for */
         _BUS_WAIT_FOR_UNITS_STATE_MAX,
-        _BUS_WAIT_FOR_UNITS_STATE_INVALID = -1,
+        _BUS_WAIT_FOR_UNITS_STATE_INVALID = -EINVAL,
 } BusWaitForUnitsState;
 
 typedef enum BusWaitForUnitsFlags {

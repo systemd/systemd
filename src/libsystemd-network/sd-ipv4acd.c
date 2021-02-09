@@ -46,7 +46,7 @@ typedef enum IPv4ACDState {
         IPV4ACD_STATE_ANNOUNCING,
         IPV4ACD_STATE_RUNNING,
         _IPV4ACD_STATE_MAX,
-        _IPV4ACD_STATE_INVALID = -1
+        _IPV4ACD_STATE_INVALID = -EINVAL,
 } IPv4ACDState;
 
 struct sd_ipv4acd {

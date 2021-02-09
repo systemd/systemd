@@ -17,7 +17,7 @@ typedef enum AddressFamily {
         ADDRESS_FAMILY_IPV6           = 1 << 1,
         ADDRESS_FAMILY_YES            = ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6,
         _ADDRESS_FAMILY_MAX,
-        _ADDRESS_FAMILY_INVALID = -1,
+        _ADDRESS_FAMILY_INVALID = -EINVAL,
 } AddressFamily;
 
 typedef struct NetworkConfigSection {

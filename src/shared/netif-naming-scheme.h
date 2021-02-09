@@ -42,7 +42,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
 
-        _NAMING_SCHEME_FLAGS_INVALID = -1,
+        _NAMING_SCHEME_FLAGS_INVALID = -EINVAL,
 } NamingSchemeFlags;
 
 typedef struct NamingScheme {

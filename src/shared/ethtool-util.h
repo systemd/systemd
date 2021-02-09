@@ -15,7 +15,7 @@ typedef enum Duplex {
         DUP_HALF = DUPLEX_HALF,
         DUP_FULL = DUPLEX_FULL,
         _DUP_MAX,
-        _DUP_INVALID = -1
+        _DUP_INVALID = -EINVAL,
 } Duplex;
 
 typedef enum WakeOnLan {
@@ -28,7 +28,7 @@ typedef enum WakeOnLan {
         WOL_MAGICSECURE,
         WOL_OFF,
         _WOL_MAX,
-        _WOL_INVALID = -1
+        _WOL_INVALID = -EINVAL,
 } WakeOnLan;
 
 typedef enum NetDevFeature {
@@ -40,7 +40,7 @@ typedef enum NetDevFeature {
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,
         _NET_DEV_FEAT_MAX,
-        _NET_DEV_FEAT_INVALID = -1
+        _NET_DEV_FEAT_INVALID = -EINVAL,
 } NetDevFeature;
 
 typedef enum NetDevPort {
@@ -53,7 +53,7 @@ typedef enum NetDevPort {
         NET_DEV_PORT_NONE   = PORT_NONE,
         NET_DEV_PORT_OTHER  = PORT_OTHER,
         _NET_DEV_PORT_MAX,
-        _NET_DEV_PORT_INVALID = -1
+        _NET_DEV_PORT_INVALID = -EINVAL,
 } NetDevPort;
 
 #define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)

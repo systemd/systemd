@@ -33,7 +33,7 @@ typedef enum ExecUtmpMode {
         EXEC_UTMP_LOGIN,
         EXEC_UTMP_USER,
         _EXEC_UTMP_MODE_MAX,
-        _EXEC_UTMP_MODE_INVALID = -1
+        _EXEC_UTMP_MODE_INVALID = -EINVAL,
 } ExecUtmpMode;
 
 typedef enum ExecInput {
@@ -46,7 +46,7 @@ typedef enum ExecInput {
         EXEC_INPUT_DATA,
         EXEC_INPUT_FILE,
         _EXEC_INPUT_MAX,
-        _EXEC_INPUT_INVALID = -1
+        _EXEC_INPUT_INVALID = -EINVAL,
 } ExecInput;
 
 typedef enum ExecOutput {
@@ -63,7 +63,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_FILE_APPEND,
         EXEC_OUTPUT_FILE_TRUNCATE,
         _EXEC_OUTPUT_MAX,
-        _EXEC_OUTPUT_INVALID = -1
+        _EXEC_OUTPUT_INVALID = -EINVAL,
 } ExecOutput;
 
 typedef enum ExecPreserveMode {
@@ -71,7 +71,7 @@ typedef enum ExecPreserveMode {
         EXEC_PRESERVE_YES,
         EXEC_PRESERVE_RESTART,
         _EXEC_PRESERVE_MODE_MAX,
-        _EXEC_PRESERVE_MODE_INVALID = -1
+        _EXEC_PRESERVE_MODE_INVALID = -EINVAL,
 } ExecPreserveMode;
 
 typedef enum ExecKeyringMode {
@@ -79,7 +79,7 @@ typedef enum ExecKeyringMode {
         EXEC_KEYRING_PRIVATE,
         EXEC_KEYRING_SHARED,
         _EXEC_KEYRING_MODE_MAX,
-        _EXEC_KEYRING_MODE_INVALID = -1,
+        _EXEC_KEYRING_MODE_INVALID = -EINVAL,
 } ExecKeyringMode;
 
 /* Contains start and exit information about an executed command.  */
@@ -126,7 +126,7 @@ typedef enum ExecDirectoryType {
         EXEC_DIRECTORY_LOGS,
         EXEC_DIRECTORY_CONFIGURATION,
         _EXEC_DIRECTORY_TYPE_MAX,
-        _EXEC_DIRECTORY_TYPE_INVALID = -1,
+        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
 typedef struct ExecDirectory {
@@ -144,7 +144,7 @@ typedef enum ExecCleanMask {
         EXEC_CLEAN_CONFIGURATION = 1U << EXEC_DIRECTORY_CONFIGURATION,
         EXEC_CLEAN_NONE          = 0,
         EXEC_CLEAN_ALL           = (1U << _EXEC_DIRECTORY_TYPE_MAX) - 1,
-        _EXEC_CLEAN_MASK_INVALID = -1,
+        _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
 
 /* A credential configured with SetCredential= */

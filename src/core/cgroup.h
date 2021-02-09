@@ -44,7 +44,7 @@ typedef enum CGroupDevicePolicy {
         CGROUP_DEVICE_POLICY_STRICT,
 
         _CGROUP_DEVICE_POLICY_MAX,
-        _CGROUP_DEVICE_POLICY_INVALID = -1
+        _CGROUP_DEVICE_POLICY_INVALID = -EINVAL,
 } CGroupDevicePolicy;
 
 typedef enum FreezerAction {
@@ -52,7 +52,7 @@ typedef enum FreezerAction {
         FREEZER_THAW,
 
         _FREEZER_ACTION_MAX,
-        _FREEZER_ACTION_INVALID = -1,
+        _FREEZER_ACTION_INVALID = -EINVAL,
 } FreezerAction;
 
 struct CGroupDeviceAllow {
@@ -173,7 +173,7 @@ typedef enum CGroupIPAccountingMetric {
         CGROUP_IP_EGRESS_BYTES,
         CGROUP_IP_EGRESS_PACKETS,
         _CGROUP_IP_ACCOUNTING_METRIC_MAX,
-        _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -1,
+        _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIPAccountingMetric;
 
 /* Used when querying IO accounting data */
@@ -183,7 +183,7 @@ typedef enum CGroupIOAccountingMetric {
         CGROUP_IO_READ_OPERATIONS,
         CGROUP_IO_WRITE_OPERATIONS,
         _CGROUP_IO_ACCOUNTING_METRIC_MAX,
-        _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -1,
+        _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIOAccountingMetric;
 
 typedef struct Unit Unit;

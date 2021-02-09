@@ -1708,7 +1708,7 @@ typedef enum SystemctlShowMode{
         SYSTEMCTL_SHOW_STATUS,
         SYSTEMCTL_SHOW_HELP,
         _SYSTEMCTL_SHOW_MODE_MAX,
-        _SYSTEMCTL_SHOW_MODE_INVALID = -1,
+        _SYSTEMCTL_SHOW_MODE_INVALID = -EINVAL,
 } SystemctlShowMode;
 
 static const char* const systemctl_show_mode_table[_SYSTEMCTL_SHOW_MODE_MAX] = {

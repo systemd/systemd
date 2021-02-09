@@ -21,7 +21,7 @@ typedef enum DeviceEnumerationType {
         DEVICE_ENUMERATION_TYPE_DEVICES,
         DEVICE_ENUMERATION_TYPE_SUBSYSTEMS,
         _DEVICE_ENUMERATION_TYPE_MAX,
-        _DEVICE_ENUMERATION_TYPE_INVALID = -1,
+        _DEVICE_ENUMERATION_TYPE_INVALID = -EINVAL,
 } DeviceEnumerationType;
 
 struct sd_device_enumerator {

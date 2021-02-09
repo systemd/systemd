@@ -33,7 +33,7 @@ struct match_callback {
 typedef enum NetlinkSlotType {
         NETLINK_REPLY_CALLBACK,
         NETLINK_MATCH_CALLBACK,
-        _NETLINK_SLOT_INVALID = -1,
+        _NETLINK_SLOT_INVALID = -EINVAL,
 } NetlinkSlotType;
 
 struct sd_netlink_slot {
