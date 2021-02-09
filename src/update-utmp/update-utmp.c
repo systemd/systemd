@@ -215,7 +215,7 @@ static int on_runlevel(Context *c) {
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context c = {
 #if HAVE_AUDIT
-                .audit_fd = -1
+                .audit_fd = -1,
 #endif
         };
         int r;

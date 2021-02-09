@@ -15,7 +15,7 @@ static void test_error(void) {
         const sd_bus_error temporarily_const_error = {
                 .name = SD_BUS_ERROR_ACCESS_DENIED,
                 .message = "oh! no",
-                ._need_free = -1
+                ._need_free = -1,
         };
 
         assert_se(!sd_bus_error_is_set(&error));
