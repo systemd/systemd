@@ -1952,7 +1952,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertRegex(output, 'local fdde:11:44::1 proto kernel metric 0 pref medium')
             self.assertRegex(output, 'local fdde:11:55::1 proto kernel metric 0 pref medium')
             self.assertRegex(output, 'fe80::/64 proto kernel metric 256 pref medium')
-            self.assertRegex(output, 'ff00::/8 metric 256 pref medium')
+            self.assertRegex(output, 'ff00::/8 (proto kernel )?metric 256 (linkdown )?pref medium')
 
             print()
 
@@ -1984,7 +1984,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertRegex(output, 'local fdde:12:33::1 proto kernel metric 0 pref medium')
             self.assertRegex(output, 'local fdde:12:44::1 proto kernel metric 0 pref medium')
             self.assertRegex(output, 'local fdde:12:55::1 proto kernel metric 0 pref medium')
-            self.assertRegex(output, 'ff00::/8 metric 256 pref medium')
+            self.assertRegex(output, 'ff00::/8 (proto kernel )?metric 256 (linkdown )?pref medium')
 
     def test_configure_without_carrier(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev')
@@ -3308,7 +3308,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print('### ip -6 route list table all dev bridge99')
         output = check_output('ip -6 route list table all dev bridge99')
         print(output)
-        self.assertRegex(output, 'ff00::/8 table local metric 256 pref medium')
+        self.assertRegex(output, 'ff00::/8 table local (proto kernel )?metric 256 (linkdown )?pref medium')
 
         self.assertEqual(call('ip link del test1'), 0)
 
@@ -3327,7 +3327,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print('### ip -6 route list table all dev bridge99')
         output = check_output('ip -6 route list table all dev bridge99')
         print(output)
-        self.assertRegex(output, 'ff00::/8 table local metric 256 (linkdown )?pref medium')
+        self.assertRegex(output, 'ff00::/8 table local (proto kernel )?metric 256 (linkdown )?pref medium')
 
     def test_bridge_configure_without_carrier(self):
         copy_unit_to_networkd_unit_path('26-bridge.netdev', '26-bridge-configure-without-carrier.network',
