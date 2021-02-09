@@ -85,69 +85,259 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         return mfree(p);
 }
 
-static int dns_stub_make_reply_packet(
-                DnsPacket **p,
-                size_t max_size,
-                DnsQuestion *q,
+static int dns_stub_collect_answer_by_question(
+                DnsAnswer **reply,
                 DnsAnswer *answer,
-                bool *ret_truncated) {
+                DnsQuestion *question,
+                bool with_rrsig) { /* Add RRSIG RR matching each RR */
 
-        bool truncated = false;
-        DnsResourceRecord *rr;
+        DnsAnswerItem *item;
+        int r;
+
+        assert(reply);
+
+        /* Copies all RRs from 'answer' into 'reply', if they match 'question'. */
+
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+
+                if (question) {
+                        bool match = false;
+
+                        r = dns_question_matches_rr(question, item->rr, NULL);
+                        if (r < 0)
+                                return r;
+                        else if (r > 0)
+                                match = true;
+                        else {
+                                r = dns_question_matches_cname_or_dname(question, item->rr, NULL);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        match = true;
+                        }
+
+                        if (!match)
+                                continue;
+                }
+
+                r = dns_answer_add_extend(reply, item->rr, item->ifindex, item->flags, item->rrsig);
+                if (r < 0)
+                        return r;
+
+                if (with_rrsig && item->rrsig) {
+                        r = dns_answer_add_extend(reply, item->rrsig, item->ifindex, item->flags, NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+static int dns_stub_collect_answer_by_section(
+                DnsAnswer **reply,
+                DnsAnswer *answer,
+                DnsAnswerFlags section,
+                DnsAnswer *exclude1,
+                DnsAnswer *exclude2,
+                bool with_dnssec) { /* Include DNSSEC RRs. RRSIG, NSEC, … */
+
+        DnsAnswerItem *item;
         unsigned c = 0;
         int r;
 
-        assert(p);
+        assert(reply);
 
-        /* Note that we don't bother with any additional RRs, as this is stub is for local lookups only, and hence
-         * roundtrips aren't expensive. */
+        /* Copies all RRs from 'answer' into 'reply', if they originate from the specified section. Also,
+         * avoid any RRs listed in 'exclude'. */
 
-        if (!*p) {
-                r = dns_packet_new(p, DNS_PROTOCOL_DNS, 0, max_size);
-                if (r < 0)
-                        return r;
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
 
-                r = dns_packet_append_question(*p, q);
-                if (r < 0)
-                        return r;
+                if (dns_answer_contains(exclude1, item->rr) ||
+                    dns_answer_contains(exclude2, item->rr))
+                        continue;
 
-                DNS_PACKET_HEADER(*p)->qdcount = htobe16(dns_question_size(q));
-        }
+                if (!with_dnssec &&
+                    dns_type_is_dnssec(item->rr->key->type))
+                        continue;
 
-        DNS_ANSWER_FOREACH(rr, answer) {
+                if (((item->flags ^ section) & (DNS_ANSWER_SECTION_ANSWER|DNS_ANSWER_SECTION_AUTHORITY|DNS_ANSWER_SECTION_ADDITIONAL)) != 0)
+                        continue;
 
-                r = dns_question_matches_rr(q, rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        goto add;
-
-                r = dns_question_matches_cname_or_dname(q, rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        goto add;
-
-                continue;
-        add:
-                r = dns_packet_append_rr(*p, rr, 0, NULL, NULL);
-                if (r == -EMSGSIZE) {
-                        truncated = true;
-                        break;
-                }
+                r = dns_answer_add_extend(reply, item->rr, item->ifindex, item->flags, item->rrsig);
                 if (r < 0)
                         return r;
 
                 c++;
+
+                if (with_dnssec && item->rrsig) {
+                        r = dns_answer_add_extend(reply, item->rrsig, item->ifindex, item->flags, NULL);
+                        if (r < 0)
+                                return r;
+
+                        c++;
+                }
         }
 
+        return (int) c;
+}
+
+static int dns_stub_assign_sections(
+                DnsQuery *q,
+                DnsQuestion *question,
+                bool edns0_do) {
+
+        int r;
+
+        assert(q);
+        assert(question);
+
+        /* Let's assign the 'answer' and 'answer_auxiliary' RRs we collected to their respective sections in
+         * the reply datagram. We try to reproduce a section assignment similar to what the upstream DNS
+         * server responded to us. We use the DNS_ANSWER_SECTION_xyz flags to match things up, which is where
+         * the original upstream's packet section assignment is stored in the DnsAnswer object. Not all RRs
+         * in the 'answer' and 'answer_auxiliary' objects come with section information though (for example,
+         * because they were synthesized locally, and not from a DNS packet). To deal with that we extend the
+         * assignment logic a bit: anything from the 'answer' object that directly matches the original
+         * question is always put in the ANSWER section, regardless if it carries section info, or what that
+         * section info says. Then, anything from the 'answer' and 'answer_auxiliary' objects that is from
+         * the ANSWER or AUTHORITY sections, and wasn't already added to the ANSWER section is placed in the
+         * AUTHORITY section. Everything else from either object is added to the ADDITIONAL section. */
+
+        /* Include all RRs that directly answer the question in the answer section */
+        r = dns_stub_collect_answer_by_question(
+                        &q->reply_answer,
+                        q->answer,
+                        question,
+                        edns0_do);
+        if (r < 0)
+                return r;
+
+        /* Include all RRs that originate from the answer or authority sections, and aren't listed in the
+         * answer section, in the authority section */
+        r = dns_stub_collect_answer_by_section(
+                        &q->reply_authoritative,
+                        q->answer,
+                        DNS_ANSWER_SECTION_ANSWER,
+                        q->reply_answer, NULL,
+                        edns0_do);
+        if (r < 0)
+                return r;
+
+        /* Include all RRs that originate from the answer or authority sections, and aren't listed in the
+         * answer section, in the authority section */
+        r = dns_stub_collect_answer_by_section(
+                        &q->reply_authoritative,
+                        q->answer,
+                        DNS_ANSWER_SECTION_AUTHORITY,
+                        q->reply_answer, NULL,
+                        edns0_do);
+        if (r < 0)
+                return r;
+
+        /* Include all RRs that originate from the additional sections in the additional section (except if
+         * already listed in the other two sections). Also add all RRs with no section marking. */
+        r = dns_stub_collect_answer_by_section(
+                        &q->reply_additional,
+                        q->answer,
+                        DNS_ANSWER_SECTION_ADDITIONAL,
+                        q->reply_answer, q->reply_authoritative,
+                        edns0_do);
+        if (r < 0)
+                return r;
+        r = dns_stub_collect_answer_by_section(
+                        &q->reply_additional,
+                        q->answer,
+                        0,
+                        q->reply_answer, q->reply_authoritative,
+                        edns0_do);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int dns_stub_make_reply_packet(
+                DnsPacket **ret,
+                size_t max_size,
+                DnsQuestion *q,
+                bool *ret_truncated) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        bool tc = false;
+        int r;
+
+        assert(ret);
+
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, max_size);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_append_question(p, q);
+        if (r == -EMSGSIZE)
+                tc = true;
+        else if (r < 0)
+                return r;
+
         if (ret_truncated)
-                *ret_truncated = truncated;
-        else if (truncated)
+                *ret_truncated = tc;
+        else if (tc)
                 return -EMSGSIZE;
 
-        DNS_PACKET_HEADER(*p)->ancount = htobe16(be16toh(DNS_PACKET_HEADER(*p)->ancount) + c);
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(dns_question_size(q));
 
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+static int dns_stub_add_reply_packet_body(
+                DnsPacket *p,
+                DnsAnswer *answer,
+                DnsAnswer *authoritative,
+                DnsAnswer *additional,
+                bool edns0_do, /* Client expects DNSSEC RRs? */
+                bool *truncated) {
+
+        unsigned n_answer = 0, n_authoritative = 0, n_additional = 0;
+        bool tc = false;
+        int r;
+
+        assert(p);
+
+        /* Add the three sections to the packet. If the answer section doesn't fit we'll signal that as
+         * truncation. If the authoritative section doesn't fit and we are in DNSSEC mode, also signal
+         * truncation. In all other cases where things don't fit don't signal truncation, as for those cases
+         * the dropped RRs should not be essential. */
+
+        r = dns_packet_append_answer(p, answer, &n_answer);
+        if (r == -EMSGSIZE)
+                tc = true;
+        else if (r < 0)
+                return r;
+        else {
+                r = dns_packet_append_answer(p, authoritative, &n_authoritative);
+                if (r == -EMSGSIZE) {
+                        if (edns0_do)
+                                tc = true;
+                } else if (r < 0)
+                        return r;
+                else {
+                        r = dns_packet_append_answer(p, additional, &n_additional);
+                        if (r < 0 && r != -EMSGSIZE)
+                                return r;
+                }
+        }
+
+        if (tc) {
+                if (!truncated)
+                        return -EMSGSIZE;
+
+                *truncated = true;
+        }
+
+        DNS_PACKET_HEADER(p)->ancount = htobe16(n_answer);
+        DNS_PACKET_HEADER(p)->nscount = htobe16(n_authoritative);
+        DNS_PACKET_HEADER(p)->arcount = htobe16(n_additional);
         return 0;
 }
 
@@ -159,6 +349,7 @@ static int dns_stub_finish_reply_packet(
                 bool add_opt,   /* add an OPT RR to this packet? */
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
                 bool ad,        /* set the DNSSEC authenticated data bit? */
+                bool cd,        /* set the DNSSEC checking disabled bit? */
                 uint16_t max_udp_size) { /* The maximum UDP datagram size to advertise to clients */
 
         int r;
@@ -171,19 +362,21 @@ static int dns_stub_finish_reply_packet(
                         tc = true;
                 else if (r < 0)
                         return r;
-
         } else {
                 /* If the client can't to EDNS0, don't do DO either */
                 edns0_do = false;
 
-                /* If the client didn't do EDNS, clamp the rcode to 4 bit */
+                /* If we don't do EDNS, clamp the rcode to 4 bit */
                 if (rcode > 0xF)
                         rcode = DNS_RCODE_SERVFAIL;
         }
 
-        /* Don't set the AD bit unless DO is on, too */
-        if (!edns0_do)
+        /* Don't set the AD or CD bit unless DO is on, too */
+        if (!edns0_do) {
                 ad = false;
+                cd = false;
+
+        }
 
         DNS_PACKET_HEADER(p)->id = id;
 
@@ -195,7 +388,7 @@ static int dns_stub_finish_reply_packet(
                                                               1  /* rd */,
                                                               1  /* ra */,
                                                               ad /* ad */,
-                                                              0  /* cd */,
+                                                              cd /* cd */,
                                                               rcode));
 
         return 0;
@@ -231,6 +424,66 @@ static int dns_stub_send(
         return 0;
 }
 
+static int dns_stub_send_reply(
+                DnsQuery *q,
+                int rcode) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        bool truncated, edns0_do;
+        int r;
+
+        assert(q);
+
+        /* Reply with DNSSEC DO set? Only if client supports it; and we did any DNSSEC verification
+         * ourselves, or consider the data fully authenticated because we generated it locally, or
+         * the client set cd */
+        edns0_do =
+                DNS_PACKET_DO(q->request_packet) &&
+                (q->answer_dnssec_result >= 0 ||        /* we did proper DNSSEC validation … */
+                 dns_query_fully_authenticated(q) ||    /* … or we considered it authentic otherwise … */
+                 DNS_PACKET_CD(q->request_packet));     /* … or client set CD */
+
+        r = dns_stub_assign_sections(
+                        q,
+                        q->request_packet->question,
+                        edns0_do);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to assign sections: %m");
+
+        r = dns_stub_make_reply_packet(
+                        &reply,
+                        DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_packet),
+                        q->request_packet->question,
+                        &truncated);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build reply packet: %m");
+
+        r = dns_stub_add_reply_packet_body(
+                        reply,
+                        q->reply_answer,
+                        q->reply_authoritative,
+                        q->reply_additional,
+                        edns0_do,
+                        &truncated);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to append reply packet body: %m");
+
+        r = dns_stub_finish_reply_packet(
+                        reply,
+                        DNS_PACKET_ID(q->request_packet),
+                        rcode,
+                        truncated,
+                        !!q->request_packet->opt,
+                        edns0_do,
+                        dns_query_fully_authenticated(q),
+                        DNS_PACKET_CD(q->request_packet),
+                        q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build failure packet: %m");
+
+        return dns_stub_send(q->manager, q->stub_listener_extra, q->request_stream, q->request_packet, reply);
+}
+
 static int dns_stub_send_failure(
                 Manager *m,
                 DnsStubListenerExtra *l,
@@ -240,12 +493,17 @@ static int dns_stub_send_failure(
                 bool authenticated) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        bool truncated;
         int r;
 
         assert(m);
         assert(p);
 
-        r = dns_stub_make_reply_packet(&reply, DNS_PACKET_PAYLOAD_SIZE_MAX(p), p->question, NULL, NULL);
+        r = dns_stub_make_reply_packet(
+                        &reply,
+                        DNS_PACKET_PAYLOAD_SIZE_MAX(p),
+                        p->question,
+                        &truncated);
         if (r < 0)
                 return log_debug_errno(r, "Failed to make failure packet: %m");
 
@@ -253,10 +511,11 @@ static int dns_stub_send_failure(
                         reply,
                         DNS_PACKET_ID(p),
                         rcode,
-                        /* truncated = */ false,
+                        truncated,
                         !!p->opt,
                         DNS_PACKET_DO(p),
                         authenticated,
+                        DNS_PACKET_CD(p),
                         l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
@@ -264,27 +523,87 @@ static int dns_stub_send_failure(
         return dns_stub_send(m, l, s, p, reply);
 }
 
+static int dns_stub_patch_bypass_reply_packet(
+                DnsPacket **ret,       /* Where to place the patched packet */
+                DnsPacket *original,   /* The packet to patch */
+                DnsPacket *request) {  /* The packet the patched packet shall look like a reply to */
+        _cleanup_(dns_packet_unrefp) DnsPacket *c = NULL;
+        int r;
+
+        assert(ret);
+        assert(original);
+        assert(request);
+
+        r = dns_packet_dup(&c, original);
+        if (r < 0)
+                return r;
+
+        /* Extract the packet, so that we know where the OPT field is */
+        r = dns_packet_extract(c);
+        if (r < 0)
+                return r;
+
+        /* Copy over the original client request ID, so that we can make the upstream query look like our own reply. */
+        DNS_PACKET_HEADER(c)->id = DNS_PACKET_HEADER(request)->id;
+
+        /* Patch in our own maximum datagram size, if EDNS0 was on */
+        r = dns_packet_patch_max_udp_size(c, ADVERTISE_DATAGRAM_SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        /* Lower all TTLs by the time passed since we received the datagram. */
+        if (timestamp_is_set(original->timestamp)) {
+                r = dns_packet_patch_ttls(c, original->timestamp);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Our upstream connection might have supported larger DNS requests than our downstream one, hence
+         * set the TC bit if our reply is larger than what the client supports, and truncate. */
+        if (c->size > DNS_PACKET_PAYLOAD_SIZE_MAX(request)) {
+                log_debug("Artificially truncating stub response, as advertised size of client is smaller than upstream one.");
+                dns_packet_truncate(c, DNS_PACKET_PAYLOAD_SIZE_MAX(request));
+                DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_TC);
+        }
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
 static void dns_stub_query_complete(DnsQuery *q) {
         int r;
 
         assert(q);
-        assert(q->request_dns_packet);
+        assert(q->request_packet);
+
+        if (q->question_bypass) {
+                /* This is a bypass reply. If so, let's propagate the upstream packet, if we have it and it
+                 * is regular DNS. (We can't do this if the upstream packet is LLMNR or mDNS, since the
+                 * packets are not 100% compatible.) */
+
+                if (q->answer_full_packet &&
+                    q->answer_full_packet->protocol == DNS_PROTOCOL_DNS) {
+                        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+
+                        r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to patch bypass reply packet: %m");
+                        else
+                                (void) dns_stub_send(q->manager, q->stub_listener_extra, q->request_stream, q->request_packet, reply);
+
+                        dns_query_free(q);
+                        return;
+                }
+        }
 
         switch (q->state) {
 
-        case DNS_TRANSACTION_SUCCESS: {
-                bool truncated;
-
-                r = dns_stub_make_reply_packet(&q->reply_dns_packet, DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_dns_packet), q->question_idna, q->answer, &truncated);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to build reply packet: %m");
-                        break;
-                }
-
-                if (!truncated) {
+        case DNS_TRANSACTION_SUCCESS:
+                /* Follow CNAMEs, and accumulate answers. Except if DNSSEC is requested, then let the client do that. */
+                if (!DNS_PACKET_DO(q->request_packet)) {
                         r = dns_query_process_cname(q);
-                        if (r == -ELOOP) {
-                                (void) dns_stub_send_failure(q->manager, q->stub_listener_extra, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+                        if (r == -ELOOP) { /* CNAME loop */
+                                (void) dns_stub_send_reply(q, DNS_RCODE_SERVFAIL);
                                 break;
                         }
                         if (r < 0) {
@@ -295,30 +614,15 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                 return;
                 }
 
-                r = dns_stub_finish_reply_packet(
-                                q->reply_dns_packet,
-                                DNS_PACKET_ID(q->request_dns_packet),
-                                q->answer_rcode,
-                                truncated,
-                                !!q->request_dns_packet->opt,
-                                DNS_PACKET_DO(q->request_dns_packet),
-                                dns_query_fully_authenticated(q),
-                                q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to finish reply packet: %m");
-                        break;
-                }
-
-                (void) dns_stub_send(q->manager, q->stub_listener_extra, q->request_dns_stream, q->request_dns_packet, q->reply_dns_packet);
+                (void) dns_stub_send_reply(q, q->answer_rcode);
                 break;
-        }
 
         case DNS_TRANSACTION_RCODE_FAILURE:
-                (void) dns_stub_send_failure(q->manager, q->stub_listener_extra, q->request_dns_stream, q->request_dns_packet, q->answer_rcode, dns_query_fully_authenticated(q));
+                (void) dns_stub_send_reply(q, q->answer_rcode);
                 break;
 
         case DNS_TRANSACTION_NOT_FOUND:
-                (void) dns_stub_send_failure(q->manager, q->stub_listener_extra, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_NXDOMAIN, dns_query_fully_authenticated(q));
+                (void) dns_stub_send_reply(q, DNS_RCODE_NXDOMAIN);
                 break;
 
         case DNS_TRANSACTION_TIMEOUT:
@@ -334,7 +638,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
-                (void) dns_stub_send_failure(q->manager, q->stub_listener_extra, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+        case DNS_TRANSACTION_NO_SOURCE:
+                (void) dns_stub_send_reply(q, DNS_RCODE_SERVFAIL);
                 break;
 
         case DNS_TRANSACTION_NULL:
@@ -398,13 +703,13 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
 
         if (dns_type_is_obsolete(p->question->keys[0]->type)) {
                 log_debug("Got message with obsolete key type, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_NOTIMP, false);
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
 
         if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
                 log_debug("Got request for zone transfer, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_NOTIMP, false);
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
 
@@ -416,23 +721,29 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         }
 
         if (DNS_PACKET_DO(p) && DNS_PACKET_CD(p)) {
-                log_debug("Got request with DNSSEC CD bit set, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_NOTIMP, false);
-                return;
-        }
+                log_debug("Got request with DNSSEC checking disabled, enabling bypass logic.");
 
-        r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_SEARCH);
+                r = dns_query_new(m, &q, NULL, NULL, p, 0,
+                                  SD_RESOLVED_PROTOCOLS_ALL|
+                                  SD_RESOLVED_NO_CNAME|
+                                  SD_RESOLVED_NO_SEARCH|
+                                  SD_RESOLVED_NO_VALIDATE|
+                                  SD_RESOLVED_REQUIRE_PRIMARY|
+                                  SD_RESOLVED_CLAMP_TTL);
+        } else
+                r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
+                                  SD_RESOLVED_PROTOCOLS_ALL|
+                                  SD_RESOLVED_NO_SEARCH|
+                                  (DNS_PACKET_DO(p) ? SD_RESOLVED_NO_CNAME|SD_RESOLVED_REQUIRE_PRIMARY : 0)|
+                                  SD_RESOLVED_CLAMP_TTL);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_SERVFAIL, false);
                 return;
         }
 
-        /* Request that the TTL is corrected by the cached time for this lookup, so that we return vaguely useful TTLs */
-        q->clamp_ttl = true;
-
-        q->request_dns_packet = dns_packet_ref(p);
-        q->request_dns_stream = dns_stream_ref(s); /* make sure the stream stays around until we can send a reply through it */
+        q->request_packet = dns_packet_ref(p);
+        q->request_stream = dns_stream_ref(s); /* make sure the stream stays around until we can send a reply through it */
         q->stub_listener_extra = l;
         q->complete = dns_stub_query_complete;
 
