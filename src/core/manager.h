@@ -311,25 +311,25 @@ struct Manager {
 
         /* The stat() data the last time we saw /etc/localtime */
         usec_t etc_localtime_mtime;
-        bool etc_localtime_accessible:1;
+        bool etc_localtime_accessible;
 
-        ManagerObjective objective:5;
+        ManagerObjective objective;
 
         /* Flags */
-        bool dispatching_load_queue:1;
+        bool dispatching_load_queue;
 
-        bool taint_usr:1;
+        bool taint_usr;
 
         /* Have we already sent out the READY=1 notification? */
-        bool ready_sent:1;
+        bool ready_sent;
 
         /* Have we already printed the taint line if necessary? */
-        bool taint_logged:1;
+        bool taint_logged;
 
         /* Have we ever changed the "kernel.pid_max" sysctl? */
-        bool sysctl_pid_max_changed:1;
+        bool sysctl_pid_max_changed;
 
-        ManagerTestRunFlags test_run_flags:8;
+        ManagerTestRunFlags test_run_flags;
 
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
@@ -366,8 +366,8 @@ struct Manager {
 
         int original_log_level;
         LogTarget original_log_target;
-        bool log_level_overridden:1;
-        bool log_target_overridden:1;
+        bool log_level_overridden;
+        bool log_target_overridden;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
 
