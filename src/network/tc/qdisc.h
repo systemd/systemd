@@ -31,7 +31,7 @@ typedef enum QDiscKind {
         QDISC_KIND_TBF,
         QDISC_KIND_TEQL,
         _QDISC_KIND_MAX,
-        _QDISC_KIND_INVALID = -1,
+        _QDISC_KIND_INVALID = -EINVAL,
 } QDiscKind;
 
 typedef struct QDisc {

@@ -122,7 +122,7 @@ typedef enum BusSlotType {
         BUS_NODE_ENUMERATOR,
         BUS_NODE_VTABLE,
         BUS_NODE_OBJECT_MANAGER,
-        _BUS_SLOT_INVALID = -1,
+        _BUS_SLOT_INVALID = -EINVAL,
 } BusSlotType;
 
 struct sd_bus_slot {

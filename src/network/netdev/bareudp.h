@@ -15,7 +15,7 @@ typedef enum BareUDPProtocol {
         BARE_UDP_PROTOCOL_MPLS_UC = ETH_P_MPLS_UC,
         BARE_UDP_PROTOCOL_MPLS_MC = ETH_P_MPLS_MC,
         _BARE_UDP_PROTOCOL_MAX,
-        _BARE_UDP_PROTOCOL_INVALID = -1
+        _BARE_UDP_PROTOCOL_INVALID = -EINVAL,
 } BareUDPProtocol;
 
 struct BareUDP {

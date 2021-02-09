@@ -13,7 +13,7 @@ typedef enum {
         ESCAPE_NONE,    /* OPTIONS="string_escape=none" */
         ESCAPE_REPLACE, /* OPTIONS="string_escape=replace" */
         _ESCAPE_TYPE_MAX,
-        _ESCAPE_TYPE_INVALID = -1
+        _ESCAPE_TYPE_INVALID = -EINVAL,
 } UdevRuleEscapeType;
 
 int udev_rules_parse_file(UdevRules *rules, const char *filename);

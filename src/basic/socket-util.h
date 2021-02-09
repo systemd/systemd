@@ -63,7 +63,7 @@ typedef enum SocketAddressBindIPv6Only {
         SOCKET_ADDRESS_BOTH,
         SOCKET_ADDRESS_IPV6_ONLY,
         _SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -1
+        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -EINVAL,
 } SocketAddressBindIPv6Only;
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)

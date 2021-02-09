@@ -27,7 +27,7 @@ enum bus_match_node_type {
         BUS_MATCH_ARG_HAS,
         BUS_MATCH_ARG_HAS_LAST = BUS_MATCH_ARG_HAS + 63,
         _BUS_MATCH_NODE_TYPE_MAX,
-        _BUS_MATCH_NODE_TYPE_INVALID = -1
+        _BUS_MATCH_NODE_TYPE_INVALID = -EINVAL,
 };
 
 struct bus_match_node {

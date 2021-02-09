@@ -22,7 +22,7 @@ typedef enum PullJobState {
         PULL_JOB_DONE,
         PULL_JOB_FAILED,
         _PULL_JOB_STATE_MAX,
-        _PULL_JOB_STATE_INVALID = -1,
+        _PULL_JOB_STATE_INVALID = -EINVAL,
 } PullJobState;
 
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))

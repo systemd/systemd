@@ -16,7 +16,7 @@ typedef enum DHCPUseDomains {
         DHCP_USE_DOMAINS_YES,
         DHCP_USE_DOMAINS_ROUTE,
         _DHCP_USE_DOMAINS_MAX,
-        _DHCP_USE_DOMAINS_INVALID = -1,
+        _DHCP_USE_DOMAINS_INVALID = -EINVAL,
 } DHCPUseDomains;
 
 typedef enum DHCPOptionDataType {

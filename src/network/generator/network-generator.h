@@ -19,7 +19,7 @@ typedef enum DHCPType {
         DHCP_TYPE_EITHER6,
         DHCP_TYPE_IBFT,
         _DHCP_TYPE_MAX,
-        _DHCP_TYPE_INVALID = -1,
+        _DHCP_TYPE_INVALID = -EINVAL,
 } DHCPType;
 
 typedef struct Address Address;

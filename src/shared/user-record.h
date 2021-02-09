@@ -54,7 +54,7 @@ typedef enum UserDisposition {
         USER_CONTAINER,   /* UID ranges allocated for container uses */
         USER_RESERVED,    /* Range above 2^31 */
         _USER_DISPOSITION_MAX,
-        _USER_DISPOSITION_INVALID = -1,
+        _USER_DISPOSITION_INVALID = -EINVAL,
 } UserDisposition;
 
 typedef enum UserHomeStorage {
@@ -65,7 +65,7 @@ typedef enum UserHomeStorage {
         USER_FSCRYPT,
         USER_CIFS,
         _USER_STORAGE_MAX,
-        _USER_STORAGE_INVALID = -1
+        _USER_STORAGE_INVALID = -EINVAL,
 } UserStorage;
 
 typedef enum UserRecordMask {

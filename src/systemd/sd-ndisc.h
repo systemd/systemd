@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
@@ -58,7 +59,7 @@ typedef enum sd_ndisc_event {
         SD_NDISC_EVENT_TIMEOUT,
         SD_NDISC_EVENT_ROUTER,
         _SD_NDISC_EVENT_MAX,
-        _SD_NDISC_EVENT_INVALID = -1,
+        _SD_NDISC_EVENT_INVALID = -EINVAL,
 } sd_ndisc_event;
 
 typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata);

@@ -53,7 +53,7 @@ typedef enum JsonVariantType {
         JSON_VARIANT_OBJECT,
         JSON_VARIANT_NULL,
         _JSON_VARIANT_TYPE_MAX,
-        _JSON_VARIANT_TYPE_INVALID = -1
+        _JSON_VARIANT_TYPE_INVALID = -EINVAL,
 } JsonVariantType;
 
 int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n);

@@ -36,7 +36,7 @@ typedef enum ManagerState {
         MANAGER_MAINTENANCE,
         MANAGER_STOPPING,
         _MANAGER_STATE_MAX,
-        _MANAGER_STATE_INVALID = -1
+        _MANAGER_STATE_INVALID = -EINVAL,
 } ManagerState;
 
 typedef enum ManagerObjective {
@@ -50,7 +50,7 @@ typedef enum ManagerObjective {
         MANAGER_KEXEC,
         MANAGER_SWITCH_ROOT,
         _MANAGER_OBJECTIVE_MAX,
-        _MANAGER_OBJECTIVE_INVALID = -1
+        _MANAGER_OBJECTIVE_INVALID = -EINVAL,
 } ManagerObjective;
 
 typedef enum StatusType {
@@ -65,7 +65,7 @@ typedef enum OOMPolicy {
         OOM_STOP,              /* The kernel kills the process it wants to kill, and we stop the unit */
         OOM_KILL,              /* The kernel kills the process it wants to kill, and all others in the unit, and we stop the unit */
         _OOM_POLICY_MAX,
-        _OOM_POLICY_INVALID = -1
+        _OOM_POLICY_INVALID = -EINVAL,
 } OOMPolicy;
 
 /* Notes:
@@ -111,7 +111,7 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
         _MANAGER_TIMESTAMP_MAX,
-        _MANAGER_TIMESTAMP_INVALID = -1,
+        _MANAGER_TIMESTAMP_INVALID = -EINVAL,
 } ManagerTimestamp;
 
 typedef enum WatchdogType {

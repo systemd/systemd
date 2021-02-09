@@ -10,7 +10,7 @@ typedef enum MacVlanMode {
         NETDEV_MACVLAN_MODE_PASSTHRU = MACVLAN_MODE_PASSTHRU,
         NETDEV_MACVLAN_MODE_SOURCE = MACVLAN_MODE_SOURCE,
         _NETDEV_MACVLAN_MODE_MAX,
-        _NETDEV_MACVLAN_MODE_INVALID = -1
+        _NETDEV_MACVLAN_MODE_INVALID = -EINVAL,
 } MacVlanMode;
 
 const char *macvlan_mode_to_string(MacVlanMode d) _const_;

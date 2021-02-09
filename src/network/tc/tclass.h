@@ -13,7 +13,7 @@ typedef enum TClassKind {
         TCLASS_KIND_HTB,
         TCLASS_KIND_QFQ,
         _TCLASS_KIND_MAX,
-        _TCLASS_KIND_INVALID = -1,
+        _TCLASS_KIND_INVALID = -EINVAL,
 } TClassKind;
 
 typedef struct TClass {

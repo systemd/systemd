@@ -46,7 +46,7 @@ typedef enum TransferType {
         TRANSFER_PULL_TAR,
         TRANSFER_PULL_RAW,
         _TRANSFER_TYPE_MAX,
-        _TRANSFER_TYPE_INVALID = -1,
+        _TRANSFER_TYPE_INVALID = -EINVAL,
 } TransferType;
 
 struct Transfer {

@@ -24,7 +24,7 @@ typedef enum {
         UDEV_BUILTIN_UACCESS,
 #endif
         _UDEV_BUILTIN_MAX,
-        _UDEV_BUILTIN_INVALID = -1,
+        _UDEV_BUILTIN_INVALID = -EINVAL,
 } UdevBuiltinCommand;
 
 typedef struct UdevBuiltin {
