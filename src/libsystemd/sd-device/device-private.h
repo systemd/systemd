@@ -20,7 +20,7 @@ typedef enum DeviceAction {
         DEVICE_ACTION_BIND,
         DEVICE_ACTION_UNBIND,
         _DEVICE_ACTION_MAX,
-        _DEVICE_ACTION_INVALID = -1,
+        _DEVICE_ACTION_INVALID = -EINVAL,
 } DeviceAction;
 
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len);

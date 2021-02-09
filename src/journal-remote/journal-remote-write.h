@@ -36,5 +36,5 @@ typedef enum JournalWriteSplitMode {
         JOURNAL_WRITE_SPLIT_NONE,
         JOURNAL_WRITE_SPLIT_HOST,
         _JOURNAL_WRITE_SPLIT_MAX,
-        _JOURNAL_WRITE_SPLIT_INVALID = -1
+        _JOURNAL_WRITE_SPLIT_INVALID = -EINVAL,
 } JournalWriteSplitMode;

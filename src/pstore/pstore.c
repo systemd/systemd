@@ -53,7 +53,7 @@ typedef enum PStoreStorage {
         PSTORE_STORAGE_EXTERNAL,
         PSTORE_STORAGE_JOURNAL,
         _PSTORE_STORAGE_MAX,
-        _PSTORE_STORAGE_INVALID = -1
+        _PSTORE_STORAGE_INVALID = -EINVAL,
 } PStoreStorage;
 
 static const char* const pstore_storage_table[_PSTORE_STORAGE_MAX] = {

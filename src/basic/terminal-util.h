@@ -111,7 +111,7 @@ typedef enum ColorMode {
         /* Only 256 colors. */
         COLOR_256 = 256,
 
-        _COLOR_INVALID = -1,
+        _COLOR_INVALID = -EINVAL,
 } ColorMode;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);

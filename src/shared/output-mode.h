@@ -21,7 +21,7 @@ typedef enum OutputMode {
         OUTPUT_CAT,
         OUTPUT_WITH_UNIT,
         _OUTPUT_MODE_MAX,
-        _OUTPUT_MODE_INVALID = -1
+        _OUTPUT_MODE_INVALID = -EINVAL,
 } OutputMode;
 
 static inline bool OUTPUT_MODE_IS_JSON(OutputMode m) {

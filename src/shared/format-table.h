@@ -54,7 +54,7 @@ typedef enum TableDataType {
         TABLE_SET_URL,
         TABLE_SET_UPPERCASE,
 
-        _TABLE_DATA_TYPE_INVALID = -1,
+        _TABLE_DATA_TYPE_INVALID = -EINVAL,
 } TableDataType;
 
 /* PIDs are just 32bit signed integers on Linux */

@@ -20,7 +20,7 @@ typedef enum DnsServerType {
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
         _DNS_SERVER_TYPE_MAX,
-        _DNS_SERVER_TYPE_INVALID = -1
+        _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
 
 const char* dns_server_type_to_string(DnsServerType i) _const_;
@@ -35,7 +35,7 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_LARGE,
         DNS_SERVER_FEATURE_LEVEL_TLS_DO,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
-        _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
+        _DNS_SERVER_FEATURE_LEVEL_INVALID = -EINVAL,
 } DnsServerFeatureLevel;
 
 #define DNS_SERVER_FEATURE_LEVEL_WORST 0

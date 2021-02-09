@@ -22,7 +22,7 @@ typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_MASTER = NTF_MASTER,
         NEIGHBOR_CACHE_ENTRY_FLAGS_ROUTER = NTF_ROUTER,
         _NEIGHBOR_CACHE_ENTRY_FLAGS_MAX,
-        _NEIGHBOR_CACHE_ENTRY_FLAGS_INVALID = -1,
+        _NEIGHBOR_CACHE_ENTRY_FLAGS_INVALID = -EINVAL,
 } NeighborCacheEntryFlags;
 
 typedef struct FdbEntry {

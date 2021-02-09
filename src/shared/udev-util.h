@@ -15,7 +15,7 @@ typedef enum ResolveNameTiming {
         RESOLVE_NAME_LATE,
         RESOLVE_NAME_EARLY,
         _RESOLVE_NAME_TIMING_MAX,
-        _RESOLVE_NAME_TIMING_INVALID = -1,
+        _RESOLVE_NAME_TIMING_INVALID = -EINVAL,
 } ResolveNameTiming;
 
 ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;

@@ -107,7 +107,7 @@ typedef enum {
         FORMAT_SUBST_ROOT,
         FORMAT_SUBST_SYS,
         _FORMAT_SUBST_TYPE_MAX,
-        _FORMAT_SUBST_TYPE_INVALID = -1
+        _FORMAT_SUBST_TYPE_INVALID = -EINVAL,
 } FormatSubstitutionType;
 
 struct subst_map_entry {

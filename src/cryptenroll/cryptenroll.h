@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
+
 typedef enum EnrollType {
         ENROLL_PASSWORD,
         ENROLL_RECOVERY,
@@ -8,7 +10,7 @@ typedef enum EnrollType {
         ENROLL_FIDO2,
         ENROLL_TPM2,
         _ENROLL_TYPE_MAX,
-        _ENROLL_TYPE_INVALID = -1,
+        _ENROLL_TYPE_INVALID = -EINVAL,
 } EnrollType;
 
 typedef enum WipeScope {
@@ -16,7 +18,7 @@ typedef enum WipeScope {
         WIPE_ALL,               /* wipe all slots */
         WIPE_EMPTY_PASSPHRASE,  /* wipe slots with empty passphrases plus listed slots */
         _WIPE_SCOPE_MAX,
-        _WIPE_SCOPE_INVALID = -1,
+        _WIPE_SCOPE_INVALID = -EINVAL,
 } WipeScope;
 
 const char* enroll_type_to_string(EnrollType t);

@@ -13,14 +13,14 @@ typedef enum InhibitWhat {
         INHIBIT_HANDLE_LID_SWITCH    = 1 << 6,
         INHIBIT_HANDLE_REBOOT_KEY    = 1 << 7,
         _INHIBIT_WHAT_MAX            = 1 << 8,
-        _INHIBIT_WHAT_INVALID        = -1
+        _INHIBIT_WHAT_INVALID        = -EINVAL,
 } InhibitWhat;
 
 typedef enum InhibitMode {
         INHIBIT_BLOCK,
         INHIBIT_DELAY,
         _INHIBIT_MODE_MAX,
-        _INHIBIT_MODE_INVALID = -1
+        _INHIBIT_MODE_INVALID = -EINVAL,
 } InhibitMode;
 
 #include "logind.h"

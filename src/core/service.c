@@ -2738,7 +2738,7 @@ static int service_deserialize_exec_command(
                 STATE_EXEC_COMMAND_PATH,
                 STATE_EXEC_COMMAND_ARGS,
                 _STATE_EXEC_COMMAND_MAX,
-                _STATE_EXEC_COMMAND_INVALID = -1,
+                _STATE_EXEC_COMMAND_INVALID = -EINVAL,
         } state;
 
         assert(s);

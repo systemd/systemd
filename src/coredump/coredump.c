@@ -124,7 +124,7 @@ typedef enum CoredumpStorage {
         COREDUMP_STORAGE_EXTERNAL,
         COREDUMP_STORAGE_JOURNAL,
         _COREDUMP_STORAGE_MAX,
-        _COREDUMP_STORAGE_INVALID = -1
+        _COREDUMP_STORAGE_INVALID = -EINVAL,
 } CoredumpStorage;
 
 static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
