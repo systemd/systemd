@@ -526,7 +526,9 @@ int address_remove(
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_address_debug(address, "Removing", link);
+        log_address_debug(address,
+                          FLAGS_SET(address->flags, IFA_F_DEPRECATED) ? "Removing deprecated" : "Removing",
+                          link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
@@ -1245,8 +1247,21 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                 /* address_update() logs internally, so we don't need to here. */
                 r = address_update(address, tmp);
-                if (r < 0)
+                if (r < 0) {
                         link_enter_failed(link);
+                        return 0;
+                }
+
+                /* remove deprecated address. */
+                if (!m->enumerating &&
+                    FLAGS_SET(address->flags, IFA_F_DEPRECATED) &&
+                    !link_is_static_address_configured(link, address)) {
+                        r = address_remove(address, link, NULL);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return 0;
+                        }
+                }
 
                 break;
 
