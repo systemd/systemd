@@ -425,7 +425,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "after",               no_argument,       NULL, ARG_AFTER               },
                 { "before",              no_argument,       NULL, ARG_BEFORE              },
                 { "show-types",          no_argument,       NULL, ARG_SHOW_TYPES          },
-                { "failed",              no_argument,       NULL, ARG_FAILED              }, /* compatibility only */
+                { "failed",              no_argument,       NULL, ARG_FAILED              },
                 { "full",                no_argument,       NULL, 'l'                     },
                 { "job-mode",            required_argument, NULL, ARG_JOB_MODE            },
                 { "fail",                no_argument,       NULL, ARG_FAIL                }, /* compatibility only */
