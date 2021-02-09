@@ -32,7 +32,7 @@ typedef enum CGroupController {
         CGROUP_CONTROLLER_BPF_DEVICES,
 
         _CGROUP_CONTROLLER_MAX,
-        _CGROUP_CONTROLLER_INVALID = -1,
+        _CGROUP_CONTROLLER_INVALID = -EINVAL,
 } CGroupController;
 
 #define CGROUP_CONTROLLER_TO_MASK(c) (1U << (c))
@@ -97,7 +97,7 @@ typedef enum CGroupIOLimitType {
         CGROUP_IO_WIOPS_MAX,
 
         _CGROUP_IO_LIMIT_TYPE_MAX,
-        _CGROUP_IO_LIMIT_TYPE_INVALID = -1
+        _CGROUP_IO_LIMIT_TYPE_INVALID = -EINVAL,
 } CGroupIOLimitType;
 
 extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
@@ -283,7 +283,7 @@ typedef enum ManagedOOMMode {
         MANAGED_OOM_AUTO,
         MANAGED_OOM_KILL,
         _MANAGED_OOM_MODE_MAX,
-        _MANAGED_OOM_MODE_INVALID = -1,
+        _MANAGED_OOM_MODE_INVALID = -EINVAL,
 } ManagedOOMMode;
 
 const char* managed_oom_mode_to_string(ManagedOOMMode m) _const_;

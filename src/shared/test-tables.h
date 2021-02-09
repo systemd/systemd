@@ -31,9 +31,13 @@ static inline void _test_table(const char *name,
                 else if (boring == 1)
                         printf("%*s  ...\n", (int) strlen(name), "");
 
-                assert_se(!(i >= 0 && i < size ?
-                            sparse ? rev != i && rev != -1 : val == NULL || rev != i :
-                            val != NULL || rev != -1));
+                if (i >= 0 && i < size) {
+                        if (sparse)
+                                assert_se(rev == i || rev < 0);
+                        else
+                                assert_se(val != NULL && rev == i);
+                } else
+                        assert_se(val == NULL && rev < 0);
         }
 }
 

@@ -29,7 +29,7 @@ typedef enum CustomMountType {
         CUSTOM_MOUNT_INACCESSIBLE,
         CUSTOM_MOUNT_ARBITRARY,
         _CUSTOM_MOUNT_TYPE_MAX,
-        _CUSTOM_MOUNT_TYPE_INVALID = -1
+        _CUSTOM_MOUNT_TYPE_INVALID = -EINVAL,
 } CustomMountType;
 
 typedef struct CustomMount {

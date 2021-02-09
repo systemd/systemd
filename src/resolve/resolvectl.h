@@ -18,7 +18,7 @@ typedef enum ExecutionMode {
         MODE_STATUS,
         MODE_SET_LINK,
         MODE_REVERT_LINK,
-        _MODE_INVALID = -1,
+        _MODE_INVALID = -EINVAL,
 } ExecutionMode;
 
 extern ExecutionMode arg_mode;

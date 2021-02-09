@@ -33,17 +33,17 @@ struct match_callback {
 typedef enum NetlinkSlotType {
         NETLINK_REPLY_CALLBACK,
         NETLINK_MATCH_CALLBACK,
-        _NETLINK_SLOT_INVALID = -1,
+        _NETLINK_SLOT_INVALID = -EINVAL,
 } NetlinkSlotType;
 
 struct sd_netlink_slot {
         unsigned n_ref;
+        NetlinkSlotType type:8;
+        bool floating;
         sd_netlink *netlink;
         void *userdata;
         sd_netlink_destroy_t destroy_callback;
-        NetlinkSlotType type:2;
 
-        bool floating:1;
         char *description;
 
         LIST_FIELDS(sd_netlink_slot, slots);

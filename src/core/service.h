@@ -20,7 +20,7 @@ typedef enum ServiceRestart {
         SERVICE_RESTART_ON_ABORT,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,
-        _SERVICE_RESTART_INVALID = -1
+        _SERVICE_RESTART_INVALID = -EINVAL,
 } ServiceRestart;
 
 typedef enum ServiceType {
@@ -32,7 +32,7 @@ typedef enum ServiceType {
         SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
         SERVICE_EXEC,     /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
-        _SERVICE_TYPE_INVALID = -1
+        _SERVICE_TYPE_INVALID = -EINVAL,
 } ServiceType;
 
 typedef enum ServiceExecCommand {
@@ -44,7 +44,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
         _SERVICE_EXEC_COMMAND_MAX,
-        _SERVICE_EXEC_COMMAND_INVALID = -1
+        _SERVICE_EXEC_COMMAND_INVALID = -EINVAL,
 } ServiceExecCommand;
 
 typedef enum NotifyState {
@@ -53,7 +53,7 @@ typedef enum NotifyState {
         NOTIFY_RELOADING,
         NOTIFY_STOPPING,
         _NOTIFY_STATE_MAX,
-        _NOTIFY_STATE_INVALID = -1
+        _NOTIFY_STATE_INVALID = -EINVAL,
 } NotifyState;
 
 /* The values of this enum are referenced in man/systemd.exec.xml and src/shared/bus-unit-util.c.
@@ -71,7 +71,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_OOM_KILL,
         SERVICE_SKIP_CONDITION,
         _SERVICE_RESULT_MAX,
-        _SERVICE_RESULT_INVALID = -1
+        _SERVICE_RESULT_INVALID = -EINVAL,
 } ServiceResult;
 
 typedef enum ServiceTimeoutFailureMode {
@@ -79,7 +79,7 @@ typedef enum ServiceTimeoutFailureMode {
         SERVICE_TIMEOUT_ABORT,
         SERVICE_TIMEOUT_KILL,
         _SERVICE_TIMEOUT_FAILURE_MODE_MAX,
-        _SERVICE_TIMEOUT_FAILURE_MODE_INVALID = -1
+        _SERVICE_TIMEOUT_FAILURE_MODE_INVALID = -EINVAL,
 } ServiceTimeoutFailureMode;
 
 struct ServiceFDStore {

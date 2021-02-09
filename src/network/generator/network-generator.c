@@ -313,7 +313,7 @@ static int network_set_dhcp_type(Context *context, const char *ifname, const cha
 
         t = dracut_dhcp_type_from_string(dhcp_type);
         if (t < 0)
-                return -EINVAL;
+                return t;
 
         network = network_get(context, ifname);
         if (!network) {

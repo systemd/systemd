@@ -7,7 +7,7 @@ typedef enum VolatileMode {
         VOLATILE_STATE,
         VOLATILE_OVERLAY,
         _VOLATILE_MODE_MAX,
-        _VOLATILE_MODE_INVALID = -1
+        _VOLATILE_MODE_INVALID = -EINVAL,
 } VolatileMode;
 
 VolatileMode volatile_mode_from_string(const char *s);

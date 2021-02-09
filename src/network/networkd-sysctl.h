@@ -13,7 +13,7 @@ typedef enum IPv6PrivacyExtensions {
         IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC,
         IPV6_PRIVACY_EXTENSIONS_YES, /* aka prefer-temporary */
         _IPV6_PRIVACY_EXTENSIONS_MAX,
-        _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
+        _IPV6_PRIVACY_EXTENSIONS_INVALID = -EINVAL,
 } IPv6PrivacyExtensions;
 
 int link_set_sysctl(Link *link);

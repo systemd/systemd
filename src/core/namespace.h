@@ -23,7 +23,7 @@ typedef enum ProtectHome {
         PROTECT_HOME_READ_ONLY,
         PROTECT_HOME_TMPFS,
         _PROTECT_HOME_MAX,
-        _PROTECT_HOME_INVALID = -1
+        _PROTECT_HOME_INVALID = -EINVAL,
 } ProtectHome;
 
 typedef enum NamespaceType {
@@ -35,7 +35,7 @@ typedef enum NamespaceType {
         NAMESPACE_PID,
         NAMESPACE_NET,
         _NAMESPACE_TYPE_MAX,
-        _NAMESPACE_TYPE_INVALID = -1,
+        _NAMESPACE_TYPE_INVALID = -EINVAL,
 } NamespaceType;
 
 typedef enum ProtectSystem {
@@ -44,7 +44,7 @@ typedef enum ProtectSystem {
         PROTECT_SYSTEM_FULL,
         PROTECT_SYSTEM_STRICT,
         _PROTECT_SYSTEM_MAX,
-        _PROTECT_SYSTEM_INVALID = -1
+        _PROTECT_SYSTEM_INVALID = -EINVAL,
 } ProtectSystem;
 
 typedef enum ProtectProc {
@@ -53,14 +53,14 @@ typedef enum ProtectProc {
         PROTECT_PROC_INVISIBLE,  /* hidepid=invisible */
         PROTECT_PROC_PTRACEABLE, /* hidepid=ptraceable */
         _PROTECT_PROC_MAX,
-        _PROTECT_PROC_INVALID = -1,
+        _PROTECT_PROC_INVALID = -EINVAL,
 } ProtectProc;
 
 typedef enum ProcSubset {
         PROC_SUBSET_ALL,
         PROC_SUBSET_PID, /* subset=pid */
         _PROC_SUBSET_MAX,
-        _PROC_SUBSET_INVALID = -1,
+        _PROC_SUBSET_INVALID = -EINVAL,
 } ProcSubset;
 
 struct NamespaceInfo {

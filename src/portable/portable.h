@@ -42,7 +42,7 @@ typedef enum PortableState {
         PORTABLE_RUNNING,
         PORTABLE_RUNNING_RUNTIME,
         _PORTABLE_STATE_MAX,
-        _PORTABLE_STATE_INVALID = -1
+        _PORTABLE_STATE_INVALID = -EINVAL,
 } PortableState;
 
 typedef struct PortableChange {

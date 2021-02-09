@@ -1588,7 +1588,7 @@ typedef enum {
         CREATION_EXISTING,
         CREATION_FORCE,
         _CREATION_MODE_MAX,
-        _CREATION_MODE_INVALID = -1
+        _CREATION_MODE_INVALID = -EINVAL,
 } CreationMode;
 
 static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {

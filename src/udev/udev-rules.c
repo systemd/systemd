@@ -41,7 +41,7 @@ typedef enum {
         OP_ASSIGN,       /* = */
         OP_ASSIGN_FINAL, /* := */
         _OP_TYPE_MAX,
-        _OP_TYPE_INVALID = -1
+        _OP_TYPE_INVALID = -EINVAL,
 } UdevRuleOperatorType;
 
 typedef enum {
@@ -52,7 +52,7 @@ typedef enum {
         MATCH_TYPE_GLOB_WITH_EMPTY,  /* shell globs ?,*,[] with empty string, e.g., "|foo*" */
         MATCH_TYPE_SUBSYSTEM,        /* "subsystem", "bus", or "class" */
         _MATCH_TYPE_MAX,
-        _MATCH_TYPE_INVALID = -1
+        _MATCH_TYPE_INVALID = -EINVAL,
 } UdevRuleMatchType;
 
 typedef enum {
@@ -60,7 +60,7 @@ typedef enum {
         SUBST_TYPE_FORMAT, /* % or $ */
         SUBST_TYPE_SUBSYS, /* "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
         _SUBST_TYPE_MAX,
-        _SUBST_TYPE_INVALID = -1
+        _SUBST_TYPE_INVALID = -EINVAL,
 } UdevRuleSubstituteType;
 
 typedef enum {
@@ -123,7 +123,7 @@ typedef enum {
         TK_A_RUN_PROGRAM,                   /* string */
 
         _TK_TYPE_MAX,
-        _TK_TYPE_INVALID = -1,
+        _TK_TYPE_INVALID = -EINVAL,
 } UdevRuleTokenType;
 
 typedef enum {

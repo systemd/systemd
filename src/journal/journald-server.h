@@ -25,7 +25,7 @@ typedef enum Storage {
         STORAGE_PERSISTENT,
         STORAGE_NONE,
         _STORAGE_MAX,
-        _STORAGE_INVALID = -1
+        _STORAGE_INVALID = -EINVAL,
 } Storage;
 
 typedef enum SplitMode {
@@ -33,7 +33,7 @@ typedef enum SplitMode {
         SPLIT_LOGIN, /* deprecated */
         SPLIT_NONE,
         _SPLIT_MAX,
-        _SPLIT_INVALID = -1
+        _SPLIT_INVALID = -EINVAL,
 } SplitMode;
 
 typedef struct JournalCompressOptions {

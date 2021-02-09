@@ -93,7 +93,7 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_IFB,
         NL_UNION_LINK_INFO_DATA_BAREUDP,
         _NL_UNION_LINK_INFO_DATA_MAX,
-        _NL_UNION_LINK_INFO_DATA_INVALID = -1
+        _NL_UNION_LINK_INFO_DATA_INVALID = -EINVAL,
 } NLUnionLinkInfoData;
 
 const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
@@ -115,7 +115,7 @@ typedef enum NLUnionTCAOptionData {
         NL_UNION_TCA_OPTION_DATA_SFB,
         NL_UNION_TCA_OPTION_DATA_TBF,
         _NL_UNION_TCA_OPTION_DATA_MAX,
-        _NL_UNION_TCA_OPTION_DATA_INVALID = -1,
+        _NL_UNION_TCA_OPTION_DATA_INVALID = -EINVAL,
 } NLUnionTCAOptionData;
 
 const char *nl_union_tca_option_data_to_string(NLUnionTCAOptionData p) _const_;
@@ -131,7 +131,7 @@ typedef enum NLUnionNFTExprData {
         NL_UNION_NFT_EXPR_DATA_META,
         NL_UNION_NFT_EXPR_DATA_NAT,
         _NL_UNION_NFT_EXPR_DATA_MAX,
-        _NL_UNION_NFT_EXPR_DATA_INVALID = -1,
+        _NL_UNION_NFT_EXPR_DATA_INVALID = -EINVAL,
 } NLUnionNFTExprData;
 
 const char *nl_union_nft_expr_data_to_string(NLUnionNFTExprData p) _const_;

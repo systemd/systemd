@@ -33,7 +33,7 @@ typedef enum VerificationStyle {
         VERIFICATION_PER_FILE,      /* SuSE-style ".sha256" files with inline gpg signature */
         VERIFICATION_PER_DIRECTORY, /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
         _VERIFICATION_STYLE_MAX,
-        _VERIFICATION_STYLE_INVALID = -1,
+        _VERIFICATION_STYLE_INVALID = -EINVAL,
 } VerificationStyle;
 
 int verification_style_from_url(const char *url, VerificationStyle *style);

@@ -11,7 +11,7 @@ typedef enum IPVlanMode {
         NETDEV_IPVLAN_MODE_L3 = IPVLAN_MODE_L3,
         NETDEV_IPVLAN_MODE_L3S = IPVLAN_MODE_L3S,
         _NETDEV_IPVLAN_MODE_MAX,
-        _NETDEV_IPVLAN_MODE_INVALID = -1
+        _NETDEV_IPVLAN_MODE_INVALID = -EINVAL,
 } IPVlanMode;
 
 typedef enum IPVlanFlags {
@@ -19,7 +19,7 @@ typedef enum IPVlanFlags {
         NETDEV_IPVLAN_FLAGS_PRIVATE = IPVLAN_F_PRIVATE,
         NETDEV_IPVLAN_FLAGS_VEPA = IPVLAN_F_VEPA,
         _NETDEV_IPVLAN_FLAGS_MAX,
-        _NETDEV_IPVLAN_FLAGS_INVALID = -1
+        _NETDEV_IPVLAN_FLAGS_INVALID = -EINVAL,
 } IPVlanFlags;
 
 const char *ipvlan_mode_to_string(IPVlanMode d) _const_;

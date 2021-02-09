@@ -14,7 +14,7 @@ typedef enum MachineState {
         MACHINE_RUNNING,    /* Machine is running */
         MACHINE_CLOSING,    /* Machine is terminating */
         _MACHINE_STATE_MAX,
-        _MACHINE_STATE_INVALID = -1
+        _MACHINE_STATE_INVALID = -EINVAL,
 } MachineState;
 
 typedef enum MachineClass {
@@ -22,14 +22,14 @@ typedef enum MachineClass {
         MACHINE_VM,
         MACHINE_HOST,
         _MACHINE_CLASS_MAX,
-        _MACHINE_CLASS_INVALID = -1
+        _MACHINE_CLASS_INVALID = -EINVAL,
 } MachineClass;
 
 enum KillWho {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -1
+        _KILL_WHO_INVALID = -EINVAL,
 };
 
 struct Machine {
