@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "macro.h"
+#include "string-util-fundamental.h"
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE        " \t\n\r"
@@ -20,22 +21,6 @@
 #define LETTERS           LOWERCASE_LETTERS UPPERCASE_LETTERS
 #define ALPHANUMERICAL    LETTERS DIGITS
 #define HEXDIGITS         DIGITS "abcdefABCDEF"
-
-#define streq(a,b) (strcmp((a),(b)) == 0)
-#define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
-#define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
-#define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
-
-int strcmp_ptr(const char *a, const char *b) _pure_;
-int strcasecmp_ptr(const char *a, const char *b) _pure_;
-
-static inline bool streq_ptr(const char *a, const char *b) {
-        return strcmp_ptr(a, b) == 0;
-}
-
-static inline bool strcaseeq_ptr(const char *a, const char *b) {
-        return strcasecmp_ptr(a, b) == 0;
-}
 
 static inline char* strstr_ptr(const char *haystack, const char *needle) {
         if (!haystack || !needle)
@@ -55,10 +40,6 @@ static inline const char *strna(const char *s) {
         return s ?: "n/a";
 }
 
-static inline const char* yes_no(bool b) {
-        return b ? "yes" : "no";
-}
-
 static inline const char* true_false(bool b) {
         return b ? "true" : "false";
 }
@@ -73,10 +54,6 @@ static inline const char* one_zero(bool b) {
 
 static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
-}
-
-static inline bool isempty(const char *p) {
-        return !p || !p[0];
 }
 
 static inline const char *empty_to_null(const char *p) {
@@ -96,29 +73,6 @@ static inline bool empty_or_dash(const char *str) {
 static inline const char *empty_or_dash_to_null(const char *p) {
         return empty_or_dash(p) ? NULL : p;
 }
-
-static inline char *startswith(const char *s, const char *prefix) {
-        size_t l;
-
-        l = strlen(prefix);
-        if (strncmp(s, prefix, l) == 0)
-                return (char*) s + l;
-
-        return NULL;
-}
-
-static inline char *startswith_no_case(const char *s, const char *prefix) {
-        size_t l;
-
-        l = strlen(prefix);
-        if (strncasecmp(s, prefix, l) == 0)
-                return (char*) s + l;
-
-        return NULL;
-}
-
-char *endswith(const char *s, const char *postfix) _pure_;
-char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
