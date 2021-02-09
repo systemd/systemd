@@ -2478,6 +2478,9 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_integer(ret, d->percent);
 
         case TABLE_IFINDEX:
+                if (d->ifindex <= 0)
+                        return json_variant_new_null(ret);
+
                 return json_variant_new_integer(ret, d->ifindex);
 
         case TABLE_IN_ADDR:
