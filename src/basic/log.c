@@ -1175,9 +1175,11 @@ static bool should_parse_proc_cmdline(void) {
                 /* For testing. */
                 return true;
 
-        if (parse_pid(e, &p) < 0)
+        if (parse_pid(e, &p) < 0) {
                 /* We know that systemd sets the variable correctly. Something else must have set it. */
                 log_debug("Failed to parse \"$SYSTEMD_EXEC_PID=%s\". Ignoring.", e);
+                return false;
+        }
 
         return getpid_cached() == p;
 }
