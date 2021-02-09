@@ -1280,8 +1280,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_kill_signal = signal_from_string(optarg);
                         if (arg_kill_signal < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot parse signal: %s", optarg);
+                                return log_error_errno(arg_kill_signal, "Cannot parse signal: %s", optarg);
 
                         arg_settings_mask |= SETTING_KILL_SIGNAL;
                         break;
@@ -1443,8 +1442,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         rl = rlimit_from_string_harder(name);
                         if (rl < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown resource limit: %s", name);
+                                return log_error_errno(rl, "Unknown resource limit: %s", name);
 
                         if (!arg_rlimit[rl]) {
                                 arg_rlimit[rl] = new0(struct rlimit, 1);
@@ -1490,7 +1488,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_resolv_conf = resolv_conf_mode_from_string(optarg);
                         if (arg_resolv_conf < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                return log_error_errno(arg_resolv_conf,
                                                        "Failed to parse /etc/resolv.conf mode: %s", optarg);
 
                         arg_settings_mask |= SETTING_RESOLV_CONF;
@@ -1504,7 +1502,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_timezone = timezone_mode_from_string(optarg);
                         if (arg_timezone < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                return log_error_errno(arg_timezone,
                                                        "Failed to parse /etc/localtime mode: %s", optarg);
 
                         arg_settings_mask |= SETTING_TIMEZONE;
