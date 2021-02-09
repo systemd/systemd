@@ -233,4 +233,4 @@ static const char* const hostname_source_table[] = {
         [HOSTNAME_FALLBACK]  = "fallback",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(hostname_source, HostnameSource);
+DEFINE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource);
