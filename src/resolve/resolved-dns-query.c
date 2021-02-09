@@ -97,20 +97,35 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         return 1;
 }
 
-static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResourceKey *key) {
+static int dns_query_candidate_add_transaction(
+                DnsQueryCandidate *c,
+                DnsResourceKey *key,
+                DnsPacket *bypass) {
+
         _cleanup_(dns_transaction_gcp) DnsTransaction *t = NULL;
         int r;
 
         assert(c);
-        assert(key);
 
-        t = dns_scope_find_transaction(c->scope, key, true);
-        if (!t) {
-                r = dns_transaction_new(&t, c->scope, key);
+        if (key) {
+                /* Regular lookup with a resource key */
+                assert(!bypass);
+
+                t = dns_scope_find_transaction(c->scope, key, c->query->flags);
+                if (!t) {
+                        r = dns_transaction_new(&t, c->scope, key, NULL, c->query->flags);
+                        if (r < 0)
+                                return r;
+                } else if (set_contains(c->transactions, t))
+                        return 0;
+        } else {
+                /* "Bypass" lookup with a query packet */
+                assert(bypass);
+
+                r = dns_transaction_new(&t, c->scope, NULL, bypass, c->query->flags);
                 if (r < 0)
                         return r;
-        } else if (set_contains(c->transactions, t))
-                return 0;
+        }
 
         r = set_ensure_allocated(&t->notify_query_candidates_done, NULL);
         if (r < 0)
@@ -126,7 +141,6 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
                 return r;
         }
 
-        t->clamp_ttl = c->query->clamp_ttl;
         TAKE_PTR(t);
         return 1;
 }
@@ -214,6 +228,21 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
 
         dns_query_candidate_stop(c);
 
+        if (c->query->question_bypass) {
+                /* If this is a bypass query, then pass the original query packet along to the transaction */
+
+                assert(dns_question_size(c->query->question_bypass->question) == 1);
+
+                if (!dns_scope_good_key(c->scope, c->query->question_bypass->question->keys[0]))
+                        return 0;
+
+                r = dns_query_candidate_add_transaction(c, NULL, c->query->question_bypass);
+                if (r < 0)
+                        goto fail;
+
+                return 1;
+        }
+
         question = dns_query_question_for_protocol(c->query, c->scope->protocol);
 
         /* Create one transaction per question key */
@@ -233,7 +262,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
                 if (!dns_scope_good_key(c->scope, qkey))
                         continue;
 
-                r = dns_query_candidate_add_transaction(c, qkey);
+                r = dns_query_candidate_add_transaction(c, qkey, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -321,6 +350,7 @@ static void dns_query_reset_answer(DnsQuery *q) {
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
         q->answer_family = AF_UNSPEC;
         q->answer_search_domain = dns_search_domain_unref(q->answer_search_domain);
+        q->answer_full_packet = dns_packet_unref(q->answer_full_packet);
 }
 
 DnsQuery *dns_query_free(DnsQuery *q) {
@@ -340,6 +370,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         dns_question_unref(q->question_idna);
         dns_question_unref(q->question_utf8);
+        dns_packet_unref(q->question_bypass);
 
         dns_query_reset_answer(q);
 
@@ -351,13 +382,15 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 varlink_unref(q->varlink_request);
         }
 
-        dns_packet_unref(q->request_dns_packet);
-        dns_packet_unref(q->reply_dns_packet);
+        dns_packet_unref(q->request_packet);
+        dns_answer_unref(q->reply_answer);
+        dns_answer_unref(q->reply_authoritative);
+        dns_answer_unref(q->reply_additional);
 
-        if (q->request_dns_stream) {
+        if (q->request_stream) {
                 /* Detach the stream from our query, in case something else keeps a reference to it. */
-                (void) set_remove(q->request_dns_stream->queries, q);
-                q->request_dns_stream = dns_stream_unref(q->request_dns_stream);
+                (void) set_remove(q->request_stream->queries, q);
+                q->request_stream = dns_stream_unref(q->request_stream);
         }
 
         free(q->request_address_string);
@@ -375,36 +408,27 @@ int dns_query_new(
                 DnsQuery **ret,
                 DnsQuestion *question_utf8,
                 DnsQuestion *question_idna,
+                DnsPacket *question_bypass,
                 int ifindex,
                 uint64_t flags) {
 
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        DnsResourceKey *key;
-        bool good = false;
-        int r;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+        DnsResourceKey *key;
+        int r;
 
         assert(m);
 
-        if (dns_question_size(question_utf8) > 0) {
-                r = dns_question_is_valid_for_query(question_utf8);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+        if (question_bypass) {
+                /* It's either a "bypass" query, or a regular one, but can't be both. */
+                if (question_utf8 || question_idna)
                         return -EINVAL;
 
-                good = true;
-        }
+        } else {
+                bool good = false;
 
-        /* If the IDNA and UTF8 questions are the same, merge their references */
-        r = dns_question_is_equal(question_idna, question_utf8);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                question_idna = question_utf8;
-        else {
-                if (dns_question_size(question_idna) > 0) {
-                        r = dns_question_is_valid_for_query(question_idna);
+                if (dns_question_size(question_utf8) > 0) {
+                        r = dns_question_is_valid_for_query(question_utf8);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -412,10 +436,28 @@ int dns_query_new(
 
                         good = true;
                 }
-        }
 
-        if (!good) /* don't allow empty queries */
-                return -EINVAL;
+                /* If the IDNA and UTF8 questions are the same, merge their references */
+                r = dns_question_is_equal(question_idna, question_utf8);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        question_idna = question_utf8;
+                else {
+                        if (dns_question_size(question_idna) > 0) {
+                                r = dns_question_is_valid_for_query(question_idna);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -EINVAL;
+
+                                good = true;
+                        }
+                }
+
+                if (!good) /* don't allow empty queries */
+                        return -EINVAL;
+        }
 
         if (m->n_dns_queries >= QUERIES_MAX)
                 return -EBUSY;
@@ -427,6 +469,7 @@ int dns_query_new(
         *q = (DnsQuery) {
                 .question_utf8 = dns_question_ref(question_utf8),
                 .question_idna = dns_question_ref(question_idna),
+                .question_bypass = dns_packet_ref(question_bypass),
                 .ifindex = ifindex,
                 .flags = flags,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
@@ -434,21 +477,27 @@ int dns_query_new(
                 .answer_family = AF_UNSPEC,
         };
 
-        /* First dump UTF8  question */
-        DNS_QUESTION_FOREACH(key, question_utf8)
-                log_debug("Looking up RR for %s.",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+        if (question_bypass) {
+                DNS_QUESTION_FOREACH(key, question_bypass->question)
+                        log_debug("Looking up bypass packet for %s.",
+                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+        } else {
+                /* First dump UTF8  question */
+                DNS_QUESTION_FOREACH(key, question_utf8)
+                        log_debug("Looking up RR for %s.",
+                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
 
-        /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
-        DNS_QUESTION_FOREACH(key, question_idna) {
-                r = dns_question_contains(question_utf8, key);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        continue;
+                /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
+                DNS_QUESTION_FOREACH(key, question_idna) {
+                        r = dns_question_contains(question_utf8, key);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
 
-                log_debug("Looking up IDNA RR for %s.",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                        log_debug("Looking up IDNA RR for %s.",
+                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                }
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
@@ -457,8 +506,8 @@ int dns_query_new(
 
         if (ret)
                 *ret = q;
-        q = NULL;
 
+        TAKE_PTR(q);
         return 0;
 }
 
@@ -559,9 +608,12 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                     DNS_TRANSACTION_NOT_FOUND))
                 return 0;
 
+        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
+                return 0;
+
         r = dns_synthesize_answer(
                         q->manager,
-                        q->question_utf8,
+                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
                         q->ifindex,
                         &answer);
         if (r == -ENXIO) {
@@ -601,9 +653,12 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is
          * done. The data from /etc/hosts hence takes precedence over the network. */
 
+        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
+                return 0;
+
         r = manager_etc_hosts_lookup(
                         q->manager,
-                        q->question_utf8,
+                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
                         &answer);
         if (r <= 0)
                 return r;
@@ -757,6 +812,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 q->answer_authenticated = false;
                 q->answer_errno = c->error_code;
+                q->answer_full_packet = dns_packet_unref(q->answer_full_packet);
         }
 
         SET_FOREACH(t, c->transactions) {
@@ -764,13 +820,23 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 switch (t->state) {
 
                 case DNS_TRANSACTION_SUCCESS: {
-                        /* We found a successfully reply, merge it into the answer */
-                        r = dns_answer_extend(&q->answer, t->answer);
-                        if (r < 0)
-                                goto fail;
+                        /* We found a successful reply, merge it into the answer */
+
+                        if (state == DNS_TRANSACTION_SUCCESS) {
+                                r = dns_answer_extend(&q->answer, t->answer);
+                                if (r < 0)
+                                        goto fail;
+                        } else {
+                                /* Override non-successful previous answers */
+                                dns_answer_unref(q->answer);
+                                q->answer = dns_answer_ref(t->answer);
+                        }
 
                         q->answer_rcode = t->answer_rcode;
                         q->answer_errno = 0;
+
+                        dns_packet_unref(q->answer_full_packet);
+                        q->answer_full_packet = dns_packet_ref(t->received);
 
                         if (t->answer_authenticated) {
                                 has_authenticated = true;
@@ -800,11 +866,14 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         if (q->answer_authenticated && !t->answer_authenticated)
                                 continue;
 
-                        q->answer = dns_answer_unref(q->answer);
+                        dns_answer_unref(q->answer);
+                        q->answer = dns_answer_ref(t->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
                         q->answer_authenticated = t->answer_authenticated;
                         q->answer_errno = t->answer_errno;
+                        dns_packet_unref(q->answer_full_packet);
+                        q->answer_full_packet = dns_packet_ref(t->received);
 
                         state = t->state;
                         break;
@@ -998,6 +1067,9 @@ int dns_query_process_cname(DnsQuery *q) {
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
         assert(q);
 
+        if (q->question_bypass)
+                return q->question_bypass->question;
+
         switch (protocol) {
 
         case DNS_PROTOCOL_DNS:
@@ -1017,6 +1089,9 @@ const char *dns_query_string(DnsQuery *q) {
         int r;
 
         /* Returns a somewhat useful human-readable lookup key string for this query */
+
+        if (q->question_bypass)
+                return dns_question_first_name(q->question_bypass->question);
 
         if (q->request_address_string)
                 return q->request_address_string;

@@ -27,6 +27,31 @@
 /* Output: Result is authenticated */
 #define SD_RESOLVED_AUTHENTICATED   (UINT64_C(1) << 9)
 
+/* Input: Don't DNSSEC validate request */
+#define SD_RESOLVED_NO_VALIDATE     (UINT64_C(1) << 10)
+
+/* Input: Don't answer request from locally synthesized records (which includes /etc/hosts) */
+#define SD_RESOLVED_NO_SYNTHESIZE   (UINT64_C(1) << 11)
+
+/* Input: Don't answer request from cache */
+#define SD_RESOLVED_NO_CACHE        (UINT64_C(1) << 12)
+
+/* Input: Don't answer request from locally registered public LLMNR/mDNS RRs */
+#define SD_RESOLVED_NO_ZONE         (UINT64_C(1) << 13)
+
+/* Input: Don't answer request from locally registered public LLMNR/mDNS RRs */
+#define SD_RESOLVED_NO_TRUST_ANCHOR (UINT64_C(1) << 14)
+
+/* Input: Don't go to network for this request */
+#define SD_RESOLVED_NO_NETWORK      (UINT64_C(1) << 15)
+
+/* Input: Require that request is answered from a "primary" answer, i.e. not from RRs acquired as
+ * side-effect of a previous transaction */
+#define SD_RESOLVED_REQUIRE_PRIMARY (UINT64_C(1) << 16)
+
+/* Input: If reply is answered from cache, the TTLs will be adjusted by age of cache entry */
+#define SD_RESOLVED_CLAMP_TTL       (UINT64_C(1) << 17)
+
 #define SD_RESOLVED_LLMNR           (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
 #define SD_RESOLVED_MDNS            (SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6)
 #define SD_RESOLVED_PROTOCOLS_ALL   (SD_RESOLVED_MDNS|SD_RESOLVED_LLMNR|SD_RESOLVED_DNS)
