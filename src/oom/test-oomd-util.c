@@ -89,6 +89,8 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *cgroup = NULL;
         OomdCGroupContext *c1, *c2;
+        bool test_xattrs;
+        int r;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
@@ -101,6 +103,16 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
 
         assert_se(cg_pid_get_path(NULL, 0, &cgroup) >= 0);
 
+        /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
+         * so skip the xattr portions of the test. */
+        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "1", 1, 0);
+        test_xattrs = !ERRNO_IS_PRIVILEGE(r) && !ERRNO_IS_NOT_SUPPORTED(r);
+
+        if (test_xattrs) {
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "1", 1, 0) >= 0);
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
+        }
+
         assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
 
         assert_se(streq(ctx->path, cgroup));
@@ -110,12 +122,28 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(ctx->swap_usage == 0);
         assert_se(ctx->last_pgscan == 0);
         assert_se(ctx->pgscan == 0);
+        /* omit takes precedence over avoid when both are set to true */
+        if (test_xattrs)
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_OMIT);
+        else
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+        ctx = oomd_cgroup_context_free(ctx);
+
+        /* also check when only avoid is set to true */
+        if (test_xattrs) {
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "0", 1, 0) >= 0);
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
+        }
+        assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
+        if (test_xattrs)
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_AVOID);
         ctx = oomd_cgroup_context_free(ctx);
 
         /* Test the root cgroup */
         assert_se(oomd_cgroup_context_acquire("", &ctx) == 0);
         assert_se(streq(ctx->path, "/"));
         assert_se(ctx->current_memory_usage > 0);
+        assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
 
         /* Test hashmap inserts */
         assert_se(h1 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
@@ -137,6 +165,14 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(c2->last_pgscan == 5555);
         assert_se(c2->mem_pressure_limit == 6789);
         assert_se(c2->last_hit_mem_pressure_limit == 42);
+
+        /* Assert that avoid/omit are not set if the cgroup is not owned by root */
+        if (test_xattrs) {
+                ctx = oomd_cgroup_context_free(ctx);
+                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 65534, 0) >= 0);
+                assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+        }
 }
 
 static void test_oomd_system_context_acquire(void) {
@@ -287,9 +323,11 @@ static void test_oomd_sort_cgroups(void) {
         char **paths = STRV_MAKE("/herp.slice",
                                  "/herp.slice/derp.scope",
                                  "/herp.slice/derp.scope/sheep.service",
-                                 "/zupa.slice");
+                                 "/zupa.slice",
+                                 "/omitted.slice",
+                                 "/avoid.slice");
 
-        OomdCGroupContext ctx[4] = {
+        OomdCGroupContext ctx[6] = {
                 { .path = paths[0],
                   .swap_usage = 20,
                   .pgscan = 60,
@@ -306,6 +344,14 @@ static void test_oomd_sort_cgroups(void) {
                   .swap_usage = 10,
                   .pgscan = 80,
                   .current_memory_usage = 10 },
+                { .path = paths[4],
+                  .swap_usage = 90,
+                  .pgscan = 100,
+                  .preference = MANAGED_OOM_PREFERENCE_OMIT },
+                { .path = paths[5],
+                  .swap_usage = 99,
+                  .pgscan = 200,
+                  .preference = MANAGED_OOM_PREFERENCE_AVOID },
         };
 
         assert_se(h = hashmap_new(&string_hash_ops));
@@ -314,19 +360,23 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(hashmap_put(h, "/herp.slice/derp.scope", &ctx[1]) >= 0);
         assert_se(hashmap_put(h, "/herp.slice/derp.scope/sheep.service", &ctx[2]) >= 0);
         assert_se(hashmap_put(h, "/zupa.slice", &ctx[3]) >= 0);
+        assert_se(hashmap_put(h, "/omitted.slice", &ctx[4]) >= 0);
+        assert_se(hashmap_put(h, "/avoid.slice", &ctx[5]) >= 0);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted_cgroups) == 4);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted_cgroups) == 5);
         assert_se(sorted_cgroups[0] == &ctx[1]);
         assert_se(sorted_cgroups[1] == &ctx[2]);
         assert_se(sorted_cgroups[2] == &ctx[0]);
         assert_se(sorted_cgroups[3] == &ctx[3]);
+        assert_se(sorted_cgroups[4] == &ctx[5]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, NULL, &sorted_cgroups) == 4);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, NULL, &sorted_cgroups) == 5);
         assert_se(sorted_cgroups[0] == &ctx[3]);
         assert_se(sorted_cgroups[1] == &ctx[0]);
         assert_se(sorted_cgroups[2] == &ctx[2]);
         assert_se(sorted_cgroups[3] == &ctx[1]);
+        assert_se(sorted_cgroups[4] == &ctx[5]);
         sorted_cgroups = mfree(sorted_cgroups);
 
         assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
@@ -334,6 +384,8 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[1] == &ctx[1]);
         assert_se(sorted_cgroups[2] == 0);
         assert_se(sorted_cgroups[3] == 0);
+        assert_se(sorted_cgroups[4] == 0);
+        assert_se(sorted_cgroups[5] == 0);
         sorted_cgroups = mfree(sorted_cgroups);
 }
 

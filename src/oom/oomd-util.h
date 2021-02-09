@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "cgroup-util.h"
 #include "hashmap.h"
 #include "psi-util.h"
 
@@ -28,6 +29,8 @@ struct OomdCGroupContext {
 
         uint64_t last_pgscan;
         uint64_t pgscan;
+
+        ManagedOOMPreference preference;
 
         /* These are only used by oomd_pressure_above for acting on high memory pressure. */
         loadavg_t mem_pressure_limit;
@@ -61,11 +64,17 @@ bool oomd_memory_reclaim(Hashmap *h);
 /* Returns true if the amount of swap free is below the percentage of swap specified by `threshold_percent`. */
 bool oomd_swap_free_below(const OomdSystemContext *ctx, uint64_t threshold_percent);
 
+/* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
+ * (after the smallest values). */
 static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
         int r;
 
         assert(c1);
         assert(c2);
+
+        r = CMP((*c1)->preference, (*c2)->preference);
+        if (r != 0)
+                return r;
 
         r = CMP((*c2)->pgscan, (*c1)->pgscan);
         if (r != 0)
@@ -75,8 +84,14 @@ static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1,
 }
 
 static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+        int r;
+
         assert(c1);
         assert(c2);
+
+        r = CMP((*c1)->preference, (*c2)->preference);
+        if (r != 0)
+                return r;
 
         return CMP((*c2)->swap_usage, (*c1)->swap_usage);
 }
