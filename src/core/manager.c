@@ -510,7 +510,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGCHLD,     /* Child died */
                         SIGTERM,     /* Reexecute daemon */
                         SIGHUP,      /* Reload configuration */
-                        SIGUSR1,     /* systemd/upstart: reconnect to D-Bus */
+                        SIGUSR1,     /* systemd: reconnect to D-Bus */
                         SIGUSR2,     /* systemd: dump status */
                         SIGINT,      /* Kernel sends us this on control-alt-del */
                         SIGWINCH,    /* Kernel sends us this on kbrequest (alt-arrowup) */

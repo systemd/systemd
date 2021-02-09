@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "pretty-print.h"
+#include "rlimit-util.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-start-unit.h"
@@ -149,4 +151,12 @@ int reload_with_fallback(void) {
                 return log_error_errno(errno, "kill() failed: %m");
 
         return 0;
+}
+
+int exec_telinit(char *argv[]) {
+        (void) rlimit_nofile_safe();
+        execv(TELINIT, argv);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                               "Couldn't find an alternative telinit implementation to spawn.");
 }
