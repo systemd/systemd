@@ -471,8 +471,8 @@ static void log_address_debug(const Address *address, const char *str, const Lin
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *addr = NULL, *peer = NULL;
-                char valid_buf[FORMAT_TIMESPAN_MAX];
-                const char *valid_str = NULL;
+                char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
+                const char *valid_str = NULL, *preferred_str = NULL;
                 bool has_peer;
 
                 (void) in_addr_to_string(address->family, &address->in_addr, &addr);
@@ -485,10 +485,16 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                                                     address->cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
 
-                log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s)",
+                if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
+                        preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
+                                                        address->cinfo.ifa_prefered * USEC_PER_SEC,
+                                                        USEC_PER_SEC);
+
+                log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s)",
                                str, strnull(addr), has_peer ? " peer " : "",
                                has_peer ? strnull(peer) : "", address->prefixlen,
-                               valid_str ? "for " : "forever", strempty(valid_str));
+                               valid_str ? "for " : "forever", strempty(valid_str),
+                               preferred_str ? "for " : "forever", strempty(preferred_str));
         }
 }
 
