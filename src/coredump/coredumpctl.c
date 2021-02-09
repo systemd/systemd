@@ -16,6 +16,7 @@
 #include "compress.h"
 #include "def.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "journal-internal.h"
@@ -47,9 +48,10 @@ static const char *arg_debugger = NULL;
 static char **arg_debugger_args = NULL;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
-static int arg_no_legend = false;
-static int arg_one = false;
+static int arg_legend = true;
+static size_t arg_rows_max = SIZE_MAX;
 static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
@@ -155,20 +157,23 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sList or retrieve coredumps from the journal.%s\n"
-               "\nCommands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sList or retrieve coredumps from the journal.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
                "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Print version string\n"
                "     --no-pager                Do not pipe output into a pager\n"
                "     --no-legend               Do not print the column headers\n"
+               "     --json=pretty|short|off\n"
+               "                               Generate JSON output\n"
                "     --debugger=DEBUGGER       Use the given debugger\n"
                "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
+               "  -n INT                       Show maximum number of rows\n"
                "  -1                           Show information about most recent entry only\n"
                "  -S --since=DATE              Only print coredumps since the date\n"
                "  -U --until=DATE              Only print coredumps until the date\n"
@@ -178,11 +183,13 @@ static int help(void) {
                "     --file=PATH               Use journal file\n"
                "  -D --directory=DIR           Use journal files from directory\n\n"
                "  -q --quiet                   Do not show info messages and privilege warning\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -192,6 +199,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
                 ARG_DEBUGGER,
                 ARG_FILE,
         };
@@ -213,13 +221,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "since",              required_argument, NULL, 'S'           },
                 { "until",              required_argument, NULL, 'U'           },
                 { "quiet",              no_argument,       NULL, 'q'           },
+                { "json",               required_argument, NULL, ARG_JSON      },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         return help();
@@ -232,7 +241,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_LEGEND:
-                        arg_no_legend = true;
+                        arg_legend = false;
                         break;
 
                 case ARG_DEBUGGER:
@@ -282,8 +291,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case '1':
-                        arg_one = true;
+                        arg_rows_max = 1;
+                        arg_reverse = true;
                         break;
+
+                case 'n': {
+                        unsigned n;
+
+                        r = safe_atou(optarg, &n);
+                        if (r < 0 || n < 1)
+                                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid numeric parameter to -n: %s", optarg);
+
+                        arg_rows_max = n;
+                        break;
+                }
 
                 case 'D':
                         arg_directory = optarg;
@@ -295,6 +317,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
+
+                case ARG_JSON:
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '?':
@@ -376,21 +405,24 @@ static int print_field(FILE* file, sd_journal *j) {
                         continue;                    \
         }
 
-static int print_list(FILE* file, sd_journal *j, int had_legend) {
+static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
                 *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
-        usec_t t;
-        char buf[FORMAT_TIMESTAMP_MAX];
-        int r;
-        const char *present;
+        usec_t ts;
+        int r, signal_as_int = 0;
+        const char *present, *color;
         bool normal_coredump;
+        uid_t uid_as_int = UID_INVALID;
+        gid_t gid_as_int = GID_INVALID;
+        pid_t pid_as_int = 0;
 
         assert(file);
         assert(j);
+        assert(t);
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 RETRIEVE(d, l, "MESSAGE_ID", mid);
@@ -406,54 +438,56 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename) {
-                log_warning("Empty coredump log entry");
-                return -EINVAL;
-        }
+        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Empty coredump log entry");
 
-        r = sd_journal_get_realtime_usec(j, &t);
+        (void) parse_uid(uid, &uid_as_int);
+        (void) parse_gid(gid, &gid_as_int);
+        (void) parse_pid(pid, &pid_as_int);
+        signal_as_int = signal_from_string(sgnl);
+
+        r = sd_journal_get_realtime_usec(j, &ts);
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
-
-        format_timestamp(buf, sizeof(buf), t);
-
-        if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
-                        FORMAT_TIMESTAMP_WIDTH, "TIME",
-                        6, "PID",
-                        5, "UID",
-                        5, "GID",
-                        3, "SIG",
-                        9, "COREFILE",
-                           "EXE");
 
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (filename)
                 if (access(filename, R_OK) == 0)
                         present = "present";
-                else if (errno == ENOENT)
+                else if (errno == ENOENT) {
                         present = "missing";
-                else
+                        color = ansi_grey();
+                } else if (ERRNO_IS_PRIVILEGE(errno)) {
+                        present = "access denied";
+                        color = ansi_highlight_yellow();
+                } else {
                         present = "error";
+                        color = ansi_highlight_red();
+                }
         else if (coredump)
                 present = "journal";
-        else if (normal_coredump)
+        else if (normal_coredump) {
                 present = "none";
-        else
-                present = "-";
+                color = ansi_grey();
+        } else
+                present = NULL;
 
-        if (STR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
+        if (STRPTR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
 
-        fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
-                FORMAT_TIMESTAMP_WIDTH, buf,
-                6, strna(pid),
-                5, strna(uid),
-                5, strna(gid),
-                3, normal_coredump ? strna(sgnl) : "-",
-                9, present,
-                strna(exe ?: (comm ?: cmdline)));
+        r = table_add_many(
+                        t,
+                        TABLE_TIMESTAMP, ts,
+                        TABLE_PID, pid_as_int,
+                        TABLE_UID, uid_as_int,
+                        TABLE_GID, gid_as_int,
+                        TABLE_SIGNAL, normal_coredump ? signal_as_int : 0,
+                        TABLE_STRING, present,
+                        TABLE_SET_COLOR, color,
+                        TABLE_STRING, exe ?: comm ?: cmdline);
+        if (r < 0)
+                return table_log_add_error(r);
 
         return 0;
 }
@@ -659,43 +693,60 @@ static int focus(sd_journal *j) {
         return r;
 }
 
-static int print_entry(sd_journal *j, unsigned n_found, bool verb_is_info) {
+static int print_entry(
+                sd_journal *j,
+                size_t n_found,
+                Table *t) {
+
         assert(j);
 
-        if (verb_is_info)
-                return print_info(stdout, j, n_found);
+        if (t)
+                return print_list(stdout, j, t);
         else if (arg_field)
                 return print_field(stdout, j);
         else
-                return print_list(stdout, j, n_found);
+                return print_info(stdout, j, n_found > 0);
 }
 
 static int dump_list(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        unsigned n_found = 0;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        size_t n_found = 0;
         bool verb_is_info;
         int r;
 
-        verb_is_info = (argc >= 1 && streq(argv[0], "info"));
+        verb_is_info = argc >= 1 && streq(argv[0], "info");
 
         r = acquire_journal(&j, argv + 1);
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_pager_flags);
+        /* The coredumps are likely to compressed, and for just listing them we don't need to decompress
+         * them, so let's pick a fairly low data threshold here */
+        (void) sd_journal_set_data_threshold(j, 4096);
 
-        /* The coredumps are likely to compressed, and for just
-         * listing them we don't need to decompress them, so let's
-         * pick a fairly low data threshold here */
-        sd_journal_set_data_threshold(j, 4096);
+        if (!verb_is_info && !arg_field) {
+                t = table_new("time", "pid", "uid", "gid", "sig", "corefule", "exe");
+                if (!t)
+                        return log_oom();
+
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(1), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(2), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(3), 100);
+
+                (void) table_set_empty_string(t, "-");
+        } else
+                (void) pager_open(arg_pager_flags);
 
         /* "info" without pattern implies "-1" */
-        if (arg_one || (verb_is_info && argc == 1)) {
+        if ((arg_rows_max == 1 && arg_reverse) || (verb_is_info && argc == 1)) {
                 r = focus(j);
                 if (r < 0)
                         return r;
 
-                return print_entry(j, 0, verb_is_info);
+                r = print_entry(j, 0, t);
+                if (r < 0)
+                        return r;
         } else {
                 if (arg_since != USEC_INFINITY && !arg_reverse)
                         r = sd_journal_seek_realtime_usec(j, arg_since);
@@ -713,10 +764,8 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 r = sd_journal_next(j);
                         else
                                 r = sd_journal_previous(j);
-
                         if (r < 0)
                                 return log_error_errno(r, "Failed to iterate through journal: %m");
-
                         if (r == 0)
                                 break;
 
@@ -740,9 +789,12 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                         continue;
                         }
 
-                        r = print_entry(j, n_found++, verb_is_info);
+                        r = print_entry(j, n_found++, t);
                         if (r < 0)
                                 return r;
+
+                        if (arg_rows_max != SIZE_MAX && n_found >= arg_rows_max)
+                                break;
                 }
 
                 if (!arg_field && n_found <= 0) {
@@ -750,6 +802,12 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 log_notice("No coredumps found.");
                         return -ESRCH;
                 }
+        }
+
+        if (t) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
