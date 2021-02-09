@@ -56,7 +56,7 @@ struct sd_event_source {
 
         char *description;
 
-        EventSourceType type:5;
+        EventSourceType type;
         signed int enabled:3;
         bool pending:1;
         bool dispatching:1;
