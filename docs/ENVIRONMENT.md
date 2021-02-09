@@ -279,3 +279,9 @@ systemd-sysext:
   specify API file systems such as `/proc/` or `/sys/` here, or hierarchies
   that have them as submounts. In particular, do not specify the root directory
   `/` here.
+
+systemd-tmpfiles:
+
+* `SYSTEMD_TMPFILES_FORCE_SUBVOL` - if unset, v/q/Q lines will create subvolumes only if the
+  OS itself is installed into a subvolume. If set to 1 (or another true value), these lines will always create
+  subvolumes (if the backing filesystem supports them). If set to 0, these lines will always create directories.
