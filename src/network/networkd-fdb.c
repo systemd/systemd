@@ -377,7 +377,6 @@ int config_parse_fdb_ntf_flags(
 
         _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         Network *network = userdata;
-        NeighborCacheEntryFlags f;
         int r;
 
         assert(filename);
@@ -390,9 +389,9 @@ int config_parse_fdb_ntf_flags(
         if (r < 0)
                 return log_oom();
 
-        f = fdb_ntf_flags_from_string(rvalue);
+        NeighborCacheEntryFlags f = fdb_ntf_flags_from_string(rvalue);
         if (f < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                log_syntax(unit, LOG_WARNING, filename, line, f,
                            "FDB failed to parse AssociatedWith=, ignoring assignment: %s",
                            rvalue);
                 return 0;

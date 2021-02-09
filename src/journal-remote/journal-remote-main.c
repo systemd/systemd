@@ -961,16 +961,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SPLIT_MODE:
                         arg_split_mode = journal_write_split_mode_from_string(optarg);
                         if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid split mode: %s", optarg);
+                                return log_error_errno(arg_split_mode, "Invalid split mode: %s", optarg);
                         break;
 
                 case ARG_COMPRESS:
                         if (optarg) {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --compress= parameter.");
+                                        return log_error_errno(r, "Failed to parse --compress= parameter.");
 
                                 arg_compress = !!r;
                         } else

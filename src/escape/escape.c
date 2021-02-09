@@ -82,17 +82,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case ARG_SUFFIX:
-
-                        if (unit_type_from_string(optarg) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid unit suffix type %s.", optarg);
+                case ARG_SUFFIX: {
+                        UnitType t = unit_type_from_string(optarg);
+                        if (t < 0)
+                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", optarg);
 
                         arg_suffix = optarg;
                         break;
+                }
 
                 case ARG_TEMPLATE:
-
                         if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Template name %s is not valid.", optarg);
