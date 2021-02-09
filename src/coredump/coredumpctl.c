@@ -405,6 +405,59 @@ static int print_field(FILE* file, sd_journal *j) {
                         continue;                    \
         }
 
+static void analyze_coredump_file(
+                const char *path,
+                const char **ret_state,
+                const char **ret_color,
+                uint64_t *ret_size) {
+
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(ret_state);
+        assert(ret_color);
+        assert(ret_size);
+
+        fd = open(path, O_PATH|O_CLOEXEC);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        *ret_state = "missing";
+                        *ret_color = ansi_grey();
+                        *ret_size = UINT64_MAX;
+                        return;
+                }
+
+                r = -errno;
+        } else
+                r = access_fd(fd, R_OK);
+        if (ERRNO_IS_PRIVILEGE(r)) {
+                *ret_state = "inaccessible";
+                *ret_color = ansi_highlight_yellow();
+                *ret_size = UINT64_MAX;
+                return;
+        }
+        if (r < 0)
+                goto error;
+
+        if (fstat(fd, &st) < 0)
+                goto error;
+
+        if (!S_ISREG(st.st_mode))
+                goto error;
+
+        *ret_state = "present";
+        *ret_color = NULL;
+        *ret_size = st.st_size;
+        return;
+
+error:
+        *ret_state = "error";
+        *ret_color = ansi_highlight_red();
+        *ret_size = UINT64_MAX;
+}
+
 static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
@@ -414,7 +467,8 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
         size_t l;
         usec_t ts;
         int r, signal_as_int = 0;
-        const char *present, *color;
+        const char *present = NULL, *color = NULL;
+        uint64_t size = UINT64_MAX;
         bool normal_coredump;
         uid_t uid_as_int = UID_INVALID;
         gid_t gid_as_int = GID_INVALID;
@@ -453,18 +507,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (filename)
-                if (access(filename, R_OK) == 0)
-                        present = "present";
-                else if (errno == ENOENT) {
-                        present = "missing";
-                        color = ansi_grey();
-                } else if (ERRNO_IS_PRIVILEGE(errno)) {
-                        present = "access denied";
-                        color = ansi_highlight_yellow();
-                } else {
-                        present = "error";
-                        color = ansi_highlight_red();
-                }
+                analyze_coredump_file(filename, &present, &color, &size);
         else if (coredump)
                 present = "journal";
         else if (normal_coredump) {
@@ -485,7 +528,8 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                         TABLE_SIGNAL, normal_coredump ? signal_as_int : 0,
                         TABLE_STRING, present,
                         TABLE_SET_COLOR, color,
-                        TABLE_STRING, exe ?: comm ?: cmdline);
+                        TABLE_STRING, exe ?: comm ?: cmdline,
+                        TABLE_SIZE, size);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -646,24 +690,27 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file, "      Hostname: %s\n", hostname);
 
         if (filename) {
-                bool inacc, trunc;
+                const char *state = NULL, *color = NULL;
+                uint64_t size = UINT64_MAX;
+                char buf[FORMAT_BYTES_MAX];
 
-                inacc = access(filename, R_OK) < 0;
-                trunc = truncated && parse_boolean(truncated) > 0;
+                analyze_coredump_file(filename, &state, &color, &size);
 
-                if (inacc || trunc)
-                        fprintf(file, "       Storage: %s%s (%s%s%s)%s\n",
-                                ansi_highlight_red(),
-                                filename,
-                                inacc ? "inaccessible" : "",
-                                inacc && trunc ? ", " : "",
-                                trunc ? "truncated" : "",
-                                ansi_normal());
-                else
-                        fprintf(file, "       Storage: %s\n", filename);
-        }
+                if (STRPTR_IN_SET(state, "present", "journal") && truncated && parse_boolean(truncated) > 0)
+                        state = "truncated";
 
-        else if (coredump)
+                fprintf(file,
+                        "       Storage: %s%s (%s)%s\n",
+                        strempty(color),
+                        filename,
+                        state,
+                        ansi_normal());
+
+                if (size != UINT64_MAX)
+                        fprintf(file,
+                                "     Disk Size: %s\n",
+                                format_bytes(buf, sizeof(buf), size));
+        } else if (coredump)
                 fprintf(file, "       Storage: journal\n");
         else
                 fprintf(file, "       Storage: none\n");
@@ -726,13 +773,14 @@ static int dump_list(int argc, char **argv, void *userdata) {
         (void) sd_journal_set_data_threshold(j, 4096);
 
         if (!verb_is_info && !arg_field) {
-                t = table_new("time", "pid", "uid", "gid", "sig", "corefule", "exe");
+                t = table_new("time", "pid", "uid", "gid", "sig", "corefile", "exe", "size");
                 if (!t)
                         return log_oom();
 
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(1), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(2), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(3), 100);
+                (void) table_set_align_percent(t, TABLE_HEADER_CELL(7), 100);
 
                 (void) table_set_empty_string(t, "-");
         } else
