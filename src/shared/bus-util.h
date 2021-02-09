@@ -19,7 +19,7 @@ typedef enum BusTransport {
         BUS_TRANSPORT_REMOTE,
         BUS_TRANSPORT_MACHINE,
         _BUS_TRANSPORT_MAX,
-        _BUS_TRANSPORT_INVALID = -1
+        _BUS_TRANSPORT_INVALID = -EINVAL,
 } BusTransport;
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name);

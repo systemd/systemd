@@ -15,7 +15,7 @@ typedef enum SessionState {
         SESSION_ACTIVE,   /* Logged in and in the fg */
         SESSION_CLOSING,  /* Logged out, but scope is still there */
         _SESSION_STATE_MAX,
-        _SESSION_STATE_INVALID = -1
+        _SESSION_STATE_INVALID = -EINVAL,
 } SessionState;
 
 typedef enum SessionClass {
@@ -24,7 +24,7 @@ typedef enum SessionClass {
         SESSION_LOCK_SCREEN,
         SESSION_BACKGROUND,
         _SESSION_CLASS_MAX,
-        _SESSION_CLASS_INVALID = -1
+        _SESSION_CLASS_INVALID = -EINVAL,
 } SessionClass;
 
 typedef enum SessionType {
@@ -35,7 +35,7 @@ typedef enum SessionType {
         SESSION_MIR,
         SESSION_WEB,
         _SESSION_TYPE_MAX,
-        _SESSION_TYPE_INVALID = -1
+        _SESSION_TYPE_INVALID = -EINVAL,
 } SessionType;
 
 #define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND, SESSION_MIR)
@@ -44,7 +44,7 @@ enum KillWho {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -1
+        _KILL_WHO_INVALID = -EINVAL,
 };
 
 typedef enum TTYValidity {
@@ -52,7 +52,7 @@ typedef enum TTYValidity {
         TTY_FROM_UTMP,
         TTY_UTMP_INCONSISTENT, /* may happen on ssh sessions with multiplexed TTYs */
         _TTY_VALIDITY_MAX,
-        _TTY_VALIDITY_INVALID = -1,
+        _TTY_VALIDITY_INVALID = -EINVAL,
 } TTYValidity;
 
 struct Session {

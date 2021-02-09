@@ -14,7 +14,7 @@ typedef enum UserReconcileMode {
         USER_RECONCILE_REQUIRE_NEWER,          /* host version must be newer than embedded version */
         USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, /* similar, but may also be equal */
         _USER_RECONCILE_MODE_MAX,
-        _USER_RECONCILE_MODE_INVALID = -1,
+        _USER_RECONCILE_MODE_INVALID = -EINVAL,
 } UserReconcileMode;
 
 enum { /* return values */

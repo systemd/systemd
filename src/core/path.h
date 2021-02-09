@@ -13,7 +13,7 @@ typedef enum PathType {
         PATH_CHANGED,
         PATH_MODIFIED,
         _PATH_TYPE_MAX,
-        _PATH_TYPE_INVALID = -1
+        _PATH_TYPE_INVALID = -EINVAL,
 } PathType;
 
 typedef struct PathSpec {
@@ -47,7 +47,7 @@ typedef enum PathResult {
         PATH_FAILURE_START_LIMIT_HIT,
         PATH_FAILURE_UNIT_START_LIMIT_HIT,
         _PATH_RESULT_MAX,
-        _PATH_RESULT_INVALID = -1
+        _PATH_RESULT_INVALID = -EINVAL,
 } PathResult;
 
 struct Path {

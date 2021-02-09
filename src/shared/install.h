@@ -22,7 +22,7 @@ enum UnitFilePresetMode {
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
         _UNIT_FILE_PRESET_MAX,
-        _UNIT_FILE_PRESET_INVALID = -1
+        _UNIT_FILE_PRESET_INVALID = -EINVAL,
 };
 
 enum UnitFileChangeType {
@@ -70,7 +70,7 @@ enum UnitFileType {
         UNIT_FILE_TYPE_SYMLINK,
         UNIT_FILE_TYPE_MASKED,
         _UNIT_FILE_TYPE_MAX,
-        _UNIT_FILE_TYPE_INVALID = -1,
+        _UNIT_FILE_TYPE_INVALID = -EINVAL,
 };
 
 struct UnitFileInstallInfo {

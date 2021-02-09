@@ -17,7 +17,7 @@ typedef enum MACAddressPolicy {
         MAC_ADDRESS_POLICY_RANDOM,
         MAC_ADDRESS_POLICY_NONE,
         _MAC_ADDRESS_POLICY_MAX,
-        _MAC_ADDRESS_POLICY_INVALID = -1
+        _MAC_ADDRESS_POLICY_INVALID = -EINVAL,
 } MACAddressPolicy;
 
 typedef enum NamePolicy {
@@ -29,7 +29,7 @@ typedef enum NamePolicy {
         NAMEPOLICY_PATH,
         NAMEPOLICY_MAC,
         _NAMEPOLICY_MAX,
-        _NAMEPOLICY_INVALID = -1
+        _NAMEPOLICY_INVALID = -EINVAL,
 } NamePolicy;
 
 struct link_config {
