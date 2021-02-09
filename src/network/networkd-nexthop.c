@@ -132,6 +132,23 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
+int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret) {
+        NextHop *nh;
+
+        assert(manager);
+
+        if (id == 0)
+                return -EINVAL;
+
+        nh = hashmap_get(manager->nexthops_by_id, UINT32_TO_PTR(id));
+        if (!nh)
+                return -ENOENT;
+
+        if (ret)
+                *ret = nh;
+        return 0;
+}
+
 static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         NextHop *existing;
 
