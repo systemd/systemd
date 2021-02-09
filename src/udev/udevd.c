@@ -476,7 +476,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                  * degree — they go hand-in-hand after all. */
 
                 log_device_debug(dev, "Block device is currently locked, installing watch to wait until the lock is released.");
-                (void) udev_watch_begin(dev);
+                (void) udev_watch_begin(dev, false);
 
                 /* Now the watch is installed, let's lock the device again, maybe in the meantime things changed */
                 r = worker_lock_block_device(dev, &fd_lock);
@@ -498,13 +498,10 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
         /* apply/restore/end inotify watch */
-        if (udev_event->inotify_watch) {
-                (void) udev_watch_begin(dev);
-                r = device_update_db(dev);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
-        } else
-                (void) udev_watch_end(dev);
+        if (udev_event->inotify_watch)
+                (void) udev_watch_begin(dev, true);
+        else
+                (void) udev_watch_end(dev, false);
 
         log_device_uevent(dev, "Device processed");
         return 0;
@@ -1317,7 +1314,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 if (e->mask & IN_CLOSE_WRITE)
                         synthesize_change(dev);
                 else if (e->mask & IN_IGNORED)
-                        udev_watch_end(dev);
+                        udev_watch_end(dev, true);
         }
 
         return 1;
