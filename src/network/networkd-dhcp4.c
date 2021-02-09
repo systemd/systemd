@@ -870,7 +870,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
-        r = address_configure(addr, link, dhcp4_address_handler, true, &ret);
+        r = address_configure(addr, link, dhcp4_address_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv4 address: %m");
 
