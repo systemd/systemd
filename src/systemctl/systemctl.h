@@ -29,6 +29,7 @@ enum action {
         ACTION_RELOAD,
         ACTION_REEXEC,
         ACTION_RUNLEVEL,
+        ACTION_TELINIT,
         ACTION_CANCEL_SHUTDOWN,
         _ACTION_MAX,
         _ACTION_INVALID = -1
@@ -92,3 +93,5 @@ extern char **arg_clean_what;
 extern TimestampStyle arg_timestamp_style;
 extern bool arg_read_only;
 extern bool arg_mkdir;
+
+int systemctl_dispatch_parse_argv(int argc, char *argv[]);

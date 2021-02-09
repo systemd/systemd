@@ -38,18 +38,10 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
          * very new and not apply to the current script being executed. */
 
         e = getenv("RUNLEVEL");
-        if (e && e[0] > 0) {
+        if (!isempty(e)) {
                 *runlevel = e[0];
-
-                if (previous) {
-                        /* $PREVLEVEL seems to be an Upstart thing */
-
-                        e = getenv("PREVLEVEL");
-                        if (e && e[0] > 0)
-                                *previous = e[0];
-                        else
-                                *previous = 0;
-                }
+                if (previous)
+                        *previous = 0;
 
                 return 0;
         }
