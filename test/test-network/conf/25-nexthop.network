@@ -3,9 +3,37 @@ Name=veth99
 
 [Network]
 IPv6AcceptRA=no
+Address=2001:1234:5:8f63::1/120
 Address=192.168.5.10/24
 Gateway=192.168.5.1
 
 [NextHop]
 Id=1
 Gateway=192.168.5.1
+
+[NextHop]
+Id=2
+Gateway=2001:1234:5:8f63::2
+
+[NextHop]
+Id=3
+Family=ipv6
+
+[NextHop]
+Id=4
+Family=ipv4
+
+[NextHop]
+Gateway=192.168.5.2
+
+[Route]
+NextHop=1
+Destination=10.10.10.10
+
+[Route]
+NextHop=2
+Destination=10.10.10.11
+
+[Route]
+NextHop=2
+Destination=2001:1234:5:8f62::1

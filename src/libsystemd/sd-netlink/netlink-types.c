@@ -733,14 +733,15 @@ static const NLType rtnl_route_types[] = {
         [RTA_VIA]               = { /* See struct rtvia */ },
         [RTA_NEWDST]            = { .type = NETLINK_TYPE_U32 },
         [RTA_PREF]              = { .type = NETLINK_TYPE_U8 },
-        [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },
         [RTA_ENCAP_TYPE]        = { .type = NETLINK_TYPE_U16 },
         [RTA_ENCAP]             = { .type = NETLINK_TYPE_NESTED }, /* Multiple type systems i.e. LWTUNNEL_ENCAP_MPLS/LWTUNNEL_ENCAP_IP/LWTUNNEL_ENCAP_ILA etc... */
+        [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },
         [RTA_UID]               = { .type = NETLINK_TYPE_U32 },
         [RTA_TTL_PROPAGATE]     = { .type = NETLINK_TYPE_U8 },
         [RTA_IP_PROTO]          = { .type = NETLINK_TYPE_U8 },
         [RTA_SPORT]             = { .type = NETLINK_TYPE_U16 },
         [RTA_DPORT]             = { .type = NETLINK_TYPE_U16 },
+        [RTA_NH_ID]             = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem rtnl_route_type_system = {
