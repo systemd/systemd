@@ -1616,6 +1616,7 @@ fuzzers = []
 
 basic_includes = include_directories(
         'src/basic',
+        'src/fundamental',
         'src/systemd',
         '.')
 
@@ -1634,6 +1635,7 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
+subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
@@ -1664,6 +1666,7 @@ install_libsystemd_static = static_library(
         libsystemd_sources,
         basic_sources,
         basic_gcrypt_sources,
+        fundamental_sources,
         disable_mempool_c,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
@@ -1699,6 +1702,7 @@ libudev = shared_library(
 install_libudev_static = static_library(
         'udev',
         basic_sources,
+        fundamental_sources,
         shared_sources,
         libsystemd_sources,
         libudev_sources,
