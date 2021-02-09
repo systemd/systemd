@@ -20,11 +20,14 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -100,6 +103,9 @@ typedef struct TableData {
                 int ifindex;
                 union in_addr_union address;
                 sd_id128_t id128;
+                uid_t uid;
+                gid_t gid;
+                pid_t pid;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -284,6 +290,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_UINT:
         case TABLE_PERCENT:
         case TABLE_IFINDEX:
+        case TABLE_SIGNAL:
                 return sizeof(int);
 
         case TABLE_IN_ADDR:
@@ -295,6 +302,13 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_UUID:
         case TABLE_ID128:
                 return sizeof(sd_id128_t);
+
+        case TABLE_UID:
+                return sizeof(uid_t);
+        case TABLE_GID:
+                return sizeof(gid_t);
+        case TABLE_PID:
+                return sizeof(pid_t);
 
         default:
                 assert_not_reached("Uh? Unexpected cell type");
@@ -801,6 +815,9 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         bool b;
                         union in_addr_union address;
                         sd_id128_t id128;
+                        uid_t uid;
+                        gid_t gid;
+                        pid_t pid;
                 } buffer;
 
                 switch (type) {
@@ -840,6 +857,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_INT:
+                case TABLE_SIGNAL:
                         buffer.int_val = va_arg(ap, int);
                         data = &buffer.int_val;
                         break;
@@ -929,6 +947,21 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_ID128:
                         buffer.id128 = va_arg(ap, sd_id128_t);
                         data = &buffer.id128;
+                        break;
+
+                case TABLE_UID:
+                        buffer.uid = va_arg(ap, uid_t);
+                        data = &buffer.uid;
+                        break;
+
+                case TABLE_GID:
+                        buffer.gid = va_arg(ap, gid_t);
+                        data = &buffer.gid;
+                        break;
+
+                case TABLE_PID:
+                        buffer.pid = va_arg(ap, pid_t);
+                        data = &buffer.pid;
                         break;
 
                 case TABLE_SET_MINIMUM_WIDTH: {
@@ -1189,6 +1222,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return CMP(a->size, b->size);
 
                 case TABLE_INT:
+                case TABLE_SIGNAL:
                         return CMP(a->int_val, b->int_val);
 
                 case TABLE_INT8:
@@ -1233,6 +1267,15 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_UUID:
                 case TABLE_ID128:
                         return memcmp(&a->id128, &b->id128, sizeof(sd_id128_t));
+
+                case TABLE_UID:
+                        return CMP(a->uid, b->uid);
+
+                case TABLE_GID:
+                        return CMP(a->gid, b->gid);
+
+                case TABLE_PID:
+                        return CMP(a->pid, b->pid);
 
                 default:
                         ;
@@ -1615,6 +1658,67 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 d->formatted = id128_to_uuid_string(d->id128, p);
+                break;
+        }
+
+        case TABLE_UID: {
+                _cleanup_free_ char *p = NULL;
+
+                if (!uid_is_valid(d->uid))
+                        return "n/a";
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uid) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, UID_FMT, d->uid);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_GID: {
+                _cleanup_free_ char *p = NULL;
+
+                if (!gid_is_valid(d->gid))
+                        return "n/a";
+
+                p = new(char, DECIMAL_STR_WIDTH(d->gid) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, GID_FMT, d->gid);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_PID: {
+                _cleanup_free_ char *p = NULL;
+
+                if (!pid_is_valid(d->pid))
+                        return "n/a";
+
+                p = new(char, DECIMAL_STR_WIDTH(d->pid) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, PID_FMT, d->pid);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_SIGNAL: {
+                _cleanup_free_ char *p = NULL;
+                const char *suffix;
+
+                suffix = signal_to_string(d->int_val);
+                if (!suffix)
+                        return "n/a";
+
+                p = strjoin("SIG", suffix);
+                if (!p)
+                        return NULL;
+
+                d->formatted = TAKE_PTR(p);
                 break;
         }
 
@@ -2391,6 +2495,30 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 char buf[ID128_UUID_STRING_MAX];
                 return json_variant_new_string(ret, id128_to_uuid_string(d->id128, buf));
         }
+
+        case TABLE_UID:
+                if (!uid_is_valid(d->uid))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->uid);
+
+        case TABLE_GID:
+                if (!gid_is_valid(d->gid))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->gid);
+
+        case TABLE_PID:
+                if (!pid_is_valid(d->pid))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->pid);
+
+        case TABLE_SIGNAL:
+                if (!SIGNAL_VALID(d->int_val))
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_integer(ret, d->int_val);
 
         default:
                 return -EINVAL;
