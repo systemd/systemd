@@ -29,15 +29,6 @@ jobs:
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect
 
-    # glibc 2.33-3 shipped on 2021-02-06 breaks running Arch containers on
-    # systems with older kernels (like Ubuntu Focal). Until the issue is
-    # resolved, let's pin the Arch repositories to glibc 2.32-5 to mitigate
-    # the annoying CI fails.
-    #
-    # See: https://bugs.archlinux.org/task/69563
-    - name: Pin repositories to 2021-02-05
-      run: sed -i '/^\[Distribution\]/aMirror=https://archive.archlinux.org/repos/2021/02/05/' .mkosi/mkosi.arch
-
     - name: Symlink
       run: ln -s .mkosi/mkosi.${{ matrix.distro }} mkosi.default
 
