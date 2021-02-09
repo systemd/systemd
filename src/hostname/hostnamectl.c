@@ -11,8 +11,11 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
+#include "format-table.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
@@ -47,46 +50,109 @@ typedef struct StatusInfo {
         const char *hardware_model;
 } StatusInfo;
 
-static void print_status_info(StatusInfo *i) {
+static int print_status_info(StatusInfo *i) {
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_id128_t mid = {}, bid = {};
+        TableCell *cell;
         int r;
 
         assert(i);
 
-        printf("   Static hostname: %s\n", strna(i->static_hostname));
+        table = table_new("key", "value");
+        if (!table)
+                return log_oom();
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+        (void) table_set_align_percent(table, cell, 100);
+
+        table_set_header(table, false);
+
+        r = table_set_empty_string(table, "n/a");
+        if (r < 0)
+                return log_oom();
+
+        r = table_add_many(table,
+                           TABLE_STRING, "Static hostname:",
+                           TABLE_STRING, i->static_hostname);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (!isempty(i->pretty_hostname) &&
-            !streq_ptr(i->pretty_hostname, i->static_hostname))
-                printf("   Pretty hostname: %s\n", i->pretty_hostname);
+            !streq_ptr(i->pretty_hostname, i->static_hostname)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Pretty hostname:",
+                                   TABLE_STRING, i->pretty_hostname);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (!isempty(i->hostname) &&
-            !streq_ptr(i->hostname, i->static_hostname))
-                printf("Transient hostname: %s\n", i->hostname);
+            !streq_ptr(i->hostname, i->static_hostname)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Transient hostname:",
+                                   TABLE_STRING, i->hostname);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->icon_name))
-                printf("         Icon name: %s\n",
-                       strna(i->icon_name));
+        if (!isempty(i->icon_name)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Icon name:",
+                                   TABLE_STRING, i->icon_name);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->chassis))
-                printf("           Chassis: %s\n",
-                       strna(i->chassis));
+        if (!isempty(i->chassis)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Chassis:",
+                                   TABLE_STRING, i->chassis);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->deployment))
-                printf("        Deployment: %s\n", i->deployment);
+        if (!isempty(i->deployment)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Deployment:",
+                                   TABLE_STRING, i->deployment);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->location))
-                printf("          Location: %s\n", i->location);
+        if (!isempty(i->location)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Location:",
+                                   TABLE_STRING, i->location);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         r = sd_id128_get_machine(&mid);
-        if (r >= 0)
-                printf("        Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(mid));
+        if (r >= 0) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Machine ID:",
+                                   TABLE_ID128, mid);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         r = sd_id128_get_boot(&bid);
-        if (r >= 0)
-                printf("           Boot ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(bid));
+        if (r >= 0) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Boot ID:",
+                                   TABLE_ID128, bid);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->virtualization))
-                printf("    Virtualization: %s\n", i->virtualization);
+        if (!isempty(i->virtualization)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Virtualization:",
+                                   TABLE_STRING, i->virtualization);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (!isempty(i->os_pretty_name)) {
                 _cleanup_free_ char *formatted = NULL;
@@ -97,30 +163,73 @@ static void print_status_info(StatusInfo *i) {
                                 t = formatted;
                 }
 
-                printf("  Operating System: %s\n", t);
+                r = table_add_many(table,
+                                   TABLE_STRING, "Operating System:",
+                                   TABLE_STRING, t);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
-        if (!isempty(i->os_cpe_name))
-                printf("       CPE OS Name: %s\n", i->os_cpe_name);
+        if (!isempty(i->os_cpe_name)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "CPE OS Name:",
+                                   TABLE_STRING, i->os_cpe_name);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->kernel_name) && !isempty(i->kernel_release))
-                printf("            Kernel: %s %s\n", i->kernel_name, i->kernel_release);
+        if (!isempty(i->kernel_name) && !isempty(i->kernel_release)) {
+                const char *v;
 
-        if (!isempty(i->architecture))
-                printf("      Architecture: %s\n", i->architecture);
+                v = strjoina(i->kernel_name, " ", i->kernel_release);
+                r = table_add_many(table,
+                                   TABLE_STRING, "Kernel:",
+                                   TABLE_STRING, v);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->hardware_vendor))
-                printf("   Hardware Vendor: %s\n", i->hardware_vendor);
+        if (!isempty(i->architecture)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Architecture:",
+                                   TABLE_STRING, i->architecture);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        if (!isempty(i->hardware_model))
-                printf("    Hardware Model: %s\n", i->hardware_model);
+        if (!isempty(i->hardware_vendor)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Hardware Vendor:",
+                                   TABLE_STRING, i->hardware_vendor);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i->hardware_model)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Hardware Model:",
+                                   TABLE_STRING, i->hardware_model);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
 }
 
-static int show_one_name(sd_bus *bus, const char* attr) {
+static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *s;
         int r;
+
+        assert(bus);
+        assert(attr);
+
+        /* This obtains one string property, and copy it if 'ret' is set, or print it otherwise. */
 
         r = sd_bus_get_property(
                         bus,
@@ -136,12 +245,21 @@ static int show_one_name(sd_bus *bus, const char* attr) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%s\n", s);
+        if (ret) {
+                char *str;
+
+                str = strdup(s);
+                if (!str)
+                        return log_oom();
+
+                *ret = str;
+        } else
+                printf("%s\n", s);
 
         return 0;
 }
 
-static int show_all_names(sd_bus *bus, sd_bus_error *error) {
+static int show_all_names(sd_bus *bus) {
         StatusInfo info = {};
 
         static const struct bus_properties_map hostname_map[]  = {
@@ -169,6 +287,7 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
         };
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *host_message = NULL, *manager_message = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = bus_map_all_properties(bus,
@@ -176,29 +295,28 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
                                    0,
-                                   error,
+                                   &error,
                                    &host_message,
                                    &info);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
                                    0,
-                                   error,
+                                   &error,
                                    &manager_message,
                                    &info);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
 
-        print_status_info(&info);
-
-        return r;
+        return print_status_info(&info);
 }
 
 static int show_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        int r;
 
         if (arg_pretty || arg_static || arg_transient) {
                 const char *attr;
@@ -210,23 +328,20 @@ static int show_status(int argc, char **argv, void *userdata) {
                 attr = arg_pretty ? "PrettyHostname" :
                         arg_static ? "StaticHostname" : "Hostname";
 
-                return show_one_name(bus, attr);
-        } else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
-                r = show_all_names(bus, &error);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
-
-                return 0;
+                return get_one_name(bus, attr, NULL);
         }
+
+        return show_all_names(bus);
 }
 
-static int set_simple_string(sd_bus *bus, const char *method, const char *value) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r = 0;
+static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *target, const char *method, const char *value) {
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+        int r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        if (!error)
+                error = &e;
 
         r = sd_bus_call_method(
                         bus,
@@ -234,37 +349,62 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
                         "/org/freedesktop/hostname1",
                         "org.freedesktop.hostname1",
                         method,
-                        &error, NULL,
+                        error, NULL,
                         "sb", value, arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Could not set property: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Could not set %s: %s", target, bus_error_message(error, r));
 
         return 0;
+}
+
+static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
+        return set_simple_string_internal(bus, NULL, target, method, value);
 }
 
 static int set_hostname(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *h = NULL;
         const char *hostname = argv[1];
         sd_bus *bus = userdata;
-        int r;
+        bool implicit = false, show_hint = false;
+        int r, ret = 0;
 
         if (!arg_pretty && !arg_static && !arg_transient)
-                arg_pretty = arg_static = arg_transient = true;
+                arg_pretty = arg_static = arg_transient = implicit = true;
+
+        if (!implicit && !arg_static && arg_transient) {
+                _cleanup_free_ char *source = NULL;
+
+                r = get_one_name(bus, "HostnameSource", &source);
+                if (r < 0)
+                        return r;
+
+                if (hostname_source_from_string(source) == HOSTNAME_STATIC)
+                        log_info("Hint: static hostname is already set, so the specified transient hostname will not be used.");
+        }
 
         if (arg_pretty) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 const char *p;
 
                 /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
                  * hostnames, so let's unset the pretty hostname, and just set the passed hostname as static/dynamic
                  * hostname. */
-                if (arg_static && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
+                if (implicit && hostname_is_valid(hostname, VALID_HOSTNAME_TRAILING_DOT))
                         p = ""; /* No pretty hostname (as it is redundant), just a static one */
                 else
                         p = hostname; /* Use the passed name as pretty hostname */
 
-                r = set_simple_string(bus, "SetPrettyHostname", p);
-                if (r < 0)
-                        return r;
+                r = set_simple_string_internal(bus, &error, "pretty hostname", "SetPrettyHostname", p);
+                if (r < 0) {
+                        if (implicit &&
+                            sd_bus_error_has_names(&error,
+                                                   BUS_ERROR_FILE_IS_PROTECTED,
+                                                   BUS_ERROR_READ_ONLY_FILESYSTEM)) {
+                                show_hint = true;
+                                ret = r;
+                        } else
+                                return r;
+                }
 
                 /* Now that we set the pretty hostname, let's clean up the parameter and use that as static
                  * hostname. If the hostname was already valid as static hostname, this will only chop off the trailing
@@ -280,34 +420,47 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         }
 
         if (arg_static) {
-                r = set_simple_string(bus, "SetStaticHostname", hostname);
-                if (r < 0)
-                        return r;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = set_simple_string_internal(bus, &error, "static hostname", "SetStaticHostname", hostname);
+                if (r < 0) {
+                        if (implicit &&
+                            sd_bus_error_has_names(&error,
+                                                   BUS_ERROR_FILE_IS_PROTECTED,
+                                                   BUS_ERROR_READ_ONLY_FILESYSTEM)) {
+                                show_hint = true;
+                                ret = r;
+                        } else
+                                return r;
+                }
         }
 
         if (arg_transient) {
-                r = set_simple_string(bus, "SetHostname", hostname);
+                r = set_simple_string(bus, "transient hostname", "SetHostname", hostname);
                 if (r < 0)
                         return r;
         }
 
-        return 0;
+        if (show_hint)
+                log_info("Hint: use --transient option when /etc/machine-info or /etc/hostname cannot be modified (e.g. located in read-only filesystem).");
+
+        return ret;
 }
 
 static int set_icon_name(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetIconName", argv[1]);
+        return set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
 static int set_chassis(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetChassis", argv[1]);
+        return set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
 static int set_deployment(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetDeployment", argv[1]);
+        return set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
 static int set_location(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "SetLocation", argv[1]);
+        return set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
 static int help(void) {
