@@ -3180,22 +3180,19 @@ static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
 #define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
 
 static void manager_serialize_uid_refs_internal(
-                Manager *m,
                 FILE *f,
-                Hashmap **uid_refs,
+                Hashmap *uid_refs,
                 const char *field_name) {
 
         void *p, *k;
 
-        assert(m);
         assert(f);
-        assert(uid_refs);
         assert(field_name);
 
         /* Serialize the UID reference table. Or actually, just the IPC destruction flag of it, as
          * the actual counter of it is better rebuild after a reload/reexec. */
 
-        HASHMAP_FOREACH_KEY(p, k, *uid_refs) {
+        HASHMAP_FOREACH_KEY(p, k, uid_refs) {
                 uint32_t c;
                 uid_t uid;
 
@@ -3210,11 +3207,11 @@ static void manager_serialize_uid_refs_internal(
 }
 
 static void manager_serialize_uid_refs(Manager *m, FILE *f) {
-        manager_serialize_uid_refs_internal(m, f, &m->uid_refs, "destroy-ipc-uid");
+        manager_serialize_uid_refs_internal(f, m->uid_refs, "destroy-ipc-uid");
 }
 
 static void manager_serialize_gid_refs(Manager *m, FILE *f) {
-        manager_serialize_uid_refs_internal(m, f, &m->gid_refs, "destroy-ipc-gid");
+        manager_serialize_uid_refs_internal(f, m->gid_refs, "destroy-ipc-gid");
 }
 
 int manager_serialize(
@@ -3474,7 +3471,6 @@ void manager_retry_runtime_watchdog(Manager *m) {
 }
 
 static void manager_deserialize_uid_refs_one_internal(
-                Manager *m,
                 Hashmap** uid_refs,
                 const char *value) {
 
@@ -3482,18 +3478,16 @@ static void manager_deserialize_uid_refs_one_internal(
         uint32_t c;
         int r;
 
-        assert(m);
         assert(uid_refs);
         assert(value);
 
         r = parse_uid(value, &uid);
         if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID reference serialization: " UID_FMT, uid);
+                log_debug("Unable to parse UID/GID reference serialization: " UID_FMT, uid);
                 return;
         }
 
-        r = hashmap_ensure_allocated(uid_refs, &trivial_hash_ops);
-        if (r < 0) {
+        if (hashmap_ensure_allocated(uid_refs, &trivial_hash_ops) < 0) {
                 log_oom();
                 return;
         }
@@ -3506,17 +3500,17 @@ static void manager_deserialize_uid_refs_one_internal(
 
         r = hashmap_replace(*uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c));
         if (r < 0) {
-                log_debug_errno(r, "Failed to add UID reference entry: %m");
+                log_debug_errno(r, "Failed to add UID/GID reference entry: %m");
                 return;
         }
 }
 
 static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
-        manager_deserialize_uid_refs_one_internal(m, &m->uid_refs, value);
+        manager_deserialize_uid_refs_one_internal(&m->uid_refs, value);
 }
 
 static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
-        manager_deserialize_uid_refs_one_internal(m, &m->gid_refs, value);
+        manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -4590,16 +4584,13 @@ ManagerState manager_state(Manager *m) {
 }
 
 static void manager_unref_uid_internal(
-                Manager *m,
-                Hashmap **uid_refs,
+                Hashmap *uid_refs,
                 uid_t uid,
                 bool destroy_now,
                 int (*_clean_ipc)(uid_t uid)) {
 
         uint32_t c, n;
 
-        assert(m);
-        assert(uid_refs);
         assert(uid_is_valid(uid));
         assert(_clean_ipc);
 
@@ -4617,14 +4608,14 @@ static void manager_unref_uid_internal(
         if (uid == 0) /* We don't keep track of root, and will never destroy it */
                 return;
 
-        c = PTR_TO_UINT32(hashmap_get(*uid_refs, UID_TO_PTR(uid)));
+        c = PTR_TO_UINT32(hashmap_get(uid_refs, UID_TO_PTR(uid)));
 
         n = c & ~DESTROY_IPC_FLAG;
         assert(n > 0);
         n--;
 
         if (destroy_now && n == 0) {
-                hashmap_remove(*uid_refs, UID_TO_PTR(uid));
+                hashmap_remove(uid_refs, UID_TO_PTR(uid));
 
                 if (c & DESTROY_IPC_FLAG) {
                         log_debug("%s " UID_FMT " is no longer referenced, cleaning up its IPC.",
@@ -4634,20 +4625,19 @@ static void manager_unref_uid_internal(
                 }
         } else {
                 c = n | (c & DESTROY_IPC_FLAG);
-                assert_se(hashmap_update(*uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c)) >= 0);
+                assert_se(hashmap_update(uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c)) >= 0);
         }
 }
 
 void manager_unref_uid(Manager *m, uid_t uid, bool destroy_now) {
-        manager_unref_uid_internal(m, &m->uid_refs, uid, destroy_now, clean_ipc_by_uid);
+        manager_unref_uid_internal(m->uid_refs, uid, destroy_now, clean_ipc_by_uid);
 }
 
 void manager_unref_gid(Manager *m, gid_t gid, bool destroy_now) {
-        manager_unref_uid_internal(m, &m->gid_refs, (uid_t) gid, destroy_now, clean_ipc_by_gid);
+        manager_unref_uid_internal(m->gid_refs, (uid_t) gid, destroy_now, clean_ipc_by_gid);
 }
 
 static int manager_ref_uid_internal(
-                Manager *m,
                 Hashmap **uid_refs,
                 uid_t uid,
                 bool clean_ipc) {
@@ -4655,7 +4645,6 @@ static int manager_ref_uid_internal(
         uint32_t c, n;
         int r;
 
-        assert(m);
         assert(uid_refs);
         assert(uid_is_valid(uid));
 
@@ -4686,25 +4675,22 @@ static int manager_ref_uid_internal(
 }
 
 int manager_ref_uid(Manager *m, uid_t uid, bool clean_ipc) {
-        return manager_ref_uid_internal(m, &m->uid_refs, uid, clean_ipc);
+        return manager_ref_uid_internal(&m->uid_refs, uid, clean_ipc);
 }
 
 int manager_ref_gid(Manager *m, gid_t gid, bool clean_ipc) {
-        return manager_ref_uid_internal(m, &m->gid_refs, (uid_t) gid, clean_ipc);
+        return manager_ref_uid_internal(&m->gid_refs, (uid_t) gid, clean_ipc);
 }
 
 static void manager_vacuum_uid_refs_internal(
-                Manager *m,
-                Hashmap **uid_refs,
+                Hashmap *uid_refs,
                 int (*_clean_ipc)(uid_t uid)) {
 
         void *p, *k;
 
-        assert(m);
-        assert(uid_refs);
         assert(_clean_ipc);
 
-        HASHMAP_FOREACH_KEY(p, k, *uid_refs) {
+        HASHMAP_FOREACH_KEY(p, k, uid_refs) {
                 uint32_t c, n;
                 uid_t uid;
 
@@ -4722,16 +4708,16 @@ static void manager_vacuum_uid_refs_internal(
                         (void) _clean_ipc(uid);
                 }
 
-                assert_se(hashmap_remove(*uid_refs, k) == p);
+                assert_se(hashmap_remove(uid_refs, k) == p);
         }
 }
 
 static void manager_vacuum_uid_refs(Manager *m) {
-        manager_vacuum_uid_refs_internal(m, &m->uid_refs, clean_ipc_by_uid);
+        manager_vacuum_uid_refs_internal(m->uid_refs, clean_ipc_by_uid);
 }
 
 static void manager_vacuum_gid_refs(Manager *m) {
-        manager_vacuum_uid_refs_internal(m, &m->gid_refs, clean_ipc_by_gid);
+        manager_vacuum_uid_refs_internal(m->gid_refs, clean_ipc_by_gid);
 }
 
 static void manager_vacuum(Manager *m) {
