@@ -917,7 +917,7 @@ static void test_strverscmp_improved(void) {
                 "123-3.1",
                 "123^patch1",
                 "123^1",
-                "123.a-1"
+                "123.a-1",
                 "123.1-1",
                 "123a-1",
                 "124",
