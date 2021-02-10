@@ -11,6 +11,7 @@
 
 #include "escape.h"
 #include "hashmap.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "missing_network.h"
 #include "networkd-address.h"
@@ -1071,6 +1072,24 @@ static int dhcp6_address_acquired(Link *link) {
                 r = dhcp6_update_address(link, &ip6_addr, lifetime_preferred, lifetime_valid);
                 if (r < 0)
                         return r;
+        }
+
+        if (link->network->dhcp6_use_fqdn) {
+                const char *dhcpname = NULL;
+                _cleanup_free_ char *hostname = NULL;
+                (void) sd_dhcp6_lease_get_fqdn(link->dhcp6_lease, &dhcpname);
+
+                if (dhcpname) {
+                        r = shorten_overlong(dhcpname, &hostname);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Unable to shorten overlong DHCP hostname '%s', ignoring: %m", dhcpname);
+                        if (r == 1)
+                                log_link_notice(link, "Overlong DHCP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
+
+                        r = manager_set_hostname(link->manager, hostname);
+                        if (r < 0)
+                                log_link_error_errno(link, r, "Failed to set transient hostname to '%s': %m", hostname);
+                }
         }
 
         return 0;
