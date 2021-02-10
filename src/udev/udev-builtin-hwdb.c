@@ -43,7 +43,6 @@ int udev_builtin_hwdb_lookup(sd_device *dev,
                         return r;
                 n++;
         }
-        return n;
 }
 
 static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
