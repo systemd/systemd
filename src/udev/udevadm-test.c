@@ -63,10 +63,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         a = device_action_from_string(optarg);
                         if (a < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid action '%s'", optarg);
+                                return log_error_errno(a, "Invalid action '%s'", optarg);
 
-                        arg_action = optarg;
+                        arg_action = device_action_to_string(a);
                         break;
                 }
                 case 'N':
