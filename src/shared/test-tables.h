@@ -27,7 +27,7 @@ static inline void _test_table(const char *name,
                 }
 
                 if (boring < 1 || i == size)
-                        printf("%s: %d → %s → %d\n", name, i, val, rev);
+                        printf("%s: %d → %s → %d\n", name, i, strnull(val), rev);
                 else if (boring == 1)
                         printf("%*s  ...\n", (int) strlen(name), "");
 
