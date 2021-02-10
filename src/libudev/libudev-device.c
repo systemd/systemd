@@ -82,7 +82,7 @@ _public_ unsigned long long udev_device_get_seqnum(struct udev_device *udev_devi
 
         assert_return_errno(udev_device, 0, EINVAL);
 
-        if (device_get_seqnum(udev_device->device, &seqnum) < 0)
+        if (sd_device_get_seqnum(udev_device->device, &seqnum) < 0)
                 return 0;
 
         return seqnum;
