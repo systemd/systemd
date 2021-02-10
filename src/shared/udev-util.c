@@ -3,10 +3,12 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "env-file.h"
 #include "escape.h"
@@ -175,7 +177,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
          * (And yes, we only need to special case REMOVE. It's the only "negative" event type, where a device
          * ceases to exist. All other event types are "positive": the device exists and is registered in the
          * udev database, thus whenever we see the event, we can consider it initialized.) */
-        if (device_for_action(device, DEVICE_ACTION_REMOVE))
+        if (device_for_action(device, "remove"))
                 return 0;
 
         if (data->sysname && sd_device_get_sysname(device, &sysname) >= 0 && streq(sysname, data->sysname))
@@ -318,29 +320,45 @@ int device_is_renaming(sd_device *dev) {
         return true;
 }
 
-bool device_for_action(sd_device *dev, DeviceAction action) {
-        DeviceAction a;
+bool device_for_action(sd_device *dev, const char* action) {
+        const char *a;
 
         assert(dev);
 
-        if (device_get_action(dev, &a) < 0)
+        if (sd_device_get_action(dev, &a) < 0)
                 return false;
 
-        return a == action;
+        return streq_ptr(action, a);
 }
 
 void log_device_uevent(sd_device *device, const char *str) {
-        DeviceAction action = _DEVICE_ACTION_INVALID;
+        const char *action = NULL;
         uint64_t seqnum = 0;
 
         if (!DEBUG_LOGGING)
                 return;
 
-        (void) device_get_seqnum(device, &seqnum);
-        (void) device_get_action(device, &action);
+        (void) sd_device_get_seqnum(device, &seqnum);
+        (void) sd_device_get_action(device, &action);
         log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s)",
                          strempty(str), isempty(str) ? "" : " ",
-                         seqnum, strna(device_action_to_string(action)));
+                         seqnum, strna(action));
+}
+
+int device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
+        char type;
+
+        assert(ret);
+        assert(st);
+
+        if (S_ISBLK(st->st_mode))
+                type = 'b';
+        else if (S_ISCHR(st->st_mode))
+                type = 'c';
+        else
+                return -ENOTTY;
+
+        return sd_device_new_from_devnum(ret, type, st->st_rdev);
 }
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {

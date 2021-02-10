@@ -17,7 +17,6 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
-#include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
@@ -183,14 +182,14 @@ int manager_connect_bus(Manager *m) {
 
 static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = userdata;
-        DeviceAction action;
+        const char *action;
         Link *link = NULL;
         int r, ifindex;
 
         assert(m);
         assert(device);
 
-        r = device_get_action(device, &action);
+        r = sd_device_get_action(device, &action);
         if (r < 0) {
                 log_device_debug_errno(device, r, "Failed to get udev action, ignoring device: %m");
                 return 0;
@@ -199,20 +198,18 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
         /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
          * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
          * still exists — and we are interested in that. */
-        if (action == DEVICE_ACTION_REMOVE)
+        if (streq(action, "remove"))
                 return 0;
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0) {
-                log_device_debug_errno(device, r, "Ignoring udev %s event for device without ifindex or with invalid ifindex: %m",
-                                       device_action_to_string(action));
+                log_device_debug_errno(device, r, "Ignoring udev %s event for device without ifindex or with invalid ifindex: %m", action);
                 return 0;
         }
 
         r = device_is_renaming(device);
         if (r < 0) {
-                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
-                                       device_action_to_string(action));
+                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m", action);
                 return 0;
         }
         if (r > 0) {

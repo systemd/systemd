@@ -58,6 +58,8 @@ int sd_device_get_devpath(sd_device *device, const char **ret);
 int sd_device_get_devname(sd_device *device, const char **ret);
 int sd_device_get_sysname(sd_device *device, const char **ret);
 int sd_device_get_sysnum(sd_device *device, const char **ret);
+int sd_device_get_action(sd_device *device, const char **ret);
+int sd_device_get_seqnum(sd_device *device, uint64_t *ret);
 
 int sd_device_get_is_initialized(sd_device *device);
 int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec);

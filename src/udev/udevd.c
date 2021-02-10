@@ -334,7 +334,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
          * udev has finished its event handling.
          */
 
-        if (device_for_action(dev, DEVICE_ACTION_REMOVE))
+        if (device_for_action(dev, "remove"))
                 return 0;
 
         r = sd_device_get_subsystem(dev, &val);
@@ -694,7 +694,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         assert(manager->pid == getpid_cached());
 
         /* We only accepts devices received by device monitor. */
-        r = device_get_seqnum(dev, &seqnum);
+        r = sd_device_get_seqnum(dev, &seqnum);
         if (r < 0)
                 return r;
 

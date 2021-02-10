@@ -7,6 +7,7 @@
 #include "bus-util.h"
 #include "device-private.h"
 #include "path-util.h"
+#include "udev-util.h"
 #include "udevadm-util.h"
 #include "unit-name.h"
 
