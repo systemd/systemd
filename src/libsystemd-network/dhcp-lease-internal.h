@@ -12,6 +12,17 @@
 #include "list.h"
 #include "util.h"
 
+typedef enum DHCPLeaseServerType {
+        DHCP_LEASE_DNS,
+        DHCP_LEASE_NTP,
+        DHCP_LEASE_SIP,
+        DHCP_LEASE_POP3,
+        DHCP_LEASE_SMTP,
+        DHCP_LEASE_LPR,
+        _DHCP_LEASE_SERVER_TYPE_MAX,
+        _DHCP_LEASE_SERVER_TYPE_INVALID = -EINVAL,
+} DHCPLeaseServerType;
+
 struct sd_dhcp_route {
         struct in_addr dst_addr;
         struct in_addr gw_addr;
@@ -50,7 +61,7 @@ struct sd_dhcp_lease {
         struct in_addr *router;
         size_t router_size;
 
-        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
+        DHCPServerData servers[_DHCP_LEASE_SERVER_TYPE_MAX];
 
         struct sd_dhcp_route *static_route;
         size_t static_route_size, static_route_allocated;
@@ -82,3 +93,6 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 
 int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t client_id_len);
+
+const char *dhcp_lease_server_type_to_string(DHCPLeaseServerType t) _const_;
+DHCPLeaseServerType dhcp_lease_server_type_from_string(const char *s) _pure_;

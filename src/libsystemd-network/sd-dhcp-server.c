@@ -149,7 +149,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         free(server->timezone);
 
-        for (sd_dhcp_lease_server_type i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
+        for (DHCPLeaseServerType i = 0; i < _DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(server->servers[i].addr);
 
         hashmap_free(server->leases_by_client_id);
@@ -469,13 +469,13 @@ static int server_send_ack(
                 DHCPRequest *req,
                 be32_t address) {
 
-        static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
-                [SD_DHCP_LEASE_DNS] = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
-                [SD_DHCP_LEASE_NTP] = SD_DHCP_OPTION_NTP_SERVER,
-                [SD_DHCP_LEASE_SIP] = SD_DHCP_OPTION_SIP_SERVER,
-                [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
-                [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
-                [SD_DHCP_LEASE_LPR] = SD_DHCP_OPTION_LPR_SERVER,
+        static const uint8_t option_map[_DHCP_LEASE_SERVER_TYPE_MAX] = {
+                [DHCP_LEASE_DNS]  = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+                [DHCP_LEASE_NTP]  = SD_DHCP_OPTION_NTP_SERVER,
+                [DHCP_LEASE_SIP]  = SD_DHCP_OPTION_SIP_SERVER,
+                [DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
+                [DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
+                [DHCP_LEASE_LPR]  = SD_DHCP_OPTION_LPR_SERVER,
         };
 
         _cleanup_free_ DHCPPacket *packet = NULL;
@@ -509,7 +509,7 @@ static int server_send_ack(
                         return r;
         }
 
-        for (sd_dhcp_lease_server_type k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
+        for (DHCPLeaseServerType k = 0; k < _DHCP_LEASE_SERVER_TYPE_MAX; k++) {
 
                 if (server->servers[k].size <= 0)
                         continue;
@@ -1116,9 +1116,9 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
         return 1;
 }
 
-int sd_dhcp_server_set_servers(
+static int dhcp_server_set_servers_internal(
                 sd_dhcp_server *server,
-                sd_dhcp_lease_server_type what,
+                DHCPLeaseServerType what,
                 const struct in_addr addresses[],
                 size_t n_addresses) {
 
@@ -1127,7 +1127,7 @@ int sd_dhcp_server_set_servers(
         assert_return(server, -EINVAL);
         assert_return(addresses || n_addresses == 0, -EINVAL);
         assert_return(what >= 0, -EINVAL);
-        assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
+        assert_return(what < _DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
 
         if (server->servers[what].size == n_addresses &&
             memcmp(server->servers[what].addr, addresses, sizeof(struct in_addr) * n_addresses) == 0)
@@ -1145,23 +1145,36 @@ int sd_dhcp_server_set_servers(
         return 1;
 }
 
+int sd_dhcp_server_set_servers(
+                sd_dhcp_server *server,
+                const char *what_as_string,
+                const struct in_addr addresses[],
+                size_t n_addresses) {
+
+        return dhcp_server_set_servers_internal(
+                        server,
+                        dhcp_lease_server_type_from_string(what_as_string),
+                        addresses,
+                        n_addresses);
+}
+
 int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_DNS, dns, n);
+        return dhcp_server_set_servers_internal(server, DHCP_LEASE_DNS, dns, n);
 }
 int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_NTP, ntp, n);
+        return dhcp_server_set_servers_internal(server, DHCP_LEASE_NTP, ntp, n);
 }
 int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SIP, sip, n);
+        return dhcp_server_set_servers_internal(server, DHCP_LEASE_SIP, sip, n);
 }
 int sd_dhcp_server_set_pop3(sd_dhcp_server *server, const struct in_addr pop3[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_POP3, pop3, n);
+        return dhcp_server_set_servers_internal(server, DHCP_LEASE_POP3, pop3, n);
 }
 int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SMTP, smtp, n);
+        return dhcp_server_set_servers_internal(server, DHCP_LEASE_SMTP, smtp, n);
 }
 int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_LPR, lpr, n);
+        return dhcp_server_set_servers_internal(server, DHCP_LEASE_LPR, lpr, n);
 }
 
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {

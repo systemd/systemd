@@ -3,7 +3,6 @@
 #include <linux/fou.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/ip.h>
 
 #include "conf-parser.h"
 #include "fou-tunnel.h"

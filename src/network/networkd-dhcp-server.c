@@ -60,7 +60,7 @@ static Address* link_find_dhcp_server_address(Link *link) {
 
 static int link_push_uplink_to_dhcp_server(
                 Link *link,
-                sd_dhcp_lease_server_type what,
+                DHCPLeaseServerType what,
                 sd_dhcp_server *s) {
 
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -77,7 +77,7 @@ static int link_push_uplink_to_dhcp_server(
 
         switch (what) {
 
-        case SD_DHCP_LEASE_DNS:
+        case DHCP_LEASE_DNS:
                 /* For DNS we have a special case. We the data configured explicitly locally along with the
                  * data from the DHCP lease. */
 
@@ -103,7 +103,7 @@ static int link_push_uplink_to_dhcp_server(
                 use_dhcp_lease_data = link->network->dhcp_use_dns;
                 break;
 
-        case SD_DHCP_LEASE_NTP: {
+        case DHCP_LEASE_NTP: {
                 char **i;
 
                 /* For NTP things are similar, but for NTP hostnames can be configured too, which we cannot
@@ -129,15 +129,15 @@ static int link_push_uplink_to_dhcp_server(
                 break;
         }
 
-        case SD_DHCP_LEASE_SIP:
+        case DHCP_LEASE_SIP:
 
                 /* For SIP we don't allow explicit, local configuration, but there's control whether to use the data */
                 use_dhcp_lease_data = link->network->dhcp_use_sip;
                 break;
 
-        case SD_DHCP_LEASE_POP3:
-        case SD_DHCP_LEASE_SMTP:
-        case SD_DHCP_LEASE_LPR:
+        case DHCP_LEASE_POP3:
+        case DHCP_LEASE_SMTP:
+        case DHCP_LEASE_LPR:
                 /* For the other server types we currently do not allow local configuration of server data,
                  * since there are typically no local consumers of the data. */
                 break;
@@ -149,7 +149,7 @@ static int link_push_uplink_to_dhcp_server(
         if (use_dhcp_lease_data && link->dhcp_lease) {
                 const struct in_addr *da;
 
-                int n = sd_dhcp_lease_get_servers(link->dhcp_lease, what, &da);
+                int n = sd_dhcp_lease_get_servers(link->dhcp_lease, dhcp_lease_server_type_to_string(what), &da);
                 if (n > 0) {
                         if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
                                 return log_oom();
@@ -163,7 +163,7 @@ static int link_push_uplink_to_dhcp_server(
         if (n_addresses <= 0)
                 return 0;
 
-        return sd_dhcp_server_set_servers(s, what, addresses, n_addresses);
+        return sd_dhcp_server_set_servers(s, dhcp_lease_server_type_to_string(what), addresses, n_addresses);
 }
 
 static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *string, struct in_addr **addresses, size_t *n_allocated, size_t *n_addresses) {
@@ -307,7 +307,7 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        for (sd_dhcp_lease_server_type type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
+        for (DHCPLeaseServerType type = 0; type < _DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
 
                 if (!link->network->dhcp_server_emit[type].emit)
                         continue;
@@ -316,7 +316,7 @@ int dhcp4_server_configure(Link *link) {
                         /* Explicitly specified servers to emit */
                         r = sd_dhcp_server_set_servers(
                                         link->dhcp_server,
-                                        type,
+                                        dhcp_lease_server_type_to_string(type),
                                         link->network->dhcp_server_emit[type].addresses,
                                         link->network->dhcp_server_emit[type].n_addresses);
                 else {
@@ -328,7 +328,7 @@ int dhcp4_server_configure(Link *link) {
 
                         if (uplink && uplink->network)
                                 r = link_push_uplink_to_dhcp_server(uplink, type, link->dhcp_server);
-                        else if (type == SD_DHCP_LEASE_DNS)
+                        else if (type == DHCP_LEASE_DNS)
                                 r = dhcp4_server_set_dns_from_resolve_conf(link);
                         else {
                                 log_link_debug(link,
