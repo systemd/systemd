@@ -31,3 +31,15 @@ about: A report of an error in a recent systemd version
 
 **Steps to reproduce the problem**
  > …
+
+**Additional program output to the terminal or log subsystem illustrating the issue**
+
+<!-- Please paste relevant program terminal or journal output here, ideally
+     when generated in debug mode (try setting the SYSTEMD_LOG_LEVEL=debug
+     environment variable). For very long copy/pasted data consider using a
+     service like https://gist.github.com/. Where copy/paste is not possible
+     (for example early boot or late shutdown), a photo of the screen might do
+     too, but text is always much preferred. -->
+```text
+…
+```
