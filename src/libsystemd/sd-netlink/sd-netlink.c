@@ -17,6 +17,9 @@
 #include "string-util.h"
 #include "util.h"
 
+/* Some really high limit, to catch programming errors */
+#define REPLY_CALLBACKS_MAX UINT16_MAX
+
 static int sd_netlink_new(sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
 
@@ -190,18 +193,25 @@ static sd_netlink *netlink_free(sd_netlink *rtnl) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
 
 static void rtnl_seal_message(sd_netlink *rtnl, sd_netlink_message *m) {
+        uint32_t picked;
+
         assert(rtnl);
         assert(!rtnl_pid_changed(rtnl));
         assert(m);
         assert(m->hdr);
 
-        /* don't use seq == 0, as that is used for broadcasts, so we
-           would get confused by replies to such messages */
-        m->hdr->nlmsg_seq = rtnl->serial++ ? : rtnl->serial++;
+        /* Avoid collisions with outstanding requests */
+        do {
+                picked = rtnl->serial;
 
+                /* Don't use seq == 0, as that is used for broadcasts, so we would get confused by replies to
+                   such messages */
+                rtnl->serial = rtnl->serial == UINT32_MAX ? 1 : rtnl->serial + 1;
+
+        } while (hashmap_contains(rtnl->reply_callbacks, UINT32_TO_PTR(picked)));
+
+        m->hdr->nlmsg_seq = picked;
         rtnl_message_seal(m);
-
-        return;
 }
 
 int sd_netlink_send(sd_netlink *nl,
@@ -303,7 +313,7 @@ static int process_timeout(sd_netlink *rtnl) {
 
         assert_se(prioq_pop(rtnl->reply_callbacks_prioq) == c);
         c->timeout = 0;
-        hashmap_remove(rtnl->reply_callbacks, &c->serial);
+        hashmap_remove(rtnl->reply_callbacks, UINT32_TO_PTR(c->serial));
 
         slot = container_of(c, sd_netlink_slot, reply_callback);
 
@@ -323,7 +333,7 @@ static int process_timeout(sd_netlink *rtnl) {
 static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
         struct reply_callback *c;
         sd_netlink_slot *slot;
-        uint64_t serial;
+        uint32_t serial;
         uint16_t type;
         int r;
 
@@ -331,7 +341,7 @@ static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
         assert(m);
 
         serial = rtnl_message_get_serial(m);
-        c = hashmap_remove(rtnl->reply_callbacks, &serial);
+        c = hashmap_remove(rtnl->reply_callbacks, UINT32_TO_PTR(serial));
         if (!c)
                 return 0;
 
@@ -532,7 +542,6 @@ int sd_netlink_call_async(
                 uint64_t usec,
                 const char *description) {
         _cleanup_free_ sd_netlink_slot *slot = NULL;
-        uint32_t s;
         int r, k;
 
         assert_return(nl, -EINVAL);
@@ -540,7 +549,10 @@ int sd_netlink_call_async(
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(nl), -ECHILD);
 
-        r = hashmap_ensure_allocated(&nl->reply_callbacks, &uint64_hash_ops);
+        if (hashmap_size(nl->reply_callbacks) >= REPLY_CALLBACKS_MAX)
+                return -ERANGE;
+
+        r = hashmap_ensure_allocated(&nl->reply_callbacks, &trivial_hash_ops);
         if (r < 0)
                 return r;
 
@@ -557,20 +569,18 @@ int sd_netlink_call_async(
         slot->reply_callback.callback = callback;
         slot->reply_callback.timeout = calc_elapse(usec);
 
-        k = sd_netlink_send(nl, m, &s);
+        k = sd_netlink_send(nl, m, &slot->reply_callback.serial);
         if (k < 0)
                 return k;
 
-        slot->reply_callback.serial = s;
-
-        r = hashmap_put(nl->reply_callbacks, &slot->reply_callback.serial, &slot->reply_callback);
+        r = hashmap_put(nl->reply_callbacks, UINT32_TO_PTR(slot->reply_callback.serial), &slot->reply_callback);
         if (r < 0)
                 return r;
 
         if (slot->reply_callback.timeout != 0) {
                 r = prioq_put(nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
                 if (r < 0) {
-                        (void) hashmap_remove(nl->reply_callbacks, &slot->reply_callback.serial);
+                        (void) hashmap_remove(nl->reply_callbacks, UINT32_TO_PTR(slot->reply_callback.serial));
                         return r;
                 }
         }
