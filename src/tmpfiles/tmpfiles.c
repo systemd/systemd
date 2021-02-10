@@ -3365,6 +3365,16 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
+        /* We require /proc/ for a lot of our operations, i.e. for adjusting access modes, for anything
+         * SELinux related, for recursive operation, for xattr, acl and chattr handling, for btrfs stuff and
+         * a lot more. It's probably the majority of invocations where /proc/ is required. Since people
+         * apparently invoke it without anyway and are surprised about the failures, let's catch this early
+         * and output a nice and friendly warning. */
+        if (proc_mounted() == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                                       "/proc/ is not mounted, but required for successful operation of systemd-tmpfiles. "
+                                       "Please mount /proc/. Alternatively, consider using the --root= or --image= switches.");
+
         /* Descending down file system trees might take a lot of fds */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
