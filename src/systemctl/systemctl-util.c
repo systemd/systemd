@@ -143,7 +143,7 @@ int get_state_one_unit(sd_bus *bus, const char *unit, UnitActiveState *ret_activ
 
         state = unit_active_state_from_string(buf);
         if (state < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit state '%s' for: %s", buf, unit);
+                return log_error_errno(state, "Invalid unit state '%s' for: %s", buf, unit);
 
         *ret_active_state = state;
         return 0;

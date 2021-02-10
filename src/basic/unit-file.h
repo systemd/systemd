@@ -26,7 +26,7 @@ enum UnitFileState {
         UNIT_FILE_TRANSIENT,
         UNIT_FILE_BAD,
         _UNIT_FILE_STATE_MAX,
-        _UNIT_FILE_STATE_INVALID = -1
+        _UNIT_FILE_STATE_INVALID = -EINVAL,
 };
 
 enum UnitFileScope {
@@ -34,7 +34,7 @@ enum UnitFileScope {
         UNIT_FILE_GLOBAL,
         UNIT_FILE_USER,
         _UNIT_FILE_SCOPE_MAX,
-        _UNIT_FILE_SCOPE_INVALID = -1
+        _UNIT_FILE_SCOPE_INVALID = -EINVAL,
 };
 
 bool unit_type_may_alias(UnitType type) _const_;

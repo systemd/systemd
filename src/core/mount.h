@@ -12,7 +12,7 @@ typedef enum MountExecCommand {
         MOUNT_EXEC_UNMOUNT,
         MOUNT_EXEC_REMOUNT,
         _MOUNT_EXEC_COMMAND_MAX,
-        _MOUNT_EXEC_COMMAND_INVALID = -1
+        _MOUNT_EXEC_COMMAND_INVALID = -EINVAL,
 } MountExecCommand;
 
 typedef enum MountResult {
@@ -25,7 +25,7 @@ typedef enum MountResult {
         MOUNT_FAILURE_START_LIMIT_HIT,
         MOUNT_FAILURE_PROTOCOL,
         _MOUNT_RESULT_MAX,
-        _MOUNT_RESULT_INVALID = -1
+        _MOUNT_RESULT_INVALID = -EINVAL,
 } MountResult;
 
 typedef struct MountParameters {

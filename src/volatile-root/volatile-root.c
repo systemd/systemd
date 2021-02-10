@@ -132,7 +132,7 @@ static int run(int argc, char *argv[]) {
                 /* The kernel command line always wins. However if nothing was set there, the argument passed here wins instead. */
                 m = volatile_mode_from_string(argv[1]);
                 if (m < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Couldn't parse volatile mode: %s", argv[1]);
+                        return log_error_errno(m, "Couldn't parse volatile mode: %s", argv[1]);
         }
 
         if (argc < 3)

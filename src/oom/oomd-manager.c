@@ -33,7 +33,7 @@ static int managed_oom_mode(const char *name, JsonVariant *v, JsonDispatchFlags 
 
         m = managed_oom_mode_from_string(s);
         if (m < 0)
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL), "%s is not a valid ManagedOOMMode", s);
+                return json_log(v, flags, m, "%s is not a valid ManagedOOMMode", s);
 
         *mode = m;
         return 0;

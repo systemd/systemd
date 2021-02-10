@@ -12,7 +12,7 @@ typedef enum AutomountResult {
         AUTOMOUNT_FAILURE_START_LIMIT_HIT,
         AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT,
         _AUTOMOUNT_RESULT_MAX,
-        _AUTOMOUNT_RESULT_INVALID = -1
+        _AUTOMOUNT_RESULT_INVALID = -EINVAL,
 } AutomountResult;
 
 struct Automount {

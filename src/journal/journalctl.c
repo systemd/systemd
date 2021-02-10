@@ -565,7 +565,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown output format '%s'.", optarg);
+                                return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
 
                         if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
                                 arg_quiet = true;
@@ -835,7 +835,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 to = log_level_from_string(dots + 2);
 
                                 if (from < 0 || to < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        return log_error_errno(from < 0 ? from : to,
                                                                "Failed to parse log level range %s", optarg);
 
                                 arg_priorities = 0;
@@ -853,8 +853,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 p = log_level_from_string(optarg);
                                 if (p < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown log level %s", optarg);
+                                        return log_error_errno(p, "Unknown log level %s", optarg);
 
                                 arg_priorities = 0;
 
@@ -885,8 +884,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 num = log_facility_unshifted_from_string(fac);
                                 if (num < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Bad --facility= argument \"%s\".", fac);
+                                        return log_error_errno(num, "Bad --facility= argument \"%s\".", fac);
 
                                 if (set_ensure_put(&arg_facilities, NULL, INT_TO_PTR(num)) < 0)
                                         return log_oom();

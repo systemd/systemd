@@ -8,7 +8,7 @@ typedef enum TrafficControlKind {
         TC_KIND_TCLASS,
         TC_KIND_FILTER,
         _TC_KIND_MAX,
-        _TC_KIND_INVALID = -1,
+        _TC_KIND_INVALID = -EINVAL,
 } TrafficControlKind;
 
 typedef struct TrafficControl {

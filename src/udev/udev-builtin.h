@@ -24,7 +24,7 @@ typedef enum {
         UDEV_BUILTIN_UACCESS,
 #endif
         _UDEV_BUILTIN_MAX,
-        _UDEV_BUILTIN_INVALID = -1,
+        _UDEV_BUILTIN_INVALID = -EINVAL,
 } UdevBuiltinCommand;
 
 typedef struct UdevBuiltin {
@@ -37,8 +37,18 @@ typedef struct UdevBuiltin {
         bool run_once;
 } UdevBuiltin;
 
-#define PTR_TO_UDEV_BUILTIN_CMD(p) ((UdevBuiltinCommand) ((intptr_t) (p)-1))
-#define UDEV_BUILTIN_CMD_TO_PTR(u) ((void *)             ((intptr_t) (u)+1))
+#define UDEV_BUILTIN_CMD_TO_PTR(u)                 \
+        ({                                         \
+                UdevBuiltinCommand _u = (u);       \
+                _u < 0 ? NULL : (void*)(intptr_t) (_u + 1);     \
+        })
+
+#define PTR_TO_UDEV_BUILTIN_CMD(p)                 \
+        ({                                         \
+                void *_p = (p);                    \
+                _p && (intptr_t)(_p) <= _UDEV_BUILTIN_MAX ? \
+                        (UdevBuiltinCommand)((intptr_t)_p - 1) : _UDEV_BUILTIN_INVALID; \
+        })
 
 #if HAVE_BLKID
 extern const UdevBuiltin udev_builtin_blkid;

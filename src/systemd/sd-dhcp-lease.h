@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
@@ -41,7 +42,7 @@ typedef enum sd_dhcp_lease_server_type {
         SD_DHCP_LEASE_SMTP,
         SD_DHCP_LEASE_LPR,
         _SD_DHCP_LEASE_SERVER_TYPE_MAX,
-        _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -1,
+        _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -EINVAL,
 } sd_dhcp_lease_server_type;
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);

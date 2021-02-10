@@ -16,7 +16,7 @@ typedef enum VxLanDF {
         NETDEV_VXLAN_DF_YES = VXLAN_DF_SET,
         NETDEV_VXLAN_DF_INHERIT = VXLAN_DF_INHERIT,
         _NETDEV_VXLAN_DF_MAX,
-        _NETDEV_VXLAN_DF_INVALID = -1
+        _NETDEV_VXLAN_DF_INVALID = -EINVAL,
 } VxLanDF;
 
 struct VxLan {

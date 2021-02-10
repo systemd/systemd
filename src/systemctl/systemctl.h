@@ -32,7 +32,7 @@ enum action {
         ACTION_TELINIT,
         ACTION_CANCEL_SHUTDOWN,
         _ACTION_MAX,
-        _ACTION_INVALID = -1
+        _ACTION_INVALID = -EINVAL,
 };
 
 enum dependency {

@@ -21,7 +21,7 @@ typedef enum DnsStreamType {
         DNS_STREAM_LLMNR_RECV,    /* Incoming LLMNR TCP lookup */
         DNS_STREAM_STUB,          /* Incoming DNS stub connection */
         _DNS_STREAM_TYPE_MAX,
-        _DNS_STREAM_TYPE_INVALID = -1,
+        _DNS_STREAM_TYPE_INVALID = -EINVAL,
 } DnsStreamType;
 
 #define DNS_STREAM_WRITE_TLS_DATA 1

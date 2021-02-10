@@ -413,7 +413,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         assert(url);
 
         *u = (Uploader) {
-                .input = -1
+                .input = -1,
         };
 
         host = STARTSWITH_SET(url, "http://", "https://");

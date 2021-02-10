@@ -129,7 +129,7 @@ typedef enum EncryptMode {
         ENCRYPT_TPM2,
         ENCRYPT_KEY_FILE_TPM2,
         _ENCRYPT_MODE_MAX,
-        _ENCRYPT_MODE_INVALID = -1,
+        _ENCRYPT_MODE_INVALID = -EINVAL,
 } EncryptMode;
 
 struct Partition {
