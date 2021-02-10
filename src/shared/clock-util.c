@@ -96,8 +96,7 @@ int clock_is_localtime(const char* adjtime_path) {
         return false;
 }
 
-int clock_set_timezone(int *min) {
-        const struct timeval *tv_null = NULL;
+int clock_set_timezone(int *ret_minutesdelta) {
         struct timespec ts;
         struct tm tm;
         int minutesdelta;
@@ -107,36 +106,32 @@ int clock_set_timezone(int *min) {
         assert_se(localtime_r(&ts.tv_sec, &tm));
         minutesdelta = tm.tm_gmtoff / 60;
 
-        tz.tz_minuteswest = -minutesdelta;
-        tz.tz_dsttime = 0; /* DST_NONE */
+        tz = (struct timezone) {
+                .tz_minuteswest = -minutesdelta,
+                .tz_dsttime = 0, /* DST_NONE */
+        };
 
-        /*
-         * If the RTC does not run in UTC but in local time, the very first
-         * call to settimeofday() will set the kernel's timezone and will warp the
-         * system clock, so that it runs in UTC instead of the local time we
-         * have read from the RTC.
-         */
-        if (settimeofday(tv_null, &tz) < 0)
-                return negative_errno();
+        /* If the RTC does not run in UTC but in local time, the very first call to settimeofday() will set
+         * the kernel's timezone and will warp the system clock, so that it runs in UTC instead of the local
+         * time we have read from the RTC. */
+        if (settimeofday(NULL, &tz) < 0)
+                return -errno;
 
-        if (min)
-                *min = minutesdelta;
+        if (ret_minutesdelta)
+                *ret_minutesdelta = minutesdelta;
+
         return 0;
 }
 
 int clock_reset_timewarp(void) {
-        const struct timeval *tv_null = NULL;
-        struct timezone tz;
+        static const struct timezone tz = {
+                .tz_minuteswest = 0,
+                .tz_dsttime = 0, /* DST_NONE */
+        };
 
-        tz.tz_minuteswest = 0;
-        tz.tz_dsttime = 0; /* DST_NONE */
-
-        /*
-         * The very first call to settimeofday() does time warp magic. Do a
-         * dummy call here, so the time warping is sealed and all later calls
-         * behave as expected.
-         */
-        if (settimeofday(tv_null, &tz) < 0)
+        /* The very first call to settimeofday() does time warp magic. Do a dummy call here, so the time
+         * warping is sealed and all later calls behave as expected. */
+        if (settimeofday(NULL, &tz) < 0)
                 return -errno;
 
         return 0;
