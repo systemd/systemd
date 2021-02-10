@@ -210,10 +210,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                         }
 
                         log_info("Selected '%s'.", l[u-1]);
-                        if (free_and_strdup(ret, l[u-1]) < 0)
-                                return log_oom();
-
-                        return 0;
+                        return free_and_strdup_warn(ret, l[u-1]);
                 }
 
                 if (!is_valid(p)) {

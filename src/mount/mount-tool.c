@@ -241,13 +241,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 't':
-                        if (free_and_strdup(&arg_mount_type, optarg) < 0)
-                                return log_oom();
+                        r = free_and_strdup_warn(&arg_mount_type, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'o':
-                        if (free_and_strdup(&arg_mount_options, optarg) < 0)
-                                return log_oom();
+                        r = free_and_strdup_warn(&arg_mount_options, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_OWNER: {
@@ -271,8 +273,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESCRIPTION:
-                        if (free_and_strdup(&arg_description, optarg) < 0)
-                                return log_oom();
+                        r = free_and_strdup_warn(&arg_description, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'p':

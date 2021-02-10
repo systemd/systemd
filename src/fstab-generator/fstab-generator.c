@@ -827,16 +827,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_root_what, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_root_what, value);
 
         } else if (streq(key, "rootfstype")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_root_fstype, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_root_fstype, value);
 
         } else if (streq(key, "rootflags")) {
 
@@ -851,24 +849,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_root_hash, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_root_hash, value);
 
         } else if (streq(key, "mount.usr")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_usr_what, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_usr_what, value);
 
         } else if (streq(key, "mount.usrfstype")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_usr_fstype, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_usr_fstype, value);
 
         } else if (streq(key, "mount.usrflags")) {
 

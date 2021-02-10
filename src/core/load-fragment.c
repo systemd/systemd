@@ -920,10 +920,7 @@ int config_parse_socket_bindtodevice(
                 return 0;
         }
 
-        if (free_and_strdup(&s->bind_to_device, rvalue) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(&s->bind_to_device, rvalue);
 }
 
 int config_parse_exec_input(
