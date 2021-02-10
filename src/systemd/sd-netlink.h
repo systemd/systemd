@@ -34,17 +34,6 @@ typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
 
-typedef enum sd_gen_family {
-        SD_GENL_ERROR,
-        SD_GENL_DONE,
-        SD_GENL_ID_CTRL,
-        SD_GENL_WIREGUARD,
-        SD_GENL_FOU,
-        SD_GENL_L2TP,
-        SD_GENL_MACSEC,
-        SD_GENL_NL80211,
-} sd_genl_family;
-
 /* callback */
 
 typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *m, void *userdata);
@@ -249,8 +238,8 @@ int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m);
 
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **m);
-int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family *family);
+int sd_genl_message_new(sd_netlink *nl, const char *fmaily, uint8_t cmd, sd_netlink_message **m);
+int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, const char **ret);
 
 /* slot */
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);
