@@ -16,6 +16,7 @@ ENV{ID_INPUT_MOUSE}=="?*", ENV{.INPUT_CLASS}="mouse"
 ENV{ID_INPUT_TOUCHPAD}=="?*", ENV{.INPUT_CLASS}="mouse"
 ENV{ID_INPUT_TABLET}=="?*", ENV{.INPUT_CLASS}="mouse"
 ENV{ID_INPUT_JOYSTICK}=="?*", ENV{.INPUT_CLASS}="joystick"
+ENV{ID_INPUT_POINTINGSTICK}=="?*", ENV{.INPUT_CLASS}="ir"
 DRIVERS=="pcspkr", ENV{.INPUT_CLASS}="spkr"
 ATTRS{name}=="*dvb*|*DVB*|* IR *", ENV{.INPUT_CLASS}="ir"
 
