@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -453,6 +454,100 @@ static const char *const container_table[_VIRTUALIZATION_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(container, int);
 
+static int running_in_cgroupns(void) {
+        int r;
+
+        if (!cg_ns_supported())
+                return false;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
+
+        if (r) {
+                /* cgroup v2 */
+
+                r = access("/sys/fs/cgroup/cgroup.events", F_OK);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                        /* All kernel versions have cgroup.events in nested cgroups. */
+                        return false;
+                }
+
+                /* There's no cgroup.type in the root cgroup, and future kernel versions
+                 * are unlikely to add it since cgroup.type is something that makes no sense
+                 * whatsoever in the root cgroup. */
+                r = access("/sys/fs/cgroup/cgroup.type", F_OK);
+                if (r == 0)
+                        return true;
+                if (r < 0 && errno != ENOENT)
+                        return -errno;
+
+                /* On older kernel versions, there's no cgroup.type */
+                r = access("/sys/kernel/cgroup/features", F_OK);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                        /* This is an old kernel that we know for sure has cgroup.events
+                         * only in nested cgroups. */
+                        return true;
+                }
+
+                /* This is a recent kernel, and cgroup.type doesn't exist, so we must be
+                 * in the root cgroup. */
+                return false;
+        } else {
+                /* cgroup v1 */
+
+                /* If systemd controller is not mounted, do not even bother. */
+                r = access("/sys/fs/cgroup/systemd", F_OK);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                        return false;
+                }
+
+                /* release_agent only exists in the root cgroup. */
+                r = access("/sys/fs/cgroup/systemd/release_agent", F_OK);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                        return true;
+                }
+
+                return false;
+        }
+}
+
+static int detect_container_files(void) {
+        unsigned i;
+
+        static const struct {
+                const char *file_path;
+                int id;
+        } container_file_table[] = {
+                /* https://github.com/containers/podman/issues/6192 */
+                /* https://github.com/containers/podman/issues/3586#issuecomment-661918679 */
+                { "/run/.containerenv", VIRTUALIZATION_PODMAN },
+                /* https://github.com/moby/moby/issues/18355 */
+                /* Docker must be the last in this table, see below. */
+                { "/.dockerenv", VIRTUALIZATION_DOCKER },
+        };
+
+        for (i = 0; i < ELEMENTSOF(container_file_table); i++) {
+                if (access(container_file_table[i].file_path, F_OK) >= 0)
+                        return container_file_table[i].id;
+
+                if (errno != ENOENT)
+                        log_debug_errno(errno,
+                                        "Checking if %s exists failed, ignoring: %m",
+                                        container_file_table[i].file_path);
+        }
+
+        return VIRTUALIZATION_NONE;
+}
+
 int detect_container(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL, *o = NULL, *p = NULL;
@@ -530,7 +625,7 @@ int detect_container(void) {
                  */
                 e = getenv("container");
                 if (!e)
-                        goto none;
+                        goto check_files;
                 if (isempty(e)) {
                         r = VIRTUALIZATION_NONE;
                         goto finish;
@@ -558,12 +653,36 @@ int detect_container(void) {
         if (r < 0) /* This only works if we have CAP_SYS_PTRACE, hence let's better ignore failures here */
                 log_debug_errno(r, "Failed to read $container of PID 1, ignoring: %m");
 
-none:
-        /* If that didn't work, give up, assume no container manager. */
+check_files:
+        /* Check for existence of some well-known files. We only do this after checking
+         * for other specific container managers, otherwise we risk mistaking another
+         * container manager for Docker: the /.dockerenv file could inadvertently end up
+         * in a file system image. */
+        r = detect_container_files();
+        if (r)
+                goto finish;
+
+        r = running_in_cgroupns();
+        if (r > 0) {
+                r = VIRTUALIZATION_CONTAINER_OTHER;
+                goto finish;
+        }
+        if (r < 0)
+                log_debug_errno(r, "Failed to detect cgroup namespace: %m");
+
+        /* If none of that worked, give up, assume no container manager. */
         r = VIRTUALIZATION_NONE;
         goto finish;
 
 translate_name:
+        if (streq(e, "oci")) {
+                /* Some images hardcode container=oci, but OCI is not a specific container manager.
+                 * Try to detect one based on well-known files. */
+                r = detect_container_files();
+                if (!r)
+                        r = VIRTUALIZATION_CONTAINER_OTHER;
+                goto finish;
+        }
         r = container_from_string(e);
         if (r < 0)
                 r = VIRTUALIZATION_CONTAINER_OTHER;
