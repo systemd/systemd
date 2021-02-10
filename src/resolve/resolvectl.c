@@ -566,8 +566,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
 
                                 r = dns_class_from_string(t);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown DNS class %s.", t);
+                                        return log_error_errno(r, "Unknown DNS class %s.", t);
 
                                 class = r;
 
@@ -595,8 +594,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
 
                                 r = dns_type_from_string(t);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown DNS type %s.", t);
+                                        return log_error_errno(r, "Unknown DNS type %s: %m", t);
 
                                 type = r;
 
@@ -2737,10 +2735,9 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         }
 
                         r = dns_type_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse RR record type %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse RR record type %s: %m", optarg);
+
                         arg_type = (uint16_t) r;
                         assert((int) arg_type == r);
 
@@ -2754,10 +2751,9 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         }
 
                         r = dns_class_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse RR record class %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse RR record class %s: %m", optarg);
+
                         arg_class = (uint16_t) r;
                         assert((int) arg_class == r);
 
@@ -3024,10 +3020,9 @@ static int native_parse_argv(int argc, char *argv[]) {
                         }
 
                         r = dns_type_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse RR record type %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse RR record type %s: %m", optarg);
+
                         arg_type = (uint16_t) r;
                         assert((int) arg_type == r);
 
@@ -3040,10 +3035,9 @@ static int native_parse_argv(int argc, char *argv[]) {
                         }
 
                         r = dns_class_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse RR record class %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse RR record class %s: %m", optarg);
+
                         arg_class = (uint16_t) r;
                         assert((int) arg_class == r);
 

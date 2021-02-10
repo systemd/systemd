@@ -14,7 +14,7 @@ typedef enum OperationType {
         OPERATION_DEACTIVATE_FORCE,  /* enqueued on hard $HOME unplug */
         OPERATION_IMMEDIATE,         /* this is never enqueued, it's just a marker we immediately started executing an operation without enqueuing anything first. */
         _OPERATION_MAX,
-        _OPERATION_INVALID = -1,
+        _OPERATION_INVALID = -EINVAL,
 } OperationType;
 
 /* Encapsulates an operation on one or more home directories. This has two uses:

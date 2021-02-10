@@ -27,7 +27,7 @@ enum DnssecResult {
         DNSSEC_INCOMPATIBLE_SERVER,
 
         _DNSSEC_RESULT_MAX,
-        _DNSSEC_RESULT_INVALID = -1
+        _DNSSEC_RESULT_INVALID = -EINVAL,
 };
 
 enum DnssecVerdict {
@@ -37,7 +37,7 @@ enum DnssecVerdict {
         DNSSEC_INDETERMINATE,
 
         _DNSSEC_VERDICT_MAX,
-        _DNSSEC_VERDICT_INVALID = -1
+        _DNSSEC_VERDICT_INVALID = -EINVAL,
 };
 
 #define DNSSEC_CANONICAL_HOSTNAME_MAX (DNS_HOSTNAME_MAX + 2)

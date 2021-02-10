@@ -33,7 +33,7 @@ typedef enum LinkState {
         LINK_STATE_FAILED,      /* at least one configuration process failed */
         LINK_STATE_LINGER,      /* RTM_DELLINK for the link has been received */
         _LINK_STATE_MAX,
-        _LINK_STATE_INVALID = -1
+        _LINK_STATE_INVALID = -EINVAL,
 } LinkState;
 
 typedef struct Manager Manager;

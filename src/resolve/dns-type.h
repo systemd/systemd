@@ -90,7 +90,7 @@ enum {
         DNS_TYPE_DLV,
 
         _DNS_TYPE_MAX,
-        _DNS_TYPE_INVALID = -1
+        _DNS_TYPE_INVALID = -EINVAL,
 };
 
 assert_cc(DNS_TYPE_SSHFP == 44);
@@ -103,7 +103,7 @@ enum {
         DNS_CLASS_ANY  = 0xFF,
 
         _DNS_CLASS_MAX,
-        _DNS_CLASS_INVALID = -1
+        _DNS_CLASS_INVALID = -EINVAL,
 };
 
 #define _DNS_CLASS_STRING_MAX (sizeof "CLASS" + DECIMAL_STR_MAX(uint16_t))

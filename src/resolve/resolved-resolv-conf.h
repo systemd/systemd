@@ -14,7 +14,7 @@ typedef enum ResolvConfMode {
         RESOLV_CONF_FOREIGN,
         RESOLV_CONF_MISSING,
         _RESOLV_CONF_MODE_MAX,
-        _RESOLV_CONF_MODE_INVALID = -1,
+        _RESOLV_CONF_MODE_INVALID = -EINVAL,
 } ResolvConfMode;
 
 int resolv_conf_mode(void);

@@ -204,7 +204,7 @@ static int device_set_action(sd_device *device, const char *action) {
 
         a = device_action_from_string(action);
         if (a < 0)
-                return -EINVAL;
+                return a;
 
         r = device_add_property_internal(device, "ACTION", action);
         if (r < 0)

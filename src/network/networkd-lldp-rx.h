@@ -10,7 +10,7 @@ typedef enum LLDPMode {
         LLDP_MODE_YES = 1,
         LLDP_MODE_ROUTERS_ONLY = 2,
         _LLDP_MODE_MAX,
-        _LLDP_MODE_INVALID = -1,
+        _LLDP_MODE_INVALID = -EINVAL,
 } LLDPMode;
 
 int link_lldp_rx_configure(Link *link);

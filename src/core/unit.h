@@ -23,14 +23,14 @@ typedef enum KillOperation {
         KILL_KILL,
         KILL_WATCHDOG,
         _KILL_OPERATION_MAX,
-        _KILL_OPERATION_INVALID = -1
+        _KILL_OPERATION_INVALID = -EINVAL,
 } KillOperation;
 
 typedef enum CollectMode {
         COLLECT_INACTIVE,
         COLLECT_INACTIVE_OR_FAILED,
         _COLLECT_MODE_MAX,
-        _COLLECT_MODE_INVALID = -1,
+        _COLLECT_MODE_INVALID = -EINVAL,
 } CollectMode;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {

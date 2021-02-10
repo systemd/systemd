@@ -146,7 +146,7 @@ typedef enum {
         ORDER_EQUAL,
         ORDER_UNEQUAL,
         _ORDER_MAX,
-        _ORDER_INVALID = -1
+        _ORDER_INVALID = -EINVAL,
 } OrderOperator;
 
 static OrderOperator parse_order(const char **s) {

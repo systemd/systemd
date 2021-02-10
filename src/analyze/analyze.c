@@ -1574,7 +1574,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
 
                         status = exit_status_from_string(argv[i]);
                         if (status < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid exit status \"%s\".", argv[i]);
+                                return log_error_errno(status, "Invalid exit status \"%s\".", argv[i]);
 
                         assert(status >= 0 && (size_t) status < ELEMENTSOF(exit_status_mappings));
                         r = table_add_many(table,

@@ -22,7 +22,7 @@ typedef enum UnitType {
         UNIT_SLICE,
         UNIT_SCOPE,
         _UNIT_TYPE_MAX,
-        _UNIT_TYPE_INVALID = -1
+        _UNIT_TYPE_INVALID = -EINVAL,
 } UnitType;
 
 typedef enum UnitLoadState {
@@ -34,7 +34,7 @@ typedef enum UnitLoadState {
         UNIT_MERGED,
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,
-        _UNIT_LOAD_STATE_INVALID = -1
+        _UNIT_LOAD_STATE_INVALID = -EINVAL,
 } UnitLoadState;
 
 typedef enum UnitActiveState {
@@ -46,7 +46,7 @@ typedef enum UnitActiveState {
         UNIT_DEACTIVATING,
         UNIT_MAINTENANCE,
         _UNIT_ACTIVE_STATE_MAX,
-        _UNIT_ACTIVE_STATE_INVALID = -1
+        _UNIT_ACTIVE_STATE_INVALID = -EINVAL,
 } UnitActiveState;
 
 typedef enum FreezerState {
@@ -55,7 +55,7 @@ typedef enum FreezerState {
         FREEZER_FROZEN,
         FREEZER_THAWING,
         _FREEZER_STATE_MAX,
-        _FREEZER_STATE_INVALID = -1
+        _FREEZER_STATE_INVALID = -EINVAL,
 } FreezerState;
 
 typedef enum AutomountState {
@@ -64,7 +64,7 @@ typedef enum AutomountState {
         AUTOMOUNT_RUNNING,
         AUTOMOUNT_FAILED,
         _AUTOMOUNT_STATE_MAX,
-        _AUTOMOUNT_STATE_INVALID = -1
+        _AUTOMOUNT_STATE_INVALID = -EINVAL,
 } AutomountState;
 
 /* We simply watch devices, we cannot plug/unplug them. That
@@ -74,7 +74,7 @@ typedef enum DeviceState {
         DEVICE_TENTATIVE, /* mounted or swapped, but not (yet) announced by udev */
         DEVICE_PLUGGED,   /* announced by udev */
         _DEVICE_STATE_MAX,
-        _DEVICE_STATE_INVALID = -1
+        _DEVICE_STATE_INVALID = -EINVAL,
 } DeviceState;
 
 typedef enum MountState {
@@ -91,7 +91,7 @@ typedef enum MountState {
         MOUNT_FAILED,
         MOUNT_CLEANING,
         _MOUNT_STATE_MAX,
-        _MOUNT_STATE_INVALID = -1
+        _MOUNT_STATE_INVALID = -EINVAL,
 } MountState;
 
 typedef enum PathState {
@@ -100,7 +100,7 @@ typedef enum PathState {
         PATH_RUNNING,
         PATH_FAILED,
         _PATH_STATE_MAX,
-        _PATH_STATE_INVALID = -1
+        _PATH_STATE_INVALID = -EINVAL,
 } PathState;
 
 typedef enum ScopeState {
@@ -111,7 +111,7 @@ typedef enum ScopeState {
         SCOPE_STOP_SIGKILL,
         SCOPE_FAILED,
         _SCOPE_STATE_MAX,
-        _SCOPE_STATE_INVALID = -1
+        _SCOPE_STATE_INVALID = -EINVAL,
 } ScopeState;
 
 typedef enum ServiceState {
@@ -135,14 +135,14 @@ typedef enum ServiceState {
         SERVICE_AUTO_RESTART,
         SERVICE_CLEANING,
         _SERVICE_STATE_MAX,
-        _SERVICE_STATE_INVALID = -1
+        _SERVICE_STATE_INVALID = -EINVAL,
 } ServiceState;
 
 typedef enum SliceState {
         SLICE_DEAD,
         SLICE_ACTIVE,
         _SLICE_STATE_MAX,
-        _SLICE_STATE_INVALID = -1
+        _SLICE_STATE_INVALID = -EINVAL,
 } SliceState;
 
 typedef enum SocketState {
@@ -161,7 +161,7 @@ typedef enum SocketState {
         SOCKET_FAILED,
         SOCKET_CLEANING,
         _SOCKET_STATE_MAX,
-        _SOCKET_STATE_INVALID = -1
+        _SOCKET_STATE_INVALID = -EINVAL,
 } SocketState;
 
 typedef enum SwapState {
@@ -175,14 +175,14 @@ typedef enum SwapState {
         SWAP_FAILED,
         SWAP_CLEANING,
         _SWAP_STATE_MAX,
-        _SWAP_STATE_INVALID = -1
+        _SWAP_STATE_INVALID = -EINVAL,
 } SwapState;
 
 typedef enum TargetState {
         TARGET_DEAD,
         TARGET_ACTIVE,
         _TARGET_STATE_MAX,
-        _TARGET_STATE_INVALID = -1
+        _TARGET_STATE_INVALID = -EINVAL,
 } TargetState;
 
 typedef enum TimerState {
@@ -192,7 +192,7 @@ typedef enum TimerState {
         TIMER_ELAPSED,
         TIMER_FAILED,
         _TIMER_STATE_MAX,
-        _TIMER_STATE_INVALID = -1
+        _TIMER_STATE_INVALID = -EINVAL,
 } TimerState;
 
 typedef enum UnitDependency {
@@ -237,7 +237,7 @@ typedef enum UnitDependency {
         UNIT_REFERENCED_BY,
 
         _UNIT_DEPENDENCY_MAX,
-        _UNIT_DEPENDENCY_INVALID = -1
+        _UNIT_DEPENDENCY_INVALID = -EINVAL,
 } UnitDependency;
 
 typedef enum NotifyAccess {
@@ -246,7 +246,7 @@ typedef enum NotifyAccess {
         NOTIFY_MAIN,
         NOTIFY_EXEC,
         _NOTIFY_ACCESS_MAX,
-        _NOTIFY_ACCESS_INVALID = -1
+        _NOTIFY_ACCESS_INVALID = -EINVAL,
 } NotifyAccess;
 
 char *unit_dbus_path_from_name(const char *name);

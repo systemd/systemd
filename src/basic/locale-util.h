@@ -26,7 +26,7 @@ typedef enum LocaleVariable {
         VARIABLE_LC_MEASUREMENT,
         VARIABLE_LC_IDENTIFICATION,
         _VARIABLE_LC_MAX,
-        _VARIABLE_LC_INVALID = -1
+        _VARIABLE_LC_INVALID = -EINVAL,
 } LocaleVariable;
 
 int get_locales(char ***l);

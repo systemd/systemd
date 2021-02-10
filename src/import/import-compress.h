@@ -17,7 +17,7 @@ typedef enum ImportCompressType {
         IMPORT_COMPRESS_GZIP,
         IMPORT_COMPRESS_BZIP2,
         _IMPORT_COMPRESS_TYPE_MAX,
-        _IMPORT_COMPRESS_TYPE_INVALID = -1,
+        _IMPORT_COMPRESS_TYPE_INVALID = -EINVAL,
 } ImportCompressType;
 
 typedef struct ImportCompress {

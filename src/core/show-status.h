@@ -14,7 +14,7 @@ typedef enum ShowStatus {
         SHOW_STATUS_TEMPORARY,  /* enabled temporarily, may flip back to _AUTO */
         SHOW_STATUS_YES,        /* printing of status is enabled */
         _SHOW_STATUS_MAX,
-        _SHOW_STATUS_INVALID = -1,
+        _SHOW_STATUS_INVALID = -EINVAL,
 } ShowStatus;
 
 typedef enum ShowStatusFlags {
@@ -26,7 +26,7 @@ typedef enum StatusUnitFormat {
         STATUS_UNIT_FORMAT_NAME,
         STATUS_UNIT_FORMAT_DESCRIPTION,
         _STATUS_UNIT_FORMAT_MAX,
-        _STATUS_UNIT_FORMAT_INVALID = -1,
+        _STATUS_UNIT_FORMAT_INVALID = -EINVAL,
 } StatusUnitFormat;
 
 static inline bool show_status_on(ShowStatus s) {
