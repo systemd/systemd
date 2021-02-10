@@ -1,3 +1,5 @@
+needs-review:
+  - '**/*'
 hwdb:
   - hwdb.d/**/*
 units:
