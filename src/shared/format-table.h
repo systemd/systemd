@@ -39,6 +39,10 @@ typedef enum TableDataType {
         TABLE_IN6_ADDR, /* Takes a union in_addr_union (or a struct in6_addr) */
         TABLE_ID128,
         TABLE_UUID,
+        TABLE_UID,
+        TABLE_GID,
+        TABLE_PID,
+        TABLE_SIGNAL,
         _TABLE_DATA_TYPE_MAX,
 
         /* The following are not really data types, but commands for table_add_cell_many() to make changes to
@@ -56,16 +60,6 @@ typedef enum TableDataType {
 
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
-
-/* PIDs are just 32bit signed integers on Linux */
-#define TABLE_PID TABLE_INT32
-assert_cc(sizeof(pid_t) == sizeof(int32_t));
-
-/* UIDs/GIDs are just 32bit unsigned integers on Linux */
-#define TABLE_UID TABLE_UINT32
-#define TABLE_GID TABLE_UINT32
-assert_cc(sizeof(uid_t) == sizeof(uint32_t));
-assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 
 typedef struct Table Table;
 typedef struct TableCell TableCell;
