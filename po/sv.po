@@ -11,7 +11,7 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-02-05 20:40+0000\n"
+"PO-Revision-Date: 2021-02-10 15:40+0000\n"
 "Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "master/sv/>\n"
@@ -532,7 +532,7 @@ msgstr "Autentisering krävs för att ställa in ”orsaken” för omstart i k�
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr ""
-"Indikera till den fasta programvaran att starta upp i "
+"Indikera till den fasta programvaran att starta upp till "
 "inställningsgränssnittet"
 
 #: src/login/org.freedesktop.login1.policy:364
@@ -540,12 +540,12 @@ msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
-"Autentisering krävs för att indikera till firmware att starta upp till "
-"inställningsgränssnitt."
+"Autentisering krävs för att indikera till den fasta programvaran att starta "
+"upp till inställningsgränssnitt."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "Indikera till den startprogrammet att starta upp i uppstartsladdmenyn"
+msgstr "Indikera till startprogrammet att starta upp i uppstartsladdmenyn"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
@@ -899,7 +899,7 @@ msgstr "Autentisering krävs för att stoppa \"$(unit)\"."
 
 #: src/core/dbus-unit.c:361
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Autentisering krävs för att läsa om tillståndet för \"$(unit)\"."
+msgstr "Autentisering krävs för att läsa om \"$(unit)\"."
 
 #: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
 msgid "Authentication is required to restart '$(unit)'."
