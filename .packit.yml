@@ -43,3 +43,5 @@ jobs:
     - fedora-rawhide-aarch64
     - fedora-rawhide-i386
     - fedora-rawhide-x86_64
+    - fedora-eln-aarch64
+    - fedora-eln-x86_64
