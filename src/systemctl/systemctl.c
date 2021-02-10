@@ -425,7 +425,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "after",               no_argument,       NULL, ARG_AFTER               },
                 { "before",              no_argument,       NULL, ARG_BEFORE              },
                 { "show-types",          no_argument,       NULL, ARG_SHOW_TYPES          },
-                { "failed",              no_argument,       NULL, ARG_FAILED              }, /* compatibility only */
+                { "failed",              no_argument,       NULL, ARG_FAILED              },
                 { "full",                no_argument,       NULL, 'l'                     },
                 { "job-mode",            required_argument, NULL, ARG_JOB_MODE            },
                 { "fail",                no_argument,       NULL, ARG_FAIL                }, /* compatibility only */
@@ -926,7 +926,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
@@ -970,14 +970,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_action = _ACTION_INVALID;
                                 return telinit_parse_argv(argc, argv);
                         } else {
-                                /* Hmm, so some other init system is running, we need to forward this request to
-                                 * it. For now we simply guess that it is Upstart. */
+                                /* Hmm, so some other init system is running, we need to forward this request
+                                 * to it. */
 
-                                (void) rlimit_nofile_safe();
-                                execv(TELINIT, argv);
-
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                                       "Couldn't find an alternative telinit implementation to spawn.");
+                                arg_action = ACTION_TELINIT;
+                                return 1;
                         }
 
                 } else if (strstr(program_invocation_short_name, "runlevel")) {
@@ -990,6 +987,7 @@ static int parse_argv(int argc, char *argv[]) {
         return systemctl_parse_argv(argc, argv);
 }
 
+#ifndef FUZZ_SYSTEMCTL_PARSE_ARGV
 static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
@@ -1093,7 +1091,7 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = parse_argv(argc, argv);
+        r = systemctl_dispatch_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
 
@@ -1143,6 +1141,10 @@ static int run(int argc, char *argv[]) {
                 r = runlevel_main();
                 break;
 
+        case ACTION_TELINIT:
+                r = exec_telinit(argv);
+                break;
+
         case ACTION_EXIT:
         case ACTION_SUSPEND:
         case ACTION_HIBERNATE:
@@ -1166,3 +1168,4 @@ finish:
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+#endif
