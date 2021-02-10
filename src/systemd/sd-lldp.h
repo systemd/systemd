@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <sys/types.h>
@@ -127,7 +128,7 @@ typedef enum sd_lldp_event {
         SD_LLDP_EVENT_UPDATED,
         SD_LLDP_EVENT_REFRESHED,
         _SD_LLDP_EVENT_MAX,
-        _SD_LLDP_EVENT_INVALID = -1,
+        _SD_LLDP_EVENT_INVALID = -EINVAL,
 } sd_lldp_event;
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);

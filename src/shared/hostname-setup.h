@@ -8,7 +8,7 @@ typedef enum HostnameSource {
         HOSTNAME_STATIC,     /* from /etc/hostname */
         HOSTNAME_TRANSIENT,  /* a transient hostname set through systemd, hostnamed, the container manager, or otherwise */
         HOSTNAME_FALLBACK,   /* the compiled-in fallback was used */
-        _HOSTNAME_INVALID = -1,
+        _HOSTNAME_INVALID = -EINVAL,
 } HostnameSource;
 
 const char* hostname_source_to_string(HostnameSource source) _const_;

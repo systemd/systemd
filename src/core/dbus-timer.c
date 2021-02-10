@@ -338,7 +338,7 @@ static int bus_timer_set_transient_property(
 
                 b = timer_base_from_string(name);
                 if (b < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown timer base");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown timer base %s", name);
 
                 r = sd_bus_message_read(message, "t", &usec);
                 if (r < 0)

@@ -57,14 +57,14 @@ enum JobType {
         JOB_RELOAD_OR_START,        /* if running, reload, otherwise start */
 
         _JOB_TYPE_MAX,
-        _JOB_TYPE_INVALID = -1
+        _JOB_TYPE_INVALID = -EINVAL,
 };
 
 enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
         _JOB_STATE_MAX,
-        _JOB_STATE_INVALID = -1
+        _JOB_STATE_INVALID = -EINVAL,
 };
 
 enum JobMode {
@@ -77,7 +77,7 @@ enum JobMode {
         JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
         JOB_TRIGGERING,          /* Adds TRIGGERED_BY dependencies to the same transaction */
         _JOB_MODE_MAX,
-        _JOB_MODE_INVALID = -1
+        _JOB_MODE_INVALID = -EINVAL,
 };
 
 enum JobResult {
@@ -93,7 +93,7 @@ enum JobResult {
         JOB_COLLECTED,           /* Job was garbage collected, since nothing needed it anymore */
         JOB_ONCE,                /* Unit was started before, and hence can't be started again */
         _JOB_RESULT_MAX,
-        _JOB_RESULT_INVALID = -1
+        _JOB_RESULT_INVALID = -EINVAL,
 };
 
 #include "unit.h"

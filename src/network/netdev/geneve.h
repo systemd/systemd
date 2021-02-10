@@ -14,7 +14,7 @@ typedef enum GeneveDF {
         NETDEV_GENEVE_DF_YES = GENEVE_DF_SET,
         NETDEV_GENEVE_DF_INHERIT = GENEVE_DF_INHERIT,
         _NETDEV_GENEVE_DF_MAX,
-        _NETDEV_GENEVE_DF_INVALID = -1
+        _NETDEV_GENEVE_DF_INVALID = -EINVAL,
 } GeneveDF;
 
 struct Geneve {

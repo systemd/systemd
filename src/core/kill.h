@@ -15,7 +15,7 @@ typedef enum KillMode {
         KILL_MIXED,
         KILL_NONE,
         _KILL_MODE_MAX,
-        _KILL_MODE_INVALID = -1
+        _KILL_MODE_INVALID = -EINVAL,
 } KillMode;
 
 struct KillContext {
@@ -37,7 +37,7 @@ typedef enum KillWho {
         KILL_CONTROL_FAIL,
         KILL_ALL_FAIL,
         _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -1
+        _KILL_WHO_INVALID = -EINVAL,
 } KillWho;
 
 void kill_context_init(KillContext *c);

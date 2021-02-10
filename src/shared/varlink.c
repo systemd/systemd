@@ -54,7 +54,7 @@ typedef enum VarlinkState {
         VARLINK_DISCONNECTED,
 
         _VARLINK_STATE_MAX,
-        _VARLINK_STATE_INVALID = -1
+        _VARLINK_STATE_INVALID = -EINVAL,
 } VarlinkState;
 
 /* Tests whether we are not yet disconnected. Note that this is true during all states where the connection

@@ -22,7 +22,7 @@ typedef enum DnsProtocol {
         DNS_PROTOCOL_MDNS,
         DNS_PROTOCOL_LLMNR,
         _DNS_PROTOCOL_MAX,
-        _DNS_PROTOCOL_INVALID = -1
+        _DNS_PROTOCOL_INVALID = -EINVAL,
 } DnsProtocol;
 
 struct DnsPacketHeader {

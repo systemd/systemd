@@ -32,7 +32,7 @@ typedef enum ImageAcquireMode {
         BUS_IMAGE_AUTHENTICATE_BY_PATH,      /* allow by name  + polkit by path */
         BUS_IMAGE_AUTHENTICATE_ALL,          /* polkit by name + polkit by path */
         _BUS_IMAGE_ACQUIRE_MODE_MAX,
-        _BUS_IMAGE_ACQUIRE_MODE_INVALID = -1
+        _BUS_IMAGE_ACQUIRE_MODE_INVALID = -EINVAL,
 } ImageAcquireMode;
 
 int bus_image_acquire(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, ImageAcquireMode mode, const char *polkit_action, Image **ret, sd_bus_error *error);

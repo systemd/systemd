@@ -1708,7 +1708,7 @@ typedef enum SystemctlShowMode{
         SYSTEMCTL_SHOW_STATUS,
         SYSTEMCTL_SHOW_HELP,
         _SYSTEMCTL_SHOW_MODE_MAX,
-        _SYSTEMCTL_SHOW_MODE_INVALID = -1,
+        _SYSTEMCTL_SHOW_MODE_INVALID = -EINVAL,
 } SystemctlShowMode;
 
 static const char* const systemctl_show_mode_table[_SYSTEMCTL_SHOW_MODE_MAX] = {
@@ -2040,8 +2040,7 @@ int show(int argc, char *argv[], void *userdata) {
 
         show_mode = systemctl_show_mode_from_string(argv[0]);
         if (show_mode < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid argument.");
+                return log_error_errno(show_mode, "Invalid argument.");
 
         if (show_mode == SYSTEMCTL_SHOW_HELP && argc <= 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

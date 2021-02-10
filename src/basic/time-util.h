@@ -35,7 +35,7 @@ typedef enum TimestampStyle {
         TIMESTAMP_UTC,
         TIMESTAMP_US_UTC,
         _TIMESTAMP_STYLE_MAX,
-        _TIMESTAMP_STYLE_INVALID = -1,
+        _TIMESTAMP_STYLE_INVALID = -EINVAL,
 } TimestampStyle;
 
 #define USEC_INFINITY ((usec_t) UINT64_MAX)

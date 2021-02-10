@@ -15,7 +15,7 @@ typedef enum BootEntryType {
         BOOT_ENTRY_UNIFIED,  /* Type #2 entries: *.efi files */
         BOOT_ENTRY_LOADER,   /* Additional entries augmented from LoaderEntries EFI var */
         _BOOT_ENTRY_MAX,
-        _BOOT_ENTRY_INVALID = -1,
+        _BOOT_ENTRY_INVALID = -EINVAL,
 } BootEntryType;
 
 typedef struct BootEntry {

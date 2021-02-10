@@ -64,7 +64,10 @@ struct JsonVariant {
         JsonSource *source;
         unsigned line, column;
 
-        JsonVariantType type:5;
+        /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
+        uint16_t depth;
+
+        JsonVariantType type:8;
 
         /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent' pointer above
          * is valid. If false, the 'n_ref' field above is valid instead. */
@@ -86,9 +89,6 @@ struct JsonVariant {
 
         /* If in addition to this object all objects referenced by it are also ordered strictly by name */
         bool normalized:1;
-
-        /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
-        uint16_t depth;
 
         union {
                 /* For simple types we store the value in-line. */

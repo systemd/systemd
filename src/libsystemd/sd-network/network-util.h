@@ -22,7 +22,7 @@ typedef enum LinkOperationalState {
         LINK_OPERSTATE_ENSLAVED,
         LINK_OPERSTATE_ROUTABLE,
         _LINK_OPERSTATE_MAX,
-        _LINK_OPERSTATE_INVALID = -1
+        _LINK_OPERSTATE_INVALID = -EINVAL,
 } LinkOperationalState;
 
 typedef enum LinkCarrierState {
@@ -33,7 +33,7 @@ typedef enum LinkCarrierState {
         LINK_CARRIER_STATE_CARRIER          = LINK_OPERSTATE_CARRIER,
         LINK_CARRIER_STATE_ENSLAVED         = LINK_OPERSTATE_ENSLAVED,
         _LINK_CARRIER_STATE_MAX,
-        _LINK_CARRIER_STATE_INVALID = -1
+        _LINK_CARRIER_STATE_INVALID = -EINVAL,
 } LinkCarrierState;
 
 typedef enum LinkAddressState {
@@ -41,7 +41,7 @@ typedef enum LinkAddressState {
         LINK_ADDRESS_STATE_DEGRADED,
         LINK_ADDRESS_STATE_ROUTABLE,
         _LINK_ADDRESS_STATE_MAX,
-        _LINK_ADDRESS_STATE_INVALID = -1
+        _LINK_ADDRESS_STATE_INVALID = -EINVAL,
 } LinkAddressState;
 
 const char* link_operstate_to_string(LinkOperationalState s) _const_;

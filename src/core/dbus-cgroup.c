@@ -1452,7 +1452,7 @@ int bus_cgroup_set_property(
 
                 p = cgroup_device_policy_from_string(policy);
                 if (p < 0)
-                        return -EINVAL;
+                        return p;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->device_policy = p;

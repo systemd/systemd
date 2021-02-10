@@ -28,7 +28,7 @@ typedef enum EventSourceType {
         SOURCE_WATCHDOG,
         SOURCE_INOTIFY,
         _SOURCE_EVENT_SOURCE_TYPE_MAX,
-        _SOURCE_EVENT_SOURCE_TYPE_INVALID = -1
+        _SOURCE_EVENT_SOURCE_TYPE_INVALID = -EINVAL,
 } EventSourceType;
 
 /* All objects we use in epoll events start with this value, so that
@@ -40,7 +40,7 @@ typedef enum WakeupType {
         WAKEUP_SIGNAL_DATA,
         WAKEUP_INOTIFY_DATA,
         _WAKEUP_TYPE_MAX,
-        _WAKEUP_TYPE_INVALID = -1,
+        _WAKEUP_TYPE_INVALID = -EINVAL,
 } WakeupType;
 
 struct inode_data;
@@ -56,7 +56,7 @@ struct sd_event_source {
 
         char *description;
 
-        EventSourceType type:5;
+        EventSourceType type;
         signed int enabled:3;
         bool pending:1;
         bool dispatching:1;

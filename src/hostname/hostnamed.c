@@ -59,7 +59,7 @@ enum {
         PROP_OS_CPE_NAME,
         PROP_OS_HOME_URL,
         _PROP_MAX,
-        _PROP_INVALID = -1,
+        _PROP_INVALID = -EINVAL,
 };
 
 typedef struct Context {

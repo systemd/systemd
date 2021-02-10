@@ -29,7 +29,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope) \
         scope type name##_from_string(const char *s) {                  \
                 if (!s)                                                 \
-                        return -1;                                      \
+                        return -EINVAL;                                 \
                 int b = parse_boolean(s);                               \
                 if (b == 0)                                             \
                         return (type) 0;                                \
@@ -60,14 +60,16 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 unsigned u = 0;                                         \
                 type i;                                                 \
                 if (!s)                                                 \
-                        return (type) -1;                               \
+                        return -EINVAL;                                 \
                 i = (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
                 if (i >= 0)                                             \
                         return i;                                       \
-                if (safe_atou(s, &u) >= 0 && u <= max)                  \
-                        return (type) u;                                \
-                return (type) -1;                                       \
-        }                                                               \
+                if (safe_atou(s, &u) < 0)                               \
+                        return -EINVAL;                                 \
+                if (u > max)                                            \
+                        return -EINVAL;                                 \
+                return (type) u;                                        \
+        }
 
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
