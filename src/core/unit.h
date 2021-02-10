@@ -120,9 +120,6 @@ typedef struct Unit {
         UnitLoadState load_state;
         Unit *merged_into;
 
-        FreezerState freezer_state;
-        sd_bus_message *pending_freezer_message;
-
         char *id;   /* The one special name that we use for identification */
         char *instance;
 
@@ -150,6 +147,16 @@ typedef struct Unit {
         /* If this is a transient unit we are currently writing, this is where we are writing it to */
         FILE *transient_file;
 
+        /* Freezer state */
+        sd_bus_message *pending_freezer_message;
+        FreezerState freezer_state;
+
+        /* Job timeout and action to take */
+        EmergencyAction job_timeout_action;
+        usec_t job_timeout;
+        usec_t job_running_timeout;
+        char *job_timeout_reboot_arg;
+
         /* If there is something to do with this unit, then this is the installed job for it */
         Job *job;
 
@@ -163,13 +170,6 @@ typedef struct Unit {
         /* References to this unit from clients */
         sd_bus_track *bus_track;
         char **deserialized_refs;
-
-        /* Job timeout and action to take */
-        usec_t job_timeout;
-        usec_t job_running_timeout;
-        bool job_running_timeout_set:1;
-        EmergencyAction job_timeout_action;
-        char *job_timeout_reboot_arg;
 
         /* References to this */
         LIST_HEAD(UnitRef, refs_by_target);
@@ -358,6 +358,8 @@ typedef struct Unit {
         bool in_stop_when_unneeded_queue:1;
 
         bool sent_dbus_new_signal:1;
+
+        bool job_running_timeout_set:1;
 
         bool in_audit:1;
         bool on_console:1;
