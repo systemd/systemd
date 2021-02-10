@@ -19,7 +19,7 @@
 struct reply_callback {
         sd_netlink_message_handler_t callback;
         usec_t timeout;
-        uint64_t serial;
+        uint32_t serial;
         unsigned prioq_idx;
 };
 
