@@ -40,7 +40,7 @@ typedef enum ConditionType {
         CONDITION_CONTROL_GROUP_CONTROLLER,
 
         _CONDITION_TYPE_MAX,
-        _CONDITION_TYPE_INVALID = -1
+        _CONDITION_TYPE_INVALID = -EINVAL,
 } ConditionType;
 
 typedef enum ConditionResult {
@@ -49,7 +49,7 @@ typedef enum ConditionResult {
         CONDITION_FAILED,
         CONDITION_ERROR,
         _CONDITION_RESULT_MAX,
-        _CONDITION_RESULT_INVALID = -1
+        _CONDITION_RESULT_INVALID = -EINVAL,
 } ConditionResult;
 
 typedef struct Condition {

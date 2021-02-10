@@ -427,11 +427,11 @@ static int json_dispatch_rlimits(const char *name, JsonVariant *variant, JsonDis
 
                 p = startswith(key, "RLIMIT_");
                 if (!p)
-                        l = -1;
+                        l = -SYNTHETIC_ERRNO(EINVAL);
                 else
                         l = rlimit_from_string(p);
                 if (l < 0)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Resource limit '%s' not known.", key);
+                        return json_log(variant, flags, l, "Resource limit '%s' not known.", key);
 
                 if (!json_variant_is_object(value))
                         return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "Resource limit '%s' has invalid value.", key);
@@ -661,7 +661,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
         k = user_disposition_from_string(json_variant_string(variant));
         if (k < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Disposition type '%s' not known.", json_variant_string(variant));
+                return json_log(variant, flags, k, "Disposition type '%s' not known.", json_variant_string(variant));
 
         *disposition = k;
         return 0;
@@ -680,7 +680,7 @@ static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDis
 
         k = user_storage_from_string(json_variant_string(variant));
         if (k < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Storage type '%s' not known.", json_variant_string(variant));
+                return json_log(variant, flags, k, "Storage type '%s' not known.", json_variant_string(variant));
 
         *storage = k;
         return 0;

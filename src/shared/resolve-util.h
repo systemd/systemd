@@ -27,7 +27,7 @@ enum ResolveSupport {
         RESOLVE_SUPPORT_YES,
         RESOLVE_SUPPORT_RESOLVE,
         _RESOLVE_SUPPORT_MAX,
-        _RESOLVE_SUPPORT_INVALID = -1
+        _RESOLVE_SUPPORT_INVALID = -EINVAL,
 };
 
 enum DnssecMode {
@@ -45,7 +45,7 @@ enum DnssecMode {
         DNSSEC_YES,
 
         _DNSSEC_MODE_MAX,
-        _DNSSEC_MODE_INVALID = -1
+        _DNSSEC_MODE_INVALID = -EINVAL,
 };
 
 enum DnsOverTlsMode {
@@ -60,7 +60,7 @@ enum DnsOverTlsMode {
         DNS_OVER_TLS_YES,
 
         _DNS_OVER_TLS_MODE_MAX,
-        _DNS_OVER_TLS_MODE_INVALID = -1
+        _DNS_OVER_TLS_MODE_INVALID = -EINVAL,
 };
 
 CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);

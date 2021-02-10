@@ -60,7 +60,7 @@ typedef enum LineBreak {
         LINE_BREAK_EOF,
         LINE_BREAK_PID_CHANGE,
         _LINE_BREAK_MAX,
-        _LINE_BREAK_INVALID = -1,
+        _LINE_BREAK_INVALID = -EINVAL,
 } LineBreak;
 
 struct StdoutStream {

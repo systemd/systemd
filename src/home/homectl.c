@@ -2393,7 +2393,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         l = rlimit_from_string_harder(field);
                         if (l < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown resource limit type: %s", field);
+                                return log_error_errno(l, "Unknown resource limit type: %s", field);
 
                         if (isempty(eq + 1)) {
                                 /* Remove only the specific rlimit */

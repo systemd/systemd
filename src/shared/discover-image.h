@@ -18,7 +18,7 @@ typedef enum ImageClass {
         IMAGE_PORTABLE,
         IMAGE_EXTENSION,
         _IMAGE_CLASS_MAX,
-        _IMAGE_CLASS_INVALID = -1
+        _IMAGE_CLASS_INVALID = -EINVAL,
 } ImageClass;
 
 typedef enum ImageType {
@@ -27,7 +27,7 @@ typedef enum ImageType {
         IMAGE_RAW,
         IMAGE_BLOCK,
         _IMAGE_TYPE_MAX,
-        _IMAGE_TYPE_INVALID = -1
+        _IMAGE_TYPE_INVALID = -EINVAL,
 } ImageType;
 
 typedef struct Image {

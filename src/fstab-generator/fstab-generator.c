@@ -888,7 +888,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (value) {
                         m = volatile_mode_from_string(value);
                         if (m < 0)
-                                log_warning("Failed to parse systemd.volatile= argument: %s", value);
+                                log_warning_errno(m, "Failed to parse systemd.volatile= argument: %s", value);
                         else
                                 arg_volatile_mode = m;
                 } else

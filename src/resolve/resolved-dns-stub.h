@@ -11,7 +11,7 @@ typedef enum DnsStubListenerMode {
         DNS_STUB_LISTENER_TCP = 1 << 1,
         DNS_STUB_LISTENER_YES = DNS_STUB_LISTENER_UDP | DNS_STUB_LISTENER_TCP,
         _DNS_STUB_LISTENER_MODE_MAX,
-        _DNS_STUB_LISTENER_MODE_INVALID = -1
+        _DNS_STUB_LISTENER_MODE_INVALID = -EINVAL,
 } DnsStubListenerMode;
 
 #include "resolved-manager.h"

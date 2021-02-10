@@ -25,7 +25,7 @@ typedef enum StartMode {
         START_PID2, /* Use stub init process as PID 1, run parameters as command line as process 2 */
         START_BOOT, /* Search for init system, pass arguments as parameters */
         _START_MODE_MAX,
-        _START_MODE_INVALID = -1
+        _START_MODE_INVALID = -EINVAL,
 } StartMode;
 
 typedef enum UserNamespaceMode {
@@ -33,7 +33,7 @@ typedef enum UserNamespaceMode {
         USER_NAMESPACE_FIXED,
         USER_NAMESPACE_PICK,
         _USER_NAMESPACE_MODE_MAX,
-        _USER_NAMESPACE_MODE_INVALID = -1,
+        _USER_NAMESPACE_MODE_INVALID = -EINVAL,
 } UserNamespaceMode;
 
 typedef enum ResolvConfMode {
@@ -53,7 +53,7 @@ typedef enum ResolvConfMode {
         RESOLV_CONF_DELETE,
         RESOLV_CONF_AUTO,
         _RESOLV_CONF_MODE_MAX,
-        _RESOLV_CONF_MODE_INVALID = -1
+        _RESOLV_CONF_MODE_INVALID = -EINVAL,
 } ResolvConfMode;
 
 typedef enum LinkJournal {
@@ -62,7 +62,7 @@ typedef enum LinkJournal {
         LINK_HOST,
         LINK_GUEST,
         _LINK_JOURNAL_MAX,
-        _LINK_JOURNAL_INVALID = -1
+        _LINK_JOURNAL_INVALID = -EINVAL,
 } LinkJournal;
 
 typedef enum TimezoneMode {
@@ -73,7 +73,7 @@ typedef enum TimezoneMode {
         TIMEZONE_DELETE,
         TIMEZONE_AUTO,
         _TIMEZONE_MODE_MAX,
-        _TIMEZONE_MODE_INVALID = -1
+        _TIMEZONE_MODE_INVALID = -EINVAL,
 } TimezoneMode;
 
 typedef enum ConsoleMode {
@@ -82,7 +82,7 @@ typedef enum ConsoleMode {
         CONSOLE_PASSIVE,
         CONSOLE_PIPE,
         _CONSOLE_MODE_MAX,
-        _CONSOLE_MODE_INVALID = -1,
+        _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;
 
 typedef enum SettingsMask {

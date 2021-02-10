@@ -12,7 +12,7 @@ typedef enum FooOverUDPEncapType {
         NETDEV_FOO_OVER_UDP_ENCAP_DIRECT = FOU_ENCAP_DIRECT,
         NETDEV_FOO_OVER_UDP_ENCAP_GUE = FOU_ENCAP_GUE,
         _NETDEV_FOO_OVER_UDP_ENCAP_MAX,
-        _NETDEV_FOO_OVER_UDP_ENCAP_INVALID = -1,
+        _NETDEV_FOO_OVER_UDP_ENCAP_INVALID = -EINVAL,
 } FooOverUDPEncapType;
 
 typedef struct FouTunnel {

@@ -205,7 +205,7 @@ static int oci_rlimit_type(const char *name, JsonVariant *v, JsonDispatchFlags f
 
         t = rlimit_from_string(z);
         if (t < 0)
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
+                return json_log(v, flags, t,
                                 "rlimit name unknown: %s", json_variant_string(v));
 
         *type = t;

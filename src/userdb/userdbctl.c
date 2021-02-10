@@ -25,7 +25,7 @@ static enum {
         OUTPUT_TABLE,
         OUTPUT_FRIENDLY,
         OUTPUT_JSON,
-        _OUTPUT_INVALID = -1
+        _OUTPUT_INVALID = -EINVAL,
 } arg_output = _OUTPUT_INVALID;
 
 static PagerFlags arg_pager_flags = 0;

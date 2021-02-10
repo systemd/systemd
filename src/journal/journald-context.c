@@ -368,7 +368,7 @@ static int client_context_read_log_level_max(
 
         ll = log_level_from_string(value);
         if (ll < 0)
-                return -EINVAL;
+                return ll;
 
         c->log_level_max = ll;
         return 0;
