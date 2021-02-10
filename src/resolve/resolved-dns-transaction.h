@@ -5,6 +5,7 @@
 #include "in-addr-util.h"
 
 typedef struct DnsTransaction DnsTransaction;
+typedef struct DnsTransactionFinder DnsTransactionFinder;
 typedef enum DnsTransactionState DnsTransactionState;
 typedef enum DnsTransactionSource DnsTransactionSource;
 
@@ -31,6 +32,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_RR_TYPE_UNSUPPORTED,
         DNS_TRANSACTION_NETWORK_DOWN,
         DNS_TRANSACTION_NOT_FOUND, /* like NXDOMAIN, but when LLMNR/TCP connections fail */
+        DNS_TRANSACTION_NO_SOURCE, /* All suitable DnsTransactionSource turned off */
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -EINVAL,
 };
@@ -49,7 +51,10 @@ enum DnsTransactionSource {
 struct DnsTransaction {
         DnsScope *scope;
 
-        DnsResourceKey *key;
+        DnsResourceKey *key;         /* For regular lookups the RR key to look for */
+        DnsPacket *bypass;           /* For bypass lookups the full original request packet */
+
+        uint64_t query_flags;
 
         DnsTransactionState state;
 
@@ -59,8 +64,6 @@ struct DnsTransaction {
 
         bool initial_jitter_scheduled:1;
         bool initial_jitter_elapsed:1;
-
-        bool clamp_ttl:1;
 
         bool probing:1;
 
@@ -133,9 +136,10 @@ struct DnsTransaction {
 
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
         LIST_FIELDS(DnsTransaction, transactions_by_stream);
+        LIST_FIELDS(DnsTransaction, transactions_by_key);
 };
 
-int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);
+int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnsPacket *bypass, uint64_t flags);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
 bool dns_transaction_gc(DnsTransaction *t);
@@ -149,6 +153,23 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
 int dns_transaction_validate_dnssec(DnsTransaction *t);
 int dns_transaction_request_dnssec_keys(DnsTransaction *t);
+
+static inline DnsResourceKey *dns_transaction_key(DnsTransaction *t) {
+        assert(t);
+
+        /* Return the lookup key of this transaction. Either takes the lookup key from the bypass packet if
+         * we are a bypass transaction. Or take the configured key for regular transactions. */
+
+        if (t->key)
+                return t->key;
+
+        assert(t->bypass);
+
+        if (dns_question_isempty(t->bypass->question))
+                return NULL;
+
+        return t->bypass->question->keys[0];
+}
 
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;

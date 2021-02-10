@@ -646,11 +646,10 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
         assert(s);
         assert(key);
 
-        /* Check if it makes sense to resolve the specified key on
-         * this scope. Note that this call assumes as fully qualified
-         * name, i.e. the search suffixes already appended. */
+        /* Check if it makes sense to resolve the specified key on this scope. Note that this call assumes a
+         * fully qualified name, i.e. the search suffixes already appended. */
 
-        if (key->class != DNS_CLASS_IN)
+        if (!IN_SET(key->class, DNS_CLASS_IN, DNS_CLASS_ANY))
                 return false;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
@@ -672,8 +671,7 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 return !dns_name_is_root(name);
         }
 
-        /* On mDNS and LLMNR, send A and AAAA queries only on the
-         * respective scopes */
+        /* On mDNS and LLMNR, send A and AAAA queries only on the respective scopes */
 
         key_family = dns_type_to_af(key->type);
         if (key_family < 0)
@@ -765,6 +763,7 @@ int dns_scope_make_reply_packet(
                 DnsPacket **ret) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        unsigned n_answer = 0, n_soa = 0;
         int r;
 
         assert(s);
@@ -796,15 +795,15 @@ int dns_scope_make_reply_packet(
                 return r;
         DNS_PACKET_HEADER(p)->qdcount = htobe16(dns_question_size(q));
 
-        r = dns_packet_append_answer(p, answer);
+        r = dns_packet_append_answer(p, answer, &n_answer);
         if (r < 0)
                 return r;
-        DNS_PACKET_HEADER(p)->ancount = htobe16(dns_answer_size(answer));
+        DNS_PACKET_HEADER(p)->ancount = htobe16(n_answer);
 
-        r = dns_packet_append_answer(p, soa);
+        r = dns_packet_append_answer(p, soa, &n_soa);
         if (r < 0)
                 return r;
-        DNS_PACKET_HEADER(p)->arcount = htobe16(dns_answer_size(soa));
+        DNS_PACKET_HEADER(p)->arcount = htobe16(n_soa);
 
         *ret = TAKE_PTR(p);
 
@@ -926,26 +925,50 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 }
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok) {
-        DnsTransaction *t;
+DnsTransaction *dns_scope_find_transaction(
+                DnsScope *scope,
+                DnsResourceKey *key,
+                uint64_t query_flags) {
+
+        DnsTransaction *first, *t;
 
         assert(scope);
         assert(key);
 
-        /* Try to find an ongoing transaction that is a equal to the
-         * specified question */
-        t = hashmap_get(scope->transactions_by_key, key);
-        if (!t)
-                return NULL;
+        /* Iterate through the list of transactions with a matching key */
+        first = hashmap_get(scope->transactions_by_key, key);
+        LIST_FOREACH(transactions_by_key, t, first) {
 
-        /* Refuse reusing transactions that completed based on cached
-         * data instead of a real packet, if that's requested. */
-        if (!cache_ok &&
-            IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_RCODE_FAILURE) &&
-            t->answer_source != DNS_TRANSACTION_NETWORK)
-                return NULL;
+                /* These four flags must match exactly: we cannot use a validated response for a
+                 * non-validating client, and we cannot use a non-validated response for a validating
+                 * client. Similar, if the sources don't match things aren't usable either. */
+                if (((query_flags ^ t->query_flags) &
+                     (SD_RESOLVED_NO_VALIDATE|
+                     SD_RESOLVED_NO_ZONE|
+                      SD_RESOLVED_NO_TRUST_ANCHOR|
+                      SD_RESOLVED_NO_NETWORK)) != 0)
+                        continue;
 
-        return t;
+                /* We can reuse a primary query if a regular one is requested, but not vice versa */
+                if ((query_flags & SD_RESOLVED_REQUIRE_PRIMARY) &&
+                    !(t->query_flags & SD_RESOLVED_REQUIRE_PRIMARY))
+                        continue;
+
+                /* Don't reuse a transaction that allowed caching when we got told not to use it */
+                if ((query_flags & SD_RESOLVED_NO_CACHE) &&
+                    !(t->query_flags & SD_RESOLVED_NO_CACHE))
+                        continue;
+
+                /* If we are are asked to clamp ttls an the existing transaction doesn't do it, we can't
+                 * reuse */
+                if ((query_flags & SD_RESOLVED_CLAMP_TTL) &&
+                    !(t->query_flags & SD_RESOLVED_CLAMP_TTL))
+                        continue;
+
+                return t;
+        }
+
+        return NULL;
 }
 
 static int dns_scope_make_conflict_packet(
@@ -1289,7 +1312,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         else
                                 flags = goodbye ? (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
 
-                        r = dns_answer_add(answer, i->rr, 0 , flags);
+                        r = dns_answer_add(answer, i->rr, 0, flags, NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to add RR to announce: %m");
                 }
@@ -1307,7 +1330,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone: %m");
 
-                r = dns_answer_add(answer, rr, 0 , 0);
+                r = dns_answer_add(answer, rr, 0, 0, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add RR to announce: %m");
         }
