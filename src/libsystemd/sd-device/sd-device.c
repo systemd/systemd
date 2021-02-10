@@ -1052,6 +1052,34 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
         return 0;
 }
 
+_public_ int sd_device_get_action(sd_device *device, const char **ret) {
+        DeviceAction a;
+        int r;
+
+        assert_return(device, -EINVAL);
+
+        r = device_get_action(device, &a);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = device_action_to_string(a);
+
+        return 0;
+}
+
+_public_ int sd_device_get_seqnum(sd_device *device, uint64_t *ret) {
+        assert_return(device, -EINVAL);
+
+        if (device->seqnum == 0)
+                return -ENOENT;
+
+        if (ret)
+                *ret = device->seqnum;
+
+        return 0;
+}
+
 static bool is_valid_tag(const char *tag) {
         assert(tag);
 
