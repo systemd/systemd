@@ -1545,7 +1545,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
 
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
-                        d = strdup("Service runs in special boot phase, option does not apply");
+                        d = strdup("Service runs in special boot phase, option is not appropriate");
                         if (!d)
                                 return log_oom();
                 } else {
