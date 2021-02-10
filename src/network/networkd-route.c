@@ -1909,7 +1909,7 @@ int config_parse_route_scope(
 
         r = route_scope_from_string(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route scope: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown route scope: %s", rvalue);
                 return 0;
         }
 
@@ -2124,7 +2124,7 @@ int config_parse_route_type(
 
         t = route_type_from_string(rvalue);
         if (t < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }

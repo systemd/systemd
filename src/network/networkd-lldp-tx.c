@@ -445,7 +445,7 @@ int config_parse_lldp_emit(
         else {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
                         return 0;
                 }
 

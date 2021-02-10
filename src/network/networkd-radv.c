@@ -948,7 +948,7 @@ int config_parse_router_prefix_delegation(
         /* For backward compatibility */
         val = radv_prefix_delegation_from_string(rvalue);
         if (val < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, val,
                            "Invalid %s= setting, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
