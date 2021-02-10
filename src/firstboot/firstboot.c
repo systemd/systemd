@@ -1146,9 +1146,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MACHINE_ID:
-                        if (sd_id128_from_string(optarg, &arg_machine_id) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse machine id %s.", optarg);
+                        r = sd_id128_from_string(optarg, &arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
 
                         break;
 
