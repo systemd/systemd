@@ -1234,7 +1234,7 @@ static int manager_on_device(sd_device_monitor *monitor, sd_device *d, void *use
         assert(m);
         assert(d);
 
-        if (device_for_action(d, DEVICE_ACTION_REMOVE)) {
+        if (device_for_action(d, SD_DEVICE_REMOVE)) {
                 const char *sysfs;
                 Home *h;
 

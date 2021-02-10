@@ -54,7 +54,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'a': {
-                        DeviceAction a;
+                        sd_device_action_t a;
 
                         if (streq(optarg, "help")) {
                                 dump_device_action_table();

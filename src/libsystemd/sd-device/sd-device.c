@@ -43,7 +43,7 @@ int device_new_aux(sd_device **ret) {
                 .devmode = (mode_t) -1,
                 .devuid = (uid_t) -1,
                 .devgid = (gid_t) -1,
-                .action = _DEVICE_ACTION_INVALID,
+                .action = _SD_DEVICE_ACTION_INVALID,
         };
 
         *ret = device;
@@ -314,6 +314,22 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                 return sd_device_new_from_syspath(ret, syspath);
 
         return -ENODEV;
+}
+
+_public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
+        char type;
+
+        assert_return(ret, -EINVAL);
+        assert_return(st, -EINVAL);
+
+        if (S_ISBLK(st->st_mode))
+                type = 'b';
+        else if (S_ISCHR(st->st_mode))
+                type = 'c';
+        else
+                return -ENOTTY;
+
+        return sd_device_new_from_devnum(ret, type, st->st_rdev);
 }
 
 int device_set_devtype(sd_device *device, const char *devtype) {
@@ -1049,6 +1065,30 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
                 return -ENOENT;
 
         *ret = device->sysnum;
+        return 0;
+}
+
+_public_ int sd_device_get_action(sd_device *device, sd_device_action_t *ret) {
+        assert_return(device, -EINVAL);
+
+        if (device->action < 0)
+                return -ENOENT;
+
+        if (ret)
+                *ret = device->action;
+
+        return 0;
+}
+
+_public_ int sd_device_get_seqnum(sd_device *device, uint64_t *ret) {
+        assert_return(device, -EINVAL);
+
+        if (device->seqnum == 0)
+                return -ENOENT;
+
+        if (ret)
+                *ret = device->seqnum;
+
         return 0;
 }
 

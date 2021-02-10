@@ -27,7 +27,7 @@ static Set *arg_tag_filter = NULL;
 static Hashmap *arg_subsystem_filter = NULL;
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        DeviceAction action = _DEVICE_ACTION_INVALID;
+        sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
         const char *devpath = NULL, *subsystem = NULL;
         MonitorNetlinkGroup group = PTR_TO_INT(userdata);
         struct timespec ts;
@@ -35,7 +35,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         assert(device);
         assert(IN_SET(group, MONITOR_GROUP_UDEV, MONITOR_GROUP_KERNEL));
 
-        (void) device_get_action(device, &action);
+        (void) sd_device_get_action(device, &action);
         (void) sd_device_get_devpath(device, &devpath);
         (void) sd_device_get_subsystem(device, &subsystem);
 

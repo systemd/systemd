@@ -7,7 +7,6 @@
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
-#include "device-private.h"
 #include "device-util.h"
 #include "device.h"
 #include "log.h"
@@ -916,8 +915,8 @@ static int device_remove_old(Manager *m, sd_device *dev) {
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
+        sd_device_action_t action;
         Manager *m = userdata;
-        DeviceAction action;
         const char *sysfs;
         int r;
 
@@ -930,22 +929,22 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 return 0;
         }
 
-        r = device_get_action(dev, &action);
+        r = sd_device_get_action(dev, &action);
         if (r < 0) {
                 log_device_error_errno(dev, r, "Failed to get udev action: %m");
                 return 0;
         }
 
-        if (!IN_SET(action, DEVICE_ACTION_ADD, DEVICE_ACTION_REMOVE, DEVICE_ACTION_MOVE))
+        if (!IN_SET(action, SD_DEVICE_ADD, SD_DEVICE_REMOVE, SD_DEVICE_MOVE))
                 device_propagate_reload_by_sysfs(m, sysfs);
 
-        if (action == DEVICE_ACTION_MOVE)
+        if (action == SD_DEVICE_MOVE)
                 (void) device_remove_old(m, dev);
 
         /* A change event can signal that a device is becoming ready, in particular if the device is using
          * the SYSTEMD_READY logic in udev so we need to reach the else block of the following if, even for
          * change events */
-        if (action == DEVICE_ACTION_REMOVE) {
+        if (action == SD_DEVICE_REMOVE) {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
@@ -1013,7 +1012,7 @@ static int validate_node(Manager *m, const char *node, sd_device **ret) {
         } else {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
-                r = device_new_from_stat_rdev(&dev, &st);
+                r = sd_device_new_from_stat_rdev(&dev, &st);
                 if (r == -ENOENT) {
                         *ret = NULL;
                         return 1; /* good! (though missing) */

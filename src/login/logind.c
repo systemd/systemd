@@ -578,7 +578,7 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 
         if (sd_device_get_sysname(device, &name) >= 0 &&
             startswith(name, "vcsa") &&
-            device_for_action(device, DEVICE_ACTION_REMOVE))
+            device_for_action(device, SD_DEVICE_REMOVE))
                 seat_preallocate_vts(m->seat0);
 
         return 0;

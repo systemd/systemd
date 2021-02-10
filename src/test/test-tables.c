@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
         test_table(collect_mode, COLLECT_MODE);
         test_table(condition_result, CONDITION_RESULT);
         test_table(condition_type, CONDITION_TYPE);
-        test_table(device_action, DEVICE_ACTION);
+        test_table(device_action, SD_DEVICE_ACTION);
         test_table(device_state, DEVICE_STATE);
         test_table(dns_over_tls_mode, DNS_OVER_TLS_MODE);
         test_table(dnssec_mode, DNSSEC_MODE);
@@ -124,6 +124,8 @@ int main(int argc, char **argv) {
         test_table(virtualization, VIRTUALIZATION);
 
         test_table_sparse(object_compressed, OBJECT_COMPRESSED);
+
+        assert_cc(sizeof(sd_device_action_t) == sizeof(int64_t));
 
         return EXIT_SUCCESS;
 }

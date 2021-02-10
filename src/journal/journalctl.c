@@ -30,7 +30,6 @@
 #include "catalog.h"
 #include "chattr-util.h"
 #include "def.h"
-#include "device-private.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -207,7 +206,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         if (stat(devpath, &st) < 0)
                 return log_error_errno(errno, "Couldn't stat file: %m");
 
-        r = device_new_from_stat_rdev(&device, &st);
+        r = sd_device_new_from_stat_rdev(&device, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 

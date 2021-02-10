@@ -6,6 +6,7 @@
 #include "architecture.h"
 #include "conf-files.h"
 #include "def.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -1545,9 +1546,9 @@ static int udev_rule_apply_token_to_event(
 
         switch (token->type) {
         case TK_M_ACTION: {
-                DeviceAction a;
+                sd_device_action_t a;
 
-                r = device_get_action(dev, &a);
+                r = sd_device_get_action(dev, &a);
                 if (r < 0)
                         return log_rule_error_errno(dev, rules, r, "Failed to get uevent action type: %m");
 
@@ -2226,14 +2227,14 @@ static int udev_rule_apply_line_to_event(
         UdevRuleLineType mask = LINE_HAS_GOTO | LINE_UPDATE_SOMETHING;
         UdevRuleToken *token, *next_token;
         bool parents_done = false;
-        DeviceAction action;
+        sd_device_action_t action;
         int r;
 
-        r = device_get_action(event->dev, &action);
+        r = sd_device_get_action(event->dev, &action);
         if (r < 0)
                 return r;
 
-        if (action != DEVICE_ACTION_REMOVE) {
+        if (action != SD_DEVICE_REMOVE) {
                 if (sd_device_get_devnum(event->dev, NULL) >= 0)
                         mask |= LINE_HAS_DEVLINK;
 
