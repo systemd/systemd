@@ -355,7 +355,12 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
         return 0;
 }
 
-static int device_append(sd_device *device, char *key, const char **_major, const char **_minor) {
+static int device_append(
+                sd_device *device,
+                char *key,
+                const char **_major,
+                const char **_minor) {
+
         const char *major = NULL, *minor = NULL;
         char *value;
         int r;
@@ -384,10 +389,10 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
                         return r;
         }
 
-        if (major != 0)
+        if (major)
                 *_major = major;
 
-        if (minor != 0)
+        if (minor)
                 *_minor = minor;
 
         return 0;
