@@ -671,7 +671,7 @@ int config_parse_dhcp_send_option(
 
         type = dhcp_option_data_type_from_string(word);
         if (type < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, type,
                            "Invalid DHCP option data type, ignoring assignment: %s", p);
                 return 0;
         }
