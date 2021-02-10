@@ -14,6 +14,13 @@
 #define NDISC_MAX_ROUTER_SOLICITATION_INTERVAL (3600U * USEC_PER_SEC)
 #define NDISC_MAX_ROUTER_SOLICITATIONS 3U
 
+typedef enum NDiscEvent {
+        NDISC_EVENT_TIMEOUT,
+        NDISC_EVENT_ROUTER,
+        _NDISC_EVENT_MAX,
+        _NDISC_EVENT_INVALID = -EINVAL,
+} NDiscEvent;
+
 struct sd_ndisc {
         unsigned n_ref;
 
@@ -40,5 +47,5 @@ struct sd_ndisc {
 #define log_ndisc_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "NDISC: " fmt, ##__VA_ARGS__)
 #define log_ndisc(fmt, ...) log_ndisc_errno(0, fmt, ##__VA_ARGS__)
 
-const char* ndisc_event_to_string(sd_ndisc_event e) _const_;
-sd_ndisc_event ndisc_event_from_string(const char *s) _pure_;
+const char* ndisc_event_to_string(NDiscEvent e) _const_;
+NDiscEvent ndisc_event_from_string(const char *s) _pure_;

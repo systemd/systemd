@@ -1274,7 +1274,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata) {
+static void ndisc_handler(sd_ndisc *nd, const char *event, sd_ndisc_router *rt, void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -1283,27 +1283,22 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        switch (event) {
-
-        case SD_NDISC_EVENT_ROUTER:
+        if (streq(event, "router")) {
                 r = ndisc_router_handler(link, rt);
                 if (r < 0) {
                         link_enter_failed(link);
                         return;
                 }
-                break;
 
-        case SD_NDISC_EVENT_TIMEOUT:
+        } else if (streq(event, "timeout")) {
                 log_link_debug(link, "NDisc handler get timeout event");
                 if (link->ndisc_addresses_messages == 0 && link->ndisc_routes_messages == 0) {
                         link->ndisc_addresses_configured = true;
                         link->ndisc_routes_configured = true;
                         link_check_ready(link);
                 }
-                break;
-        default:
-                assert_not_reached("Unknown NDisc event");
-        }
+        } else
+                log_debug("Unexpected ndisc event '%s', ignoring.", event);
 }
 
 int ndisc_configure(Link *link) {

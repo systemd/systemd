@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
         test_table(radv_prefix_delegation, RADV_PREFIX_DELEGATION);
         test_table(wol, WOL);
         test_table(lldp_event, LLDP_EVENT);
-        test_table(ndisc_event, SD_NDISC_EVENT);
+        test_table(ndisc_event, NDISC_EVENT);
 
         test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
