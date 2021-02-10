@@ -43,7 +43,7 @@ _loginctl () {
         [STANDALONE]='--all -a --help -h --no-pager --version
                       --no-legend --no-ask-password -l --full --value'
         [ARG]='--host -H --kill-who --property -p --signal -s -M --machine
-                      -n --lines -o --output'
+                      -n --lines -o --output -P'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -61,7 +61,7 @@ _loginctl () {
             --machine|-M)
                 comps=$( __get_machines )
                 ;;
-            --property|-p)
+            --property|-p|-P)
                 comps=''
                 ;;
             --output|-o)
