@@ -70,7 +70,7 @@ int udev_watch_restore(void) {
                 }
 
                 log_device_debug(dev, "Restoring old watch");
-                (void) udev_watch_begin(dev);
+                (void) udev_watch_begin(dev, true);
 unlink:
                 (void) unlinkat(dirfd(dir), ent->d_name, 0);
         }
@@ -81,7 +81,7 @@ unlink:
         return 0;
 }
 
-int udev_watch_begin(sd_device *dev) {
+int udev_watch_begin(sd_device *dev, bool update_db) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         const char *devnode, *id_filename;
         int wd, r;
@@ -100,8 +100,6 @@ int udev_watch_begin(sd_device *dev) {
                 return log_device_full_errno(dev, errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
                                              "Failed to add device '%s' to watch: %m", devnode);
 
-        device_set_watch_handle(dev, wd);
-
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = mkdir_parents(filename, 0755);
         if (r < 0)
@@ -118,7 +116,7 @@ int udev_watch_begin(sd_device *dev) {
         return 0;
 }
 
-int udev_watch_end(sd_device *dev) {
+int udev_watch_end(sd_device *dev, bool update_db) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         int wd, r;
 
@@ -132,12 +130,19 @@ int udev_watch_end(sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to get watch handle, ignoring: %m");
 
         log_device_debug(dev, "Removing watch");
+
+        device_set_watch_handle(dev, -1);
+        if (update_db) {
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, 
+                                        "Failed to update delete watch handle from database under /run/udev/data/: %m");
+        }
+
         (void) inotify_rm_watch(inotify_fd, wd);
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         (void) unlink(filename);
-
-        device_set_watch_handle(dev, -1);
 
         return 0;
 }

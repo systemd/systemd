@@ -932,7 +932,7 @@ static void event_execute_rules_on_remove(
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
-                (void) udev_watch_end(dev);
+                (void) udev_watch_end(dev, false);
 
         (void) udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
@@ -1007,7 +1007,7 @@ int udev_event_execute_rules(UdevEvent *event,
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 /* Disable watch during event processing. */
-                (void) udev_watch_end(event->dev_db_clone);
+                (void) udev_watch_end(event->dev_db_clone, false);
 
         if (action == DEVICE_ACTION_MOVE) {
                 r = udev_event_on_move(event->dev);
