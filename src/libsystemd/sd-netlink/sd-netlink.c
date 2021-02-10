@@ -383,20 +383,19 @@ static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
                 return r;
 
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks) {
-                if (type == c->type) {
-                        slot = container_of(c, sd_netlink_slot, match_callback);
+                if (type != c->type)
+                        continue;
 
-                        r = c->callback(rtnl, m, slot->userdata);
-                        if (r != 0) {
-                                if (r < 0)
-                                        log_debug_errno(r, "sd-netlink: match callback %s%s%sfailed: %m",
-                                                        slot->description ? "'" : "",
-                                                        strempty(slot->description),
-                                                        slot->description ? "' " : "");
+                slot = container_of(c, sd_netlink_slot, match_callback);
 
-                                break;
-                        }
-                }
+                r = c->callback(rtnl, m, slot->userdata);
+                if (r < 0)
+                        log_debug_errno(r, "sd-netlink: match callback %s%s%sfailed: %m",
+                                        slot->description ? "'" : "",
+                                        strempty(slot->description),
+                                        slot->description ? "' " : "");
+                if (r != 0)
+                        break;
         }
 
         return 1;
