@@ -39,16 +39,14 @@ static int parse(const char *key, const char *value, void *data) {
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_success_action, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_success_action, value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.run_failure_action")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_failure_action, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_failure_action, value);
         }
 
         return 0;

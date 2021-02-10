@@ -660,7 +660,7 @@ int config_parse_kill_mode(
 
         m = kill_mode_from_string(rvalue);
         if (m < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, m,
                            "Failed to parse kill mode specification, ignoring: %s", rvalue);
                 return 0;
         }
@@ -920,10 +920,7 @@ int config_parse_socket_bindtodevice(
                 return 0;
         }
 
-        if (free_and_strdup(&s->bind_to_device, rvalue) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(&s->bind_to_device, rvalue);
 }
 
 int config_parse_exec_input(
@@ -990,7 +987,7 @@ int config_parse_exec_input(
         } else {
                 ei = exec_input_from_string(rvalue);
                 if (ei < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse input specifier, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, ei, "Failed to parse input specifier, ignoring: %s", rvalue);
                         return 0;
                 }
         }
@@ -1219,7 +1216,7 @@ int config_parse_exec_output(
         } else {
                 eo = exec_output_from_string(rvalue);
                 if (eo < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse output specifier, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, eo, "Failed to parse output specifier, ignoring: %s", rvalue);
                         return 0;
                 }
         }
@@ -1278,7 +1275,7 @@ int config_parse_exec_io_class(const char *unit,
 
         x = ioprio_class_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse IO scheduling class, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, x, "Failed to parse IO scheduling class, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1353,7 +1350,7 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
 
         x = sched_policy_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse CPU scheduling policy, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, x, "Failed to parse CPU scheduling policy, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1527,7 +1524,8 @@ int config_parse_root_image_options(
 
                 partition_designator = partition_designator_from_string(partition);
                 if (partition_designator < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid partition name %s, ignoring", partition);
+                        log_syntax(unit, LOG_WARNING, filename, line, partition_designator,
+                                   "Invalid partition name %s, ignoring", partition);
                         continue;
                 }
                 r = unit_full_printf(u, mount_options, &mount_options_resolved);
@@ -2015,7 +2013,7 @@ int config_parse_trigger_unit(
 
         type = unit_name_to_type(p);
         if (type < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unit type not valid, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, type, "Unit type not valid, ignoring: %s", rvalue);
                 return 0;
         }
         if (unit_has_name(u, p)) {
@@ -2062,7 +2060,7 @@ int config_parse_path_spec(const char *unit,
 
         b = path_type_from_string(lvalue);
         if (b < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse path type, ignoring: %s", lvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, b, "Failed to parse path type, ignoring: %s", lvalue);
                 return 0;
         }
 
@@ -3386,8 +3384,12 @@ int config_parse_syscall_errno(
         }
 
         e = parse_errno(rvalue);
-        if (e <= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse error number, ignoring: %s", rvalue);
+        if (e < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, e, "Failed to parse error number, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (e == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid error number, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -3857,7 +3859,7 @@ int config_parse_managed_oom_mode(
 
         m = managed_oom_mode_from_string(rvalue);
         if (m < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, m, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
         *mode = m;
@@ -4668,7 +4670,7 @@ int config_parse_set_status(
                 } else {
                         r = signal_from_string(word);
                         if (r < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to parse value, ignoring: %s", word);
                                 continue;
                         }
@@ -5085,7 +5087,8 @@ int config_parse_mount_images(
 
                         partition_designator = partition_designator_from_string(partition);
                         if (partition_designator < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid partition name %s, ignoring", partition);
+                                log_syntax(unit, LOG_WARNING, filename, line, partition_designator,
+                                           "Invalid partition name %s, ignoring", partition);
                                 continue;
                         }
                         r = unit_full_printf(u, mount_options, &mount_options_resolved);
@@ -5774,7 +5777,7 @@ int config_parse_output_restricted(
         } else {
                 t = exec_output_from_string(rvalue);
                 if (t < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, t, "Failed to parse output type, ignoring: %s", rvalue);
                         return 0;
                 }
 
