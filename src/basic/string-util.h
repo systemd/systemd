@@ -158,9 +158,10 @@ int split_pair(const char *s, const char *sep, char **l, char **r);
 
 int free_and_strdup(char **p, const char *s);
 static inline int free_and_strdup_warn(char **p, const char *s) {
-        if (free_and_strdup(p, s) < 0)
+        int r = free_and_strdup(p, s);
+        if (r < 0)
                 return log_oom();
-        return 0;
+        return r;
 }
 int free_and_strndup(char **p, const char *s, size_t l);
 
