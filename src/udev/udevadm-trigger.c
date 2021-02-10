@@ -222,7 +222,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (a < 0)
                                 return log_error_errno(a, "Unknown action '%s'", optarg);
 
-                        action = optarg;
+                        action = device_action_to_string(a);
                         break;
                 }
                 case 's':
