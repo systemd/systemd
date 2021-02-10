@@ -6094,7 +6094,7 @@ void unit_log_success(Unit *u) {
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Succeeded."));
+                   LOG_UNIT_MESSAGE(u, "Deactivated successfully."));
 }
 
 void unit_log_failure(Unit *u, const char *result) {
