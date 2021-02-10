@@ -40,6 +40,8 @@ AddressFamily routing_policy_rule_address_family_from_string(const char *s) _pur
 const char *duplicate_address_detection_address_family_to_string(AddressFamily b) _const_;
 AddressFamily duplicate_address_detection_address_family_from_string(const char *s) _pure_;
 
+AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
+
 const char *dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type t) _const_;
 sd_dhcp_lease_server_type dhcp_lease_server_type_from_string(const char *s) _pure_;
 
