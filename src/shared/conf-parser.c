@@ -731,10 +731,7 @@ int config_parse_string(
         assert(rvalue);
         assert(data);
 
-        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup(s, empty_to_null(rvalue));
 }
 
 int config_parse_path(

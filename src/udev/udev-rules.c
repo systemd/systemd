@@ -2054,8 +2054,9 @@ static int udev_rule_apply_token_to_event(
                                        token->value);
                         break;
                 }
-                if (free_and_strdup(&event->name, buf) < 0)
-                        return log_oom();
+                r = free_and_strdup_warn(&event->name, buf);
+                if (r < 0)
+                        return r;
 
                 log_rule_debug(dev, rules, "NAME '%s'", event->name);
                 break;
