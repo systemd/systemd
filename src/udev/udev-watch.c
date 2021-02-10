@@ -15,8 +15,54 @@
 #include "mkdir.h"
 #include "stdio-util.h"
 #include "udev-watch.h"
+#include "parse-util.h"
 
 static int inotify_fd = -1;
+
+static int udev_watch_lookup_wd(sd_device *dev, int *wd) {
+        struct dirent *ent;
+        const char *id_filename;
+        DIR *dir;
+        int r;
+
+        r = device_get_id_filename(dev, &id_filename);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get device id-filename: %m");
+
+        dir = opendir("/run/udev/watch");
+        if (!dir)
+                return log_warning_errno(errno, "Failed to open watches directory /run/udev/watch: %m");
+
+
+        *wd = -1;
+        FOREACH_DIRENT_ALL(ent, dir, break) {
+                _cleanup_free_ char *device = NULL;
+
+                if (ent->d_name[0] == '.')
+                        continue;
+
+                r = readlinkat_malloc(dirfd(dir), ent->d_name, &device);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read link '/run/udev/watch/%s', ignoring: %m", ent->d_name);
+                        continue;
+                }
+
+                if (strcmp(id_filename, device) == 0) {
+                        r = safe_atoi(ent->d_name, wd);
+                        if (r < 0) {
+                                return log_debug_errno(r, "Failed to get watch handle: %m");
+                        }
+                        break;
+                }
+        }
+
+        (void) closedir(dir);
+
+       if (wd < 0)
+               return -ENOENT;
+
+        return 0;
+}
 
 /* inotify descriptor, will be shared with rules directory;
  * set to cloexec since we need our children to be able to add
@@ -125,7 +171,7 @@ int udev_watch_end(sd_device *dev) {
         if (inotify_fd < 0)
                 return 0; /* Nothing to do. */
 
-        r = device_get_watch_handle(dev, &wd);
+        r = udev_watch_lookup_wd(dev, &wd);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
