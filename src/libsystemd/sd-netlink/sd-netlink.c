@@ -92,9 +92,7 @@ static bool rtnl_pid_changed(const sd_netlink *rtnl) {
 
 int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int r;
-        int protocol;
-        socklen_t l;
+        int r, protocol;
 
         assert_return(ret, -EINVAL);
         assert_return(fd >= 0, -EBADF);
@@ -103,8 +101,7 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         if (r < 0)
                 return r;
 
-        l = sizeof(protocol);
-        r = getsockopt(fd, SOL_SOCKET, SO_PROTOCOL, &protocol, &l);
+        r = getsockopt_int(fd, SOL_SOCKET, SO_PROTOCOL, &protocol);
         if (r < 0)
                 return r;
 
