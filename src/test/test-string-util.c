@@ -921,6 +921,7 @@ static void test_strverscmp_improved(void) {
                 "123.1-1",
                 "123a-1",
                 "124",
+                "125",
                 NULL,
         };
         const char * const *p, * const *q;
