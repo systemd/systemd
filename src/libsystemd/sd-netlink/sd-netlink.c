@@ -36,11 +36,29 @@ static int sd_netlink_new(sd_netlink **ret) {
                 .original_pid = getpid_cached(),
                 .protocol = -1,
 
-                /* Change notification responses have sequence 0, so we must
-                 * start our request sequence numbers at 1, or we may confuse our
-                 * responses with notifications from the kernel */
-                .serial = 1,
-
+                /* Kernel change notification messages have sequence number 0. We want to avoid that with our
+                 * own serials, in order not to get confused when matching up kernel replies to our earlier
+                 * requests.
+                 *
+                 * Moreover, when using netlink socket activation (i.e. where PID 1 binds an AF_NETLINK
+                 * socket for us and passes it to us across execve()) and we get restarted multiple times
+                 * while the socket sticks around we might get confused by replies from earlier runs coming
+                 * in late — which is pretty likely if we'd start our sequence numbers always from 1. Hence,
+                 * let's start with a value based on the system clock. This should make collisions much less
+                 * likely (though still theoretically possible). We use a 32 bit µs counter starting at boot
+                 * for this (and explicitly exclude the zero, see above). This counter will wrap around after
+                 * a bit more than 1h, but that's hopefully OK as the kernel shouldn't take that long to
+                 * reply to our requests.
+                 *
+                 * We only pick the initial start value this way. For each message we simply increase the
+                 * sequence number by 1. This means we could enqueue 1 netlink message per µs without risking
+                 * collisions, which should be OK.
+                 *
+                 * Note this means the serials will be in the range 1…UINT32_MAX here.
+                 *
+                 * (In an ideal world we'd attach the current serial counter to the netlink socket itself
+                 * somehow, to avoid all this, but I couldn't come up with a nice way to do this) */
+                .serial = (uint32_t) (now(CLOCK_MONOTONIC) % UINT32_MAX) + 1,
         };
 
         /* We guarantee that the read buffer has at least space for
