@@ -100,15 +100,6 @@ int udev_watch_begin(sd_device *dev, bool update_db) {
                 return log_device_full_errno(dev, errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
                                              "Failed to add device '%s' to watch: %m", devnode);
 
-        (void) device_get_watch_handle(dev, NULL);
-        device_set_watch_handle(dev, wd);
-        if (update_db) {
-                r = device_update_db(dev);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, 
-                                        "Failed to update watch handle into database under /run/udev/data/: %m");
-        }
-
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = mkdir_parents(filename, 0755);
         if (r < 0)
