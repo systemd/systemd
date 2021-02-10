@@ -12,11 +12,10 @@ static int list_dependencies_print(const char *name, int level, unsigned branche
         _cleanup_free_ char *n = NULL;
         size_t max_len = MAX(columns(),20u);
         size_t len = 0;
-        int i;
 
         if (!arg_plain) {
 
-                for (i = level - 1; i >= 0; i--) {
+                for (int i = level - 1; i >= 0; i--) {
                         len += 2;
                         if (len > max_len - 3 && !arg_full) {
                                 printf("%s...\n",max_len % 2 ? "" : " ");

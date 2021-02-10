@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
@@ -118,9 +120,6 @@ typedef struct Unit {
         UnitLoadState load_state;
         Unit *merged_into;
 
-        FreezerState freezer_state;
-        sd_bus_message *pending_freezer_message;
-
         char *id;   /* The one special name that we use for identification */
         char *instance;
 
@@ -148,6 +147,16 @@ typedef struct Unit {
         /* If this is a transient unit we are currently writing, this is where we are writing it to */
         FILE *transient_file;
 
+        /* Freezer state */
+        sd_bus_message *pending_freezer_message;
+        FreezerState freezer_state;
+
+        /* Job timeout and action to take */
+        EmergencyAction job_timeout_action;
+        usec_t job_timeout;
+        usec_t job_running_timeout;
+        char *job_timeout_reboot_arg;
+
         /* If there is something to do with this unit, then this is the installed job for it */
         Job *job;
 
@@ -161,13 +170,6 @@ typedef struct Unit {
         /* References to this unit from clients */
         sd_bus_track *bus_track;
         char **deserialized_refs;
-
-        /* Job timeout and action to take */
-        usec_t job_timeout;
-        usec_t job_running_timeout;
-        bool job_running_timeout_set:1;
-        EmergencyAction job_timeout_action;
-        char *job_timeout_reboot_arg;
 
         /* References to this */
         LIST_HEAD(UnitRef, refs_by_target);
@@ -239,6 +241,9 @@ typedef struct Unit {
         /* Put a ratelimit on unit starting */
         RateLimit start_ratelimit;
         EmergencyAction start_limit_action;
+
+        /* The unit has been marked for reload, restart, etc. */
+        uint64_t state_flags;
 
         /* What to do on failure or success */
         EmergencyAction success_action, failure_action;
@@ -356,6 +361,8 @@ typedef struct Unit {
         bool in_stop_when_unneeded_queue:1;
 
         bool sent_dbus_new_signal:1;
+
+        bool job_running_timeout_set:1;
 
         bool in_audit:1;
         bool on_console:1;
@@ -721,8 +728,6 @@ int unit_freezer_state_kernel(Unit *u, FreezerState *ret);
 
 const char* unit_sub_state_to_string(Unit *u);
 
-void unit_dump(Unit *u, FILE *f, const char *prefix);
-
 bool unit_can_reload(Unit *u) _pure_;
 bool unit_can_start(Unit *u) _pure_;
 bool unit_can_stop(Unit *u) _pure_;
@@ -763,10 +768,6 @@ char *unit_dbus_path_invocation_id(Unit *u);
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 
 bool unit_can_serialize(Unit *u) _pure_;
-
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
-int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
-int unit_deserialize_skip(FILE *f);
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
 int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask);
@@ -847,6 +848,7 @@ void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
 void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 
+int unit_set_invocation_id(Unit *u, sd_id128_t id);
 int unit_acquire_invocation_id(Unit *u);
 
 bool unit_shall_confirm_spawn(Unit *u);

@@ -2317,6 +2317,18 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
+        <term><option>--needing</option></term>
+
+        <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
+        units that have <option>NeedsRestart=true</option> set, and reload jobs for units that have
+        <option>NeedsReload=true</option> set. When a unit marked for reload does not support reload, restart
+        will be queued. Those properties can be set using <command>set-property</command>.</para>
+
+        <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
+        queued jobs to finish.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--read-only</option></term>
 
         <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para></listitem>

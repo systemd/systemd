@@ -58,6 +58,11 @@ typedef enum FreezerState {
         _FREEZER_STATE_INVALID = -1
 } FreezerState;
 
+typedef enum UnitStateFlags {
+        UNIT_STATE_NEEDS_RELOAD  = 1 << 0,
+        UNIT_STATE_NEEDS_RESTART = 1 << 1,
+} UnitStateFlags;
+
 typedef enum AutomountState {
         AUTOMOUNT_DEAD,
         AUTOMOUNT_WAITING,

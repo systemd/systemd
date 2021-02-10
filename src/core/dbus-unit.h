@@ -33,7 +33,21 @@ typedef enum BusUnitQueueFlags {
         BUS_UNIT_QUEUE_VERBOSE_REPLY      = 1 << 1,
 } BusUnitQueueFlags;
 
-int bus_unit_queue_job(sd_bus_message *message, Unit *u, JobType type, JobMode mode, BusUnitQueueFlags flags, sd_bus_error *error);
+int bus_unit_queue_job_one(
+                sd_bus_message *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                BusUnitQueueFlags flags,
+                sd_bus_message *reply,
+                sd_bus_error *error);
+int bus_unit_queue_job(
+                sd_bus_message *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                BusUnitQueueFlags flags,
+                sd_bus_error *error);
 int bus_unit_validate_load_state(Unit *u, sd_bus_error *error);
 
 int bus_unit_track_add_name(Unit *u, const char *name);
