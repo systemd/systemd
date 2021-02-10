@@ -3,7 +3,6 @@
 #include <linux/fou.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <linux/ip.h>
 
 #include "conf-parser.h"
 #include "fou-tunnel.h"
@@ -36,7 +35,7 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
 
         assert(t);
 
-        r = sd_genl_message_new(netdev->manager->genl, SD_GENL_FOU, FOU_CMD_ADD, &m);
+        r = sd_genl_message_new(netdev->manager->genl, "fou", FOU_CMD_ADD, &m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to allocate generic netlink message: %m");
 

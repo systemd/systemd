@@ -20,14 +20,14 @@
 
 #define LLDP_DEFAULT_NEIGHBORS_MAX 128U
 
-static const char * const lldp_event_table[_SD_LLDP_EVENT_MAX] = {
-        [SD_LLDP_EVENT_ADDED]   = "added",
-        [SD_LLDP_EVENT_REMOVED] = "removed",
-        [SD_LLDP_EVENT_UPDATED]   = "updated",
-        [SD_LLDP_EVENT_REFRESHED] = "refreshed",
+static const char * const lldp_event_table[_LLDP_EVENT_MAX] = {
+        [LLDP_EVENT_ADDED]     = "added",
+        [LLDP_EVENT_REMOVED]   = "removed",
+        [LLDP_EVENT_UPDATED]   = "updated",
+        [LLDP_EVENT_REFRESHED] = "refreshed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(lldp_event, sd_lldp_event);
+DEFINE_STRING_TABLE_LOOKUP(lldp_event, LLDPEvent);
 
 static void lldp_flush_neighbors(sd_lldp *lldp) {
         assert(lldp);
@@ -35,9 +35,10 @@ static void lldp_flush_neighbors(sd_lldp *lldp) {
         hashmap_clear(lldp->neighbor_by_id);
 }
 
-static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n) {
+static void lldp_callback(sd_lldp *lldp, LLDPEvent event, sd_lldp_neighbor *n) {
         assert(lldp);
-        assert(event >= 0 && event < _SD_LLDP_EVENT_MAX);
+        assert(event >= 0);
+        assert(event < _LLDP_EVENT_MAX);
 
         if (!lldp->callback) {
                 log_lldp("Received '%s' event.", lldp_event_to_string(event));
@@ -45,7 +46,7 @@ static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *
         }
 
         log_lldp("Invoking callback for '%s' event.", lldp_event_to_string(event));
-        lldp->callback(lldp, event, n, lldp->userdata);
+        lldp->callback(lldp, lldp_event_to_string(event), n, lldp->userdata);
 }
 
 static int lldp_make_space(sd_lldp *lldp, size_t extra) {
@@ -77,7 +78,7 @@ static int lldp_make_space(sd_lldp *lldp, size_t extra) {
 
         remove_one:
                 lldp_neighbor_unlink(n);
-                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, n);
+                lldp_callback(lldp, LLDP_EVENT_REMOVED, n);
                 changed = true;
         }
 
@@ -127,7 +128,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
                 if (!keep) {
                         lldp_neighbor_unlink(old);
-                        lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, old);
+                        lldp_callback(lldp, LLDP_EVENT_REMOVED, old);
                         return 0;
                 }
 
@@ -135,7 +136,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
                         /* Is this equal, then restart the TTL counter, but don't do anything else. */
                         old->timestamp = n->timestamp;
                         lldp_start_timer(lldp, old);
-                        lldp_callback(lldp, SD_LLDP_EVENT_REFRESHED, old);
+                        lldp_callback(lldp, LLDP_EVENT_REFRESHED, old);
                         return 0;
                 }
 
@@ -161,13 +162,13 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
         n->lldp = lldp;
 
         lldp_start_timer(lldp, n);
-        lldp_callback(lldp, old ? SD_LLDP_EVENT_UPDATED : SD_LLDP_EVENT_ADDED, n);
+        lldp_callback(lldp, old ? LLDP_EVENT_UPDATED : LLDP_EVENT_ADDED, n);
 
         return 1;
 
 finish:
         if (old)
-                lldp_callback(lldp, SD_LLDP_EVENT_REMOVED, old);
+                lldp_callback(lldp, LLDP_EVENT_REMOVED, old);
 
         return r;
 }

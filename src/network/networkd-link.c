@@ -2824,7 +2824,7 @@ static void serialize_addresses(
                 char **addresses,
                 sd_dhcp_lease *lease,
                 bool conditional,
-                sd_dhcp_lease_server_type what,
+                DHCPLeaseServerType what,
                 sd_dhcp6_lease *lease6,
                 bool conditional6,
                 int (*lease6_get_addr)(sd_dhcp6_lease*, const struct in6_addr**),
@@ -2842,7 +2842,7 @@ static void serialize_addresses(
         if (lease && conditional) {
                 const struct in_addr *lease_addresses;
 
-                r = sd_dhcp_lease_get_servers(lease, what, &lease_addresses);
+                r = sd_dhcp_lease_get_servers(lease, dhcp_lease_server_type_to_string(what), &lease_addresses);
                 if (r > 0)
                         serialize_in_addrs(f, lease_addresses, r, space, in4_addr_is_non_local);
         }
@@ -2943,7 +2943,7 @@ int link_save(Link *link) {
                                     NULL,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_dns,
-                                    SD_DHCP_LEASE_DNS,
+                                    DHCP_LEASE_DNS,
                                     link->dhcp6_lease,
                                     link->network->dhcp6_use_dns,
                                     sd_dhcp6_lease_get_dns,
@@ -2967,7 +2967,7 @@ int link_save(Link *link) {
                                     link->ntp ?: link->network->ntp,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_ntp,
-                                    SD_DHCP_LEASE_NTP,
+                                    DHCP_LEASE_NTP,
                                     link->dhcp6_lease,
                                     link->network->dhcp6_use_ntp,
                                     sd_dhcp6_lease_get_ntp_addrs,
@@ -2977,7 +2977,7 @@ int link_save(Link *link) {
                                     NULL,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_sip,
-                                    SD_DHCP_LEASE_SIP,
+                                    DHCP_LEASE_SIP,
                                     NULL, false, NULL, NULL);
 
                 /************************************************************/

@@ -23,16 +23,16 @@
 
 #define NDISC_TIMEOUT_NO_RA_USEC (NDISC_ROUTER_SOLICITATION_INTERVAL * NDISC_MAX_ROUTER_SOLICITATIONS)
 
-static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
-        [SD_NDISC_EVENT_TIMEOUT] = "timeout",
-        [SD_NDISC_EVENT_ROUTER] = "router",
+static const char * const ndisc_event_table[_NDISC_EVENT_MAX] = {
+        [NDISC_EVENT_TIMEOUT] = "timeout",
+        [NDISC_EVENT_ROUTER]  = "router",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event);
+DEFINE_STRING_TABLE_LOOKUP(ndisc_event, NDiscEvent);
 
-static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event event, sd_ndisc_router *rt) {
+static void ndisc_callback(sd_ndisc *ndisc, NDiscEvent event, sd_ndisc_router *rt) {
         assert(ndisc);
-        assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
+        assert(event >= 0 && event < _NDISC_EVENT_MAX);
 
         if (!ndisc->callback) {
                 log_ndisc("Received '%s' event.", ndisc_event_to_string(event));
@@ -40,7 +40,7 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event event, sd_ndisc_route
         }
 
         log_ndisc("Invoking callback for '%s' event.", ndisc_event_to_string(event));
-        ndisc->callback(ndisc, event, rt, ndisc->userdata);
+        ndisc->callback(ndisc, ndisc_event_to_string(event), rt, ndisc->userdata);
 }
 
 _public_ int sd_ndisc_set_callback(
@@ -198,7 +198,7 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
                   rt->preference == SD_NDISC_PREFERENCE_HIGH ? "high" : rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
                   rt->lifetime);
 
-        ndisc_callback(nd, SD_NDISC_EVENT_ROUTER, rt);
+        ndisc_callback(nd, NDISC_EVENT_ROUTER, rt);
         return 0;
 }
 
@@ -314,7 +314,7 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
         log_ndisc("No RA received before link confirmation timeout");
 
         (void) event_source_disable(nd->timeout_no_ra);
-        ndisc_callback(nd, SD_NDISC_EVENT_TIMEOUT, NULL);
+        ndisc_callback(nd, NDISC_EVENT_TIMEOUT, NULL);
 
         return 0;
 }

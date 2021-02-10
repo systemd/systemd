@@ -8,6 +8,15 @@
 #include "log.h"
 #include "prioq.h"
 
+typedef enum LLDPEvent {
+        LLDP_EVENT_ADDED,
+        LLDP_EVENT_REMOVED,
+        LLDP_EVENT_UPDATED,
+        LLDP_EVENT_REFRESHED,
+        _LLDP_EVENT_MAX,
+        _LLDP_EVENT_INVALID = -EINVAL,
+} LLDPEvent;
+
 struct sd_lldp {
         unsigned n_ref;
 
@@ -35,5 +44,5 @@ struct sd_lldp {
 #define log_lldp_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
 #define log_lldp(fmt, ...) log_lldp_errno(0, fmt, ##__VA_ARGS__)
 
-const char* lldp_event_to_string(sd_lldp_event e) _const_;
-sd_lldp_event lldp_event_from_string(const char *s) _pure_;
+const char* lldp_event_to_string(LLDPEvent e) _const_;
+LLDPEvent lldp_event_from_string(const char *s) _pure_;

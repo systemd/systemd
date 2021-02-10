@@ -514,7 +514,7 @@ static void test_array(void) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
         assert_se(sd_genl_socket_open(&genl) >= 0);
-        assert_se(sd_genl_message_new(genl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &m) >= 0);
+        assert_se(sd_genl_message_new(genl, "id-ctrl", CTRL_CMD_GETFAMILY, &m) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, CTRL_ATTR_MCAST_GROUPS) >= 0);
         for (unsigned i = 0; i < 10; i++) {

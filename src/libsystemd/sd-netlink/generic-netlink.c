@@ -7,27 +7,19 @@
 #include "alloc-util.h"
 #include "generic-netlink.h"
 #include "netlink-internal.h"
-
-typedef struct {
-        const char* name;
-        uint8_t version;
-} genl_family;
-
-static const genl_family genl_families[] = {
-        [SD_GENL_ID_CTRL]   = { .name = "",          .version = 1 },
-        [SD_GENL_WIREGUARD] = { .name = "wireguard", .version = 1 },
-        [SD_GENL_FOU]       = { .name = "fou",       .version = 1 },
-        [SD_GENL_L2TP]      = { .name = "l2tp",      .version = 1 },
-        [SD_GENL_MACSEC]    = { .name = "macsec",    .version = 1 },
-        [SD_GENL_NL80211]   = { .name = "nl80211",   .version = 1 },
-};
+#include "string-table.h"
 
 int sd_genl_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_GENERIC);
 }
-static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id);
 
-static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
+static int genl_message_new(
+                sd_netlink *nl,
+                GenlFamily family,
+                uint16_t nlmsg_type,
+                uint8_t cmd,
+                sd_netlink_message **ret) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *genl_cmd_type, *nl_type;
         const NLTypeSystem *type_system;
@@ -35,7 +27,10 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlms
         size_t size;
         int r;
 
-        assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+        assert(nl);
+        assert(family >= 0);
+        assert(!IN_SET(family, GENL_FAMILY_DONE, GENL_FAMILY_ERROR));
+        assert(family < _GENL_FAMILY_MAX);
 
         r = type_system_get_type(&genl_family_type_system_root, &genl_cmd_type, family);
         if (r < 0)
@@ -64,46 +59,42 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlms
         type_get_type_system(nl_type, &m->containers[0].type_system);
         genl = NLMSG_DATA(m->hdr);
         genl->cmd = cmd;
-        genl->version = genl_families[family].version;
+        genl->version = 1; /* all currently known families are version 1 */
 
         *ret = TAKE_PTR(m);
 
         return 0;
 }
 
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **ret) {
-        uint16_t id;
-        int r;
+static int lookup_id(
+                sd_netlink *nl,
+                GenlFamily family,
+                uint16_t *ret) {
 
-        r = lookup_id(nl, family, &id);
-        if (r < 0)
-                return r;
-
-        return genl_message_new(nl, family, id, cmd, ret);
-}
-
-static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         uint16_t u;
         void *v;
         int r;
 
-        if (family == SD_GENL_ID_CTRL) {
-                *id = GENL_ID_CTRL;
+        if (family == GENL_FAMILY_ID_CTRL) {
+                *ret = GENL_ID_CTRL;
                 return 0;
         }
+
+        if (IN_SET(family, GENL_FAMILY_ERROR, GENL_FAMILY_DONE)) /* not really families */
+                return -EINVAL;
 
         v = hashmap_get(nl->genl_family_to_nlmsg_type, INT_TO_PTR(family));
         if (v) {
-                *id = PTR_TO_UINT(v);
+                *ret = PTR_TO_UINT(v);
                 return 0;
         }
 
-        r = sd_genl_message_new(nl, SD_GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &req);
+        r = genl_message_new(nl, GENL_FAMILY_ID_CTRL, GENL_ID_CTRL, CTRL_CMD_GETFAMILY, &req);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_string(req, CTRL_ATTR_FAMILY_NAME, genl_families[family].name);
+        r = sd_netlink_message_append_string(req, CTRL_ATTR_FAMILY_NAME, genl_family_to_string(family));
         if (r < 0)
                 return r;
 
@@ -123,23 +114,50 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         if (r < 0)
                 return r;
 
-        *id = u;
+        *ret = u;
         return 0;
 }
 
-int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family *ret) {
-        void *p;
+int sd_genl_message_new(
+                sd_netlink *nl,
+                const char *family,
+                uint8_t cmd,
+                sd_netlink_message **ret) {
+
+        uint16_t id;
+        GenlFamily f;
+        int r;
 
         assert_return(nl, -EINVAL);
         assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
+
+        if (!family) /* NULL family shall be alias for id-ctrl */
+                return genl_message_new(nl, GENL_FAMILY_ID_CTRL, GENL_ID_CTRL, cmd, ret);
+
+        f = genl_family_from_string(family);
+        if (f < 0)
+                return f;
+
+        r = lookup_id(nl, f, &id);
+        if (r < 0)
+                return r;
+
+        return genl_message_new(nl, f, id, cmd, ret);
+}
+
+int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, GenlFamily *ret) {
+        void *p;
+
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
         assert(ret);
 
         if (type == NLMSG_ERROR)
-                *ret = SD_GENL_ERROR;
+                *ret = GENL_FAMILY_ERROR;
         else if (type == NLMSG_DONE)
-                *ret = SD_GENL_DONE;
+                *ret = GENL_FAMILY_DONE;
         else if (type == GENL_ID_CTRL)
-                *ret = SD_GENL_ID_CTRL;
+                *ret = GENL_FAMILY_ID_CTRL;
         else {
                 p = hashmap_get(nl->nlmsg_type_to_genl_family, UINT_TO_PTR(type));
                 if (!p)
@@ -151,18 +169,42 @@ int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_famil
         return 0;
 }
 
-int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family *family) {
+int sd_genl_message_get_family(
+                const sd_netlink *nl,
+                const sd_netlink_message *m,
+                const char **ret) {
+
         uint16_t type;
+        GenlFamily f;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(nl, -EINVAL);
         assert_return(nl->protocol == NETLINK_GENERIC, -EINVAL);
-        assert_return(family, -EINVAL);
 
         r = sd_netlink_message_get_type(m, &type);
         if (r < 0)
                 return r;
 
-        return nlmsg_type_to_genl_family(nl, type, family);
+        r = nlmsg_type_to_genl_family(nl, type, &f);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = genl_family_to_string(f);
+
+        return 0;
 }
+
+static const char* const genl_family_table[_GENL_FAMILY_MAX] = {
+        [GENL_FAMILY_ERROR] = "error",
+        [GENL_FAMILY_DONE] = "done",
+        [GENL_FAMILY_ID_CTRL] = "id-ctrl",
+        [GENL_FAMILY_WIREGUARD] = "wireguard",
+        [GENL_FAMILY_FOU] = "fou",
+        [GENL_FAMILY_L2TP] = "l2tp",
+        [GENL_FAMILY_MACSEC] = "macsec",
+        [GENL_FAMILY_NL80211] = "nl80211",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(genl_family, GenlFamily);

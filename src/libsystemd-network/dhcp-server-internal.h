@@ -9,8 +9,9 @@
 #include "sd-event.h"
 
 #include "dhcp-internal.h"
-#include "ordered-set.h"
+#include "dhcp-lease-internal.h"
 #include "log.h"
+#include "ordered-set.h"
 #include "time-util.h"
 
 typedef enum DHCPRawOption {
@@ -56,7 +57,7 @@ struct sd_dhcp_server {
 
         char *timezone;
 
-        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
+        DHCPServerData servers[_DHCP_LEASE_SERVER_TYPE_MAX];
 
         OrderedSet *extra_options;
         OrderedSet *vendor_options;

@@ -384,9 +384,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_pd_manage_temporary_address = true,
                 .dhcp6_pd_subnet_id = -1,
 
-                .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
-                .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
-                .dhcp_server_emit[SD_DHCP_LEASE_SIP].emit = true,
+                .dhcp_server_emit[DHCP_LEASE_DNS].emit = true,
+                .dhcp_server_emit[DHCP_LEASE_NTP].emit = true,
+                .dhcp_server_emit[DHCP_LEASE_SIP].emit = true,
 
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
@@ -663,7 +663,7 @@ static Network *network_free(Network *network) {
 
         free(network->dhcp_server_timezone);
 
-        for (sd_dhcp_lease_server_type t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
+        for (DHCPLeaseServerType t = 0; t < _DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
 
         set_free_free(network->dnssec_negative_trust_anchors);

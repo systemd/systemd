@@ -9,14 +9,15 @@
 #include "bridge.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "dhcp-lease-internal.h"
 #include "hashmap.h"
 #include "net-condition.h"
 #include "netdev.h"
 #include "networkd-brvlan.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
@@ -178,7 +179,7 @@ struct Network {
 
         /* DHCP Server Support */
         bool dhcp_server;
-        NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
+        NetworkDHCPServerEmitAddress dhcp_server_emit[_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
