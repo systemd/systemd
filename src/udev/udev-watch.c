@@ -84,7 +84,6 @@ unlink:
 int udev_watch_begin(sd_device *dev, bool update_db) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         const char *devnode, *id_filename;
-        int wd, r;
 
         if (inotify_fd < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
