@@ -831,7 +831,7 @@ static int rename_netif(UdevEvent *event) {
         if (streq(event->name, oldname))
                 return 0; /* The interface name is already requested name. */
 
-        if (!device_for_action(dev, DEVICE_ACTION_ADD))
+        if (!device_for_action(dev, "add"))
                 return 0; /* Rename the interface only when it is added. */
 
         r = sd_device_get_ifindex(dev, &ifindex);
@@ -904,7 +904,7 @@ static int update_devnode(UdevEvent *event) {
                 /* If group is set, but mode is not set, "upgrade" mode for the group. */
                 event->mode = 0660;
 
-        bool apply_mac = device_for_action(dev, DEVICE_ACTION_ADD);
+        bool apply_mac = device_for_action(dev, "add");
 
         return udev_node_add(dev, apply_mac, event->mode, event->uid, event->gid, event->seclabel_list);
 }
