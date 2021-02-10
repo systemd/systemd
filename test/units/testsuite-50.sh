@@ -24,8 +24,8 @@ fi
 
 trap cleanup EXIT
 
-cp /usr/share/minimal.* "${image_dir}/"
-image="${image_dir}/minimal"
+cp /usr/share/minimal* "${image_dir}/"
+image="${image_dir}/minimal_0"
 roothash="$(cat ${image}.roothash)"
 
 os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)

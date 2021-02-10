@@ -40,7 +40,7 @@ _portablectl() {
 
     local -A VERBS=(
         [STANDALONE]='list'
-        [IMAGE]='attach detach inspect is-attached set-limit'
+        [IMAGE]='attach detach reattach inspect is-attached set-limit'
         [IMAGES]='remove'
         [IMAGE_WITH_BOOL]='read-only'
     )
