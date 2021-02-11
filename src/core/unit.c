@@ -4061,7 +4061,7 @@ int unit_deserialize_skip(FILE *f) {
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
         _cleanup_free_ char *e = NULL;
-        Unit *device;
+        Unit *d, *device;
         int r;
 
         assert(u);
@@ -4081,9 +4081,13 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(u->manager, e, NULL, NULL, &device);
+        r = manager_load_unit(u->manager, e, NULL, NULL, &d);
         if (r < 0)
                 return r;
+
+        device = UNIT_VTABLE(u)->following(d);
+        if (!device)
+                device = d;
 
         if (dep == UNIT_REQUIRES && device_shall_be_bound_by(device, u))
                 dep = UNIT_BINDS_TO;
