@@ -2735,6 +2735,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) RestrictFileSystems = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindReadOnlyPaths = [...];
@@ -3247,6 +3249,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
 
@@ -3821,6 +3825,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
 
@@ -4489,6 +4495,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) RestrictFileSystems = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindReadOnlyPaths = [...];
@@ -5029,6 +5037,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
 
@@ -5601,6 +5611,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
 
@@ -6182,6 +6194,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) RestrictFileSystems = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindReadOnlyPaths = [...];
@@ -6650,6 +6664,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
 
@@ -7140,6 +7156,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
 
@@ -7842,6 +7860,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestrictNamespaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) RestrictFileSystems = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindPaths = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssbt) BindReadOnlyPaths = [...];
@@ -8296,6 +8316,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property RestrictSUIDSGID is not documented!-->
 
     <!--property RestrictNamespaces is not documented!-->
+
+    <!--property RestrictFileSystems is not documented!-->
 
     <!--property BindPaths is not documented!-->
 
@@ -8772,6 +8794,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictSUIDSGID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNamespaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestrictFileSystems"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BindPaths"/>
 
