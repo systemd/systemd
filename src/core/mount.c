@@ -867,7 +867,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         dynamic_creds_destroy(&m->dynamic_creds);
 
         /* Any dependencies based on /proc/self/mountinfo are now stale */
-        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+        unit_drop_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
