@@ -652,7 +652,7 @@ int generator_write_veritysetup_service_section(
                 const char *roothash,
                 const char *options) {
 
-        _cleanup_free_ char *name_escaped = NULL, *data_what_escaped = NULL, *hash_what_escaped,
+        _cleanup_free_ char *name_escaped = NULL, *data_what_escaped = NULL, *hash_what_escaped = NULL,
                             *roothash_escaped = NULL, *options_escaped = NULL;
 
         assert(f);
