@@ -664,10 +664,11 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 offset += n;
                 total_out += n;
 
-                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
-                                               "Compressed stream longer than %" PRIu64 " bytes",
-                                               max_bytes);
+                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
+                                            "Compressed stream longer than %" PRIu64 " bytes", max_bytes);
+                        goto cleanup;
+                }
 
                 if (size - offset < frame_size + 4) {
                         k = loop_write(fdt, buf, offset, false);
