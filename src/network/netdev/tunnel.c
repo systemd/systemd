@@ -581,7 +581,8 @@ int config_parse_tunnel_key(const char *unit,
         if (r < 0) {
                 r = safe_atou32(rvalue, &k);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse tunnel key ignoring assignment: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse tunnel key ignoring assignment: %s", rvalue);
                         return 0;
                 }
         } else

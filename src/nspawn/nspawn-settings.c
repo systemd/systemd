@@ -706,10 +706,7 @@ int config_parse_hostname(
                 return 0;
         }
 
-        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
 
 int config_parse_oom_score_adjust(

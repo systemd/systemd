@@ -283,16 +283,9 @@ int config_parse_dhcp(
                 /* Previously, we had a slightly different enum here,
                  * support its values for compatibility. */
 
-                if (streq(rvalue, "none"))
-                        s = ADDRESS_FAMILY_NO;
-                else if (streq(rvalue, "v4"))
-                        s = ADDRESS_FAMILY_IPV4;
-                else if (streq(rvalue, "v6"))
-                        s = ADDRESS_FAMILY_IPV6;
-                else if (streq(rvalue, "both"))
-                        s = ADDRESS_FAMILY_YES;
-                else {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                s = dhcp_deprecated_address_family_from_string(rvalue);
+                if (s < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, s,
                                    "Failed to parse DHCP option, ignoring: %s", rvalue);
                         return 0;
                 }
@@ -671,7 +664,7 @@ int config_parse_dhcp_send_option(
 
         type = dhcp_option_data_type_from_string(word);
         if (type < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, type,
                            "Invalid DHCP option data type, ignoring assignment: %s", p);
                 return 0;
         }

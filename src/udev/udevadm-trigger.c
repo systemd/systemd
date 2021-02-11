@@ -210,16 +210,21 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
-                case 'c':
+                case 'c': {
+                        DeviceAction a;
+
                         if (streq(optarg, "help")) {
                                 dump_device_action_table();
                                 return 0;
                         }
-                        if (device_action_from_string(optarg) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'", optarg);
+
+                        a = device_action_from_string(optarg);
+                        if (a < 0)
+                                return log_error_errno(a, "Unknown action '%s'", optarg);
 
                         action = optarg;
                         break;
+                }
                 case 's':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, true);
                         if (r < 0)

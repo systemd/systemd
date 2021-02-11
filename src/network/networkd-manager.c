@@ -1178,8 +1178,9 @@ int manager_set_hostname(Manager *m, const char *hostname) {
 
         log_debug("Setting transient hostname: '%s'", strna(hostname));
 
-        if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
-                return log_oom();
+        r = free_and_strdup_warn(&m->dynamic_hostname, hostname);
+        if (r < 0)
+                return r;
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
                 log_debug("Not connected to system bus, setting hostname later.");
@@ -1227,8 +1228,9 @@ int manager_set_timezone(Manager *m, const char *tz) {
         assert(tz);
 
         log_debug("Setting system timezone: '%s'", tz);
-        if (free_and_strdup(&m->dynamic_timezone, tz) < 0)
-                return log_oom();
+        r = free_and_strdup_warn(&m->dynamic_timezone, tz);
+        if (r < 0)
+                return r;
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
                 log_debug("Not connected to system bus, setting timezone later.");
