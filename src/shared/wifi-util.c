@@ -42,7 +42,7 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine genl family: %m");
         if (family != SD_GENL_NL80211) {
-                log_debug("Received message of unexpected genl family %u, ignoring.", family);
+                log_debug("Received message of unexpected genl family %" PRIi64 ", ignoring.", family);
                 goto nodata;
         }
 
@@ -110,7 +110,7 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine genl family: %m");
         if (family != SD_GENL_NL80211) {
-                log_debug("Received message of unexpected genl family %u, ignoring.", family);
+                log_debug("Received message of unexpected genl family %" PRIi64 ", ignoring.", family);
                 goto nodata;
         }
 
