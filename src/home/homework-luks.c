@@ -522,7 +522,7 @@ static int luks_validate(
 
         for (i = 0; i < n; i++) {
                 blkid_partition pp;
-                sd_id128_t id;
+                sd_id128_t id = SD_ID128_NULL;
                 const char *sid;
 
                 errno = 0;
