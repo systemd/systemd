@@ -113,6 +113,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
 CONFIG_PARSER_PROTOTYPE(config_parse_user_group_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_user_group_strv_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_restrict_namespaces);
+CONFIG_PARSER_PROTOTYPE(config_parse_restrict_filesystems);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_proc);

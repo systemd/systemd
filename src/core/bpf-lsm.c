@@ -325,3 +325,57 @@ void lsm_bpf_destroy(struct restrict_fs_bpf *prog) {
         return;
 }
 #endif
+
+int lsm_bpf_parse_filesystem(
+                const char *name,
+                Set **filesystems,
+                FilesystemParseFlags flags,
+                const char *unit,
+                const char *filename,
+                unsigned line) {
+        int r;
+
+        assert(name);
+        assert(filesystems);
+
+        if (name[0] == '@') {
+                const FilesystemSet *set;
+                const char *i;
+
+                set = filesystem_set_find(name);
+                if (!set) {
+                        log_syntax(unit, flags & FILESYSTEM_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Unknown filesystem group, ignoring: %s", name);
+                        return 0;
+                }
+
+                NULSTR_FOREACH(i, set->value) {
+                        /* Call ourselves again, for the group to parse. Note that we downgrade logging here (i.e. take
+                         * away the FILESYSTEM_PARSE_LOG flag) since any issues in the group table are our own problem,
+                         * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
+                         * about them. */
+                        r = lsm_bpf_parse_filesystem(i, filesystems, flags &~ FILESYSTEM_PARSE_LOG, unit, filename, line);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                /* If we previously wanted to forbid access to a filesystem and now
+                 * we want to allow it, then remove it from the list. */
+                if (!(flags & FILESYSTEM_PARSE_INVERT) == !!(flags & FILESYSTEM_PARSE_ALLOW_LIST)) {
+                        r = set_put_strdup(filesystems, name);
+                        if (r < 0)
+                                switch (r) {
+                                case -ENOMEM:
+                                        return flags & FILESYSTEM_PARSE_LOG ? log_oom() : -ENOMEM;
+                                case -EEXIST:
+                                        /* Alredy in set, ignore */
+                                        break;
+                                default:
+                                        return r;
+                                }
+                } else
+                        free(set_remove(*filesystems, name));
+        }
+
+        return 0;
+}
