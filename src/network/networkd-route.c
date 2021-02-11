@@ -65,21 +65,8 @@ static const char * const route_scope_table[] = {
         [RT_SCOPE_NOWHERE]  = "nowhere",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_scope, int);
-
-#define ROUTE_SCOPE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("nowhere") + 1)
-static const char *format_route_scope(int scope, char *buf, size_t size) {
-        const char *s;
-        char *p = buf;
-
-        s = route_scope_to_string(scope);
-        if (s)
-                strpcpy(&p, size, s);
-        else
-                strpcpyf(&p, size, "%d", scope);
-
-        return buf;
-}
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_scope, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_scope, int, UINT8_MAX);
 
 static const char * const route_table_table[] = {
         [RT_TABLE_DEFAULT] = "default",
@@ -157,7 +144,7 @@ static const char * const route_protocol_table[] = {
         [RTPROT_STATIC] = "static",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(route_protocol, int, UINT8_MAX);
 
 static const char * const route_protocol_full_table[] = {
         [RTPROT_REDIRECT] = "redirect",
@@ -182,21 +169,7 @@ static const char * const route_protocol_full_table[] = {
         [RTPROT_EIGRP]    = "eigrp",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_protocol_full, int);
-
-#define ROUTE_PROTOCOL_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("redirect") + 1)
-static const char *format_route_protocol(int protocol, char *buf, size_t size) {
-        const char *s;
-        char *p = buf;
-
-        s = route_protocol_full_to_string(protocol);
-        if (s)
-                strpcpy(&p, size, s);
-        else
-                strpcpyf(&p, size, "%d", protocol);
-
-        return buf;
-}
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_protocol_full, int, UINT8_MAX);
 
 static unsigned routes_max(void) {
         static thread_local unsigned cached = 0;
@@ -640,8 +613,8 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         /* link may be NULL. */
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL, *table = NULL;
-                char scope[ROUTE_SCOPE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
+                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL,
+                        *prefsrc = NULL, *table = NULL, *scope = NULL, *proto = NULL;
 
                 if (!in_addr_is_null(route->family, &route->dst)) {
                         (void) in_addr_to_string(route->family, &route->dst, &dst);
@@ -653,14 +626,14 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                         (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
+                (void) route_scope_to_string_alloc(route->scope, &scope);
                 (void) manager_get_route_table_to_string(m, route->table, &table);
+                (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
                                str, strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
-                               format_route_scope(route->scope, scope, sizeof(scope)),
-                               strna(table),
-                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
+                               strna(scope), strna(table), strna(proto),
                                strna(route_type_to_string(route->type)));
         }
 }
@@ -1909,7 +1882,7 @@ int config_parse_route_scope(
 
         r = route_scope_from_string(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route scope: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown route scope: %s", rvalue);
                 return 0;
         }
 
@@ -2082,16 +2055,13 @@ int config_parse_route_protocol(
         }
 
         r = route_protocol_from_string(rvalue);
-        if (r >= 0)
-                n->protocol = r;
-        else {
-                r = safe_atou8(rvalue , &n->protocol);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
-                        return 0;
-                }
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse route protocol \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
         }
+
+        n->protocol = r;
 
         TAKE_PTR(n);
         return 0;
@@ -2124,7 +2094,7 @@ int config_parse_route_type(
 
         t = route_type_from_string(rvalue);
         if (t < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }

@@ -1092,7 +1092,7 @@ int config_parse_advertise(const char *unit,
                 /* We reuse the kernel provided enum which does not contain negative value. So, the cast
                  * below is mandatory. Otherwise, the check below always passes and access an invalid address. */
                 if ((int) mode < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, mode,
                                    "Failed to parse advertise mode, ignoring: %s", w);
                         continue;
                 }

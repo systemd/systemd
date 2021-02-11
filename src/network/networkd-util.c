@@ -28,6 +28,13 @@ static const char* const duplicate_address_detection_address_family_table[_ADDRE
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
 };
 
+static const char* const dhcp_deprecated_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_NO]            = "none",
+        [ADDRESS_FAMILY_YES]           = "both",
+        [ADDRESS_FAMILY_IPV4]          = "v4",
+        [ADDRESS_FAMILY_IPV6]          = "v6",
+};
+
 static const char* const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
         [SD_DHCP_LEASE_DNS]  = "DNS servers",
         [SD_DHCP_LEASE_NTP]  = "NTP servers",
@@ -51,6 +58,7 @@ DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type);
 
 int config_parse_address_family_with_kernel(

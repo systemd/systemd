@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -415,46 +416,6 @@ void link_lldp_emit_stop(Link *link) {
         link->lldp_emit_event_source = sd_event_source_unref(link->lldp_emit_event_source);
 }
 
-int config_parse_lldp_emit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        LLDPEmit *emit = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue))
-                *emit = LLDP_EMIT_NO;
-        else if (streq(rvalue, "nearest-bridge"))
-                *emit = LLDP_EMIT_NEAREST_BRIDGE;
-        else if (streq(rvalue, "non-tpmr-bridge"))
-                *emit = LLDP_EMIT_NON_TPMR_BRIDGE;
-        else if (streq(rvalue, "customer-bridge"))
-                *emit = LLDP_EMIT_CUSTOMER_BRIDGE;
-        else {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                *emit = r ? LLDP_EMIT_NEAREST_BRIDGE : LLDP_EMIT_NO;
-        }
-
-        return 0;
-}
-
 int config_parse_lldp_mud(
                 const char *unit,
                 const char *filename,
@@ -491,3 +452,13 @@ int config_parse_lldp_mud(
 
         return free_and_replace(n->lldp_mud, unescaped);
 }
+
+static const char * const lldp_emit_table[_LLDP_EMIT_MAX] = {
+        [LLDP_EMIT_NO]              = "no",
+        [LLDP_EMIT_NEAREST_BRIDGE]  = "nearest-bridge",
+        [LLDP_EMIT_NON_TPMR_BRIDGE] = "non-tpmr-bridge",
+        [LLDP_EMIT_CUSTOMER_BRIDGE] = "customer-bridge",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(lldp_emit, LLDPEmit, LLDP_EMIT_NEAREST_BRIDGE);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_lldp_emit, lldp_emit, LLDPEmit, LLDP_EMIT_NO, "Failed to parse LLDP emission setting");

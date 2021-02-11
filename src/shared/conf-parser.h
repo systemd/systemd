@@ -207,7 +207,7 @@ typedef enum Disabled {
                                                                         \
                 x = from_string(rvalue);                                \
                 if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, \
+                        log_syntax(unit, LOG_WARNING, filename, line, x, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -235,7 +235,7 @@ typedef enum Disabled {
                                                                         \
                 x = name##_from_string(rvalue);                         \
                 if (x < 0) {                                            \
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, \
+                        log_syntax(unit, LOG_WARNING, filename, line, x, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -269,14 +269,17 @@ typedef enum Disabled {
                         r = extract_first_word(&p, &en, NULL, 0);              \
                         if (r == -ENOMEM)                                      \
                                 return log_oom();                              \
-                        if (r < 0)                                             \
-                                return log_syntax(unit, LOG_ERR, filename, line, 0,   \
-                                                  msg ": %s", en);             \
+                        if (r < 0) {                                           \
+                                log_syntax(unit, LOG_WARNING, filename, line, r, \
+                                           msg ", ignoring: %s", en);          \
+                                return 0;                                      \
+                        }                                                      \
                         if (r == 0)                                            \
                                 break;                                         \
                                                                                \
-                        if ((x = name##_from_string(en)) < 0) {                \
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,        \
+                        x = name##_from_string(en);                            \
+                        if (x < 0) {                                           \
+                                log_syntax(unit, LOG_WARNING, filename, line, x, \
                                            msg ", ignoring: %s", en);          \
                                 continue;                                      \
                         }                                                      \

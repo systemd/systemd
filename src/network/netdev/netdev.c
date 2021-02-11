@@ -139,7 +139,7 @@ int config_parse_netdev_kind(
 
         k = netdev_kind_from_string(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
