@@ -65,3 +65,43 @@
 #ifndef FS_PROJINHERIT_FL
 #define FS_PROJINHERIT_FL 0x20000000
 #endif
+
+/* Not exposed yet. Defined at fs/fuse/inode.c */
+#ifndef FUSE_SUPER_MAGIC
+#define FUSE_SUPER_MAGIC 0x65735546
+#endif
+
+/* Not exposed yet. Defined at fs/fuse/control.c */
+#ifndef FUSE_CTL_SUPER_MAGIC
+#define FUSE_CTL_SUPER_MAGIC 0x65735543
+#endif
+
+/* Not exposed yet. Defined at fs/ceph/super.h */
+#ifndef CEPH_SUPER_MAGIC
+#define CEPH_SUPER_MAGIC 0x00c36400
+#endif
+
+/* Not exposed yet. Defined at fs/orangefs/orangefs-kernel.h */
+#ifndef ORANGEFS_DEVREQ_MAGIC
+#define ORANGEFS_DEVREQ_MAGIC 0x20030529
+#endif
+
+/* linux/gfs2_ondisk.h */
+#ifndef GFS2_MAGIC
+#define GFS2_MAGIC 0x01161970
+#endif
+
+/* Not exposed yet. Defined at fs/configfs/mount.c */
+#ifndef CONFIGFS_MAGIC
+#define CONFIGFS_MAGIC 0x62656570
+#endif
+
+/* Not exposed yet. Defined at fs/vboxsf/super.c */
+#ifndef VBOXSF_SUPER_MAGIC
+#define VBOXSF_SUPER_MAGIC 0x786f4256
+#endif
+
+/* Not exposed yet. Defined at fs/exfat/exfat_fs.h */
+#ifndef EXFAT_SUPER_MAGIC
+#define EXFAT_SUPER_MAGIC 0x2011BAB0UL
+#endif

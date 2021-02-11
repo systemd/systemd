@@ -41,6 +41,9 @@
 #endif
 #include "async.h"
 #include "barrier.h"
+#if HAVE_LIBBPF
+#include "bpf-lsm.h"
+#endif
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
@@ -1679,6 +1682,29 @@ static int apply_restrict_namespaces(const Unit *u, const ExecContext *c) {
 
         return seccomp_restrict_namespaces(c->restrict_namespaces);
 }
+
+#if HAVE_LIBBPF
+static bool skip_lsm_bpf_unsupported(const Unit* u, const char* msg) {
+        if (lsm_bpf_supported())
+                return false;
+
+        log_unit_debug(u, "LSM BPF not supported, skipping %s", msg);
+        return true;
+}
+
+static int apply_restrict_filesystems(const Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+
+        if (!exec_context_restrict_filesystems_set(c))
+                return 0;
+
+        if (skip_lsm_bpf_unsupported(u, "RestrictFileSystems="))
+                return 0;
+
+        return bpf_restrict_filesystems(c->restrict_filesystems, c->restrict_filesystems_allow_list, u->cgroup_path);
+}
+#endif
 
 static int apply_lock_personality(const Unit* u, const ExecContext *c) {
         unsigned long personality;
@@ -4139,6 +4165,14 @@ static int exec_child(
 #endif
         }
 
+#if HAVE_LIBBPF
+        r = apply_restrict_filesystems(unit, context);
+        if (r < 0) {
+                *exit_status = EXIT_BPF;
+                return log_unit_error_errno(unit, r, "Failed to restrict filesystems: %m");
+        }
+#endif
+
         if (needs_sandboxing) {
                 int which_failed;
 
@@ -4842,6 +4876,8 @@ void exec_context_done(ExecContext *c) {
         c->selinux_context = mfree(c->selinux_context);
         c->apparmor_profile = mfree(c->apparmor_profile);
         c->smack_process_label = mfree(c->smack_process_label);
+
+        c->restrict_filesystems = set_free(c->restrict_filesystems);
 
         c->syscall_filter = hashmap_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
@@ -5618,6 +5654,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%sRestrictNamespaces: %s\n",
                                 prefix, strna(s));
         }
+
+#if HAVE_LIBBPF
+        if (exec_context_restrict_filesystems_set(c))
+                SET_FOREACH(e, c->restrict_filesystems)
+                        fprintf(f, "%sRestrictFileSystems: %s\n", prefix, *e);
+#endif
 
         if (c->network_namespace_path)
                 fprintf(f,
