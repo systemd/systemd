@@ -1773,6 +1773,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_BUILTIN: {
                 UdevBuiltinCommand cmd = PTR_TO_UDEV_BUILTIN_CMD(token->data);
+                assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
                 unsigned mask = 1U << (int) cmd;
 
                 if (udev_builtin_run_once(cmd)) {
