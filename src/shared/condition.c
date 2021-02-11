@@ -487,6 +487,17 @@ static int has_tpm2(void) {
          * class device */
 
         r = dir_is_empty("/sys/class/tpmrm");
+        if (r == 0)
+                return true; /* nice! we have a device */
+
+        /* Hmm, so Linux doesn't know of the TPM2 device (or we couldn't check for it), most likely because
+         * the driver wasn't loaded yet. Let's see if the firmware knows about a TPM2 device, in this
+         * case. This way we can answer the TPM2 question already during early boot (where we most likely
+         * need it) */
+        if (efi_has_tpm2())
+                return true;
+
+        /* OK, this didn't work either, in this case propagate the original errors */
         if (r == -ENOENT)
                 return false;
         if (r < 0)

@@ -1233,6 +1233,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
                 printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
                 printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
+                printf(" TPM2 Support: %s\n", yes_no(efi_has_tpm2()));
 
                 k = efi_get_reboot_to_firmware();
                 if (k > 0)

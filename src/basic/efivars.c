@@ -290,8 +290,11 @@ bool is_efi_boot(void) {
         if (cache < 0) {
                 if (detect_container() > 0)
                         cache = false;
-                else
+                else {
                         cache = access("/sys/firmware/efi/", F_OK) >= 0;
+                        if (!cache && errno != ENOENT)
+                                log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/ exists, assuming EFI not available: %m");
+                }
         }
 
         return cache;
