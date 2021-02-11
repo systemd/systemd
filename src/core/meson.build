@@ -119,6 +119,18 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+if conf.get('HAVE_LIBBPF') == 1
+        libcore_sources += files('''
+        bpf-lsm.c
+        bpf-lsm.h
+'''.split())
+endif
+
+if conf.get('BUILD_BPF') == 1
+        subdir('bpf')
+        libcore_sources += [restrict_fs_hexdump_h]
+endif
+
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
@@ -210,5 +222,6 @@ fuzzers += [
         [['src/core/fuzz-unit-file.c'],
          [libcore,
           libshared],
-         [libmount]],
+         [libbpf,
+          libmount]],
 ]
