@@ -1463,17 +1463,29 @@ evdev:input:b0003v047FpC006*
 # Purism
 ###########################################################
 
-# Purism Librem 13 V2
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v2*:*
- KEYBOARD_KEY_56=backslash
-
-# Purism Librem 13 V3
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v3*:*
- KEYBOARD_KEY_56=backslash
-
-# Purism Librem 13 V4
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:*
- KEYBOARD_KEY_56=backslash
+# If you're using an us layout keyboard in one of the below models of 
+# Purism Librem 13 consider copying this file to /etc/systemd/hwdb.d/
+# to enable the following rule acording to your model.
+#
+# There's a bug in the keyboards firmware and the additional rule
+# will make your keyboard behave as expected.
+# 
+# More info:
+# - https://github.com/systemd/systemd/issues/15360
+# - https://github.com/systemd/systemd/pull/11516
+# - https://tracker.pureos.net/T888
+# 
+# # Purism Librem 13 V2
+# evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v2*:*
+#  KEYBOARD_KEY_56=backslash
+# 
+# # Purism Librem 13 V3
+# evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v3*:*
+#  KEYBOARD_KEY_56=backslash
+# 
+# # Purism Librem 13 V4
+# evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:*
+#  KEYBOARD_KEY_56=backslash
 
 ###########################################################
 # Quanta
