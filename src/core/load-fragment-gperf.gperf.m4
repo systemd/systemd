@@ -97,6 +97,7 @@ $1.RestrictRealtime,                     config_parse_warn_compat,              
 $1.RestrictSUIDSGID,                     config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0
 $1.RestrictAddressFamilies,              config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0
 $1.LockPersonality,                      config_parse_warn_compat,                    DISABLED_CONFIGURATION,             0')
+$1.RestrictFileSystems,                  config_parse_restrict_filesystems,           0,                                  offsetof($1, exec_context),
 $1.LimitCPU,                             config_parse_rlimit,                         RLIMIT_CPU,                         offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                           config_parse_rlimit,                         RLIMIT_FSIZE,                       offsetof($1, exec_context.rlimit)
 $1.LimitDATA,                            config_parse_rlimit,                         RLIMIT_DATA,                        offsetof($1, exec_context.rlimit)
