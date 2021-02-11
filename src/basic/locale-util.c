@@ -98,7 +98,6 @@ static int add_locales_from_archive(Set *locales) {
         _cleanup_close_ int fd = -1;
         size_t sz = 0;
         struct stat st;
-        size_t i;
         int r;
 
         fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
@@ -129,7 +128,7 @@ static int add_locales_from_archive(Set *locales) {
         }
 
         e = (const struct namehashent*) ((const uint8_t*) p + h->namehash_offset);
-        for (i = 0; i < h->namehash_size; i++) {
+        for (size_t i = 0; i < h->namehash_size; i++) {
                 char *z;
 
                 if (e[i].locrec_offset == 0)
@@ -434,12 +433,10 @@ const char *special_glyph(SpecialGlyph code) {
 }
 
 void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
-        LocaleVariable i;
-
         if (!l)
                 return;
 
-        for (i = 0; i < _VARIABLE_LC_MAX; i++)
+        for (LocaleVariable i = 0; i < _VARIABLE_LC_MAX; i++)
                 l[i] = mfree(l[i]);
 }
 
