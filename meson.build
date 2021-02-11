@@ -922,6 +922,24 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
+want_build_bpf = get_option('build-bpf')
+build_bpf_required =  want_build_bpf == 'true'
+
+libbpf = dependency('libbpf', required : build_bpf_required, version : '>= 0.2.0')
+conf.set10('HAVE_LIBBPF', libbpf.found())
+
+if want_build_bpf == 'false'
+        conf.set10('BUILD_BPF', 0)
+else
+        clang = find_program('clang', required : build_bpf_required)
+        llc = find_program('llc', required : build_bpf_required)
+        bpf_arches = ['x86_64']
+        # Can build BPF program from source code in restricted C
+        conf.set10('BUILD_BPF',
+                bpf_arches.contains(host_machine.cpu_family()) and
+                libbpf.found() and clang.found() and llc.found())
+endif
+
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
@@ -1678,6 +1696,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
+                        libbpf,
                         libcap,
                         libblkid,
                         libmount,
@@ -1842,6 +1861,7 @@ executable(
         dependencies : [versiondep,
                         threads,
                         librt,
+                        libbpf,
                         libseccomp,
                         libselinux,
                         libmount,
@@ -1862,6 +1882,7 @@ public_programs += executable(
                      libshared],
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libselinux,

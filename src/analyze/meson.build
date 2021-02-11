@@ -16,6 +16,6 @@ tests += [
           'src/analyze/analyze-verify.h'],
          [libcore,
           libshared],
-         [],
+         [libbpf],
          core_includes],
 ]
