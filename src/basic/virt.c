@@ -786,6 +786,7 @@ int running_in_chroot(void) {
         return r == 0;
 }
 
+#if defined(__i386__) || defined(__x86_64__)
 struct cpuid_table_entry {
         uint32_t flag_bit;
         const char *name;
@@ -869,7 +870,6 @@ static bool given_flag_in_set(const char *flag, const struct cpuid_table_entry *
         return false;
 }
 
-#if defined(__i386__) || defined(__x86_64__)
 static int real_has_cpu_with_flag(const char *flag) {
         uint32_t eax, ebx, ecx, edx;
 

@@ -439,6 +439,7 @@ static void test_condition_test_kernel_version(void) {
         condition_free(condition);
 }
 
+#if defined(__i386__) || defined(__x86_64__)
 static void test_condition_test_cpufeature(void) {
         Condition *condition;
 
@@ -457,6 +458,7 @@ static void test_condition_test_cpufeature(void) {
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 }
+#endif
 
 static void test_condition_test_security(void) {
         Condition *condition;
