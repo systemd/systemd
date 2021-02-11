@@ -391,7 +391,7 @@ static int dhcp6_set_pd_address(
         address->cinfo.ifa_valid = lifetime_valid;
         SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
 
-        r = address_configure(address, link, dhcp6_pd_address_handler, true, &ret);
+        r = address_configure(address, link, dhcp6_pd_address_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 delegated prefix address: %m");
 
@@ -1034,7 +1034,7 @@ static int dhcp6_update_address(
 
         log_dhcp6_address(link, addr, &buffer);
 
-        r = address_configure(addr, link, dhcp6_address_handler, true, &ret);
+        r = address_configure(addr, link, dhcp6_address_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 address %s/%u: %m",
                                             strnull(buffer), addr->prefixlen);
