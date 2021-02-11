@@ -141,6 +141,7 @@ ReadWritePaths=
 RemoveIPC=
 RestartKillSignal=
 RestrictAddressFamilies=
+RestrictFileSystems=
 RestrictNamespaces=
 RestrictNetworkInterfaces=
 RestrictRealtime=
