@@ -786,6 +786,131 @@ int running_in_chroot(void) {
         return r == 0;
 }
 
+#if defined(__i386__) || defined(__x86_64__)
+struct cpuid_table_entry {
+        uint32_t flag_bit;
+        const char *name;
+};
+
+static const struct cpuid_table_entry leaf1_edx[] = {
+        {  0, "fpu" },
+        {  1, "vme" },
+        {  2, "de" },
+        {  3, "pse" },
+        {  4, "tsc" },
+        {  5, "msr" },
+        {  6, "pae" },
+        {  7, "mce" },
+        {  8, "cx8" },
+        {  9, "apic" },
+        { 11, "sep" },
+        { 12, "mtrr" },
+        { 13, "pge" },
+        { 14, "mca" },
+        { 15, "cmov" },
+        { 16, "pat" },
+        { 17, "pse36" },
+        { 19, "clflush" },
+        { 23, "mmx" },
+        { 24, "fxsr" },
+        { 25, "sse" },
+        { 26, "sse2" },
+        { 28, "ht" },
+};
+
+static const struct cpuid_table_entry leaf1_ecx[] = {
+        {  0, "pni" },
+        {  1, "pclmul" },
+        {  3, "monitor" },
+        {  9, "ssse3" },
+        { 12, "fma3" },
+        { 13, "cx16" },
+        { 19, "sse4_1" },
+        { 20, "sse4_2" },
+        { 22, "movbe" },
+        { 23, "popcnt" },
+        { 25, "aes" },
+        { 26, "xsave" },
+        { 27, "osxsave" },
+        { 28, "avx" },
+        { 29, "f16c" },
+        { 30, "rdrand" },
+};
+
+static const struct cpuid_table_entry leaf7_ebx[] = {
+        {  3, "bmi1" },
+        {  5, "avx2" },
+        {  8, "bmi2" },
+        { 18, "rdseed" },
+        { 19, "adx" },
+        { 29, "sha_ni" },
+};
+
+static const struct cpuid_table_entry leaf81_edx[] = {
+        { 11, "syscall" },
+        { 27, "rdtscp" },
+        { 29, "lm" },
+};
+
+static const struct cpuid_table_entry leaf81_ecx[] = {
+        {  0, "lahf_lm" },
+        {  5, "abm" },
+};
+
+static const struct cpuid_table_entry leaf87_edx[] = {
+        {  8, "constant_tsc" },
+};
+
+static bool given_flag_in_set(const char *flag, const struct cpuid_table_entry *set, size_t set_size, uint32_t val) {
+        for (size_t i = 0; i < set_size; i++) {
+                if (streq(flag, set[i].name) &&
+                                (UINT32_C(1) << set[i].flag_bit) & val)
+                        return true;
+        }
+        return false;
+}
+
+static int real_has_cpu_with_flag(const char *flag) {
+        uint32_t eax, ebx, ecx, edx;
+
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+                if (given_flag_in_set(flag, leaf1_ecx, ELEMENTSOF(leaf1_ecx), ecx))
+                        return true;
+
+                if (given_flag_in_set(flag, leaf1_edx, ELEMENTSOF(leaf1_edx), edx))
+                        return true;
+        }
+
+        if (__get_cpuid(7, &eax, &ebx, &ecx, &edx)) {
+                if (given_flag_in_set(flag, leaf7_ebx, ELEMENTSOF(leaf7_ebx), ebx))
+                        return true;
+        }
+
+        if (__get_cpuid(0x80000001U, &eax, &ebx, &ecx, &edx)) {
+                if (given_flag_in_set(flag, leaf81_ecx, ELEMENTSOF(leaf81_ecx), ecx))
+                        return true;
+
+                if (given_flag_in_set(flag, leaf81_edx, ELEMENTSOF(leaf81_edx), edx))
+                        return true;
+        }
+
+        if (__get_cpuid(0x80000007U, &eax, &ebx, &ecx, &edx))
+                if (given_flag_in_set(flag, leaf87_edx, ELEMENTSOF(leaf87_edx), edx))
+                        return true;
+
+        return false;
+}
+#endif
+
+int has_cpu_with_flag(const char *flag) {
+        /* CPUID is an x86 specific interface. Assume on all others that no CPUs have those flags. */
+#if defined(__i386__) || defined(__x86_64__)
+        return real_has_cpu_with_flag(flag);
+#else
+        return false;
+#endif
+}
+
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_NONE] = "none",
         [VIRTUALIZATION_KVM] = "kvm",

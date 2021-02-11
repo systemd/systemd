@@ -439,6 +439,27 @@ static void test_condition_test_kernel_version(void) {
         condition_free(condition);
 }
 
+#if defined(__i386__) || defined(__x86_64__)
+static void test_condition_test_cpufeature(void) {
+        Condition *condition;
+
+        condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CPU_FEATURE, "a", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+}
+#endif
+
 static void test_condition_test_security(void) {
         Condition *condition;
 
@@ -864,6 +885,9 @@ int main(int argc, char *argv[]) {
         test_condition_test_cpus();
         test_condition_test_memory();
         test_condition_test_environment();
+#if defined(__i386__) || defined(__x86_64__)
+        test_condition_test_cpufeature();
+#endif
 
         return 0;
 }
