@@ -172,7 +172,7 @@ static int process_progress(int fd, FILE* console) {
         }
 
         for (;;) {
-                int pass, m;
+                int pass;
                 unsigned long cur, max;
                 _cleanup_free_ char *device = NULL;
                 double p;
@@ -206,18 +206,17 @@ static int process_progress(int fd, FILE* console) {
                 last = t;
 
                 p = percent(pass, cur, max);
-                fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
-                fflush(console);
+                r = fprintf(console, "\r%s: fsck %3.1f%% complete...\r", device, p);
+                if (r < 0)
+                        return -EIO; /* No point in continuing if something happend to our output stream */
 
-                if (m > clear)
-                        clear = m;
+                fflush(console);
+                clear = MAX(clear, r);
         }
 
         if (clear > 0) {
-                unsigned j;
-
                 fputc('\r', console);
-                for (j = 0; j < (unsigned) clear; j++)
+                for (int j = 0; j < clear; j++)
                         fputc(' ', console);
                 fputc('\r', console);
                 fflush(console);
