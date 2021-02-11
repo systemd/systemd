@@ -526,7 +526,9 @@ int address_remove(
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        log_address_debug(address, "Removing", link);
+        log_address_debug(address,
+                          FLAGS_SET(address->flags, IFA_F_DEPRECATED) ? "Removing deprecated" : "Removing",
+                          link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
@@ -1081,6 +1083,30 @@ int link_set_addresses(Link *link) {
         return 0;
 }
 
+static bool address_should_remove(const Address *address) {
+        assert(address);
+        assert(address->link);
+        assert(address->link->manager);
+
+        /* Do not remove addresses during enumerating. */
+        if (address->link->manager->enumerating)
+                return false;
+
+        /* Remove only deprecated addresses. */
+        if (!FLAGS_SET(address->flags, IFA_F_DEPRECATED))
+                return false;
+
+        /* Do not remove addresses on unmanaged link. */
+        if (!address->link->network || address->link->network->unmanaged)
+                return false;
+
+        /* Do not remove explicitly specified addresses. */
+        if (link_is_static_address_configured(address->link, address))
+                return false;
+
+        return true;
+}
+
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(address_freep) Address *tmp = NULL;
         Link *link = NULL;
@@ -1245,8 +1271,18 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                 /* address_update() logs internally, so we don't need to here. */
                 r = address_update(address, tmp);
-                if (r < 0)
+                if (r < 0) {
                         link_enter_failed(link);
+                        return 0;
+                }
+
+                if (address_should_remove(address)) {
+                        r = address_remove(address, link, NULL);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return 0;
+                        }
+                }
 
                 break;
 
