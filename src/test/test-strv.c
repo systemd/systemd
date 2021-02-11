@@ -659,6 +659,22 @@ static void test_strv_foreach_pair(void) {
                 assert_se(streq(*x, *y));
 }
 
+static void test_strv_foreach_index(void) {
+        _cleanup_strv_free_ char **a;
+        unsigned i = 0, j;
+        char **check;
+
+        log_info("/* %s */", __func__);
+
+        a = strv_new("one", "two", "three");
+        assert_se(a);
+
+        STRV_FOREACH_INDEX(check, a, j) {
+                assert_se(i == j);
+                assert_se(streq(*check, input_table_multiple[i++]));
+        }
+}
+
 static void test_strv_from_stdarg_alloca_one(char **l, const char *first, ...) {
         char **j;
         unsigned i;
@@ -996,6 +1012,7 @@ int main(int argc, char *argv[]) {
         test_strv_foreach();
         test_strv_foreach_backwards();
         test_strv_foreach_pair();
+        test_strv_foreach_index();
         test_strv_find();
         test_strv_find_prefix();
         test_strv_find_startswith();
