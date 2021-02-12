@@ -80,7 +80,8 @@ CHANGES WITH 248:
 
         * New bind mounts and file system image mounts may be injected into the
           mount namespace of a service (without restarting it). This is exposed
-          as 'systemctl mount-image <unit> <image>…'.
+          respectively as 'systemctl bind <unit> <path>…' and
+          'systemctl mount-image <unit> <image>…'.
 
         * The StandardOuput= and StandardError= settings can now specify files
           to be truncated for output (as "truncate:<path>").
@@ -157,7 +158,7 @@ CHANGES WITH 248:
           DNS query and respond with a mostly unmodified packet received from
           the upstream server.
 
-        * systemd-nspawn gained a new -ambient-capability= setting
+        * systemd-nspawn gained a new --ambient-capability= setting
           (AmbientCapability= in .nspawn files) to configure ambient
           capabilities passed to the container payload.
 
