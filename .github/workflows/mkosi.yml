@@ -21,6 +21,7 @@ jobs:
           - debian
           - ubuntu
           - fedora
+          - opensuse
 
     steps:
     - uses: actions/checkout@v2
