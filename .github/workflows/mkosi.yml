@@ -24,7 +24,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - uses: systemd/mkosi@v9
+    - uses: systemd/mkosi@v10
 
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
