@@ -97,10 +97,12 @@ struct DissectedImage {
 
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
 
+        char *name;
         char *hostname;
         sd_id128_t machine_id;
         char **machine_info;
         char **os_release;
+        char **extension_release;
 };
 
 struct MountOptions {
@@ -162,4 +164,4 @@ bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator
 
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);
 
-int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options);
+int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options, const char *host_os_release_id, const char *host_os_release_version_id, const char *host_os_release_sysext_level);
