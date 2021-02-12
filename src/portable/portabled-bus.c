@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "discover-image.h"
 #include "fd-util.h"
@@ -359,19 +360,108 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PoolUsage", "t", property_get_pool_usage, 0, 0),
         SD_BUS_PROPERTY("PoolLimit", "t", property_get_pool_limit, 0, 0),
         SD_BUS_PROPERTY("Profiles", "as", property_get_profiles, 0, 0),
-        SD_BUS_METHOD("GetImage", "s", "o", method_get_image, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListImages", NULL, "a(ssbtttso)", method_list_images, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageMetadata", "sas", "saya{say}", method_get_image_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageState", "s", "s", method_get_image_state, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("AttachImage", "sassbs", "a(sss)", method_attach_image, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("DetachImage", "sb", "a(sss)", method_detach_image, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ReattachImage", "sassbs", "a(sss)a(sss)", method_reattach_image, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetImage",
+                                 "s",
+                                 SD_BUS_PARAM(image),
+                                 "o",
+                                 SD_BUS_PARAM(object),
+                                 method_get_image,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListImages",
+                                 NULL,,
+                                 "a(ssbtttso)",
+                                 SD_BUS_PARAM(images),
+                                 method_list_images,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetImageOSRelease",
+                                 "s",
+                                 SD_BUS_PARAM(image),
+                                 "a{ss}",
+                                 SD_BUS_PARAM(os_release),
+                                 method_get_image_os_release,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetImageMetadata",
+                                 "sas",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(matches),
+                                 "saya{say}",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(os_release)
+                                 SD_BUS_PARAM(units),
+                                 method_get_image_metadata,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetImageState",
+                                 "s",
+                                 SD_BUS_PARAM(image),
+                                 "s",
+                                 SD_BUS_PARAM(state),
+                                 method_get_image_state,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("AttachImage",
+                                 "sassbs",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(matches)
+                                 SD_BUS_PARAM(profile)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(copy_mode),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_attach_image,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("DetachImage",
+                                 "sb",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(runtime),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_detach_image,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ReattachImage",
+                                 "sassbs",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(matches)
+                                 SD_BUS_PARAM(profile)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(copy_mode),
+                                 "a(sss)a(sss)",
+                                 SD_BUS_PARAM(changes_removed)
+                                 SD_BUS_PARAM(changes_updated),
+                                 method_reattach_image,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("RemoveImage",
+                                 "s",
+                                 SD_BUS_PARAM(image),
+                                 NULL,,
+                                 method_remove_image,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("MarkImageReadOnly",
+                                 "sb",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(read_only),
+                                 NULL,,
+                                 method_mark_image_read_only,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetImageLimit",
+                                 "st",
+                                 SD_BUS_PARAM(image)
+                                 SD_BUS_PARAM(limit),
+                                 NULL,,
+                                 method_set_image_limit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetPoolLimit",
+                                 "t",
+                                 SD_BUS_PARAM(limit),
+                                 NULL,,
+                                 method_set_pool_limit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/portable1",
+        "org.freedesktop.portable1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
+        .children = BUS_IMPLEMENTATIONS(&image_object),
 };
 
 static int reply_portable_compose_message(sd_bus_message *reply, const PortableChange *changes, size_t n_changes) {
