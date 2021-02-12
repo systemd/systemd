@@ -24,7 +24,7 @@ jobs:
     - uses: Werkov/mkosi@opensuse-github
 
     - name: Install
-      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect zypper
+      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect
 
     # glibc 2.33-3 shipped on 2021-02-06 breaks running Arch containers on
     # systems with older kernels (like Ubuntu Focal). Until the issue is
