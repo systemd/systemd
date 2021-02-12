@@ -2356,7 +2356,8 @@ int bus_unit_validate_load_state(Unit *u, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING, "Unit %s has a bad unit file setting.", u->id);
 
         case UNIT_ERROR: /* Only show .load_error in UNIT_ERROR state */
-                return sd_bus_error_set_errnof(error, u->load_error, "Unit %s failed to load properly: %m.", u->id);
+                return sd_bus_error_set_errnof(error, u->load_error,
+                                               "Unit %s failed to load properly, please adjust/correct and reload service manager: %m", u->id);
 
         case UNIT_MASKED:
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", u->id);
