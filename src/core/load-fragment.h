@@ -78,6 +78,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_mem_pressure_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_managed_oom_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
