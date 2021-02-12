@@ -22,6 +22,7 @@ Wants=time-set.target
 AmbientCapabilities=CAP_SYS_TIME
 BusName=org.freedesktop.timesync1
 CapabilityBoundingSet=CAP_SYS_TIME
+Environment=SYSTEMD_NSS_RESOLVE_VALIDATE=0
 ExecStart=!!@rootlibexecdir@/systemd-timesyncd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
