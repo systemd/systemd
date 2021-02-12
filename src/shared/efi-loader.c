@@ -783,6 +783,29 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
         return 0;
 }
 
+bool efi_has_tpm2(void) {
+        static int cache = -1;
+
+        /* Returns whether the system has a TPM2 chip which is known to the EFI firmware. */
+
+        if (cache < 0) {
+
+                /* First, check if we are on an EFI boot at all. */
+                if (!is_efi_boot())
+                        cache = false;
+                else {
+                        /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
+                         * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
+                         * This table exists whenever the firmware is hooked up to TPM2. */
+                        cache = access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0;
+                        if (!cache && errno != ENOENT)
+                                log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
+                }
+        }
+
+        return cache;
+}
+
 #endif
 
 bool efi_loader_entry_name_valid(const char *s) {

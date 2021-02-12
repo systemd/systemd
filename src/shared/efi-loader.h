@@ -29,6 +29,8 @@ int efi_loader_get_features(uint64_t *ret);
 int efi_loader_get_config_timeout_one_shot(usec_t *ret);
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat);
 
+bool efi_has_tpm2(void);
+
 #else
 
 static inline int efi_reboot_to_firmware_supported(void) {
@@ -89,6 +91,10 @@ static inline int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
 
 static inline int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat) {
         return -EOPNOTSUPP;
+}
+
+static inline bool efi_has_tpm2(void) {
+        return false;
 }
 
 #endif
