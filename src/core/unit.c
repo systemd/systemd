@@ -10,6 +10,7 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "allow-bind.h"
 #include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
@@ -622,6 +623,7 @@ void unit_free(Unit *u) {
 
         bus_unit_send_removed_signal(u);
 
+
         unit_done(u);
 
         unit_dequeue_rewatch_pids(u);
@@ -663,6 +665,10 @@ void unit_free(Unit *u) {
 
         if (u->on_console)
                 manager_unref_console(u->manager);
+
+        bpf_link_free(u->ipv4_allow_bind_bpf_link);
+        bpf_link_free(u->ipv6_allow_bind_bpf_link);
+        fdset_free(u->alow_bind_restored_fds);
 
         unit_release_cgroup(u);
 
@@ -3627,6 +3633,12 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
+        if (u->ipv4_allow_bind_bpf_link)
+                (void) serialize_bpf_link(f, fds, "allow-bind-bpf-link-fd", u->ipv4_allow_bind_bpf_link);
+
+        if (u->ipv6_allow_bind_bpf_link)
+                (void) serialize_bpf_link(f, fds, "allow-bind-bpf-link-fd", u->ipv6_allow_bind_bpf_link);
+
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
         if (gid_is_valid(u->ref_gid))
@@ -3912,7 +3924,23 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse cgroup-invalidated-mask %s, ignoring.", v);
                         continue;
 
-                } else if (streq(l, "ref-uid")) {
+                } else if (streq(l, "allow-bind-bpf-link-fd")) {
+                        int fd;
+
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                                log_unit_debug(u, "Failed to parse allow-bind-bpf-link-fd value: %s", v);
+                        else {
+                                if (fdset_remove(fds, fd) < 0) {
+                                         log_unit_debug(u, "Failed to remove allow-bind-bpf-link-fd %d from fdset", fd);
+
+                                         continue;
+                                }
+
+                                (void) allow_bind_restore(u, fd);
+                        }
+
+                        continue;
+                }else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);

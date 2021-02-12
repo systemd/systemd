@@ -4,6 +4,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "allow-bind.h"
 #include "bpf-firewall.h"
 #include "bus-get-properties.h"
 #include "cgroup-util.h"
@@ -15,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "limits-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
@@ -395,6 +397,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMSwap", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_swap), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimitPermyriad", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit_permyriad), 0),
+        SD_BUS_PROPERTY("AllowBindPorts", "as", NULL, offsetof(CGroupContext, allow_bind_ports), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1716,6 +1719,83 @@ int bus_cgroup_set_property(
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
                         (void) manager_varlink_send_managed_oom_update(u);
+
+                return 1;
+        }
+
+        if (streq(name, "AllowBindPorts")) {
+                Set **ports = &c->allow_bind_ports;
+                size_t n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *s;
+                        uint16_t port;
+
+                        r = sd_bus_message_read(message, "s", &s);
+                        if (r < 0)
+                                return r;
+
+                        if (r == 0)
+                                break;
+
+                        if (streq(s, "none")) {
+                                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                                        set_clear(*ports);
+                        } else {
+                                r = parse_ip_port(s, &port);
+                                if (r < 0)
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "%s= value is not IP port", name);
+
+                                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                        r = set_ensure_put(ports, NULL, UINT16_TO_PTR(port));
+                                        if (r < 0)
+                                                log_oom();
+                                }
+                        }
+                        n++;
+                }
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        size_t size = 0;
+                        void *port;
+
+                        if (n == 0)
+                                *ports = set_free(*ports);
+
+                        unit_invalidate_cgroup_bpf(u);
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        SET_FOREACH(port, *ports)
+                                fprintf(f, "%s=%hu", name, PTR_TO_UINT16(port));
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (*ports) {
+                                r = allow_bind_supported();
+                                if (r < 0)
+                                        return r;
+                        }
+
+                }
 
                 return 1;
         }
