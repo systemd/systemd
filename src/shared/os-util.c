@@ -205,7 +205,6 @@ int extension_release_validate(
 
         assert(name);
         assert(!isempty(host_os_release_id));
-        assert(!isempty(host_os_release_version_id) || !isempty(host_os_release_sysext_level));
 
         /* Now that we can look into the extension image, let's see if the OS version is compatible */
         if (strv_isempty(extension_release)) {
@@ -224,6 +223,12 @@ int extension_release_validate(
                 log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
                           name, strna(extension_release_id), strna(host_os_release_id));
                 return 0;
+        }
+
+        /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
+        if (isempty(host_os_release_version_id) && isempty(host_os_release_sysext_level)) {
+                log_debug("No version info on the host (rolling release?), but ID in %s matched.", name);
+                return 1;
         }
 
         /* If the extension has a sysext API level declared, then it must match the host API
