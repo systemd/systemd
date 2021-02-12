@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "bpf-link.h"
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
@@ -299,6 +300,10 @@ typedef struct Unit {
         Set *ip_bpf_custom_ingress_installed;
         Set *ip_bpf_custom_egress;
         Set *ip_bpf_custom_egress_installed;
+
+        BPFLink *ipv4_allow_bind_bpf_link;
+        BPFLink *ipv6_allow_bind_bpf_link;
+        FDSet *alow_bind_restored_fds;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 

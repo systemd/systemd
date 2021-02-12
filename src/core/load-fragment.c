@@ -17,6 +17,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "allow-bind.h"
 #include "all-units.h"
 #include "bpf-firewall.h"
 #include "bus-error.h"
@@ -5417,6 +5418,48 @@ int config_parse_ip_filter_bpf_progs(
 
                 warned = true;
         }
+
+        return 0;
+}
+
+int config_parse_allow_bind_ports(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Set **ports = data;
+        uint16_t port;
+        int r;
+
+        r = allow_bind_supported();
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                *ports = set_free(*ports);
+                return 0;
+        } else if (streq(rvalue, "none")) {
+                set_clear(*ports);
+                if (!*ports)
+                        *ports = set_new(&trivial_hash_ops);
+                if (!*ports)
+                        return log_oom();
+                return 0;
+        }
+
+        r = parse_ip_port(rvalue, &port);
+        if (r < 0)
+                return r;
+
+        r = set_ensure_put(ports, NULL, UINT16_TO_PTR(port));
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }

@@ -5,6 +5,7 @@ After=
 Alias=
 AllowedCPUs=
 AllowedMemoryNodes=
+AllowBindPorts=
 AllowIsolate=
 Also=
 AmbientCapabilities=

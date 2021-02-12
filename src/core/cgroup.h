@@ -143,6 +143,8 @@ struct CGroupContext {
         char **ip_filters_ingress;
         char **ip_filters_egress;
 
+        Set *allow_bind_ports;
+
         /* For legacy hierarchies */
         uint64_t cpu_shares;
         uint64_t startup_cpu_shares;

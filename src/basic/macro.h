@@ -323,6 +323,9 @@ static inline int __coverity_check_and_return__(int condition) {
 #define PTR_TO_UINT8(p) ((uint8_t) ((uintptr_t) (p)))
 #define UINT8_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
+#define PTR_TO_UINT16(p) ((uint16_t) ((uintptr_t) (p)))
+#define UINT16_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
 #define PTR_TO_INT32(p) ((int32_t) ((intptr_t) (p)))
 #define INT32_TO_PTR(u) ((void *) ((intptr_t) (u)))
 #define PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
