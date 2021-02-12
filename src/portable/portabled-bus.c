@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "discover-image.h"
 #include "fd-util.h"
@@ -372,6 +373,13 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/portable1",
+        "org.freedesktop.portable1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
+        .children = BUS_IMPLEMENTATIONS(&image_object),
 };
 
 static int reply_portable_compose_message(sd_bus_message *reply, const PortableChange *changes, size_t n_changes) {
