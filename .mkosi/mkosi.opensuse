@@ -60,6 +60,7 @@ Packages=
         libapparmor1
         libcrypt1
         libcryptsetup12
+        libgcrypt20
         libkmod2
         liblz4-1
         libmount1
