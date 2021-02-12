@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "device-util.h"
 #include "alloc-util.h"
+#include "device-util.h"
+#include "errno-util.h"
 #include "link-config.h"
 #include "log.h"
 #include "string-util.h"
@@ -20,7 +21,7 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
 
         r = link_get_driver(ctx, dev, &driver);
         if (r < 0)
-                log_device_full_errno(dev, r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING,
+                log_device_full_errno(dev, ERRNO_IS_NOT_SUPPORTED(r) || r == -ENODEV ? LOG_DEBUG : LOG_WARNING,
                                       r, "Failed to query device driver: %m");
         else
                 udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
@@ -29,13 +30,17 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
         if (r < 0) {
                 if (r == -ENOENT)
                         return log_device_debug_errno(dev, r, "No matching link configuration found.");
+                if (r == -ENODEV)
+                        return log_device_debug_errno(dev, r, "Link vanished while searching for configuration for it.");
 
                 return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
         r = link_config_apply(ctx, link, dev, &name);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Could not apply link config, ignoring: %m");
+        if (r == -ENODEV)
+                log_device_debug_errno(dev, r, "Link vanished while applying configuration, ignoring.");
+        else if (r < 0)
+                log_device_warning_errno(dev, r, "Could not apply link configuration, ignoring: %m");
 
         udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
 
