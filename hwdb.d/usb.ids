@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2020.08.26
-# Date:    2020-08-26 20:34:09
+# Version: 2021.01.29
+# Date:    2021-01-29 20:34:11
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -1523,6 +1523,7 @@
 	0155  5800 XpressMusic (Multimedia mode)
 	0156  5800 XpressMusic (Storage mode)
 	0157  5800 XpressMusic (Imaging mode)
+	0189  N810 Internet Tablet WiMAX
 	0199  6700 Classic (msc)
 	019a  6700 Classic (PC Suite)
 	019b  6700 Classic (mtp)
@@ -1530,7 +1531,7 @@
 	01b1  6303 classic Phone (Mass storage mode)
 	01b2  6303 classic Phone (Printing and media mode)
 	01c7  N900 (Storage Mode)
-	01c8  N900 (PC-Suite Mode)
+	01c8  N900/N950 (PC-Suite Mode)
 	0228  5530 XpressMusic
 	023a  6730 Classic
 	026a  N97 (mass storage)
@@ -1550,7 +1551,8 @@
 	03c1  C7-00 (Media transfer mode)
 	03c2  Sim
 	03cd  C7-00 (Nokia Suite mode)
-	03d1  N950
+	03d1  N950 (Storage Mode)
+	03d2  N950 (PC Suite mode)
 	0400  7600 Phone Parent
 	0401  6650 GSM Phone
 	0402  6255 Phone Parent
@@ -1581,7 +1583,7 @@
 	0423  6682 Phone Parent
 	0428  6230i Modem
 	0429  6230i MultiMedia Card
-	0431  770 Internet Tablet
+	0431  770/N800 Internet Tablet
 	0432  N90 Phone Parent
 	0435  E70 (IP Passthrough/RNDIS mode)
 	0436  E60 (IP Passthrough/RNDIS mode)
@@ -1615,7 +1617,9 @@
 	04f9  6300 (PC Suite mode)
 	0508  E65 (PC Suite mode)
 	0509  E65 (Storage mode)
-	0518  N9 Phone
+	0518  N9 (Storage mode)
+	0519  N9 (RNDIS/Ethernet mode)
+	051a  N9 (PC Suite mode)
 	054d  C2-01
 	0600  Digital Pen SU-1B
 	0610  CS-15 (Internet Stick 3G modem)
@@ -8752,6 +8756,7 @@
 05fc  Harman
 	0001  Soundcraft Si Multi Digital Card
 	0010  Soundcraft Si MADI combo card
+	0021  Soundcraft Signature 12 MTK
 	7849  Harman/Kardon SoundSticks
 05fd  InterAct, Inc.
 	0239  SV-239 HammerHead Digital
@@ -22447,6 +22452,9 @@
 32b3  TEXA
 	d1a6  TXT Multihub
 	d1a7  TXT Multihub
+3310  MUDITA Sp. z o.o.
+	0100  Pure
+	0101  Pure tethering
 3333  InLine
 	3333  2 port KVM switch model 60652K
 3334  AEI
