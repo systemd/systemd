@@ -326,6 +326,7 @@ static int address_add_foreign(Link *link, const Address *in, Address **ret) {
 }
 
 static int address_add(Link *link, const Address *in, Address **ret) {
+        bool is_new = false;
         Address *address;
         int r;
 
@@ -338,6 +339,7 @@ static int address_add(Link *link, const Address *in, Address **ret) {
                 r = address_add_internal(link, &link->addresses, in, &address);
                 if (r < 0)
                         return r;
+                is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign address */
                 r = set_ensure_put(&link->addresses, &address_hash_ops, address);
@@ -353,8 +355,7 @@ static int address_add(Link *link, const Address *in, Address **ret) {
 
         if (ret)
                 *ret = address;
-
-        return 0;
+        return is_new;
 }
 
 static int address_update(Address *address, const Address *src) {
@@ -811,7 +812,7 @@ int address_configure(
         Address *acquired_address, *a;
         uint32_t flags;
         bool update;
-        int r;
+        int r, k;
 
         assert(address);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
@@ -889,9 +890,9 @@ int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_CACHEINFO attribute: %m");
 
-        r = address_add(link, address, &a);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add address: %m");
+        k = address_add(link, address, &a);
+        if (k < 0)
+                return log_link_error_errno(link, k, "Could not add address: %m");
 
         r = address_set_masquerade(a, true);
         if (r < 0)
@@ -914,7 +915,7 @@ int address_configure(
         if (ret)
                 *ret = a;
 
-        return 1;
+        return k;
 }
 
 static int static_address_ready_callback(Address *address) {

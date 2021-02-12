@@ -343,6 +343,8 @@ static int ndisc_route_configure(Route *route, Link *link, sd_ndisc_router *rt) 
         r = route_configure(route, link, ndisc_route_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set NDisc route: %m");
+        if (r > 0)
+                link->ndisc_routes_configured = false;
 
         link->ndisc_routes_messages++;
 
@@ -437,6 +439,8 @@ static int ndisc_address_configure(Address *address, Link *link, sd_ndisc_router
         r = address_configure(address, link, ndisc_address_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set NDisc SLAAC address: %m");
+        if (r > 0)
+                link->ndisc_addresses_configured = false;
 
         link->ndisc_addresses_messages++;
 
@@ -1212,9 +1216,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 }
                 return 0;
         }
-
-        link->ndisc_addresses_configured = false;
-        link->ndisc_routes_configured = false;
 
         SET_FOREACH(na, link->ndisc_addresses)
                 if (IN6_ARE_ADDR_EQUAL(&na->router, &router.in6))
