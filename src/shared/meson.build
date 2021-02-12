@@ -23,6 +23,8 @@ shared_sources = files('''
         boot-timestamps.h
         bootspec.c
         bootspec.h
+        bpf-link.c
+        bpf-link.h
         bpf-program.c
         bpf-program.h
         bridge-util.c
@@ -378,6 +380,7 @@ libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 libshared_deps = [threads,
                   libacl,
                   libblkid,
+                  libbpf,
                   libcap,
                   libcrypt,
                   libgcrypt,
