@@ -115,6 +115,8 @@ libcore_sources = '''
         transaction.h
         unit-printf.c
         unit-printf.h
+        unit-serialize.c
+        unit-serialize.h
         unit.c
         unit.h
 '''.split()
@@ -162,11 +164,9 @@ core_includes = [includes, include_directories('.')]
 
 systemd_sources = files('main.c')
 
-in_files = [['macros.systemd',   rpmmacrosdir],
-            ['system.conf',      pkgsysconfdir],
+in_files = [['system.conf',      pkgsysconfdir],
             ['user.conf',        pkgsysconfdir],
-            ['systemd.pc',       pkgconfigdatadir],
-            ['triggers.systemd', '']]
+            ['systemd.pc',       pkgconfigdatadir]]
 
 foreach item : in_files
         file = item[0]

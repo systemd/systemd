@@ -176,6 +176,7 @@ node /org/freedesktop/systemd1 {
       UnsetEnvironment(in  as names);
       UnsetAndSetEnvironment(in  as names,
                              in  as assignments);
+      EnqueueMarkedJobs(out ao jobs);
       ListUnitFiles(out a(ss) unit_files);
       ListUnitFilesByPatterns(in  as states,
                               in  as patterns,
@@ -848,6 +849,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnsetAndSetEnvironment()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="EnqueueMarkedJobs()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnitFilesByPatterns()"/>
@@ -1170,6 +1173,11 @@ node /org/freedesktop/systemd1 {
       running and fails otherwise. If a service is restarted that isn't running, it will be started unless
       the "Try" flavor is used in which case a service that isn't running is not affected by the restart. The
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
+
+      <para><function>EnqueueMarkedJobs()</function> creates reload/restart jobs for units which have been
+      appropriately marked, see <varname>Marks</varname> property above. This is equivalent to calling
+      <function>TryRestartUnit()</function> or <function>ReloadOrTryRestartUnit()</function> for the marked
+      units.</para>
 
       <para><function>BindMountUnit()</function> can be used to bind mount new files or directories into
       a running service mount namespace.</para>
@@ -1685,6 +1693,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b IgnoreOnIsolate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b NeedDaemonReload = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as Markers = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t JobTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1969,6 +1979,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="NeedDaemonReload"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="Markers"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="JobTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="JobRunningTimeoutUSec"/>
@@ -2160,8 +2172,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>NeedDaemonReload</varname> is a boolean that indicates whether the configuration file
       this unit is loaded from (i.e. <varname>FragmentPath</varname> or <varname>SourcePath</varname>) has
-      changed since the configuration was read and hence whether a configuration reload is
-      recommended.</para>
+      changed since the configuration was read and hence whether a configuration reload is recommended.
+      </para>
+
+      <para><varname>Markers</varname> is an array of string flags that can be set using
+      <function>SetUnitProperties()</function> to indicate that the service should be reloaded or
+      restarted. Currently known values are <literal>needs-restart</literal> and
+      <literal>needs-reload</literal>. Package scripts may use the first to mark units for later restart when
+      a new version of the package is installed. Configuration management scripts may use the second to mark
+      units for a later reload when the configuration is adjusted. Those flags are not set by the manager,
+      except to unset as appropriate when when the unit is stopped, restarted, or reloaded.</para>
 
       <para><varname>JobTimeoutUSec</varname> maps directly to the corresponding configuration setting in the
       unit file.</para>
