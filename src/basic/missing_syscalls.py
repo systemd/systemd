@@ -33,7 +33,7 @@ def parse_syscall_table(filename):
             yield items[0], int(items[1])
 
 def parse_syscall_tables(filenames):
-    return {filename.split('-')[-1]: parse_syscall_table(filename)
+    return {filename.split('-')[-1][:-4]: parse_syscall_table(filename)
             for filename in filenames}
 
 DEF_TEMPLATE = '''\
@@ -78,7 +78,7 @@ DEF_TEMPLATE = '''\
 #    warning "{syscall}() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_{syscall} && __NR_{syscall} >= 0
 #    if defined systemd_NR_{syscall}
 assert_cc(__NR_{syscall} == systemd_NR_{syscall});

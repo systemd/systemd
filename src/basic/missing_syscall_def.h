@@ -42,7 +42,7 @@
 #    warning "bpf() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_bpf && __NR_bpf >= 0
 #    if defined systemd_NR_bpf
 assert_cc(__NR_bpf == systemd_NR_bpf);
@@ -98,7 +98,7 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    warning "close_range() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_close_range && __NR_close_range >= 0
 #    if defined systemd_NR_close_range
 assert_cc(__NR_close_range == systemd_NR_close_range);
@@ -154,7 +154,7 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    warning "copy_file_range() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_copy_file_range && __NR_copy_file_range >= 0
 #    if defined systemd_NR_copy_file_range
 assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
@@ -210,7 +210,7 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #    warning "getrandom() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_getrandom && __NR_getrandom >= 0
 #    if defined systemd_NR_getrandom
 assert_cc(__NR_getrandom == systemd_NR_getrandom);
@@ -266,7 +266,7 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    warning "memfd_create() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_memfd_create && __NR_memfd_create >= 0
 #    if defined systemd_NR_memfd_create
 assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
@@ -322,7 +322,7 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    warning "name_to_handle_at() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_name_to_handle_at && __NR_name_to_handle_at >= 0
 #    if defined systemd_NR_name_to_handle_at
 assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
@@ -378,7 +378,7 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    warning "pidfd_open() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_pidfd_open && __NR_pidfd_open >= 0
 #    if defined systemd_NR_pidfd_open
 assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
@@ -434,7 +434,7 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    warning "pidfd_send_signal() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_pidfd_send_signal && __NR_pidfd_send_signal >= 0
 #    if defined systemd_NR_pidfd_send_signal
 assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
@@ -490,7 +490,7 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    warning "pkey_mprotect() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_pkey_mprotect && __NR_pkey_mprotect >= 0
 #    if defined systemd_NR_pkey_mprotect
 assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
@@ -546,7 +546,7 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    warning "renameat2() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_renameat2 && __NR_renameat2 >= 0
 #    if defined systemd_NR_renameat2
 assert_cc(__NR_renameat2 == systemd_NR_renameat2);
@@ -602,7 +602,7 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    warning "setns() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_setns && __NR_setns >= 0
 #    if defined systemd_NR_setns
 assert_cc(__NR_setns == systemd_NR_setns);
@@ -658,7 +658,7 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    warning "statx() syscall number is unknown for your architecture"
 #  endif
 
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_statx && __NR_statx >= 0
 #    if defined systemd_NR_statx
 assert_cc(__NR_statx == systemd_NR_statx);

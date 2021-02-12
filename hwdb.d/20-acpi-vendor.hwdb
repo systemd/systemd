@@ -6732,6 +6732,9 @@ acpi:TGS*:
 acpi:TGV*:
  ID_VENDOR_FROM_DATABASE=Grass Valley Germany GmbH
 
+acpi:TGW*:
+ ID_VENDOR_FROM_DATABASE=TECHNOGYM S.p.A.
+
 acpi:THN*:
  ID_VENDOR_FROM_DATABASE=Thundercom Holdings Sdn. Bhd.
 
