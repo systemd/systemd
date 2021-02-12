@@ -2,7 +2,7 @@
 Before=local-fs.target
 
 [Mount]
-What=/dev/sda1
+What=/dev/vda1
 Where=/
 Type=ext4
 Options=errors=remount-ro,noatime
