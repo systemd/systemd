@@ -1249,8 +1249,9 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         if (streq(key, "state")) {
                 MountState state;
 
-                if ((state = mount_state_from_string(value)) < 0)
-                        log_unit_debug(u, "Failed to parse state value: %s", value);
+                state = mount_state_from_string(value);
+                if (state < 0)
+                        log_unit_debug_errno(u, state, "Failed to parse state value: %s", value);
                 else
                         m->deserialized_state = state;
 
@@ -1259,7 +1260,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 f = mount_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u, "Failed to parse result value: %s", value);
+                        log_unit_debug_errno(u, f, "Failed to parse result value: %s", value);
                 else if (f != MOUNT_SUCCESS)
                         m->result = f;
 
@@ -1268,7 +1269,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 f = mount_result_from_string(value);
                 if (f < 0)
-                        log_unit_debug(u, "Failed to parse reload result value: %s", value);
+                        log_unit_debug_errno(u, f, "Failed to parse reload result value: %s", value);
                 else if (f != MOUNT_SUCCESS)
                         m->reload_result = f;
 
@@ -1276,19 +1277,20 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 r = safe_atou(value, &m->n_retry_umount);
                 if (r < 0)
-                        log_unit_debug(u, "Failed to parse n-retry-umount value: %s", value);
+                        log_unit_debug_errno(u, r, "Failed to parse n-retry-umount value: %s", value);
 
         } else if (streq(key, "control-pid")) {
 
-                if (parse_pid(value, &m->control_pid) < 0)
-                        log_unit_debug(u, "Failed to parse control-pid value: %s", value);
+                r = parse_pid(value, &m->control_pid);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse control-pid value: %s", value);
 
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
 
                 id = mount_exec_command_from_string(value);
                 if (id < 0)
-                        log_unit_debug(u, "Failed to parse exec-command value: %s", value);
+                        log_unit_debug_errno(u, id, "Failed to parse exec-command value: %s", value);
                 else {
                         m->control_command_id = id;
                         m->control_command = m->exec_command + id;

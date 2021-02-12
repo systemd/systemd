@@ -667,7 +667,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r != 2)
-                        return free_and_strdup(&arg_default_options, value) < 0 ? log_oom() : 0;
+                        return free_and_strdup_warn(&arg_default_options, value);
 
                 if (warn_uuid_invalid(uuid, key))
                         return 0;
@@ -691,11 +691,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 n = strspn(value, ALPHANUMERICAL "-");
-                if (value[n] != '=') {
-                        if (free_and_strdup(&arg_default_keyfile, value) < 0)
-                                 return log_oom();
-                        return 0;
-                }
+                if (value[n] != '=')
+                        return free_and_strdup_warn(&arg_default_keyfile, value);
 
                 uuid = strndup(value, n);
                 if (!uuid)

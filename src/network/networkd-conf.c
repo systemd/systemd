@@ -93,7 +93,7 @@ int config_parse_duid_type(
 
         type = duid_type_from_string(type_string);
         if (type < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, type,
                            "Failed to parse DUID type '%s', ignoring.", type_string);
                 return 0;
         }

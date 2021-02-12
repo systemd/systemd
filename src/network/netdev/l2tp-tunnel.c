@@ -577,7 +577,7 @@ int config_parse_l2tp_session_l2spec(
 
         spec = l2tp_l2spec_type_from_string(rvalue);
         if (spec < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, spec,
                            "Failed to parse layer2 specific header type. Ignoring assignment: %s", rvalue);
                 return 0;
         }

@@ -702,10 +702,7 @@ int config_parse_ifalias(
                 return 0;
         }
 
-        if (free_and_strdup(s, rvalue) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(s, rvalue);
 }
 
 int config_parse_rx_tx_queues(

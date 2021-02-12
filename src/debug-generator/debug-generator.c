@@ -68,27 +68,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else if (r > 0)
                         t = skip_dev_prefix(DEBUGTTY);
 
-                if (free_and_strdup(&arg_debug_shell, t) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_debug_shell, t);
 
         } else if (streq(key, "systemd.unit")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = free_and_strdup(&arg_default_unit, value);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set default unit %s: %m", value);
+                return free_and_strdup_warn(&arg_default_unit, value);
 
         } else if (!value) {
                 const char *target;
 
                 target = runlevel_to_target(key);
-                if (target) {
-                        r = free_and_strdup(&arg_default_unit, target);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set default unit %s: %m", target);
-                }
+                if (target)
+                        return free_and_strdup_warn(&arg_default_unit, target);
         }
 
         return 0;

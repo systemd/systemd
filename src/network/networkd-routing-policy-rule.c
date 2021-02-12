@@ -1422,7 +1422,7 @@ int config_parse_routing_policy_rule_family(
 
         a = routing_policy_rule_address_family_from_string(rvalue);
         if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, a,
                            "Invalid address family '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -1547,7 +1547,7 @@ int config_parse_routing_policy_rule_type(
 
         t = fr_act_type_from_string(rvalue);
         if (t < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, t,
                            "Could not parse FIB rule type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
