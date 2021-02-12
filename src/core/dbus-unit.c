@@ -808,7 +808,6 @@ static int property_get_refs(
                 sd_bus_error *error) {
 
         Unit *u = userdata;
-        const char *i;
         int r;
 
         assert(bus);
@@ -818,15 +817,15 @@ static int property_get_refs(
         if (r < 0)
                 return r;
 
-        for (i = sd_bus_track_first(u->bus_track); i; i = sd_bus_track_next(u->bus_track)) {
-                int c, k;
+        for (const char *i = sd_bus_track_first(u->bus_track); i; i = sd_bus_track_next(u->bus_track)) {
+                int c;
 
                 c = sd_bus_track_count_name(u->bus_track, i);
                 if (c < 0)
                         return c;
 
                 /* Add the item multiple times if the ref count for each is above 1 */
-                for (k = 0; k < c; k++) {
+                for (int k = 0; k < c; k++) {
                         r = sd_bus_message_append(reply, "s", i);
                         if (r < 0)
                                 return r;
