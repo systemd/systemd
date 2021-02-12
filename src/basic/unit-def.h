@@ -58,6 +58,13 @@ typedef enum FreezerState {
         _FREEZER_STATE_INVALID = -EINVAL,
 } FreezerState;
 
+typedef enum UnitMarker {
+        UNIT_MARKER_NEEDS_RELOAD,
+        UNIT_MARKER_NEEDS_RESTART,
+        _UNIT_MARKER_MAX,
+        _UNIT_MARKER_INVALID = -1
+} UnitMarker;
+
 typedef enum AutomountState {
         AUTOMOUNT_DEAD,
         AUTOMOUNT_WAITING,
@@ -266,6 +273,9 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 const char *freezer_state_to_string(FreezerState i) _const_;
 FreezerState freezer_state_from_string(const char *s) _pure_;
+
+const char *unit_marker_to_string(UnitMarker m) _const_;
+UnitMarker unit_marker_from_string(const char *s) _pure_;
 
 const char* automount_state_to_string(AutomountState i) _const_;
 AutomountState automount_state_from_string(const char *s) _pure_;
