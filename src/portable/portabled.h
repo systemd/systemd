@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "bus-object.h"
 #include "hashmap.h"
 #include "list.h"
 
@@ -23,3 +24,5 @@ struct Manager {
         LIST_HEAD(Operation, operations);
         unsigned n_operations;
 };
+
+extern const BusObjectImplementation manager_object;

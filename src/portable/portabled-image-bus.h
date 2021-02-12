@@ -15,6 +15,7 @@ int bus_image_common_mark_read_only(Manager *m, sd_bus_message *message, const c
 int bus_image_common_set_limit(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 
 extern const sd_bus_vtable image_vtable[];
+extern const BusObjectImplementation image_object;
 
 int bus_image_path(Image *image, char **ret);
 
