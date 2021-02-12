@@ -671,6 +671,10 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 return !dns_name_is_root(name);
         }
 
+        /* Never route DNSSEC RR queries to LLMNR/mDNS scopes */
+        if (dns_type_is_dnssec(key->type))
+                return false;
+
         /* On mDNS and LLMNR, send A and AAAA queries only on the respective scopes */
 
         key_family = dns_type_to_af(key->type);
