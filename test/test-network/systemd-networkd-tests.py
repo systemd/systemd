@@ -1753,7 +1753,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-address-dad-veth99.network',
         '25-address-link-section.network',
         '25-address-peer-ipv4.network',
-        '25-address-preferred-lifetime-zero.network',
         '25-address-static.network',
         '25-activation-policy.network',
         '25-bind-carrier.network',
@@ -1830,38 +1829,39 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)
-        self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
-        self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
-        self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
+        self.assertIn('inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98', output)
 
         # test for ENOBUFS issue #17012
         for i in range(1,254):
-            self.assertRegex(output, f'inet 10.3.3.{i}/16 brd 10.3.255.255')
+            self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
         # invalid sections
-        self.assertNotRegex(output, '10.10.0.1/16')
-        self.assertNotRegex(output, '10.10.0.2/16')
+        self.assertNotIn('10.10.0.1/16', output)
+        self.assertNotIn('10.10.0.2/16', output)
 
         output = check_output('ip -4 address show dev dummy98 label 32')
-        self.assertRegex(output, 'inet 10.3.2.3/16 brd 10.3.255.255 scope global 32')
+        self.assertIn('inet 10.3.2.3/16 brd 10.3.255.255 scope global 32', output)
 
         output = check_output('ip -4 address show dev dummy98 label 33')
-        self.assertRegex(output, 'inet 10.4.2.3 peer 10.4.2.4/16 scope global 33')
+        self.assertIn('inet 10.4.2.3 peer 10.4.2.4/16 scope global 33', output)
 
         output = check_output('ip -4 address show dev dummy98 label 34')
-        self.assertRegex(output, 'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
+        self.assertRegex(output, r'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
 
         output = check_output('ip -4 address show dev dummy98 label 35')
-        self.assertRegex(output, 'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
+        self.assertRegex(output, r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
 
         output = check_output('ip -6 address show dev dummy98')
         print(output)
-        self.assertRegex(output, 'inet6 2001:db8:0:f101::15/64 scope global')
-        self.assertRegex(output, 'inet6 2001:db8:0:f101::16/64 scope global')
-        self.assertRegex(output, 'inet6 2001:db8:0:f102::15/64 scope global')
-        self.assertRegex(output, 'inet6 2001:db8:0:f102::16/64 scope global')
-        self.assertRegex(output, 'inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global')
-        self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
+        self.assertIn('inet6 2001:db8:0:f101::15/64 scope global', output)
+        self.assertIn('inet6 2001:db8:0:f101::16/64 scope global', output)
+        self.assertIn('inet6 2001:db8:0:f102::15/64 scope global', output)
+        self.assertIn('inet6 2001:db8:0:f102::16/64 scope global', output)
+        self.assertIn('inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global', output)
+        self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
+        self.assertRegex(output, r'inet6 fd[0-9a-f:]*1/64 scope global')
 
         restart_networkd()
         self.wait_online(['dummy98:routable'])
@@ -1869,22 +1869,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # test for ENOBUFS issue #17012
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1,254):
-            self.assertRegex(output, f'inet 10.3.3.{i}/16 brd 10.3.255.255')
-
-    def test_address_preferred_lifetime_zero_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero.network', '12-dummy.netdev')
-        start_networkd(5)
-
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip address show dummy98')
-        print(output)
-        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
-        self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
-
-        output = check_output('ip route show dev dummy98')
-        print(output)
-        self.assertRegex(output, 'default via 20.20.20.1 proto static')
+            self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
     def test_address_dad(self):
         copy_unit_to_networkd_unit_path('25-address-dad-veth99.network', '25-address-dad-veth-peer.network',

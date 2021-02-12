@@ -5,7 +5,6 @@ Name=dummy98
 IPv6AcceptRA=no
 Address=10.1.2.3/16
 Address=10.1.2.4/16
-Address=10.2.2.4/16
 Address=2001:db8:0:f101::15/64
 Address=2001:db8:0:f101::16/64
 Address=2001:db8:0:f102::15/64
@@ -51,6 +50,15 @@ Peer=2001:db8:0:f103::10/128
 
 [Address]
 Address=::/64
+
+[Address]
+Address=10.2.3.4/16
+PreferredLifetime=0
+Scope=link
+
+[Address]
+Address=2001:0db8:1:f101::1/64
+PreferredLifetime=0
 
 # test for ENOBUFS issue #17012
 [Network]
