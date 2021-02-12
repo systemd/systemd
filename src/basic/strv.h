@@ -127,6 +127,9 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
 #define STRV_FOREACH_PAIR(x, y, l)               \
         for ((x) = (l), (y) = (x) ? (x+1) : NULL; (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))
 
+#define STRV_FOREACH_INDEX(s, l, i)              \
+        for ((s) = (l), (i) = 0; (s) && *(s); (s)++, (i)++)
+
 char **strv_sort(char **l);
 void strv_print(char * const *l);
 
