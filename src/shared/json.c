@@ -1878,6 +1878,55 @@ int json_variant_filter(JsonVariant **v, char **to_remove) {
         return (int) n;
 }
 
+int json_variant_pick(JsonVariant **v, char **to_pick) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_free_ JsonVariant **array = NULL;
+        size_t i, n = 0, k = 0;
+        int r;
+
+        assert(v);
+
+        if (json_variant_is_blank_object(*v))
+                return 0;
+        if (!json_variant_is_object(*v))
+                return -EINVAL;
+
+        if (strv_isempty(to_pick))
+                return 0;
+
+        for (i = 0; i < json_variant_elements(*v); i += 2) {
+                JsonVariant *p;
+
+                p = json_variant_by_index(*v, i);
+                if (!json_variant_has_type(p, JSON_VARIANT_STRING))
+                        return -EINVAL;
+
+                if (strv_contains(to_pick, json_variant_string(p))) {
+                        if (!array) {
+                                array = new(JsonVariant*, json_variant_elements(*v) - i * 2);
+                                if (!array)
+                                        return -ENOMEM;
+                        }
+
+                        array[k++] = p;
+                        array[k++] = json_variant_by_index(*v, i + 1);
+
+                        n++;
+                }
+        }
+
+        r = json_variant_new_object(&w, array, k);
+        if (r < 0)
+                return r;
+
+        json_variant_propagate_sensitive(*v, w);
+
+        json_variant_unref(*v);
+        *v = TAKE_PTR(w);
+
+        return (int) n;
+}
+
 int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value) {
         _cleanup_(json_variant_unrefp) JsonVariant *field_variant = NULL, *w = NULL;
         _cleanup_free_ JsonVariant **array = NULL;
