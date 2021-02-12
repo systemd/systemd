@@ -9,6 +9,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-label.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "discover-image.h"
@@ -919,3 +920,10 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
 
         return 1;
 }
+
+const BusObjectImplementation image_object = {
+        "/org/freedesktop/portable1/image",
+        "org.freedesktop.portable1.Image",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({image_vtable, bus_image_object_find}),
+        .node_enumerator = bus_image_node_enumerator,
+};
