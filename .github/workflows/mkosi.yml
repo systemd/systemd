@@ -46,7 +46,7 @@ jobs:
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi --password= --qemu-headless build
+      run: sudo python3 -m mkosi --password= --network-veth=no --qemu-headless build
 
     - name: Show ${{ matrix.distro }} image summary
       run: sudo python3 -m mkosi --password= --qemu-headless summary
@@ -58,7 +58,7 @@ jobs:
       run: echo "BUILD_RETRY_MAX=3" >> $GITHUB_ENV
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo -E bash +e -x -c 'for _ in $(seq 1 ${BUILD_RETRY_MAX:-1}); do ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --qemu-headless boot && break; done'
+      run: sudo -E bash +e -x -c 'for _ in $(seq 1 ${BUILD_RETRY_MAX:-1}); do ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --network-veth=no --qemu-headless boot && break; done'
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --qemu-headless qemu
+      run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --network-veth=no --qemu-headless qemu
