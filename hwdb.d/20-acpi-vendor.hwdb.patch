@@ -1,5 +1,5 @@
---- 20-acpi-vendor.hwdb.base	2020-11-26 13:49:35.243482590 +0100
-+++ 20-acpi-vendor.hwdb	2020-11-26 13:49:35.260482675 +0100
+--- 20-acpi-vendor.hwdb.base	2021-02-12 15:42:10.664053745 +0100
++++ 20-acpi-vendor.hwdb	2021-02-12 15:42:10.706054210 +0100
 @@ -3,6 +3,8 @@
  # Data imported from:
  #     https://uefi.org/uefi-pnp-export
@@ -410,7 +410,7 @@
  acpi:TEZ*:
   ID_VENDOR_FROM_DATABASE=Tech Source Inc.
  
-@@ -6760,9 +6828,6 @@
+@@ -6763,9 +6831,6 @@
  acpi:TNC*:
   ID_VENDOR_FROM_DATABASE=TNC Industrial Company Ltd
  
@@ -420,7 +420,7 @@
  acpi:TNM*:
   ID_VENDOR_FROM_DATABASE=TECNIMAGEN SA
  
-@@ -7069,14 +7134,14 @@
+@@ -7072,14 +7137,14 @@
  acpi:UNC*:
   ID_VENDOR_FROM_DATABASE=Unisys Corporation
  
@@ -441,7 +441,7 @@
  
  acpi:UNI*:
   ID_VENDOR_FROM_DATABASE=Uniform Industry Corp.
-@@ -7111,6 +7176,9 @@
+@@ -7114,6 +7179,9 @@
  acpi:USA*:
   ID_VENDOR_FROM_DATABASE=Utimaco Safeware AG
  
@@ -451,7 +451,7 @@
  acpi:USD*:
   ID_VENDOR_FROM_DATABASE=U.S. Digital Corporation
  
-@@ -7357,9 +7425,6 @@
+@@ -7360,9 +7428,6 @@
  acpi:WAL*:
   ID_VENDOR_FROM_DATABASE=Wave Access
  
@@ -461,7 +461,7 @@
  acpi:WAV*:
   ID_VENDOR_FROM_DATABASE=Wavephore
  
-@@ -7484,7 +7549,7 @@
+@@ -7487,7 +7552,7 @@
   ID_VENDOR_FROM_DATABASE=WyreStorm Technologies LLC
  
  acpi:WYS*:
@@ -470,7 +470,7 @@
  
  acpi:WYT*:
   ID_VENDOR_FROM_DATABASE=Wooyoung Image & Information Co.,Ltd.
-@@ -7498,9 +7563,6 @@
+@@ -7501,9 +7566,6 @@
  acpi:XDM*:
   ID_VENDOR_FROM_DATABASE=XDM Ltd.
  
@@ -480,7 +480,7 @@
  acpi:XES*:
   ID_VENDOR_FROM_DATABASE=Extreme Engineering Solutions, Inc.
  
-@@ -7531,9 +7593,6 @@
+@@ -7534,9 +7596,6 @@
  acpi:XNT*:
   ID_VENDOR_FROM_DATABASE=XN Technologies, Inc.
  
@@ -490,7 +490,7 @@
  acpi:XQU*:
   ID_VENDOR_FROM_DATABASE=SHANGHAI SVA-DAV ELECTRONICS CO., LTD
  
-@@ -7600,6 +7659,9 @@
+@@ -7603,6 +7662,9 @@
  acpi:ZBX*:
   ID_VENDOR_FROM_DATABASE=Zebax Technologies
  
