@@ -22,6 +22,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "parse-helpers.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -1395,14 +1396,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(signal, int, _NSIG);
-                                return 0;
-                        }
-
-                        arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0)
-                                return log_error_errno(arg_signal, "Failed to parse signal string %s.", optarg);
+                        r = parse_arg_signal(optarg, &arg_signal);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case 'H':
