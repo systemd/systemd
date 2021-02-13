@@ -883,6 +883,7 @@ int dns_scope_make_reply_packet(
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         unsigned n_answer = 0, n_soa = 0;
         int r;
+        bool c_or_aa;
 
         assert(s);
         assert(ret);
@@ -896,11 +897,14 @@ int dns_scope_make_reply_packet(
         if (r < 0)
                 return r;
 
+        /* mDNS answers must have the Authoritative Answer bit set, see RFC 6762, section 18.4. */
+        c_or_aa = s->protocol == DNS_PROTOCOL_MDNS;
+
         DNS_PACKET_HEADER(p)->id = id;
         DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
                                                               1 /* qr */,
                                                               0 /* opcode */,
-                                                              0 /* c */,
+                                                              c_or_aa,
                                                               0 /* tc */,
                                                               tentative,
                                                               0 /* (ra) */,
