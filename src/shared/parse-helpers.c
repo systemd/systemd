@@ -14,6 +14,12 @@ int parse_arg_signal(const char *s, int *ret) {
                 return 0;
         }
 
+        if (streq(s, "list")) {
+                for (int i = 1; i < _NSIG; i++)
+                        printf("%d\t%s\n", i, signal_to_string(i));
+                return 0;
+        }
+
         int r = signal_from_string(s);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse signal string \"%s\".", s);
