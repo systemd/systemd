@@ -66,7 +66,8 @@ struct DnsQuery {
         DnsAnswer *answer;
         int answer_rcode;
         DnssecResult answer_dnssec_result;
-        bool answer_authenticated;
+        bool answer_authenticated:1;
+        bool answer_authoritative:1;
         DnsProtocol answer_protocol;
         int answer_family;
         DnsSearchDomain *answer_search_domain;
