@@ -5539,25 +5539,9 @@ int unit_load_fragment(Unit *u) {
         /* We do the merge dance here because for some unit types, the unit might have aliases which are not
          * declared in the file system. In particular, this is true (and frequent) for device and swap units.
          */
-        Unit *merged;
-        const char *id = u->id;
-        _cleanup_free_ char *free_id = NULL;
+        Unit *merged = u;
 
-        if (fragment) {
-                id = basename(fragment);
-                if (unit_name_is_valid(id, UNIT_NAME_TEMPLATE)) {
-                        assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
-                                              * this must be set. */
-
-                        r = unit_name_replace_instance(id, u->instance, &free_id);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance);
-                        id = free_id;
-                }
-        }
-
-        merged = u;
-        r = merge_by_names(&merged, names, id);
+        r = merge_by_names(&merged, names, u->id);
         if (r < 0)
                 return r;
 
