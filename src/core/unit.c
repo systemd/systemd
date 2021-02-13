@@ -3002,7 +3002,7 @@ static int unit_add_dependency_hashmap(
         if (r < 0)
                 return r;
 
-        assert_cc(sizeof(void*) == sizeof(info));
+        static_assert(sizeof(void*) == sizeof(info));
 
         info.data = hashmap_get(*h, other);
         if (info.data) {
@@ -5366,8 +5366,8 @@ static void unit_unref_uid_internal(
          *
          * Drops a reference to UID/GID from a unit. */
 
-        assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        assert_cc(UID_INVALID == (uid_t) GID_INVALID);
+        static_assert(sizeof(uid_t) == sizeof(gid_t));
+        static_assert(UID_INVALID == (uid_t) GID_INVALID);
 
         if (!uid_is_valid(*ref_uid))
                 return;
@@ -5412,8 +5412,8 @@ static int unit_ref_uid_internal(
          * reference so that we can destroy the UID/GID's IPC resources as soon as this is requested and the counter
          * drops to zero. */
 
-        assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        assert_cc(UID_INVALID == (uid_t) GID_INVALID);
+        static_assert(sizeof(uid_t) == sizeof(gid_t));
+        static_assert(UID_INVALID == (uid_t) GID_INVALID);
 
         if (*ref_uid == uid)
                 return 0;
