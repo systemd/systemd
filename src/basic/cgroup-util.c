@@ -635,6 +635,20 @@ int cg_get_xattr_malloc(const char *controller, const char *path, const char *na
         return r;
 }
 
+int cg_get_xattr_bool(const char *controller, const char *path, const char *name) {
+        _cleanup_free_ char *val = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = cg_get_xattr_malloc(controller, path, name, &val);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(val);
+}
+
 int cg_remove_xattr(const char *controller, const char *path, const char *name) {
         _cleanup_free_ char *fs = NULL;
         int r;
@@ -1703,6 +1717,25 @@ int cg_get_attribute_as_bool(const char *controller, const char *path, const cha
         return 0;
 }
 
+int cg_get_owner(const char *controller, const char *path, uid_t *ret_uid) {
+        _cleanup_free_ char *f = NULL;
+        struct stat stats;
+        int r;
+
+        assert(ret_uid);
+
+        r = cg_get_path(controller, path, NULL, &f);
+        if (r < 0)
+                return r;
+
+        r = stat(f, &stats);
+        if (r < 0)
+                return -errno;
+
+        *ret_uid = stats.st_uid;
+        return 0;
+}
+
 int cg_get_keyed_attribute_full(
                 const char *controller,
                 const char *path,
@@ -2185,3 +2218,11 @@ static const char* const managed_oom_mode_table[_MANAGED_OOM_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(managed_oom_mode, ManagedOOMMode);
+
+static const char* const managed_oom_preference_table[_MANAGED_OOM_PREFERENCE_MAX] = {
+        [MANAGED_OOM_PREFERENCE_NONE] = "none",
+        [MANAGED_OOM_PREFERENCE_AVOID] = "avoid",
+        [MANAGED_OOM_PREFERENCE_OMIT] = "omit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);

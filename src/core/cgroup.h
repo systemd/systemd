@@ -164,6 +164,7 @@ struct CGroupContext {
         ManagedOOMMode moom_swap;
         ManagedOOMMode moom_mem_pressure;
         uint32_t moom_mem_pressure_limit_permyriad;
+        ManagedOOMPreference moom_preference;
 };
 
 /* Used when querying IP accounting data */
@@ -203,6 +204,8 @@ void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODe
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+
+void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
