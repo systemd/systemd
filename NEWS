@@ -49,7 +49,7 @@ CHANGES WITH 248:
           security tokens to LUKS volumes, list and destroy them. See
           https://www.freedesktop.org/software/systemd/man/systemd-cryptenroll.html.
 
-        * The manager may be configured as compile time to use fexecve instead
+        * The manager may be configured at compile time to use fexecve instead
           of execve when spawning children. Using fexecve closes a window
           between checking the security context of an executable and spawning
           it, but unfortunately the kernel displays stale information in the
