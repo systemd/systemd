@@ -103,9 +103,8 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 #define DUMP_STRING_TABLE(name,type,max)                                \
         do {                                                            \
-                type _k;                                                \
                 flockfile(stdout);                                      \
-                for (_k = 0; _k < (max); _k++) {                        \
+                for (type _k = 0; _k < (max); _k++) {                   \
                         const char *_t;                                 \
                         _t = name##_to_string(_k);                      \
                         if (!_t)                                        \

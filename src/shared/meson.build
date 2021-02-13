@@ -202,6 +202,8 @@ shared_sources = files('''
         output-mode.h
         pager.c
         pager.h
+        parse-helpers.c
+        parse-helpers.h
         pe-header.h
         pkcs11-util.c
         pkcs11-util.h
