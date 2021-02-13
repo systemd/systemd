@@ -4602,8 +4602,8 @@ static void manager_unref_uid_internal(
          * is dropped. The flag is set to on, once at least one reference from a unit where RemoveIPC= is set is added
          * on a UID/GID. It is reset when the UID's/GID's reference counter drops to 0 again. */
 
-        assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        assert_cc(UID_INVALID == (uid_t) GID_INVALID);
+        static_assert(sizeof(uid_t) == sizeof(gid_t));
+        static_assert(UID_INVALID == (uid_t) GID_INVALID);
 
         if (uid == 0) /* We don't keep track of root, and will never destroy it */
                 return;
@@ -4651,8 +4651,8 @@ static int manager_ref_uid_internal(
         /* A generic implementation, covering both manager_ref_uid() and manager_ref_gid(), under the assumption
          * that uid_t and gid_t are actually defined the same way, with the same validity rules. */
 
-        assert_cc(sizeof(uid_t) == sizeof(gid_t));
-        assert_cc(UID_INVALID == (uid_t) GID_INVALID);
+        static_assert(sizeof(uid_t) == sizeof(gid_t));
+        static_assert(UID_INVALID == (uid_t) GID_INVALID);
 
         if (uid == 0) /* We don't keep track of root, and will never destroy it */
                 return 0;
