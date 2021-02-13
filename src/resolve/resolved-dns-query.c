@@ -347,6 +347,7 @@ static void dns_query_reset_answer(DnsQuery *q) {
         q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         q->answer_errno = 0;
         q->answer_authenticated = false;
+        q->answer_authoritative = false;
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
         q->answer_family = AF_UNSPEC;
         q->answer_search_domain = dns_search_domain_unref(q->answer_search_domain);
@@ -624,6 +625,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                 q->answer_protocol = dns_synthesize_protocol(q->flags);
                 q->answer_family = dns_synthesize_family(q->flags);
                 q->answer_authenticated = true;
+                q->answer_authoritative = true;
                 *state = DNS_TRANSACTION_RCODE_FAILURE;
 
                 return 0;
@@ -638,6 +640,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
         q->answer_authenticated = true;
+        q->answer_authoritative = true;
 
         *state = DNS_TRANSACTION_SUCCESS;
 
@@ -670,6 +673,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
         q->answer_authenticated = true;
+        q->answer_authoritative = true;
 
         return 1;
 }
@@ -811,6 +815,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 q->answer_rcode = 0;
                 q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
                 q->answer_authenticated = false;
+                q->answer_authoritative = false;
                 q->answer_errno = c->error_code;
                 q->answer_full_packet = dns_packet_unref(q->answer_full_packet);
         }
