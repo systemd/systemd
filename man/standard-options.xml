@@ -73,7 +73,8 @@
       <option>SIGTERM</option>.</para>
 
       <para>The special value <literal>help</literal> will list the known values and the program will exit
-      immediately.</para>
+      immediately, and the special value <literal>list</literal> will list known values along with the
+      numerical signal numbers and the program will exit immediately.</para>
     </listitem>
   </varlistentry>
 </variablelist>
