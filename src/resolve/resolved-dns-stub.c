@@ -355,6 +355,7 @@ static int dns_stub_finish_reply_packet(
                 uint16_t id,
                 int rcode,
                 bool tc,        /* set the Truncated bit? */
+                bool aa,        /* set the Authoritative Answer bit? */
                 bool add_opt,   /* add an OPT RR to this packet? */
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
                 bool ad,        /* set the DNSSEC authenticated data bit? */
@@ -392,7 +393,7 @@ static int dns_stub_finish_reply_packet(
         DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
                                                               1  /* qr */,
                                                               0  /* opcode */,
-                                                              0  /* aa */,
+                                                              aa /* aa */,
                                                               tc /* tc */,
                                                               1  /* rd */,
                                                               1  /* ra */,
@@ -482,6 +483,7 @@ static int dns_stub_send_reply(
                         DNS_PACKET_ID(q->request_packet),
                         rcode,
                         truncated,
+                        q->answer_authoritative,
                         !!q->request_packet->opt,
                         edns0_do,
                         DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
@@ -521,6 +523,7 @@ static int dns_stub_send_failure(
                         DNS_PACKET_ID(p),
                         rcode,
                         truncated,
+                        0,
                         !!p->opt,
                         DNS_PACKET_DO(p),
                         DNS_PACKET_AD(p) && authenticated,
