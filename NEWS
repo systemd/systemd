@@ -233,6 +233,10 @@ CHANGES WITH 248:
 
         * The main development branch has been renamed to 'main'.
 
+        * mmcblk[0-9]boot[0-9] devices will no longer be probed automatically
+          for partitions, as in the vast majority of cases they contain none
+          and are used internally by the bootloader (eg: uboot).
+
 CHANGES WITH 247:
 
         * KERNEL API INCOMPATIBILITY: Linux 4.14 introduced two new uevents
