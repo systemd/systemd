@@ -11,6 +11,7 @@
 #include "main-func.h"
 #include "output-mode.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "rlimit-util.h"
@@ -673,16 +674,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(signal, int, _NSIG);
-                                return 0;
-                        }
-
-                        arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse signal string %s.",
-                                                       optarg);
+                        r = parse_signal_argument(optarg, &arg_signal);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
