@@ -351,7 +351,6 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        struct socket_info *s;
         const char *on, *off;
         int r;
 
@@ -373,7 +372,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         (void) table_set_empty_string(table, "-");
 
         if (cs) {
-                for (s = socket_infos; s < socket_infos + cs; s++) {
+                for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
                         _cleanup_free_ char *j = NULL;
                         const char *path;
 
@@ -432,8 +431,6 @@ int list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
-        const UnitInfo *u;
-        struct socket_info *s;
         unsigned cs = 0;
         size_t size = 0;
         int r, n;
@@ -454,9 +451,9 @@ int list_sockets(int argc, char *argv[], void *userdata) {
                 if (n < 0)
                         return n;
 
-                for (u = unit_infos; u < unit_infos + n; u++) {
+                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
                         _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
-                        int i, c;
+                        int c;
 
                         if (!endswith(u->id, ".socket"))
                                 continue;
@@ -476,7 +473,7 @@ int list_sockets(int argc, char *argv[], void *userdata) {
                                 goto cleanup;
                         }
 
-                        for (i = 0; i < c; i++)
+                        for (int i = 0; i < c; i++)
                                 socket_infos[cs + i] = (struct socket_info) {
                                         .machine = u->machine,
                                         .id = u->id,
@@ -499,7 +496,7 @@ int list_sockets(int argc, char *argv[], void *userdata) {
 
  cleanup:
         assert(cs == 0 || socket_infos);
-        for (s = socket_infos; s < socket_infos + cs; s++) {
+        for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
                 free(s->type);
                 free(s->path);
                 if (s->own_triggered)
@@ -604,7 +601,6 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
 
 static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        struct timer_info *t;
         const char *on, *off;
         int r;
 
@@ -620,34 +616,34 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
 
         (void) table_set_empty_string(table, "-");
 
-        if (n > 0) {
-                for (t = timer_infos; t < timer_infos + n; t++) {
-                        _cleanup_free_ char *j = NULL, *activates = NULL;
-                        const char *unit;
+        for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
+                _cleanup_free_ char *j = NULL, *activates = NULL;
+                const char *unit;
 
-                        if (t->machine) {
-                                j = strjoin(t->machine, ":", t->id);
-                                if (!j)
-                                        return log_oom();
-                                unit = j;
-                        } else
-                                unit = t->id;
-
-                        activates = strv_join(t->triggered, ", ");
-                        if (!activates)
+                if (t->machine) {
+                        j = strjoin(t->machine, ":", t->id);
+                        if (!j)
                                 return log_oom();
+                        unit = j;
+                } else
+                        unit = t->id;
 
-                        r = table_add_many(table,
-                                           TABLE_TIMESTAMP, t->next_elapse,
-                                           TABLE_TIMESTAMP_RELATIVE, t->next_elapse,
-                                           TABLE_TIMESTAMP, t->last_trigger,
-                                           TABLE_TIMESTAMP_RELATIVE, t->last_trigger,
-                                           TABLE_STRING, unit,
-                                           TABLE_STRING, activates);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
+                activates = strv_join(t->triggered, ", ");
+                if (!activates)
+                        return log_oom();
 
+                r = table_add_many(table,
+                                   TABLE_TIMESTAMP, t->next_elapse,
+                                   TABLE_TIMESTAMP_RELATIVE, t->next_elapse,
+                                   TABLE_TIMESTAMP, t->last_trigger,
+                                   TABLE_TIMESTAMP_RELATIVE, t->last_trigger,
+                                   TABLE_STRING, unit,
+                                   TABLE_STRING, activates);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (n > 0) {
                 on = ansi_highlight();
                 off = ansi_normal();
         } else {
@@ -699,8 +695,6 @@ int list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        struct timer_info *t;
-        const UnitInfo *u;
         size_t size = 0;
         int n, c = 0;
         dual_timestamp nw;
@@ -724,7 +718,7 @@ int list_timers(int argc, char *argv[], void *userdata) {
 
                 dual_timestamp_get(&nw);
 
-                for (u = unit_infos; u < unit_infos + n; u++) {
+                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
                         _cleanup_strv_free_ char **triggered = NULL;
                         dual_timestamp next = DUAL_TIMESTAMP_NULL;
                         usec_t m, last = 0;
@@ -764,7 +758,7 @@ int list_timers(int argc, char *argv[], void *userdata) {
         output_timers_list(timer_infos, c);
 
  cleanup:
-        for (t = timer_infos; t < timer_infos + c; t++)
+        for (struct timer_info *t = timer_infos; t < timer_infos + c; t++)
                 strv_free(t->triggered);
 
         return r;

@@ -1,0 +1,89 @@
+#  -*- Mode: rpm-spec; indent-tabs-mode: nil -*- */
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  Copyright 2018 Neal Gompa
+
+# The contents of this are an example to be copied into systemd.spec.
+#
+# Minimum rpm version supported: 4.14.0
+
+%transfiletriggerin -P 900900 -- @systemunitdir@ /etc/systemd/system
+# This script will run after any package is initially installed or
+# upgraded. We care about the case where a package is initially
+# installed, because other cases are covered by the *un scriptlets,
+# so sometimes we will reload needlessly.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemctl daemon-reload || :
+  %{_bindir}/systemctl reload-or-restart --marked || :
+fi
+
+%transfiletriggerpostun -P 1000100 -- @systemunitdir@ /etc/systemd/system
+# On removal, we need to run daemon-reload after any units have been
+# removed.
+# On upgrade, we need to run daemon-reload after any new unit files
+# have been installed, but before %postun scripts in packages get
+# executed.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemctl daemon-reload || :
+fi
+
+%transfiletriggerpostun -P 10000 -- @systemunitdir@ /etc/systemd/system
+# We restart remaining services that should be restarted here.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemctl reload-or-restart --marked || :
+fi
+
+%transfiletriggerin -P 1000700 -- @sysusersdir@
+# This script will process files installed in @sysusersdir@ to create
+# specified users automatically. The priority is set such that it
+# will run before the tmpfiles file trigger.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemd-sysusers || :
+fi
+
+%transfiletriggerin -P 1000700 udev -- @udevhwdbdir@
+# This script will automatically invoke hwdb update if files have been
+# installed or updated in @udevhwdbdir@.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemd-hwdb update || :
+fi
+
+%transfiletriggerin -P 1000700 -- @catalogdir@
+# This script will automatically invoke journal catalog update if files
+# have been installed or updated in @catalogdir@.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/journalctl --update-catalog || :
+fi
+
+%transfiletriggerin -P 1000700 -- @binfmtdir@
+# This script will automatically apply binfmt rules if files have been
+# installed or updated in @binfmtdir@.
+if test -d "/run/systemd/system"; then
+  # systemd-binfmt might fail if binfmt_misc kernel module is not loaded
+  # during install
+  @rootlibexecdir@/systemd-binfmt || :
+fi
+
+%transfiletriggerin -P 1000600 -- @tmpfilesdir@
+# This script will process files installed in @tmpfilesdir@ to create
+# tmpfiles automatically. The priority is set such that it will run
+# after the sysusers file trigger, but before any other triggers.
+if test -d "/run/systemd/system"; then
+  %{_bindir}/systemd-tmpfiles --create || :
+fi
+
+%transfiletriggerin -P 1000600 udev -- @udevrulesdir@
+# This script will automatically update udev with new rules if files
+# have been installed or updated in @udevrulesdir@.
+if test -e /run/udev/control; then
+  %{_bindir}/udevadm control --reload || :
+fi
+
+%transfiletriggerin -P 1000500 -- @sysctldir@
+# This script will automatically apply sysctl rules if files have been
+# installed or updated in @sysctldir@.
+if test -d "/run/systemd/system"; then
+  @rootlibexecdir@/systemd-sysctl || :
+fi
