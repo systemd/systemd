@@ -47,6 +47,7 @@ static int nexthop_new(NextHop **ret) {
 
         *nexthop = (NextHop) {
                 .family = AF_UNSPEC,
+                .onlink = -1,
         };
 
         *ret = TAKE_PTR(nexthop);
@@ -360,6 +361,12 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
                 r = netlink_message_append_in_addr_union(req, NHA_GATEWAY, nexthop->family, &nexthop->gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
+
+                if (nexthop->onlink > 0) {
+                        r = sd_rtnl_message_nexthop_set_flags(req, RTNH_F_ONLINK);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to set RTNH_F_ONLINK flag: %m");
+                }
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
@@ -549,6 +556,16 @@ static int nexthop_section_verify(NextHop *nh) {
                 /* When no Gateway= is specified, assume IPv4. */
                 nh->family = AF_INET;
 
+        if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw) &&
+            ordered_hashmap_isempty(nh->network->addresses_by_section)) {
+                /* If no address is configured, in most cases the gateway cannot be reachable.
+                 * TODO: we may need to improve the condition above. */
+                log_warning("%s: Gateway= without static address configured. "
+                            "Enabling OnLink= option.",
+                            nh->section->filename);
+                nh->onlink = true;
+        }
+
         return 0;
 }
 
@@ -718,6 +735,51 @@ int config_parse_nexthop_family(
         default:
                 assert_not_reached("Invalid family.");
         }
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_nexthop_onlink(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = nexthop_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                n->onlink = -1;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        n->onlink = r;
 
         TAKE_PTR(n);
         return 0;
