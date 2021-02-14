@@ -222,6 +222,8 @@ tests += [
 
         [['src/test/test-extract-word.c']],
 
+        [['src/test/test-parse-argument.c']],
+
         [['src/test/test-parse-util.c'],
          [],
          [libseccomp]],

@@ -10,6 +10,7 @@
 #include "log.h"
 #include "machine-id-setup.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "util.h"
@@ -76,7 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument(optarg, true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
