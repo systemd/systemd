@@ -1342,6 +1342,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             to <literal>ipv4</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>OnLink=</varname></term>
+          <listitem>
+            <para>Takes a boolean. If set to true, the kernel does not have to check if the gateway is
+            reachable directly by the current machine (i.e., the kernel does not need to check if the
+            gateway is attached to the local network), so that we can insert the nexthop in the kernel
+            table without it being complained about. Defaults to <literal>no</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
