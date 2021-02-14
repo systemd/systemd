@@ -22,6 +22,7 @@
 #include "mountpoint-util.h"
 #include "os-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -943,7 +944,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_root);
+                        r = parse_path_argument(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;

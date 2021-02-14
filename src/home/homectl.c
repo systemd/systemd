@@ -23,6 +23,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
@@ -2260,7 +2261,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = parse_path_argument_and_warn(optarg, false, &hd);
+                        r = parse_path_argument(optarg, false, &hd);
                         if (r < 0)
                                 return r;
 
@@ -2481,7 +2482,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = parse_path_argument_and_warn(optarg, false, &v);
+                        r = parse_path_argument(optarg, false, &v);
                         if (r < 0)
                                 return r;
 
