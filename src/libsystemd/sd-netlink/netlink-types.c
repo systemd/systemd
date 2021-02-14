@@ -805,8 +805,16 @@ static const NLTypeSystem rtnl_routing_policy_rule_type_system = {
 
 static const NLType rtnl_nexthop_types[] = {
         [NHA_ID]                  = { .type = NETLINK_TYPE_U32 },
+        [NHA_GROUP]               = { /* array of struct nexthop_grp */ },
+        [NHA_GROUP_TYPE]          = { .type = NETLINK_TYPE_U16 },
+        [NHA_BLACKHOLE]           = { .type = NETLINK_TYPE_FLAG },
         [NHA_OIF]                 = { .type = NETLINK_TYPE_U32 },
         [NHA_GATEWAY]             = { .type = NETLINK_TYPE_IN_ADDR },
+        [NHA_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16 },
+        [NHA_ENCAP]               = { .type = NETLINK_TYPE_NESTED },
+        [NHA_GROUPS]              = { .type = NETLINK_TYPE_FLAG },
+        [NHA_MASTER]              = { .type = NETLINK_TYPE_U32 },
+        [NHA_FDB]                 = { .type = NETLINK_TYPE_FLAG },
 };
 
 static const NLTypeSystem rtnl_nexthop_type_system = {
