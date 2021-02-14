@@ -752,38 +752,6 @@ int fsck_exists(const char *fstype) {
         return executable_is_good(checker);
 }
 
-int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
-        char *p;
-        int r;
-
-        /*
-         * This function is intended to be used in command line
-         * parsers, to handle paths that are passed in. It makes the
-         * path absolute, and reduces it to NULL if omitted or
-         * root (the latter optionally).
-         *
-         * NOTE THAT THIS WILL FREE THE PREVIOUS ARGUMENT POINTER ON
-         * SUCCESS! Hence, do not pass in uninitialized pointers.
-         */
-
-        if (isempty(path)) {
-                *arg = mfree(*arg);
-                return 0;
-        }
-
-        r = path_make_absolute_cwd(path, &p);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
-
-        path_simplify(p, false);
-        if (suppress_root && empty_or_root(p))
-                p = mfree(p);
-
-        free_and_replace(*arg, p);
-
-        return 0;
-}
-
 char* dirname_malloc(const char *path) {
         char *d, *dir, *dir2;
 

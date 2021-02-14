@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -470,7 +471,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WORKING_DIRECTORY:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_working_directory);
+                        r = parse_path_argument(optarg, true, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
