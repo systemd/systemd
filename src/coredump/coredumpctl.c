@@ -25,6 +25,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -320,7 +321,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_JSON:
-                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 

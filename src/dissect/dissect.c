@@ -22,6 +22,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -245,7 +246,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_VERITY_DATA:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_verity_settings.data_path);
+                        r = parse_path_argument(optarg, false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;
@@ -259,7 +260,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_JSON:
-                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
