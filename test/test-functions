@@ -750,7 +750,7 @@ install_compiled_systemd() {
 install_debian_systemd() {
     ddebug "Install debian systemd"
 
-    local _systemd_pkgs=$(apt-cache showsrc systemd | grep -m 1 -E '^Binary:' | cut -d ':' -f 2 | tr -d ,)
+    local _systemd_pkgs=$(grep -E '^Package:' ${SOURCE_DIR}/debian/control | cut -d ':' -f 2)
     local _files=""
     for deb in $_systemd_pkgs; do
         _files=$(dpkg-query -L $deb 2>/dev/null) || continue
