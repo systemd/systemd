@@ -16,6 +16,7 @@
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
@@ -323,7 +324,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments, refusing.");
 
-        r = parse_path_argument_and_warn(argv[optind], false, &arg_node);
+        r = parse_path_argument(argv[optind], false, &arg_node);
         if (r < 0)
                 return r;
 

@@ -58,6 +58,7 @@
 #include "mount-setup.h"
 #include "os-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -358,7 +359,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (path_is_absolute(value))
-                        (void) parse_path_argument_and_warn(value, false, &arg_early_core_pattern);
+                        (void) parse_path_argument(value, false, &arg_early_core_pattern);
                 else
                         log_warning("Specified core pattern '%s' is not an absolute path, ignoring.", value);
 
@@ -498,7 +499,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                (void) parse_path_argument_and_warn(value, false, &arg_watchdog_device);
+                (void) parse_path_argument(value, false, &arg_watchdog_device);
 
         } else if (proc_cmdline_key_streq(key, "systemd.clock_usec")) {
 
