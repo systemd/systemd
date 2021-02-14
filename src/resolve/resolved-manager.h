@@ -165,7 +165,9 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
 void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
-bool manager_our_packet(Manager *m, DnsPacket *p);
+bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
+bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
+
 DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
 
 void manager_verify_all(Manager *m);
@@ -195,3 +197,5 @@ void manager_reset_server_features(Manager *m);
 void manager_cleanup_saved_user(Manager *m);
 
 bool manager_next_dnssd_names(Manager *m);
+
+bool manager_server_is_stub(Manager *m, DnsServer *s);
