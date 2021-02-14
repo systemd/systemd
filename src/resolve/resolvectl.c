@@ -2620,8 +2620,14 @@ static int native_help(void) {
                "     --service-address=BOOL    Resolve address for services (default: yes)\n"
                "     --service-txt=BOOL        Resolve TXT records for services (default: yes)\n"
                "     --cname=BOOL              Follow CNAME redirects (default: yes)\n"
-               "     --search=BOOL             Use search domains for single-label names\n"
-               "                                                              (default: yes)\n"
+               "     --validate=BOOL           Allow DNSSEC validation (default: yes)\n"
+               "     --synthesize=BOOL         Allow synthetic response (default: yes)\n"
+               "     --cache=BOOL              Allow response from cache (default: yes)\n"
+               "     --zone=BOOL               Allow response from locally registered mDNS/LLMNR\n"
+               "                               records (default: yes)\n"
+               "     --trust-anchor=BOOL       Allow response from local trust anchor (default: yes)\n"
+               "     --network=BOOL            Allow response from network (default: yes)\n"
+               "     --search=BOOL             Use search domains for single-label names (default: yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
                "     --legend=BOOL             Print headers and additional info (default: yes)\n"
                "\nSee the %s for details.\n",
@@ -2961,6 +2967,12 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_LEGEND,
                 ARG_CNAME,
+                ARG_VALIDATE,
+                ARG_SYNTHESIZE,
+                ARG_CACHE,
+                ARG_ZONE,
+                ARG_TRUST_ANCHOR,
+                ARG_NETWORK,
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
                 ARG_RAW,
@@ -2977,6 +2989,12 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "interface",             required_argument, NULL, 'i'                       },
                 { "protocol",              required_argument, NULL, 'p'                       },
                 { "cname",                 required_argument, NULL, ARG_CNAME                 },
+                { "validate",              required_argument, NULL, ARG_VALIDATE              },
+                { "synthesize",            required_argument, NULL, ARG_SYNTHESIZE            },
+                { "cache",                 required_argument, NULL, ARG_CACHE                 },
+                { "zone",                  required_argument, NULL, ARG_ZONE                  },
+                { "trust-anchor",          required_argument, NULL, ARG_TRUST_ANCHOR          },
+                { "network",               required_argument, NULL, ARG_NETWORK               },
                 { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
                 { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
                 { "raw",                   optional_argument, NULL, ARG_RAW                   },
@@ -3098,6 +3116,48 @@ static int native_parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --cname= argument.");
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
+                        break;
+
+                case ARG_VALIDATE:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --validate= argument.");
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_VALIDATE, r == 0);
+                        break;
+
+                case ARG_SYNTHESIZE:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --synthesize= argument.");
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_SYNTHESIZE, r == 0);
+                        break;
+
+                case ARG_CACHE:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --cache= argument.");
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CACHE, r == 0);
+                        break;
+
+                case ARG_ZONE:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --zone= argument.");
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ZONE, r == 0);
+                        break;
+
+                case ARG_TRUST_ANCHOR:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --trust-anchor= argument.");
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TRUST_ANCHOR, r == 0);
+                        break;
+
+                case ARG_NETWORK:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --network= argument.");
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_NETWORK, r == 0);
                         break;
 
                 case ARG_SERVICE_ADDRESS:
