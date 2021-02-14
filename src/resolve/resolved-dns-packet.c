@@ -2253,6 +2253,18 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 bool cache_flush = false;
                 size_t start;
 
+                if (p->rindex == p->size) {
+                        /* If we reached the end of the packet already, but there are still more RRs
+                         * declared, then that's a corrupt packet. Let's accept the packet anyway, since it's
+                         * apparently a common bug in routers. Let's however suppress OPT support in this
+                         * case, so that we force the rest of the logic into lowest DNS baseline support. Or
+                         * to say this differently: if the DNS server doesn't even get the RR counts right,
+                         * it's highly unlikely it gets EDNS right. */
+                        log_debug("More resource records declared in packet than included, suppressing OPT.");
+                        bad_opt = true;
+                        break;
+                }
+
                 r = dns_packet_read_rr(p, &rr, &cache_flush, &start);
                 if (r < 0)
                         return r;
@@ -2352,8 +2364,10 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 previous = dns_resource_record_ref(rr);
         }
 
-        if (bad_opt)
+        if (bad_opt) {
                 p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
 
         *ret_answer = TAKE_PTR(answer);
 
@@ -2379,6 +2393,12 @@ int dns_packet_extract(DnsPacket *p) {
         r = dns_packet_extract_answer(p, &answer);
         if (r < 0)
                 return r;
+
+        if (p->rindex < p->size)  {
+                log_debug("Trailing garbage in packet, suppressing OPT.");
+                p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
 
         p->question = TAKE_PTR(question);
         p->answer = TAKE_PTR(answer);
