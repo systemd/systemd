@@ -45,6 +45,7 @@
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "parse-util.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
@@ -3623,7 +3624,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_root);
+                        r = parse_path_argument(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -3653,7 +3654,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DEFINITIONS:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_definitions);
+                        r = parse_path_argument(optarg, false, &arg_definitions);
                         if (r < 0)
                                 return r;
                         break;
@@ -3687,7 +3688,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_JSON:
-                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
