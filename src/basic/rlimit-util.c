@@ -43,6 +43,8 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
             fixed.rlim_max == highest.rlim_max)
                 return 0;
 
+        log_warning("Failed at setting rlimit %lu for ressource RLIMIT_%s. Will attempt setting value %lu.", rlim->rlim_max, rlimit_to_string(resource), highest.rlim_max);
+
         if (setrlimit(resource, &fixed) < 0)
                 return -errno;
 
