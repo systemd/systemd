@@ -27,6 +27,7 @@ typedef struct NextHop {
         uint32_t id;
         int family;
         union in_addr_union gw;
+        int onlink;
 } NextHop;
 
 NextHop *nexthop_free(NextHop *nexthop);
@@ -41,3 +42,4 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_family);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_onlink);
