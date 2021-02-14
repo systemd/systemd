@@ -24,6 +24,11 @@ Id=4
 Family=ipv4
 
 [NextHop]
+Id=5
+Gateway=192.168.10.1
+OnLink=yes
+
+[NextHop]
 Gateway=192.168.5.2
 
 [Route]
@@ -37,3 +42,7 @@ Destination=10.10.10.11
 [Route]
 NextHop=2
 Destination=2001:1234:5:8f62::1
+
+[Route]
+NextHop=5
+Destination=10.10.10.12
