@@ -883,6 +883,8 @@ void manager_free(Manager *m) {
         m->rules = set_free(m->rules);
         m->rules_foreign = set_free(m->rules_foreign);
 
+        m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
+
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);
@@ -1099,6 +1101,10 @@ int manager_enumerate(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate neighbors: %m");
 
+        r = manager_enumerate_nexthop(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate nexthop rules: %m");
+
         r = manager_enumerate_routes(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate routes: %m");
@@ -1106,10 +1112,6 @@ int manager_enumerate(Manager *m) {
         r = manager_enumerate_rules(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
-
-        r = manager_enumerate_nexthop(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate nexthop rules: %m");
 
         return 0;
 }
