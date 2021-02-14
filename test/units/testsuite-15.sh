@@ -124,6 +124,32 @@ EOF
     clear_services test15-a test15-b test15-c
 }
 
+test_linked_units () {
+    echo "Testing linked units..."
+    echo "*** test linked unit (same basename)"
+
+    create_service test15-a
+    mv /etc/systemd/system/test15-a.service /
+    ln -s /test15-a.service /etc/systemd/system/
+    ln -s test15-a.service /etc/systemd/system/test15-b.service
+
+    check_ok test15-a Names test15-a.service
+    check_ok test15-a Names test15-b.service
+
+    echo "*** test linked unit (cross basename)"
+
+    mv /test15-a.service /test15-a@.scope
+    ln -fs /test15-a@.scope /etc/systemd/system/test15-a.service
+    systemctl daemon-reload
+
+    check_ok test15-a Names test15-a.service
+    check_ok test15-a Names test15-b.service
+    check_ko test15-a Names test15-b@
+
+    rm /test15-a@.scope
+    clear_services test15-a test15-b
+}
+
 test_hierarchical_dropins () {
     echo "Testing hierarchical dropins..."
     echo "*** test service.d/ top level drop-in"
@@ -465,6 +491,7 @@ test_invalid_dropins () {
 }
 
 test_basic_dropins
+test_linked_units
 test_hierarchical_dropins
 test_template_dropins
 test_alias_dropins
