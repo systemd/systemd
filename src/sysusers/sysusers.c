@@ -17,6 +17,7 @@
 #include "mount-util.h"
 #include "nscd-flush.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
@@ -1813,7 +1814,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_root);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -1823,7 +1824,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "This systemd-sysusers version is compiled without support for --image=.");
 #else
-                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_image);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
