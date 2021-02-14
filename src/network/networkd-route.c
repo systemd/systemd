@@ -496,7 +496,10 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, c
         dest->prefsrc = src->prefsrc;
         dest->scope = src->scope;
         dest->protocol = src->protocol;
-        dest->type = src->type;
+        if (nh && nh->blackhole)
+                dest->type = RTN_BLACKHOLE;
+        else
+                dest->type = src->type;
         dest->tos = src->tos;
         dest->priority = src->priority;
         dest->table = src->table;
@@ -983,8 +986,8 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
 
         (void) manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh);
 
-        if (route_type_is_reject(route))
-                k = route_add(link->manager, NULL, route, NULL, NULL, &nr);
+        if (route_type_is_reject(route) || (nh && nh->blackhole))
+                k = route_add(link->manager, NULL, route, NULL, nh, &nr);
         else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
                 k = route_add(NULL, link, route, m, nh, &nr);
         else {
