@@ -669,7 +669,6 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
 
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
-        assert_return(data, -EINVAL);
 
         assert(m->n_containers < RTNL_CONTAINER_DEPTH);
 
@@ -686,7 +685,8 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
 
         rta = (struct rtattr*)((uint8_t *) m->hdr + attribute->offset);
 
-        *data = RTA_DATA(rta);
+        if (data)
+                *data = RTA_DATA(rta);
 
         if (net_byteorder)
                 *net_byteorder = attribute->net_byteorder;
@@ -972,6 +972,27 @@ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type,
                 *data = u.in6;
 
         return r;
+}
+
+int sd_netlink_message_has_flag(sd_netlink_message *m, unsigned short type) {
+        void *attr_data;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        /* This returns 1 when the flag is set, 0 when not set, negative errno on error. */
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_FLAG);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container_type, unsigned short type_id, char ***ret) {

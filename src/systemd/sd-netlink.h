@@ -116,6 +116,7 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
 int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned short type, struct ifa_cacheinfo *info);
 int sd_netlink_message_read_in_addr(sd_netlink_message *m, unsigned short type, struct in_addr *data);
 int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type, struct in6_addr *data);
+int sd_netlink_message_has_flag(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_enter_array(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_exit_container(sd_netlink_message *m);
