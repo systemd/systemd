@@ -896,6 +896,9 @@ void manager_free(Manager *m) {
         m->routes = set_free(m->routes);
         m->routes_foreign = set_free(m->routes_foreign);
 
+        m->nexthops = set_free(m->nexthops);
+        m->nexthops_foreign = set_free(m->nexthops_foreign);
+
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
 
