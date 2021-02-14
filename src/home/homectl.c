@@ -3234,7 +3234,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_JSON:
-                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
