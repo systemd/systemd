@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "random-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "string-util.h"
@@ -712,10 +713,7 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
 
         items = newa(DnsAnswerItem, a->n_rrs);
         for (i = 0; i < a->n_rrs; i++) {
-
-                if (a->items[i].rr->key->class == DNS_CLASS_IN &&
-                    ((a->items[i].rr->key->type == DNS_TYPE_A && in_addr_is_link_local(AF_INET, (union in_addr_union*) &a->items[i].rr->a.in_addr) != prefer_link_local) ||
-                     (a->items[i].rr->key->type == DNS_TYPE_AAAA && in_addr_is_link_local(AF_INET6, (union in_addr_union*) &a->items[i].rr->aaaa.in6_addr) != prefer_link_local)))
+                if (dns_resource_record_is_link_local_address(a->items[i].rr) != prefer_link_local)
                         /* Order address records that are not preferred to the end of the array */
                         items[end--] = a->items[i];
                 else
@@ -897,4 +895,24 @@ int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
         }
 
         return 0;
+}
+
+void dns_answer_randomize(DnsAnswer *a) {
+        size_t n;
+
+        /* Permutes the answer list randomly (Knuth shuffle) */
+
+        n = dns_answer_size(a);
+        if (n <= 1)
+                return;
+
+        for (size_t i = 0; i < n; i++) {
+                size_t k;
+
+                k = random_u64_range(n);
+                if (k == i)
+                        continue;
+
+                SWAP_TWO(a->items[i], a->items[k]);
+        }
 }
