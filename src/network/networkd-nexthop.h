@@ -20,11 +20,13 @@ typedef struct NextHop {
         Network *network;
         NetworkConfigSection *section;
 
+        Manager *manager;
         Link *link;
 
         unsigned char protocol;
 
         uint32_t id;
+        bool blackhole;
         int family;
         union in_addr_union gw;
         int onlink;
@@ -43,3 +45,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_onlink);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_blackhole);
