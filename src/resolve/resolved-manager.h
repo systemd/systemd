@@ -59,6 +59,7 @@ struct Manager {
         Hashmap *dns_transactions;
         LIST_HEAD(DnsQuery, dns_queries);
         unsigned n_dns_queries;
+        Hashmap *stub_queries_by_packet;
 
         LIST_HEAD(DnsStream, dns_streams);
         unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
