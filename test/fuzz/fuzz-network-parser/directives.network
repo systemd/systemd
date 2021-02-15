@@ -166,6 +166,7 @@ Metric=
 TTLPropagate=
 MultiPathRoute=
 TCPAdvertisedMaximumSegmentSize=
+NextHop=
 [Network]
 IPv6DuplicateAddressDetection=
 IPMasquerade=
@@ -349,6 +350,9 @@ SendVendorOption=
 [NextHop]
 Id=
 Gateway=
+Family=
+OnLink=
+Blackhole=
 [QDisc]
 Parent=
 Handle=
