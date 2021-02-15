@@ -2459,7 +2459,7 @@ static int patch_rr(DnsPacket *p, usec_t age) {
 
         INIT_REWINDER(rewinder, p);
 
-        /* Patches the RR at the current rindex, substracts the specified time from the TTL */
+        /* Patches the RR at the current rindex, subtracts the specified time from the TTL */
 
         r = dns_packet_read_name(p, NULL, true, NULL);
         if (r < 0)

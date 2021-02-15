@@ -839,15 +839,15 @@ static int manager_drop_routes_internal(Manager *manager, bool foreign, const Li
 
         routes = foreign ? manager->routes_foreign : manager->routes;
         SET_FOREACH(route, routes) {
-                /* Do not touch routes managed by the kernel */
+                /* Do not touch routes managed by the kernel. */
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                /* The route will be configured later, or already configured by a link */
+                /* The route will be configured later, or already configured by a link. */
                 if (links_have_route(manager, route, except))
                         continue;
 
-                /* The existing links do not have the route. Let's drop this now. It may by
+                /* The existing links do not have the route. Let's drop this now. It may be
                  * re-configured later. */
                 k = route_remove(route, manager, NULL, NULL);
                 if (k < 0 && r >= 0)
