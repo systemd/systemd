@@ -294,8 +294,19 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
         int r;
 
         assert_return(rtnl_message_type_is_nexthop(nhmsg_type), -EINVAL);
-        assert_return((nhmsg_type == RTM_GETNEXTHOP && nh_family == AF_UNSPEC) ||
-                      IN_SET(nh_family, AF_INET, AF_INET6), -EINVAL);
+        switch(nhmsg_type) {
+        case RTM_DELNEXTHOP:
+                assert_return(nh_family == AF_UNSPEC, -EINVAL);
+                _fallthrough_;
+        case RTM_GETNEXTHOP:
+                assert_return(nh_protocol == RTPROT_UNSPEC, -EINVAL);
+                break;
+        case RTM_NEWNEXTHOP:
+                assert_return(IN_SET(nh_family, AF_UNSPEC, AF_INET, AF_INET6), -EINVAL);
+                break;
+        default:
+                assert_not_reached("Invalid message type.");
+        }
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nhmsg_type);
@@ -319,7 +330,7 @@ int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags) {
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(m->hdr->nlmsg_type == RTM_NEWNEXTHOP, -EINVAL);
 
         nhm = NLMSG_DATA(m->hdr);
         nhm->nh_flags |= flags;
@@ -346,7 +357,7 @@ int sd_rtnl_message_nexthop_get_family(const sd_netlink_message *m, uint8_t *fam
         assert_return(m->hdr, -EINVAL);
 
         nhm = NLMSG_DATA(m->hdr);
-        *family = nhm->nh_family ;
+        *family = nhm->nh_family;
 
         return 0;
 }
