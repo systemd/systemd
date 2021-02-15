@@ -19,6 +19,7 @@
 #include "hashmap.h"
 #include "main-func.h"
 #include "missing_sched.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -867,12 +868,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_RECURSIVE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--recursive=", optarg, &arg_recursive);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --recursive= argument '%s': %m", optarg);
+                                return r;
 
-                        arg_recursive = r;
-                        arg_recursive_unset = r == 0;
+                        arg_recursive_unset = !r;
                         break;
 
                 case 'M':

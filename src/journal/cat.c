@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -67,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -104,16 +105,11 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Failed to parse stderr priority value.");
                         break;
 
-                case ARG_LEVEL_PREFIX: {
-                        int k;
-
-                        k = parse_boolean(optarg);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to parse level prefix value.");
-
-                        arg_level_prefix = k;
+                case ARG_LEVEL_PREFIX:
+                        r = parse_boolean_argument("--level-prefix=", optarg, &arg_level_prefix);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 case '?':
                         return -EINVAL;

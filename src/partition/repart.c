@@ -44,8 +44,8 @@
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
-#include "parse-util.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
@@ -3575,11 +3575,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DRY_RUN:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--dry-run=", optarg, &arg_dry_run);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --dry-run= parameter: %s", optarg);
-
-                        dry_run = r;
+                                return r;
                         break;
 
                 case ARG_EMPTY:
@@ -3604,11 +3602,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DISCARD:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--discard=", optarg, &arg_discard);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --discard= parameter: %s", optarg);
-
-                        arg_discard = r;
+                                return r;
                         break;
 
                 case ARG_FACTORY_RESET:
