@@ -208,7 +208,7 @@ static int process_progress(int fd, FILE* console) {
                 p = percent(pass, cur, max);
                 r = fprintf(console, "\r%s: fsck %3.1f%% complete...\r", device, p);
                 if (r < 0)
-                        return -EIO; /* No point in continuing if something happend to our output stream */
+                        return -EIO; /* No point in continuing if something happened to our output stream */
 
                 fflush(console);
                 clear = MAX(clear, r);
