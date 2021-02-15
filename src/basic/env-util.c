@@ -407,7 +407,30 @@ int strv_env_replace_strdup(char ***l, const char *assignment) {
         r = strv_env_replace(l, p);
         if (r < 0)
                 return r;
+        TAKE_PTR(p);
+        return r;
+}
 
+int strv_env_assign(char ***l, const char *key, const char *value) {
+        int r;
+
+        if (!env_name_is_valid(key))
+                return -EINVAL;
+
+        /* NULL removes assignment, "" creates an empty assignment. */
+
+        if (!value) {
+                strv_env_unset(*l, key);
+                return 0;
+        }
+
+        char *p = strjoin(key, "=", value);
+        if (!p)
+                return -ENOMEM;
+
+        r = strv_env_replace(l, p);
+        if (r < 0)
+                return r;
         TAKE_PTR(p);
         return r;
 }
