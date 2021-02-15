@@ -14,6 +14,7 @@
 #include "journal-remote.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -34,8 +35,8 @@ static const char* arg_listen_raw = NULL;
 static const char* arg_listen_http = NULL;
 static const char* arg_listen_https = NULL;
 static char** arg_files = NULL; /* Do not free this. */
-static int arg_compress = true;
-static int arg_seal = false;
+static bool arg_compress = true;
+static bool arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
@@ -965,28 +966,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_COMPRESS:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --compress= parameter.");
-
-                                arg_compress = !!r;
-                        } else
-                                arg_compress = true;
-
+                        r = parse_boolean_argument("--compress", optarg, &arg_compress);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SEAL:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --seal= parameter.");
-
-                                arg_seal = !!r;
-                        } else
-                                arg_seal = true;
-
+                        r = parse_boolean_argument("--seal", optarg, &arg_seal);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_GNUTLS_LOG: {

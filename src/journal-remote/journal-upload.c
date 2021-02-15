@@ -22,6 +22,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -356,7 +357,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
 
         u->input = fd;
 
-        if (arg_follow) {
+        if (arg_follow != 0) {
                 r = sd_event_add_io(u->events, &u->input_event,
                                     fd, EPOLLIN, dispatch_fd_input, u);
                 if (r < 0) {
@@ -747,16 +748,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FOLLOW:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --follow= parameter.");
-
-                                arg_follow = !!r;
-                        } else
-                                arg_follow = true;
-
+                        r = parse_boolean_argument("--follow", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_follow = r;
                         break;
 
                 case ARG_SAVE_STATE:
@@ -857,7 +852,7 @@ static int run(int argc, char **argv) {
                 r = open_journal_for_upload(&u, j,
                                             arg_cursor ?: u.last_cursor,
                                             arg_cursor ? arg_after_cursor : true,
-                                            !!arg_follow);
+                                            arg_follow != 0);
                 if (r < 0)
                         return r;
         }
