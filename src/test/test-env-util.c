@@ -89,6 +89,37 @@ static void test_strv_env_merge(void) {
         assert_se(strv_length(r) == 5);
 }
 
+static void test_strv_env_replace_strdup(void) {
+        log_info("/* %s */", __func__);
+
+        _cleanup_strv_free_ char **a = NULL;
+
+        assert_se(strv_env_replace_strdup(&a, "a=a") == 1);
+        assert_se(strv_env_replace_strdup(&a, "b=b") == 1);
+        assert_se(strv_env_replace_strdup(&a, "a=A") == 0);
+
+        assert_se(strv_length(a) == 2);
+        strv_sort(a);
+        assert_se(streq(a[0], "a=A"));
+        assert_se(streq(a[1], "b=b"));
+}
+
+static void test_strv_env_assign(void) {
+        log_info("/* %s */", __func__);
+
+        _cleanup_strv_free_ char **a = NULL;
+
+        assert_se(strv_env_assign(&a, "a", "a") == 1);
+        assert_se(strv_env_assign(&a, "b", "b") == 1);
+        assert_se(strv_env_assign(&a, "a", "A") == 0);
+        assert_se(strv_env_assign(&a, "b", NULL) == 0);
+
+        assert_se(strv_env_assign(&a, "a=", "B") == -EINVAL);
+
+        assert_se(strv_length(a) == 1);
+        assert_se(streq(a[0], "a=A"));
+}
+
 static void test_env_strv_get_n(void) {
         log_info("/* %s */", __func__);
 
@@ -361,6 +392,8 @@ int main(int argc, char *argv[]) {
         test_strv_env_get();
         test_strv_env_unset();
         test_strv_env_merge();
+        test_strv_env_replace_strdup();
+        test_strv_env_assign();
         test_env_strv_get_n();
         test_replace_env(false);
         test_replace_env(true);
