@@ -21,6 +21,11 @@ static const char* const routing_policy_rule_address_family_table[_ADDRESS_FAMIL
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
 };
 
+static const char* const nexthop_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_IPV4]          = "ipv4",
+        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+};
+
 static const char* const duplicate_address_detection_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]            = "none",
         [ADDRESS_FAMILY_YES]           = "both",
@@ -55,6 +60,7 @@ AddressFamily link_local_address_family_from_string(const char *s) {
 }
 
 DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
+DEFINE_STRING_TABLE_LOOKUP(nexthop_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
