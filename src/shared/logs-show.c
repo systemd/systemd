@@ -1373,7 +1373,7 @@ int show_journal(
                         if (line == 0 && noaccess)
                                 fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.");
                         else if (!noaccess)
-                                fprintf(f, "Warning: journal has been rotated since unit was started, output may be incomplete.\n");
+                                fprintf(f, "Notice: journal has been rotated since unit was started, output may be incomplete.\n");
                         else
                                 fprintf(f, "Warning: journal has been rotated since unit was started and some journal "
                                         "files were not opened due to insufficient permissions, output may be incomplete.\n");
