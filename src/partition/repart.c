@@ -3608,10 +3608,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FACTORY_RESET:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--factory-reset=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --factory-reset= parameter: %s", optarg);
-
+                                return r;
                         arg_factory_reset = r;
                         break;
 
@@ -3642,10 +3641,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRETTY:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--pretty=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --pretty= parameter: %s", optarg);
-
+                                return r;
                         arg_pretty = r;
                         break;
 

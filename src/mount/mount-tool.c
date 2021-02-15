@@ -288,9 +288,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_AUTOMOUNT:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--automount=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "--automount= expects a valid boolean parameter: %s", optarg);
+                                return r;
 
                         arg_action = r ? ACTION_AUTOMOUNT : ACTION_MOUNT;
                         break;
