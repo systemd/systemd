@@ -977,10 +977,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_GNUTLS_LOG: {
+                case ARG_GNUTLS_LOG:
 #if HAVE_GNUTLS
-                        const char* p = optarg;
-                        for (;;) {
+                        for (const char* p = optarg;;) {
                                 _cleanup_free_ char *word = NULL;
 
                                 r = extract_first_word(&p, &word, ",", 0);
@@ -999,7 +998,6 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Option --gnutls-log is not available.");
 #endif
-                }
 
                 case '?':
                         return -EINVAL;
