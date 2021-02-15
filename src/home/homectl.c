@@ -2512,7 +2512,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETENV: {
-                        _cleanup_free_ char **l = NULL, **k = NULL;
+                        _cleanup_free_ char **l = NULL;
                         _cleanup_(json_variant_unrefp) JsonVariant *ne = NULL;
                         JsonVariant *e;
 
@@ -2525,7 +2525,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (!env_assignment_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Environment assignment '%s' not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Environment assignment '%s' not valid.", optarg);
 
                         e = json_variant_by_key(arg_identity_extra, "environment");
                         if (e) {
@@ -2534,13 +2535,13 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse JSON environment field: %m");
                         }
 
-                        k = strv_env_set(l, optarg);
-                        if (!k)
-                                return log_oom();
+                        r = strv_env_replace_strdup(&l, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to replace JSON environment field: %m");
 
-                        strv_sort(k);
+                        strv_sort(l);
 
-                        r = json_variant_new_array_strv(&ne, k);
+                        r = json_variant_new_array_strv(&ne, l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocate environment list JSON: %m");
 
