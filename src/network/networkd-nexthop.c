@@ -146,6 +146,16 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
+static bool nexthop_equal(const NextHop *a, const NextHop *b) {
+        if (a == b)
+                return true;
+
+        if (!a || !b)
+                return false;
+
+        return nexthop_compare_func(a, b) == 0;
+}
+
 static void nexthop_copy(NextHop *dest, const NextHop *src) {
         assert(dest);
         assert(src);
@@ -358,6 +368,56 @@ static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *s
         }
 }
 
+static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+
+        /* Note that link may be NULL. */
+        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ENOENT)
+                log_link_message_warning_errno(link, m, r, "Could not drop nexthop, ignoring");
+
+        return 1;
+}
+
+static int nexthop_remove(const NextHop *nexthop, Manager *manager, Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(nexthop);
+        assert(manager);
+
+        /* link may be NULL. */
+
+        if (nexthop->id == 0) {
+                log_link_debug(link, "Cannot remove nexthop without valid ID, ignoring.");
+                return 0;
+        }
+
+        log_nexthop_debug(nexthop, nexthop->id, "Removing", link);
+
+        r = sd_rtnl_message_new_nexthop(manager->rtnl, &req, RTM_DELNEXTHOP, AF_UNSPEC, RTPROT_UNSPEC);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not create RTM_DELNEXTHOP message: %m");
+
+        r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
+
+        r = netlink_call_async(manager->rtnl, NULL, req, nexthop_remove_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link); /* link may be NULL, link_ref() is OK with that */
+
+        return 0;
+}
+
 static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -489,6 +549,112 @@ int link_set_nexthops(Link *link) {
         link_set_state(link, LINK_STATE_CONFIGURING);
 
         return 0;
+}
+
+static bool link_has_nexthop(const Link *link, const NextHop *nexthop) {
+        NextHop *net_nexthop;
+
+        assert(link);
+        assert(nexthop);
+
+        if (!link->network)
+                return false;
+
+        HASHMAP_FOREACH(net_nexthop, link->network->nexthops_by_section)
+                if (nexthop_equal(net_nexthop, nexthop))
+                        return true;
+
+        return false;
+}
+
+static bool links_have_nexthop(const Manager *manager, const NextHop *nexthop, const Link *except) {
+        Link *link;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(link, manager->links) {
+                if (link == except)
+                        continue;
+
+                if (link_has_nexthop(link, nexthop))
+                        return true;
+        }
+
+        return false;
+}
+
+static int manager_drop_nexthops_internal(Manager *manager, bool foreign, const Link *except) {
+        NextHop *nexthop;
+        Set *nexthops;
+        int k, r = 0;
+
+        assert(manager);
+
+        nexthops = foreign ? manager->nexthops_foreign : manager->nexthops;
+        SET_FOREACH(nexthop, nexthops) {
+                /* The nexthop will be configured later, or already configured by a link. */
+                if (links_have_nexthop(manager, nexthop, except))
+                        continue;
+
+                /* The existing links do not have the nexthop. Let's drop this now. It may be
+                 * re-configured later. */
+                k = nexthop_remove(nexthop, manager, NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int manager_drop_foreign_nexthops(Manager *manager) {
+        return manager_drop_nexthops_internal(manager, true, NULL);
+}
+
+static int manager_drop_nexthops(Manager *manager, const Link *except) {
+        return manager_drop_nexthops_internal(manager, false, except);
+}
+
+int link_drop_foreign_nexthops(Link *link) {
+        NextHop *nexthop;
+        int k, r = 0;
+
+        assert(link);
+        assert(link->manager);
+
+        SET_FOREACH(nexthop, link->nexthops_foreign) {
+                if (link_has_nexthop(link, nexthop))
+                        k = nexthop_add(link, nexthop, NULL);
+                else
+                        k = nexthop_remove(nexthop, link->manager, link);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        k = manager_drop_foreign_nexthops(link->manager);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        return r;
+}
+
+int link_drop_nexthops(Link *link) {
+        NextHop *nexthop;
+        int k, r = 0;
+
+        assert(link);
+        assert(link->manager);
+
+        SET_FOREACH(nexthop, link->nexthops) {
+                k = nexthop_remove(nexthop, link->manager, link);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        k = manager_drop_nexthops(link->manager, link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        return r;
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
