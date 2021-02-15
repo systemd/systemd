@@ -1109,17 +1109,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E': {
-                        char **n;
-
                         if (!env_assignment_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Environment variable assignment '%s' is not valid.", optarg);
+                        r = strv_env_replace_strdup(&arg_setenv, optarg);
+                        if (r < 0)
+                                return r;
 
-                        n = strv_env_set(arg_setenv, optarg);
-                        if (!n)
-                                return log_oom();
-
-                        strv_free_and_replace(arg_setenv, n);
                         arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
                 }

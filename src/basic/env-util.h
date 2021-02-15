@@ -46,6 +46,7 @@ char **strv_env_set(char **x, const char *p); /* New copy ... */
 char **strv_env_unset(char **l, const char *p); /* In place ... */
 char **strv_env_unset_many(char **l, ...) _sentinel_;
 int strv_env_replace(char ***l, char *p); /* In place ... */
+int strv_env_replace_strdup(char ***l, const char *assignment);
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
