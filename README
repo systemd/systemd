@@ -44,7 +44,7 @@ REQUIREMENTS:
           CONFIG_SIGNALFD
           CONFIG_TIMERFD
           CONFIG_EPOLL
-          CONFIG_NET
+          CONFIG_UNIX (it requires CONFIG_NET, but every other flag in it is not necessary)
           CONFIG_SYSFS
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
