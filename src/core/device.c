@@ -483,7 +483,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         _cleanup_free_ char *e = NULL;
         const char *sysfs = NULL;
         Unit *u = NULL;
-        bool delete;
+        bool delete, moved = false;
         int r;
 
         assert(m);
@@ -548,6 +548,54 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 /* The additional systemd udev properties we only interpret for the main object */
                 if (main)
                         (void) device_add_udev_wants(u, dev);
+                else {
+                        /* If there we are bound or required by any mounts then promote those dependencies to
+                         * device we follow. */
+                        Unit *other, *follow;
+                        UnitDependencyInfo di;
+
+                        /* We are not the main device hence we must follow some. */
+                        follow = unit_following(u);
+
+                        if (follow)  {
+                                HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[UNIT_BOUND_BY]) {
+                                        if (other->type != UNIT_MOUNT)
+                                                continue;
+
+                                        /* Promote only dependencies that were configured in unit file. */
+                                        if (!FLAGS_SET(di.origin_mask, UNIT_DEPENDENCY_FILE))
+                                                continue;
+
+                                        assert_se(hashmap_remove(other->dependencies[UNIT_BINDS_TO], u));
+                                        assert_se(hashmap_remove(u->dependencies[UNIT_BOUND_BY], other));
+
+                                        r = unit_add_dependency(u, UNIT_BINDS_TO, other, true, di.origin_mask);
+                                        if (r < 0) {
+                                                log_unit_error_errno(u, r, "Failed to promote mount unit dependency: %m");
+                                                goto fail;
+                                        }
+                                }
+
+                                HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[UNIT_REQUIRED_BY]) {
+                                        if (other->type != UNIT_MOUNT)
+                                                continue;
+
+                                        /* Promote only dependencies that were configured in unit file. */
+                                        if (!FLAGS_SET(di.origin_mask, UNIT_DEPENDENCY_FILE))
+                                                continue;
+
+                                        assert_se(hashmap_remove(other->dependencies[UNIT_REQUIRES], u));
+                                        assert_se(hashmap_remove(u->dependencies[UNIT_REQUIRED_BY], other));
+
+                                        r = unit_add_dependency(u, UNIT_REQUIRES, other, true, di.origin_mask);
+                                        if (r < 0) {
+                                                log_unit_error_errno(u, r, "Failed to promote mount unit dependency: %m");
+                                                goto fail;
+                                        }
+                                }
+                                moved = true;
+                        }
+                }
         }
 
         (void) device_update_description(u, dev, path);
@@ -556,7 +604,10 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
          * before the device appears on its radar. In this case the device unit is partially initialized and includes
          * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
-                device_upgrade_mount_deps(u);
+                /* If we promoted dependencies than u might not have any Requires dependencies to upgrade. */
+                device_upgrade_mount_deps(moved ? unit_following(u) : u);
+
+
 
         return 0;
 
