@@ -1981,6 +1981,10 @@ static int link_drop_foreign_config(Link *link) {
         if (k < 0 && r >= 0)
                 r = k;
 
+        k = link_drop_foreign_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
         k = manager_drop_foreign_routing_policy_rules(link->manager);
         if (k < 0 && r >= 0)
                 r = k;
@@ -2001,6 +2005,10 @@ static int link_drop_config(Link *link) {
                 r = k;
 
         k = link_drop_routes(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_nexthops(link);
         if (k < 0 && r >= 0)
                 r = k;
 
