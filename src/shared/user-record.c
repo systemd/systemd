@@ -620,7 +620,6 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
         for (i = 0; i < json_variant_elements(variant); i++) {
-                _cleanup_free_ char *c = NULL;
                 JsonVariant *e;
                 const char *a;
 
@@ -633,19 +632,12 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
                 if (!env_assignment_is_valid(a))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
 
-                c = strdup(a);
-                if (!c)
-                        return json_log_oom(variant, flags);
-
-                r = strv_env_replace(&n, c);
+                r = strv_env_replace_strdup(&n, a);
                 if (r < 0)
                         return json_log_oom(variant, flags);
-
-                c = NULL;
         }
 
-        strv_free_and_replace(*l, n);
-        return 0;
+        return strv_free_and_replace(*l, n);
 }
 
 int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {

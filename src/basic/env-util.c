@@ -370,9 +370,8 @@ int strv_env_replace(char ***l, char *p) {
 
         assert(p);
 
-        /* Replace first occurrence of the env var or add a new one in the string list. Drop other occurrences. Edits
-         * in-place. Does not copy p.  p must be a valid key=value assignment.
-         */
+        /* Replace first occurrence of the env var or add a new one in the string list. Drop other
+         * occurrences. Edits in-place. Does not copy p. p must be a valid key=value assignment. */
 
         t = strchr(p, '=');
         if (!t)
@@ -393,6 +392,23 @@ int strv_env_replace(char ***l, char *p) {
                 return r;
 
         return 1;
+}
+
+int strv_env_replace_strdup(char ***l, const char *assignment) {
+        int r;
+
+        /* Like strv_env_replace(), but copies the argument. */
+
+        _cleanup_free_ char *p = strdup(assignment);
+        if (!p)
+                return -ENOMEM;
+
+        r = strv_env_replace(l, p);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(p);
+        return r;
 }
 
 char **strv_env_set(char **x, const char *p) {
