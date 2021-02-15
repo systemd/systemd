@@ -721,6 +721,10 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         if (isempty(p))
                 return false;
 
+        /* A valid ifindex? If so, it's valid iff IFNAME_VALID_NUMERIC is set */
+        if (parse_ifindex(p) >= 0)
+                return flags & IFNAME_VALID_NUMERIC;
+
         if (flags & IFNAME_VALID_ALTERNATIVE) {
                 if (strlen(p) >= ALTIFNAMSIZ)
                         return false;
@@ -745,14 +749,10 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 numeric = numeric && (*t >= '0' && *t <= '9');
         }
 
-        if (numeric) {
-                if (!(flags & IFNAME_VALID_NUMERIC))
-                        return false;
-
-                /* Verify that the number is well-formatted and in range. */
-                if (parse_ifindex(p) < 0)
-                        return false;
-        }
+        /* It's fully numeric but didn't parse as valid ifindex above? if so, it must be too large or zero or
+         * so, let's refuse that. */
+        if (numeric)
+                return false;
 
         return true;
 }
