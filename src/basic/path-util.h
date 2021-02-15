@@ -144,8 +144,6 @@ int fsck_exists(const char *fstype);
                 _ret;                                                   \
         })
 
-int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg);
-
 char* dirname_malloc(const char *path);
 const char *last_path_component(const char *path);
 int path_extract_filename(const char *p, char **ret);

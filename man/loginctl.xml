@@ -334,13 +334,14 @@
         <term><option>-s</option></term>
         <term><option>--signal=</option></term>
 
-        <listitem><para>When used with <command>kill-session</command>
-        or <command>kill-user</command>, choose which signal to send
-        to selected processes. Must be one of the well known signal
-        specifiers, such as <constant>SIGTERM</constant>,
-        <constant>SIGINT</constant> or <constant>SIGSTOP</constant>.
-        If omitted, defaults to
-        <constant>SIGTERM</constant>.</para></listitem>
+        <listitem><para>When used with <command>kill-session</command> or <command>kill-user</command>,
+        choose which signal to send to selected processes. Must be one of the well known signal specifiers,
+        such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or <constant>SIGSTOP</constant>.
+        If omitted, defaults to <constant>SIGTERM</constant>.</para>
+
+        <para>The special value <literal>help</literal> will list the known values and the program will exit
+        immediately, and the special value <literal>list</literal> will list known values along with the
+        numerical signal numbers and the program will exit immediately.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -78,6 +78,7 @@
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -791,7 +792,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'D':
-                        r = parse_path_argument_and_warn(optarg, false, &arg_directory);
+                        r = parse_path_argument(optarg, false, &arg_directory);
                         if (r < 0)
                                 return r;
 
@@ -799,7 +800,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TEMPLATE:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_template);
+                        r = parse_path_argument(optarg, false, &arg_template);
                         if (r < 0)
                                 return r;
 
@@ -807,7 +808,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        r = parse_path_argument_and_warn(optarg, false, &arg_image);
+                        r = parse_path_argument(optarg, false, &arg_image);
                         if (r < 0)
                                 return r;
 
@@ -815,7 +816,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OCI_BUNDLE:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_oci_bundle);
+                        r = parse_path_argument(optarg, false, &arg_oci_bundle);
                         if (r < 0)
                                 return r;
 
@@ -934,7 +935,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_NAMESPACE_PATH:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_network_namespace_path);
+                        r = parse_path_argument(optarg, false, &arg_network_namespace_path);
                         if (r < 0)
                                 return r;
 
@@ -1386,7 +1387,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_VERITY_DATA:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_verity_settings.data_path);
+                        r = parse_path_argument(optarg, false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;

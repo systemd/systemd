@@ -24,6 +24,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "os-util.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -1046,13 +1047,13 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument(optarg, true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
 
                 case ARG_IMAGE:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_image);
+                        r = parse_path_argument(optarg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
