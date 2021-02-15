@@ -97,7 +97,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (!table)
                 return log_oom();
 
-        table_set_header(table, !arg_no_legend);
+        table_set_header(table, arg_legend != 0);
         if (arg_plain) {
                 /* Hide the 'glyph' column when --plain is requested */
                 r = table_hide_column_from_display(table, 0);
@@ -177,7 +177,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (r < 0)
                 return r;
 
-        if (!arg_no_legend) {
+        if (arg_legend != 0) {
                 const char *on, *off;
                 size_t records = table_get_rows(table) - 1;
 
@@ -366,7 +366,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                         return log_error_errno(r, "Failed to set columns to display: %m");
         }
 
-        table_set_header(table, !arg_no_legend);
+        table_set_header(table, arg_legend != 0);
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -417,7 +417,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         if (r < 0)
                 return r;
 
-        if (!arg_no_legend) {
+        if (arg_legend != 0) {
                 printf("\n%s%u sockets listed.%s\n", on, cs, off);
                 if (!arg_all)
                         printf("Pass --all to see loaded but inactive sockets, too.\n");
@@ -614,7 +614,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         if (!table)
                 return log_oom();
 
-        table_set_header(table, !arg_no_legend);
+        table_set_header(table, arg_legend != 0);
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -659,7 +659,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         if (r < 0)
                 return r;
 
-        if (!arg_no_legend) {
+        if (arg_legend != 0) {
                 printf("\n%s%u timers listed.%s\n", on, n, off);
                 if (!arg_all)
                         printf("Pass --all to see loaded but inactive timers, too.\n");
