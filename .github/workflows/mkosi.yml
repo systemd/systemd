@@ -43,7 +43,7 @@ jobs:
         systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi --password= --network-veth=no --qemu-headless build
+      run: sudo python3 -m mkosi --debug="run" --password= --network-veth=no --qemu-headless build
 
     - name: Show ${{ matrix.distro }} image summary
       run: sudo python3 -m mkosi --password= --qemu-headless summary
