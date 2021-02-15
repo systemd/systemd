@@ -67,7 +67,7 @@ const char *arg_job_mode = "replace";
 UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 bool arg_wait = false;
 bool arg_no_block = false;
-bool arg_no_legend = false;
+int arg_legend = -1; /* -1: true, unless --quiet is passed, 1: true */
 PagerFlags arg_pager_flags = 0;
 bool arg_no_wtmp = false;
 bool arg_no_sync = false;
@@ -266,7 +266,7 @@ static int systemctl_help(void) {
                "     --no-block          Do not wait until operation finished\n"
                "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
                "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
-               "     --no-legend         Do not print a legend (column headers and hints)\n"
+               "     --[no-]legend       [Do not] print a legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Do not ask for system passwords\n"
                "     --global            Enable/disable/mask unit files globally\n"
@@ -307,66 +307,66 @@ static int systemctl_help(void) {
 }
 
 static void help_types(void) {
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("Available unit types:");
 
         DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
 }
 
 static void help_states(void) {
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("Available unit load states:");
         DUMP_STRING_TABLE(unit_load_state, UnitLoadState, _UNIT_LOAD_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable unit active states:");
         DUMP_STRING_TABLE(unit_active_state, UnitActiveState, _UNIT_ACTIVE_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable unit file states:");
         DUMP_STRING_TABLE(unit_file_state, UnitFileState, _UNIT_FILE_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable automount unit substates:");
         DUMP_STRING_TABLE(automount_state, AutomountState, _AUTOMOUNT_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable device unit substates:");
         DUMP_STRING_TABLE(device_state, DeviceState, _DEVICE_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable mount unit substates:");
         DUMP_STRING_TABLE(mount_state, MountState, _MOUNT_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable path unit substates:");
         DUMP_STRING_TABLE(path_state, PathState, _PATH_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable scope unit substates:");
         DUMP_STRING_TABLE(scope_state, ScopeState, _SCOPE_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable service unit substates:");
         DUMP_STRING_TABLE(service_state, ServiceState, _SERVICE_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable slice unit substates:");
         DUMP_STRING_TABLE(slice_state, SliceState, _SLICE_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable socket unit substates:");
         DUMP_STRING_TABLE(socket_state, SocketState, _SOCKET_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable swap unit substates:");
         DUMP_STRING_TABLE(swap_state, SwapState, _SWAP_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable target unit substates:");
         DUMP_STRING_TABLE(target_state, TargetState, _TARGET_STATE_MAX);
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 puts("\nAvailable timer unit substates:");
         DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
 }
@@ -388,6 +388,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
+                ARG_LEGEND,
                 ARG_NO_LEGEND,
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
@@ -439,6 +440,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "global",              no_argument,       NULL, ARG_GLOBAL              },
                 { "wait",                no_argument,       NULL, ARG_WAIT                },
                 { "no-block",            no_argument,       NULL, ARG_NO_BLOCK            },
+                { "legend",              no_argument,       NULL, ARG_LEGEND              },
                 { "no-legend",           no_argument,       NULL, ARG_NO_LEGEND           },
                 { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
                 { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
@@ -630,8 +632,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_no_block = true;
                         break;
 
+                case ARG_LEGEND:
+                        arg_legend = true;
+                        break;
                 case ARG_NO_LEGEND:
-                        arg_no_legend = true;
+                        arg_legend = false;
                         break;
 
                 case ARG_NO_PAGER:
@@ -664,6 +669,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+
+                        if (arg_legend < 0)
+                                arg_legend = false;
+
                         break;
 
                 case 'f':
@@ -729,7 +738,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                                        optarg);
 
                         if (OUTPUT_MODE_IS_JSON(arg_output)) {
-                                arg_no_legend = true;
+                                arg_legend = false;
                                 arg_plain = true;
                         }
                         break;
