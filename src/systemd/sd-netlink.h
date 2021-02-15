@@ -139,15 +139,10 @@ int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags);
 int sd_netlink_message_is_broadcast(const sd_netlink_message *m);
 
 /* rtnl */
-
-int sd_rtnl_message_new_link(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index);
-int sd_rtnl_message_new_addr_update(sd_netlink *nl, sd_netlink_message **ret, int index, int family);
-int sd_rtnl_message_new_addr(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int family);
-int sd_rtnl_message_new_route(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type, int rtm_family, unsigned char rtm_protocol);
-int sd_rtnl_message_new_neigh(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int nda_family);
-
 int sd_rtnl_message_get_family(const sd_netlink_message *m, int *family);
 
+int sd_rtnl_message_new_addr(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int family);
+int sd_rtnl_message_new_addr_update(sd_netlink *nl, sd_netlink_message **ret, int index, int family);
 int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_addr_set_scope(sd_netlink_message *m, unsigned char scope);
 int sd_rtnl_message_addr_set_flags(sd_netlink_message *m, unsigned char flags);
@@ -157,6 +152,7 @@ int sd_rtnl_message_addr_get_scope(const sd_netlink_message *m, unsigned char *s
 int sd_rtnl_message_addr_get_flags(const sd_netlink_message *m, unsigned char *flags);
 int sd_rtnl_message_addr_get_ifindex(const sd_netlink_message *m, int *ifindex);
 
+int sd_rtnl_message_new_link(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index);
 int sd_rtnl_message_link_set_flags(sd_netlink_message *m, unsigned flags, unsigned change);
 int sd_rtnl_message_link_set_type(sd_netlink_message *m, unsigned type);
 int sd_rtnl_message_link_set_family(sd_netlink_message *m, unsigned family);
@@ -164,6 +160,7 @@ int sd_rtnl_message_link_get_ifindex(const sd_netlink_message *m, int *ifindex);
 int sd_rtnl_message_link_get_flags(const sd_netlink_message *m, unsigned *flags);
 int sd_rtnl_message_link_get_type(const sd_netlink_message *m, unsigned short *type);
 
+int sd_rtnl_message_new_route(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type, int rtm_family, unsigned char rtm_protocol);
 int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_route_set_scope(sd_netlink_message *m, unsigned char scope);
@@ -172,7 +169,6 @@ int sd_rtnl_message_route_set_table(sd_netlink_message *m, unsigned char table);
 int sd_rtnl_message_route_set_type(sd_netlink_message *m, unsigned char type);
 int sd_rtnl_message_route_get_flags(const sd_netlink_message *m, unsigned *flags);
 int sd_rtnl_message_route_get_family(const sd_netlink_message *m, int *family);
-int sd_rtnl_message_route_set_family(sd_netlink_message *m, int family);
 int sd_rtnl_message_route_get_protocol(const sd_netlink_message *m, unsigned char *protocol);
 int sd_rtnl_message_route_get_scope(const sd_netlink_message *m, unsigned char *scope);
 int sd_rtnl_message_route_get_tos(const sd_netlink_message *m, unsigned char *tos);
@@ -182,11 +178,10 @@ int sd_rtnl_message_route_get_src_prefixlen(const sd_netlink_message *m, unsigne
 int sd_rtnl_message_route_get_type(const sd_netlink_message *m, unsigned char *type);
 
 int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nhmsg_type, int nh_family, unsigned char nh_protocol);
-
 int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags);
-int sd_rtnl_message_nexthop_set_family(sd_netlink_message *m, uint8_t family);
 int sd_rtnl_message_nexthop_get_family(const sd_netlink_message *m, uint8_t *family);
 
+int sd_rtnl_message_new_neigh(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int nda_family);
 int sd_rtnl_message_neigh_set_flags(sd_netlink_message *m, uint8_t flags);
 int sd_rtnl_message_neigh_set_state(sd_netlink_message *m, uint16_t state);
 int sd_rtnl_message_neigh_get_family(const sd_netlink_message *m, int *family);
