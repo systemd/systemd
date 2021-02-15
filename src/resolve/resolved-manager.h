@@ -97,12 +97,11 @@ struct Manager {
         /* mDNS */
         int mdns_ipv4_fd;
         int mdns_ipv6_fd;
+        sd_event_source *mdns_ipv4_event_source;
+        sd_event_source *mdns_ipv6_event_source;
 
         /* DNS-SD */
         Hashmap *dnssd_services;
-
-        sd_event_source *mdns_ipv4_event_source;
-        sd_event_source *mdns_ipv6_event_source;
 
         /* dbus */
         sd_bus *bus;
