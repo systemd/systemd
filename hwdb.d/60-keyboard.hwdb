@@ -511,6 +511,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
  KEYBOARD_KEY_92=brightnessdown                         # Fn+F7 (Fn+F9 on 6730b)
  KEYBOARD_KEY_97=brightnessup                           # Fn+F8 (Fn+F10 on 6730b)
  KEYBOARD_KEY_ee=switchvideomode                        # Fn+F4
+ KEYBOARD_KEY_66=pickup                                 # Pickup phone button
+ KEYBOARD_KEY_65=hangup                                 # Hangup phone button
 
 # Tablet
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
@@ -637,8 +639,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBookStudioG5*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
  KEYBOARD_KEY_6d=displaytoggle                          # Display icon
- KEYBOARD_KEY_66=connect                                # Pickup phone button → connect → XF86Go
- KEYBOARD_KEY_65=cancel                                 # Hangup phone button → cancel → Cancel
 
 # HP ZBook 15 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:*
