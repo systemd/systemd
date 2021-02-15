@@ -23,6 +23,7 @@
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "resolvconf-compat.h"
@@ -2551,7 +2552,7 @@ static int compat_help(void) {
                "     --search=BOOL          Use search domains for single-label names\n"
                "                                                              (default: yes)\n"
                "     --raw[=payload|packet] Dump the answer as binary data\n"
-               "     --legend=BOOL          Print headers and additional info (default: yes)\n"
+               "     --legend[=BOOL]        Print headers and additional info (default: yes)\n"
                "     --statistics           Show resolver statistics\n"
                "     --reset-statistics     Reset resolver statistics\n"
                "     --status               Show link and server status\n"
@@ -2629,7 +2630,7 @@ static int native_help(void) {
                "     --network=BOOL            Allow response from network (default: yes)\n"
                "     --search=BOOL             Use search domains for single-label names (default: yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
-               "     --legend=BOOL             Print headers and additional info (default: yes)\n"
+               "     --legend[=BOOL]           Print headers and additional info (default: yes)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2678,7 +2679,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "version",               no_argument,       NULL, ARG_VERSION               },
                 { "type",                  required_argument, NULL, 't'                       },
                 { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
+                { "legend",                optional_argument, NULL, ARG_LEGEND                },
                 { "interface",             required_argument, NULL, 'i'                       },
                 { "protocol",              required_argument, NULL, 'p'                       },
                 { "cname",                 required_argument, NULL, ARG_CNAME                 },
@@ -2766,11 +2767,9 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LEGEND:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--legend", optarg, &arg_legend);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --legend= argument");
-
-                        arg_legend = r;
+                                return r;
                         break;
 
                 case 'p':
@@ -2832,30 +2831,30 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CNAME:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--cname", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --cname= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
                         break;
 
                 case ARG_SERVICE_ADDRESS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--service-address", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --service-address= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
                         break;
 
                 case ARG_SERVICE_TXT:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--service-txt", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --service-txt= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
                         break;
 
                 case ARG_SEARCH:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--search", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --search argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
                         break;
 
@@ -2985,7 +2984,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "version",               no_argument,       NULL, ARG_VERSION               },
                 { "type",                  required_argument, NULL, 't'                       },
                 { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
+                { "legend",                optional_argument, NULL, ARG_LEGEND                },
                 { "interface",             required_argument, NULL, 'i'                       },
                 { "protocol",              required_argument, NULL, 'p'                       },
                 { "cname",                 required_argument, NULL, ARG_CNAME                 },
@@ -3062,11 +3061,9 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LEGEND:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--legend", optarg, &arg_legend);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --legend= argument");
-
-                        arg_legend = r;
+                                return r;
                         break;
 
                 case 'p':
@@ -3112,72 +3109,72 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CNAME:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--cname", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --cname= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
                         break;
 
                 case ARG_VALIDATE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--validate", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --validate= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_VALIDATE, r == 0);
                         break;
 
                 case ARG_SYNTHESIZE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--synthesize", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --synthesize= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SYNTHESIZE, r == 0);
                         break;
 
                 case ARG_CACHE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--cache", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --cache= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CACHE, r == 0);
                         break;
 
                 case ARG_ZONE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--zone", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --zone= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_ZONE, r == 0);
                         break;
 
                 case ARG_TRUST_ANCHOR:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--trust-anchor", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --trust-anchor= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TRUST_ANCHOR, r == 0);
                         break;
 
                 case ARG_NETWORK:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--network", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --network= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_NETWORK, r == 0);
                         break;
 
                 case ARG_SERVICE_ADDRESS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--service-address", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --service-address= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
                         break;
 
                 case ARG_SERVICE_TXT:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--service-txt", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --service-txt= argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
                         break;
 
                 case ARG_SEARCH:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--search", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --search argument.");
+                                return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
                         break;
 

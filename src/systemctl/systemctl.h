@@ -52,7 +52,7 @@ extern const char *arg_job_mode;
 extern UnitFileScope arg_scope;
 extern bool arg_wait;
 extern bool arg_no_block;
-extern bool arg_no_legend;
+extern int arg_legend;
 extern PagerFlags arg_pager_flags;
 extern bool arg_no_wtmp;
 extern bool arg_no_sync;
