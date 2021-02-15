@@ -459,7 +459,7 @@ int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *add
         return dns_scope_socket(s, SOCK_STREAM, family, address, server, port, ret_socket_address);
 }
 
-static DnsScopeMatch accept_link_local_reverse_lookups(const char *domain) {
+static DnsScopeMatch match_link_local_reverse_lookups(const char *domain) {
         assert(domain);
 
         if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0)
@@ -568,29 +568,25 @@ DnsScopeMatch dns_scope_good_domain(
                         return DNS_SCOPE_YES_BASE + n_best;
                 }
 
-                /* See if this scope is suitable as default route. */
+                /* Exclude link-local IP ranges */
+                if (match_link_local_reverse_lookups(domain) >= DNS_SCOPE_YES_BASE ||
+                    /* If networks use .local in their private setups, they are supposed to also add .local
+                     * to their search domains, which we already checked above. Otherwise, we consider .local
+                     * specific to mDNS and won't send such queries ordinary DNS servers. */
+                    dns_name_endswith(domain, "local") > 0)
+                        return DNS_SCOPE_NO;
+
+                /* If there was no match at all, then see if this scope is suitable as default route. */
                 if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
-                /* Exclude link-local IP ranges */
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
-                    dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
-                    dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 &&
-                    dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
-                    dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0 &&
-                    /* If networks use .local in their private setups, they are supposed to also add .local to their search
-                     * domains, which we already checked above. Otherwise, we consider .local specific to mDNS and won't
-                     * send such queries ordinary DNS servers. */
-                    dns_name_endswith(domain, "local") == 0)
-                        return DNS_SCOPE_MAYBE;
-
-                return DNS_SCOPE_NO;
+                return DNS_SCOPE_MAYBE;
         }
 
         case DNS_PROTOCOL_MDNS: {
                 DnsScopeMatch m;
 
-                m = accept_link_local_reverse_lookups(domain);
+                m = match_link_local_reverse_lookups(domain);
                 if (m >= 0)
                         return m;
 
@@ -609,7 +605,7 @@ DnsScopeMatch dns_scope_good_domain(
         case DNS_PROTOCOL_LLMNR: {
                 DnsScopeMatch m;
 
-                m = accept_link_local_reverse_lookups(domain);
+                m = match_link_local_reverse_lookups(domain);
                 if (m >= 0)
                         return m;
 
