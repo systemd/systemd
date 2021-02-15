@@ -6,7 +6,7 @@
 static void test_udev_builtin_cmd_to_ptr(void) {
         log_info("/* %s */", __func__);
 
-        /* Those could have been static_assert()s, but ({}) is not allowed there. */
+        /* Those could have been static asserts, but ({}) is not allowed there. */
 #if HAVE_BLKID
         assert_se(UDEV_BUILTIN_CMD_TO_PTR(UDEV_BUILTIN_BLKID));
         assert_se(PTR_TO_UDEV_BUILTIN_CMD(UDEV_BUILTIN_CMD_TO_PTR(UDEV_BUILTIN_BLKID)) == UDEV_BUILTIN_BLKID);

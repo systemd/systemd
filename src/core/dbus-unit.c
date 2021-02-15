@@ -323,6 +323,39 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", NULL, NULL);
 }
 
+static int property_get_markers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        unsigned *markers = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(markers);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        /* Make sure out values fit in the bitfield. */
+        assert_cc(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8);
+
+        for (UnitMarker m = 0; m < _UNIT_MARKER_MAX; m++)
+                if (FLAGS_SET(*markers, 1u << m)) {
+                        r = sd_bus_message_append(reply, "s", unit_marker_to_string(m));
+                        if (r < 0)
+                                return r;
+                }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
         [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
         [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
@@ -778,7 +811,6 @@ static int property_get_refs(
                 sd_bus_error *error) {
 
         Unit *u = userdata;
-        const char *i;
         int r;
 
         assert(bus);
@@ -788,15 +820,15 @@ static int property_get_refs(
         if (r < 0)
                 return r;
 
-        for (i = sd_bus_track_first(u->bus_track); i; i = sd_bus_track_next(u->bus_track)) {
-                int c, k;
+        for (const char *i = sd_bus_track_first(u->bus_track); i; i = sd_bus_track_next(u->bus_track)) {
+                int c;
 
                 c = sd_bus_track_count_name(u->bus_track, i);
                 if (c < 0)
                         return c;
 
                 /* Add the item multiple times if the ref count for each is above 1 */
-                for (k = 0; k < c; k++) {
+                for (int k = 0; k < c; k++) {
                         r = sd_bus_message_append(reply, "s", i);
                         if (r < 0)
                                 return r;
@@ -864,6 +896,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Markers", "as", property_get_markers, offsetof(Unit, markers), 0),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobRunningTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_running_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_emergency_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1683,6 +1716,89 @@ void bus_unit_send_removed_signal(Unit *u) {
                 log_unit_debug_errno(u, r, "Failed to send unit remove signal for %s: %m", u->id);
 }
 
+int bus_unit_queue_job_one(
+                sd_bus_message *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                BusUnitQueueFlags flags,
+                sd_bus_message *reply,
+                sd_bus_error *error) {
+
+        _cleanup_set_free_ Set *affected = NULL;
+        _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
+        Job *j, *a;
+        int r;
+
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
+                affected = set_new(NULL);
+                if (!affected)
+                        return -ENOMEM;
+        }
+
+        r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
+        if (r < 0)
+                return r;
+
+        r = bus_job_track_sender(j, message);
+        if (r < 0)
+                return r;
+
+        /* Before we send the method reply, force out the announcement JobNew for this job */
+        bus_job_send_pending_change_signal(j, true);
+
+        job_path = job_dbus_path(j);
+        if (!job_path)
+                return -ENOMEM;
+
+        /* The classic response is just a job object path */
+        if (!FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY))
+                return sd_bus_message_append(reply, "o", job_path);
+
+        /* In verbose mode respond with the anchor job plus everything that has been affected */
+
+        unit_path = unit_dbus_path(j->unit);
+        if (!unit_path)
+                return -ENOMEM;
+
+        r = sd_bus_message_append(reply, "uosos",
+                                  j->id, job_path,
+                                  j->unit->id, unit_path,
+                                  job_type_to_string(j->type));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(uosos)");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(a, affected) {
+                if (a->id == j->id)
+                        continue;
+
+                /* Free paths from previous iteration */
+                job_path = mfree(job_path);
+                unit_path = mfree(unit_path);
+
+                job_path = job_dbus_path(a);
+                if (!job_path)
+                        return -ENOMEM;
+
+                unit_path = unit_dbus_path(a->unit);
+                if (!unit_path)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(uosos)",
+                                          a->id, job_path,
+                                          a->unit->id, unit_path,
+                                          job_type_to_string(a->type));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 int bus_unit_queue_job(
                 sd_bus_message *message,
                 Unit *u,
@@ -1692,9 +1808,6 @@ int bus_unit_queue_job(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
-        _cleanup_set_free_ Set *affected = NULL;
-        Job *j, *a;
         int r;
 
         assert(message);
@@ -1727,77 +1840,11 @@ int bus_unit_queue_job(
             (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
 
-        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
-                affected = set_new(NULL);
-                if (!affected)
-                        return -ENOMEM;
-        }
-
-        r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
-        if (r < 0)
-                return r;
-
-        r = bus_job_track_sender(j, message);
-        if (r < 0)
-                return r;
-
-        /* Before we send the method reply, force out the announcement JobNew for this job */
-        bus_job_send_pending_change_signal(j, true);
-
-        job_path = job_dbus_path(j);
-        if (!job_path)
-                return -ENOMEM;
-
-        /* The classic response is just a job object path */
-        if (!FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY))
-                return sd_bus_reply_method_return(message, "o", job_path);
-
-        /* In verbose mode respond with the anchor job plus everything that has been affected */
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
 
-        unit_path = unit_dbus_path(j->unit);
-        if (!unit_path)
-                return -ENOMEM;
-
-        r = sd_bus_message_append(reply, "uosos",
-                                  j->id, job_path,
-                                  j->unit->id, unit_path,
-                                  job_type_to_string(j->type));
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "(uosos)");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(a, affected) {
-
-                if (a->id == j->id)
-                        continue;
-
-                /* Free paths from previous iteration */
-                job_path = mfree(job_path);
-                unit_path = mfree(unit_path);
-
-                job_path = job_dbus_path(a);
-                if (!job_path)
-                        return -ENOMEM;
-
-                unit_path = unit_dbus_path(a->unit);
-                if (!unit_path)
-                        return -ENOMEM;
-
-                r = sd_bus_message_append(reply, "(uosos)",
-                                          a->id, job_path,
-                                          a->unit->id, unit_path,
-                                          job_type_to_string(a->type));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
+        r = bus_unit_queue_job_one(message, u, type, mode, flags, reply, error);
         if (r < 0)
                 return r;
 
@@ -1817,8 +1864,8 @@ static int bus_unit_set_live_property(
         assert(name);
         assert(message);
 
-        /* Handles setting properties both "live" (i.e. at any time during runtime), and during creation (for transient
-         * units that are being created). */
+        /* Handles setting properties both "live" (i.e. at any time during runtime), and during creation (for
+         * transient units that are being created). */
 
         if (streq(name, "Description")) {
                 const char *d;
@@ -1833,6 +1880,63 @@ static int bus_unit_set_live_property(
                                 return r;
 
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Description=%s", d);
+                }
+
+                return 1;
+        }
+
+        /* A setting that only applies to active units. We don't actually write this to /run, this state is
+         * managed internally. "+foo" sets flag foo, "-foo" unsets flag foo, just "foo" resets flags to
+         * foo. The last type cannot be mixed with "+" or "-". */
+
+        if (streq(name, "Markers")) {
+                unsigned settings = 0, mask = 0;
+                bool some_plus_minus = false, some_absolute = false;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *word;
+                        bool b;
+
+                        r = sd_bus_message_read(message, "s", &word);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (IN_SET(word[0], '+', '-')) {
+                                b = word[0] == '+';
+                                word++;
+                                some_plus_minus = true;
+                        } else {
+                                b = true;
+                                some_absolute = true;
+                        }
+
+                        UnitMarker m = unit_marker_from_string(word);
+                        if (m < 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                         "Unknown marker \"%s\".", word);
+
+                        SET_FLAG(settings, 1u << m, b);
+                        SET_FLAG(mask, 1u << m, true);
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (some_plus_minus && some_absolute)
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING, "Bad marker syntax.");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (some_absolute)
+                                u->markers = settings;
+                        else
+                                u->markers = settings | (u->markers & ~mask);
                 }
 
                 return 1;
@@ -1989,8 +2093,8 @@ static int bus_unit_set_transient_property(
         assert(name);
         assert(message);
 
-        /* Handles settings when transient units are created. This settings cannot be altered anymore after the unit
-         * has been created. */
+        /* Handles settings when transient units are created. This settings cannot be altered anymore after
+         * the unit has been created. */
 
         if (streq(name, "SourcePath"))
                 return bus_set_transient_path(u, name, &u->source_path, message, flags, error);
@@ -2298,7 +2402,8 @@ int bus_unit_set_properties(
                         return r;
 
                 if (!UNIT_VTABLE(u)->bus_set_property)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Objects of this type do not support setting properties.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY,
+                                                 "Objects of this type do not support setting properties.");
 
                 r = sd_bus_message_enter_container(message, 'v', NULL);
                 if (r < 0)
@@ -2316,7 +2421,8 @@ int bus_unit_set_properties(
                         return r;
 
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Cannot set property %s, or unknown property.", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY,
+                                                 "Cannot set property %s, or unknown property.", name);
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -2435,8 +2541,8 @@ int bus_unit_track_add_sender(Unit *u, sd_bus_message *m) {
 int bus_unit_track_remove_sender(Unit *u, sd_bus_message *m) {
         assert(u);
 
-        /* If we haven't allocated the bus track object yet, then there's definitely no reference taken yet, return an
-         * error */
+        /* If we haven't allocated the bus track object yet, then there's definitely no reference taken yet,
+         * return an error */
         if (!u->bus_track)
                 return -EUNATCH;
 

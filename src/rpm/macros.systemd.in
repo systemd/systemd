@@ -82,7 +82,9 @@ fi \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun_with_restart}} \
 if [ $1 -ge 1 ] && [ -x @bindir@/systemctl ]; then \
         # Package upgrade, not uninstall \
-        @bindir@/systemctl try-restart %{?*} || : \
+        for unit in %{?*}; do \
+                @bindir@/systemctl set-property $unit Markers=+needs-restart || : \
+        done \
 fi \
 %{nil}
 
