@@ -38,7 +38,6 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         size_t c_set, c_unset;
-        LocaleVariable p;
         int r;
 
         assert(bus);
@@ -51,7 +50,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         if (!l_set)
                 return log_oom();
 
-        for (p = 0, c_set = 0, c_unset = 0; p < _VARIABLE_LC_MAX; p++) {
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
                 const char *name;
 
                 name = locale_variable_to_string(p);
@@ -178,7 +177,7 @@ static int property_get_locale(
 
         Context *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
-        int p, q, r;
+        int r;
 
         r = locale_read_data(c, reply);
         if (r < 0)
@@ -188,7 +187,7 @@ static int property_get_locale(
         if (!l)
                 return -ENOMEM;
 
-        for (p = 0, q = 0; p < _VARIABLE_LC_MAX; p++) {
+        for (LocaleVariable p = 0, q = 0; p < _VARIABLE_LC_MAX; p++) {
                 char *t;
                 const char *name;
 
