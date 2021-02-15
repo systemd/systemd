@@ -125,20 +125,6 @@ int sd_rtnl_message_route_get_family(const sd_netlink_message *m, int *family) {
         return 0;
 }
 
-int sd_rtnl_message_route_set_family(sd_netlink_message *m, int family) {
-        struct rtmsg *rtm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
-
-        rtm = NLMSG_DATA(m->hdr);
-
-        rtm->rtm_family = family;
-
-        return 0;
-}
-
 int sd_rtnl_message_route_get_type(const sd_netlink_message *m, unsigned char *type) {
         struct rtmsg *rtm;
 
@@ -334,18 +320,6 @@ int sd_rtnl_message_nexthop_set_flags(sd_netlink_message *m, uint8_t flags) {
 
         nhm = NLMSG_DATA(m->hdr);
         nhm->nh_flags |= flags;
-
-        return 0;
-}
-
-int sd_rtnl_message_nexthop_set_family(sd_netlink_message *m, uint8_t family) {
-        struct nhmsg *nhm;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-
-        nhm = NLMSG_DATA(m->hdr);
-        nhm->nh_family = family;
 
         return 0;
 }
