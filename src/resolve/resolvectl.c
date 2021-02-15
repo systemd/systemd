@@ -2552,7 +2552,7 @@ static int compat_help(void) {
                "     --search=BOOL          Use search domains for single-label names\n"
                "                                                              (default: yes)\n"
                "     --raw[=payload|packet] Dump the answer as binary data\n"
-               "     --legend=BOOL          Print headers and additional info (default: yes)\n"
+               "     --legend[=BOOL]        Print headers and additional info (default: yes)\n"
                "     --statistics           Show resolver statistics\n"
                "     --reset-statistics     Reset resolver statistics\n"
                "     --status               Show link and server status\n"
@@ -2630,7 +2630,7 @@ static int native_help(void) {
                "     --network=BOOL            Allow response from network (default: yes)\n"
                "     --search=BOOL             Use search domains for single-label names (default: yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
-               "     --legend=BOOL             Print headers and additional info (default: yes)\n"
+               "     --legend[=BOOL]           Print headers and additional info (default: yes)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2679,7 +2679,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "version",               no_argument,       NULL, ARG_VERSION               },
                 { "type",                  required_argument, NULL, 't'                       },
                 { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
+                { "legend",                optional_argument, NULL, ARG_LEGEND                },
                 { "interface",             required_argument, NULL, 'i'                       },
                 { "protocol",              required_argument, NULL, 'p'                       },
                 { "cname",                 required_argument, NULL, ARG_CNAME                 },
@@ -2984,7 +2984,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "version",               no_argument,       NULL, ARG_VERSION               },
                 { "type",                  required_argument, NULL, 't'                       },
                 { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
+                { "legend",                optional_argument, NULL, ARG_LEGEND                },
                 { "interface",             required_argument, NULL, 'i'                       },
                 { "protocol",              required_argument, NULL, 'p'                       },
                 { "cname",                 required_argument, NULL, ARG_CNAME                 },
