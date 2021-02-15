@@ -37,6 +37,7 @@
 #include "main-func.h"
 #include "nulstr-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -2346,29 +2347,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAN:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --man= argument.");
-
-                                arg_man = r;
-                        } else
-                                arg_man = true;
-
+                        r = parse_boolean_argument("--man", optarg, &arg_man);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_GENERATORS:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --generators= argument.");
-
-                                arg_generators = r;
-                        } else
-                                arg_generators = true;
-
+                        r = parse_boolean_argument("--generators", optarg, &arg_generators);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_ITERATIONS:

@@ -2766,11 +2766,9 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LEGEND:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--legend", optarg, &arg_legend);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --legend= argument");
-
-                        arg_legend = r;
+                                return r;
                         break;
 
                 case 'p':
@@ -3062,11 +3060,9 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LEGEND:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--legend", optarg, &arg_legend);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --legend= argument");
-
-                        arg_legend = r;
+                                return r;
                         break;
 
                 case 'p':
