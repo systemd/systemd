@@ -66,6 +66,8 @@ systemd_resolved_sources = files('''
         resolved-resolv-conf.h
         resolved-varlink.c
         resolved-varlink.h
+        resolved-socket-graveyard.c
+        resolved-socket-graveyard.h
         resolved.c
 '''.split())
 
