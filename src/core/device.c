@@ -479,6 +479,51 @@ static void device_upgrade_mount_deps(Unit *u) {
         }
 }
 
+static int device_promote_mount_dependencies(Unit *u) {
+        Unit *other, *follow;
+        UnitDependencyInfo di;
+        int r;
+
+        assert(u);
+        assert(u->type == UNIT_DEVICE);
+
+        follow = unit_following(u);
+        if (!follow)
+                return 0;
+
+        HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[UNIT_BOUND_BY]) {
+                if (other->type != UNIT_MOUNT)
+                        continue;
+
+                if (!FLAGS_SET(di.destination_mask, UNIT_DEPENDENCY_FILE))
+                        continue;
+
+                assert_se(hashmap_remove(other->dependencies[UNIT_BINDS_TO], u));
+                assert_se(hashmap_remove(u->dependencies[UNIT_BOUND_BY], other));
+
+                r = unit_add_dependency(other, UNIT_BINDS_TO, follow, true, di.destination_mask);
+                if (r < 0)
+                        return r;
+        }
+
+        HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[UNIT_REQUIRED_BY]) {
+                if (other->type != UNIT_MOUNT)
+                        continue;
+
+                if (!FLAGS_SET(di.destination_mask, UNIT_DEPENDENCY_FILE))
+                        continue;
+
+                assert_se(hashmap_remove(other->dependencies[UNIT_REQUIRES], u));
+                assert_se(hashmap_remove(u->dependencies[UNIT_REQUIRED_BY], other));
+
+                r = unit_add_dependency(other, UNIT_REQUIRES, follow, true, di.destination_mask);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main) {
         _cleanup_free_ char *e = NULL;
         const char *sysfs = NULL;
@@ -557,6 +602,14 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
          * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
+
+        /* Promote (move to main sysfs device unit) BindsTo and Requires dependencies that were configured in unit files.
+         * Once we process /proc/self/mountinfo notifications they we will mark them also as UNIT_DEPENDENCY_IMPLICIT_MOUNINFO.
+         * After mount unit is stopped they will be dropped. */
+        r = device_promote_mount_dependencies(u);
+        if (r < 0)
+                log_unit_error_errno(u, r, "Failed to promote mount dependencies: %m");
+
 
         return 0;
 
