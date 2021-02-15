@@ -59,24 +59,6 @@ static void test_strv_env_unset(void) {
         assert_se(strv_length(l) == 2);
 }
 
-static void test_strv_env_set(void) {
-        log_info("/* %s */", __func__);
-
-        _cleanup_strv_free_ char **l = NULL, **r = NULL;
-
-        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
-        assert_se(l);
-
-        r = strv_env_set(l, "WALDO=WALDO");
-        assert_se(r);
-
-        assert_se(streq(r[0], "PIEP"));
-        assert_se(streq(r[1], "SCHLUMPF=SMURFF"));
-        assert_se(streq(r[2], "NANANANA=YES"));
-        assert_se(streq(r[3], "WALDO=WALDO"));
-        assert_se(strv_length(r) == 4);
-}
-
 static void test_strv_env_merge(void) {
         log_info("/* %s */", __func__);
 
@@ -378,7 +360,6 @@ int main(int argc, char *argv[]) {
         test_strv_env_delete();
         test_strv_env_get();
         test_strv_env_unset();
-        test_strv_env_set();
         test_strv_env_merge();
         test_env_strv_get_n();
         test_replace_env(false);
