@@ -58,7 +58,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         if (!table)
                 return log_oom();
 
-        table_set_header(table, !arg_no_legend);
+        table_set_header(table, arg_legend != 0);
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -127,7 +127,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         if (r < 0)
                 return r;
 
-        if (!arg_no_legend)
+        if (arg_legend != 0)
                 printf("\n%u unit files listed.\n", c);
 
         return 0;
