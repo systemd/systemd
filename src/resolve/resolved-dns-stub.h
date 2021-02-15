@@ -27,6 +27,8 @@ struct DnsStubListenerExtra {
 
         sd_event_source *udp_event_source;
         sd_event_source *tcp_event_source;
+
+        Hashmap *queries_by_packet;
 };
 
 extern const struct hash_ops dns_stub_listener_extra_hash_ops;
