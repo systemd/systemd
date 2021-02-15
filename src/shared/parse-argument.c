@@ -20,11 +20,13 @@ int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse boolean argument to %s: %s.", optname, s);
 
-                *ret = r;
+                if (ret)
+                        *ret = r;
                 return r;
         } else {
                 /* s may be NULL. This is controlled by getopt_long() parameters. */
-                *ret = true;
+                if (ret)
+                        *ret = true;
                 return true;
         }
 }
