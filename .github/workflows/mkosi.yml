@@ -39,7 +39,7 @@ jobs:
       run: ln -s .mkosi/mkosi.${{ matrix.distro }} mkosi.default
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi --password= --network-veth=no --qemu-headless build
+      run: sudo python3 -m mkosi --debug="run" --password= --network-veth=no --qemu-headless build
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
       run: sudo ./.github/workflows/test_mkosi_boot.py python3 -m mkosi --password= --network-veth=no --qemu-headless boot
