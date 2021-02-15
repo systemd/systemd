@@ -147,7 +147,7 @@
 # @todo _systemd-run has a helper with the same name, so we must redefine
 __systemctl()
 {
-    systemctl $_sys_service_mgr --full --no-legend --no-pager --plain "$@" 2>/dev/null
+    systemctl $_sys_service_mgr --full --legend=no --no-pager --plain "$@" 2>/dev/null
 }
 
 
@@ -480,7 +480,7 @@ _arguments -s \
     '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors' \
     {-q,--quiet}'[Suppress output]' \
     '--no-block[Do not wait until operation finished]' \
-    '--no-legend[Do not print a legend, i.e. the column headers and the footer with hints]' \
+    '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--system[Connect to system manager]' \
     '--user[Connect to user service manager]' \
