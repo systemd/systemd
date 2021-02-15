@@ -85,6 +85,15 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         return mfree(p);
 }
 
+uint16_t dns_stub_listener_extra_port(DnsStubListenerExtra *p) {
+        assert(p);
+
+        if (p->port > 0)
+                return p->port;
+
+        return 53;
+}
+
 static int dns_stub_collect_answer_by_question(
                 DnsAnswer **reply,
                 DnsAnswer *answer,
@@ -639,6 +648,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
         case DNS_TRANSACTION_NO_SOURCE:
+        case DNS_TRANSACTION_STUB_LOOP:
                 (void) dns_stub_send_reply(q, DNS_RCODE_SERVFAIL);
                 break;
 
@@ -685,6 +695,11 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
             (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
              in_addr_is_localhost(p->family, &p->destination) <= 0)) {
                 log_warning("Got packet on unexpected (i.e. non-localhost) IP range, ignoring.");
+                return;
+        }
+
+        if (manager_packet_from_our_transaction(m, p)) {
+                log_debug("Got our own packet looped back, ignoring.");
                 return;
         }
 
@@ -951,13 +966,13 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         if (l->family == AF_INET)
                 sa = (union sockaddr_union) {
                         .in.sin_family = l->family,
-                        .in.sin_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in.sin_port = htobe16(dns_stub_listener_extra_port(l)),
                         .in.sin_addr = l->address.in,
                 };
         else
                 sa = (union sockaddr_union) {
                         .in6.sin6_family = l->family,
-                        .in6.sin6_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in6.sin6_port = htobe16(dns_stub_listener_extra_port(l)),
                         .in6.sin6_addr = l->address.in6,
                 };
 

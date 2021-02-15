@@ -83,7 +83,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         if (r <= 0)
                 return r;
 
-        if (manager_our_packet(m, p))
+        if (manager_packet_from_local_address(m, p))
                 return 0;
 
         scope = manager_find_scope(m, p);

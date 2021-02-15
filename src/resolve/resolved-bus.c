@@ -104,6 +104,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_NO_SOURCE:
                 return sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_NO_SOURCE, "All suitable resolution sources turned off");
 
+        case DNS_TRANSACTION_STUB_LOOP:
+                return sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_STUB_LOOP, "Configured DNS server loops back to us");
+
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 

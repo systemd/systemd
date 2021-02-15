@@ -60,6 +60,9 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_NO_SOURCE:
                 return varlink_error(q->varlink_request, "io.systemd.Resolve.NoSource", NULL);
 
+        case DNS_TRANSACTION_STUB_LOOP:
+                return varlink_error(q->varlink_request, "io.systemd.Resolve.StubLoop", NULL);
+
         case DNS_TRANSACTION_NOT_FOUND:
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */

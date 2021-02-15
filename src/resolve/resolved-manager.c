@@ -1255,11 +1255,29 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
         return NULL;
 }
 
-bool manager_our_packet(Manager *m, DnsPacket *p) {
+bool manager_packet_from_local_address(Manager *m, DnsPacket *p) {
         assert(m);
         assert(p);
 
+        /* Let's see if this packet comes from an IP address we have on any local interface */
+
         return !!manager_find_link_address(m, p->family, &p->sender);
+}
+
+bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p) {
+        DnsTransaction *t;
+
+        assert(m);
+        assert(p);
+
+        /* Let's see if we have a transaction with a query message with the exact same binary contents as the
+         * one we just got. If so, it's almost definitely a packet loop of some kind. */
+
+        t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+        if (!t)
+                return false;
+
+        return t->sent && dns_packet_equal(t->sent, p);
 }
 
 DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
@@ -1599,4 +1617,28 @@ bool manager_next_dnssd_names(Manager *m) {
                 manager_refresh_rrs(m);
 
         return tried;
+}
+
+bool manager_server_is_stub(Manager *m, DnsServer *s) {
+        DnsStubListenerExtra *l;
+
+        assert(m);
+        assert(s);
+
+        /* Safety check: we generally already skip the main stub when parsing configuration. But let's be
+         * extra careful, and check here again */
+        if (s->family == AF_INET &&
+            s->address.in.s_addr == htobe32(INADDR_DNS_STUB) &&
+            dns_server_port(s) == 53)
+                return true;
+
+        /* Main reason to call this is to check server data against the extra listeners, and filter things
+         * out. */
+        ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners)
+                if (s->family == l->family &&
+                    in_addr_equal(s->family, &s->address, &l->address) &&
+                    dns_server_port(s) == dns_stub_listener_extra_port(l))
+                        return true;
+
+        return false;
 }

@@ -2555,6 +2555,10 @@ static int dns_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
 
 DEFINE_HASH_OPS(dns_packet_hash_ops, DnsPacket, dns_packet_hash_func, dns_packet_compare_func);
 
+bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b) {
+        return dns_packet_compare_func(a, b) == 0;
+}
+
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_SUCCESS] = "SUCCESS",
         [DNS_RCODE_FORMERR] = "FORMERR",
