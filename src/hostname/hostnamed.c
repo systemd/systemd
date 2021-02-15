@@ -341,7 +341,7 @@ static int context_update_kernel_hostname(
 
         /* ... and the ultimate fallback */
         } else {
-                hn = FALLBACK_HOSTNAME;
+                hn = get_fallback_hostname();
                 hns = HOSTNAME_FALLBACK;
         }
 
@@ -508,7 +508,7 @@ static int property_get_hostname(
 
         r = gethostname_strict(&current);
         if (r == -ENXIO)
-                return sd_bus_message_append(reply, "s", FALLBACK_HOSTNAME);
+                return sd_bus_message_append(reply, "s", get_fallback_hostname());
         if (r < 0)
                 return r;
 
@@ -532,7 +532,7 @@ static int property_get_static_hostname(
         return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
 }
 
-static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_fallback_hostname, "s", FALLBACK_HOSTNAME);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_fallback_hostname, "s", get_fallback_hostname());
 
 static int property_get_hostname_source(
                 sd_bus *bus,

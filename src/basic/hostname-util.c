@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -10,6 +11,21 @@
 #include "hostname-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+const char* get_fallback_hostname(void) {
+        const char *e;
+
+        e = secure_getenv("SYSTEMD_FALLBACK_HOSTNAME");
+        if (e) {
+                if (!hostname_is_valid(e, 0))
+                        log_debug("Invalid hostname in $SYSTEMD_FALLBACK_HOSTNAME, ignoring.");
+                else
+                        return e; /* The pointer is valid as long as a getenv(), putenv(), setenv(), or
+                                   * unsetenv() are not called. */
+        }
+
+        return FALLBACK_HOSTNAME;
+}
 
 char* gethostname_malloc(void) {
         struct utsname u;
@@ -23,7 +39,7 @@ char* gethostname_malloc(void) {
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)"))
-                s = FALLBACK_HOSTNAME;
+                s = get_fallback_hostname();
 
         return strdup(s);
 }
@@ -38,7 +54,7 @@ char* gethostname_short_malloc(void) {
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)") || s[0] == '.') {
-                s = FALLBACK_HOSTNAME;
+                s = get_fallback_hostname();
                 assert(s[0] != '.');
         }
 

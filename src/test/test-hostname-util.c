@@ -10,6 +10,8 @@
 #include "tmpfile-util.h"
 
 static void test_hostname_is_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(hostname_is_valid("foobar", 0));
         assert_se(hostname_is_valid("foobar.com", 0));
         assert_se(!hostname_is_valid("foobar.com.", 0));
@@ -48,6 +50,8 @@ static void test_hostname_is_valid(void) {
 
 static void test_hostname_cleanup(void) {
         char *s;
+
+        log_info("/* %s */", __func__);
 
         s = strdupa("foobar");
         assert_se(streq(hostname_cleanup(s), "foobar"));
@@ -94,6 +98,8 @@ static void test_hostname_cleanup(void) {
 static void test_hostname_malloc(void) {
         _cleanup_free_ char *h = NULL, *l = NULL;
 
+        log_info("/* %s */", __func__);
+
         assert_se(h = gethostname_malloc());
         log_info("hostname_malloc: \"%s\"", h);
 
@@ -102,10 +108,17 @@ static void test_hostname_malloc(void) {
 }
 
 static void test_fallback_hostname(void) {
+        log_info("/* %s */", __func__);
+
         if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
                 log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
                 exit(EXIT_FAILURE);
         }
+
+        const char *n = get_fallback_hostname();
+        assert_se(n);
+        log_info("get_fallback_hostname: \"%s\"", n);
+        assert_se(hostname_is_valid(n, 0));
 }
 
 int main(int argc, char *argv[]) {
@@ -114,7 +127,6 @@ int main(int argc, char *argv[]) {
         test_hostname_is_valid();
         test_hostname_cleanup();
         test_hostname_malloc();
-
         test_fallback_hostname();
 
         return 0;

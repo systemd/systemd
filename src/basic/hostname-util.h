@@ -7,6 +7,7 @@
 #include "macro.h"
 #include "strv.h"
 
+const char* get_fallback_hostname(void);
 char* gethostname_malloc(void);
 char* gethostname_short_malloc(void);
 int gethostname_strict(char **ret);

@@ -55,6 +55,10 @@ All tools:
 * `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in the
   SystemdOptions EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
 
+* `$SYSTEMD_FALLBACK_HOSTNAME` — override the compiled-in fallback hostname
+  (relevant in particular for the system manager and `systemd-hostnamed`).
+  Must be a valid hostname (either a single label or a FQDN).
+
 * `$SYSTEMD_IN_INITRD=[auto|lenient|0|1]` — if set, specifies initrd detection
   method. Defaults to `auto`. Behavior is defined as follows:
   `auto`: Checks if `/etc/initrd-release` exists, and a temporary fs is mounted

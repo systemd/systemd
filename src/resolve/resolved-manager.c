@@ -444,13 +444,16 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
 
 static const char *fallback_hostname(void) {
 
-        /* Determine the fall back hostname. For exposing this system to the outside world, we cannot have it to be
-         * "localhost" even if that's the compiled in hostname. In this case, let's revert to "linux" instead. */
+        /* Determine the fall back hostname. For exposing this system to the outside world, we cannot have it
+         * to be "localhost" even if that's the compiled in hostname. In this case, let's revert to "linux"
+         * instead. */
 
-        if (is_localhost(FALLBACK_HOSTNAME))
+        const char *n = get_fallback_hostname();
+
+        if (is_localhost(n))
                 return "linux";
 
-        return FALLBACK_HOSTNAME;
+        return n;
 }
 
 static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
