@@ -292,26 +292,12 @@ int locale_write_data(Context *c, char ***settings) {
 
         /* Set values will be returned as strv in *settings on success. */
 
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
-                _cleanup_free_ char *t = NULL;
-                char **u;
-                const char *name;
-
-                name = locale_variable_to_string(p);
-                assert(name);
-
-                if (isempty(c->locale[p]))
-                        continue;
-
-                if (asprintf(&t, "%s=%s", name, c->locale[p]) < 0)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, t);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
-        }
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
+                if (!isempty(c->locale[p])) {
+                        r = strv_env_assign(&l, locale_variable_to_string(p), c->locale[p]);
+                        if (r < 0)
+                                return r;
+                }
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/locale.conf") < 0)
@@ -342,39 +328,13 @@ int vconsole_write_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        if (isempty(c->vc_keymap))
-                l = strv_env_unset(l, "KEYMAP");
-        else {
-                _cleanup_free_ char *s = NULL;
-                char **u;
+        r = strv_env_assign(&l, "KEYMAP", empty_to_null(c->vc_keymap));
+        if (r < 0)
+                return r;
 
-                s = strjoin("KEYMAP=", c->vc_keymap);
-                if (!s)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, s);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
-        }
-
-        if (isempty(c->vc_keymap_toggle))
-                l = strv_env_unset(l, "KEYMAP_TOGGLE");
-        else  {
-                _cleanup_free_ char *s = NULL;
-                char **u;
-
-                s = strjoin("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
-                if (!s)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, s);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
-        }
+        r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc_keymap_toggle));
+        if (r < 0)
+                return r;
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/vconsole.conf") < 0)
