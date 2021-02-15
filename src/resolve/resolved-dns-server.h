@@ -143,7 +143,7 @@ DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
 DnsServer *manager_get_dns_server(Manager *m);
-void manager_next_dns_server(Manager *m);
+void manager_next_dns_server(Manager *m, DnsServer *if_current);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);

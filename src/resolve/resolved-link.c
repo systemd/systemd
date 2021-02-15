@@ -731,19 +731,27 @@ DnsServer *link_get_dns_server(Link *l) {
         return l->current_dns_server;
 }
 
-void link_next_dns_server(Link *l) {
+void link_next_dns_server(Link *l, DnsServer *if_current) {
         assert(l);
 
+        /* If the current server of the transaction is specified, and we already are at a different one,
+         * don't do anything */
+        if (if_current && l->current_dns_server != if_current)
+                return;
+
+        /* If currently have no DNS server, then don't do anything, we'll pick it lazily the next time a DNS
+         * server is needed. */
         if (!l->current_dns_server)
                 return;
 
-        /* Change to the next one, but make sure to follow the linked
-         * list only if this server is actually still linked. */
+        /* Change to the next one, but make sure to follow the linked list only if this server is actually
+         * still linked. */
         if (l->current_dns_server->linked && l->current_dns_server->servers_next) {
                 link_set_dns_server(l, l->current_dns_server->servers_next);
                 return;
         }
 
+        /* Pick the first one again, after we reached the end */
         link_set_dns_server(l, l->dns_servers);
 }
 
