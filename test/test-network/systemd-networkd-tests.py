@@ -1779,6 +1779,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
+        '25-nexthop-nothing.network',
         '25-nexthop.network',
         '25-qdisc-cake.network',
         '25-qdisc-clsact-and-htb.network',
@@ -2844,6 +2845,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show 2001:1234:5:8f62::2')
         print(output)
         self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+
+        remove_unit_from_networkd_path(['25-nexthop.network'])
+        copy_unit_to_networkd_unit_path('25-nexthop-nothing.network')
+        rc = call(*networkctl_cmd, 'reload', env=env)
+        self.assertEqual(rc, 0)
+        time.sleep(1)
+
+        output = check_output('ip nexthop list dev veth99')
+        print(output)
+        self.assertEqual(output, '')
+        output = check_output('ip nexthop list dev lo')
+        print(output)
+        self.assertEqual(output, '')
+
+        remove_unit_from_networkd_path(['25-nexthop-nothing.network'])
+        copy_unit_to_networkd_unit_path('25-nexthop.network')
+        rc = call(*networkctl_cmd, 'reload', env=env)
+        self.assertEqual(rc, 0)
+        time.sleep(1)
+
+        rc = call('ip link del veth99')
+        self.assertEqual(rc, 0)
+        time.sleep(2)
+
+        output = check_output('ip nexthop list dev lo')
+        print(output)
+        self.assertEqual(output, '')
 
     def test_qdisc(self):
         copy_unit_to_networkd_unit_path('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',
