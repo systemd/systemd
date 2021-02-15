@@ -699,17 +699,7 @@
         <option>all</option>.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>-s</option></term>
-        <term><option>--signal=</option></term>
-
-        <listitem><para>When used with <command>kill</command>, choose
-        which signal to send to selected processes. Must be one of the
-        well-known signal specifiers, such as
-        <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
-        <constant>SIGSTOP</constant>. If omitted, defaults to
-        <constant>SIGTERM</constant>.</para></listitem>
-      </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="signal" />
 
       <varlistentry>
          <term><option>--uid=</option></term>

@@ -11,6 +11,7 @@
 #include "main-func.h"
 #include "output-mode.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "rlimit-util.h"
@@ -492,14 +493,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case 't': {
-                        const char *p;
-
+                case 't':
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--type= requires arguments.");
 
-                        for (p = optarg;;) {
+                        for (const char *p = optarg;;) {
                                 _cleanup_free_ char *type = NULL;
 
                                 r = extract_first_word(&p, &type, ",", 0);
@@ -533,7 +532,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
-                }
 
                 case 'P':
                         arg_value = true;
@@ -546,10 +544,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
-                        } else {
-                                const char *p;
-
-                                for (p = optarg;;) {
+                        } else
+                                for (const char *p = optarg;;) {
                                         _cleanup_free_ char *prop = NULL;
 
                                         r = extract_first_word(&p, &prop, ",", 0);
@@ -561,7 +557,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
                                                 return log_oom();
                                 }
-                        }
 
                         /* If the user asked for a particular property, show it, even if it is empty. */
                         arg_all = true;
@@ -643,7 +638,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_root);
+                        r = parse_path_argument(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -679,16 +674,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(signal, int, _NSIG);
-                                return 0;
-                        }
-
-                        arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse signal string %s.",
-                                                       optarg);
+                        r = parse_signal_argument(optarg, &arg_signal);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -778,14 +766,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_boot_loader_entry = empty_to_null(optarg);
                         break;
 
-                case ARG_STATE: {
-                        const char *p;
-
+                case ARG_STATE:
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--state= requires arguments.");
 
-                        for (p = optarg;;) {
+                        for (const char *p = optarg;;) {
                                 _cleanup_free_ char *s = NULL;
 
                                 r = extract_first_word(&p, &s, ",", 0);
@@ -803,7 +789,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         }
                         break;
-                }
 
                 case 'r':
                         if (geteuid() != 0)
@@ -843,13 +828,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_with_dependencies = true;
                         break;
 
-                case ARG_WHAT: {
-                        const char *p;
-
+                case ARG_WHAT:
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments.");
 
-                        for (p = optarg;;) {
+                        for (const char *p = optarg;;) {
                                 _cleanup_free_ char *k = NULL;
 
                                 r = extract_first_word(&p, &k, ",", 0);
@@ -873,7 +856,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
-                }
 
                 case ARG_REBOOT_ARG:
                         arg_reboot_argument = optarg;
