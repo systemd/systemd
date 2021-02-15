@@ -21,3 +21,6 @@ u systemd-timesync  - "systemd Time Synchronization"
 m4_ifdef(`ENABLE_COREDUMP',
 u systemd-coredump  - "systemd Core Dumper"
 )m4_dnl
+m4_ifdef(`ENABLE_HOSTNAMED_GROUP',
+g systemd-hostname  - "systemd Hostname Management"
+)m4_dnl
