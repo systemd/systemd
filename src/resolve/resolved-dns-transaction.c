@@ -46,7 +46,14 @@ static void dns_transaction_flush_dnssec_transactions(DnsTransaction *t) {
         }
 }
 
-static void dns_transaction_close_connection(DnsTransaction *t) {
+static void dns_transaction_close_connection(
+                DnsTransaction *t,
+                bool use_graveyard) { /* Set use_graveyard = false when you know the connection is already
+                                       * dead, for example because you got a connection error back from the
+                                       * kernel. In that case there's no point in keeping the fd around,
+                                       * hence don't. */
+        int r;
+
         assert(t);
 
         if (t->stream) {
@@ -60,6 +67,20 @@ static void dns_transaction_close_connection(DnsTransaction *t) {
         }
 
         t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+
+        /* If we have an UDP socket where we sent a packet, but never received one, then add it to the socket
+         * graveyard, instead of closing it right away. That way it will stick around for a moment longer,
+         * and the reply we might still get from the server will be eaten up instead of resulting in an ICMP
+         * port unreachable error message. */
+
+        if (use_graveyard && t->dns_udp_fd >= 0 && t->sent && !t->received) {
+                r = manager_add_socket_to_graveyard(t->scope->manager, t->dns_udp_fd);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add UDP socket to graveyard, closing immediately: %m");
+                else
+                        TAKE_FD(t->dns_udp_fd);
+        }
+
         t->dns_udp_fd = safe_close(t->dns_udp_fd);
 }
 
@@ -79,7 +100,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
         log_debug("Freeing transaction %" PRIu16 ".", t->id);
 
-        dns_transaction_close_connection(t);
+        dns_transaction_close_connection(t, true);
         dns_transaction_stop_timeout(t);
 
         dns_packet_unref(t->sent);
@@ -403,7 +424,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
         t->state = state;
 
-        dns_transaction_close_connection(t);
+        dns_transaction_close_connection(t, true);
         dns_transaction_stop_timeout(t);
 
         /* Notify all queries that are interested, but make sure the
@@ -523,7 +544,7 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
 static void on_transaction_stream_error(DnsTransaction *t, int error) {
         assert(t);
 
-        dns_transaction_close_connection(t);
+        dns_transaction_close_connection(t, true);
 
         if (ERRNO_IS_DISCONNECT(error)) {
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
@@ -544,7 +565,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
         assert(t);
         assert(p);
 
-        dns_transaction_close_connection(t);
+        dns_transaction_close_connection(t, true);
 
         if (dns_packet_validate_reply(p) <= 0) {
                 log_debug("Invalid TCP reply packet.");
@@ -631,7 +652,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
         assert(t);
         assert(t->sent);
 
-        dns_transaction_close_connection(t);
+        dns_transaction_close_connection(t, true);
 
         switch (t->scope->protocol) {
 
@@ -731,7 +752,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
         r = dns_stream_write_packet(t->stream, t->sent);
         if (r < 0) {
-                dns_transaction_close_connection(t);
+                dns_transaction_close_connection(t, /* use_graveyard= */ false);
                 return r;
         }
 
@@ -1235,7 +1256,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         if (r > 0) {
                 /* There are DNSSEC transactions pending now. Update the state accordingly. */
                 t->state = DNS_TRANSACTION_VALIDATING;
-                dns_transaction_close_connection(t);
+                dns_transaction_close_connection(t, true);
                 dns_transaction_stop_timeout(t);
                 return;
         }
@@ -1265,6 +1286,8 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+
+                dns_transaction_close_connection(t, /* use_graveyard = */ false);
 
                 dns_transaction_retry(t, true);
                 return 0;
@@ -1319,7 +1342,10 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
                         int fd;
 
-                        dns_transaction_close_connection(t);
+                        dns_transaction_close_connection(t, true);
+
+                        /* Before we allocate a new UDP socket, let's process the graveyard a bit to free some fds */
+                        manager_socket_graveyard_process(t->scope->manager);
 
                         fd = dns_scope_socket_udp(t->scope, t->server);
                         if (fd < 0)
@@ -1341,7 +1367,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                                 return r;
                 }
         } else
-                dns_transaction_close_connection(t);
+                dns_transaction_close_connection(t, true);
 
         r = dns_scope_emit_udp(t->scope, t->dns_udp_fd, t->sent);
         if (r < 0)
