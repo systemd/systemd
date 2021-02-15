@@ -20,7 +20,7 @@
                 <allow send_destination="org.freedesktop.hostname1"/>
                 <allow receive_sender="org.freedesktop.hostname1"/>
         </policy>
-
+@HOSTNAMED_BUS_GROUP@
         <policy context="default">
                 <allow send_destination="org.freedesktop.hostname1"/>
                 <allow receive_sender="org.freedesktop.hostname1"/>

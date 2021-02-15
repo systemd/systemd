@@ -1553,6 +1553,26 @@ conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesync
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
+# When polkit is not available, in order for networkd to be able to set
+# the system hostname, hostnamed needs to run as the same user so that
+# the DBUS call is authorized. Give hostnamed CAP_SYS_ADMIN instead of
+# root, and create a specific group that owns the hostname1 bus.
+if conf.get('ENABLE_HOSTNAMED') == 1 and not install_polkit
+        conf.set10('ENABLE_HOSTNAMED_GROUP', 1)
+        substs.set('HOSTNAMED_USER_GROUP', '''# polkit was disabled, running as the systemd-network user
+# so that systemd-networkd has permission to set the hostname via DBUS
+User=systemd-network
+Group=systemd-hostname
+AmbientCapabilities=CAP_SYS_ADMIN''')
+        substs.set('HOSTNAMED_BUS_GROUP', '''
+        <policy group="systemd-hostname">
+                <allow own="org.freedesktop.hostname1"/>
+                <allow send_destination="org.freedesktop.hostname1"/>
+                <allow receive_sender="org.freedesktop.hostname1"/>
+        </policy>
+''')
+endif
+
 #####################################################################
 
 if get_option('efi')

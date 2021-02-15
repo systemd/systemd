@@ -41,3 +41,4 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service sethostname
 @SERVICE_WATCHDOG@
+@HOSTNAMED_USER_GROUP@
