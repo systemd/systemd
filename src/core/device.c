@@ -546,8 +546,56 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 }
 
                 /* The additional systemd udev properties we only interpret for the main object */
-                if (main)
+                if (main) {
+                        Unit *other;
+                        UnitDependencyInfo di;
+                        Set *following;
+
                         (void) device_add_udev_wants(u, dev);
+
+                        r = unit_following_set(u, &following);
+                        if (r > 0) {
+                                Unit *dep;
+
+                                SET_FOREACH(dep, following) {
+                                        HASHMAP_FOREACH_KEY(di.data, other, dep->dependencies[UNIT_BOUND_BY]) {
+                                                if (other->type != UNIT_MOUNT)
+                                                        continue;
+
+                                                /* Promote only dependencies that were configured in unit file. */
+                                                if (!FLAGS_SET(di.origin_mask, UNIT_DEPENDENCY_FILE))
+                                                        continue;
+
+                                                assert_se(hashmap_remove(other->dependencies[UNIT_BINDS_TO], dep));
+                                                assert_se(hashmap_remove(dep->dependencies[UNIT_BOUND_BY], other));
+
+                                                r = unit_add_dependency(dep, UNIT_BINDS_TO, other, true, di.origin_mask);
+                                                if (r < 0) {
+                                                        log_unit_error_errno(dep, r, "Failed to promote mount unit dependency: %m");
+                                                        goto fail;
+                                                }
+                                        }
+
+                                        HASHMAP_FOREACH_KEY(di.data, other, dep->dependencies[UNIT_REQUIRED_BY]) {
+                                                if (other->type != UNIT_MOUNT)
+                                                        continue;
+
+                                                /* Promote only dependencies that were configured in unit file. */
+                                                if (!FLAGS_SET(di.origin_mask, UNIT_DEPENDENCY_FILE))
+                                                        continue;
+
+                                                assert_se(hashmap_remove(other->dependencies[UNIT_REQUIRES], dep));
+                                                assert_se(hashmap_remove(dep->dependencies[UNIT_REQUIRED_BY], other));
+
+                                                r = unit_add_dependency(dep, UNIT_REQUIRES, other, true, di.origin_mask);
+                                                if (r < 0) {
+                                                        log_unit_error_errno(dep, r, "Failed to promote mount unit dependency: %m");
+                                                        goto fail;
+                                                }
+                                        }
+                                }
+                        }
+                }
         }
 
         (void) device_update_description(u, dev, path);
@@ -556,6 +604,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
          * before the device appears on its radar. In this case the device unit is partially initialized and includes
          * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
+                /* If we promoted dependencies than u might not have any Requires dependencies to upgrade. */
                 device_upgrade_mount_deps(u);
 
         return 0;
