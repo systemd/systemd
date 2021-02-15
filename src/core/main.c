@@ -938,15 +938,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DUMP_CORE:
-                        if (!optarg)
-                                arg_dump_core = true;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse dump core boolean: \"%s\": %m",
-                                                               optarg);
-                                arg_dump_core = r;
-                        }
+                        r = parse_boolean_argument("--dump-core", optarg, &arg_dump_core);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CRASH_CHVT:
@@ -957,27 +951,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CRASH_SHELL:
-                        if (!optarg)
-                                arg_crash_shell = true;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse crash shell boolean: \"%s\": %m",
-                                                               optarg);
-                                arg_crash_shell = r;
-                        }
+                        r = parse_boolean_argument("--crash-shell", optarg, &arg_crash_shell);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CRASH_REBOOT:
-                        if (!optarg)
-                                arg_crash_reboot = true;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse crash shell boolean: \"%s\": %m",
-                                                               optarg);
-                                arg_crash_reboot = r;
-                        }
+                        r = parse_boolean_argument("--crash-reboot", optarg, &arg_crash_reboot);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_CONFIRM_SPAWN:
@@ -990,11 +972,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SERVICE_WATCHDOGS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--service-watchdogs", optarg, &arg_service_watchdogs);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse service watchdogs boolean: \"%s\": %m",
-                                                       optarg);
-                        arg_service_watchdogs = r;
+                                return r;
                         break;
 
                 case ARG_SHOW_STATUS:

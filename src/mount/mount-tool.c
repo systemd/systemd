@@ -23,6 +23,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -265,11 +266,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_FSCK:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--fsck", optarg, &arg_fsck);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --fsck= argument: %s", optarg);
-
-                        arg_fsck = r;
+                                return r;
                         break;
 
                 case ARG_DESCRIPTION:
