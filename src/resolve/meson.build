@@ -64,6 +64,8 @@ systemd_resolved_sources = files('''
         resolved-mdns.h
         resolved-resolv-conf.c
         resolved-resolv-conf.h
+        resolved-socket-graveyard.c
+        resolved-socket-graveyard.h
         resolved-varlink.c
         resolved-varlink.h
         resolved.c
