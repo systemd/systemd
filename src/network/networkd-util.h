@@ -47,9 +47,12 @@ sd_dhcp_lease_server_type dhcp_lease_server_type_from_string(const char *s) _pur
 
 int kernel_route_expiration_supported(void);
 
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
-void network_config_section_free(NetworkConfigSection *network);
+static inline void network_config_section_free(NetworkConfigSection *cs) {
+        free(cs);
+}
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
+
+int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
 extern const struct hash_ops network_config_hash_ops;
 unsigned hashmap_find_free_section_line(Hashmap *hashmap);
 
