@@ -281,10 +281,6 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
                 r = netlink_message_append_in_addr_union(req, NHA_GATEWAY, nexthop->family, &nexthop->gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
-
-                r = sd_rtnl_message_nexthop_set_family(req, nexthop->family);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set nexthop family: %m");
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
