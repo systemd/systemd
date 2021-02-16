@@ -98,9 +98,9 @@ struct StdoutStream {
         char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
 };
 
-void stdout_stream_free(StdoutStream *s) {
+StdoutStream* stdout_stream_free(StdoutStream *s) {
         if (!s)
-                return;
+                return NULL;
 
         if (s->server) {
 
@@ -129,7 +129,7 @@ void stdout_stream_free(StdoutStream *s) {
         free(s->state_file);
         free(s->buffer);
 
-        free(s);
+        return mfree(s);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(StdoutStream*, stdout_stream_free);

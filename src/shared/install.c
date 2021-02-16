@@ -3346,12 +3346,12 @@ int unit_file_preset_all(
         return execute_preset(scope, &plus, &minus, &paths, config_path, NULL, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
 }
 
-static void unit_file_list_free_one(UnitFileList *f) {
+static UnitFileList* unit_file_list_free_one(UnitFileList *f) {
         if (!f)
-                return;
+                return NULL;
 
         free(f->path);
-        free(f);
+        return mfree(f);
 }
 
 Hashmap* unit_file_list_free(Hashmap *h) {

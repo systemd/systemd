@@ -155,10 +155,6 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
         return 0;
 }
 
-void network_config_section_free(NetworkConfigSection *cs) {
-        free(cs);
-}
-
 unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
         NetworkConfigSection *cs;
         unsigned n = 0;

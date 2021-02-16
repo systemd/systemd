@@ -47,9 +47,12 @@ sd_dhcp_lease_server_type dhcp_lease_server_type_from_string(const char *s) _pur
 
 int kernel_route_expiration_supported(void);
 
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
-void network_config_section_free(NetworkConfigSection *network);
+static inline NetworkConfigSection* network_config_section_free(NetworkConfigSection *cs) {
+        return mfree(cs);
+}
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
+
+int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
 extern const struct hash_ops network_config_hash_ops;
 unsigned hashmap_find_free_section_line(Hashmap *hashmap);
 
@@ -63,13 +66,14 @@ static inline bool section_is_invalid(NetworkConfigSection *section) {
 }
 
 #define DEFINE_NETWORK_SECTION_FUNCTIONS(type, free_func)               \
-        static inline void free_func##_or_set_invalid(type *p) {        \
+        static inline type* free_func##_or_set_invalid(type *p) {       \
                 assert(p);                                              \
                                                                         \
                 if (p->section)                                         \
                         p->section->invalid = true;                     \
                 else                                                    \
                         free_func(p);                                   \
+                return NULL;                                            \
         }                                                               \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);

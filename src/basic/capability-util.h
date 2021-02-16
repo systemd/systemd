@@ -25,7 +25,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities);
 
 int drop_capability(cap_value_t cv);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(cap_t, cap_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(cap_t, cap_free, NULL);
 #define _cleanup_cap_free_ _cleanup_(cap_freep)
 
 static inline void cap_free_charpp(char **p) {

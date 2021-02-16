@@ -48,13 +48,13 @@ struct expire_data {
         int ioctl_fd;
 };
 
-static void expire_data_free(struct expire_data *data) {
+static struct expire_data* expire_data_free(struct expire_data *data) {
         if (!data)
-                return;
+                return NULL;
 
         safe_close(data->dev_autofs_fd);
         safe_close(data->ioctl_fd);
-        free(data);
+        return mfree(data);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data*, expire_data_free);

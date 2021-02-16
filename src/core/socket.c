@@ -969,6 +969,8 @@ static void socket_close_fds(Socket *s) {
         if (s->remove_on_stop)
                 STRV_FOREACH(i, s->symlinks)
                         (void) unlink(*i);
+
+        /* Note that we don't return NULL here, since s has not been freed. */
 }
 
 static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
@@ -1609,10 +1611,10 @@ static int socket_address_listen_in_cgroup(
         return fd;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Socket *, socket_close_fds);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket *, socket_close_fds, NULL);
 
-static int socket_open_fds(Socket *_s) {
-        _cleanup_(socket_close_fdsp) Socket *s = _s;
+static int socket_open_fds(Socket *orig_s) {
+        _cleanup_(socket_close_fdsp) Socket *s = orig_s;
         _cleanup_(mac_selinux_freep) char *label = NULL;
         bool know_label = false;
         SocketPort *p;

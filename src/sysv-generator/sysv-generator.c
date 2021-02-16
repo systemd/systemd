@@ -59,9 +59,9 @@ typedef struct SysvStub {
         bool loaded;
 } SysvStub;
 
-static void free_sysvstub(SysvStub *s) {
+static SysvStub* free_sysvstub(SysvStub *s) {
         if (!s)
-                return;
+                return NULL;
 
         free(s->name);
         free(s->path);
@@ -71,9 +71,8 @@ static void free_sysvstub(SysvStub *s) {
         strv_free(s->after);
         strv_free(s->wants);
         strv_free(s->wanted_by);
-        free(s);
+        return mfree(s);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub*, free_sysvstub);
 
 static void free_sysvstub_hashmapp(Hashmap **h) {

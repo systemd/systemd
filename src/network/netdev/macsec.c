@@ -35,9 +35,9 @@ static void security_association_init(SecurityAssociation *sa) {
         sa->use_for_encoding = -1;
 }
 
-static void macsec_receive_association_free(ReceiveAssociation *c) {
+static ReceiveAssociation* macsec_receive_association_free(ReceiveAssociation *c) {
         if (!c)
-                return;
+                return NULL;
 
         if (c->macsec && c->section)
                 ordered_hashmap_remove(c->macsec->receive_associations_by_section, c->section);
@@ -45,7 +45,7 @@ static void macsec_receive_association_free(ReceiveAssociation *c) {
         network_config_section_free(c->section);
         security_association_clear(&c->sa);
 
-        free(c);
+        return mfree(c);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(ReceiveAssociation, macsec_receive_association_free);
@@ -90,9 +90,9 @@ static int macsec_receive_association_new_static(MACsec *s, const char *filename
         return 0;
 }
 
-static void macsec_receive_channel_free(ReceiveChannel *c) {
+static ReceiveChannel* macsec_receive_channel_free(ReceiveChannel *c) {
         if (!c)
-                return;
+                return NULL;
 
         if (c->macsec) {
                 if (c->sci.as_uint64 > 0)
@@ -104,7 +104,7 @@ static void macsec_receive_channel_free(ReceiveChannel *c) {
 
         network_config_section_free(c->section);
 
-        free(c);
+        return mfree(c);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(ReceiveChannel, macsec_receive_channel_free);
@@ -162,9 +162,9 @@ static int macsec_receive_channel_new_static(MACsec *s, const char *filename, un
         return 0;
 }
 
-static void macsec_transmit_association_free(TransmitAssociation *a) {
+static TransmitAssociation* macsec_transmit_association_free(TransmitAssociation *a) {
         if (!a)
-                return;
+                return NULL;
 
         if (a->macsec && a->section)
                 ordered_hashmap_remove(a->macsec->transmit_associations_by_section, a->section);
@@ -172,7 +172,7 @@ static void macsec_transmit_association_free(TransmitAssociation *a) {
         network_config_section_free(a->section);
         security_association_clear(&a->sa);
 
-        free(a);
+        return mfree(a);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(TransmitAssociation, macsec_transmit_association_free);

@@ -27,7 +27,7 @@
 #include "macro.h"
 #include "socket-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct xtc_handle*, iptc_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct xtc_handle*, iptc_free, NULL);
 
 static int entry_fill_basics(
                 struct ipt_entry *entry,

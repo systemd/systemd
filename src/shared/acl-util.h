@@ -21,13 +21,13 @@ int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask);
 
 /* acl_free takes multiple argument types.
  * Multiple cleanup functions are necessary. */
-DEFINE_TRIVIAL_CLEANUP_FUNC(acl_t, acl_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(acl_t, acl_free, NULL);
 #define acl_free_charp acl_free
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, acl_free_charp);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, acl_free_charp, NULL);
 #define acl_free_uid_tp acl_free
-DEFINE_TRIVIAL_CLEANUP_FUNC(uid_t*, acl_free_uid_tp);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(uid_t*, acl_free_uid_tp, NULL);
 #define acl_free_gid_tp acl_free
-DEFINE_TRIVIAL_CLEANUP_FUNC(gid_t*, acl_free_gid_tp);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gid_t*, acl_free_gid_tp, NULL);
 
 #else
 #define ACL_READ    0x04
