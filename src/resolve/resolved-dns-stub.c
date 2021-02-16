@@ -9,6 +9,7 @@
 #include "resolved-dns-stub.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 
 /* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
@@ -393,6 +394,34 @@ static int dns_stub_add_reply_packet_body(
         return 0;
 }
 
+static const char *nsid_string(void) {
+        static char buffer[SD_ID128_STRING_MAX + STRLEN(".resolved.systemd.io")] = "";
+        sd_id128_t id;
+        int r;
+
+        /* Let's generate a string that we can use as RFC5001 NSID identifier. The string shall identify us
+         * as systemd-resolved, and return a different string for each resolved instance without leaking host
+         * identity. Hence let's use a fixed suffix that identifies resolved, and a prefix generated from the
+         * machine ID but from which the machine ID cannot be determined.
+         *
+         * Clients can use this to determine whether an answer is originating locally or is proxied from
+         * upstream. */
+
+        if (!isempty(buffer))
+                return buffer;
+
+        r = sd_id128_get_machine_app_specific(
+                        SD_ID128_MAKE(ed,d3,12,5d,16,b9,41,f9,a1,49,5f,ab,15,62,ab,27),
+                        &id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine machine ID, igoring: %m");
+                return NULL;
+        }
+
+        xsprintf(buffer, SD_ID128_FORMAT_STR ".resolved.systemd.io", SD_ID128_FORMAT_VAL(id));
+        return buffer;
+}
+
 static int dns_stub_finish_reply_packet(
                 DnsPacket *p,
                 uint16_t id,
@@ -402,14 +431,15 @@ static int dns_stub_finish_reply_packet(
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
                 bool ad,        /* set the DNSSEC authenticated data bit? */
                 bool cd,        /* set the DNSSEC checking disabled bit? */
-                uint16_t max_udp_size) { /* The maximum UDP datagram size to advertise to clients */
+                uint16_t max_udp_size, /* The maximum UDP datagram size to advertise to clients */
+                bool nsid) {    /* whether to add NSID */
 
         int r;
 
         assert(p);
 
         if (add_opt) {
-                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975 = */ false, rcode, NULL);
+                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975 = */ false, nsid ? nsid_string() : NULL, rcode, NULL);
                 if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
                         tc = true;
                 else if (r < 0)
@@ -529,7 +559,8 @@ static int dns_stub_send_reply(
                         edns0_do,
                         DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
                         DNS_PACKET_CD(q->request_packet),
-                        q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
+                        q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
+                        dns_packet_has_nsid_request(q->request_packet) > 0 && !q->stub_listener_extra);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
 
@@ -568,7 +599,8 @@ static int dns_stub_send_failure(
                         DNS_PACKET_DO(p),
                         DNS_PACKET_AD(p) && authenticated,
                         DNS_PACKET_CD(p),
-                        l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
+                        l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX,
+                        dns_packet_has_nsid_request(p) > 0 && !l);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
 
