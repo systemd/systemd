@@ -143,7 +143,7 @@ struct DnsTransaction {
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnsPacket *bypass, uint64_t flags);
 DnsTransaction* dns_transaction_free(DnsTransaction *t);
 
-bool dns_transaction_gc(DnsTransaction *t);
+DnsTransaction* dns_transaction_gc(DnsTransaction *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
 int dns_transaction_go(DnsTransaction *t);
