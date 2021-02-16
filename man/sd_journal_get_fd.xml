@@ -151,18 +151,18 @@ else {
     <function>poll()</function> and
     <function>sd_journal_process()</function> into one.</para>
 
-    <para><function>sd_journal_reliable_fd()</function> may be used to
-    check whether the wakeup events from the file descriptor returned
-    by <function>sd_journal_get_fd()</function> are known to be
-    immediately triggered. On certain file systems where file change
-    events from the OS are not available (such as NFS) changes need to
-    be polled for repeatedly, and hence are detected only with a
-    certain latency. This call will return a positive value if the
-    journal changes are detected immediately and zero when they need
-    to be polled for and hence might be noticed only with a certain
-    latency. Note that there is usually no need to invoke this function
-    directly as <function>sd_journal_get_timeout()</function> on these
-    file systems will ask for timeouts explicitly anyway.</para>
+    <para><function>sd_journal_reliable_fd()</function> may be used to check whether the wake-up events from
+    the file descriptor returned by <function>sd_journal_get_fd()</function> are known to be quickly
+    triggered. On certain file systems where file change events from the OS are not available (such as NFS)
+    changes need to be polled for repeatedly, and hence are detected only with a considerable latency. This
+    call will return a positive value if the journal changes are detected quickly and zero when they need to
+    be polled for. Note that there is usually no need to invoke this function directly as
+    <function>sd_journal_get_timeout()</function> will request appropriate timeouts anyway.</para>
+
+    <para>Note that all of the above change notification interfaces do not report changes
+    instantly. Latencies are introduced for multiple reasons: as mentioned certain storage backends require
+    time-based polling, in other cases wake-ups are optimized by coalescing events, and the OS introduces
+    additional IO/CPU scheduling latencies.</para>
   </refsect1>
 
   <refsect1>
