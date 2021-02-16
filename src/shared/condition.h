@@ -19,6 +19,7 @@ typedef enum ConditionType {
         CONDITION_MEMORY,
         CONDITION_CPUS,
         CONDITION_ENVIRONMENT,
+        CONDITION_CPU_FEATURE,
 
         CONDITION_NEEDS_UPDATE,
         CONDITION_FIRST_BOOT,
