@@ -82,7 +82,7 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
 
 static void maybe_warn_about_dependency(Unit *u, const char *other, UnitDependency dependency);
 
-Unit *unit_new(Manager *m, size_t size) {
+Unit* unit_new(Manager *m, size_t size) {
         Unit *u;
 
         assert(m);
@@ -607,11 +607,11 @@ static void unit_done(Unit *u) {
                 cgroup_context_done(cc);
 }
 
-void unit_free(Unit *u) {
+Unit* unit_free(Unit *u) {
         char *t;
 
         if (!u)
-                return;
+                return NULL;
 
         u->transient_file = safe_fclose(u->transient_file);
 
@@ -741,7 +741,7 @@ void unit_free(Unit *u) {
         set_free_free(u->aliases);
         free(u->id);
 
-        free(u);
+        return mfree(u);
 }
 
 FreezerState unit_freezer_state(Unit *u) {

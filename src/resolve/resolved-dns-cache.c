@@ -80,17 +80,16 @@ static const char *dns_cache_item_type_to_string(DnsCacheItem *item) {
         return NULL;
 }
 
-static void dns_cache_item_free(DnsCacheItem *i) {
+static DnsCacheItem* dns_cache_item_free(DnsCacheItem *i) {
         if (!i)
-                return;
+                return NULL;
 
         dns_resource_record_unref(i->rr);
         dns_resource_key_unref(i->key);
         dns_answer_unref(i->answer);
         dns_packet_unref(i->full_packet);
-        free(i);
+        return mfree(i);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsCacheItem*, dns_cache_item_free);
 
 static void dns_cache_item_unlink_and_free(DnsCache *c, DnsCacheItem *i) {

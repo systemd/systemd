@@ -213,10 +213,10 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
 }
 
-static void unit_times_free(UnitTimes *t) {
-        for (UnitTimes *p = t; p->has_data; p++)
+static UnitTimes* unit_times_free(UnitTimes *t) {
+        for (UnitTimes *p = t; p && p->has_data; p++)
                 free(p->name);
-        free(t);
+        return mfree(t);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes *, unit_times_free);
 
@@ -313,9 +313,9 @@ finish:
         return 0;
 }
 
-static void free_host_info(HostInfo *hi) {
+static HostInfo* free_host_info(HostInfo *hi) {
         if (!hi)
-                return;
+                return NULL;
 
         free(hi->hostname);
         free(hi->kernel_name);
@@ -324,7 +324,7 @@ static void free_host_info(HostInfo *hi) {
         free(hi->os_pretty_name);
         free(hi->virtualization);
         free(hi->architecture);
-        free(hi);
+        return mfree(hi);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(HostInfo *, free_host_info);
@@ -429,7 +429,7 @@ static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        _cleanup_(free_host_infop) HostInfo *host;
+        _cleanup_(free_host_infop) HostInfo *host = NULL;
         int r;
 
         host = new0(HostInfo, 1);

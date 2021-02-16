@@ -33,14 +33,13 @@
 /* Let's make sure that the microsecond component is safe to be stored in an 'int' */
 assert_cc(INT_MAX >= USEC_PER_SEC);
 
-static void chain_free(CalendarComponent *c) {
-        CalendarComponent *n;
-
+static CalendarComponent* chain_free(CalendarComponent *c) {
         while (c) {
-                n = c->next;
+                CalendarComponent *n = c->next;
                 free(c);
                 c = n;
         }
+        return NULL;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CalendarComponent*, chain_free);

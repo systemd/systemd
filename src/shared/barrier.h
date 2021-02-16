@@ -37,7 +37,7 @@ struct Barrier {
 #define BARRIER_NULL {-1, -1, {-1, -1}, 0}
 
 int barrier_create(Barrier *obj);
-void barrier_destroy(Barrier *b);
+Barrier* barrier_destroy(Barrier *b);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier*, barrier_destroy);
 

@@ -173,9 +173,9 @@ static void event_free(struct event *event) {
         free(event);
 }
 
-static void worker_free(struct worker *worker) {
+static struct worker* worker_free(struct worker *worker) {
         if (!worker)
-                return;
+                return NULL;
 
         assert(worker->manager);
 
@@ -183,7 +183,7 @@ static void worker_free(struct worker *worker) {
         sd_device_monitor_unref(worker->monitor);
         event_free(worker->event);
 
-        free(worker);
+        return mfree(worker);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct worker *, worker_free);
@@ -287,9 +287,9 @@ static void manager_clear_for_worker(Manager *manager) {
         manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
 }
 
-static void manager_free(Manager *manager) {
+static Manager* manager_free(Manager *manager) {
         if (!manager)
-                return;
+                return NULL;
 
         udev_builtin_exit();
 
@@ -306,7 +306,7 @@ static void manager_free(Manager *manager) {
         safe_close(manager->fd_inotify);
         safe_close_pair(manager->worker_watch);
 
-        free(manager);
+        return mfree(manager);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

@@ -939,7 +939,7 @@ static void source_disconnect(sd_event_source *s) {
                 sd_event_unref(event);
 }
 
-static void source_free(sd_event_source *s) {
+static sd_event_source* source_free(sd_event_source *s) {
         assert(s);
 
         source_disconnect(s);
@@ -989,7 +989,7 @@ static void source_free(sd_event_source *s) {
                 s->destroy_callback(s->userdata);
 
         free(s->description);
-        free(s);
+        return mfree(s);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_event_source*, source_free);
 

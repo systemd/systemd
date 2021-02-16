@@ -164,6 +164,7 @@ static void udev_ctrl_disconnect_and_listen_again(struct udev_ctrl *uctrl) {
         udev_ctrl_disconnect(uctrl);
         udev_ctrl_unref(uctrl);
         (void) sd_event_source_set_enabled(uctrl->event_source, SD_EVENT_ON);
+        /* We don't return NULL here because uctrl is not freed */
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl *, udev_ctrl_disconnect_and_listen_again);

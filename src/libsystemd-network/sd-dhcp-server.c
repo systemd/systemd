@@ -649,12 +649,12 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
         return 0;
 }
 
-static void dhcp_request_free(DHCPRequest *req) {
+static DHCPRequest* dhcp_request_free(DHCPRequest *req) {
         if (!req)
-                return;
+                return NULL;
 
         free(req->client_id.data);
-        free(req);
+        return mfree(req);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPRequest*, dhcp_request_free);
