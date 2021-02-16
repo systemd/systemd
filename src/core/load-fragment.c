@@ -1971,6 +1971,7 @@ int config_parse_timer(
         *v = (TimerValue) {
                 .base = ltype,
                 .value = usec,
+                .disabled = ltype == TIMER_ACTIVE,
                 .calendar_spec = TAKE_PTR(c),
         };
 
