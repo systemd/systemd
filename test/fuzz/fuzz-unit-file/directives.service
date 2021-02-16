@@ -151,6 +151,7 @@ MemorySwapMax=
 MessageQueueMaxMessages=
 MessageQueueMessageSize=
 MountAPIVFS=
+NetworkNamespacePath=
 NoDelay=
 NoExecPaths=
 NoNewPrivileges=
