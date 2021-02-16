@@ -502,7 +502,12 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
 
         assert(t);
 
-        log_debug("Retrying transaction %" PRIu16 ".", t->id);
+        /* Retries the transaction as it is, possibly on a different server */
+
+        if (next_server)
+                log_debug("Retrying transaction %" PRIu16 ", after switching servers.", t->id);
+        else
+                log_debug("Retrying transaction %" PRIu16 ".", t->id);
 
         /* Before we try again, switch to a new server. */
         if (next_server)
@@ -513,12 +518,25 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
                 dns_transaction_complete_errno(t, r);
 }
 
+static bool dns_transaction_limited_retry(DnsTransaction *t) {
+        assert(t);
+
+        /* If we haven't tried all different servers yet, let's try again with a different server */
+
+        if (t->n_picked_servers >= dns_scope_get_n_dns_servers(t->scope))
+                return false;
+
+        dns_transaction_retry(t, /* next_server= */ true);
+        return true;
+}
+
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
         int r;
 
         assert(t);
 
-        /* Returns > 0 if the transaction was restarted, 0 if not */
+        /* Restarts the transaction, under a new ID if the feature level of the server changed since we first
+         * tried, without changing DNS server. Returns > 0 if the transaction was restarted, 0 if not. */
 
         if (!t->server)
                 return 0;
@@ -911,11 +929,8 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 /*  We are not in automatic downgrade mode, and the server is bad. Let's try a different server, maybe
                  *  that works. */
 
-                if (t->n_picked_servers < dns_scope_get_n_dns_servers(t->scope)) {
-                        /* We tried fewer servers on this transaction than we know, let's try another one then */
-                        dns_transaction_retry(t, true);
+                if (dns_transaction_limited_retry(t))
                         return;
-                }
 
                 /* OK, let's give up, apparently all servers we tried didn't work. */
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
@@ -1098,11 +1113,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                  * packet loss, but is not going to give us better rcodes should we actually have
                                  * managed to get them already at UDP level. */
 
-                                if (t->n_picked_servers < dns_scope_get_n_dns_servers(t->scope)) {
-                                        /* We tried fewer servers on this transaction than we know, let's try another one then */
-                                        dns_transaction_retry(t, true);
+                                if (dns_transaction_limited_retry(t))
                                         return;
-                                }
 
                                 /* Give up, accept the rcode */
                                 log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
@@ -1133,8 +1145,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 if (DNS_PACKET_RCODE(p) == DNS_RCODE_REFUSED) {
                         /* This server refused our request? If so, try again, use a different server */
                         log_debug("Server returned REFUSED, switching servers, and retrying.");
-                        dns_transaction_retry(t, true /* pick a new server */);
-                        return;
+
+                        if (dns_transaction_limited_retry(t))
+                                return;
+
+                        break;
                 }
 
                 if (DNS_PACKET_TC(p))
@@ -1180,7 +1195,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 goto fail;
 
                         /* On DNS, couldn't send? Try immediately again, with a new server */
-                        dns_transaction_retry(t, true);
+                        if (dns_transaction_limited_retry(t))
+                                return;
+
+                        /* No new server to try, give up */
+                        dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
                 }
 
                 return;
@@ -1296,7 +1315,10 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                 dns_transaction_close_connection(t, /* use_graveyard = */ false);
 
-                dns_transaction_retry(t, true);
+                if (dns_transaction_limited_retry(t)) /* Try a different server */
+                        return 0;
+
+                dns_transaction_complete_errno(t, r);
                 return 0;
         }
         if (r < 0) {
@@ -1415,7 +1437,8 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
         log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
 
-        dns_transaction_retry(t, true);
+        dns_transaction_retry(t, true); /* try a different server, but given this means packet loss, let's do
+                                         * so even if we already tried a bunch */
         return 0;
 }
 
