@@ -3918,7 +3918,7 @@ static int exec_child(
         }
 
         if (context->network_namespace_path && runtime && runtime->netns_storage_socket[0] >= 0) {
-                r = open_netns_path(runtime->netns_storage_socket, context->network_namespace_path);
+                r = open_shareable_ns_path(runtime->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
                         return log_unit_error_errno(unit, r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
@@ -4195,7 +4195,7 @@ static int exec_child(
         if ((context->private_network || context->network_namespace_path) && runtime && runtime->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
-                        r = setup_netns(runtime->netns_storage_socket);
+                        r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
                         if (r == -EPERM)
                                 log_unit_warning_errno(unit, r,
                                                        "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");

@@ -1547,7 +1547,7 @@ static int socket_address_listen_in_cgroup(
         if (s->exec_context.network_namespace_path &&
             s->exec_runtime &&
             s->exec_runtime->netns_storage_socket[0] >= 0) {
-                r = open_netns_path(s->exec_runtime->netns_storage_socket, s->exec_context.network_namespace_path);
+                r = open_shareable_ns_path(s->exec_runtime->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
         }
@@ -1568,7 +1568,7 @@ static int socket_address_listen_in_cgroup(
                     s->exec_runtime->netns_storage_socket[0] >= 0) {
 
                         if (ns_type_supported(NAMESPACE_NET)) {
-                                r = setup_netns(s->exec_runtime->netns_storage_socket);
+                                r = setup_shareable_ns(s->exec_runtime->netns_storage_socket, CLONE_NEWNET);
                                 if (r < 0) {
                                         log_unit_error_errno(UNIT(s), r, "Failed to join network namespace: %m");
                                         _exit(EXIT_NETWORK);
