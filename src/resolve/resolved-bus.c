@@ -252,7 +252,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
         r = sd_bus_message_append(
                         reply, "st",
                         normalized,
-                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
+                        dns_query_reply_flags_make(q));
         if (r < 0)
                 goto finish;
 
@@ -367,7 +367,8 @@ static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname
                 return r;
 
         r = sd_bus_message_append(reply, "st", canonical,
-                                  SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(flags), ff, true));
+                                  SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(flags), ff, true, true) |
+                                  SD_RESOLVED_SYNTHETIC);
         if (r < 0)
                 return r;
 
@@ -510,7 +511,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
+        r = sd_bus_message_append(reply, "t", dns_query_reply_flags_make(q));
         if (r < 0)
                 goto finish;
 
@@ -672,7 +673,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_message_append(reply, "t", SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
+        r = sd_bus_message_append(reply, "t", dns_query_reply_flags_make(q));
         if (r < 0)
                 goto finish;
 
@@ -1048,7 +1049,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                         reply,
                         "ssst",
                         name, type, domain,
-                        SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q)));
+                        dns_query_reply_flags_make(q));
         if (r < 0)
                 goto finish;
 

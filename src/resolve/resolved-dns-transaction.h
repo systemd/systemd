@@ -77,15 +77,12 @@ struct DnsTransaction {
         uint32_t answer_nsec_ttl;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
 
-        /* Indicates whether the primary answer is authenticated,
-         * i.e. whether the RRs from answer which directly match the
-         * question are authenticated, or, if there are none, whether
-         * the NODATA or NXDOMAIN case is. It says nothing about
-         * additional RRs listed in the answer, however they have
-         * their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit
-         * is defined different than the AD bit in DNS packets, as
-         * that covers more than just the actual primary answer. */
-        bool answer_authenticated;
+        /* SD_RESOLVED_AUTHENTICATED here indicates whether the primary answer is authenticated, i.e. whether
+         * the RRs from answer which directly match the question are authenticated, or, if there are none,
+         * whether the NODATA or NXDOMAIN case is. It says nothing about additional RRs listed in the answer,
+         * however they have their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit is defined different
+         * than the AD bit in DNS packets, as that covers more than just the actual primary answer. */
+        uint64_t answer_query_flags;
 
         /* Contains DNSKEY, DS, SOA RRs we already verified and need
          * to authenticate this reply */
@@ -148,7 +145,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
 int dns_transaction_go(DnsTransaction *t);
 
-void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);
+void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
@@ -170,6 +167,27 @@ static inline DnsResourceKey *dns_transaction_key(DnsTransaction *t) {
                 return NULL;
 
         return t->bypass->question->keys[0];
+}
+
+static inline uint64_t dns_transaction_source_to_query_flags(DnsTransactionSource s) {
+
+        switch (s) {
+
+        case DNS_TRANSACTION_NETWORK:
+                return SD_RESOLVED_FROM_NETWORK;
+
+        case DNS_TRANSACTION_CACHE:
+                return SD_RESOLVED_FROM_CACHE;
+
+        case DNS_TRANSACTION_ZONE:
+                return SD_RESOLVED_FROM_ZONE;
+
+        case DNS_TRANSACTION_TRUST_ANCHOR:
+                return SD_RESOLVED_FROM_TRUST_ANCHOR;
+
+        default:
+                return 0;
+        }
 }
 
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;

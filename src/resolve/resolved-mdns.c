@@ -303,20 +303,20 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                         t = dns_scope_find_transaction(scope, rr->key, SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
-                                dns_transaction_process_reply(t, p);
+                                dns_transaction_process_reply(t, p, false);
 
                         /* Also look for the various types of ANY transactions */
                         t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
-                                dns_transaction_process_reply(t, p);
+                                dns_transaction_process_reply(t, p, false);
 
                         t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
-                                dns_transaction_process_reply(t, p);
+                                dns_transaction_process_reply(t, p, false);
 
                         t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
-                                dns_transaction_process_reply(t, p);
+                                dns_transaction_process_reply(t, p, false);
                 }
 
                 dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, (uint32_t) -1, p->family, &p->sender);
