@@ -642,22 +642,14 @@ int manager_default_environment(Manager *m) {
                 /* Import locale variables LC_*= from configuration */
                 (void) locale_setup(&m->transient_environment);
         } else {
-                _cleanup_free_ char *k = NULL;
-
-                /* The user manager passes its own environment
-                 * along to its children, except for $PATH. */
+                /* The user manager passes its own environment along to its children, except for $PATH. */
                 m->transient_environment = strv_copy(environ);
                 if (!m->transient_environment)
                         return log_oom();
 
-                k = strdup("PATH=" DEFAULT_USER_PATH);
-                if (!k)
-                        return log_oom();
-
-                r = strv_env_replace(&m->transient_environment, k);
+                r = strv_env_replace_strdup(&m->transient_environment, "PATH=" DEFAULT_USER_PATH);
                 if (r < 0)
                         return log_oom();
-                TAKE_PTR(k);
         }
 
         sanitize_environment(m->transient_environment);

@@ -175,7 +175,7 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
 }
 
 int deserialize_environment(const char *value, char ***list) {
-        _cleanup_free_ char *unescaped = NULL;
+        char *unescaped;
         int r;
 
         assert(value);
@@ -187,11 +187,9 @@ int deserialize_environment(const char *value, char ***list) {
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape: %m");
 
-        r = strv_env_replace(list, unescaped);
+        r = strv_env_replace_consume(list, unescaped);
         if (r < 0)
                 return log_error_errno(r, "Failed to append environment variable: %m");
-
-        unescaped = NULL; /* now part of 'list' */
         return 0;
 }
 

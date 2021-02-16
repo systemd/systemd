@@ -55,7 +55,6 @@ static void status_info_clear(StatusInfo *info) {
 static void print_overridden_variables(void) {
         _cleanup_(locale_variables_freep) char *variables[_VARIABLE_LC_MAX] = {};
         bool print_warning = true;
-        LocaleVariable j;
         int r;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -82,7 +81,7 @@ static void print_overridden_variables(void) {
                 return;
         }
 
-        for (j = 0; j < _VARIABLE_LC_MAX; j++)
+        for (LocaleVariable j = 0; j < _VARIABLE_LC_MAX; j++)
                 if (variables[j]) {
                         if (print_warning) {
                                 log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"

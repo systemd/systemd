@@ -363,20 +363,23 @@ char **strv_env_unset_many(char **l, ...) {
         return l;
 }
 
-int strv_env_replace(char ***l, char *p) {
+int strv_env_replace_consume(char ***l, char *p) {
         const char *t, *name;
         char **f;
         int r;
 
         assert(p);
 
-        /* Replace first occurrence of the env var or add a new one in the string list. Drop other occurrences. Edits
-         * in-place. Does not copy p.  p must be a valid key=value assignment.
-         */
+        /* Replace first occurrence of the env var or add a new one in the string list. Drop other
+         * occurrences. Edits in-place. Does not copy p and CONSUMES p EVEN ON FAILURE.
+         *
+         * p must be a valid key=value assignment. */
 
         t = strchr(p, '=');
-        if (!t)
+        if (!t) {
+                free(p);
                 return -EINVAL;
+        }
 
         name = strndupa(p, t - p);
 
@@ -388,39 +391,39 @@ int strv_env_replace(char ***l, char *p) {
                 }
 
         /* We didn't find a match, we need to append p or create a new strv */
-        r = strv_push(l, p);
+        r = strv_consume(l, p);
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-char **strv_env_set(char **x, const char *p) {
-        _cleanup_strv_free_ char **ret = NULL;
-        size_t n, m;
-        char **k;
+int strv_env_replace_strdup(char ***l, const char *assignment) {
+        /* Like strv_env_replace_consume(), but copies the argument. */
 
-        /* Overrides the env var setting of p, returns a new copy */
+        char *p = strdup(assignment);
+        if (!p)
+                return -ENOMEM;
 
-        n = strv_length(x);
-        m = n + 2;
-        if (m < n) /* overflow? */
-                return NULL;
+        return strv_env_replace_consume(l, p);
+}
 
-        ret = new(char*, m);
-        if (!ret)
-                return NULL;
+int strv_env_assign(char ***l, const char *key, const char *value) {
+        if (!env_name_is_valid(key))
+                return -EINVAL;
 
-        *ret = NULL;
-        k = ret;
+        /* NULL removes assignment, "" creates an empty assignment. */
 
-        if (env_append(ret, &k, x) < 0)
-                return NULL;
+        if (!value) {
+                strv_env_unset(*l, key);
+                return 0;
+        }
 
-        if (env_append(ret, &k, STRV_MAKE(p)) < 0)
-                return NULL;
+        char *p = strjoin(key, "=", value);
+        if (!p)
+                return -ENOMEM;
 
-        return TAKE_PTR(ret);
+        return strv_env_replace_consume(l, p);
 }
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
