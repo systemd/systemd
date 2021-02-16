@@ -23,6 +23,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
+#include "nsflags.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -2286,13 +2287,27 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_netns(const int netns_storage_socket[static 2]) {
-        _cleanup_close_ int netns = -1;
-        int r, q;
+static const char *ns_filename(unsigned long nstype) {
+        unsigned i;
 
-        assert(netns_storage_socket);
-        assert(netns_storage_socket[0] >= 0);
-        assert(netns_storage_socket[1] >= 0);
+        for (i = 0; namespace_flag_map[i].name; i++)
+                if (namespace_flag_map[i].flag == nstype)
+                        return namespace_flag_map[i].name;
+
+        return NULL;
+}
+
+int setup_ns(const int ns_storage_socket[static 2], unsigned long nstype) {
+        _cleanup_close_ int ns = -1;
+        int r, q;
+        const char *t, *nspath;
+
+        assert(ns_storage_socket);
+        assert(ns_storage_socket[0] >= 0);
+        assert(ns_storage_socket[1] >= 0);
+
+        t = ns_filename(nstype);
+        assert(t);
 
         /* We use the passed socketpair as a storage buffer for our
          * namespace reference fd. Whatever process runs this first
@@ -2302,35 +2317,36 @@ int setup_netns(const int netns_storage_socket[static 2]) {
          *
          * It's a bit crazy, but hey, works great! */
 
-        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
                 return -errno;
 
-        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
-        if (netns == -EAGAIN) {
+        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
+        if (ns == -EAGAIN) {
                 /* Nothing stored yet, so let's create a new namespace. */
 
-                if (unshare(CLONE_NEWNET) < 0) {
+                if (unshare(nstype) < 0) {
                         r = -errno;
                         goto fail;
                 }
 
                 (void) loopback_setup();
 
-                netns = open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (netns < 0) {
+                nspath = strjoina("/proc/self/ns/", t);
+                ns = open(nspath, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (ns < 0) {
                         r = -errno;
                         goto fail;
                 }
 
                 r = 1;
 
-        } else if (netns < 0) {
-                r = netns;
+        } else if (ns < 0) {
+                r = ns;
                 goto fail;
 
         } else {
                 /* Yay, found something, so let's join the namespace */
-                if (setns(netns, CLONE_NEWNET) < 0) {
+                if (setns(ns, nstype) < 0) {
                         r = -errno;
                         goto fail;
                 }
@@ -2338,45 +2354,45 @@ int setup_netns(const int netns_storage_socket[static 2]) {
                 r = 0;
         }
 
-        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (q < 0) {
                 r = q;
                 goto fail;
         }
 
 fail:
-        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
+        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
         return r;
 }
 
-int open_netns_path(const int netns_storage_socket[static 2], const char *path) {
-        _cleanup_close_ int netns = -1;
+int open_ns_path(const int ns_storage_socket[static 2], const char *path, unsigned long nstype) {
+        _cleanup_close_ int ns = -1;
         int q, r;
 
-        assert(netns_storage_socket);
-        assert(netns_storage_socket[0] >= 0);
-        assert(netns_storage_socket[1] >= 0);
+        assert(ns_storage_socket);
+        assert(ns_storage_socket[0] >= 0);
+        assert(ns_storage_socket[1] >= 0);
         assert(path);
 
-        /* If the storage socket doesn't contain a netns fd yet, open one via the file system and store it in
-         * it. This is supposed to be called ahead of time, i.e. before setup_netns() which will allocate a
-         * new anonymous netns if needed. */
+        /* If the storage socket doesn't contain a ns fd yet, open one via the file system and store it in
+         * it. This is supposed to be called ahead of time, i.e. before setup_ns() which will allocate a
+         * new anonymous ns if needed. */
 
-        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
                 return -errno;
 
-        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
-        if (netns == -EAGAIN) {
+        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
+        if (ns == -EAGAIN) {
                 /* Nothing stored yet. Open the file from the file system. */
 
-                netns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (netns < 0) {
+                ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (ns < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                r = fd_is_network_ns(netns);
-                if (r == 0) { /* Not a netns? Refuse early. */
+                r = fd_is_ns(ns, nstype);
+                if (r == 0) { /* Not a ns? Refuse early. */
                         r = -EINVAL;
                         goto fail;
                 }
@@ -2385,20 +2401,20 @@ int open_netns_path(const int netns_storage_socket[static 2], const char *path) 
 
                 r = 1;
 
-        } else if (netns < 0) {
-                r = netns;
+        } else if (ns < 0) {
+                r = ns;
                 goto fail;
         } else
                 r = 0; /* Already allocated */
 
-        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (q < 0) {
                 r = q;
                 goto fail;
         }
 
 fail:
-        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
+        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
         return r;
 }
 
