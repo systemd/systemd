@@ -821,6 +821,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
+        bool arg_user_seen = false;
 
         assert(argc >= 1);
         assert(argv);
@@ -910,6 +911,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_USER:
                         arg_system = false;
+                        arg_user_seen = true;
                         break;
 
                 case ARG_TEST:
@@ -1066,10 +1068,12 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc && getpid_cached() != 1)
-                /* Hmm, when we aren't run as init system
-                 * let's complain about excess arguments */
+                /* Hmm, when we aren't run as init system let's complain about excess arguments */
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Excess arguments.");
+
+        if (arg_action == ACTION_RUN && !arg_system && !arg_user_seen)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Excess arguments.");
+                                       "Explicit --user argument required to run as user manager.");
 
         return 0;
 }
