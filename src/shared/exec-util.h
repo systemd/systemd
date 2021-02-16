@@ -27,7 +27,7 @@ typedef enum ExecCommandFlags {
         EXEC_COMMAND_NO_SETUID        = 1 << 2,
         EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
         EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
-        _EXEC_COMMAND_FLAGS_INVALID   = -1,
+        _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
 } ExecCommandFlags;
 
 int execute_directories(

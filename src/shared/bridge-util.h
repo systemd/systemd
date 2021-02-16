@@ -13,7 +13,7 @@ typedef enum BridgeState {
         NETDEV_BRIDGE_STATE_FORWARDING = BR_STATE_FORWARDING,
         NETDEV_BRIDGE_STATE_BLOCKING   = BR_STATE_BLOCKING,
         _NETDEV_BRIDGE_STATE_MAX,
-        _NETDEV_BRIDGE_STATE_INVALID      = -1,
+        _NETDEV_BRIDGE_STATE_INVALID   = -EINVAL,
 } BridgeState;
 
 const char *bridge_state_to_string(BridgeState d) _const_;

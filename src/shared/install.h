@@ -31,7 +31,7 @@ enum UnitFileChangeType {
         UNIT_FILE_IS_MASKED,
         UNIT_FILE_IS_DANGLING,
         _UNIT_FILE_CHANGE_TYPE_MAX,
-        _UNIT_FILE_CHANGE_TYPE_INVALID = INT_MIN
+        _UNIT_FILE_CHANGE_TYPE_INVALID = -EINVAL,
 };
 
 enum UnitFileFlags {

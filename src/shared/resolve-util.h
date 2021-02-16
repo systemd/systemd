@@ -15,7 +15,7 @@ enum DnsCacheMode {
         DNS_CACHE_MODE_YES,
         DNS_CACHE_MODE_NO_NEGATIVE,
         _DNS_CACHE_MODE_MAX,
-        _DNS_CACHE_MODE_INVALID = 1
+        _DNS_CACHE_MODE_INVALID = -EINVAL,
 };
 
 typedef enum ResolveSupport ResolveSupport;

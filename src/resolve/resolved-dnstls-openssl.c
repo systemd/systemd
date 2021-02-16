@@ -13,8 +13,8 @@
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(SSL*, SSL_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(BIO*, BIO_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 
 static int dnstls_flush_write_buffer(DnsStream *stream) {
         ssize_t ss;

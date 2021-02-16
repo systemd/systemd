@@ -31,7 +31,7 @@ typedef enum PortableChangeType {
         PORTABLE_WRITE,
         PORTABLE_MKDIR,
         _PORTABLE_CHANGE_TYPE_MAX,
-        _PORTABLE_CHANGE_TYPE_INVALID = INT_MIN,
+        _PORTABLE_CHANGE_TYPE_INVALID = -EINVAL,
 } PortableChangeType;
 
 typedef enum PortableState {
