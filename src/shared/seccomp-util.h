@@ -121,7 +121,7 @@ extern uint32_t seccomp_local_archs[];
 #define ERRNO_IS_SECCOMP_FATAL(r)                                       \
         IN_SET(abs(r), EPERM, EACCES, ENOMEM, EFAULT)
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(scmp_filter_ctx, seccomp_release, NULL);
 
 int parse_syscall_archs(char **l, Set **ret_archs);
 

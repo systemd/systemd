@@ -397,7 +397,7 @@ static int monitor_cgroup_contexts(Manager *m) {
         return 0;
 }
 
-void manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         assert(m);
 
         varlink_close_unref(m->varlink);
@@ -410,7 +410,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->monitored_swap_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
 
-        free(m);
+        return mfree(m);
 }
 
 int manager_new(Manager **ret) {

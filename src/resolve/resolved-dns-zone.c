@@ -26,16 +26,15 @@ void dns_zone_item_probe_stop(DnsZoneItem *i) {
         dns_transaction_gc(t);
 }
 
-static void dns_zone_item_free(DnsZoneItem *i) {
+static DnsZoneItem* dns_zone_item_free(DnsZoneItem *i) {
         if (!i)
-                return;
+                return NULL;
 
         dns_zone_item_probe_stop(i);
         dns_resource_record_unref(i->rr);
 
-        free(i);
+        return mfree(i);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsZoneItem*, dns_zone_item_free);
 
 static void dns_zone_item_remove_and_free(DnsZone *z, DnsZoneItem *i) {

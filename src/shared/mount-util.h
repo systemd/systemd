@@ -45,7 +45,7 @@ int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, u
 
 int mount_move_root(const char *path);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, endmntent, NULL);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
 
 int mount_verbose_full(

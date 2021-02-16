@@ -16,17 +16,17 @@
 #include "strv.h"
 
 #if HAVE_APPARMOR
-DEFINE_TRIVIAL_CLEANUP_FUNC(aa_policy_cache *, aa_policy_cache_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(aa_features *, aa_features_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(aa_policy_cache *, aa_policy_cache_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(aa_features *, aa_features_unref, NULL);
 #endif
 
 int mac_apparmor_setup(void) {
 #if HAVE_APPARMOR
-        int r;
         _cleanup_(aa_policy_cache_unrefp) aa_policy_cache *policy_cache = NULL;
         _cleanup_(aa_features_unrefp) aa_features *features = NULL;
         const char *current_file;
         _cleanup_free_ char *current_profile = NULL, *cache_dir_path = NULL;
+        int r;
 
         if (!mac_apparmor_use()) {
                 log_debug("AppArmor either not supported by the kernel or disabled.");

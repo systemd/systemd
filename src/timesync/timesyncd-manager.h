@@ -103,7 +103,7 @@ struct Manager {
 };
 
 int manager_new(Manager **ret);
-void manager_free(Manager *m);
+Manager* manager_free(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

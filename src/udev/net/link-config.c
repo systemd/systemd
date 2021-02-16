@@ -45,9 +45,9 @@ struct link_config_ctx {
         usec_t network_dirs_ts_usec;
 };
 
-static void link_config_free(link_config *link) {
+static link_config* link_config_free(link_config *link) {
         if (!link)
-                return;
+                return NULL;
 
         free(link->filename);
 
@@ -62,7 +62,7 @@ static void link_config_free(link_config *link) {
         free(link->alternative_names_policy);
         free(link->alias);
 
-        free(link);
+        return mfree(link);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(link_config*, link_config_free);
@@ -77,19 +77,14 @@ static void link_configs_free(link_config_ctx *ctx) {
                 link_config_free(link);
 }
 
-void link_config_ctx_free(link_config_ctx *ctx) {
+link_config_ctx* link_config_ctx_free(link_config_ctx *ctx) {
         if (!ctx)
-                return;
+                return NULL;
 
         safe_close(ctx->ethtool_fd);
-
         sd_netlink_unref(ctx->rtnl);
-
         link_configs_free(ctx);
-
-        free(ctx);
-
-        return;
+        return mfree(ctx);
 }
 
 int link_config_ctx_new(link_config_ctx **ret) {

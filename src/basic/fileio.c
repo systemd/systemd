@@ -1146,7 +1146,7 @@ static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
         return EOL_NONE;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, funlockfile, NULL);
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;

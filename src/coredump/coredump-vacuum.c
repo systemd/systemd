@@ -22,24 +22,23 @@
 #define DEFAULT_KEEP_FREE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
 #define DEFAULT_KEEP_FREE (uint64_t) (1024ULL*1024ULL)                    /* 1 MB */
 
-struct vacuum_candidate {
+typedef struct VacuumCandidate {
         unsigned n_files;
         char *oldest_file;
         usec_t oldest_mtime;
-};
+} VacuumCandidate;
 
-static void vacuum_candidate_free(struct vacuum_candidate *c) {
+static VacuumCandidate* vacuum_candidate_free(VacuumCandidate *c) {
         if (!c)
-                return;
+                return NULL;
 
         free(c->oldest_file);
-        free(c);
+        return mfree(c);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(VacuumCandidate*, vacuum_candidate_free);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct vacuum_candidate*, vacuum_candidate_free);
-
-static void vacuum_candidate_hashmap_free(Hashmap *h) {
-        hashmap_free_with_destructor(h, vacuum_candidate_free);
+static Hashmap* vacuum_candidate_hashmap_free(Hashmap *h) {
+        return hashmap_free_with_destructor(h, vacuum_candidate_free);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hashmap_free);
@@ -142,14 +141,14 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
         for (;;) {
                 _cleanup_(vacuum_candidate_hashmap_freep) Hashmap *h = NULL;
-                struct vacuum_candidate *worst = NULL;
+                VacuumCandidate *worst = NULL;
                 struct dirent *de;
                 uint64_t sum = 0;
 
                 rewinddir(d);
 
                 FOREACH_DIRENT(de, d, goto fail) {
-                        struct vacuum_candidate *c;
+                        VacuumCandidate *c;
                         struct stat st;
                         uid_t uid;
                         usec_t t;
@@ -196,9 +195,9 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 }
 
                         } else {
-                                _cleanup_(vacuum_candidate_freep) struct vacuum_candidate *n = NULL;
+                                _cleanup_(vacuum_candidate_freep) VacuumCandidate *n = NULL;
 
-                                n = new0(struct vacuum_candidate, 1);
+                                n = new0(VacuumCandidate, 1);
                                 if (!n)
                                         return log_oom();
 

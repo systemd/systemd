@@ -850,11 +850,11 @@ int manager_new(Manager **ret) {
         return 0;
 }
 
-void manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         Link *link;
 
         if (!m)
-                return;
+                return NULL;
 
         free(m->state_file);
 
@@ -909,7 +909,7 @@ void manager_free(Manager *m) {
 
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
-        free(m);
+        return mfree(m);
 }
 
 int manager_start(Manager *m) {

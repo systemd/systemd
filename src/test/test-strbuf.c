@@ -12,7 +12,7 @@ static ssize_t add_string(struct strbuf *sb, const char *s) {
 }
 
 static void test_strbuf(void) {
-        _cleanup_(strbuf_cleanupp) struct strbuf *sb;
+        _cleanup_(strbuf_freep) struct strbuf *sb;
         _cleanup_strv_free_ char **l;
         ssize_t a, b, c, d, e, f, g, h;
 
