@@ -155,9 +155,22 @@ static void print_source(uint64_t flags, usec_t rtt) {
         assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
 
         printf(" in %s.%s\n"
-               "%s-- Data is authenticated: %s%s\n",
+               "%s-- Data is authenticated: %s; Data was acquired via local or encrypted transport: %s%s\n",
                rtt_str, ansi_normal(),
-               ansi_grey(), yes_no(flags & SD_RESOLVED_AUTHENTICATED), ansi_normal());
+               ansi_grey(),
+               yes_no(flags & SD_RESOLVED_AUTHENTICATED),
+               yes_no(flags & SD_RESOLVED_CONFIDENTIAL),
+               ansi_normal());
+
+        if ((flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC)) != 0)
+                printf("%s-- Data from:%s%s%s%s%s%s\n",
+                       ansi_grey(),
+                       FLAGS_SET(flags, SD_RESOLVED_SYNTHETIC) ? " synthetic" : "",
+                       FLAGS_SET(flags, SD_RESOLVED_FROM_CACHE) ? " cache" : "",
+                       FLAGS_SET(flags, SD_RESOLVED_FROM_ZONE) ? " zone" : "",
+                       FLAGS_SET(flags, SD_RESOLVED_FROM_TRUST_ANCHOR) ? " trust-anchor" : "",
+                       FLAGS_SET(flags, SD_RESOLVED_FROM_NETWORK) ? " network" : "",
+                       ansi_normal());
 }
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {

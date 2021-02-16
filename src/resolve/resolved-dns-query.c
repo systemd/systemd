@@ -346,7 +346,7 @@ static void dns_query_reset_answer(DnsQuery *q) {
         q->answer_rcode = 0;
         q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         q->answer_errno = 0;
-        q->answer_authenticated = false;
+        q->answer_query_flags = 0;
         q->answer_protocol = _DNS_PROTOCOL_INVALID;
         q->answer_family = AF_UNSPEC;
         q->answer_search_domain = dns_search_domain_unref(q->answer_search_domain);
@@ -630,7 +630,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                 q->answer_rcode = DNS_RCODE_NXDOMAIN;
                 q->answer_protocol = dns_synthesize_protocol(q->flags);
                 q->answer_family = dns_synthesize_family(q->flags);
-                q->answer_authenticated = true;
+                q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
                 *state = DNS_TRANSACTION_RCODE_FAILURE;
 
                 return 0;
@@ -644,7 +644,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
-        q->answer_authenticated = true;
+        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         *state = DNS_TRANSACTION_SUCCESS;
 
@@ -676,7 +676,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
-        q->answer_authenticated = true;
+        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         return 1;
 }
@@ -795,7 +795,7 @@ fail:
 
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
-        bool has_authenticated = false, has_non_authenticated = false;
+        bool has_authenticated = false, has_non_authenticated = false, has_confidential = false, has_non_confidential = false;
         DnssecResult dnssec_result_authenticated = _DNSSEC_RESULT_INVALID, dnssec_result_non_authenticated = _DNSSEC_RESULT_INVALID;
         DnsTransaction *t;
         int r;
@@ -817,7 +817,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 q->answer = dns_answer_unref(q->answer);
                 q->answer_rcode = 0;
                 q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
-                q->answer_authenticated = false;
+                q->answer_query_flags = 0;
                 q->answer_errno = c->error_code;
                 q->answer_full_packet = dns_packet_unref(q->answer_full_packet);
         }
@@ -833,10 +833,14 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 r = dns_answer_extend(&q->answer, t->answer);
                                 if (r < 0)
                                         goto fail;
+
+                                q->answer_query_flags |= dns_transaction_source_to_query_flags(t->answer_source);
                         } else {
                                 /* Override non-successful previous answers */
                                 dns_answer_unref(q->answer);
                                 q->answer = dns_answer_ref(t->answer);
+
+                                q->answer_query_flags = dns_transaction_source_to_query_flags(t->answer_source);
                         }
 
                         q->answer_rcode = t->answer_rcode;
@@ -845,13 +849,18 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         dns_packet_unref(q->answer_full_packet);
                         q->answer_full_packet = dns_packet_ref(t->received);
 
-                        if (t->answer_authenticated) {
+                        if (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED)) {
                                 has_authenticated = true;
                                 dnssec_result_authenticated = t->answer_dnssec_result;
                         } else {
                                 has_non_authenticated = true;
                                 dnssec_result_non_authenticated = t->answer_dnssec_result;
                         }
+
+                        if (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL))
+                                has_confidential = true;
+                        else
+                                has_non_confidential = true;
 
                         state = DNS_TRANSACTION_SUCCESS;
                         break;
@@ -870,14 +879,15 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 continue;
 
                         /* If there's already an authenticated negative reply stored, then prefer that over any unauthenticated one */
-                        if (q->answer_authenticated && !t->answer_authenticated)
+                        if (FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED) &&
+                            !FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 continue;
 
                         dns_answer_unref(q->answer);
                         q->answer = dns_answer_ref(t->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
-                        q->answer_authenticated = t->answer_authenticated;
+                        q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
                         q->answer_errno = t->answer_errno;
                         dns_packet_unref(q->answer_full_packet);
                         q->answer_full_packet = dns_packet_ref(t->received);
@@ -888,8 +898,9 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         }
 
         if (state == DNS_TRANSACTION_SUCCESS) {
-                q->answer_authenticated = has_authenticated && !has_non_authenticated;
-                q->answer_dnssec_result = q->answer_authenticated ? dnssec_result_authenticated : dnssec_result_non_authenticated;
+                SET_FLAG(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED, has_authenticated && !has_non_authenticated);
+                SET_FLAG(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, has_confidential && !has_non_confidential);
+                q->answer_dnssec_result = FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? dnssec_result_authenticated : dnssec_result_non_authenticated;
         }
 
         q->answer_protocol = c->scope->protocol;
@@ -1049,8 +1060,10 @@ int dns_query_process_cname(DnsQuery *q) {
         if (q->flags & SD_RESOLVED_NO_CNAME)
                 return -ELOOP;
 
-        if (!q->answer_authenticated)
+        if (!FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                 q->previous_redirect_unauthenticated = true;
+        if (!FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL))
+                q->previous_redirect_non_confidential = true;
 
         /* OK, let's actually follow the CNAME */
         r = dns_query_cname_redirect(q, cname);
@@ -1119,5 +1132,11 @@ const char *dns_query_string(DnsQuery *q) {
 bool dns_query_fully_authenticated(DnsQuery *q) {
         assert(q);
 
-        return q->answer_authenticated && !q->previous_redirect_unauthenticated;
+        return FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED) && !q->previous_redirect_unauthenticated;
+}
+
+bool dns_query_fully_confidential(DnsQuery *q) {
+        assert(q);
+
+        return FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL) && !q->previous_redirect_non_confidential;
 }
