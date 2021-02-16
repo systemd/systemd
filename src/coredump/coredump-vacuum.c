@@ -28,17 +28,17 @@ typedef struct VacuumCandidate {
         usec_t oldest_mtime;
 } VacuumCandidate;
 
-static void vacuum_candidate_free(VacuumCandidate *c) {
+static VacuumCandidate* vacuum_candidate_free(VacuumCandidate *c) {
         if (!c)
-                return;
+                return NULL;
 
         free(c->oldest_file);
-        free(c);
+        return mfree(c);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(VacuumCandidate*, vacuum_candidate_free);
 
-static void vacuum_candidate_hashmap_free(Hashmap *h) {
-        hashmap_free_with_destructor(h, vacuum_candidate_free);
+static Hashmap* vacuum_candidate_hashmap_free(Hashmap *h) {
+        return hashmap_free_with_destructor(h, vacuum_candidate_free);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hashmap_free);

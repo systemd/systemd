@@ -210,8 +210,9 @@ static int fifo_process(Fifo *f) {
         return 0;
 }
 
-static void fifo_free(Fifo *f) {
-        assert(f);
+static Fifo* fifo_free(Fifo *f) {
+        if (!f)
+                return NULL;
 
         if (f->server) {
                 assert(f->server->n_fifos > 0);
@@ -226,7 +227,7 @@ static void fifo_free(Fifo *f) {
                 safe_close(f->fd);
         }
 
-        free(f);
+        return mfree(f);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(Fifo*, fifo_free);
 

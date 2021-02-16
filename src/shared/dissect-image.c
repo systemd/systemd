@@ -1681,12 +1681,12 @@ static int verity_can_reuse(
         return 0;
 }
 
-static inline void dm_deferred_remove_clean(char *name) {
+static inline char* dm_deferred_remove_clean(char *name) {
         if (!name)
-                return;
+                return NULL;
 
         (void) sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
-        free(name);
+        return mfree(name);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 

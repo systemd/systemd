@@ -213,10 +213,10 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
 }
 
-static void unit_times_free(UnitTimes *t) {
-        for (UnitTimes *p = t; p->has_data; p++)
+static UnitTimes* unit_times_free(UnitTimes *t) {
+        for (UnitTimes *p = t; p && p->has_data; p++)
                 free(p->name);
-        free(t);
+        return mfree(t);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes *, unit_times_free);
 
@@ -313,9 +313,9 @@ finish:
         return 0;
 }
 
-static void free_host_info(HostInfo *hi) {
+static HostInfo* free_host_info(HostInfo *hi) {
         if (!hi)
-                return;
+                return NULL;
 
         free(hi->hostname);
         free(hi->kernel_name);
@@ -324,7 +324,7 @@ static void free_host_info(HostInfo *hi) {
         free(hi->os_pretty_name);
         free(hi->virtualization);
         free(hi->architecture);
-        free(hi);
+        return mfree(hi);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(HostInfo *, free_host_info);

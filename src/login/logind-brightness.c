@@ -44,9 +44,9 @@ typedef struct BrightnessWriter {
         sd_event_source* child_event_source;
 } BrightnessWriter;
 
-static void brightness_writer_free(BrightnessWriter *w) {
+static BrightnessWriter* brightness_writer_free(BrightnessWriter *w) {
         if (!w)
-                return;
+                return NULL;
 
         if (w->manager && w->path)
                 (void) hashmap_remove_value(w->manager->brightness_writers, w->path, w);
@@ -59,7 +59,7 @@ static void brightness_writer_free(BrightnessWriter *w) {
 
         w->child_event_source = sd_event_source_unref(w->child_event_source);
 
-        free(w);
+        return mfree(w);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BrightnessWriter*, brightness_writer_free);

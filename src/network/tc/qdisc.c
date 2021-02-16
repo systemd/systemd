@@ -134,9 +134,9 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
         return 0;
 }
 
-void qdisc_free(QDisc *qdisc) {
+QDisc* qdisc_free(QDisc *qdisc) {
         if (!qdisc)
-                return;
+                return NULL;
 
         if (qdisc->network && qdisc->section)
                 ordered_hashmap_remove(qdisc->network->tc_by_section, qdisc->section);
@@ -144,7 +144,7 @@ void qdisc_free(QDisc *qdisc) {
         network_config_section_free(qdisc->section);
 
         free(qdisc->tca_kind);
-        free(qdisc);
+        return mfree(qdisc);
 }
 
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {

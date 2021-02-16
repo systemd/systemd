@@ -90,16 +90,16 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         return 0;
 }
 
-void tclass_free(TClass *tclass) {
+TClass* tclass_free(TClass *tclass) {
         if (!tclass)
-                return;
+                return NULL;
 
         if (tclass->network && tclass->section)
                 ordered_hashmap_remove(tclass->network->tc_by_section, tclass->section);
 
         network_config_section_free(tclass->section);
 
-        free(tclass);
+        return mfree(tclass);
 }
 
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
