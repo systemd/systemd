@@ -132,9 +132,10 @@ int shutdown_parse_argv(int argc, char *argv[]) {
                 wall = argv + optind + 1;
 
         if (wall) {
-                arg_wall = strv_copy(wall);
-                if (!arg_wall)
+                char **copy = strv_copy(wall);
+                if (!copy)
                         return log_oom();
+                strv_free_and_replace(arg_wall, copy);
         }
 
         optind = argc;
