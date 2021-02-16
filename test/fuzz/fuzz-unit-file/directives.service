@@ -855,6 +855,7 @@ PivotRoot=
 Port=
 PowerKeyIgnoreInhibited=
 Private=
+PrivateIPC=
 PrivateDevices=
 PrivateNetwork=
 PrivateTmp=
