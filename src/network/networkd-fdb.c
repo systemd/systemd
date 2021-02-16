@@ -31,6 +31,8 @@ FdbEntry *fdb_entry_free(FdbEntry *fdb_entry) {
         }
 
         network_config_section_free(fdb_entry->section);
+
+        free(fdb_entry->outgoing_ifname);
         return mfree(fdb_entry);
 }
 
@@ -140,6 +142,18 @@ static int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
                 r = sd_netlink_message_append_u16(req, NDA_VLAN, fdb_entry->vlan_id);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NDA_VLAN attribute: %m");
+        }
+
+        if (fdb_entry->outgoing_ifname) {
+                Link *l;
+
+                r = link_get_by_name(link->manager, fdb_entry->outgoing_ifname, &l);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to resolve ifname %s: %m", fdb_entry->outgoing_ifname);
+
+                r = sd_netlink_message_append_u32(req, NDA_IFINDEX, l->ifindex);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append NDA_IFINDEX attribute: %m");
         }
 
         if (!in_addr_is_null(fdb_entry->family, &fdb_entry->destination_addr)) {
@@ -400,5 +414,50 @@ int config_parse_fdb_ntf_flags(
         fdb_entry->fdb_ntf_flags = f;
         fdb_entry = NULL;
 
+        return 0;
+}
+
+int config_parse_fdb_interface(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                fdb_entry->outgoing_ifname = mfree(fdb_entry->outgoing_ifname);
+                TAKE_PTR(fdb_entry);
+                return 0;
+        }
+
+        if (!ifname_valid_full(rvalue, IFNAME_VALID_ALTERNATIVE)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse '%s' interface name, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        r = free_and_strdup(&fdb_entry->outgoing_ifname, rvalue);
+        if (r < 0)
+                return log_oom();
+
+        fdb_entry = NULL;
         return 0;
 }
