@@ -2320,11 +2320,15 @@ do_test() {
             --all)
                 ret=0
                 echo -n "${testname}: $TEST_DESCRIPTION "
-                (
-                    test_setup
-                    test_setup_cleanup
-                    test_run "$2"
-                ) </dev/null >"$TESTLOG" 2>&1 || ret=$?
+                # Do not use a subshell, otherwise cleanup variables (LOOPDEV) will be lost
+                # and loop devices will leak
+                test_setup </dev/null >"$TESTLOG" 2>&1 || ret=$?
+                if [ $ret -eq 0 ]; then
+                    test_setup_cleanup </dev/null >>"$TESTLOG" 2>&1 || ret=$?
+                fi
+                if [ $ret -eq 0 ]; then
+                    test_run "$2" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
+                fi
                 test_cleanup
                 if [ $ret -eq 0 ]; then
                     rm "$TESTLOG"
