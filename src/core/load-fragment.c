@@ -2636,7 +2636,7 @@ int config_parse_environ(
         }
 
         for (const char *p = rvalue;; ) {
-                _cleanup_free_ char *word = NULL, *k = NULL;
+                _cleanup_free_ char *word = NULL, *resolved = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == 0)
@@ -2650,26 +2650,24 @@ int config_parse_environ(
                 }
 
                 if (u) {
-                        r = unit_full_printf(u, word, &k);
+                        r = unit_full_printf(u, word, &resolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to resolve unit specifiers in %s, ignoring: %m", word);
                                 continue;
                         }
                 } else
-                        k = TAKE_PTR(word);
+                        resolved = TAKE_PTR(word);
 
-                if (!env_assignment_is_valid(k)) {
+                if (!env_assignment_is_valid(resolved)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid environment assignment, ignoring: %s", k);
+                                   "Invalid environment assignment, ignoring: %s", resolved);
                         continue;
                 }
 
-                r = strv_env_replace(env, k);
+                r = strv_env_replace_consume(env, TAKE_PTR(resolved));
                 if (r < 0)
-                        return log_oom();
-
-                k = NULL;
+                        return log_error_errno(r, "Failed to update environment: %m");
         }
 }
 

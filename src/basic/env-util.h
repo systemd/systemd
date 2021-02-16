@@ -44,7 +44,7 @@ char **strv_env_delete(char **x, size_t n_lists, ...); /* New copy */
 
 char **strv_env_unset(char **l, const char *p); /* In place ... */
 char **strv_env_unset_many(char **l, ...) _sentinel_;
-int strv_env_replace(char ***l, char *p); /* In place ... */
+int strv_env_replace_consume(char ***l, char *p); /* In place ... */
 int strv_env_replace_strdup(char ***l, const char *assignment);
 int strv_env_assign(char ***l, const char *key, const char *value);
 
