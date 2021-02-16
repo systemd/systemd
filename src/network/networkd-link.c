@@ -453,6 +453,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
+        r = link_update_by_name(link, true, true);
+        if (r < 0)
+                return r;
+
         r = link_update_flags(link, message, false);
         if (r < 0)
                 return r;
@@ -579,6 +583,65 @@ int link_get(Manager *m, int ifindex, Link **ret) {
                 return -ENODEV;
 
         *ret = link;
+
+        return 0;
+}
+
+int link_get_by_name(const Manager *m, const char *ifname, Link **ret) {
+        Link *link;
+
+        assert(m);
+        assert(ifname);
+        assert(ret);
+
+        link = hashmap_get(m->links_by_name, ifname);
+        if (!link)
+                return -ENODEV;
+
+        *ret = link;
+
+        return 0;
+}
+
+int link_update_by_name(Link *link, bool update_ifname, bool update_alternative_names) {
+        char **n;
+        int r;
+
+        assert(link);
+
+        r = hashmap_ensure_allocated(&link->manager->links_by_name, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        if (update_ifname)  {
+                r = hashmap_put(link->manager->links_by_name, link->ifname, link);
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
+
+        if (update_alternative_names) {
+                STRV_FOREACH(n, link->alternative_names) {
+                        r = hashmap_put(link->manager->links_by_name, *n, link);
+                        if (r < 0 && r != -EEXIST)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+int link_remove_by_name(Link *link, bool update_ifname, bool update_alternative_names) {
+        char **n;
+
+        assert(link);
+
+        if (update_alternative_names) {
+                STRV_FOREACH(n, link->alternative_names)
+                        hashmap_remove_value(link->manager->links_by_name, *n, link);
+        }
+
+        if (update_ifname)
+                hashmap_remove_value(link->manager->links_by_name, link->ifname, link);
 
         return 0;
 }
@@ -1747,6 +1810,8 @@ void link_drop(Link *link) {
 
         log_link_debug(link, "Link removed");
 
+        (void) link_remove_by_name(link, true, true);
+
         (void) unlink(link->state_file);
         link_detach_from_manager(link);
 }
@@ -2664,11 +2729,24 @@ int link_update(Link *link, sd_netlink_message *m) {
                 r = link_add(manager, m, &link);
                 if (r < 0)
                         return r;
+
+                (void) link_remove_by_name(link, true, false);
+
+                r = link_update_by_name(link, true, false);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add network interface '%s', ignoring: %m", link->ifname);
         }
 
         r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
-        if (r >= 0)
+        if (r >= 0) {
                 strv_free_and_replace(link->alternative_names, s);
+
+                (void) link_remove_by_name(link, false, true);
+
+                r = link_update_by_name(link, false, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to add alternative name on network interface '%s', ignoring: %m", link->ifname);
+        }
 
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
         if (r >= 0 && mtu > 0) {
