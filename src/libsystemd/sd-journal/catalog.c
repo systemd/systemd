@@ -444,7 +444,7 @@ error:
 int catalog_update(const char* database, const char* root, const char* const* dirs) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
-        _cleanup_(strbuf_cleanupp) struct strbuf *sb = NULL;
+        _cleanup_(strbuf_freep) struct strbuf *sb = NULL;
         _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
         ssize_t offset;

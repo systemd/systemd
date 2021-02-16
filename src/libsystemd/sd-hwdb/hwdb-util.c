@@ -120,7 +120,7 @@ static struct trie* trie_free(struct trie *trie) {
                 return NULL;
 
         trie_node_cleanup(trie->root);
-        strbuf_cleanup(trie->strings);
+        strbuf_free(trie->strings);
         return mfree(trie);
 }
 

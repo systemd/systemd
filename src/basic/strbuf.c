@@ -65,7 +65,7 @@ void strbuf_complete(struct strbuf *str) {
 }
 
 /* clean up everything */
-struct strbuf* strbuf_cleanup(struct strbuf *str) {
+struct strbuf* strbuf_free(struct strbuf *str) {
         if (!str)
                 return NULL;
 
