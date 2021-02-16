@@ -6,6 +6,8 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
+#include "selinux-util.h"
+#include "static-destruct.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "systemctl.h"
@@ -57,5 +59,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         release_busses(); /* We open the bus for communication with logind.
                            * It needs to be closed to avoid apparent leaks. */
+
+        mac_selinux_finish();
+
+        /* Call static destructors to do global state cleanup. We do it here, and not in fuzz-main.c so that
+         * any global state is destoyed between fuzzer runs. */
+        static_destruct();
+
         return 0;
 }
