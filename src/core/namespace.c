@@ -940,13 +940,12 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
 }
 
 static int mount_tmpfs(const MountEntry *m) {
-        const char *entry_path, *inner_path;
+        const char *entry_path;
         int r;
 
         assert(m);
 
         entry_path = mount_entry_path(m);
-        inner_path = m->path_const;
 
         /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
 
@@ -957,9 +956,9 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return r;
 
-        r = label_fix_container(entry_path, inner_path, 0);
+        r = label_fix_container(entry_path, entry_path, 0);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
+                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, entry_path);
 
         return 1;
 }
@@ -984,6 +983,8 @@ static int mount_images(const MountEntry *m) {
         assert(m);
 
         r = verity_dissect_and_mount(mount_entry_source(m), mount_entry_path(m), m->image_options);
+        if (r == -ENOENT && m->ignore)
+                return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
