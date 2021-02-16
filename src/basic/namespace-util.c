@@ -125,7 +125,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         return reset_uid_gid();
 }
 
-int fd_is_network_ns(int fd) {
+int fd_is_ns(int fd, int nstype) {
         struct statfs s;
         int r;
 
@@ -168,7 +168,7 @@ int fd_is_network_ns(int fd) {
                 return -errno;
         }
 
-        return r == CLONE_NEWNET;
+        return r == nstype;
 }
 
 int detach_mount_namespace(void) {
