@@ -213,12 +213,12 @@ static int compare_unit_start(const UnitTimes *a, const UnitTimes *b) {
         return CMP(a->activating, b->activating);
 }
 
-static UnitTimes* unit_times_free(UnitTimes *t) {
+static UnitTimes* unit_times_free_array(UnitTimes *t) {
         for (UnitTimes *p = t; p && p->has_data; p++)
                 free(p->name);
         return mfree(t);
 }
-DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes *, unit_times_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -339,7 +339,7 @@ static int acquire_time_data(sd_bus *bus, UnitTimes **out) {
         };
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(unit_times_freep) UnitTimes *unit_times = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *unit_times = NULL;
         BootTimes *boot_times = NULL;
         size_t allocated = 0, c = 0;
         UnitInfo u;
@@ -614,7 +614,7 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
 static int analyze_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_freep) UnitTimes *times = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_free_ char *pretty_times = NULL;
         bool use_full_bus = arg_scope == UNIT_FILE_SYSTEM;
         BootTimes *boot;
@@ -1015,7 +1015,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
 static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_freep) UnitTimes *times = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         Hashmap *h;
         int n, r;
 
@@ -1056,7 +1056,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 
 static int analyze_blame(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_freep) UnitTimes *times = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int n, r;
