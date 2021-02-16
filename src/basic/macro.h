@@ -405,10 +405,20 @@ static inline int __coverity_check_and_return__(int condition) {
                 func(p);                                        \
         }
 
+/* When func() returns the appropriate type */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
         static inline void func##p(type *p) {                   \
                 if (*p)                                         \
+                        *p = func(*p);                          \
+        }
+
+/* When func() doesn't return the appropriate type, set variable to empty afterwards */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
+        static inline void func##p(type *p) {                   \
+                if (*p != (empty)) {                            \
                         func(*p);                               \
+                        *p = (empty);                           \
+                }                                               \
         }
 
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \

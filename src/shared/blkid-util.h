@@ -6,5 +6,5 @@
 
 #  include "macro.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(blkid_probe, blkid_free_probe, NULL);
 #endif

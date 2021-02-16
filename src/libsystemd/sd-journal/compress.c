@@ -34,13 +34,13 @@
 #include "util.h"
 
 #if HAVE_LZ4
-DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_compressionContext_t, LZ4F_freeCompressionContext);
-DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_decompressionContext_t, LZ4F_freeDecompressionContext);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_compressionContext_t, LZ4F_freeCompressionContext, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_decompressionContext_t, LZ4F_freeDecompressionContext, NULL);
 #endif
 
 #if HAVE_ZSTD
-DEFINE_TRIVIAL_CLEANUP_FUNC(ZSTD_CCtx *, ZSTD_freeCCtx);
-DEFINE_TRIVIAL_CLEANUP_FUNC(ZSTD_DCtx *, ZSTD_freeDCtx);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ZSTD_CCtx*, ZSTD_freeCCtx, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ZSTD_DCtx*, ZSTD_freeDCtx, NULL);
 
 static int zstd_ret_to_errno(size_t ret) {
         switch (ZSTD_getErrorCode(ret)) {

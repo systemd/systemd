@@ -167,7 +167,7 @@ static void udev_ctrl_disconnect_and_listen_again(struct udev_ctrl *uctrl) {
         /* We don't return NULL here because uctrl is not freed */
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl *, udev_ctrl_disconnect_and_listen_again);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct udev_ctrl*, udev_ctrl_disconnect_and_listen_again, NULL);
 
 static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(udev_ctrl_disconnect_and_listen_againp) struct udev_ctrl *uctrl = NULL;

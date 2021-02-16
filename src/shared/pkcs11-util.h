@@ -21,8 +21,8 @@ P11KitUri *uri_from_module_info(const CK_INFO *info);
 P11KitUri *uri_from_slot_info(const CK_SLOT_INFO *slot_info);
 P11KitUri *uri_from_token_info(const CK_TOKEN_INFO *token_info);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(P11KitUri*, p11_kit_uri_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(CK_FUNCTION_LIST**, p11_kit_modules_finalize_and_release);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(P11KitUri*, p11_kit_uri_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CK_FUNCTION_LIST**, p11_kit_modules_finalize_and_release, NULL);
 
 CK_RV pkcs11_get_slot_list_malloc(CK_FUNCTION_LIST *m, CK_SLOT_ID **ret_slotids, CK_ULONG *ret_n_slotids);
 

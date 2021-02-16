@@ -14,7 +14,7 @@
 void initialize_libgcrypt(bool secmem);
 int string_hashsum(const char *s, size_t len, int md_algorithm, char **out);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(gcry_md_hd_t, gcry_md_close);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gcry_md_hd_t, gcry_md_close, NULL);
 #endif
 
 static inline int string_hashsum_sha224(const char *s, size_t len, char **out) {
