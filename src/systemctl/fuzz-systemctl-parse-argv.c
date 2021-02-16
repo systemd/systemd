@@ -9,6 +9,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "systemctl.h"
+#include "systemctl-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_strv_free_ char **argv = NULL;
@@ -54,5 +55,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 assert_se(freopen(path, "w", stdout));
         }
 
+        release_busses(); /* We open the bus for communication with logind.
+                           * It needs to be closed to avoid apparent leaks. */
         return 0;
 }
