@@ -50,8 +50,8 @@ static inline int sym_crypt_token_max(_unused_ const char *type) {
 
 int dlopen_cryptsetup(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct crypt_device *, crypt_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct crypt_device *, sym_crypt_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
 
 void cryptsetup_enable_logging(struct crypt_device *cd);
 

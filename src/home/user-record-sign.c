@@ -27,7 +27,7 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
         return json_variant_format(j, 0, ret);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(EVP_MD_CTX*, EVP_MD_CTX_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *encoded = NULL, *v = NULL;
