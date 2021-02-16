@@ -20,6 +20,7 @@
 #include "networkd-fdb.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -279,6 +280,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_traffic_control(network);
         network_drop_invalid_sr_iov(network);
+        network_drop_invalid_mp_tcp(network);
 
         return 0;
 }
@@ -473,6 +475,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "IPv6Prefix\0"
                         "IPv6RoutePrefix\0"
                         "LLDP\0"
+                        "MPTCP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
                         "QDisc\0"
