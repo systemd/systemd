@@ -39,3 +39,4 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_family);
