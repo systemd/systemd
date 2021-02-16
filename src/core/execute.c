@@ -3465,8 +3465,10 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime)
+        if (runtime) {
                 append_socket_pair(dont_close, &n_dont_close, runtime->netns_storage_socket);
+                append_socket_pair(dont_close, &n_dont_close, runtime->ipcns_storage_socket);
+        }
 
         if (dcreds) {
                 if (dcreds->user)
@@ -3909,10 +3911,18 @@ static int exec_child(
         }
 
         if (context->network_namespace_path && runtime && runtime->netns_storage_socket[0] >= 0) {
-                r = open_netns_path(runtime->netns_storage_socket, context->network_namespace_path);
+                r = open_shareable_ns_path(runtime->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
                         return log_unit_error_errno(unit, r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
+                }
+        }
+
+        if (context->ipc_namespace_path && runtime && runtime->ipcns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_unit_error_errno(unit, r, "Failed to open IPC namespace path %s: %m", context->ipc_namespace_path);
                 }
         }
 
@@ -4186,7 +4196,7 @@ static int exec_child(
         if ((context->private_network || context->network_namespace_path) && runtime && runtime->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
-                        r = setup_netns(runtime->netns_storage_socket);
+                        r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
                         if (r == -EPERM)
                                 log_unit_warning_errno(unit, r,
                                                        "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
@@ -4200,6 +4210,25 @@ static int exec_child(
                                                     "NetworkNamespacePath= is not supported, refusing.");
                 } else
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
+        }
+
+        if ((context->private_ipc || context->ipc_namespace_path) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
+
+                if (ns_type_supported(NAMESPACE_IPC)) {
+                        r = setup_shareable_ns(runtime->ipcns_storage_socket, CLONE_NEWIPC);
+                        if (r == -EPERM)
+                                log_unit_warning_errno(unit, r,
+                                                       "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_unit_error_errno(unit, r, "Failed to set up IPC namespacing: %m");
+                        }
+                } else if (context->ipc_namespace_path) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "IPCNamespacePath= is not supported, refusing.");
+                } else
+                        log_unit_warning(unit, "PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
         }
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
@@ -4305,7 +4334,7 @@ static int exec_child(
 #endif
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that we are
-         * more aggressive this time since socket_fd and the netns fds we don't need anymore. We do keep the exec_fd
+         * more aggressive this time since socket_fd and the netns and ipcns fds we don't need anymore. We do keep the exec_fd
          * however if we have it as we want to keep it open until the final execve(). */
 
         r = close_all_fds(keep_fds, n_keep_fds);
@@ -6035,6 +6064,7 @@ static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
         rt->tmp_dir = mfree(rt->tmp_dir);
         rt->var_tmp_dir = mfree(rt->var_tmp_dir);
         safe_close_pair(rt->netns_storage_socket);
+        safe_close_pair(rt->ipcns_storage_socket);
         return mfree(rt);
 }
 
@@ -6059,6 +6089,7 @@ static int exec_runtime_allocate(ExecRuntime **ret, const char *id) {
         *n = (ExecRuntime) {
                 .id = TAKE_PTR(id_copy),
                 .netns_storage_socket = { -1, -1 },
+                .ipcns_storage_socket = { -1, -1 },
         };
 
         *ret = n;
@@ -6071,6 +6102,7 @@ static int exec_runtime_add(
                 char **tmp_dir,
                 char **var_tmp_dir,
                 int netns_storage_socket[2],
+                int ipcns_storage_socket[2],
                 ExecRuntime **ret) {
 
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
@@ -6079,7 +6111,7 @@ static int exec_runtime_add(
         assert(m);
         assert(id);
 
-        /* tmp_dir, var_tmp_dir, netns_storage_socket fds are donated on success */
+        /* tmp_dir, var_tmp_dir, {net,ipc}ns_storage_socket fds are donated on success */
 
         r = exec_runtime_allocate(&rt, id);
         if (r < 0)
@@ -6096,6 +6128,11 @@ static int exec_runtime_add(
         if (netns_storage_socket) {
                 rt->netns_storage_socket[0] = TAKE_FD(netns_storage_socket[0]);
                 rt->netns_storage_socket[1] = TAKE_FD(netns_storage_socket[1]);
+        }
+
+        if (ipcns_storage_socket) {
+                rt->ipcns_storage_socket[0] = TAKE_FD(ipcns_storage_socket[0]);
+                rt->ipcns_storage_socket[1] = TAKE_FD(ipcns_storage_socket[1]);
         }
 
         rt->manager = m;
@@ -6115,6 +6152,7 @@ static int exec_runtime_make(
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
         _cleanup_close_pair_ int netns_storage_socket[2] = { -1, -1 };
+        _cleanup_close_pair_ int ipcns_storage_socket[2] = { -1, -1 };
         int r;
 
         assert(m);
@@ -6122,7 +6160,7 @@ static int exec_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecRuntime object. */
-        if (!c->private_network && !c->private_tmp && !c->network_namespace_path) {
+        if (!c->private_network && !c->private_ipc && !c->private_tmp && !c->network_namespace_path) {
                 *ret = NULL;
                 return 0;
         }
@@ -6141,7 +6179,12 @@ static int exec_runtime_make(
                         return -errno;
         }
 
-        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ret);
+        if (c->private_ipc || c->ipc_namespace_path) {
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
+                        return -errno;
+        }
+
+        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
         if (r < 0)
                 return r;
 
@@ -6232,6 +6275,26 @@ int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
                         fprintf(f, " netns-socket-1=%i", copy);
                 }
 
+                if (rt->ipcns_storage_socket[0] >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, rt->ipcns_storage_socket[0]);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " ipcns-socket-0=%i", copy);
+                }
+
+                if (rt->ipcns_storage_socket[1] >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, rt->ipcns_storage_socket[1]);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " ipcns-socket-1=%i", copy);
+                }
+
                 fputc('\n', f);
         }
 
@@ -6313,6 +6376,28 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
 
                 safe_close(rt->netns_storage_socket[1]);
                 rt->netns_storage_socket[1] = fdset_remove(fds, fd);
+
+        } else if (streq(key, "ipcns-socket-0")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Failed to parse ipcns socket value: %s", value);
+                        return 0;
+                }
+
+                safe_close(rt->ipcns_storage_socket[0]);
+                rt->ipcns_storage_socket[0] = fdset_remove(fds, fd);
+
+        } else if (streq(key, "ipcns-socket-1")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Failed to parse ipcns socket value: %s", value);
+                        return 0;
+                }
+
+                safe_close(rt->ipcns_storage_socket[1]);
+                rt->ipcns_storage_socket[1] = fdset_remove(fds, fd);
         } else
                 return 0;
 
@@ -6336,7 +6421,7 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
 int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
-        int r, fdpair[] = {-1, -1};
+        int r, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
         const char *p, *v = value;
         size_t n;
 
@@ -6379,13 +6464,13 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 n = strcspn(v, " ");
                 buf = strndupa(v, n);
 
-                r = safe_atoi(buf, &fdpair[0]);
+                r = safe_atoi(buf, &netns_fdpair[0]);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-0=%s: %m", buf);
-                if (!fdset_contains(fds, fdpair[0]))
+                if (!fdset_contains(fds, netns_fdpair[0]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "exec-runtime specification netns-socket-0= refers to unknown fd %d: %m", fdpair[0]);
-                fdpair[0] = fdset_remove(fds, fdpair[0]);
+                                               "exec-runtime specification netns-socket-0= refers to unknown fd %d: %m", netns_fdpair[0]);
+                netns_fdpair[0] = fdset_remove(fds, netns_fdpair[0]);
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -6397,17 +6482,56 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
                 n = strcspn(v, " ");
                 buf = strndupa(v, n);
-                r = safe_atoi(buf, &fdpair[1]);
+
+                r = safe_atoi(buf, &netns_fdpair[1]);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-1=%s: %m", buf);
-                if (!fdset_contains(fds, fdpair[1]))
+                if (!fdset_contains(fds, netns_fdpair[1]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "exec-runtime specification netns-socket-1= refers to unknown fd %d: %m", fdpair[1]);
-                fdpair[1] = fdset_remove(fds, fdpair[1]);
+                                               "exec-runtime specification netns-socket-1= refers to unknown fd %d: %m", netns_fdpair[1]);
+                netns_fdpair[1] = fdset_remove(fds, netns_fdpair[1]);
+                if (v[n] != ' ')
+                        goto finalize;
+                p = v + n + 1;
+        }
+
+        v = startswith(p, "ipcns-socket-0=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa(v, n);
+
+                r = safe_atoi(buf, &ipcns_fdpair[0]);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse exec-runtime specification ipcns-socket-0=%s: %m", buf);
+                if (!fdset_contains(fds, ipcns_fdpair[0]))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "exec-runtime specification ipcns-socket-0= refers to unknown fd %d: %m", ipcns_fdpair[0]);
+                ipcns_fdpair[0] = fdset_remove(fds, ipcns_fdpair[0]);
+                if (v[n] != ' ')
+                        goto finalize;
+                p = v + n + 1;
+        }
+
+        v = startswith(p, "ipcns-socket-1=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa(v, n);
+
+                r = safe_atoi(buf, &ipcns_fdpair[1]);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse exec-runtime specification ipcns-socket-1=%s: %m", buf);
+                if (!fdset_contains(fds, ipcns_fdpair[1]))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "exec-runtime specification ipcns-socket-1= refers to unknown fd %d: %m", ipcns_fdpair[1]);
+                ipcns_fdpair[1] = fdset_remove(fds, ipcns_fdpair[1]);
         }
 
 finalize:
-        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, fdpair, NULL);
+        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_fdpair, ipcns_fdpair, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add exec-runtime: %m");
         return 0;
