@@ -2467,7 +2467,8 @@ static int setup_kmsg(int kmsg_socket) {
 }
 
 struct ExposeArgs {
-        union in_addr_union address;
+        union in_addr_union address4;
+        union in_addr_union address6;
         struct FirewallContext *fw_ctx;
 };
 
@@ -2478,7 +2479,8 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
         assert(m);
         assert(args);
 
-        expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, &args->address);
+        expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET, &args->address4);
+        expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET6, &args->address6);
         return 0;
 }
 
@@ -4900,7 +4902,8 @@ static int run_container(
                 if (r < 0)
                         return r;
 
-                (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, &expose_args->address);
+                (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET, &expose_args->address4);
+                (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET6, &expose_args->address6);
         }
 
         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
@@ -5027,7 +5030,8 @@ static int run_container(
                 return 0; /* finito */
         }
 
-        expose_port_flush(&expose_args->fw_ctx, arg_expose_ports, &expose_args->address);
+        expose_port_flush(&expose_args->fw_ctx, arg_expose_ports, AF_INET, &expose_args->address4);
+        expose_port_flush(&expose_args->fw_ctx, arg_expose_ports, AF_INET6, &expose_args->address6);
 
         (void) remove_veth_links(veth_name, arg_network_veth_extra);
         *veth_created = false;
@@ -5582,7 +5586,8 @@ finish:
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 
-        expose_port_flush(&fw_ctx, arg_expose_ports, &expose_args.address);
+        expose_port_flush(&fw_ctx, arg_expose_ports, AF_INET,  &expose_args.address4);
+        expose_port_flush(&fw_ctx, arg_expose_ports, AF_INET6, &expose_args.address6);
 
         if (veth_created)
                 (void) remove_veth_links(veth_name, arg_network_veth_extra);

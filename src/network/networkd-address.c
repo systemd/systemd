@@ -262,16 +262,23 @@ static int address_set_masquerade(Address *address, bool add) {
         if (!address->link->network)
                 return 0;
 
-        if (!address->link->network->ip_masquerade)
+        if (address->family == AF_INET &&
+            !FLAGS_SET(address->link->network->ip_masquerade, ADDRESS_FAMILY_IPV4))
                 return 0;
 
-        if (address->family != AF_INET)
+        if (address->family == AF_INET6 &&
+            !FLAGS_SET(address->link->network->ip_masquerade, ADDRESS_FAMILY_IPV6))
                 return 0;
 
         if (address->scope >= RT_SCOPE_LINK)
                 return 0;
 
-        if (address->ip_masquerade_done == add)
+        if (address->family == AF_INET &&
+            address->ip_masquerade_done == add)
+                return 0;
+
+        if (address->family == AF_INET6 &&
+            address->ipv6_masquerade_done == add)
                 return 0;
 
         masked = address->in_addr;
@@ -279,11 +286,14 @@ static int address_set_masquerade(Address *address, bool add) {
         if (r < 0)
                 return r;
 
-        r = fw_add_masquerade(&address->link->manager->fw_ctx, add, AF_INET, &masked, address->prefixlen);
+        r = fw_add_masquerade(&address->link->manager->fw_ctx, add, address->family, &masked, address->prefixlen);
         if (r < 0)
                 return r;
 
-        address->ip_masquerade_done = add;
+        if (address->family == AF_INET)
+                address->ip_masquerade_done = add;
+        else if (address->family == AF_INET6)
+                address->ipv6_masquerade_done = add;
 
         return 0;
 }

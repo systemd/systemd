@@ -2,6 +2,7 @@
 
 #include "sd-netlink.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "firewall-util.h"
@@ -82,9 +83,9 @@ void expose_port_free_all(ExposePort *p) {
         }
 }
 
-int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, union in_addr_union *exposed) {
+int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, int af, union in_addr_union *exposed) {
         ExposePort *p;
-        int r, af = AF_INET;
+        int r;
 
         assert(exposed);
 
@@ -106,19 +107,19 @@ int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, union in_addr_uni
                                       p->container_port,
                                       NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
+                        log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
         }
 
         *exposed = IN_ADDR_NULL;
         return 0;
 }
 
-int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *l, union in_addr_union *exposed) {
+int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *l, int af, union in_addr_union *exposed) {
         _cleanup_free_ struct local_address *addresses = NULL;
         union in_addr_union new_exposed;
         ExposePort *p;
         bool add;
-        int af = AF_INET, r;
+        int r;
 
         assert(exposed);
 
@@ -137,7 +138,7 @@ int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *
                 addresses[0].scope < RT_SCOPE_LINK;
 
         if (!add)
-                return expose_port_flush(fw_ctx, l, exposed);
+                return expose_port_flush(fw_ctx, l, af, exposed);
 
         new_exposed = addresses[0].address;
         if (in_addr_equal(af, exposed, &new_exposed))
@@ -160,7 +161,7 @@ int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *
                                       p->container_port,
                                       in_addr_is_null(af, exposed) ? NULL : exposed);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to modify firewall: %m");
+                        log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
         }
 
         *exposed = new_exposed;

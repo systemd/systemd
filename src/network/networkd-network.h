@@ -110,7 +110,7 @@ struct Network {
         KeepConfiguration keep_configuration;
         char **bind_carrier;
         bool default_route_on_device;
-        bool ip_masquerade;
+        AddressFamily ip_masquerade;
 
         /* DHCP Client Support */
         AddressFamily dhcp;
