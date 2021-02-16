@@ -674,8 +674,8 @@ static inline Unit* UNIT_TRIGGER(Unit *u) {
         return hashmap_first_key(u->dependencies[UNIT_TRIGGERS]);
 }
 
-Unit *unit_new(Manager *m, size_t size);
-void unit_free(Unit *u);
+Unit* unit_new(Manager *m, size_t size);
+Unit* unit_free(Unit *u);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Unit *, unit_free);
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);

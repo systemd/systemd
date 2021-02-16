@@ -264,9 +264,9 @@ static void udev_rule_line_clear_tokens(UdevRuleLine *rule_line) {
         rule_line->tokens = NULL;
 }
 
-static void udev_rule_line_free(UdevRuleLine *rule_line) {
+static UdevRuleLine* udev_rule_line_free(UdevRuleLine *rule_line) {
         if (!rule_line)
-                return;
+                return NULL;
 
         udev_rule_line_clear_tokens(rule_line);
 
@@ -278,7 +278,7 @@ static void udev_rule_line_free(UdevRuleLine *rule_line) {
         }
 
         free(rule_line->line);
-        free(rule_line);
+        return mfree(rule_line);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleLine*, udev_rule_line_free);

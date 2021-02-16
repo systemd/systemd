@@ -39,18 +39,16 @@ static const char* const l2tp_local_address_type_table[_NETDEV_L2TP_LOCAL_ADDRES
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(l2tp_local_address_type, L2tpLocalAddressType);
 
-static void l2tp_session_free(L2tpSession *s) {
+static L2tpSession* l2tp_session_free(L2tpSession *s) {
         if (!s)
-                return;
+                return NULL;
 
         if (s->tunnel && s->section)
                 ordered_hashmap_remove(s->tunnel->sessions_by_section, s->section);
 
         network_config_section_free(s->section);
-
         free(s->name);
-
-        free(s);
+        return mfree(s);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(L2tpSession, l2tp_session_free);

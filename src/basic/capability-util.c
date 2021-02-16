@@ -18,7 +18,7 @@
 #include "util.h"
 
 int have_effective_cap(int value) {
-        _cleanup_cap_free_ cap_t cap;
+        _cleanup_cap_free_ cap_t cap = NULL;
         cap_flag_value_t fv;
 
         cap = cap_get_proc();

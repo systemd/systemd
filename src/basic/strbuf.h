@@ -32,8 +32,8 @@ struct strbuf_child_entry {
         struct strbuf_node *child;
 };
 
-struct strbuf *strbuf_new(void);
+struct strbuf* strbuf_new(void);
 ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len);
 void strbuf_complete(struct strbuf *str);
-void strbuf_cleanup(struct strbuf *str);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct strbuf*, strbuf_cleanup);
+struct strbuf* strbuf_free(struct strbuf *str);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct strbuf*, strbuf_free);

@@ -115,13 +115,13 @@ static void trie_node_cleanup(struct trie_node *node) {
         free(node);
 }
 
-static void trie_free(struct trie *trie) {
+static struct trie* trie_free(struct trie *trie) {
         if (!trie)
-                return;
+                return NULL;
 
         trie_node_cleanup(trie->root);
-        strbuf_cleanup(trie->strings);
-        free(trie);
+        strbuf_free(trie->strings);
+        return mfree(trie);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct trie*, trie_free);

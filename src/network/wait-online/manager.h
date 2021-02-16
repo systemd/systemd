@@ -32,7 +32,7 @@ struct Manager {
         sd_event *event;
 };
 
-void manager_free(Manager *m);
+Manager* manager_free(Manager *m);
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 LinkOperationalStateRange required_operstate,
                 bool any, usec_t timeout);

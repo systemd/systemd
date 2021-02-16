@@ -74,7 +74,7 @@ extern const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX];
 /* For casting the various qdisc kinds into a qdisc */
 #define QDISC(q) (&(q)->meta)
 
-void qdisc_free(QDisc *qdisc);
+QDisc* qdisc_free(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
 int qdisc_configure(Link *link, QDisc *qdisc);

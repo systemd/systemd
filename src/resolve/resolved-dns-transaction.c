@@ -162,23 +162,23 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_free);
 
-bool dns_transaction_gc(DnsTransaction *t) {
+DnsTransaction* dns_transaction_gc(DnsTransaction *t) {
         assert(t);
 
+        /* Returns !NULL if we can't gc yet. */
+
         if (t->block_gc > 0)
-                return true;
+                return t;
 
         if (set_isempty(t->notify_query_candidates) &&
             set_isempty(t->notify_query_candidates_done) &&
             set_isempty(t->notify_zone_items) &&
             set_isempty(t->notify_zone_items_done) &&
             set_isempty(t->notify_transactions) &&
-            set_isempty(t->notify_transactions_done)) {
-                dns_transaction_free(t);
-                return false;
-        }
+            set_isempty(t->notify_transactions_done))
+                return dns_transaction_free(t);
 
-        return true;
+        return t;
 }
 
 static uint16_t pick_new_id(Manager *m) {

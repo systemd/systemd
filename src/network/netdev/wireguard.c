@@ -26,11 +26,11 @@
 
 static void resolve_endpoints(NetDev *netdev);
 
-static void wireguard_peer_free(WireguardPeer *peer) {
+static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
         WireguardIPmask *mask;
 
         if (!peer)
-                return;
+                return NULL;
 
         if (peer->wireguard) {
                 LIST_REMOVE(peers, peer->wireguard->peers, peer);
@@ -54,7 +54,7 @@ static void wireguard_peer_free(WireguardPeer *peer) {
         free(peer->preshared_key_file);
         explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
 
-        free(peer);
+        return mfree(peer);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(WireguardPeer, wireguard_peer_free);

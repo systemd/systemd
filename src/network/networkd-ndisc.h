@@ -63,7 +63,6 @@ struct IPv6Token {
 };
 
 int ipv6token_new(IPv6Token **ret);
-DEFINE_TRIVIAL_CLEANUP_FUNC(IPv6Token *, freep);
 
 static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));

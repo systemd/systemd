@@ -915,9 +915,9 @@ void manager_flush_server_names(Manager  *m, ServerType t) {
                         server_name_free(m->fallback_servers);
 }
 
-void manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         if (!m)
-                return;
+                return NULL;
 
         manager_disconnect(m);
         manager_flush_server_names(m, SERVER_SYSTEM);
@@ -934,7 +934,7 @@ void manager_free(Manager *m) {
 
         sd_bus_flush_close_unref(m->bus);
 
-        free(m);
+        return mfree(m);
 }
 
 static int manager_network_read_link_servers(Manager *m) {

@@ -123,14 +123,15 @@ int barrier_create(Barrier *b) {
  *
  * If @b is NULL, this is a no-op.
  */
-void barrier_destroy(Barrier *b) {
+Barrier* barrier_destroy(Barrier *b) {
         if (!b)
-                return;
+                return NULL;
 
         b->me = safe_close(b->me);
         b->them = safe_close(b->them);
         safe_close_pair(b->pipe);
         b->barriers = 0;
+        return NULL;
 }
 
 /**

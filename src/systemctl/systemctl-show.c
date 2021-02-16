@@ -147,15 +147,14 @@ typedef struct UnitCondition {
         LIST_FIELDS(struct UnitCondition, conditions);
 } UnitCondition;
 
-static void unit_condition_free(UnitCondition *c) {
+static UnitCondition* unit_condition_free(UnitCondition *c) {
         if (!c)
-                return;
+                return NULL;
 
         free(c->name);
         free(c->param);
-        free(c);
+        return mfree(c);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitCondition*, unit_condition_free);
 
 typedef struct UnitStatusInfo {

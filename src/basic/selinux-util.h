@@ -11,7 +11,7 @@
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #define _cleanup_freecon_ _cleanup_(freeconp)
 #endif
 

@@ -26,7 +26,7 @@
  *   ...
  */
 
-struct strbuf *strbuf_new(void) {
+struct strbuf* strbuf_new(void) {
         struct strbuf *str;
 
         str = new(struct strbuf, 1);
@@ -65,13 +65,13 @@ void strbuf_complete(struct strbuf *str) {
 }
 
 /* clean up everything */
-void strbuf_cleanup(struct strbuf *str) {
+struct strbuf* strbuf_free(struct strbuf *str) {
         if (!str)
-                return;
+                return NULL;
 
         strbuf_complete(str);
         free(str->buf);
-        free(str);
+        return mfree(str);
 }
 
 static int strbuf_children_cmp(const struct strbuf_child_entry *n1,

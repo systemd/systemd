@@ -24,11 +24,11 @@
 #define BITMAP_NUM_TO_REM(n)              ((n) % (sizeof(uint64_t) * 8))
 #define BITMAP_OFFSET_TO_NUM(offset, rem) ((offset) * sizeof(uint64_t) * 8 + (rem))
 
-Bitmap *bitmap_new(void) {
+Bitmap* bitmap_new(void) {
         return new0(Bitmap, 1);
 }
 
-Bitmap *bitmap_copy(Bitmap *b) {
+Bitmap* bitmap_copy(Bitmap *b) {
         Bitmap *ret;
 
         ret = bitmap_new();
@@ -43,12 +43,12 @@ Bitmap *bitmap_copy(Bitmap *b) {
         return ret;
 }
 
-void bitmap_free(Bitmap *b) {
+Bitmap* bitmap_free(Bitmap *b) {
         if (!b)
-                return;
+                return NULL;
 
         free(b->bitmaps);
-        free(b);
+        return mfree(b);
 }
 
 int bitmap_ensure_allocated(Bitmap **b) {

@@ -137,11 +137,11 @@ int setup_namespace(
 
 #define RUN_SYSTEMD_EMPTY "/run/systemd/empty"
 
-static inline void namespace_cleanup_tmpdir(char *p) {
+static inline char* namespace_cleanup_tmpdir(char *p) {
         PROTECT_ERRNO;
         if (!streq_ptr(p, RUN_SYSTEMD_EMPTY))
                 (void) rmdir(p);
-        free(p);
+        return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, namespace_cleanup_tmpdir);
 

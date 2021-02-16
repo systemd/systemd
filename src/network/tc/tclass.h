@@ -53,7 +53,7 @@ extern const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX];
 /* For casting the various tclass kinds into a tclass */
 #define TCLASS(t) (&(t)->meta)
 
-void tclass_free(TClass *tclass);
+TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
 int tclass_configure(Link *link, TClass *tclass);

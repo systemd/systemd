@@ -230,7 +230,7 @@ static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
         return CMP(a->ifindex, b->ifindex);
 }
 
-static const LinkInfo* link_info_array_free(LinkInfo *array) {
+static LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
                 free(array[i].ssid);
