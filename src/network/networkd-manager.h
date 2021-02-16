@@ -40,7 +40,8 @@ struct Manager {
         LinkCarrierState carrier_state;
         LinkAddressState address_state;
 
-        Hashmap *links;
+        Hashmap *links; /* keyed by ifindex */
+        Hashmap *links_by_name; /* keyed by main + alternative interface names */
         Hashmap *netdevs;
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
