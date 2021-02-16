@@ -1159,8 +1159,8 @@ static int run(int argc, char *argv[]) {
         case ACTION_SUSPEND_THEN_HIBERNATE:
         case ACTION_EMERGENCY:
         case ACTION_DEFAULT:
-                /* systemctl verbs with no equivalent in the legacy commands.  These cannot appear in
-                 * arg_action.  Fall through. */
+                /* systemctl verbs with no equivalent in the legacy commands. These cannot appear in
+                 * arg_action. Fall through. */
 
         case _ACTION_INVALID:
         default:
