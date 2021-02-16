@@ -66,9 +66,7 @@ static void context_free_vconsole(Context *c) {
 }
 
 static void context_free_locale(Context *c) {
-        int p;
-
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 c->locale[p] = mfree(c->locale[p]);
 }
 
@@ -85,9 +83,7 @@ void context_clear(Context *c) {
 };
 
 void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {
-        int p;
-
-        for (p = VARIABLE_LANG+1; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = VARIABLE_LANG+1; p < _VARIABLE_LC_MAX; p++)
                 if (isempty(locale[p]) || streq_ptr(locale[VARIABLE_LANG], locale[p]))
                         locale[p] = mfree(locale[p]);
 }
@@ -138,13 +134,11 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                 if (r < 0)
                         return r;
         } else {
-                int p;
-
                 c->locale_mtime = USEC_INFINITY;
                 context_free_locale(c);
 
                 /* Fill in what we got passed from systemd. */
-                for (p = 0; p < _VARIABLE_LC_MAX; p++) {
+                for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
                         const char *name;
 
                         name = locale_variable_to_string(p);
@@ -294,30 +288,16 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 int locale_write_data(Context *c, char ***settings) {
         _cleanup_strv_free_ char **l = NULL;
         struct stat st;
-        int r, p;
+        int r;
 
         /* Set values will be returned as strv in *settings on success. */
 
-        for (p = 0; p < _VARIABLE_LC_MAX; p++) {
-                _cleanup_free_ char *t = NULL;
-                char **u;
-                const char *name;
-
-                name = locale_variable_to_string(p);
-                assert(name);
-
-                if (isempty(c->locale[p]))
-                        continue;
-
-                if (asprintf(&t, "%s=%s", name, c->locale[p]) < 0)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, t);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
-        }
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
+                if (!isempty(c->locale[p])) {
+                        r = strv_env_assign(&l, locale_variable_to_string(p), c->locale[p]);
+                        if (r < 0)
+                                return r;
+                }
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/locale.conf") < 0)
@@ -348,39 +328,13 @@ int vconsole_write_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        if (isempty(c->vc_keymap))
-                l = strv_env_unset(l, "KEYMAP");
-        else {
-                _cleanup_free_ char *s = NULL;
-                char **u;
+        r = strv_env_assign(&l, "KEYMAP", empty_to_null(c->vc_keymap));
+        if (r < 0)
+                return r;
 
-                s = strjoin("KEYMAP=", c->vc_keymap);
-                if (!s)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, s);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
-        }
-
-        if (isempty(c->vc_keymap_toggle))
-                l = strv_env_unset(l, "KEYMAP_TOGGLE");
-        else  {
-                _cleanup_free_ char *s = NULL;
-                char **u;
-
-                s = strjoin("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
-                if (!s)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, s);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
-        }
+        r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc_keymap_toggle));
+        if (r < 0)
+                return r;
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/vconsole.conf") < 0)

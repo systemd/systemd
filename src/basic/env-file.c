@@ -385,11 +385,9 @@ static int load_env_file_push(
         if (!p)
                 return -ENOMEM;
 
-        r = strv_env_replace(m, p);
-        if (r < 0) {
-                free(p);
+        r = strv_env_replace_consume(m, p);
+        if (r < 0)
                 return r;
-        }
 
         if (n_pushed)
                 (*n_pushed)++;

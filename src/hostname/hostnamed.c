@@ -423,25 +423,11 @@ static int context_write_data_machine_info(Context *c) {
                 return r;
 
         for (int p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
-                _cleanup_free_ char *t = NULL;
-                char **u;
-
                 assert(name[p]);
 
-                if (isempty(c->data[p]))  {
-                        strv_env_unset(l, name[p]);
-                        continue;
-                }
-
-                t = strjoin(name[p], "=", c->data[p]);
-                if (!t)
-                        return -ENOMEM;
-
-                u = strv_env_set(l, t);
-                if (!u)
-                        return -ENOMEM;
-
-                strv_free_and_replace(l, u);
+                r = strv_env_assign(&l, name[p], empty_to_null(c->data[p]));
+                if (r < 0)
+                        return r;
         }
 
         if (strv_isempty(l)) {
