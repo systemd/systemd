@@ -882,6 +882,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectProc",
                               "ProcSubset",
                               "NetworkNamespacePath",
+                              "IPCNamespacePath",
                               "LogNamespace"))
                 return bus_append_string(m, field, eq);
 
@@ -894,6 +895,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "PrivateNetwork",
                               "PrivateUsers",
                               "PrivateMounts",
+                              "PrivateIPC",
                               "NoNewPrivileges",
                               "SyslogLevelPrefix",
                               "MemoryDenyWriteExecute",

@@ -2,8 +2,8 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
-#include <unistd.h>
 #include <sched.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

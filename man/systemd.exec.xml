@@ -1604,6 +1604,53 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateIPC=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, sets up a new IPC namespace for the executed processes.
+        Each IPC namespace has its own set of System V IPC identifiers and its own POSIX message queue file system.
+        This is useful to avoid name clash of IPC identifiers. Defaults to false. It is possible to run two or
+        more units within the same private IPC namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
+        see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that IPC namespacing does not have an effect on
+        <constant>AF_UNIX</constant> sockets, which are the most common
+        form of IPC used on Linux. Instead, <constant>AF_UNIX</constant>
+        sockets in the file system are subject to mount namespacing, and
+        those in the abstract namespace are subject to network namespacing.
+        IPC namespacing only has an effect on SysV IPC (which is mostly
+        legacy) as well as POSIX message queues (for which
+        <constant>AF_UNIX</constant>/<constant>SOCK_SEQPACKET</constant>
+        sockets are typically a better replacement). IPC namespacing also
+        has no effect on POSIX shared memory (which is subject to mount
+        namespacing) either. See
+        <citerefentry><refentrytitle>ipc_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        the details.</para>
+
+        <para>Note that the implementation of this setting might be impossible (for example if IPC namespaces are
+        not available), and the unit should be written in a way that does not solely rely on this setting for
+        security.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPCNamespacePath=</varname></term>
+
+        <listitem><para>Takes an absolute file system path refererring to a Linux IPC namespace
+        pseudo-file (i.e. a file like <filename>/proc/$PID/ns/ipc</filename> or a bind mount or symlink to
+        one). When set the invoked processes are added to the network namespace referenced by that path. The
+        path has to point to a valid namespace file at the moment the processes are forked off. If this
+        option is used <varname>PrivateIPC=</varname> has no effect. If this option is used together with
+        <varname>JoinsNamespaceOf=</varname> then it only has an effect if this unit is started before any of
+        the listed units that have <varname>PrivateIPC=</varname> or
+        <varname>IPCNamespacePath=</varname> configured, as otherwise the network namespace of those
+        units is reused.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sets up a new user namespace for the executed processes and
@@ -3585,7 +3632,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           <row>
             <entry>226</entry>
             <entry><constant>EXIT_NAMESPACE</constant></entry>
-            <entry>Failed to set up mount namespacing. See <varname>ReadOnlyPaths=</varname> and related settings above.</entry>
+            <entry>Failed to set up mount, UTS, or IPC namespacing. See <varname>ReadOnlyPaths=</varname>, <varname>ProtectHostname=</varname>, <varname>PrivateIPC=</varname>, and related settings above.</entry>
           </row>
           <row>
             <entry>227</entry>
