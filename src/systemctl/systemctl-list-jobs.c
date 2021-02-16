@@ -58,7 +58,6 @@ struct job_info {
 
 static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n, bool skipped) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const struct job_info *j;
         const char *on, *off;
         int r;
 
@@ -86,7 +85,7 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
 
         (void) table_set_empty_string(table, "-");
 
-        for (j = jobs; j < jobs + n; j++) {
+        for (const struct job_info *j = jobs; j < jobs + n; j++) {
                 if (streq(j->state, "running"))
                         on = ansi_highlight();
                 else

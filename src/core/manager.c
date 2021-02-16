@@ -80,6 +80,7 @@
 #include "transaction.h"
 #include "umask-util.h"
 #include "unit-name.h"
+#include "unit-serialize.h"
 #include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -1187,18 +1188,15 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
                         is_bad = false;
         }
 
-        if (u->refs_by_target) {
-                const UnitRef *ref;
+        const UnitRef *ref;
+        LIST_FOREACH(refs_by_target, ref, u->refs_by_target) {
+                unit_gc_sweep(ref->source, gc_marker);
 
-                LIST_FOREACH(refs_by_target, ref, u->refs_by_target) {
-                        unit_gc_sweep(ref->source, gc_marker);
+                if (ref->source->gc_marker == gc_marker + GC_OFFSET_GOOD)
+                        goto good;
 
-                        if (ref->source->gc_marker == gc_marker + GC_OFFSET_GOOD)
-                                goto good;
-
-                        if (ref->source->gc_marker != gc_marker + GC_OFFSET_BAD)
-                                is_bad = false;
-                }
+                if (ref->source->gc_marker != gc_marker + GC_OFFSET_BAD)
+                        is_bad = false;
         }
 
         if (is_bad)

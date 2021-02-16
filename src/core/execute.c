@@ -93,7 +93,7 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
-#include "unit.h"
+#include "unit-serialize.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
 
