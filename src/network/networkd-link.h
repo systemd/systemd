@@ -203,6 +203,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
+int link_get_by_name(const Manager *m, const char *ifname, Link **ret);
+int link_update_by_name(Link *link, bool update_ifname, bool update_alternative_names);
+int link_remove_by_name(Link *link, bool update_ifname, bool update_alternative_names);
+
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
 void link_drop(Link *link);
 
