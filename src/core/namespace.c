@@ -4,7 +4,9 @@
 #include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mount.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include <linux/fs.h>
 
@@ -881,12 +883,28 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
         _cleanup_free_ char *opts = NULL;
         const char *entry_path;
         int r, n;
+        struct utsname uts;
+        bool old = false;
 
         assert(m);
         assert(ns_info);
 
-        if (ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
-            ns_info->proc_subset != PROC_SUBSET_ALL) {
+        /* If uname says that the system is older than v5.8, then the textual hidepid= stuff is not
+         * supported by the kernel, and thus the per-instance hidepid= neither, which means we
+         * really don't want to use it, since it would affect our host's /proc * mount. Hence let's
+         * gracefully fallback to a classic, unrestricted version. */
+
+        r = uname(&uts);
+        if (r < 0)
+               return -errno;
+
+        if (strverscmp(uts.release, "5.8") < 0) {
+                log_debug("Pre v5.8 kernel detected [v%s] - skipping hidepid=", uts.release);
+                old = true;
+        }
+
+        if (!old && (ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
+            ns_info->proc_subset != PROC_SUBSET_ALL)) {
 
                 /* Starting with kernel 5.8 procfs' hidepid= logic is truly per-instance (previously it
                  * pretended to be per-instance but actually was per-namespace), hence let's make use of it
