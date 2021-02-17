@@ -97,10 +97,12 @@ struct DissectedImage {
 
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
 
+        char *image_name;
         char *hostname;
         sd_id128_t machine_id;
         char **machine_info;
         char **os_release;
+        char **extension_release;
 };
 
 struct MountOptions {

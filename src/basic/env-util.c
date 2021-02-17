@@ -12,6 +12,7 @@
 #include "extract-word.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -455,6 +456,18 @@ char *strv_env_get(char **l, const char *name) {
         return strv_env_get_n(l, name, strlen(name), 0);
 }
 
+char *strv_env_pairs_get(char **l, const char *name) {
+        char **key, **value, *result = NULL;
+
+        assert(name);
+
+        STRV_FOREACH_PAIR(key, value, l)
+                if (streq(*key, name))
+                        result = *value;
+
+        return result;
+}
+
 char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         char **p, **q;
         int k = 0;
@@ -774,4 +787,45 @@ int setenv_systemd_exec_pid(bool update_only) {
                 return -errno;
 
         return 1;
+}
+
+int getenv_path_list(const char *name, char ***ret_paths) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        char **p;
+        int r;
+
+        assert(name);
+        assert(ret_paths);
+
+        *ret_paths = NULL;
+
+        e = secure_getenv(name);
+        if (!e)
+                return 0;
+
+        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse $%s: %m", name);
+
+        STRV_FOREACH(p, l) {
+                if (!path_is_absolute(*p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is not absolute, refusing.", *p);
+
+                if (!path_is_normalized(*p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is not normalized, refusing.", *p);
+
+                if (path_equal(*p, "/"))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path '%s' is the root fs, refusing.", *p);
+        }
+
+        if (strv_isempty(l))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No paths specified, refusing.");
+
+        *ret_paths = TAKE_PTR(l);
+        return 0;
 }

@@ -50,6 +50,7 @@ int strv_env_assign(char ***l, const char *key, const char *value);
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
+char *strv_env_pairs_get(char **l, const char *name) _pure_;
 
 int getenv_bool(const char *p);
 int getenv_bool_secure(const char *p);
@@ -58,3 +59,7 @@ int getenv_bool_secure(const char *p);
 int set_unset_env(const char *name, const char *value, bool overwrite);
 
 int setenv_systemd_exec_pid(bool update_only);
+
+/* Parses and does sanity checks on an environment variable containing
+ * PATH-like colon-separated absolute paths */
+int getenv_path_list(const char *name, char ***ret_paths);

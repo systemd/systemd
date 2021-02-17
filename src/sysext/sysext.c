@@ -8,6 +8,7 @@
 #include "capability-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -403,16 +404,15 @@ static int strverscmp_improvedp(char *const* a, char *const* b) {
 
 static int validate_version(
                 const char *root,
-                const char *name,
+                const Image *img,
                 const char *host_os_release_id,
                 const char *host_os_release_version_id,
                 const char *host_os_release_sysext_level) {
 
-        _cleanup_free_ char *extension_release_id = NULL, *extension_release_version_id = NULL, *extension_release_sysext_level = NULL;
         int r;
 
         assert(root);
-        assert(name);
+        assert(img);
 
         if (arg_force) {
                 log_debug("Force mode enabled, skipping version validation.");
@@ -430,45 +430,12 @@ static int validate_version(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
 
-        /* Now that we can look into the extension image, let's see if the OS version is compatible */
-        r = parse_extension_release(
-                        root,
-                        name,
-                        "ID", &extension_release_id,
-                        "VERSION_ID", &extension_release_version_id,
-                        "SYSEXT_LEVEL", &extension_release_sysext_level,
-                        NULL);
-        if (r == -ENOENT) {
-                log_notice_errno(r, "Extension '%s' carries no extension-release data, ignoring extension.", name);
-                return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire 'os-release' data of extension '%s': %m", name);
-
-        if (!streq_ptr(host_os_release_id, extension_release_id)) {
-                log_notice("Extension '%s' is for OS '%s', but running on '%s', ignoring extension.",
-                           name, strna(extension_release_id), strna(host_os_release_id));
-                return 0;
-        }
-
-        /* If the extension has a sysext API level declared, then it must match the host API
-         * level. Otherwise, compare OS version as a whole */
-        if (extension_release_sysext_level) {
-                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
-                        log_notice("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s', ignoring extension.",
-                                   name, extension_release_sysext_level, strna(host_os_release_sysext_level));
-                        return 0;
-                }
-        } else {
-                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
-                        log_notice("Extension '%s' is for OS version '%s', but running on OS version '%s', ignoring extension.",
-                                   name, extension_release_version_id, strna(host_os_release_version_id));
-                        return 0;
-                }
-        }
-
-        log_debug("Version info of extension '%s' matches host.", name);
-        return 1;
+        return extension_release_validate(
+                        img->name,
+                        host_os_release_id,
+                        host_os_release_version_id,
+                        host_os_release_sysext_level,
+                        img->extension_release);
 }
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
@@ -596,7 +563,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
                 r = validate_version(
                                 p,
-                                img->name,
+                                img,
                                 host_os_release_id,
                                 host_os_release_version_id,
                                 host_os_release_sysext_level);
@@ -742,13 +709,12 @@ static int merge(Hashmap *images) {
         return r != 123; /* exit code 123 means: didn't do anything */
 }
 
-static int verb_merge(int argc, char **argv, void *userdata) {
+static int image_discover_and_read_metadata(Hashmap **ret_images) {
         _cleanup_(hashmap_freep) Hashmap *images = NULL;
-        char **p;
+        Image *img;
         int r;
 
-        if (!have_effective_cap(CAP_SYS_ADMIN))
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
+        assert(ret_images);
 
         images = hashmap_new(&image_hash_ops);
         if (!images)
@@ -757,6 +723,29 @@ static int verb_merge(int argc, char **argv, void *userdata) {
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
+
+        HASHMAP_FOREACH(img, images) {
+                r = image_read_metadata(img);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
+        }
+
+        *ret_images = TAKE_PTR(images);
+
+        return 0;
+}
+
+static int verb_merge(int argc, char **argv, void *userdata) {
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        char **p;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
+
+        r = image_discover_and_read_metadata(&images);
+        if (r < 0)
+                return r;
 
         /* In merge mode fail if things are already merged. (In --refresh mode below we'll unmerge if we find
          * things are already merged...) */
@@ -789,13 +778,9 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
         if (!have_effective_cap(CAP_SYS_ADMIN))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(IMAGE_EXTENSION, arg_root, images);
+        r = image_discover_and_read_metadata(&images);
         if (r < 0)
-                return log_error_errno(r, "Failed to discover extension images: %m");
+                return r;
 
         r = merge(images); /* Returns > 0 if it did something, i.e. a new overlayfs is mounted now. When it
                             * does so it implicitly unmounts any overlayfs placed there before. Returns == 0
@@ -970,46 +955,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_env(void) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char *e;
-        char **p;
-        int r;
-
-        e = secure_getenv("SYSTEMD_SYSEXT_HIERARCHIES");
-        if (!e)
-                return 0;
-
-        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
-         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
-         * switch. */
-
-        r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES: %m");
-
-        STRV_FOREACH(p, l) {
-                if (!path_is_absolute(*p))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is not absolute, refusing.", *p);
-
-                if (!path_is_normalized(*p))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is not normalized, refusing.", *p);
-
-                if (path_equal(*p, "/"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Hierarchy path '%s' is the root fs, refusing.", *p);
-        }
-
-        if (strv_isempty(l))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No hierarchies specified, refusing.");
-
-        strv_free_and_replace(arg_hierarchies, l);
-        return 0;
-}
-
 static int sysext_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
@@ -1034,9 +979,12 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = parse_env();
+        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
+         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
+         * switch. */
+        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", &arg_hierarchies);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
 
         if (!arg_hierarchies) {
                 arg_hierarchies = strv_new("/usr", "/opt");
