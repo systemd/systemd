@@ -2471,27 +2471,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EXPECT_REPLY:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--expect-reply", optarg, &arg_expect_reply);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --expect-reply= parameter '%s': %m", optarg);
-
-                        arg_expect_reply = r;
+                                return r;
                         break;
 
                 case ARG_AUTO_START:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--auto-start", optarg, &arg_auto_start);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --auto-start= parameter '%s': %m", optarg);
-
-                        arg_auto_start = r;
+                                return r;
                         break;
 
                 case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--allow-interactive-authorization", optarg,
+                                                   &arg_allow_interactive_authorization);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --allow-interactive-authorization= parameter '%s': %m", optarg);
-
-                        arg_allow_interactive_authorization = r;
+                                return r;
                         break;
 
                 case ARG_TIMEOUT:
@@ -2502,19 +2497,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_AUGMENT_CREDS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--augment-creds", optarg, &arg_augment_creds);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --augment-creds= parameter '%s': %m", optarg);
-
-                        arg_augment_creds = r;
+                                return r;
                         break;
 
                 case ARG_WATCH_BIND:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--watch-bind", optarg, &arg_watch_bind);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --watch-bind= parameter '%s': %m", optarg);
-
-                        arg_watch_bind = r;
+                                return r;
                         break;
 
                 case 'j':
