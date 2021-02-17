@@ -1457,6 +1457,7 @@ int config_parse_broadcast(
 
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
+        union in_addr_union u;
         int r;
 
         assert(filename);
@@ -1480,13 +1481,14 @@ int config_parse_broadcast(
                 return 0;
         }
 
-        r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union*) &n->broadcast);
+        r = in_addr_from_string(AF_INET, rvalue, &u);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
+        n->broadcast = u.in;
         n->family = AF_INET;
         TAKE_PTR(n);
 
