@@ -10,6 +10,27 @@
 
 /* All functions in this file emit warnigs. */
 
+int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
+        int r;
+
+        /* Returns the result through *ret and the return value. */
+
+        if (s) {
+                r = parse_boolean(s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse boolean argument to %s: %s.", optname, s);
+
+                if (ret)
+                        *ret = r;
+                return r;
+        } else {
+                /* s may be NULL. This is controlled by getopt_long() parameters. */
+                if (ret)
+                        *ret = true;
+                return true;
+        }
+}
+
 int parse_json_argument(const char *s, JsonFormatFlags *ret) {
         assert(s);
         assert(ret);
