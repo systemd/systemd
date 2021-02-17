@@ -314,6 +314,47 @@ static void test_in_addr_prefix_nth(void) {
         test_in_addr_prefix_nth_one(AF_INET6, "1234:5678:90ab:cdef:1234:5678:90ab:cdef", 12, 1, "1240::");
 }
 
+static void test_in_addr_prefix_range_one(
+                int family,
+                const char *in,
+                unsigned prefixlen,
+                const char *expected_start,
+                const char *expected_end) {
+
+        union in_addr_union a, s, e;
+
+        log_info("/* %s(%s, prefixlen=%u) */", __func__, in, prefixlen);
+
+        assert_se(in_addr_from_string(family, in, &a) >= 0);
+        assert_se((in_addr_prefix_range(family, &a, prefixlen, &s, &e) >= 0) == !!expected_start);
+
+        if (expected_start) {
+                union in_addr_union es;
+
+                assert_se(in_addr_from_string(family, expected_start, &es) >= 0);
+                assert_se(in_addr_equal(family, &s, &es) > 0);
+        }
+        if (expected_end) {
+                union in_addr_union ee;
+
+                assert_se(in_addr_from_string(family, expected_end, &ee) >= 0);
+                assert_se(in_addr_equal(family, &e, &ee) > 0);
+        }
+}
+
+static void test_in_addr_prefix_range(void) {
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 24, "192.168.123.0", "192.168.124.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 16, "192.168.0.0", "192.169.0.0");
+
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::", 64, "dead:beef::", "dead:beef:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:0:0:beef::", 64, "dead:0:0:beef::", "dead:0:0:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  48, "2001::", "2001:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  56, "2001::", "2001:0:0:0100::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  65, "2001::", "2001::8000:0:0:0");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  66, "2001::", "2001::4000:0:0:0");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 127, "2001::", "2001::2");
+}
+
 static void test_in_addr_to_string_one(int f, const char *addr) {
         union in_addr_union ua;
         _cleanup_free_ char *r = NULL;
@@ -342,6 +383,7 @@ int main(int argc, char *argv[]) {
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
         test_in_addr_prefix_nth();
+        test_in_addr_prefix_range();
         test_in_addr_to_string();
 
         return 0;

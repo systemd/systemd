@@ -350,6 +350,43 @@ int in_addr_random_prefix(
         return -EAFNOSUPPORT;
 }
 
+int in_addr_prefix_range(
+                int family,
+                const union in_addr_union *in,
+                unsigned prefixlen,
+                union in_addr_union *ret_start,
+                union in_addr_union *ret_end) {
+
+        union in_addr_union start, end;
+        int r;
+
+        assert(in);
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        if (ret_start) {
+                start = *in;
+                r = in_addr_prefix_nth(family, &start, prefixlen, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_end) {
+                end = *in;
+                r = in_addr_prefix_nth(family, &end, prefixlen, 1);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_start)
+                *ret_start = start;
+        if (ret_end)
+                *ret_end = end;
+
+        return 0;
+}
+
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
         _cleanup_free_ char *x = NULL;
         size_t l;
