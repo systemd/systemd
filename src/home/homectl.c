@@ -26,6 +26,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -1567,7 +1568,7 @@ static int resize_home(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (arg_disk_size_relative != UINT64_MAX ||
-            (argc > 2 && parse_percent(argv[2]) >= 0))
+            (argc > 2 && parse_permyriad(argv[2]) >= 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Relative disk size specification currently not supported when resizing.");
 
@@ -2653,7 +2654,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        r = parse_permille(optarg);
+                        r = parse_permyriad(optarg);
                         if (r < 0) {
                                 r = parse_size(optarg, 1024, &arg_disk_size);
                                 if (r < 0)
@@ -2670,7 +2671,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_disk_size_relative = UINT64_MAX;
                         } else {
                                 /* Normalize to UINT32_MAX == 100% */
-                                arg_disk_size_relative = (uint64_t) r * UINT32_MAX / 1000U;
+                                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
 
                                 r = drop_from_identity("diskSize");
                                 if (r < 0)

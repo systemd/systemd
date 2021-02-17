@@ -19,11 +19,12 @@
 #include "label.h"
 #include "limits-util.h"
 #include "logind-dbus.h"
-#include "logind-user.h"
 #include "logind-user-dbus.h"
+#include "logind-user.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "rm-rf.h"
 #include "serialize.h"
 #include "special.h"
@@ -907,9 +908,9 @@ int config_parse_tmpfs_size(
         assert(data);
 
         /* First, try to parse as percentage */
-        r = parse_permille(rvalue);
-        if (r > 0 && r < 1000)
-                *sz = physical_memory_scale(r, 1000U);
+        r = parse_permyriad(rvalue);
+        if (r > 0)
+                *sz = physical_memory_scale(r, 10000U);
         else {
                 uint64_t k;
 

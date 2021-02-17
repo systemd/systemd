@@ -5,6 +5,7 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "percent-util.h"
 #include "tc-util.h"
 #include "time-util.h"
 
@@ -57,17 +58,17 @@ int tc_time_to_tick(usec_t t, uint32_t *ret) {
         return 0;
 }
 
-int parse_tc_percent(const char *s, uint32_t *percent) {
+int parse_tc_percent(const char *s, uint32_t *ret_fraction) {
         int r;
 
         assert(s);
-        assert(percent);
+        assert(ret_fraction);
 
-        r = parse_permille(s);
+        r = parse_permyriad(s);
         if (r < 0)
                 return r;
 
-        *percent = (double) r / 1000 * UINT32_MAX;
+        *ret_fraction = (double) r / 10000 * UINT32_MAX;
         return 0;
 }
 
