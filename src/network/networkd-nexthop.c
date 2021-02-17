@@ -269,9 +269,11 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEXTHOP message: %m");
 
-        r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
+        if (nexthop->id > 0) {
+                r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
+        }
 
         r = sd_netlink_message_append_u32(req, NHA_OIF, link->ifindex);
         if (r < 0)
@@ -440,8 +442,9 @@ static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
-        if (in_addr_is_null(nh->family, &nh->gw) < 0)
-                return -EINVAL;
+        if (nh->family == AF_UNSPEC)
+                /* When no Gateway= is specified, assume IPv4. */
+                nh->family = AF_INET;
 
         return 0;
 }
@@ -470,6 +473,7 @@ int config_parse_nexthop_id(
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
+        uint32_t id;
         int r;
 
         assert(filename);
@@ -482,13 +486,25 @@ int config_parse_nexthop_id(
         if (r < 0)
                 return log_oom();
 
-        r = safe_atou32(rvalue, &n->id);
+        if (isempty(rvalue)) {
+                n->id = 0;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &id);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse nexthop id \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
+        if (id == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid nexthop id \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
 
+        n->id = id;
         TAKE_PTR(n);
         return 0;
 }
@@ -519,11 +535,85 @@ int config_parse_nexthop_gateway(
         if (r < 0)
                 return log_oom();
 
+        if (isempty(rvalue)) {
+                n->family = AF_UNSPEC;
+                n->gw = IN_ADDR_NULL;
+
+                TAKE_PTR(n);
+                return 0;
+        }
+
         r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
+        }
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_nexthop_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        Network *network = userdata;
+        AddressFamily a;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = nexthop_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue) &&
+            in_addr_is_null(n->family, &n->gw) != 0) {
+                /* Accept an empty string only when Gateway= is null or not specified. */
+                n->family = AF_UNSPEC;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        a = nexthop_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        if (in_addr_is_null(n->family, &n->gw) == 0 &&
+            ((a == ADDRESS_FAMILY_IPV4 && n->family == AF_INET6) ||
+             (a == ADDRESS_FAMILY_IPV6 && n->family == AF_INET))) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified family '%s' conflicts with the family of the previously specified Gateway=, "
+                           "ignoring assignment.", rvalue);
+                return 0;
+        }
+
+        switch(a) {
+        case ADDRESS_FAMILY_IPV4:
+                n->family = AF_INET;
+                break;
+        case ADDRESS_FAMILY_IPV6:
+                n->family = AF_INET6;
+                break;
+        default:
+                assert_not_reached("Invalid family.");
         }
 
         TAKE_PTR(n);
