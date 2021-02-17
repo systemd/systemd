@@ -2671,7 +2671,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_disk_size_relative = UINT64_MAX;
                         } else {
                                 /* Normalize to UINT32_MAX == 100% */
-                                arg_disk_size_relative = (uint64_t) r * UINT32_MAX / 10000U;
+                                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
 
                                 r = drop_from_identity("diskSize");
                                 if (r < 0)
