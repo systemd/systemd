@@ -1076,9 +1076,10 @@ static int dhcp6_address_acquired(Link *link) {
                         return r;
         }
 
-        if (link->network->dhcp6_use_fqdn) {
+        if (link->network->dhcp6_use_hostname) {
                 const char *dhcpname = NULL;
                 _cleanup_free_ char *hostname = NULL;
+
                 (void) sd_dhcp6_lease_get_fqdn(link->dhcp6_lease, &dhcpname);
 
                 if (dhcpname) {

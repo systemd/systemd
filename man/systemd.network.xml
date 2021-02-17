@@ -1935,15 +1935,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
+          <term><varname>UseHostname=</varname></term>
           <listitem>
             <para>As in the [DHCPv4] section.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>UseFQDN=</varname></term>
-          <listitem>
-            <para>Equivalent of <varname>UseHostname=</varname> in the [DHCPv4] section.</para>
           </listitem>
         </varlistentry>
 

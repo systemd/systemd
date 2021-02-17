@@ -159,7 +159,7 @@ struct Network {
         bool dhcp6_use_address;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
-        bool dhcp6_use_fqdn;
+        bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
         bool dhcp6_rapid_commit;
