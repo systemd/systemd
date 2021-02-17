@@ -735,17 +735,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
         <varlistentry>
           <term><varname>IPMasquerade=</varname></term>
-          <listitem><para>Configures IP masquerading for the network
-          interface. If enabled, packets forwarded from the network
-          interface will be appear as coming from the local host.
-          Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>,
-          <literal>both</literal>, <literal>no</literal>.
-          The setting <literal>yes</literal> is the same as <literal>ipv4</literal> and not as
-          <literal>both</literal>!
-          Defaults to <literal>no</literal>.
-          If enabled, this automatically sets <varname>IPForward</varname> to one of
-          <literal>ipv4</literal>, <literal>ipv6</literal> or <literal>both</literal>.
-          </para></listitem>
+          <listitem><para>Configures IP masquerading for the network interface. If enabled, packets
+          forwarded from the network interface will be appear as coming from the local host. Takes one
+          of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
+          <literal>no</literal>. Defaults to <literal>no</literal>. If enabled, this automatically sets
+          <varname>IPForward=</varname> to one of <literal>ipv4</literal>, <literal>ipv6</literal> or
+          <literal>yes</literal>.</para>
+          <para>Note. Any positive boolean values such as <literal>yes</literal> or
+          <literal>true</literal> are now deprecated. Please use one of the values in the above.</para>
+          </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6PrivacyExtensions=</varname></term>
