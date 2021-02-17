@@ -12,6 +12,8 @@ ARGS=(
     "--optimization=s"
     "--optimization=3 -Db_lto=true"
     "--optimization=3 -Db_lto=false"
+    "--optimization=3 -Ddns-over-tls=gnutls"
+    "--optimization=3 -Ddns-over-tls=openssl"
     "-Db_ndebug=true"
 )
 PACKAGES=(
