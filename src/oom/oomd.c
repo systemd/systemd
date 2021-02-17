@@ -17,13 +17,13 @@
 #include "signal-util.h"
 
 static bool arg_dry_run = false;
-static int arg_swap_used_limit = -1;
+static int arg_swap_used_limit_permyriad = -1;
 static int arg_mem_pressure_limit_permyriad = -1;
 static usec_t arg_mem_pressure_usec = 0;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                { "OOM", "SwapUsedLimitPercent",             config_parse_percent,   0, &arg_swap_used_limit              },
+                { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &arg_swap_used_limit_permyriad    },
                 { "OOM", "DefaultMemoryPressureLimit",       config_parse_permyriad, 0, &arg_mem_pressure_limit_permyriad },
                 { "OOM", "DefaultMemoryPressureDurationSec", config_parse_sec,       0, &arg_mem_pressure_usec            },
                 {}
@@ -159,7 +159,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 
-        r = manager_start(m, arg_dry_run, arg_swap_used_limit, arg_mem_pressure_limit_permyriad, arg_mem_pressure_usec);
+        r = manager_start(
+                        m,
+                        arg_dry_run,
+                        arg_swap_used_limit_permyriad,
+                        arg_mem_pressure_limit_permyriad,
+                        arg_mem_pressure_usec);
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
