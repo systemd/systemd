@@ -553,15 +553,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
 
 # HP Elite x2 1013 G3
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
-  KEYBOARD_KEY_f8=unknown                               # rfkill is also reported by HP Wireless hotkeys
-  KEYBOARD_KEY_64=calendar
-  KEYBOARD_KEY_81=f20                                   # Microphone mute button
-  KEYBOARD_KEY_ee=switchvideomode                       # Switch display outputs
-  KEYBOARD_KEY_92=brightnessdown
-  KEYBOARD_KEY_97=brightnessup
+ KEYBOARD_KEY_f8=unknown                               # rfkill is also reported by HP Wireless hotkeys
+ KEYBOARD_KEY_64=calendar
+ KEYBOARD_KEY_81=f20                                   # Microphone mute button
+ KEYBOARD_KEY_ee=switchvideomode                       # Switch display outputs
+ KEYBOARD_KEY_92=brightnessdown
+ KEYBOARD_KEY_97=brightnessup
 
 evdev:name:Intel HID events:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
-  KEYBOARD_KEY_08=unknown                               # rfkill is also reported by HP Wireless hotkeys
+ KEYBOARD_KEY_08=unknown                               # rfkill is also reported by HP Wireless hotkeys
 
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:*
