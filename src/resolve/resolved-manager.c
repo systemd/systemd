@@ -1153,6 +1153,12 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 
         assert(m);
 
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return 0;
+
+        if (!in_addr)
+                return 0;
+
         a = manager_find_link_address(m, family, in_addr);
         if (a)
                 return a->link->ifindex;
@@ -1247,6 +1253,12 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
         Link *l;
 
         assert(m);
+
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return NULL;
+
+        if (!in_addr)
+                return NULL;
 
         HASHMAP_FOREACH(l, m->links) {
                 LinkAddress *a;

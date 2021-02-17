@@ -697,6 +697,12 @@ LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *i
 
         assert(l);
 
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return NULL;
+
+        if (!in_addr)
+                return NULL;
+
         LIST_FOREACH(addresses, a, l->addresses)
                 if (a->family == family && in_addr_equal(family, &a->in_addr, in_addr))
                         return a;
