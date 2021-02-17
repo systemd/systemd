@@ -106,7 +106,7 @@ for args in "${ARGS[@]}"; do
     SECONDS=0
 
     info "Checking build with $args"
-    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror $args build; then
+    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Ddns-over-tls=openssl --werror $args build; then
         fatal "meson failed with $args"
     fi
 
