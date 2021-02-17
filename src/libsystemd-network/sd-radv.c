@@ -167,7 +167,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
         if (r < 0)
                 return r;
 
-        if (dst && !IN6_IS_ADDR_UNSPECIFIED(dst))
+        if (dst && in6_addr_is_set(dst))
                 dst_addr.sin6_addr = *dst;
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
@@ -536,7 +536,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
                 return -EINVAL;
 
         /* Refuse prefixes that don't have a prefix set */
-        if (IN6_IS_ADDR_UNSPECIFIED(&p->opt.in6_addr))
+        if (in6_addr_is_null(&p->opt.in6_addr))
                 return -ENOEXEC;
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
@@ -631,9 +631,7 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
                 if (prefixlen != cur->opt.prefixlen)
                         continue;
 
-                if (!in_addr_equal(AF_INET6,
-                                   (union in_addr_union *)prefix,
-                                   (union in_addr_union *)&cur->opt.in6_addr))
+                if (!in6_addr_equal(prefix, &cur->opt.in6_addr))
                         continue;
 
                 LIST_REMOVE(prefix, ra->prefixes, cur);

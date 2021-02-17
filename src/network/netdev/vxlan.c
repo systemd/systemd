@@ -37,14 +37,14 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
 
-        if (in_addr_is_null(v->group_family, &v->group) == 0) {
+        if (in_addr_is_set(v->group_family, &v->group)) {
                 if (v->group_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->group.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->group.in6);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
-        } else if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
+        } else if (in_addr_is_set(v->remote_family, &v->remote)) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->remote.in);
                 else
@@ -53,7 +53,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
         }
 
-        if (in_addr_is_null(v->local_family, &v->local) == 0) {
+        if (in_addr_is_set(v->local_family, &v->local)) {
                 if (v->local_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_LOCAL, &v->local.in);
                 else
@@ -354,7 +354,7 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         if (!v->dest_port && v->generic_protocol_extension)
                 v->dest_port = 4790;
 
-        if (in_addr_is_null(v->group_family, &v->group) == 0 && in_addr_is_null(v->remote_family, &v->remote) == 0)
+        if (in_addr_is_set(v->group_family, &v->group) && in_addr_is_set(v->remote_family, &v->remote))
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                 "%s: VXLAN both 'Group=' and 'Remote=' cannot be specified. Ignoring.",
                                                 filename);

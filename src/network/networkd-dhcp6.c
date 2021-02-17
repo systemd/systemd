@@ -379,7 +379,7 @@ static int dhcp6_set_pd_address(
 
         address->in_addr = *prefix;
 
-        if (!in_addr_is_null(AF_INET6, &link->network->dhcp6_pd_token))
+        if (in_addr_is_set(AF_INET6, &link->network->dhcp6_pd_token))
                 memcpy(address->in_addr.in6.s6_addr + 8, link->network->dhcp6_pd_token.in6.s6_addr + 8, 8);
         else {
                 r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
@@ -1235,7 +1235,7 @@ int dhcp6_request_address(Link *link, int ir) {
         assert(link);
         assert(link->dhcp6_client);
         assert(link->network);
-        assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) > 0);
+        assert(in6_addr_is_link_local(&link->ipv6ll_address));
 
         r = sd_dhcp6_client_is_running(link->dhcp6_client);
         if (r < 0)

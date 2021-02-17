@@ -61,7 +61,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 return 0;
         }
 
-        r = in_addr_is_null(address.family, &address.address);
+        r = in_addr_data_is_null(&address);
         if (r < 0) {
                 log_warning_errno(r, "/etc/hosts:%u: address '%s' is invalid, ignoring: %m", nr, address_str);
                 return 0;

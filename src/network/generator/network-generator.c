@@ -360,7 +360,7 @@ static int network_set_address(Context *context, const char *ifname, int family,
                                union in_addr_union *addr, union in_addr_union *peer) {
         Network *network;
 
-        if (in_addr_is_null(family, addr) != 0)
+        if (!in_addr_is_set(family, addr))
                 return 0;
 
         network = network_get(context, ifname);
@@ -375,7 +375,7 @@ static int network_set_route(Context *context, const char *ifname, int family, u
         Network *network;
         int r;
 
-        if (in_addr_is_null(family, gateway) != 0)
+        if (!in_addr_is_set(family, gateway))
                 return 0;
 
         network = network_get(context, ifname);
@@ -1000,7 +1000,7 @@ static int address_dump(Address *address, FILE *f) {
         if (r < 0)
                 return r;
 
-        if (in_addr_is_null(address->family, &address->peer) == 0) {
+        if (in_addr_is_set(address->family, &address->peer)) {
                 r = in_addr_to_string(address->family, &address->peer, &peer);
                 if (r < 0)
                         return r;
@@ -1021,7 +1021,7 @@ static int route_dump(Route *route, FILE *f) {
         _cleanup_free_ char *dest = NULL, *gateway = NULL;
         int r;
 
-        if (in_addr_is_null(route->family, &route->dest) == 0) {
+        if (in_addr_is_set(route->family, &route->dest)) {
                 r = in_addr_prefix_to_string(route->family, &route->dest, route->prefixlen, &dest);
                 if (r < 0)
                         return r;

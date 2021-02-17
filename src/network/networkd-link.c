@@ -766,9 +766,8 @@ void link_check_ready(Link *link) {
                 bool has_ndisc_address = false;
                 NDiscAddress *n;
 
-                if (link_ipv6ll_enabled(link) &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
-                        return (void) log_link_debug(link, "%s(): IPv6LL is not configured.", __func__);
+                if (link_ipv6ll_enabled(link) && !in6_addr_is_set(&link->ipv6ll_address))
+                        return (void) log_link_debug(link, "%s(): IPv6LL is not configured yet.", __func__);
 
                 SET_FOREACH(n, link->ndisc_addresses)
                         if (!n->marked) {
@@ -1156,7 +1155,7 @@ static int link_acquire_ipv6_conf(Link *link) {
 
         if (link->radv) {
                 assert(link->radv);
-                assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
+                assert(in6_addr_is_link_local(&link->ipv6ll_address));
 
                 log_link_debug(link, "Starting IPv6 Router Advertisements");
 
@@ -1173,7 +1172,7 @@ static int link_acquire_ipv6_conf(Link *link) {
                                                DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST,
                                                DHCP6_CLIENT_START_MODE_SOLICIT)) {
                 assert(link->dhcp6_client);
-                assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
+                assert(in6_addr_is_link_local(&link->ipv6ll_address));
 
                 r = dhcp6_request_address(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
                 if (r < 0 && r != -EBUSY)
@@ -1223,7 +1222,7 @@ static int link_acquire_conf(Link *link) {
         if (r < 0)
                 return r;
 
-        if (!in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address)) {
+        if (in6_addr_is_set(&link->ipv6ll_address)) {
                 r = link_acquire_ipv6_conf(link);
                 if (r < 0)
                         return r;
