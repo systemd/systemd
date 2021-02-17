@@ -186,7 +186,7 @@ int sd_ipv4ll_is_running(sd_ipv4ll *ll) {
 static bool ipv4ll_address_is_valid(const struct in_addr *address) {
         assert(address);
 
-        if (!in_addr_is_link_local(AF_INET, (const union in_addr_union *) address))
+        if (!in4_addr_is_link_local(address))
                 return false;
 
         return !IN_SET(be32toh(address->s_addr) & 0x0000FF00U, 0x0000U, 0xFF00U);

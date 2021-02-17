@@ -142,7 +142,7 @@ static int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
                         return log_link_error_errno(link, r, "Could not append NDA_VLAN attribute: %m");
         }
 
-        if (!in_addr_is_null(fdb_entry->family, &fdb_entry->destination_addr)) {
+        if (in_addr_is_set(fdb_entry->family, &fdb_entry->destination_addr)) {
                 r = netlink_message_append_in_addr_union(req, NDA_DST, fdb_entry->family, &fdb_entry->destination_addr);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");

@@ -122,7 +122,7 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
         assert(self_addr);
 
         if (in4_addr_is_localhost(&route->dst.in) ||
-            (!in4_addr_is_null(self_addr) && in4_addr_equal(&route->dst.in, self_addr)))
+            (in4_addr_is_set(self_addr) && in4_addr_equal(&route->dst.in, self_addr)))
                 return RT_SCOPE_HOST;
         else if (in4_addr_is_null(&route->gw.in))
                 return RT_SCOPE_LINK;
@@ -835,7 +835,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
                 if (r < 0 && r != -ENODATA)
                         return log_link_error_errno(link, r, "DHCP error: Could not get gateway: %m");
 
-                if (r > 0 && !in4_addr_is_null(&router[0]))
+                if (r > 0 && in4_addr_is_set(&router[0]))
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
                                    LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u via "IPV4_ADDRESS_FMT_STR,

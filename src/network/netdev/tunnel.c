@@ -468,7 +468,7 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                                               "vti/ipip/sit/gre tunnel without a local/remote IPv4 address configured in %s. Ignoring", filename);
 
         if (IN_SET(netdev->kind, NETDEV_KIND_GRETAP, NETDEV_KIND_ERSPAN) &&
-            (t->family != AF_INET || in_addr_is_null(t->family, &t->remote)))
+            (t->family != AF_INET || !in_addr_is_set(t->family, &t->remote)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "gretap/erspan tunnel without a remote IPv4 address configured in %s. Ignoring", filename);
 
@@ -478,7 +478,7 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                                               "vti6/ip6tnl/ip6gre tunnel without a local/remote IPv6 address configured in %s. Ignoring", filename);
 
         if (netdev->kind == NETDEV_KIND_IP6GRETAP &&
-            (t->family != AF_INET6 || in_addr_is_null(t->family, &t->remote)))
+            (t->family != AF_INET6 || !in_addr_is_set(t->family, &t->remote)))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "ip6gretap tunnel without a remote IPv6 address configured in %s. Ignoring", filename);
 
@@ -530,11 +530,9 @@ int config_parse_tunnel_address(const char *unit,
                 *addr = IN_ADDR_NULL;
 
                 /* As a special case, if both the local and remote addresses are
-                 * unspecified, also clear the address family.
-                 */
-                if (t->family != AF_UNSPEC &&
-                    in_addr_is_null(t->family, &t->local) != 0 &&
-                    in_addr_is_null(t->family, &t->remote) != 0)
+                 * unspecified, also clear the address family. */
+                if (!in_addr_is_set(t->family, &t->local) &&
+                    !in_addr_is_set(t->family, &t->remote))
                         t->family = AF_UNSPEC;
                 return 0;
         }

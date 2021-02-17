@@ -145,8 +145,8 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         return 0;
 }
 
-int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
-                  triple_timestamp *timestamp) {
+int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
+                  triple_timestamp *ret_timestamp) {
 
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
                          CMSG_SPACE(sizeof(struct timeval))) control;
@@ -161,6 +161,8 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
                 .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
+        struct in6_addr addr = {};
+        triple_timestamp t;
         ssize_t len;
 
         iov = IOVEC_MAKE(buffer, size);
@@ -175,8 +177,8 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
         if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
             sa.in6.sin6_family == AF_INET6)  {
 
-                *dst = sa.in6.sin6_addr;
-                if (in_addr_is_link_local(AF_INET6, (union in_addr_union*) dst) <= 0)
+                addr = sa.in6.sin6_addr;
+                if (!in6_addr_is_link_local(&addr))
                         return -EADDRNOTAVAIL;
 
         } else if (msg.msg_namelen > 0)
@@ -200,11 +202,13 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SO_TIMESTAMP &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(timestamp, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+                        triple_timestamp_from_realtime(&t, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
         }
 
-        if (!triple_timestamp_is_set(timestamp))
-                triple_timestamp_get(timestamp);
+        if (!triple_timestamp_is_set(&t))
+                triple_timestamp_get(&t);
 
+        *ret_dst = addr;
+        *ret_timestamp = t;
         return 0;
 }

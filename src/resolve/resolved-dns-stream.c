@@ -187,7 +187,7 @@ static int dns_stream_identify(DnsStream *s) {
         /* If we don't know the interface index still, we look for the
          * first local interface with a matching address. Yuck! */
         if (s->ifindex <= 0)
-                s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, s->local.sa.sa_family == AF_INET ? (union in_addr_union*) &s->local.in.sin_addr : (union in_addr_union*)  &s->local.in6.sin6_addr);
+                s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, sockaddr_in_addr(&s->local.sa));
 
         if (s->protocol == DNS_PROTOCOL_LLMNR && s->ifindex > 0) {
                 /* Make sure all packets for this connection are sent on the same interface */

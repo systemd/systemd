@@ -279,7 +279,7 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_OIF attribute: %m");
 
-        if (in_addr_is_null(nexthop->family, &nexthop->gw) == 0) {
+        if (in_addr_is_set(nexthop->family, &nexthop->gw)) {
                 r = netlink_message_append_in_addr_union(req, NHA_GATEWAY, nexthop->family, &nexthop->gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
@@ -591,7 +591,7 @@ int config_parse_nexthop_family(
                 return log_oom();
 
         if (isempty(rvalue) &&
-            in_addr_is_null(n->family, &n->gw) != 0) {
+            !in_addr_is_set(n->family, &n->gw)) {
                 /* Accept an empty string only when Gateway= is null or not specified. */
                 n->family = AF_UNSPEC;
                 TAKE_PTR(n);
@@ -605,7 +605,7 @@ int config_parse_nexthop_family(
                 return 0;
         }
 
-        if (in_addr_is_null(n->family, &n->gw) == 0 &&
+        if (in_addr_is_set(n->family, &n->gw) &&
             ((a == ADDRESS_FAMILY_IPV4 && n->family == AF_INET6) ||
              (a == ADDRESS_FAMILY_IPV6 && n->family == AF_INET))) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

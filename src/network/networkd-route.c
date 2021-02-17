@@ -617,23 +617,21 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL,
                         *prefsrc = NULL, *table = NULL, *scope = NULL, *proto = NULL;
 
-                if (!in_addr_is_null(route->family, &route->dst)) {
-                        (void) in_addr_to_string(route->family, &route->dst, &dst);
-                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
-                }
-                if (!in_addr_is_null(route->family, &route->src))
+                if (in_addr_is_set(route->family, &route->dst))
+                        (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
+                if (in_addr_is_set(route->family, &route->src))
                         (void) in_addr_to_string(route->family, &route->src, &src);
-                if (in_addr_is_null(route->gw_family, &route->gw) == 0)
+                if (in_addr_is_set(route->gw_family, &route->gw))
                         (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
-                if (!in_addr_is_null(route->family, &route->prefsrc))
+                if (in_addr_is_set(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
                 (void) route_scope_to_string_alloc(route->scope, &scope);
                 (void) manager_get_route_table_to_string(m, route->table, &table);
                 (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
 
                 log_link_debug(link,
-                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               str, strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               "%s route: dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               str, strna(dst), strna(src), strna(gw), strna(prefsrc),
                                strna(scope), strna(table), strna(proto),
                                strna(route_type_to_string(route->type)));
         }
@@ -648,7 +646,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
 
         /* link may be NULL */
 
-        if (in_addr_is_null(route->gw_family, &route->gw) == 0) {
+        if (in_addr_is_set(route->gw_family, &route->gw)) {
                 if (route->gw_family == route->family) {
                         r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->gw_family, &route->gw);
                         if (r < 0)
@@ -685,7 +683,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
 
-        if (in_addr_is_null(route->family, &route->prefsrc) == 0) {
+        if (in_addr_is_set(route->family, &route->prefsrc)) {
                 r = netlink_message_append_in_addr_union(req, RTA_PREFSRC, route->family, &route->prefsrc);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_PREFSRC attribute: %m");
@@ -1260,7 +1258,7 @@ int link_set_routes(Link *link) {
                         if (rt->gateway_from_dhcp_or_ra)
                                 continue;
 
-                        if ((in_addr_is_null(rt->gw_family, &rt->gw) != 0 && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
+                        if ((!in_addr_is_set(rt->gw_family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
                                 continue;
 
                         r = route_configure(rt, link, route_handler, NULL);
@@ -2565,7 +2563,7 @@ static int route_section_verify(Route *route, Network *network) {
                 route->priority = IP6_RT_PRIO_USER;
 
         if (ordered_hashmap_isempty(network->addresses_by_section) &&
-            in_addr_is_null(route->gw_family, &route->gw) == 0 &&
+            in_addr_is_set(route->gw_family, &route->gw) &&
             route->gateway_onlink < 0) {
                 log_warning("%s: Gateway= without static address configured. "
                             "Enabling GatewayOnLink= option.",
