@@ -1321,15 +1321,25 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <variablelist class='network-directives'>
         <varlistentry>
-          <term><varname>Gateway=</varname></term>
+          <term><varname>Id=</varname></term>
           <listitem>
-            <para>As in the [Network] section. This is mandatory.</para>
+            <para>The id of the next hop. Takes an unsigned integer in the range 1…4294967295. If left
+            unspecified, then automatically chosen by kernel.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Id=</varname></term>
+          <term><varname>Gateway=</varname></term>
           <listitem>
-            <para>The id of the nexthop (an unsigned integer). If unspecified or '0' then automatically chosen by kernel.</para>
+            <para>As in the [Network] section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Family=</varname></term>
+          <listitem>
+            <para>Takes one of the special values <literal>ipv4</literal> or <literal>ipv6</literal>.
+            By default, the family is determined by the address specified in
+            <varname>Gateway=</varname>. If <varname>Gateway=</varname> is not specified, then defaults
+            to <literal>ipv4</literal>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
