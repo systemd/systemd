@@ -150,7 +150,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *buf = NULL;
 
-                                (void) in_addr_to_string(AF_INET6, (union in_addr_union *) router, &buf);
+                                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) router, &buf);
                                 log_link_debug(link, "No SLAAC address obtained from %s is ready. "
                                                "The old NDisc information will be removed later.",
                                                strna(buf));
@@ -162,7 +162,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf = NULL;
 
-                (void) in_addr_to_string(AF_INET6, (union in_addr_union *) router, &buf);
+                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) router, &buf);
                 log_link_debug(link, "Removing old NDisc information obtained from %s.", strna(buf));
         }
 
