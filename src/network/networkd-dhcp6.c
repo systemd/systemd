@@ -1613,6 +1613,8 @@ int config_parse_dhcp6_pd_hint(
                 void *userdata) {
 
         Network *network = data;
+        union in_addr_union u;
+        unsigned char prefixlen;
         int r;
 
         assert(filename);
@@ -1620,17 +1622,21 @@ int config_parse_dhcp6_pd_hint(
         assert(rvalue);
         assert(data);
 
-        r = in_addr_prefix_from_string(rvalue, AF_INET6, (union in_addr_union *) &network->dhcp6_pd_address, &network->dhcp6_pd_length);
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &u, &prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse PrefixDelegationHint=%s, ignoring assignment", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=%s, ignoring assignment.", lvalue, rvalue);
                 return 0;
         }
 
-        if (network->dhcp6_pd_length < 1 || network->dhcp6_pd_length > 128) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid prefix length='%d', ignoring assignment", network->dhcp6_pd_length);
-                network->dhcp6_pd_length = 0;
+        if (prefixlen < 1 || prefixlen > 128) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid prefix length in %s=%s, ignoring assignment.", lvalue, rvalue);
                 return 0;
         }
+
+        network->dhcp6_pd_address = u.in6;
+        network->dhcp6_pd_length = prefixlen;
 
         return 0;
 }
