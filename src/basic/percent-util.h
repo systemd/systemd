@@ -59,3 +59,6 @@ static inline int UINT32_SCALE_TO_PERMYRIAD(uint32_t scale) {
 
         return (int) u;
 }
+
+#define PERMYRIAD_AS_PERCENT_FORMAT_STR "%i.%02i%%"
+#define PERMYRIAD_AS_PERCENT_FORMAT_VAL(x) ((x)/100), ((x)%100)
