@@ -2036,3 +2036,29 @@ int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **
         *ret = TAKE_PTR(str);
         return 0;
 }
+
+bool set_equal(Set *a, Set *b) {
+        void *p;
+
+        /* Checks whether each entry of 'a' is also in 'b' and vice versa, i.e. the two sets contain the same
+         * entries */
+
+        if (set_size(a) != set_size(b)) /* Cheap check that hopefully catches a lot of inequality cases
+                                         * already */
+                return false;
+
+        SET_FOREACH(p, a)
+                if (!set_contains(b, p))
+                        return false;
+
+        /* If we have the same hashops, then we don't need to check things backwards given we compared the
+         * size and that all of a is in b. */
+        if (a->b.hash_ops == b->b.hash_ops)
+                return true;
+
+        SET_FOREACH(p, b)
+                if (!set_contains(a, p))
+                        return false;
+
+        return true;
+}
