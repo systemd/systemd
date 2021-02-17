@@ -10,6 +10,7 @@
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "path-util.h"
+#include "percent-util.h"
 
 typedef struct ManagedOOMReply {
         ManagedOOMMode mode;
@@ -100,10 +101,15 @@ static int process_managed_oom_reply(
                 limit = m->default_mem_pressure_limit;
 
                 if (streq(reply.property, "ManagedOOMMemoryPressure")) {
-                        if (reply.limit > 10000)
+                        if (reply.limit > UINT32_MAX) /* out of range */
                                 continue;
-                        else if (reply.limit != 0) {
-                                ret = store_loadavg_fixed_point((unsigned long) reply.limit / 100, (unsigned long) reply.limit % 100, &limit);
+                        if (reply.limit != 0) {
+                                int permyriad = UINT32_SCALE_TO_PERMYRIAD(reply.limit);
+
+                                ret = store_loadavg_fixed_point(
+                                                (unsigned long) permyriad * 100,
+                                                (unsigned long) permyriad % 100,
+                                                &limit);
                                 if (ret < 0)
                                         continue;
                         }
