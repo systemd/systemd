@@ -302,19 +302,19 @@ static void test_oomd_swap_free_below(void) {
                 .swap_total = 20971512 * 1024U,
                 .swap_used = 20971440 * 1024U,
         };
-        assert_se(oomd_swap_free_below(&ctx, 20) == true);
+        assert_se(oomd_swap_free_below(&ctx, 2000) == true);
 
         ctx = (OomdSystemContext) {
                 .swap_total = 20971512 * 1024U,
                 .swap_used = 3310136 * 1024U,
         };
-        assert_se(oomd_swap_free_below(&ctx, 20) == false);
+        assert_se(oomd_swap_free_below(&ctx, 2000) == false);
 
         ctx = (OomdSystemContext) {
                 .swap_total = 0,
                 .swap_used = 0,
         };
-        assert_se(oomd_swap_free_below(&ctx, 20) == false);
+        assert_se(oomd_swap_free_below(&ctx, 2000) == false);
 }
 
 static void test_oomd_sort_cgroups(void) {
