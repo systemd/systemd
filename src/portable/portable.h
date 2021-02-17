@@ -24,7 +24,9 @@ typedef enum PortableFlags {
         PORTABLE_REATTACH       = 1 << 3,
 } PortableFlags;
 
-typedef enum PortableChangeType {
+/* This enum is anonymous, since we usually store it in an 'int', as we overload it with negative errno
+ * values. */
+enum {
         PORTABLE_COPY,
         PORTABLE_SYMLINK,
         PORTABLE_UNLINK,
@@ -32,7 +34,7 @@ typedef enum PortableChangeType {
         PORTABLE_MKDIR,
         _PORTABLE_CHANGE_TYPE_MAX,
         _PORTABLE_CHANGE_TYPE_INVALID = -EINVAL,
-} PortableChangeType;
+};
 
 typedef enum PortableState {
         PORTABLE_DETACHED,
@@ -47,7 +49,7 @@ typedef enum PortableState {
 } PortableState;
 
 typedef struct PortableChange {
-        int type; /* PortableFileChangeType or negative error number */
+        int type_or_errno; /* PORTABLE_COPY, PORTABLE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 } PortableChange;
@@ -68,8 +70,8 @@ int portable_get_profiles(char ***ret);
 
 void portable_changes_free(PortableChange *changes, size_t n_changes);
 
-const char *portable_change_type_to_string(PortableChangeType t) _const_;
-PortableChangeType portable_change_type_from_string(const char *t) _pure_;
+const char *portable_change_type_to_string(int t) _const_;
+int portable_change_type_from_string(const char *t) _pure_;
 
 const char *portable_state_to_string(PortableState t) _const_;
 PortableState portable_state_from_string(const char *t) _pure_;
