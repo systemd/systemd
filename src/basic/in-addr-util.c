@@ -48,6 +48,12 @@ bool in4_addr_is_link_local(const struct in_addr *a) {
         return (be32toh(a->s_addr) & UINT32_C(0xFFFF0000)) == (UINT32_C(169) << 24 | UINT32_C(254) << 16);
 }
 
+bool in6_addr_is_link_local(const struct in6_addr *a) {
+        assert(a);
+
+        return IN6_IS_ADDR_LINKLOCAL(a);
+}
+
 int in_addr_is_link_local(int family, const union in_addr_union *u) {
         assert(u);
 
@@ -55,7 +61,7 @@ int in_addr_is_link_local(int family, const union in_addr_union *u) {
                 return in4_addr_is_link_local(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_LINKLOCAL(&u->in6);
+                return in6_addr_is_link_local(&u->in6);
 
         return -EAFNOSUPPORT;
 }
