@@ -38,7 +38,6 @@ typedef struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
-        bool ipv6_masquerade_done:1;
         AddressFamily duplicate_address_detection;
 
         /* Called when address become ready */
