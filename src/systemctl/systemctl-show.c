@@ -17,6 +17,8 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "journal-file.h"
+#include "json.h"
+#include "json-transform.h"
 #include "list.h"
 #include "locale-util.h"
 #include "memory-util.h"
@@ -1888,13 +1890,39 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
-        STRV_FOREACH(pp, arg_properties)
-                if (!set_contains(found_properties, *pp))
-                        log_debug("Property %s does not exist.", *pp);
+                STRV_FOREACH(pp, arg_properties)
+                        if (!set_contains(found_properties, *pp))
+                                log_debug("Property %s does not exist.", *pp);
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        (void) pager_open(arg_pager_flags);
+
+                r = json_transform_message(reply, JSON_TRANSFORM_PLAIN, &v);
+                if (r < 0)
+                        return r;
+
+                /* The transform call returns an array, but we only want the single object in it */
+                v = json_variant_by_index(v, 0);
+
+                if (arg_properties) {
+                        r = json_variant_pick(&v, arg_properties);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to pick property: %m");
+
+                        STRV_FOREACH(pp, arg_properties)
+                                if (!json_variant_by_key(v, *pp))
+                                        log_debug("Property %s does not exist.", *pp);
+                }
+
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        }
 
         return 0;
 }

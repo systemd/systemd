@@ -530,10 +530,6 @@ Features:
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
 
-* introduce an option (or replacement) for "systemctl show" that outputs all
-  properties as JSON, similar to busctl's new JSON output. In contrast to that
-  it should skip the variant type string though.
-
 * augment CODE_FILE=, CODE_LINE= with something like CODE_BASE= or so which
   contains some identifier for the project, which allows us to include
   clickable links to source files generating these log messages. The identifier
