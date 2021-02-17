@@ -129,7 +129,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
-static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         NextHop *existing;
 
         assert(link);
@@ -152,7 +152,7 @@ static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
         return -ENOENT;
 }
 
-static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop **ret) {
+static int nexthop_add_internal(Link *link, Set **nexthops, const NextHop *in, NextHop **ret) {
         _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
         int r;
 
@@ -183,11 +183,11 @@ static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop
         return 0;
 }
 
-static int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_add_foreign(Link *link, const NextHop *in, NextHop **ret) {
         return nexthop_add_internal(link, &link->nexthops_foreign, in, ret);
 }
 
-static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_add(Link *link, const NextHop *in, NextHop **ret) {
         bool is_new = false;
         NextHop *nexthop;
         int r;
@@ -217,6 +217,21 @@ static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
         return is_new;
 }
 
+static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Link *link) {
+        assert(nexthop);
+        assert(str);
+        assert(link);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *gw = NULL;
+
+                (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
+
+                log_link_debug(link, "%s nexthop: id: %"PRIu32", gw: %s",
+                               str, nexthop->id, strna(gw));
+        }
+}
+
 static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -244,7 +259,7 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int nexthop_configure(NextHop *nexthop, Link *link) {
+static int nexthop_configure(const NextHop *nexthop, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -254,14 +269,7 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
         assert(link->ifindex > 0);
         assert(IN_SET(nexthop->family, AF_INET, AF_INET6));
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *gw = NULL;
-
-                if (!in_addr_is_null(nexthop->family, &nexthop->gw))
-                        (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
-
-                log_link_debug(link, "Configuring nexthop: gw: %s", strna(gw));
-        }
+        log_nexthop_debug(nexthop, "Configuring", link);
 
         r = sd_rtnl_message_new_nexthop(link->manager->rtnl, &req,
                                         RTM_NEWNEXTHOP, nexthop->family,
@@ -292,7 +300,7 @@ static int nexthop_configure(NextHop *nexthop, Link *link) {
 
         link_ref(link);
 
-        r = nexthop_add(link, nexthop, &nexthop);
+        r = nexthop_add(link, nexthop, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add nexthop: %m");
 
@@ -334,7 +342,6 @@ int link_set_nexthop(Link *link) {
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(nexthop_freep) NextHop *tmp = NULL;
-        _cleanup_free_ char *gateway = NULL;
         NextHop *nexthop = NULL;
         uint32_t ifindex;
         uint16_t type;
@@ -399,22 +406,25 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = sd_netlink_message_read_u32(message, NHA_ID, &tmp->id);
-        if (r < 0 && r != -ENODATA) {
+        if (r == -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received nexthop message without NHA_ID attribute, ignoring: %m");
+                return 0;
+        } else if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
+                return 0;
+        } else if (tmp->id == 0) {
+                log_link_warning_errno(link, r, "rtnl: received nexthop message with invalid nexthop ID, ignoring: %m");
                 return 0;
         }
 
         (void) nexthop_get(link, tmp, &nexthop);
 
-        if (DEBUG_LOGGING)
-                (void) in_addr_to_string(tmp->family, &tmp->gw, &gateway);
-
         switch (type) {
         case RTM_NEWNEXTHOP:
                 if (nexthop)
-                        log_link_debug(link, "Received remembered nexthop: %s, id: %d", strna(gateway), tmp->id);
+                        log_nexthop_debug(tmp, "Received remembered", link);
                 else {
-                        log_link_debug(link, "Remembering foreign nexthop: %s, id: %d", strna(gateway), tmp->id);
+                        log_nexthop_debug(tmp, "Remembering foreign", link);
                         r = nexthop_add_foreign(link, tmp, &nexthop);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not remember foreign nexthop, ignoring: %m");
@@ -423,12 +433,8 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 }
                 break;
         case RTM_DELNEXTHOP:
-                if (nexthop) {
-                        log_link_debug(link, "Forgetting nexthop: %s, id: %d", strna(gateway), tmp->id);
-                        nexthop_free(nexthop);
-                } else
-                        log_link_debug(link, "Kernel removed a nexthop we don't remember: %s, id: %d, ignoring.",
-                                       strna(gateway), tmp->id);
+                log_nexthop_debug(tmp, nexthop ? "Forgetting" : "Kernel removed unknown", link);
+                nexthop_free(nexthop);
                 break;
 
         default:
