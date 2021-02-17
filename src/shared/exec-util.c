@@ -375,10 +375,9 @@ int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
 
         STRV_FOREACH(opt, ex_opts) {
                 ex_flag = exec_command_flags_from_string(*opt);
-                if (ex_flag >= 0)
-                        ret_flags |= ex_flag;
-                else
-                        return -EINVAL;
+                if (ex_flag < 0)
+                        return ex_flag;
+                ret_flags |= ex_flag;
         }
 
         *flags = ret_flags;
@@ -393,6 +392,9 @@ int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
         int i, r;
 
         assert(ex_opts);
+
+        if (flags < 0)
+                return flags;
 
         for (i = 0; it != 0; it &= ~(1 << i), i++) {
                 if (FLAGS_SET(flags, (1 << i))) {

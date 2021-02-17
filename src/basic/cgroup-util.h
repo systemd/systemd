@@ -297,7 +297,7 @@ typedef enum ManagedOOMPreference {
         MANAGED_OOM_PREFERENCE_AVOID = 1,
         MANAGED_OOM_PREFERENCE_OMIT = 2,
         _MANAGED_OOM_PREFERENCE_MAX,
-        _MANAGED_OOM_PREFERENCE_INVALID = -1
+        _MANAGED_OOM_PREFERENCE_INVALID = -EINVAL,
 } ManagedOOMPreference;
 
 const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;

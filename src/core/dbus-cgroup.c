@@ -1732,7 +1732,7 @@ int bus_cgroup_set_property(
 
                 p = managed_oom_preference_from_string(pref);
                 if (p < 0)
-                        return -EINVAL;
+                        return p;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->moom_preference = p;
