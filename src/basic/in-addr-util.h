@@ -54,6 +54,7 @@ bool in4_addr_is_local_multicast(const struct in_addr *a);
 bool in4_addr_is_non_local(const struct in_addr *a);
 
 bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b);
+bool in6_addr_equal(const struct in6_addr *a, const struct in6_addr *b);
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
 int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
