@@ -61,8 +61,8 @@ int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret);
  * current sum is higher than the last interval's sum (there was some reclaim activity). */
 bool oomd_memory_reclaim(Hashmap *h);
 
-/* Returns true if the amount of swap free is below the percentage of swap specified by `threshold_percent`. */
-bool oomd_swap_free_below(const OomdSystemContext *ctx, uint64_t threshold_percent);
+/* Returns true if the amount of swap free is below the permyriad of swap specified by `threshold_permyriad`. */
+bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad);
 
 /* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
  * (after the smallest values). */
