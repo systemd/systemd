@@ -351,6 +351,9 @@
     reading this file must ignore unknown fields. Example:
     <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal></para>
 
+    <para>The <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool may be used to conveniently query this file using the <option>--os-release-field=</option> option.</para>
+
     <para>Container and sandbox runtime managers may make the host's
     identification data available to applications by providing the host's
     <filename>/etc/os-release</filename> (if available, otherwise
