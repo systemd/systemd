@@ -43,6 +43,7 @@ static inline bool in_addr_data_is_set(const struct in_addr_data *a) {
 int in_addr_is_multicast(int family, const union in_addr_union *u);
 
 bool in4_addr_is_link_local(const struct in_addr *a);
+bool in6_addr_is_link_local(const struct in6_addr *a);
 int in_addr_is_link_local(int family, const union in_addr_union *u);
 bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a);
 
