@@ -33,6 +33,7 @@ typedef struct FdbEntry {
 
         int family;
         uint16_t vlan_id;
+        char *outgoing_ifname;
 
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
@@ -50,3 +51,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_destination);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vxlan_vni);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_ntf_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdb_interface);
