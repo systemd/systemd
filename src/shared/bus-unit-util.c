@@ -549,7 +549,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                          * size can be determined server-side. */
 
                         n = strjoina(field, "Scale");
-                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 10000U));
+                        r = sd_bus_message_append(m, "(sv)", n, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
                         if (r < 0)
                                 return bus_log_create_error(r);
 
