@@ -378,6 +378,17 @@ void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level) {
         s->packet_invalid = true;
 }
 
+void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+
+        /* Invoked whenever the DO flag was not copied from our request to the response. */
+
+        if (s->possible_feature_level != level)
+                return;
+
+        s->packet_do_off = true;
+}
+
 static bool dns_server_grace_period_expired(DnsServer *s) {
         usec_t ts;
 
@@ -493,6 +504,17 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         /* Users often don't control the DNS server they use so let's not complain too loudly
                          * when we can't use EDNS because the DNS server doesn't support it. */
                         log_level = LOG_NOTICE;
+
+                } else if (s->packet_do_off &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
+                           dns_server_get_dnssec_mode(s) != DNSSEC_YES) {
+
+                        /* The server didn't copy the DO bit from request to response, thus DNSSEC is not
+                         * correctly implemented, let's downgrade if that's allowed. */
+
+                        log_debug("Detected server didn't copy DO flag from request to response, downgrading feature level...");
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                                                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
                 } else if (s->packet_rrsig_missing &&
                            DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
@@ -651,6 +673,9 @@ bool dns_server_dnssec_supported(DnsServer *server) {
                 return false;
 
         if (server->packet_rrsig_missing)
+                return false;
+
+        if (server->packet_do_off)
                 return false;
 
         /* DNSSEC servers need to support TCP properly (see RFC5966), if they don't, we assume DNSSEC is borked too */
@@ -898,6 +923,7 @@ void dns_server_reset_features(DnsServer *s) {
 
         s->packet_bad_opt = false;
         s->packet_rrsig_missing = false;
+        s->packet_do_off = false;
 
         s->features_grace_period_usec = DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC;
 
@@ -959,14 +985,16 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 "\tSeen truncated packet: %s\n"
                 "\tSeen OPT RR getting lost: %s\n"
                 "\tSeen RRSIG RR missing: %s\n"
-                "\tSeen invalid packet: %s\n",
+                "\tSeen invalid packet: %s\n"
+                "\tServer dropped DO flag: %s\n",
                 s->received_udp_packet_max,
                 s->n_failed_udp,
                 s->n_failed_tcp,
                 yes_no(s->packet_truncated),
                 yes_no(s->packet_bad_opt),
                 yes_no(s->packet_rrsig_missing),
-                yes_no(s->packet_invalid));
+                yes_no(s->packet_invalid),
+                yes_no(s->packet_do_off));
 }
 
 void dns_server_unref_stream(DnsServer *s) {
