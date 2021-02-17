@@ -1971,6 +1971,9 @@ int config_parse_timer(
         *v = (TimerValue) {
                 .base = ltype,
                 .value = usec,
+                /* Disable OnActiveSec= timer by default since we don't want them to be retriggered
+                 * on daemon-reload. */
+                .disabled = ltype == TIMER_ACTIVE,
                 .calendar_spec = TAKE_PTR(c),
         };
 
