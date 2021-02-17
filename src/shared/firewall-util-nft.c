@@ -18,7 +18,6 @@
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
 #include "macro.h"
-#include "memory-util.h"
 #include "socket-util.h"
 #include "time-util.h"
 
@@ -29,9 +28,6 @@
 #define NFNL_DEFAULT_TIMEOUT_USECS (1ULL * USEC_PER_SEC)
 
 #define UDP_DPORT_OFFSET 2
-
-void nft_in6addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
-                          struct in6_addr *start, struct in6_addr *end);
 
 static int nfnl_netlink_sendv(sd_netlink *nfnl,
                               sd_netlink_message *messages[],
@@ -848,55 +844,19 @@ static int fw_nftables_recreate_table(sd_netlink *nfnl, int af, sd_netlink_messa
         return 0;
 }
 
-void nft_in6addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
-                          struct in6_addr *ret_start, struct in6_addr *ret_end) {
-        uint8_t carry = 0;
-        int i, j;
+static int nft_message_add_setelem_ip6range(
+                sd_netlink_message *m,
+                const union in_addr_union *source,
+                unsigned int prefixlen) {
 
-        assert(prefixlen <= 128);
-
-        for (i = 0, j = 15; i < 16; i++) {
-                uint8_t nm;
-
-                nm = 0xFF;
-                if (prefixlen < 8)
-                        nm = 0xFF << (8 - prefixlen);
-
-                ret_start->s6_addr[i] = source->in6.s6_addr[i] & nm;
-                if (prefixlen <= 8 && j == 15) {
-                         carry = 1u << (8 - prefixlen);
-                         j = i;
-                }
-
-                if (prefixlen >= 8)
-                         prefixlen -= 8;
-                else
-                         prefixlen = 0;
-        }
-        *ret_end = *ret_start;
-
-        for (; j >= 0; j--) {
-                uint16_t overflow = ret_end->s6_addr[j] + carry;
-
-                ret_end->s6_addr[j] = overflow;
-                if (overflow <= 0xff)
-                        break;
-                carry = 1;
-        }
-
-        if (memcmp(ret_start, ret_end, sizeof(*ret_start)) > 0)
-                zero(ret_end);
-}
-
-static int nft_message_add_setelem_ip6range(sd_netlink_message *m,
-                                            const union in_addr_union *source,
-                                            unsigned int prefixlen) {
-        struct in6_addr start, end;
+        union in_addr_union start, end;
         int r;
 
-        nft_in6addr_to_range(source, prefixlen, &start, &end);
+        r = in_addr_prefix_range(AF_INET6, source, prefixlen, &start, &end);
+        if (r < 0)
+                return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 0, &start, sizeof(start), NULL, 0);
+        r = sd_nfnl_nft_message_add_setelem(m, 0, &start.in6, sizeof(start.in6), NULL, 0);
         if (r < 0)
                 return r;
 
@@ -904,7 +864,7 @@ static int nft_message_add_setelem_ip6range(sd_netlink_message *m,
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 1, &end, sizeof(end), NULL, 0);
+        r = sd_nfnl_nft_message_add_setelem(m, 1, &end.in6, sizeof(end.in6), NULL, 0);
         if (r < 0)
                 return r;
 
