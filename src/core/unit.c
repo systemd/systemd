@@ -3267,7 +3267,7 @@ bool unit_can_serialize(Unit *u) {
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
         _cleanup_free_ char *e = NULL;
-        Unit *device;
+        Unit *d, *device;
         int r;
 
         assert(u);
@@ -3287,9 +3287,13 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(u->manager, e, NULL, NULL, &device);
+        r = manager_load_unit(u->manager, e, NULL, NULL, &d);
         if (r < 0)
                 return r;
+
+        device = UNIT_VTABLE(d)->following(d);
+        if (!device)
+                device = d;
 
         if (dep == UNIT_REQUIRES && device_shall_be_bound_by(device, u))
                 dep = UNIT_BINDS_TO;
@@ -4805,14 +4809,15 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
         return 0;
 }
 
-static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, UnitDependencyInfo di) {
+
+static void unit_update_dependency_mask_maybe_drop(Unit *u, UnitDependency d, Unit *other, UnitDependencyInfo di, bool drop) {
         assert(u);
         assert(d >= 0);
         assert(d < _UNIT_DEPENDENCY_MAX);
         assert(other);
 
-        if (di.origin_mask == 0 && di.destination_mask == 0) {
-                /* No bit set anymore, let's drop the whole entry */
+        if ((di.origin_mask == 0 && di.destination_mask == 0) || drop) {
+                /* No bit set anymore or we are dropping the dependency then let's drop the whole entry */
                 assert_se(hashmap_remove(u->dependencies[d], other));
                 log_unit_debug(u, "lost dependency %s=%s", unit_dependency_to_string(d), other->id);
         } else
@@ -4820,7 +4825,7 @@ static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, 
                 assert_se(hashmap_update(u->dependencies[d], other, di.data) == 0);
 }
 
-void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
+static void unit_remove_dependencies_full(Unit *u, UnitDependencyMask mask, bool drop) {
         assert(u);
 
         /* Removes all dependencies u has on other units marked for ownership by 'mask'. */
@@ -4841,7 +4846,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                                 if (FLAGS_SET(~mask, di.origin_mask))
                                         continue;
                                 di.origin_mask &= ~mask;
-                                unit_update_dependency_mask(u, d, other, di);
+                                unit_update_dependency_mask_maybe_drop(u, d, other, di, drop);
 
                                 /* We updated the dependency from our unit to the other unit now. But most dependencies
                                  * imply a reverse dependency. Hence, let's delete that one too. For that we go through
@@ -4856,7 +4861,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                                                 continue;
                                         dj.destination_mask &= ~mask;
 
-                                        unit_update_dependency_mask(other, q, u, dj);
+                                        unit_update_dependency_mask_maybe_drop(other, q, u, dj, drop);
                                 }
 
                                 unit_add_to_gc_queue(other);
@@ -4867,6 +4872,16 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
 
                 } while (!done);
         }
+}
+
+void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
+        assert(u);
+        unit_remove_dependencies_full(u, mask, false);
+}
+
+void unit_drop_dependencies(Unit *u, UnitDependencyMask mask) {
+        assert(u);
+        unit_remove_dependencies_full(u, mask, true);
 }
 
 static int unit_get_invocation_path(Unit *u, char **ret) {
