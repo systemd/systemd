@@ -740,8 +740,8 @@ void link_check_ready(Link *link) {
                 if (!address_is_ready(a)) {
                         _cleanup_free_ char *str = NULL;
 
-                        (void) in_addr_to_string(a->family, &a->in_addr, &str);
-                        return (void) log_link_debug(link, "%s(): an address %s/%d is not ready.", __func__, strnull(str), a->prefixlen);
+                        (void) in_addr_prefix_to_string(a->family, &a->in_addr, a->prefixlen, &str);
+                        return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
         if (!link->static_routes_configured)

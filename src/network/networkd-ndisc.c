@@ -98,9 +98,9 @@ static int ndisc_address_callback(Address *address) {
         if (in6_addr_is_null(&router)) {
                 _cleanup_free_ char *buf = NULL;
 
-                (void) in_addr_to_string(address->family, &address->in_addr, &buf);
-                log_link_debug(address->link, "%s is called for %s/%u, but it is already removed, ignoring.",
-                               __func__, strna(buf), address->prefixlen);
+                (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
+                log_link_debug(address->link, "%s is called for %s, but it is already removed, ignoring.",
+                               __func__, strna(buf));
                 return 0;
         }
 

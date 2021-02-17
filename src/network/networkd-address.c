@@ -956,8 +956,8 @@ static int static_address_ready_callback(Address *address) {
                 if (!address_is_ready(a)) {
                         _cleanup_free_ char *str = NULL;
 
-                        (void) in_addr_to_string(a->family, &a->in_addr, &str);
-                        log_link_debug(link, "an address %s/%u is not ready", strnull(str), a->prefixlen);
+                        (void) in_addr_prefix_to_string(a->family, &a->in_addr, a->prefixlen, &str);
+                        log_link_debug(link, "an address %s is not ready", strnull(str));
                         return 0;
                 }
 
@@ -1263,9 +1263,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         if (r < 0) {
                                 _cleanup_free_ char *buf = NULL;
 
-                                (void) in_addr_to_string(tmp->family, &tmp->in_addr, &buf);
-                                log_link_warning_errno(link, r, "Failed to remember foreign address %s/%u, ignoring: %m",
-                                                       strnull(buf), tmp->prefixlen);
+                                (void) in_addr_prefix_to_string(tmp->family, &tmp->in_addr, tmp->prefixlen, &buf);
+                                log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
+                                                       strnull(buf));
                                 return 0;
                         }
                 }

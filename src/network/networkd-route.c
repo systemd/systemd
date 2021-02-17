@@ -614,13 +614,11 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         /* link may be NULL. */
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL,
-                        *prefsrc = NULL, *table = NULL, *scope = NULL, *proto = NULL;
+                _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
+                        *table = NULL, *scope = NULL, *proto = NULL;
 
-                if (in_addr_is_set(route->family, &route->dst)) {
-                        (void) in_addr_to_string(route->family, &route->dst, &dst);
-                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
-                }
+                if (in_addr_is_set(route->family, &route->dst))
+                        (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
                 if (in_addr_is_set(route->family, &route->src))
                         (void) in_addr_to_string(route->family, &route->src, &src);
                 if (in_addr_is_set(route->gw_family, &route->gw))
@@ -632,8 +630,8 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
 
                 log_link_debug(link,
-                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               str, strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               "%s route: dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               str, strna(dst), strna(src), strna(gw), strna(prefsrc),
                                strna(scope), strna(table), strna(proto),
                                strna(route_type_to_string(route->type)));
         }

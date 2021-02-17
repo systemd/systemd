@@ -401,13 +401,13 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int fam
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *from = NULL, *to = NULL, *table = NULL;
 
-                (void) in_addr_to_string(family, &rule->from, &from);
-                (void) in_addr_to_string(family, &rule->to, &to);
+                (void) in_addr_prefix_to_string(family, &rule->from, rule->from_prefixlen, &from);
+                (void) in_addr_prefix_to_string(family, &rule->to, rule->to_prefixlen, &to);
                 (void) manager_get_route_table_to_string(m, rule->table, &table);
 
                 log_link_debug(link,
-                               "%s routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %s",
-                               str, rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen,
+                               "%s routing policy rule: priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
+                               str, rule->priority, strna(from), strna(to),
                                strna(rule->iif), strna(rule->oif), strna(table));
         }
 }
