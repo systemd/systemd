@@ -354,11 +354,11 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                 }
         }
 
-        if (oomd_swap_free_below(&m->system_context, (100 - m->swap_used_limit))) {
+        if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
 
-                log_notice("Swap used (%"PRIu64") / total (%"PRIu64") is more than %u%%",
-                        m->system_context.swap_used, m->system_context.swap_total, m->swap_used_limit);
+                log_notice("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                           m->system_context.swap_used, m->system_context.swap_total, PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
 
                 r = get_monitored_cgroup_contexts_candidates(m->monitored_swap_cgroup_contexts, &candidates);
                 if (r == -ENOMEM)
@@ -484,7 +484,13 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec) {
+int manager_start(
+                Manager *m,
+                bool dry_run,
+                int swap_used_limit_permyriad,
+                int mem_pressure_limit_permyriad,
+                usec_t mem_pressure_usec) {
+
         unsigned long l, f;
         int r;
 
@@ -492,10 +498,10 @@ int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressur
 
         m->dry_run = dry_run;
 
-        m->swap_used_limit = swap_used_limit != -1 ? swap_used_limit : DEFAULT_SWAP_USED_LIMIT;
-        assert(m->swap_used_limit <= 100);
+        m->swap_used_limit_permyriad = swap_used_limit_permyriad >= 0 ? swap_used_limit_permyriad : DEFAULT_SWAP_USED_LIMIT_PERCENT * 100;
+        assert(m->swap_used_limit_permyriad <= 10000);
 
-        if (mem_pressure_limit_permyriad != -1) {
+        if (mem_pressure_limit_permyriad >= 0) {
                 assert(mem_pressure_limit_permyriad <= 10000);
 
                 l = mem_pressure_limit_permyriad / 100;
@@ -543,12 +549,12 @@ int manager_get_dump_string(Manager *m, char **ret) {
 
         fprintf(f,
                 "Dry Run: %s\n"
-                "Swap Used Limit: %u%%\n"
+                "Swap Used Limit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "Default Memory Pressure Limit: %lu.%02lu%%\n"
                 "Default Memory Pressure Duration: %s\n"
                 "System Context:\n",
                 yes_no(m->dry_run),
-                m->swap_used_limit,
+                PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad),
                 LOAD_INT(m->default_mem_pressure_limit), LOAD_FRAC(m->default_mem_pressure_limit),
                 format_timespan(buf, sizeof(buf), m->default_mem_pressure_duration_usec, USEC_PER_SEC));
         oomd_dump_system_context(&m->system_context, f, "\t");
