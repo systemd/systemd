@@ -161,7 +161,7 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                                         continue;
 
                                 if (ordered_hashmap_contains(sysctl_options, key)) {
-                                        log_info("Not setting %s (explicit setting exists).", key);
+                                        log_debug("Not setting %s (explicit setting exists).", key);
                                         continue;
                                 }
 
