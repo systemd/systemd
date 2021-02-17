@@ -167,8 +167,8 @@ static int address_pool_acquire_one(AddressPool *p, int family, unsigned prefixl
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *s = NULL;
 
-                                (void) in_addr_to_string(p->family, &u, &s);
-                                log_debug("Found range %s/%u", strna(s), prefixlen);
+                                (void) in_addr_prefix_to_string(p->family, &u, prefixlen, &s);
+                                log_debug("Found range %s", strna(s));
                         }
 
                         *found = u;

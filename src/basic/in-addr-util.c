@@ -24,6 +24,12 @@ bool in4_addr_is_null(const struct in_addr *a) {
         return a->s_addr == 0;
 }
 
+bool in6_addr_is_null(const struct in6_addr *a) {
+        assert(a);
+
+        return IN6_IS_ADDR_UNSPECIFIED(a);
+}
+
 int in_addr_is_null(int family, const union in_addr_union *u) {
         assert(u);
 
@@ -31,7 +37,7 @@ int in_addr_is_null(int family, const union in_addr_union *u) {
                 return in4_addr_is_null(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_UNSPECIFIED(&u->in6);
+                return in6_addr_is_null(&u->in6);
 
         return -EAFNOSUPPORT;
 }
@@ -42,6 +48,12 @@ bool in4_addr_is_link_local(const struct in_addr *a) {
         return (be32toh(a->s_addr) & UINT32_C(0xFFFF0000)) == (UINT32_C(169) << 24 | UINT32_C(254) << 16);
 }
 
+bool in6_addr_is_link_local(const struct in6_addr *a) {
+        assert(a);
+
+        return IN6_IS_ADDR_LINKLOCAL(a);
+}
+
 int in_addr_is_link_local(int family, const union in_addr_union *u) {
         assert(u);
 
@@ -49,7 +61,7 @@ int in_addr_is_link_local(int family, const union in_addr_union *u) {
                 return in4_addr_is_link_local(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_LINKLOCAL(&u->in6);
+                return in6_addr_is_link_local(&u->in6);
 
         return -EAFNOSUPPORT;
 }
@@ -116,6 +128,13 @@ bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b) {
         return a->s_addr == b->s_addr;
 }
 
+bool in6_addr_equal(const struct in6_addr *a, const struct in6_addr *b) {
+        assert(a);
+        assert(b);
+
+        return IN6_ARE_ADDR_EQUAL(a, b);
+}
+
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b) {
         assert(a);
         assert(b);
@@ -124,7 +143,7 @@ int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_
                 return in4_addr_equal(&a->in, &b->in);
 
         if (family == AF_INET6)
-                return IN6_ARE_ADDR_EQUAL(&a->in6, &b->in6);
+                return in6_addr_equal(&a->in6, &b->in6);
 
         return -EAFNOSUPPORT;
 }

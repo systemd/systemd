@@ -34,15 +34,15 @@ static void test_deserialize_in_addr(void) {
 
         assert_se((size = deserialize_in_addrs(&addresses, addresses_string)) >= 0);
         assert_se(size == 3);
-        assert_se(in_addr_equal(AF_INET, &a, (union in_addr_union *) &addresses[0]));
-        assert_se(in_addr_equal(AF_INET, &b, (union in_addr_union *) &addresses[1]));
-        assert_se(in_addr_equal(AF_INET, &c, (union in_addr_union *) &addresses[2]));
+        assert_se(in4_addr_equal(&a.in, &addresses[0]));
+        assert_se(in4_addr_equal(&b.in, &addresses[1]));
+        assert_se(in4_addr_equal(&c.in, &addresses[2]));
 
         assert_se((size = deserialize_in6_addrs(&addresses6, addresses_string)) >= 0);
         assert_se(size == 3);
-        assert_se(in_addr_equal(AF_INET6, &d, (union in_addr_union *) &addresses6[0]));
-        assert_se(in_addr_equal(AF_INET6, &e, (union in_addr_union *) &addresses6[1]));
-        assert_se(in_addr_equal(AF_INET6, &f, (union in_addr_union *) &addresses6[2]));
+        assert_se(in6_addr_equal(&d.in6, &addresses6[0]));
+        assert_se(in6_addr_equal(&e.in6, &addresses6[1]));
+        assert_se(in6_addr_equal(&f.in6, &addresses6[2]));
 }
 
 static void test_deserialize_dhcp_routes(void) {

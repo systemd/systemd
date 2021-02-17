@@ -77,7 +77,7 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
         assert(sizeof(in6) == FAMILY_ADDRESS_SIZE(AF_INET6));
         memcpy(&in6, a, sizeof(struct in6_addr));
 
-        return IN6_IS_ADDR_LINKLOCAL(&in6) ? ifindex : 0;
+        return in6_addr_is_link_local(&in6) ? ifindex : 0;
 }
 
 static int json_dispatch_ifindex(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {

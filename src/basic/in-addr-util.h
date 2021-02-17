@@ -21,11 +21,29 @@ struct in_addr_data {
 };
 
 bool in4_addr_is_null(const struct in_addr *a);
+static inline bool in4_addr_is_set(const struct in_addr *a) {
+        return !in4_addr_is_null(a);
+}
+bool in6_addr_is_null(const struct in6_addr *a);
+static inline bool in6_addr_is_set(const struct in6_addr *a) {
+        return !in6_addr_is_null(a);
+}
 int in_addr_is_null(int family, const union in_addr_union *u);
+static inline bool in_addr_is_set(int family, const union in_addr_union *u) {
+        return in_addr_is_null(family, u) == 0;
+}
+static inline int in_addr_data_is_null(const struct in_addr_data *a) {
+        assert(a);
+        return in_addr_is_null(a->family, &a->address);
+}
+static inline bool in_addr_data_is_set(const struct in_addr_data *a) {
+        return in_addr_data_is_null(a);
+}
 
 int in_addr_is_multicast(int family, const union in_addr_union *u);
 
 bool in4_addr_is_link_local(const struct in_addr *a);
+bool in6_addr_is_link_local(const struct in6_addr *a);
 int in_addr_is_link_local(int family, const union in_addr_union *u);
 bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a);
 
@@ -36,6 +54,7 @@ bool in4_addr_is_local_multicast(const struct in_addr *a);
 bool in4_addr_is_non_local(const struct in_addr *a);
 
 bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b);
+bool in6_addr_equal(const struct in6_addr *a, const struct in6_addr *b);
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
 int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);

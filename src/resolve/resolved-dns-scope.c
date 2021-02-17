@@ -920,10 +920,10 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * the LLMNR multicast addresses. See RFC 4795,
                  * section 2.5. */
 
-                if (p->family == AF_INET && !in_addr_equal(AF_INET, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV4_ADDRESS))
+                if (p->family == AF_INET && !in4_addr_equal(&p->destination.in, &LLMNR_MULTICAST_IPV4_ADDRESS))
                         return;
 
-                if (p->family == AF_INET6 && !in_addr_equal(AF_INET6, &p->destination, (union in_addr_union*) &LLMNR_MULTICAST_IPV6_ADDRESS))
+                if (p->family == AF_INET6 && !in6_addr_equal(&p->destination.in6, &LLMNR_MULTICAST_IPV6_ADDRESS))
                         return;
         }
 
