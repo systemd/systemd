@@ -311,6 +311,60 @@ static void test_in_addr_prefix_nth(void) {
         test_in_addr_prefix_nth_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, 1, NULL);
 }
 
+#define MAKE_IN6_ADDR_UNION(str, u) assert_se(in_addr_from_string(AF_INET6, str, u) >= 0)
+#define assert_in6_eq(a, b) assert_se(memcmp(a, b, FAMILY_ADDRESS_SIZE(AF_INET6)) == 0)
+#define assert_in6_eq_str(str, u)               \
+        ({                                      \
+                union in_addr_union _t;         \
+                MAKE_IN6_ADDR_UNION(str, &_t);  \
+                assert_in6_eq(u, &_t);           \
+        })
+
+static void test_in6_addr_to_range(void) {
+        unsigned int prefixlen = 64;
+        union in_addr_union a, b, s;
+
+        log_info("/* %s */", __func__);
+
+        MAKE_IN6_ADDR_UNION("dead:0:0:beef::", &s);
+
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq(&s, &a);
+        assert_in6_eq_str("dead:0:0:bef0::", &b);
+
+        MAKE_IN6_ADDR_UNION("2001::", &s);
+        prefixlen = 56;
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq(&s, &a);
+        assert_in6_eq_str("2001:0:0:0100::", &b);
+
+        prefixlen = 48;
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq(&s, &a);
+        assert_in6_eq_str("2001:0:0001::", &b);
+
+        prefixlen = 65;
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq_str("2001::", &a);
+        assert_in6_eq_str("2001::8000:0:0:0", &b);
+
+        prefixlen = 66;
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq(&s, &a);
+        assert_in6_eq_str("2001::4000:0:0:0", &b);
+
+        prefixlen = 127;
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq(&s, &a);
+        assert_in6_eq_str("2001::0002", &b);
+
+        MAKE_IN6_ADDR_UNION("dead:beef::1", &s);
+        prefixlen = 64;
+        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
+        assert_in6_eq_str("dead:beef::", &a);
+        assert_in6_eq_str("dead:beef:0:1::", &b);
+}
+
 static void test_in_addr_to_string_one(int f, const char *addr) {
         union in_addr_union ua;
         _cleanup_free_ char *r = NULL;
@@ -339,6 +393,7 @@ int main(int argc, char *argv[]) {
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
         test_in_addr_prefix_nth();
+        test_in6_addr_to_range();
         test_in_addr_to_string();
 
         return 0;
