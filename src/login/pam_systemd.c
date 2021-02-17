@@ -34,6 +34,7 @@
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"

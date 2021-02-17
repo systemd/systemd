@@ -22,6 +22,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
