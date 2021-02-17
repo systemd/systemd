@@ -539,7 +539,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         return 1;
                 }
 
-                r = parse_permille(eq);
+                r = parse_permyriad(eq);
                 if (r >= 0) {
                         char *n;
 
@@ -548,7 +548,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                          * size can be determined server-side. */
 
                         n = strjoina(field, "Scale");
-                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
+                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 10000U));
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -565,14 +565,14 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
                 else {
-                        r = parse_permille_unbounded(eq);
+                        r = parse_permyriad_unbounded(eq);
                         if (r == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
                                                        "CPU quota too small.");
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
-                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (((uint64_t) r * USEC_PER_SEC) / 1000U));
+                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (((uint64_t) r * USEC_PER_SEC) / 10000U));
                 }
 
                 if (r < 0)
