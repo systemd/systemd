@@ -46,6 +46,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -3842,6 +3843,7 @@ int config_parse_managed_oom_mode(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         ManagedOOMMode *mode = data, m;
         UnitType t;
 
@@ -3861,6 +3863,7 @@ int config_parse_managed_oom_mode(
                 log_syntax(unit, LOG_WARNING, filename, line, m, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
+
         *mode = m;
         return 0;
 }
@@ -3876,6 +3879,7 @@ int config_parse_managed_oom_mem_pressure_limit(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         uint32_t *limit = data;
         UnitType t;
         int r;
