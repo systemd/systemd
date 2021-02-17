@@ -3901,7 +3901,8 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return 0;
         }
 
-        *limit = r;
+        /* Normalize to 2^32-1 == 100% */
+        *limit = UINT32_SCALE_FROM_PERMYRIAD(r);
         return 0;
 }
 

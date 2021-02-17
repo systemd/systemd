@@ -396,7 +396,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DisableControllers", "as", property_get_cgroup_mask, offsetof(CGroupContext, disable_controllers), 0),
         SD_BUS_PROPERTY("ManagedOOMSwap", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_swap), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
-        SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimitPermyriad", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit_permyriad), 0),
+        SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
         SD_BUS_VTABLE_END
 };
@@ -1699,7 +1699,7 @@ int bus_cgroup_set_property(
                 return 1;
         }
 
-        if (streq(name, "ManagedOOMMemoryPressureLimitPermyriad")) {
+        if (streq(name, "ManagedOOMMemoryPressureLimit")) {
                 uint32_t v;
 
                 if (!UNIT_VTABLE(u)->can_set_managed_oom)
@@ -1709,12 +1709,11 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                if (v > 10000)
-                        return -ERANGE;
-
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->moom_mem_pressure_limit_permyriad = v;
-                        unit_write_settingf(u, flags, name, "ManagedOOMMemoryPressureLimit=%" PRIu32 ".%02" PRIu32 "%%", v / 100, v % 100);
+                        c->moom_mem_pressure_limit = v;
+                        unit_write_settingf(u, flags, name,
+                                            "ManagedOOMMemoryPressureLimit=" PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(v)));
                 }
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
