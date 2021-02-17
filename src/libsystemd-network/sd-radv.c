@@ -244,7 +244,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         if (r < 0) {
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &src, &addr);
+                        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
                         log_radv("Received RS from non-link-local address %s. Ignoring", addr);
                         break;
 
@@ -272,7 +272,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
-        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &src, &addr);
+        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
 
         r = radv_send(ra, &src, ra->lifetime);
         if (r < 0)
@@ -540,15 +540,15 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
                 return -ENOEXEC;
 
         (void) in_addr_prefix_to_string(AF_INET6,
-                                        (union in_addr_union*) &p->opt.in6_addr,
+                                        (const union in_addr_union*) &p->opt.in6_addr,
                                         p->opt.prefixlen, &addr_p);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
 
                 r = in_addr_prefix_intersect(AF_INET6,
-                                             (union in_addr_union*) &cur->opt.in6_addr,
+                                             (const union in_addr_union*) &cur->opt.in6_addr,
                                              cur->opt.prefixlen,
-                                             (union in_addr_union*) &p->opt.in6_addr,
+                                             (const union in_addr_union*) &p->opt.in6_addr,
                                              p->opt.prefixlen);
                 if (r < 0)
                         return r;
@@ -560,7 +560,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
 
                 _cleanup_free_ char *addr_cur = NULL;
                 (void) in_addr_prefix_to_string(AF_INET6,
-                                                (union in_addr_union*) &cur->opt.in6_addr,
+                                                (const union in_addr_union*) &cur->opt.in6_addr,
                                                 cur->opt.prefixlen, &addr_cur);
                 log_radv("IPv6 prefix %s already configured, ignoring %s",
                          strna(addr_cur), strna(addr_p));
@@ -656,15 +656,15 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
                 return -EINVAL;
 
         (void) in_addr_prefix_to_string(AF_INET6,
-                                        (union in_addr_union*) &p->opt.in6_addr,
+                                        (const union in_addr_union*) &p->opt.in6_addr,
                                         p->opt.prefixlen, &pretty);
 
         LIST_FOREACH(prefix, cur, ra->route_prefixes) {
 
                 r = in_addr_prefix_intersect(AF_INET6,
-                                             (union in_addr_union*) &cur->opt.in6_addr,
+                                             (const union in_addr_union*) &cur->opt.in6_addr,
                                              cur->opt.prefixlen,
-                                             (union in_addr_union*) &p->opt.in6_addr,
+                                             (const union in_addr_union*) &p->opt.in6_addr,
                                              p->opt.prefixlen);
                 if (r < 0)
                         return r;
@@ -676,7 +676,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
 
                 _cleanup_free_ char *addr = NULL;
                 (void) in_addr_prefix_to_string(AF_INET6,
-                                                (union in_addr_union*) &cur->opt.in6_addr,
+                                                (const union in_addr_union*) &cur->opt.in6_addr,
                                                 cur->opt.prefixlen, &addr);
                 log_radv("IPv6 route prefix %s already configured, ignoring %s",
                          strna(addr), strna(pretty));

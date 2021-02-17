@@ -225,7 +225,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         if (r < 0) {
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &rt->address, &addr);
+                        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &rt->address, &addr);
                         log_ndisc("Received RA from non-link-local address %s. Ignoring", addr);
                         break;
 

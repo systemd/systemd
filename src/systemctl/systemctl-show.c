@@ -1474,7 +1474,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
                                         continue;
 
-                                if (in_addr_prefix_to_string(family, (union in_addr_union *) ap, prefixlen, &str) < 0)
+                                if (in_addr_prefix_to_string(family, (const union in_addr_union*) ap, prefixlen, &str) < 0)
                                         continue;
 
                                 if (!strextend_with_separator(&addresses, " ", str))
