@@ -20,6 +20,7 @@
 
 int namespace_flags_from_string(const char *name, unsigned long *ret);
 int namespace_flags_to_string(unsigned long flags, char **ret);
+const char *namespace_single_flag_to_string(unsigned long flag);
 
 struct namespace_flag_map {
         unsigned long flag;

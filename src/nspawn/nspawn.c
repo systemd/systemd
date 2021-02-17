@@ -4563,7 +4563,7 @@ static int run_container(
                 if (child_netns_fd < 0)
                         return log_error_errno(errno, "Cannot open file %s: %m", arg_network_namespace_path);
 
-                r = fd_is_network_ns(child_netns_fd);
+                r = fd_is_ns(child_netns_fd, CLONE_NEWNET);
                 if (r == -EUCLEAN)
                         log_debug_errno(r, "Cannot determine if passed network namespace path '%s' really refers to a network namespace, assuming it does.", arg_network_namespace_path);
                 else if (r < 0)
