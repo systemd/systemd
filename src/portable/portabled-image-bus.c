@@ -483,7 +483,7 @@ static int normalize_portable_changes(
                         }
 
                         changes[n_changes++] = (PortableChange) {
-                                .type = changes_detached[i].type,
+                                .type_or_errno = changes_detached[i].type_or_errno,
                                 .path = TAKE_PTR(path),
                                 .source = TAKE_PTR(source),
                         };
