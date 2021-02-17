@@ -107,6 +107,8 @@ static void test_parse_permyriad(void) {
 
         assert_se(parse_permyriad("0%") == 0);
         assert_se(parse_permyriad("55%") == 5500);
+        assert_se(parse_permyriad("55.5%") == 5550);
+        assert_se(parse_permyriad("55.50%") == 5550);
         assert_se(parse_permyriad("55.53%") == 5553);
         assert_se(parse_permyriad("100%") == 10000);
         assert_se(parse_permyriad("-7%") == -ERANGE);
