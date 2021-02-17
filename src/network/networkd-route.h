@@ -44,6 +44,7 @@ typedef struct Route {
         unsigned char pref;
         unsigned flags;
         int gateway_onlink;
+        uint32_t nexthop_id;
 
         bool scope_set:1;
         bool table_set:1;
@@ -74,6 +75,7 @@ int route_configure(const Route *route, Link *link, link_netlink_message_handler
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_set_routes(Link *link);
+int link_set_routes_with_gateway(Link *link);
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 
@@ -104,3 +106,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_advmss);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_table_names);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);
