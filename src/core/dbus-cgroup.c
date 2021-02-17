@@ -706,9 +706,9 @@ static int bus_cgroup_set_boolean(
                         assert_se(endswith(name, "Scale"));             \
                                                                         \
                         int scaled = UINT32_SCALE_TO_PERMYRIAD(raw);    \
-                        unit_write_settingf(u, flags, name, "%.*s=%i.%02i%%", \
+                        unit_write_settingf(u, flags, name, "%.*s=" PERMYRIAD_AS_PERCENT_FORMAT_STR, \
                                             (int)(strlen(name) - strlen("Scale")), name, \
-                                            scaled / 100, scaled % 100);  \
+                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(scaled)); \
                 }                                                       \
                                                                         \
                 return 1;                                               \
