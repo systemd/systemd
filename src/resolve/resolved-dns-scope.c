@@ -5,6 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "missing_network.h"
@@ -185,43 +186,73 @@ void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
                 s->resend_timeout = MIN(s->resend_timeout * 2, MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
-static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
-        union in_addr_union addr;
-        int ifindex = 0, r;
-        int family;
-        uint32_t mtu;
+static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
+        int r;
 
         assert(s);
         assert(p);
         assert(p->protocol == s->protocol);
 
-        if (s->link) {
-                mtu = s->link->mtu;
-                ifindex = s->link->ifindex;
-        } else
-                mtu = manager_find_mtu(s->manager);
+        if (family == AF_UNSPEC) {
+                if (s->family == AF_UNSPEC)
+                        return -EAFNOSUPPORT;
+
+                family = s->family;
+        }
 
         switch (s->protocol) {
 
-        case DNS_PROTOCOL_DNS:
+        case DNS_PROTOCOL_DNS: {
+                size_t mtu, udp_size, min_mtu, socket_mtu = 0;
+
                 assert(fd >= 0);
 
-                if (DNS_PACKET_QDCOUNT(p) > 1)
+                if (DNS_PACKET_QDCOUNT(p) > 1) /* Classic DNS only allows one question per packet */
                         return -EOPNOTSUPP;
 
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
-                if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
-                        return -EMSGSIZE;
+                /* Determine the local most accurate MTU */
+                if (s->link)
+                        mtu = s->link->mtu;
+                else
+                        mtu = manager_find_mtu(s->manager);
+
+                /* Acquire the socket's PMDU MTU */
+                r = socket_get_mtu(fd, family, &socket_mtu);
+                if (r < 0 && !ERRNO_IS_DISCONNECT(r)) /* Will return ENOTCONN if no information is available yet */
+                        return log_debug_errno(r, "Failed to read socket MTU: %m");
+
+                /* Determine the appropriate UDP header size */
+                udp_size = udp_header_size(family);
+                min_mtu = udp_size + DNS_PACKET_HEADER_SIZE;
+
+                log_debug("Emitting UDP, link MTU is %zu, socket MTU is %zu, minimal MTU is %zu",
+                          mtu, socket_mtu, min_mtu);
+
+                /* Clamp by the kernel's idea of the (path) MTU */
+                if (socket_mtu != 0 && socket_mtu < mtu)
+                        mtu = socket_mtu;
+
+                /* Put a lower limit, in case all MTU data we acquired was rubbish */
+                if (mtu < min_mtu)
+                        mtu = min_mtu;
+
+                /* Now check our packet size against the MTU we determined */
+                if (udp_size + p->size > mtu)
+                        return -EMSGSIZE; /* This means: try TCP instead */
 
                 r = manager_write(s->manager, fd, p);
                 if (r < 0)
                         return r;
 
                 break;
+        }
 
-        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_LLMNR: {
+                union in_addr_union addr;
+
                 assert(fd < 0);
 
                 if (DNS_PACKET_QDCOUNT(p) > 1)
@@ -229,8 +260,6 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
 
                 if (!ratelimit_below(&s->ratelimit))
                         return -EBUSY;
-
-                family = s->family;
 
                 if (family == AF_INET) {
                         addr.in = LLMNR_MULTICAST_IPV4_ADDRESS;
@@ -243,19 +272,19 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, LLMNR_PORT, NULL, p);
+                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, LLMNR_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
                 break;
+        }
 
-        case DNS_PROTOCOL_MDNS:
+        case DNS_PROTOCOL_MDNS: {
+                union in_addr_union addr;
                 assert(fd < 0);
 
                 if (!ratelimit_below(&s->ratelimit))
                         return -EBUSY;
-
-                family = s->family;
 
                 if (family == AF_INET) {
                         addr.in = MDNS_MULTICAST_IPV4_ADDRESS;
@@ -268,11 +297,12 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, ifindex, family, &addr, MDNS_PORT, NULL, p);
+                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, MDNS_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
                 break;
+        }
 
         default:
                 return -EAFNOSUPPORT;
@@ -281,7 +311,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
         return 1;
 }
 
-int dns_scope_emit_udp(DnsScope *s, int fd, DnsPacket *p) {
+int dns_scope_emit_udp(DnsScope *s, int fd, int af, DnsPacket *p) {
         int r;
 
         assert(s);
@@ -296,7 +326,7 @@ int dns_scope_emit_udp(DnsScope *s, int fd, DnsPacket *p) {
                         dns_packet_set_flags(p, true, true);
                 }
 
-                r = dns_scope_emit_one(s, fd, p);
+                r = dns_scope_emit_one(s, fd, af, p);
                 if (r < 0)
                         return r;
 
@@ -410,6 +440,16 @@ static int dns_scope_socket(
                 r = socket_set_recvpktinfo(fd, sa.sa.sa_family, true);
                 if (r < 0)
                         return r;
+
+                /* Turn of path MTU discovery for security reasons */
+                r = socket_disable_pmtud(fd, sa.sa.sa_family);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable UDP PMTUD, ignoring: %m");
+
+                /* Learn about fragmentation taking place */
+                r = socket_set_recvfragsize(fd, sa.sa.sa_family, true);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable fragment size reception, ignoring: %m");
         }
 
         if (ret_socket_address)
@@ -1123,7 +1163,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
                         return 0;
                 }
 
-                r = dns_scope_emit_udp(scope, -1, p);
+                r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send conflict packet: %m");
         }
@@ -1420,7 +1460,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
-        r = dns_scope_emit_udp(scope, -1, p);
+        r = dns_scope_emit_udp(scope, -1, AF_UNSPEC, p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
