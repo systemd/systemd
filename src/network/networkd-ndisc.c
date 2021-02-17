@@ -95,12 +95,12 @@ static int ndisc_address_callback(Address *address) {
                         break;
                 }
 
-        if (IN6_IS_ADDR_UNSPECIFIED(&router)) {
+        if (in6_addr_is_null(&router)) {
                 _cleanup_free_ char *buf = NULL;
 
-                (void) in_addr_to_string(address->family, &address->in_addr, &buf);
-                log_link_debug(address->link, "%s is called for %s/%u, but it is already removed, ignoring.",
-                               __func__, strna(buf), address->prefixlen);
+                (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
+                log_link_debug(address->link, "%s is called for %s, but it is already removed, ignoring.",
+                               __func__, strna(buf));
                 return 0;
         }
 
@@ -150,7 +150,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *buf = NULL;
 
-                                (void) in_addr_to_string(AF_INET6, (union in_addr_union *) router, &buf);
+                                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) router, &buf);
                                 log_link_debug(link, "No SLAAC address obtained from %s is ready. "
                                                "The old NDisc information will be removed later.",
                                                strna(buf));
@@ -162,7 +162,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf = NULL;
 
-                (void) in_addr_to_string(AF_INET6, (union in_addr_union *) router, &buf);
+                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) router, &buf);
                 log_link_debug(link, "Removing old NDisc information obtained from %s.", strna(buf));
         }
 
@@ -649,12 +649,11 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
-                    && (IN6_IS_ADDR_UNSPECIFIED(&j->prefix) || IN6_ARE_ADDR_EQUAL(&j->prefix, address))) {
+                    && (in6_addr_is_null(&j->prefix) || IN6_ARE_ADDR_EQUAL(&j->prefix, address))) {
                         /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
-                           does not actually attempt Duplicate Address Detection; the counter will be incremented
-                           only when the address generation algorithm produces an invalid address, and the loop
-                           may exit with an address which ends up being unusable due to duplication on the link.
-                        */
+                         * does not actually attempt Duplicate Address Detection; the counter will be incremented
+                         * only when the address generation algorithm produces an invalid address, and the loop
+                         * may exit with an address which ends up being unusable due to duplication on the link. */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
                                 r = make_stableprivate_address(link, address, prefixlen, j->dad_counter, &new_address);
                                 if (r < 0)

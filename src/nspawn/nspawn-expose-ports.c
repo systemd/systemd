@@ -92,7 +92,7 @@ int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, int af, union in_
         if (!l)
                 return 0;
 
-        if (in_addr_is_null(af, exposed))
+        if (!in_addr_is_set(af, exposed))
                 return 0;
 
         log_debug("Lost IP address.");
@@ -159,7 +159,7 @@ int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *
                                       p->host_port,
                                       &new_exposed,
                                       p->container_port,
-                                      in_addr_is_null(af, exposed) ? NULL : exposed);
+                                      in_addr_is_set(af, exposed) ? exposed : NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
         }

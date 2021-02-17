@@ -1787,7 +1787,7 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
         } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit", "gre", "gretap", "erspan", "vti")) {
-                if (!in_addr_is_null(AF_INET, &info->local)) {
+                if (in_addr_is_set(AF_INET, &info->local)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Local:",
@@ -1796,7 +1796,7 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
 
-                if (!in_addr_is_null(AF_INET, &info->remote)) {
+                if (in_addr_is_set(AF_INET, &info->remote)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Remote:",
@@ -1805,7 +1805,7 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
         } else if (STRPTR_IN_SET(info->netdev_kind, "ip6gre", "ip6gretap", "ip6erspan", "vti6")) {
-                if (!in_addr_is_null(AF_INET6, &info->local)) {
+                if (in_addr_is_set(AF_INET6, &info->local)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Local:",
@@ -1814,7 +1814,7 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
 
-                if (!in_addr_is_null(AF_INET6, &info->remote)) {
+                if (in_addr_is_set(AF_INET6, &info->remote)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Remote:",
@@ -1830,14 +1830,14 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (info->has_tunnel_ipv4 && !in_addr_is_null(AF_INET, &info->remote)) {
+                if (info->has_tunnel_ipv4 && in_addr_is_set(AF_INET, &info->remote)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Remote:",
                                            TABLE_IN_ADDR, &info->remote);
                         if (r < 0)
                                 return table_log_add_error(r);
-                } else if (!in_addr_is_null(AF_INET6, &info->remote)) {
+                } else if (in_addr_is_set(AF_INET6, &info->remote)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Remote:",
