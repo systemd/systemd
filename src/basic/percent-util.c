@@ -64,11 +64,23 @@ static int parse_parts_value_with_hundredths_place(const char *p, const char *sy
 
         dot = memchr(p, '.', pc - p);
         if (dot) {
-                if (dot + 3 != pc)
+                if (dot + 3 == pc) {
+                        /* Support two places after the dot */
+
+                        if (dot[1] < '0' || dot[1] > '9' || dot[2] < '0' || dot[2] > '9')
+                                return -EINVAL;
+                        q = (dot[1] - '0') * 10 + (dot[2] - '0');
+
+                } else if (dot + 2 == pc) {
+                        /* Support one place after the dot */
+
+                        if (dot[1] < '0' || dot[1] > '9')
+                                return -EINVAL;
+                        q = (dot[1] - '0') * 10;
+                } else
+                        /* We do not support zero or more than two places */
                         return -EINVAL;
-                if (dot[1] < '0' || dot[1] > '9' || dot[2] < '0' || dot[2] > '9')
-                        return -EINVAL;
-                q = (dot[1] - '0') * 10 + (dot[2] - '0');
+
                 n = strndupa(p, dot - p);
         } else {
                 q = 0;
