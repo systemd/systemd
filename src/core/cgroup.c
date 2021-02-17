@@ -21,6 +21,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "special.h"
