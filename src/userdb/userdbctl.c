@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "socket-util.h"
@@ -720,17 +721,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WITH_NSS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--with-nss", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --with-nss= parameter: %s", optarg);
+                                return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_AVOID_NSS, !r);
                         break;
 
                 case ARG_SYNTHESIZE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--synthesize", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --synthesize= parameter: %s", optarg);
+                                return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE, !r);
                         break;

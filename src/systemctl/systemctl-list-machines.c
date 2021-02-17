@@ -157,7 +157,7 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
         if (!table)
                 return log_oom();
 
-        table_set_header(table, !arg_no_legend);
+        table_set_header(table, arg_legend != 0);
         if (arg_plain) {
                 /* Hide the 'glyph' column when --plain is requested */
                 r = table_hide_column_from_display(table, 0);
@@ -210,7 +210,7 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
         if (r < 0)
                 return r;
 
-        if (!arg_no_legend) {
+        if (arg_legend != 0) {
                 printf("\n");
                 if (state_missing && geteuid() != 0)
                         printf("Notice: some information only available to privileged users was not shown.\n");
