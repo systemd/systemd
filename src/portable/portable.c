@@ -10,6 +10,7 @@
 #include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "errno-list.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -591,7 +592,7 @@ static int unit_file_is_active(
 static int portable_changes_add(
                 PortableChange **changes,
                 size_t *n_changes,
-                PortableChangeType type,
+                int type_or_errno, /* PORTABLE_COPY, PORTABLE_COPY, … if positive, or errno if negative */
                 const char *path,
                 const char *source) {
 
@@ -600,6 +601,11 @@ static int portable_changes_add(
 
         assert(path);
         assert(!changes == !n_changes);
+
+        if (type_or_errno >= 0)
+                assert(type_or_errno < _PORTABLE_CHANGE_TYPE_MAX);
+        else
+                assert(type_or_errno >= -ERRNO_MAX);
 
         if (!changes)
                 return 0;
@@ -624,7 +630,7 @@ static int portable_changes_add(
         }
 
         c[(*n_changes)++] = (PortableChange) {
-                .type = type,
+                .type_or_errno = type_or_errno,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),
         };
@@ -635,7 +641,7 @@ static int portable_changes_add(
 static int portable_changes_add_with_prefix(
                 PortableChange **changes,
                 size_t *n_changes,
-                PortableChangeType type,
+                int type_or_errno,
                 const char *prefix,
                 const char *path,
                 const char *source) {
@@ -653,7 +659,7 @@ static int portable_changes_add_with_prefix(
                         source = prefix_roota(prefix, source);
         }
 
-        return portable_changes_add(changes, n_changes, type, path, source);
+        return portable_changes_add(changes, n_changes, type_or_errno, path, source);
 }
 
 void portable_changes_free(PortableChange *changes, size_t n_changes) {
@@ -1417,7 +1423,7 @@ static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] =
         [PORTABLE_WRITE] = "write",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(portable_change_type, PortableChangeType);
+DEFINE_STRING_TABLE_LOOKUP(portable_change_type, int);
 
 static const char* const portable_state_table[_PORTABLE_STATE_MAX] = {
         [PORTABLE_DETACHED] = "detached",

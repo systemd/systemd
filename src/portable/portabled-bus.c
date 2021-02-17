@@ -457,8 +457,11 @@ static int reply_portable_compose_message(sd_bus_message *reply, const PortableC
                 return r;
 
         for (i = 0; i < n_changes; i++) {
+                if (changes[i].type_or_errno < 0)
+                        continue;
+
                 r = sd_bus_message_append(reply, "(sss)",
-                                          portable_change_type_to_string(changes[i].type),
+                                          portable_change_type_to_string(changes[i].type_or_errno),
                                           changes[i].path,
                                           changes[i].source);
                 if (r < 0)

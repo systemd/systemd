@@ -14,6 +14,7 @@
 #include "conf-parser.h"
 #include "def.h"
 #include "dirent-util.h"
+#include "errno-list.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -261,7 +262,7 @@ static const char* config_path_from_flags(const LookupPaths *paths, UnitFileFlag
 int unit_file_changes_add(
                 UnitFileChange **changes,
                 size_t *n_changes,
-                int type,
+                int type_or_errno, /* UNIT_FILE_SYMLINK, _UNLINK, _IS_MASKED, _IS_DANGLING if positive or errno if negative */
                 const char *path,
                 const char *source) {
 
@@ -270,6 +271,11 @@ int unit_file_changes_add(
 
         assert(path);
         assert(!changes == !n_changes);
+
+        if (type_or_errno >= 0)
+                assert(type_or_errno < _UNIT_FILE_CHANGE_TYPE_MAX);
+        else
+                assert(type_or_errno >= -ERRNO_MAX);
 
         if (!changes)
                 return 0;
@@ -280,19 +286,25 @@ int unit_file_changes_add(
         *changes = c;
 
         p = strdup(path);
-        if (source)
-                s = strdup(source);
-
-        if (!p || (source && !s))
+        if (!p)
                 return -ENOMEM;
 
         path_simplify(p, false);
-        if (s)
-                path_simplify(s, false);
 
-        c[*n_changes] = (UnitFileChange) { type, p, s };
-        p = s = NULL;
-        (*n_changes) ++;
+        if (source) {
+                s = strdup(source);
+                if (!s)
+                        return -ENOMEM;
+
+                path_simplify(s, false);
+        }
+
+        c[(*n_changes)++] = (UnitFileChange) {
+                .type_or_errno = type_or_errno,
+                .path = TAKE_PTR(p),
+                .source = TAKE_PTR(s),
+        };
+
         return 0;
 }
 
@@ -315,9 +327,9 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
         assert(verb || r >= 0);
 
         for (size_t i = 0; i < n_changes; i++) {
-                assert(verb || changes[i].type >= 0);
+                assert(verb || changes[i].type_or_errno >= 0);
 
-                switch(changes[i].type) {
+                switch(changes[i].type_or_errno) {
                 case UNIT_FILE_SYMLINK:
                         if (!quiet)
                                 log_info("Created symlink %s %s %s.",
@@ -340,45 +352,45 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         break;
                 case -EEXIST:
                         if (changes[i].source)
-                                log_error_errno(changes[i].type,
+                                log_error_errno(changes[i].type_or_errno,
                                                 "Failed to %s unit, file %s already exists and is a symlink to %s.",
                                                 verb, changes[i].path, changes[i].source);
                         else
-                                log_error_errno(changes[i].type,
+                                log_error_errno(changes[i].type_or_errno,
                                                 "Failed to %s unit, file %s already exists.",
                                                 verb, changes[i].path);
                         logged = true;
                         break;
                 case -ERFKILL:
-                        log_error_errno(changes[i].type, "Failed to %s unit, unit %s is masked.",
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is masked.",
                                         verb, changes[i].path);
                         logged = true;
                         break;
                 case -EADDRNOTAVAIL:
-                        log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is transient or generated.",
                                         verb, changes[i].path);
                         logged = true;
                         break;
                 case -EUCLEAN:
-                        log_error_errno(changes[i].type,
+                        log_error_errno(changes[i].type_or_errno,
                                         "Failed to %s unit, \"%s\" is not a valid unit name.",
                                         verb, changes[i].path);
                         logged = true;
                         break;
                 case -ELOOP:
-                        log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s",
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s",
                                         verb, changes[i].path);
                         logged = true;
                         break;
 
                 case -ENOENT:
-                        log_error_errno(changes[i].type, "Failed to %s unit, unit %s does not exist.", verb, changes[i].path);
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.", verb, changes[i].path);
                         logged = true;
                         break;
 
                 default:
-                        assert(changes[i].type < 0);
-                        log_error_errno(changes[i].type, "Failed to %s unit, file %s: %m.",
+                        assert(changes[i].type_or_errno < 0);
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file %s: %m.",
                                         verb, changes[i].path);
                         logged = true;
                 }
@@ -3464,7 +3476,7 @@ static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX]
         [UNIT_FILE_IS_DANGLING] = "dangling",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);
+DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, int);
 
 static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MAX] = {
         [UNIT_FILE_PRESET_FULL]         = "full",
