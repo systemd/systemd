@@ -334,9 +334,9 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                 return PAM_SUCCESS;
         }
 
-        r = parse_permille(limit);
+        r = parse_permyriad(limit);
         if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
+                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) ((uint64_t) r * UINT32_MAX) / 10000U);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
