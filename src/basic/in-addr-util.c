@@ -222,8 +222,9 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
 
         if (family == AF_INET) {
                 uint32_t c, n, t;
+
                 if (prefixlen > 32)
-                        prefixlen = 32;
+                        return -ERANGE;
 
                 c = be32toh(u->in.s_addr);
 
@@ -247,7 +248,7 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
                 unsigned start_byte = (prefixlen - 1) / 8;
 
                 if (prefixlen > 128)
-                        prefixlen = 128;
+                        return -ERANGE;
 
                 /* First calculate what we have to add */
                 delta = nth << ((128 - prefixlen) % 8);
