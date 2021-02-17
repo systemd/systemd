@@ -683,25 +683,31 @@ int config_parse_dhcp_send_option(
                 break;
         }
         case DHCP_OPTION_DATA_UINT16:{
-                r = safe_atou16(p, &uint16_data);
+                uint16_t k;
+
+                r = safe_atou16(p, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse DHCP uint16 data, ignoring assignment: %s", p);
                         return 0;
                 }
 
+                uint16_data = htobe16(k);
                 udata = &uint16_data;
                 sz = sizeof(uint16_t);
                 break;
         }
         case DHCP_OPTION_DATA_UINT32: {
-                r = safe_atou32(p, &uint32_data);
+                uint32_t k;
+
+                r = safe_atou32(p, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse DHCP uint32 data, ignoring assignment: %s", p);
                         return 0;
                 }
 
+                uint16_data = htobe32(k);
                 udata = &uint32_data;
                 sz = sizeof(uint32_t);
 
