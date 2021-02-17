@@ -149,6 +149,17 @@ int main(int argc, char *argv[]) {
         assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
         assert_se(!hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
 
+        assert_se(unit_add_dependency(a, UNIT_BINDS_TO, b, true, UNIT_DEPENDENCY_FILE) == 0);
+        assert_se(unit_add_dependency(a, UNIT_BINDS_TO, b, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT) == 0);
+
+        assert_se(hashmap_get(a->dependencies[UNIT_BINDS_TO], b));
+        assert_se(hashmap_get(b->dependencies[UNIT_BOUND_BY], a));
+
+        unit_drop_dependencies(a, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+
+        assert_se(!hashmap_get(a->dependencies[UNIT_BINDS_TO], b));
+        assert_se(!hashmap_get(b->dependencies[UNIT_BOUND_BY], a));
+
         assert_se(manager_load_unit(m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
 
         assert_se(strv_equal(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3")));
