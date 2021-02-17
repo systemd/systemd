@@ -134,13 +134,13 @@ bool oomd_memory_reclaim(Hashmap *h) {
         return pgscan_of > last_pgscan_of;
 }
 
-bool oomd_swap_free_below(const OomdSystemContext *ctx, uint64_t threshold_percent) {
+bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
         uint64_t swap_threshold;
 
         assert(ctx);
-        assert(threshold_percent <= 100);
+        assert(threshold_permyriad <= 10000);
 
-        swap_threshold = ctx->swap_total * threshold_percent / ((uint64_t) 100);
+        swap_threshold = ctx->swap_total * threshold_permyriad / (uint64_t) 10000;
         return (ctx->swap_total - ctx->swap_used) < swap_threshold;
 }
 
