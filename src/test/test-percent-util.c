@@ -7,6 +7,7 @@ static void test_parse_percent(void) {
         assert_se(parse_percent("") == -EINVAL);
         assert_se(parse_percent("foo") == -EINVAL);
         assert_se(parse_percent("0") == -EINVAL);
+        assert_se(parse_percent("0.1") == -EINVAL);
         assert_se(parse_percent("50") == -EINVAL);
         assert_se(parse_percent("100") == -EINVAL);
         assert_se(parse_percent("-1") == -EINVAL);
@@ -34,6 +35,10 @@ static void test_parse_permille(void) {
         assert_se(parse_permille("50") == -EINVAL);
         assert_se(parse_permille("100") == -EINVAL);
         assert_se(parse_permille("-1") == -EINVAL);
+        assert_se(parse_permille("0.1") == -EINVAL);
+        assert_se(parse_permille("5%") == 50);
+        assert_se(parse_permille("5.5%") == 55);
+        assert_se(parse_permille("5.12%") == -EINVAL);
 
         assert_se(parse_permille("0‰") == 0);
         assert_se(parse_permille("555‰") == 555);
@@ -45,6 +50,7 @@ static void test_parse_permille(void) {
         assert_se(parse_permille("‰1") == -EINVAL);
         assert_se(parse_permille("1‰‰") == -EINVAL);
         assert_se(parse_permille("3.2‰") == -EINVAL);
+        assert_se(parse_permille("0.1‰") == -EINVAL);
 
         assert_se(parse_permille("0%") == 0);
         assert_se(parse_permille("55%") == 550);
@@ -57,6 +63,7 @@ static void test_parse_permille(void) {
         assert_se(parse_permille("%1") == -EINVAL);
         assert_se(parse_permille("1%%") == -EINVAL);
         assert_se(parse_permille("3.21%") == -EINVAL);
+        assert_se(parse_permille("0.1%") == 1);
 }
 
 static void test_parse_permille_unbounded(void) {
@@ -107,6 +114,8 @@ static void test_parse_permyriad(void) {
 
         assert_se(parse_permyriad("0%") == 0);
         assert_se(parse_permyriad("55%") == 5500);
+        assert_se(parse_permyriad("55.5%") == 5550);
+        assert_se(parse_permyriad("55.50%") == 5550);
         assert_se(parse_permyriad("55.53%") == 5553);
         assert_se(parse_permyriad("100%") == 10000);
         assert_se(parse_permyriad("-7%") == -ERANGE);
