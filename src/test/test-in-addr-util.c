@@ -241,7 +241,7 @@ static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigne
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
         t = ubefore;
-        assert_se((in_addr_prefix_next(f, &t, pl) > 0) == !!after);
+        assert_se((in_addr_prefix_next(f, &t, pl) >= 0) == !!after);
 
         if (after) {
                 assert_se(in_addr_from_string(f, after, &uafter) >= 0);
@@ -278,7 +278,7 @@ static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
         t = ubefore;
-        assert_se((in_addr_prefix_nth(f, &t, pl, nth) > 0) == !!after);
+        assert_se((in_addr_prefix_nth(f, &t, pl, nth) >= 0) == !!after);
 
         if (after) {
                 assert_se(in_addr_from_string(f, after, &uafter) >= 0);

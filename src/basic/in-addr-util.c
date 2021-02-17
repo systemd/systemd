@@ -189,8 +189,8 @@ int in_addr_prefix_intersect(
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen) {
         assert(u);
 
-        /* Increases the network part of an address by one. Returns
-         * positive if that succeeds, or -ERANGE if this overflows. */
+        /* Increases the network part of an address by one. Returns 0 if that succeeds, or -ERANGE if
+         * this overflows. */
 
         return in_addr_prefix_nth(family, u, prefixlen, 1);
 }
@@ -198,19 +198,18 @@ int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen) 
 /*
  * Calculates the nth prefix of size prefixlen starting from the address denoted by u.
  *
- * On success 1 will be returned and the calculated prefix will be available in
- * u. In the case nth == 0 the input will be left unchanged and 1 will be returned.
+ * On success 0 will be returned and the calculated prefix will be available in
+ * u. In the case nth == 0 the input will be left unchanged and 0 will be returned.
  * In case the calculation cannot be performed (invalid prefix length,
  * overflows would occur) -ERANGE is returned. If the address family given isn't
  * supported -EAFNOSUPPORT will be returned.
  *
- *
  * Examples:
- *   - in_addr_prefix_nth(AF_INET, 192.168.0.0, 24, 2), returns 1, writes 192.168.2.0 to u
- *   - in_addr_prefix_nth(AF_INET, 192.168.0.0, 24, 0), returns 1, no data written
+ *   - in_addr_prefix_nth(AF_INET, 192.168.0.0, 24, 2), returns 0, writes 192.168.2.0 to u
+ *   - in_addr_prefix_nth(AF_INET, 192.168.0.0, 24, 0), returns 0, no data written
  *   - in_addr_prefix_nth(AF_INET, 255.255.255.0, 24, 1), returns -ERANGE, no data written
  *   - in_addr_prefix_nth(AF_INET, 255.255.255.0, 0, 1), returns -ERANGE, no data written
- *   - in_addr_prefix_nth(AF_INET6, 2001:db8, 64, 0xff00) returns 1, writes 2001:0db8:0000:ff00:: to u
+ *   - in_addr_prefix_nth(AF_INET6, 2001:db8, 64, 0xff00) returns 0, writes 2001:0db8:0000:ff00:: to u
  */
 int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, uint64_t nth) {
         assert(u);
@@ -219,7 +218,7 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
                 return -ERANGE;
 
         if (nth == 0)
-                return 1;
+                return 0;
 
         if (family == AF_INET) {
                 uint32_t c, n, t;
@@ -238,7 +237,7 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
 
                 n &= UINT32_C(0xFFFFFFFF) << (32 - prefixlen);
                 u->in.s_addr = htobe32(n);
-                return 1;
+                return 0;
         }
 
         if (family == AF_INET6) {
@@ -255,10 +254,9 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
 
                 for (unsigned i = 16; i > 0; i--) {
                         unsigned j = i - 1;
-                        unsigned d = 0;
 
                         if (j <= start_byte) {
-                                int16_t t;
+                                unsigned t, d;
 
                                 d = delta & 0xFF;
                                 delta >>= 8;
@@ -266,7 +264,7 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
                                 t = u->in6.s6_addr[j] + d + overflow;
                                 overflow = t > UINT8_MAX ? t - UINT8_MAX : 0;
 
-                                result.s6_addr[j] = (uint8_t)t;
+                                result.s6_addr[j] = (uint8_t) t;
                         } else
                                 result.s6_addr[j] = u->in6.s6_addr[j];
                 }
@@ -275,7 +273,7 @@ int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, u
                         return -ERANGE;
 
                 u->in6 = result;
-                return 1;
+                return 0;
         }
 
         return -EAFNOSUPPORT;
