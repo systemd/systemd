@@ -273,12 +273,7 @@ static int address_set_masquerade(Address *address, bool add) {
         if (address->scope >= RT_SCOPE_LINK)
                 return 0;
 
-        if (address->family == AF_INET &&
-            address->ip_masquerade_done == add)
-                return 0;
-
-        if (address->family == AF_INET6 &&
-            address->ipv6_masquerade_done == add)
+        if (address->ip_masquerade_done == add)
                 return 0;
 
         masked = address->in_addr;
@@ -290,10 +285,7 @@ static int address_set_masquerade(Address *address, bool add) {
         if (r < 0)
                 return r;
 
-        if (address->family == AF_INET)
-                address->ip_masquerade_done = add;
-        else if (address->family == AF_INET6)
-                address->ipv6_masquerade_done = add;
+        address->ip_masquerade_done = add;
 
         return 0;
 }
