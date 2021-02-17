@@ -441,15 +441,12 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit")) {
-                char *n;
-
                 r = parse_permyriad(eq);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s value: %s", field, eq);
 
-                n = strjoina(field, "Permyriad");
-
-                r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) r);
+                /* Pass around scaled to 2^32-1 == 100% */
+                r = sd_bus_message_append(m, "(sv)", field, "u", UINT32_SCALE_FROM_PERMYRIAD(r));
                 if (r < 0)
                         return bus_log_create_error(r);
 
