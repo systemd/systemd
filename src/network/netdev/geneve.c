@@ -90,7 +90,7 @@ static int netdev_geneve_create(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_ID attribute: %m");
         }
 
-        if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
+        if (in_addr_is_set(v->remote_family, &v->remote)) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_GENEVE_REMOTE, &v->remote.in);
                 else

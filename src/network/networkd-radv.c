@@ -525,8 +525,8 @@ static int radv_set_dns(Link *link, Link *uplink) {
 
                 p = dns;
                 for (size_t i = 0; i < link->network->n_router_dns; i++)
-                        if (IN6_IS_ADDR_UNSPECIFIED(&link->network->router_dns[i])) {
-                                if (!IN6_IS_ADDR_UNSPECIFIED(&link->ipv6ll_address))
+                        if (in6_addr_is_null(&link->network->router_dns[i])) {
+                                if (in6_addr_is_set(&link->ipv6ll_address))
                                         *(p++) = link->ipv6ll_address;
                         } else
                                 *(p++) = link->network->router_dns[i];

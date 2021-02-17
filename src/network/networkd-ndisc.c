@@ -95,7 +95,7 @@ static int ndisc_address_callback(Address *address) {
                         break;
                 }
 
-        if (IN6_IS_ADDR_UNSPECIFIED(&router)) {
+        if (in6_addr_is_null(&router)) {
                 _cleanup_free_ char *buf = NULL;
 
                 (void) in_addr_to_string(address->family, &address->in_addr, &buf);
@@ -649,12 +649,11 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
-                    && (IN6_IS_ADDR_UNSPECIFIED(&j->prefix) || IN6_ARE_ADDR_EQUAL(&j->prefix, address))) {
+                    && (in6_addr_is_null(&j->prefix) || IN6_ARE_ADDR_EQUAL(&j->prefix, address))) {
                         /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
-                           does not actually attempt Duplicate Address Detection; the counter will be incremented
-                           only when the address generation algorithm produces an invalid address, and the loop
-                           may exit with an address which ends up being unusable due to duplication on the link.
-                        */
+                         * does not actually attempt Duplicate Address Detection; the counter will be incremented
+                         * only when the address generation algorithm produces an invalid address, and the loop
+                         * may exit with an address which ends up being unusable due to duplication on the link. */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
                                 r = make_stableprivate_address(link, address, prefixlen, j->dad_counter, &new_address);
                                 if (r < 0)

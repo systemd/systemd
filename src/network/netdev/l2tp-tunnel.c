@@ -252,7 +252,7 @@ static int l2tp_acquire_local_address_one(L2tpTunnel *t, Address *a, union in_ad
         if (a->family != t->family)
                 return -EINVAL;
 
-        if (in_addr_is_null(a->family, &a->in_addr_peer) <= 0)
+        if (in_addr_is_set(a->family, &a->in_addr_peer))
                 return -EINVAL;
 
         if (t->local_address_type == NETDEV_L2TP_LOCAL_ADDRESS_STATIC &&
@@ -275,7 +275,7 @@ static int l2tp_acquire_local_address(L2tpTunnel *t, Link *link, union in_addr_u
         assert(ret);
         assert(IN_SET(t->family, AF_INET, AF_INET6));
 
-        if (!in_addr_is_null(t->family, &t->local)) {
+        if (in_addr_is_set(t->family, &t->local)) {
                 /* local address is explicitly specified. */
                 *ret = t->local;
                 return 0;
@@ -435,7 +435,7 @@ int config_parse_l2tp_tunnel_address(
                         addr_type = l2tp_local_address_type_from_string(rvalue);
 
                 if (addr_type >= 0) {
-                        if (in_addr_is_null(t->family, &t->remote) != 0)
+                        if (!in_addr_is_set(t->family, &t->remote))
                                 /* If Remote= is not specified yet, then also clear family. */
                                 t->family = AF_UNSPEC;
 
@@ -682,7 +682,7 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
                                               "%s: L2TP tunnel with invalid address family configured. Ignoring",
                                               filename);
 
-        if (in_addr_is_null(t->family, &t->remote))
+        if (!in_addr_is_set(t->family, &t->remote))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: L2TP tunnel without a remote address configured. Ignoring",
                                               filename);

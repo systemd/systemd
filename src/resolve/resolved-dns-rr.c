@@ -1730,7 +1730,7 @@ bool dns_resource_record_is_link_local_address(DnsResourceRecord *rr) {
                 return in4_addr_is_link_local(&rr->a.in_addr);
 
         if (rr->key->type == DNS_TYPE_AAAA)
-                return IN6_IS_ADDR_LINKLOCAL(&rr->aaaa.in6_addr);
+                return in6_addr_is_link_local(&rr->aaaa.in6_addr);
 
         return false;
 }

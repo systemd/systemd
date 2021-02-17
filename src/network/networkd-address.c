@@ -130,7 +130,8 @@ Address *address_free(Address *address) {
                         if (n->address == address)
                                 free(set_remove(address->link->ndisc_addresses, n));
 
-                if (in_addr_equal(AF_INET6, &address->in_addr, (const union in_addr_union *) &address->link->ipv6ll_address))
+                if (address->family == AF_INET6 &&
+                    in6_addr_equal(&address->in_addr.in6, &address->link->ipv6ll_address))
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
         }
 
@@ -147,7 +148,9 @@ static bool address_may_have_broadcast(const Address *a) {
         /* A /31 or /32 IPv4 address does not have a broadcast address.
          * See https://tools.ietf.org/html/rfc3021 */
 
-        return a->family == AF_INET && in4_addr_is_null(&a->in_addr_peer.in) && a->prefixlen <= 30;
+        return a->family == AF_INET &&
+                in_addr_is_null(AF_INET, &a->in_addr_peer) &&
+                a->prefixlen <= 30;
 }
 
 static uint32_t address_prefix(const Address *a) {
@@ -397,7 +400,7 @@ static int address_update(Address *address, const Address *src) {
 
                 if (address->family == AF_INET6 &&
                     in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
-                    IN6_IS_ADDR_UNSPECIFIED(&address->link->ipv6ll_address) > 0) {
+                    in6_addr_is_null(&address->link->ipv6ll_address)) {
 
                         r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
                         if (r < 0)
@@ -487,7 +490,7 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 bool has_peer;
 
                 (void) in_addr_to_string(address->family, &address->in_addr, &addr);
-                has_peer = in_addr_is_null(address->family, &address->in_addr_peer) == 0;
+                has_peer = in_addr_is_set(address->family, &address->in_addr_peer);
                 if (has_peer)
                         (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
@@ -788,10 +791,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
         assert(ret);
 
         /* Something useful was configured? just use it */
-        r = in_addr_is_null(original->family, &original->in_addr);
-        if (r < 0)
-                return r;
-        if (r == 0) {
+        if (in_addr_is_set(original->family, &original->in_addr)) {
                 *ret = NULL;
                 return 0;
         }
@@ -891,7 +891,7 @@ int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set scope: %m");
 
-        if (in_addr_is_null(address->family, &address->in_addr_peer) == 0) {
+        if (in_addr_is_set(address->family, &address->in_addr_peer)) {
                 r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
