@@ -994,31 +994,59 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         return 0;
 }
 
-static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
-        uint64_t r;
+static uint64_t journal_file_entry_seqnum(
+                JournalFile *f,
+                uint64_t *seqnum) {
+
+        uint64_t ret;
 
         assert(f);
         assert(f->header);
 
-        r = le64toh(f->header->tail_entry_seqnum) + 1;
+        /* Picks a new sequence number for the entry we are about to add and returns it. */
+
+        ret = le64toh(f->header->tail_entry_seqnum) + 1;
 
         if (seqnum) {
-                /* If an external seqnum counter was passed, we update
-                 * both the local and the external one, and set it to
-                 * the maximum of both */
+                /* If an external seqnum counter was passed, we update both the local and the external one,
+                 * and set it to the maximum of both */
 
-                if (*seqnum + 1 > r)
-                        r = *seqnum + 1;
+                if (*seqnum + 1 > ret)
+                        ret = *seqnum + 1;
 
-                *seqnum = r;
+                *seqnum = ret;
         }
 
-        f->header->tail_entry_seqnum = htole64(r);
+        f->header->tail_entry_seqnum = htole64(ret);
 
         if (f->header->head_entry_seqnum == 0)
-                f->header->head_entry_seqnum = htole64(r);
+                f->header->head_entry_seqnum = htole64(ret);
 
-        return r;
+        return ret;
+}
+
+static void journal_file_revert_entry_seqnum(
+                JournalFile *f,
+                uint64_t *seqnum,
+                uint64_t revert_seqnum) {
+
+        assert(f);
+        assert(f->header);
+
+        if (revert_seqnum == 0) /* sequence number 0? can't go back */
+                return;
+
+        /* Undoes the effect of journal_file_entry_seqnum() above: if we fail to append an entry to a file,
+         * let's revert the seqnum we were about to use, so that we can use it on the next entry. */
+
+        if (le64toh(f->header->tail_entry_seqnum) == revert_seqnum)
+                f->header->tail_entry_seqnum = htole64(revert_seqnum - 1);
+
+        if (le64toh(f->header->head_entry_seqnum) == revert_seqnum)
+                f->header->head_entry_seqnum = 0;
+
+        if (seqnum && *seqnum == revert_seqnum)
+                *seqnum = revert_seqnum - 1;
 }
 
 int journal_file_append_object(
@@ -1982,12 +2010,12 @@ static int journal_file_append_entry_internal(
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
-                return r;
+                goto fail;
 #endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
-                return r;
+                goto fail;
 
         if (ret)
                 *ret = o;
@@ -1996,6 +2024,10 @@ static int journal_file_append_entry_internal(
                 *ret_offset = np;
 
         return 0;
+
+fail:
+        journal_file_revert_entry_seqnum(f, seqnum, le64toh(o->entry.seqnum));
+        return r;
 }
 
 void journal_file_post_change(JournalFile *f) {
