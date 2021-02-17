@@ -351,44 +351,41 @@ int in_addr_random_prefix(
         return -EAFNOSUPPORT;
 }
 
-void in6_addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
-                       struct in6_addr *ret_start, struct in6_addr *ret_end) {
-        uint8_t carry = 0;
-        int i, j;
+int in_addr_prefix_range(
+                int family,
+                const union in_addr_union *in,
+                unsigned prefixlen,
+                union in_addr_union *ret_start,
+                union in_addr_union *ret_end) {
 
-        assert(prefixlen <= 128);
+        union in_addr_union start, end;
+        int r;
 
-        for (i = 0, j = 15; i < 16; i++) {
-                uint8_t nm;
+        assert(in);
 
-                nm = 0xFF;
-                if (prefixlen < 8)
-                        nm = 0xFF << (8 - prefixlen);
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
 
-                ret_start->s6_addr[i] = source->in6.s6_addr[i] & nm;
-                if (prefixlen <= 8 && j == 15) {
-                         carry = 1u << (8 - prefixlen);
-                         j = i;
-                }
-
-                if (prefixlen >= 8)
-                         prefixlen -= 8;
-                else
-                         prefixlen = 0;
-        }
-        *ret_end = *ret_start;
-
-        for (; j >= 0; j--) {
-                uint16_t overflow = ret_end->s6_addr[j] + carry;
-
-                ret_end->s6_addr[j] = overflow;
-                if (overflow <= 0xff)
-                        break;
-                carry = 1;
+        if (ret_start) {
+                start = *in;
+                r = in_addr_prefix_nth(family, &start, prefixlen, 0);
+                if (r < 0)
+                        return r;
         }
 
-        if (memcmp(ret_start, ret_end, sizeof(*ret_start)) > 0)
-                zero(ret_end);
+        if (ret_end) {
+                end = *in;
+                r = in_addr_prefix_nth(family, &end, prefixlen, 1);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_start)
+                *ret_start = start;
+        if (ret_end)
+                *ret_end = end;
+
+        return 0;
 }
 
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {

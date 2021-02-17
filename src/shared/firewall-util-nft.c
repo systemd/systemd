@@ -844,15 +844,19 @@ static int fw_nftables_recreate_table(sd_netlink *nfnl, int af, sd_netlink_messa
         return 0;
 }
 
-static int nft_message_add_setelem_ip6range(sd_netlink_message *m,
-                                            const union in_addr_union *source,
-                                            unsigned int prefixlen) {
-        struct in6_addr start, end;
+static int nft_message_add_setelem_ip6range(
+                sd_netlink_message *m,
+                const union in_addr_union *source,
+                unsigned int prefixlen) {
+
+        union in_addr_union start, end;
         int r;
 
-        in6_addr_to_range(source, prefixlen, &start, &end);
+        r = in_addr_prefix_range(AF_INET6, source, prefixlen, &start, &end);
+        if (r < 0)
+                return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 0, &start, sizeof(start), NULL, 0);
+        r = sd_nfnl_nft_message_add_setelem(m, 0, &start.in6, sizeof(start.in6), NULL, 0);
         if (r < 0)
                 return r;
 
@@ -860,7 +864,7 @@ static int nft_message_add_setelem_ip6range(sd_netlink_message *m,
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 1, &end, sizeof(end), NULL, 0);
+        r = sd_nfnl_nft_message_add_setelem(m, 1, &end.in6, sizeof(end.in6), NULL, 0);
         if (r < 0)
                 return r;
 

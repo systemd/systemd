@@ -314,58 +314,45 @@ static void test_in_addr_prefix_nth(void) {
         test_in_addr_prefix_nth_one(AF_INET6, "1234:5678:90ab:cdef:1234:5678:90ab:cdef", 12, 1, "1240::");
 }
 
-#define MAKE_IN6_ADDR_UNION(str, u) assert_se(in_addr_from_string(AF_INET6, str, u) >= 0)
-#define assert_in6_eq(a, b) assert_se(memcmp(a, b, FAMILY_ADDRESS_SIZE(AF_INET6)) == 0)
-#define assert_in6_eq_str(str, u)               \
-        ({                                      \
-                union in_addr_union _t;         \
-                MAKE_IN6_ADDR_UNION(str, &_t);  \
-                assert_in6_eq(u, &_t);           \
-        })
+static void test_in_addr_prefix_range_one(
+                int family,
+                const char *in,
+                unsigned prefixlen,
+                const char *expected_start,
+                const char *expected_end) {
 
-static void test_in6_addr_to_range(void) {
-        unsigned int prefixlen = 64;
-        union in_addr_union a, b, s;
+        union in_addr_union a, s, e;
 
-        log_info("/* %s */", __func__);
+        log_info("/* %s(%s, prefixlen=%u) */", __func__, in, prefixlen);
 
-        MAKE_IN6_ADDR_UNION("dead:0:0:beef::", &s);
+        assert_se(in_addr_from_string(family, in, &a) >= 0);
+        assert_se((in_addr_prefix_range(family, &a, prefixlen, &s, &e) >= 0) == !!expected_start);
 
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq(&s, &a);
-        assert_in6_eq_str("dead:0:0:bef0::", &b);
+        if (expected_start) {
+                union in_addr_union es;
 
-        MAKE_IN6_ADDR_UNION("2001::", &s);
-        prefixlen = 56;
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq(&s, &a);
-        assert_in6_eq_str("2001:0:0:0100::", &b);
+                assert_se(in_addr_from_string(family, expected_start, &es) >= 0);
+                assert_se(in_addr_equal(family, &s, &es) > 0);
+        }
+        if (expected_end) {
+                union in_addr_union ee;
 
-        prefixlen = 48;
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq(&s, &a);
-        assert_in6_eq_str("2001:0:0001::", &b);
+                assert_se(in_addr_from_string(family, expected_end, &ee) >= 0);
+                assert_se(in_addr_equal(family, &e, &ee) > 0);
+        }
+}
 
-        prefixlen = 65;
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq_str("2001::", &a);
-        assert_in6_eq_str("2001::8000:0:0:0", &b);
+static void test_in_addr_prefix_range(void) {
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 24, "192.168.123.0", "192.168.124.0");
+        test_in_addr_prefix_range_one(AF_INET, "192.168.123.123", 16, "192.168.0.0", "192.169.0.0");
 
-        prefixlen = 66;
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq(&s, &a);
-        assert_in6_eq_str("2001::4000:0:0:0", &b);
-
-        prefixlen = 127;
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq(&s, &a);
-        assert_in6_eq_str("2001::0002", &b);
-
-        MAKE_IN6_ADDR_UNION("dead:beef::1", &s);
-        prefixlen = 64;
-        in6_addr_to_range(&s, prefixlen, &a.in6, &b.in6);
-        assert_in6_eq_str("dead:beef::", &a);
-        assert_in6_eq_str("dead:beef:0:1::", &b);
+        test_in_addr_prefix_range_one(AF_INET6, "dead:beef::", 64, "dead:beef::", "dead:beef:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "dead:0:0:beef::", 64, "dead:0:0:beef::", "dead:0:0:bef0::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  48, "2001::", "2001:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  56, "2001::", "2001:0:0:0100::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  65, "2001::", "2001::8000:0:0:0");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::",  66, "2001::", "2001::4000:0:0:0");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 127, "2001::", "2001::2");
 }
 
 static void test_in_addr_to_string_one(int f, const char *addr) {
@@ -396,7 +383,7 @@ int main(int argc, char *argv[]) {
         test_in_addr_prefix_intersect();
         test_in_addr_prefix_next();
         test_in_addr_prefix_nth();
-        test_in6_addr_to_range();
+        test_in_addr_prefix_range();
         test_in_addr_to_string();
 
         return 0;

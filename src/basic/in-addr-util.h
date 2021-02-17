@@ -41,8 +41,12 @@ int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned 
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
 int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, uint64_t nth);
 int in_addr_random_prefix(int family, union in_addr_union *u, unsigned prefixlen_fixed_part, unsigned prefixlen);
-void in6_addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
-                       struct in6_addr *ret_start, struct in6_addr *ret_end);
+int in_addr_prefix_range(
+                int family,
+                const union in_addr_union *in,
+                unsigned prefixlen,
+                union in_addr_union *ret_start,
+                union in_addr_union *ret_end);
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret);
 int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u, uint16_t port, int ifindex, const char *server_name, char **ret);
