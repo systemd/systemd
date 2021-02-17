@@ -35,6 +35,15 @@
     <listitem><para>Do not query the user for authentication for privileged operations.</para></listitem>
   </varlistentry>
 
+  <varlistentry id='legend'>
+    <term><option>--legend=</option><replaceable>BOOL</replaceable></term>
+
+    <listitem>
+      <para>Enable or disable printing of the legend, i.e. column headers and the footer with hints. The
+      legend is printed by default, unless disabled with <option>--quiet</option> or similar.</para>
+    </listitem>
+  </varlistentry>
+
   <varlistentry id='no-legend'>
     <term><option>--no-legend</option></term>
 
