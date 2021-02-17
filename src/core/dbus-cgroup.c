@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "limits-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
 
@@ -704,10 +705,10 @@ static int bus_cgroup_set_boolean(
                         /* Prepare to chop off suffix */                \
                         assert_se(endswith(name, "Scale"));             \
                                                                         \
-                        uint32_t scaled = DIV_ROUND_UP((uint64_t) raw * 1000, (uint64_t) UINT32_MAX); \
-                        unit_write_settingf(u, flags, name, "%.*s=%" PRIu32 ".%" PRIu32 "%%", \
+                        int scaled = UINT32_SCALE_TO_PERMYRIAD(raw);    \
+                        unit_write_settingf(u, flags, name, "%.*s=%i.%02i%%", \
                                             (int)(strlen(name) - strlen("Scale")), name, \
-                                            scaled / 10, scaled % 10);  \
+                                            scaled / 100, scaled % 100);  \
                 }                                                       \
                                                                         \
                 return 1;                                               \
