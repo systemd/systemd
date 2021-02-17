@@ -24,6 +24,12 @@ bool in4_addr_is_null(const struct in_addr *a) {
         return a->s_addr == 0;
 }
 
+bool in6_addr_is_null(const struct in6_addr *a) {
+        assert(a);
+
+        return IN6_IS_ADDR_UNSPECIFIED(a);
+}
+
 int in_addr_is_null(int family, const union in_addr_union *u) {
         assert(u);
 
@@ -31,7 +37,7 @@ int in_addr_is_null(int family, const union in_addr_union *u) {
                 return in4_addr_is_null(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_UNSPECIFIED(&u->in6);
+                return in6_addr_is_null(&u->in6);
 
         return -EAFNOSUPPORT;
 }

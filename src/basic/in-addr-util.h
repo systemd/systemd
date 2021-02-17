@@ -21,7 +21,24 @@ struct in_addr_data {
 };
 
 bool in4_addr_is_null(const struct in_addr *a);
+static inline bool in4_addr_is_set(const struct in_addr *a) {
+        return !in4_addr_is_null(a);
+}
+bool in6_addr_is_null(const struct in6_addr *a);
+static inline bool in6_addr_is_set(const struct in6_addr *a) {
+        return !in6_addr_is_null(a);
+}
 int in_addr_is_null(int family, const union in_addr_union *u);
+static inline bool in_addr_is_set(int family, const union in_addr_union *u) {
+        return in_addr_is_null(family, u) == 0;
+}
+static inline int in_addr_data_is_null(const struct in_addr_data *a) {
+        assert(a);
+        return in_addr_is_null(a->family, &a->address);
+}
+static inline bool in_addr_data_is_set(const struct in_addr_data *a) {
+        return in_addr_data_is_null(a);
+}
 
 int in_addr_is_multicast(int family, const union in_addr_union *u);
 
