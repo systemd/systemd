@@ -2,6 +2,7 @@
 
 #include "percent-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static void test_parse_percent(void) {
         assert_se(parse_percent("") == -EINVAL);
@@ -143,6 +144,51 @@ static void test_parse_permyriad_unbounded(void) {
         assert_se(parse_permyriad_unbounded("42949672.96%") == -ERANGE);
 }
 
+static void test_scale(void) {
+        /* Check some fixed values */
+        assert_se(UINT32_SCALE_FROM_PERCENT(0) == 0);
+        assert_se(UINT32_SCALE_FROM_PERCENT(50) == UINT32_MAX/2+1);
+        assert_se(UINT32_SCALE_FROM_PERCENT(100) == UINT32_MAX);
+
+        assert_se(UINT32_SCALE_FROM_PERMILLE(0) == 0);
+        assert_se(UINT32_SCALE_FROM_PERMILLE(500) == UINT32_MAX/2+1);
+        assert_se(UINT32_SCALE_FROM_PERMILLE(1000) == UINT32_MAX);
+
+        assert_se(UINT32_SCALE_FROM_PERMYRIAD(0) == 0);
+        assert_se(UINT32_SCALE_FROM_PERMYRIAD(5000) == UINT32_MAX/2+1);
+        assert_se(UINT32_SCALE_FROM_PERMYRIAD(10000) == UINT32_MAX);
+
+        /* Make sure there's no numeric noise on the 0%…100% scale when converting from percent and back. */
+        for (int percent = 0; percent <= 100; percent++) {
+                log_debug("%i%% → %" PRIu32 " → %i%%",
+                          percent,
+                          UINT32_SCALE_FROM_PERCENT(percent),
+                          UINT32_SCALE_TO_PERCENT(UINT32_SCALE_FROM_PERCENT(percent)));
+
+                assert_se(UINT32_SCALE_TO_PERCENT(UINT32_SCALE_FROM_PERCENT(percent)) == percent);
+        }
+
+        /* Make sure there's no numeric noise on the 0‰…1000‰ scale when converting from permille and back. */
+        for (int permille = 0; permille <= 1000; permille++) {
+                log_debug("%i‰ → %" PRIu32 " → %i‰",
+                          permille,
+                          UINT32_SCALE_FROM_PERMILLE(permille),
+                          UINT32_SCALE_TO_PERMILLE(UINT32_SCALE_FROM_PERMILLE(permille)));
+
+                assert_se(UINT32_SCALE_TO_PERMILLE(UINT32_SCALE_FROM_PERMILLE(permille)) == permille);
+        }
+
+        /* Make sure there's no numeric noise on the 0‱…10000‱ scale when converting from permille and back. */
+        for (int permyriad = 0; permyriad <= 10000; permyriad++) {
+                log_debug("%i‱ → %" PRIu32 " → %i‱",
+                          permyriad,
+                          UINT32_SCALE_FROM_PERMYRIAD(permyriad),
+                          UINT32_SCALE_TO_PERMYRIAD(UINT32_SCALE_FROM_PERMYRIAD(permyriad)));
+
+                assert_se(UINT32_SCALE_TO_PERMYRIAD(UINT32_SCALE_FROM_PERMYRIAD(permyriad)) == permyriad);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -152,6 +198,7 @@ int main(int argc, char *argv[]) {
         test_parse_permille_unbounded();
         test_parse_permyriad();
         test_parse_permyriad_unbounded();
+        test_scale();
 
         return 0;
 }
