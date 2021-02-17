@@ -539,6 +539,10 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         if (in6_addr_is_null(&p->opt.in6_addr))
                 return -ENOEXEC;
 
+        (void) in_addr_prefix_to_string(AF_INET6,
+                                        (union in_addr_union*) &p->opt.in6_addr,
+                                        p->opt.prefixlen, &addr_p);
+
         LIST_FOREACH(prefix, cur, ra->prefixes) {
 
                 r = in_addr_prefix_intersect(AF_INET6,
@@ -546,25 +550,22 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
                                              cur->opt.prefixlen,
                                              (union in_addr_union*) &p->opt.in6_addr,
                                              p->opt.prefixlen);
-                if (r > 0) {
-                        _cleanup_free_ char *addr_cur = NULL;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
 
-                        (void) in_addr_to_string(AF_INET6,
-                                                 (union in_addr_union*) &p->opt.in6_addr,
-                                                 &addr_p);
+                if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
+                        goto update;
 
-                        if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
-                                goto update;
+                _cleanup_free_ char *addr_cur = NULL;
+                (void) in_addr_prefix_to_string(AF_INET6,
+                                                (union in_addr_union*) &cur->opt.in6_addr,
+                                                cur->opt.prefixlen, &addr_cur);
+                log_radv("IPv6 prefix %s already configured, ignoring %s",
+                         strna(addr_cur), strna(addr_p));
 
-                        (void) in_addr_to_string(AF_INET6,
-                                                 (union in_addr_union*) &cur->opt.in6_addr,
-                                                 &addr_cur);
-                        log_radv("IPv6 prefix %s/%u already configured, ignoring %s/%u",
-                                 addr_cur, cur->opt.prefixlen,
-                                 addr_p, p->opt.prefixlen);
-
-                        return -EEXIST;
-                }
+                return -EEXIST;
         }
 
         p = sd_radv_prefix_ref(p);
@@ -573,10 +574,8 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
 
         ra->n_prefixes++;
 
-        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &p->opt.in6_addr, &addr_p);
-
         if (!dynamic) {
-                log_radv("Added prefix %s/%d", addr_p, p->opt.prefixlen);
+                log_radv("Added prefix %s", strna(addr_p));
                 return 0;
         }
 
@@ -609,8 +608,8 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         cur->valid_until = valid_until;
         cur->preferred_until = preferred_until;
 
-        log_radv("Updated prefix %s/%u preferred %s valid %s",
-                 addr_p, p->opt.prefixlen,
+        log_radv("Updated prefix %s preferred %s valid %s",
+                 strna(addr_p),
                  format_timespan(time_string_preferred, FORMAT_TIMESPAN_MAX,
                                  preferred, USEC_PER_SEC),
                  format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX,
@@ -656,12 +655,11 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         if (!p)
                 return -EINVAL;
 
-        (void) in_addr_to_string(AF_INET6,
-                                 (union in_addr_union*) &p->opt.in6_addr,
-                                 &pretty);
+        (void) in_addr_prefix_to_string(AF_INET6,
+                                        (union in_addr_union*) &p->opt.in6_addr,
+                                        p->opt.prefixlen, &pretty);
 
         LIST_FOREACH(prefix, cur, ra->route_prefixes) {
-                _cleanup_free_ char *addr = NULL;
 
                 r = in_addr_prefix_intersect(AF_INET6,
                                              (union in_addr_union*) &cur->opt.in6_addr,
@@ -676,12 +674,12 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
                 if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
                         goto update;
 
-                (void) in_addr_to_string(AF_INET6,
-                                         (union in_addr_union*) &cur->opt.in6_addr,
-                                         &addr);
-                log_radv("IPv6 route prefix %s/%u already configured, ignoring %s/%u",
-                         strempty(addr), cur->opt.prefixlen,
-                         strempty(pretty), p->opt.prefixlen);
+                _cleanup_free_ char *addr = NULL;
+                (void) in_addr_prefix_to_string(AF_INET6,
+                                                (union in_addr_union*) &cur->opt.in6_addr,
+                                                cur->opt.prefixlen, &addr);
+                log_radv("IPv6 route prefix %s already configured, ignoring %s",
+                         strna(addr), strna(pretty));
 
                 return -EEXIST;
         }
@@ -692,7 +690,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         ra->n_route_prefixes++;
 
         if (!dynamic) {
-                log_radv("Added prefix %s/%u", strempty(pretty), p->opt.prefixlen);
+                log_radv("Added prefix %s", strna(pretty));
                 return 0;
         }
 
@@ -715,8 +713,8 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         if (valid_until == USEC_INFINITY)
                 return -EOVERFLOW;
 
-        log_radv("Updated route prefix %s/%u valid %s",
-                 strempty(pretty), p->opt.prefixlen,
+        log_radv("Updated route prefix %s valid %s",
+                 strna(pretty),
                  format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX, valid, USEC_PER_SEC));
 
         return 0;
