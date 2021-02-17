@@ -5,6 +5,7 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "percent-util.h"
 #include "tc-util.h"
 #include "time-util.h"
 

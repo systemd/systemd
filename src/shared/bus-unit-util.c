@@ -28,6 +28,7 @@
 #include "numa-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #if HAVE_SECCOMP
