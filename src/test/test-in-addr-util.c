@@ -238,6 +238,8 @@ static void test_in_addr_prefix_intersect(void) {
 static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigned pl, const char *after) {
         union in_addr_union ubefore, uafter, t;
 
+        log_info("/* %s(%s, prefixlen=%u) */", __func__, before, pl);
+
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
         t = ubefore;
@@ -250,13 +252,12 @@ static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigne
 }
 
 static void test_in_addr_prefix_next(void) {
-        log_info("/* %s */", __func__);
-
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 24, "192.168.1.0");
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 16, "192.169.0.0");
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 20, "192.168.16.0");
 
         test_in_addr_prefix_next_one(AF_INET, "0.0.0.0", 32, "0.0.0.1");
+        test_in_addr_prefix_next_one(AF_INET, "255.255.255.254", 32, "255.255.255.255");
         test_in_addr_prefix_next_one(AF_INET, "255.255.255.255", 32, NULL);
         test_in_addr_prefix_next_one(AF_INET, "255.255.255.0", 24, NULL);
 
@@ -275,6 +276,8 @@ static void test_in_addr_prefix_next(void) {
 static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned pl, uint64_t nth, const char *after) {
         union in_addr_union ubefore, uafter, t;
 
+        log_info("/* %s(%s, prefixlen=%u, nth=%"PRIu64") */", __func__, before, pl, nth);
+
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
         t = ubefore;
@@ -287,10 +290,9 @@ static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned
 }
 
 static void test_in_addr_prefix_nth(void) {
-        log_info("/* %s */", __func__);
-
         test_in_addr_prefix_nth_one(AF_INET, "192.168.0.0", 24, 0, "192.168.0.0");
-        test_in_addr_prefix_nth_one(AF_INET, "192.168.0.0", 24, 1, "192.168.1.0");
+        test_in_addr_prefix_nth_one(AF_INET, "192.168.0.123", 24, 0, "192.168.0.0");
+        test_in_addr_prefix_nth_one(AF_INET, "192.168.0.123", 24, 1, "192.168.1.0");
         test_in_addr_prefix_nth_one(AF_INET, "192.168.0.0", 24, 4, "192.168.4.0");
         test_in_addr_prefix_nth_one(AF_INET, "192.168.0.0", 25, 1, "192.168.0.128");
         test_in_addr_prefix_nth_one(AF_INET, "192.168.255.0", 25, 1, "192.168.255.128");
@@ -309,6 +311,7 @@ static void test_in_addr_prefix_nth(void) {
         test_in_addr_prefix_nth_one(AF_INET6, "0000::", 8, 256, NULL);
         test_in_addr_prefix_nth_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1, NULL);
         test_in_addr_prefix_nth_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, 1, NULL);
+        test_in_addr_prefix_nth_one(AF_INET6, "1234:5678:90ab:cdef:1234:5678:90ab:cdef", 12, 1, "1240::");
 }
 
 static void test_in_addr_to_string_one(int f, const char *addr) {
