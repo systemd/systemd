@@ -73,6 +73,7 @@ struct NamespaceInfo {
         bool protect_kernel_logs;
         bool mount_apivfs;
         bool protect_hostname;
+        bool private_ipc;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;

@@ -2033,7 +2033,9 @@ bool exec_needs_mount_namespace(
             context->protect_kernel_logs ||
             context->protect_control_groups ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
-            context->proc_subset != PROC_SUBSET_ALL)
+            context->proc_subset != PROC_SUBSET_ALL ||
+            context->private_ipc ||
+            context->ipc_namespace_path)
                 return true;
 
         if (context->root_directory) {
@@ -3174,6 +3176,7 @@ static int apply_mount_namespace(
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
                         .proc_subset = context->proc_subset,
+                        .private_ipc = context->private_ipc || context->ipc_namespace_path,
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
