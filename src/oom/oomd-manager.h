@@ -18,7 +18,7 @@
  * system.slice are assumed to be less latency sensitive. */
 #define DEFAULT_MEM_PRESSURE_DURATION_USEC (30 * USEC_PER_SEC)
 #define DEFAULT_MEM_PRESSURE_LIMIT_PERCENT 60
-#define DEFAULT_SWAP_USED_LIMIT 90
+#define DEFAULT_SWAP_USED_LIMIT_PERCENT 90
 
 #define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
 #define POST_ACTION_DELAY_USEC (15 * USEC_PER_SEC)
@@ -32,7 +32,7 @@ struct Manager {
         Hashmap *polkit_registry;
 
         bool dry_run;
-        unsigned swap_used_limit;
+        int swap_used_limit_permyriad;
         loadavg_t default_mem_pressure_limit;
         usec_t default_mem_pressure_duration_usec;
 
@@ -56,7 +56,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_new(Manager **ret);
 
-int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec);
+int manager_start(Manager *m, bool dry_run, int swap_used_limit_permyriad, int mem_pressure_limit_permyriad, usec_t mem_pressure_usec);
 
 int manager_get_dump_string(Manager *m, char **ret);
 

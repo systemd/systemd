@@ -163,7 +163,7 @@ struct CGroupContext {
         /* Settings for systemd-oomd */
         ManagedOOMMode moom_swap;
         ManagedOOMMode moom_mem_pressure;
-        uint32_t moom_mem_pressure_limit_permyriad;
+        uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
         ManagedOOMPreference moom_preference;
 };
 
