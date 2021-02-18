@@ -41,13 +41,33 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_s
 
                 r = sd_device_set_sysattr_value(d, "uevent", action);
                 if (r < 0) {
+                        /* ENOENT may be returned when a device does not have /uevent or is already
+                         * removed. Hence, this is logged in debug level and ignored.
+                         *
+                         * ENODEV may be returned by some buggy(?) devices e.g. /sys/devices/vio.
+                         * See, https://github.com/systemd/systemd/issues/13652#issuecomment-535129791
+                         * and https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1845319.
+                         * So, this error is also logged in debug level, and ignored.
+                         *
+                         * EROFS is returned when /sys is read only. In that case, all subsequent
+                         * writes should be also failed, hence return earlier.
+                         *
+                         * All other errors (including EACCES, otherwise, nothing can be seen when this
+                         * is invoked by non-privileged user) are logged in error level, but let's
+                         * continue the operation, and propagate the error.
+                         * Why we continue on EACCES? Some device can be owned by a user, e.g., network
+                         * devices configured in a network namespace. See,
+                         * https://github.com/systemd/systemd/pull/18559 and
+                         * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ebb4a4bf76f164457184a3f43ebc1552416bc823
+                         */
+
                         bool ignore = IN_SET(r, -ENOENT, -ENODEV);
 
                         log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
                                        "Failed to write '%s' to '%s/uevent'%s: %m",
                                        action, syspath, ignore ? ", ignoring" : "");
-                        if (IN_SET(r, -EACCES, -EROFS))
-                                /* Inovoked by unprivileged user, or read only filesystem. Return earlier. */
+
+                        if (r == -EROFS)
                                 return r;
                         if (ret == 0 && !ignore)
                                 ret = r;
