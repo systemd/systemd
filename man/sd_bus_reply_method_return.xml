@@ -19,7 +19,6 @@
   <refnamediv>
     <refname>sd_bus_reply_method_return</refname>
     <refname>sd_bus_reply_method_returnv</refname>
-    <refname>sd_bus_reply</refname>
 
     <refpurpose>Reply to a D-Bus method call</refpurpose>
   </refnamediv>
@@ -41,12 +40,6 @@
         <paramdef>const char *<parameter>types</parameter></paramdef>
         <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
-
-      <funcprototype>
-        <funcdef>int sd_bus_reply</funcdef>
-        <paramdef>const sd_bus_message *<parameter>call</parameter></paramdef>
-        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -59,12 +52,6 @@
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If no reply is expected to <parameter>call</parameter>, this function succeeds without sending a
     reply.</para>
-
-    <para><function>sd_bus_reply()</function> takes a complete bus message object created with either
-    <citerefentry><refentrytitle>sd_bus_message_new_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    or
-    <citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and sends it as a reply to the <parameter>call</parameter> message.</para>
   </refsect1>
 
   <refsect1>
