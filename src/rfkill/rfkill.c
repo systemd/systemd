@@ -135,8 +135,6 @@ static int determine_state_file(
 
 static int load_state(Context *c, const struct rfkill_event *event) {
         _cleanup_free_ char *state_file = NULL, *value = NULL;
-        struct rfkill_event we;
-        ssize_t l;
         int b, r;
 
         assert(c);
@@ -168,18 +166,22 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse state file %s: %m", state_file);
 
-        we = (struct rfkill_event) {
-                .op = RFKILL_OP_CHANGE,
+        struct rfkill_event we = {
                 .idx = event->idx,
+                .op = RFKILL_OP_CHANGE,
                 .soft = b,
         };
+        assert_cc(offsetof(struct rfkill_event, op) < RFKILL_EVENT_SIZE_V1);
+        assert_cc(offsetof(struct rfkill_event, soft) < RFKILL_EVENT_SIZE_V1);
 
-        l = write(c->rfkill_fd, &we, sizeof(we));
+        ssize_t l = write(c->rfkill_fd, &we, sizeof we);
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
-        if (l != sizeof(we))
+        if (l < RFKILL_EVENT_SIZE_V1)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Couldn't write rfkill event structure, too short.");
+                                       "Couldn't write rfkill event structure, too short (wrote %zd of %zu bytes).",
+                                       l, sizeof we);
+        log_debug("Writing struct rfkill_event successful (%zd of %zu bytes).", l, sizeof we);
 
         log_debug("Loaded state '%s' from %s.", one_zero(b), state_file);
         return 0;
@@ -305,44 +307,45 @@ static int run(int argc, char *argv[]) {
         }
 
         for (;;) {
-                struct rfkill_event event;
-                const char *type;
-                ssize_t l;
+                struct rfkill_event event = {};
 
-                l = read(c.rfkill_fd, &event, sizeof(event));
+                ssize_t l = read(c.rfkill_fd, &event, sizeof event);
                 if (l < 0) {
-                        if (errno == EAGAIN) {
+                        if (errno != EAGAIN)
+                                return log_error_errno(errno, "Failed to read from /dev/rfkill: %m");
 
-                                if (!ready) {
-                                        /* Notify manager that we are
-                                         * now finished with
-                                         * processing whatever was
-                                         * queued */
-                                        (void) sd_notify(false, "READY=1");
-                                        ready = true;
-                                }
-
-                                /* Hang around for a bit, maybe there's more coming */
-
-                                r = fd_wait_for_event(c.rfkill_fd, POLLIN, EXIT_USEC);
-                                if (r == -EINTR)
-                                        continue;
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to poll() on device: %m");
-                                if (r > 0)
-                                        continue;
-
-                                log_debug("All events read and idle, exiting.");
-                                break;
+                        if (!ready) {
+                                /* Notify manager that we are now finished with processing whatever was
+                                 * queued */
+                                (void) sd_notify(false, "READY=1");
+                                ready = true;
                         }
 
-                        log_error_errno(errno, "Failed to read from /dev/rfkill: %m");
+                        /* Hang around for a bit, maybe there's more coming */
+
+                        r = fd_wait_for_event(c.rfkill_fd, POLLIN, EXIT_USEC);
+                        if (r == -EINTR)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to poll() on device: %m");
+                        if (r > 0)
+                                continue;
+
+                        log_debug("All events read and idle, exiting.");
+                        break;
                 }
 
-                if (l != RFKILL_EVENT_SIZE_V1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Read event structure of invalid size.");
+                if (l < RFKILL_EVENT_SIZE_V1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read of struct rfkill_event: (%zd < %d)",
+                                               l, RFKILL_EVENT_SIZE_V1);
+                log_debug("Reading struct rfkill_event: got %zd bytes.", l);
 
-                type = rfkill_type_to_string(event.type);
+                /* The event structure has more fields. We only care about the first few, so it's OK if we
+                 * don't read the full structure. */
+                assert_cc(offsetof(struct rfkill_event, op) < RFKILL_EVENT_SIZE_V1);
+                assert_cc(offsetof(struct rfkill_event, type) < RFKILL_EVENT_SIZE_V1);
+
+                const char *type = rfkill_type_to_string(event.type);
                 if (!type) {
                         log_debug("An rfkill device of unknown type %i discovered, ignoring.", event.type);
                         continue;
