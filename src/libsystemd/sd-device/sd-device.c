@@ -1951,7 +1951,6 @@ static void device_remove_sysattr_value(sd_device *device, const char *_key) {
 _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
         _cleanup_free_ char *value = NULL;
         const char *syspath, *path;
-        size_t len;
         int r;
 
         assert_return(device, -EINVAL);
@@ -1968,19 +1967,16 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         path = prefix_roota(syspath, sysattr);
 
-        len = strlen(_value);
-
-        /* drop trailing newlines */
-        while (len > 0 && _value[len - 1] == '\n')
-                len --;
-
-        /* value length is limited to 4k */
-        if (len > 4096)
-                return -EINVAL;
-
-        value = strndup(_value, len);
+        value = strdup(_value);
         if (!value)
                 return -ENOMEM;
+
+        /* drop trailing newlines */
+        truncate_nl(value);
+
+        /* value length is limited to 4k */
+        if (strlen(value) > 4096)
+                return -EINVAL;
 
         r = write_string_file(path, value, WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_NOFOLLOW);
         if (r < 0)
