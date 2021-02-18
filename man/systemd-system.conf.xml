@@ -323,11 +323,10 @@
       <varlistentry>
         <term><varname>DefaultEnvironment=</varname></term>
 
-        <listitem><para>Sets manager environment variables passed to
-        all executed processes. Takes a space-separated list of
-        variable assignments. See
-        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details about environment variables.</para>
+        <listitem><para>Configures environment variables passed to all executed processes. Takes a
+        space-separated list of variable assignments. See <citerefentry
+        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details about environment variables.</para>
 
         <para>Example:
 
@@ -337,6 +336,20 @@
         <literal>VAR1</literal>,
         <literal>VAR2</literal>,
         <literal>VAR3</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagerEnvironment=</varname></term>
+
+        <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
+        environment variables just for the manager process itself. These variables are not inherited by
+        processes spawned by the service manager, use <varname>DefaultEnvironment=</varname> for that. Note
+        that these variables are merged into the existing environment block. In particular, in case of the
+        system manager, this includes variables set by the kernel based on the kernel command line.</para>
+
+        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
+        See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
+        variables understood by <command>systemd</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
