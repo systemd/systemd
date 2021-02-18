@@ -740,6 +740,9 @@ static int find_symlinks_fd(
                         _cleanup_free_ char *p = NULL;
                         int nfd, q;
 
+                        if (endswith(de->d_name, ".d"))
+                                continue;
+
                         nfd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                         if (nfd < 0) {
                                 if (errno == ENOENT)
