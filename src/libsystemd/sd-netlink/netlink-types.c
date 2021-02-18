@@ -1636,7 +1636,7 @@ const NLTypeSystem *type_system_get_root(int protocol) {
 }
 
 int type_system_root_get_type(sd_netlink *nl, const NLType **ret, uint16_t type) {
-        sd_genl_family family;
+        sd_genl_family_t family;
         const NLType *nl_type;
         int r;
 

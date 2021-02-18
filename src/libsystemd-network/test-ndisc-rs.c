@@ -232,7 +232,7 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         return send_ra_function(0);
 }
 
-static void test_callback(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata) {
+static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
         sd_event *e = userdata;
         static unsigned idx = 0;
         uint64_t flags_array[] = {

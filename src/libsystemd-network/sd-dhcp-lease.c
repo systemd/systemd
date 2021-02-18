@@ -99,7 +99,7 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
 
 int sd_dhcp_lease_get_servers(
                 sd_dhcp_lease *lease,
-                sd_dhcp_lease_server_type what,
+                sd_dhcp_lease_server_type_t what,
                 const struct in_addr **addr) {
 
         assert_return(lease, -EINVAL);
@@ -281,7 +281,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         free(lease->hostname);
         free(lease->domainname);
 
-        for (sd_dhcp_lease_server_type i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
+        for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(lease->servers[i].addr);
 
         free(lease->static_route);
