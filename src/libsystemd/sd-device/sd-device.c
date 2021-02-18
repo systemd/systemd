@@ -1917,6 +1917,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(sysattr, -EINVAL);
 
         if (!_value) {
+                /* If input value is NULL, then clear cache and not write anything. */
                 device_remove_sysattr_value(device, sysattr);
                 return 0;
         }
