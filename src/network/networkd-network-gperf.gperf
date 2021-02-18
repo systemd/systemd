@@ -111,7 +111,7 @@ Network.DNSSEC,                              config_parse_dnssec_mode,          
 Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             0
 Network.NTP,                                 config_parse_ntp,                                         0,                             offsetof(Network, ntp)
 Network.IPForward,                           config_parse_address_family_with_kernel,                  0,                             offsetof(Network, ip_forward)
-Network.IPMasquerade,                        config_parse_address_family_compat,                       0,                             offsetof(Network, ip_masquerade)
+Network.IPMasquerade,                        config_parse_ip_masquerade,                               0,                             offsetof(Network, ip_masquerade)
 Network.IPv6PrivacyExtensions,               config_parse_ipv6_privacy_extensions,                     0,                             offsetof(Network, ipv6_privacy_extensions)
 Network.IPv6AcceptRA,                        config_parse_tristate,                                    0,                             offsetof(Network, ipv6_accept_ra)
 Network.IPv6AcceptRouterAdvertisements,      config_parse_tristate,                                    0,                             offsetof(Network, ipv6_accept_ra)
