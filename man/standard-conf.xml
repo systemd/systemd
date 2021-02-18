@@ -44,8 +44,9 @@
     <para>The default configuration is set during compilation, so configuration is only needed when it is
     necessary to deviate from those defaults. Initially, the main configuration file in
     <filename>/etc/systemd/</filename> contains commented out entries showing the defaults as a guide to the
-    administrator. Local overrides can be created by editing this file or by creating drop-ins, see below.
-    </para>
+    administrator. Local overrides can be created by editing this file or by creating drop-ins, as described
+    below. Using drop-ins for local configuration is recommended over modifications to the main configuration
+    file.</para>
 
     <para>In addition to the "main" configuration file, drop-in configuration snippets are read from
     <filename>/usr/lib/systemd/*.conf.d/</filename>, <filename>/usr/local/lib/systemd/*.conf.d/</filename>,
