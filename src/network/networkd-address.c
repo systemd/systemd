@@ -57,6 +57,7 @@ int address_new(Address **ret) {
                 .scope = RT_SCOPE_UNIVERSE,
                 .cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME,
                 .cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME,
+                .set_broadcast = true,
                 .duplicate_address_detection = ADDRESS_FAMILY_IPV6,
         };
 
@@ -895,7 +896,7 @@ int address_configure(
                 r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
-        } else if (address_may_have_broadcast(address)) {
+        } else if (address_may_have_broadcast(address) && address->set_broadcast) {
                 r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_BROADCAST attribute: %m");
@@ -1475,6 +1476,21 @@ int config_parse_broadcast(
                 return 0;
         }
 
+        if (isempty(rvalue)) {
+                n->broadcast = (struct in_addr) {};
+                n->set_broadcast = true;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r == 0) {
+                n->broadcast = (struct in_addr) {};
+                n->set_broadcast = false;
+                TAKE_PTR(n);
+                return 0;
+        }
+
         if (n->family == AF_INET6) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
@@ -1487,8 +1503,14 @@ int config_parse_broadcast(
                            "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
+        if (in4_addr_is_null(&u.in)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Broadcast cannot be ANY address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
 
         n->broadcast = u.in;
+        n->set_broadcast = true;
         n->family = AF_INET;
         TAKE_PTR(n);
 
@@ -1843,7 +1865,7 @@ static int address_section_verify(Address *address) {
         }
 
         if (address_may_have_broadcast(address)) {
-                if (address->broadcast.s_addr == 0)
+                if (address->broadcast.s_addr == 0 && address->set_broadcast)
                         address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(0xfffffffflu >> address->prefixlen);
         } else if (address->broadcast.s_addr != 0) {
                 log_warning("%s: broadcast address is set for IPv6 address or IPv4 address with prefixlength larger than 30. "
