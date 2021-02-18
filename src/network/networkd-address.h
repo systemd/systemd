@@ -30,6 +30,7 @@ typedef struct Address {
         uint32_t flags;
         char *label;
 
+        int set_broadcast;
         struct in_addr broadcast;
         struct ifa_cacheinfo cinfo;
 
