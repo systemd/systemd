@@ -1872,6 +1872,10 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
 
+        /* Refuse to read uevent file by using this function. */
+        if (streq(sysattr, "uevent"))
+                return -EINVAL;
+
         /* look for possibly already cached result */
         r = device_get_sysattr_value(device, sysattr, &cached_value);
         if (r != -ENOENT) {
@@ -1992,6 +1996,10 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         r = write_string_file(path, value, WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_NOFOLLOW);
         if (r < 0)
                 return r;
+
+        /* Do not cache action string written in uevent file. */
+        if (streq(sysattr, "uevent"))
+                return 0;
 
         r = device_cache_sysattr_value(device, sysattr, value);
         if (r < 0)
