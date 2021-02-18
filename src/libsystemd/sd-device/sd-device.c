@@ -1894,12 +1894,16 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         path = prefix_roota(syspath, sysattr);
         r = lstat(path, &statbuf);
         if (r < 0) {
-                /* remember that we could not access the sysattr */
-                r = device_add_sysattr_value(device, sysattr, NULL);
-                if (r < 0)
-                        return r;
+                int k;
 
-                return -ENOENT;
+                /* remember that we could not access the sysattr */
+                k = device_add_sysattr_value(device, sysattr, NULL);
+                if (k < 0)
+                        log_device_debug_errno(device, k,
+                                               "sd-device: failed to cache attribute '%s' with NULL, ignoring: %m",
+                                               sysattr);
+
+                return r;
         } else if (S_ISLNK(statbuf.st_mode)) {
                 /* Some core links return only the last element of the target path,
                  * these are just values, the paths should not be exposed. */
@@ -1927,11 +1931,16 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 truncate_nl(value);
         }
 
+        /* Unfortunately, we need to return 'const char*' instead of 'char*'. Hence, failure in caching
+         * sysattr value is critical unlike the other places. */
         r = device_add_sysattr_value(device, sysattr, value);
-        if (r < 0)
-                return r;
-
-        if (ret_value)
+        if (r < 0) {
+                log_device_debug_errno(device, r,
+                                       "sd-device: failed to cache attribute '%s' with '%s'%s: %m",
+                                       sysattr, value, ret_value ? "" : ", ignoring");
+                if (ret_value)
+                        return r;
+        } else if (ret_value)
                 *ret_value = TAKE_PTR(value);
 
         return 0;
@@ -1985,9 +1994,12 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         r = device_add_sysattr_value(device, sysattr, value);
         if (r < 0)
-                return r;
+                log_device_debug_errno(device, r,
+                                       "sd-device: failed to cache attribute '%s' with '%s', ignoring: %m",
+                                       sysattr, value);
+        else
+                TAKE_PTR(value);
 
-        TAKE_PTR(value);
         return 0;
 }
 
