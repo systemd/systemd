@@ -28,26 +28,38 @@ CHANGES WITH 248:
           used to configure dm-verity behaviour for the root device.
 
         * The key file specified in /etc/crypttab (the third field) may now
-          refer to a UNIX socket path. The key is acquired by connecting to
-          that socket and reading from it. This allows the implementation of a
-          service to provide key information dynamically, at the moment when it
-          is needed.
+          refer to an AF_UNIX/SOCK_STREAM socket in the file system. The key is
+          acquired by connecting to that socket and reading from it. This
+          allows the implementation of a service to provide key information
+          dynamically, at the moment when it is needed.
 
-        * Support has been added for extracting the PKCS#11 token URI and
-          encrypted key from the LUKS2 JSON embedded metadata header. This
-          allows the information how to open the encrypted device to be
-          embedded directly in the device and obviates the need for
-          configuration in an external file.
+        * Support has been added to systemd-cryptsetup for extracting the
+          PKCS#11 token URI and encrypted key from the LUKS2 JSON embedded
+          metadata header. This allows the information how to open the
+          encrypted device to be embedded directly in the device and obviates
+          the need for configuration in an external file.
 
-        * LUKS devices may now be unlocked using TPM2 hardware.
+        * systemd-cryptsetup gained support for unlocking LUKS2 volumes using
+          TPM2 hardware, as well as FIDO2 security tokens.
 
         * systemd-repart may lock partitions using TPM2 hardware. This may be
           useful for example to create an encrypted /var partition bound to the
           machine on first boot.
 
-        * A new systemd-cryptenroll tool has been added to enroll FIDO2+PKCS#11
-          security tokens to LUKS volumes, list and destroy them. See
-          https://www.freedesktop.org/software/systemd/man/systemd-cryptenroll.html.
+        * A new systemd-cryptenroll tool has been added to enroll TPM2, FIDO2
+          and PKCS#11 security tokens to LUKS volumes, list and destroy
+          them. See:
+
+          http://0pointer.net/blog/unlocking-luks2-volumes-with-tpm2-fido2-pkcs11-security-hardware-on-systemd-248.html
+
+          It also supports enrolling "recovery keys" and regular passphrases.
+
+        * The libfido2 dependency is now based on dlopen(), so that the library
+          is used at runtime when installed, but not if not.
+
+        * systemd-cryptsetup gained support for two new options in
+          /etc/crypttab: no-write-workqueue and no-read-workqueue which request
+          synchronous processing of encryption/decryption IO.
 
         * The manager may be configured at compile time to use fexecve instead
           of execve when spawning children. Using fexecve closes a window
@@ -58,8 +70,8 @@ CHANGES WITH 248:
         * The configuration option -Dcompat-gateway-hostname has been dropped.
           "_gateway" is now the only supported name.
 
-        * The ConditionSecurity=tpm2 unit file setting may be used to check
-          if the system has at least one TPM2 (tpmrm class) device.
+        * The ConditionSecurity=tpm2 unit file setting may be used to check if
+          the system has at least one TPM2 (tpmrm class) device.
 
         * The tables of system calls in seccomps filters are now automatically
           generated from kernel lists exported on
@@ -89,13 +101,25 @@ CHANGES WITH 248:
         * The ExecPaths= and NoExecPaths= settings may be used to specify
           noexec for parts of the file system.
 
-        * sd-bus has a new function sd_bus_open_use_machine() to open a
+        * sd-bus has a new function sd_bus_open_user_machine() to open a
           connection to the session bus of a specific user in a local container
-          or on the local host. It also gained a convenience function
-          sd_bus_reply() to call sd_bus_send() with an existing reply message.
+          or on the local host. This is exposed in the -M switch to systemctl
+          and similar tools:
 
-        * sd-event allows rate limits to be set on event sources. See the new
-          man page sd_event_source_set_ratelimit(3) for details.
+              systemctl --user -M lennart@foobar start foo
+
+          This will connect to the user bus of a user "lennart" in container
+          "foobar". If no container name is specified, the specified user on
+          the host itself is connected to
+
+              systemctl --user -M lennart@ start quux
+
+        * sd-bus also gained a convenience function sd_bus_reply() to call
+          sd_bus_send() with an existing reply message.
+
+        * sd-event allows rate limits to be set on event sources, for dealing
+          with high-priority event sources that might starve out others. See
+          the new man page sd_event_source_set_ratelimit(3) for details.
 
         * systemd.link files gained a [Link] Promiscuous= switch, which allows
           the device to be raised in promiscuous mode.
@@ -128,6 +152,11 @@ CHANGES WITH 248:
           systemd.network files gained a [DHCPv6PrefixDelegation]
           ManageTemporaryAddress= switch.
 
+          .network files gained a new ActivationPolicy= setting which allows
+          configuraiton how the UP state of an interface shall be managed,
+          i.e. whether the iterface is always upped, always downed, or may be
+          upped/downed by the user using "ip dev".
+
         * systemd.netdev files gained a [VLAN] Protocol=, IngressQOSMaps=,
           EgressQOSMaps=, and [MACVLAN] BroadcastMulticastQueueLength=
           configuration options for VLAN packet handling.
@@ -139,10 +168,10 @@ CHANGES WITH 248:
         * udev now exports the VOLUME_ID, LOGICAL_VOLUME_ID, VOLUME_SET_ID, and
           DATA_PREPARED_ID attributes for block devices (when available).
 
-        * udev now exports decoded DMI information about memory under the
-          /sys/class/dmi/id/ pseudo device.
+        * udev now exports decoded DMI information about used memory slots as
+          device properties under the /sys/class/dmi/id/ pseudo device.
 
-        * /dev is not mounted noexec any more. This didn't provide any
+        * /dev/ is not mounted noexec any more. This didn't provide any
           significant security benefits and would conflicts with the executable
           mappings used with /dev/sgx device nodes.
 
@@ -158,12 +187,27 @@ CHANGES WITH 248:
           DNS query and respond with a mostly unmodified packet received from
           the upstream server.
 
+        * systemd-resolved learnt a new boolean option CacheFromLocalhost= in
+          resolved.conf. If true the service will provide caching even for DNS
+          lookups made to an upstream DNS server on the 127.0.0.1/::1
+          addresses. By default (and when the option is false) systemd-resolved
+          will not cache such lookups, in order to avoid duplicate local
+          caching, under the assumption the local upstream server caches
+          anyway.
+
         * systemd-nspawn gained a new --ambient-capability= setting
           (AmbientCapability= in .nspawn files) to configure ambient
           capabilities passed to the container payload.
 
         * systemd-nspawn gained the ability to configure the firewall using the
-          nft subsystem (in addition to the existing iptables support).
+          nftables subsystem (in addition to the existing iptables
+          support). Similar, systemd-networkd's IPMasquerade= option now
+          supports nftables as backend, too. In both cases NAT on IPv6 is now
+          supported too, in addition to IPv4 (the iptables backend still is
+          IPv4-only).
+
+        * systemd-importd will now download .verity and .roothash.p7s files
+          along with the machine image (as exposed via machinectl pull-raw).
 
         * systemd-oomd now gained a new DefaultMemoryPressureDurationSec=
           setting to configure the time a unit's cgroup needs to exceed memory
@@ -188,15 +232,20 @@ CHANGES WITH 248:
           the configured hostname ("static", "transient", or "fallback") as
           D-Bus properties.
 
-        * systemd-hostnamed now exports the HardwareVendor and HardwareModel
-          D-Bus properties. hostnamectl shows this in the status output.
+        * systemd-hostnamed now exports the "HardwareVendor" and
+          "HardwareModel" D-Bus properties, which are supposed to contain a
+          pair of cleaned up, human readable strings describing the system
+          vendor and model. It's typically source from the firmware's DMI
+          tables, but may be augmented from a new hwdb database. hostnamectl
+          shows this in the status output.
 
         * systemd-localed may now call locale-gen to generate missing locales
           on-demand (UTF-8-only). This improves integration with Debian-based
           distributions (Debian/Ubuntu/PureOS/Tanglu/...) and Arch Linux.
 
-        * systemctl --check-inhibitors may now be used to obey inhibitors even
-          when invoked non-interactively.
+        * systemctl --check-inhibitors=true may now be used to obey inhibitors
+          even when invoked non-interactively. The old --ignore-inhibitors
+          switch is now deprecated and replaced by --check-inhibitors=false.
 
         * systemctl import-environment will now emit a warning when called
           without any arguments (i.e. to import the full environment block of
@@ -211,6 +260,11 @@ CHANGES WITH 248:
           directly calling the D-Bus API of the manager, should also push
           specific variables, and not the full inherited environment.
 
+        * systemctl's status output now shows unit state with a more careful
+          selection of Unicode characters: units in maintainance show a "○"
+          symbol instead of the usual "●", failed units show "×", and services
+          being reloaded "↻".
+
         * coredumpctl gained a --debugger-arguments= switch to pass arguments
           to the debugger.
 
@@ -219,12 +273,13 @@ CHANGES WITH 248:
         * Various tools gained --pager/--no-pager/--json switches to
           enable/disable the pager and provide JSON output.
 
-        * Various tools now accept SYSTEMD_COLORS=16|256 to configure what
-          colours are used in output.
+        * Various tools now accept SYSTEMD_COLORS=16|256 to configure how
+          many terminal colours are used in output.
 
-        * less 568 or newer is now required. Link markup is now always used,
-          and older versions will not display it properly. SYSTEMD_URLIFY=0 may
-          be used to disable it.
+        * less 568 or newer is now required. Hyperlink ANSI sequences in
+          termina output are now used even if a pager is used, and older
+          versions of less are not able to display these sequences
+          correctly. SYSTEMD_URLIFY=0 may be used to disable it.
 
         * Builds with support for separate / and /usr hierarchies (split-usr
           builds, non-merged-usr builds) are now officially deprecated. A
@@ -236,6 +291,11 @@ CHANGES WITH 248:
         * mmcblk[0-9]boot[0-9] devices will no longer be probed automatically
           for partitions, as in the vast majority of cases they contain none
           and are used internally by the bootloader (eg: uboot).
+
+        * systemd will now set the $SYSTEMD_EXEC_PID environment variable for
+          spawned processes to the PID of the process itself. This may be used
+          by programs for detecting whether they were forked off by the service
+          manager itself or are a process forked off further down the tree.
 
 CHANGES WITH 247:
 
