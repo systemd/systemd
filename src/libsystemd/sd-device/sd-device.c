@@ -1946,8 +1946,6 @@ static void device_remove_cached_sysattr_value(sd_device *device, const char *_k
         free(hashmap_remove2(device->sysattr_values, _key, (void **) &key));
 }
 
-/* set the attribute and save it in the cache. If a NULL value is passed the
- * attribute is cleared from the cache */
 _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
         _cleanup_free_ char *value = NULL;
         const char *syspath, *path;
@@ -1957,7 +1955,10 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
 
+        /* Set the attribute and save it in the cache. */
+
         if (!_value) {
+                /* If input value is NULL, then clear cache and not write anything. */
                 device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
