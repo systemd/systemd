@@ -8,6 +8,7 @@
 
 #include "device-enumerator-private.h"
 #include "device-private.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "path-util.h"
@@ -23,33 +24,32 @@
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
 
-static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_set) {
+static int exec_list(sd_device_enumerator *e, sd_device_action_t action, Set **settle_set) {
+        const char *action_str;
         sd_device *d;
         int r, ret = 0;
 
+        action_str = device_action_to_string(action);
+
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                _cleanup_free_ char *filename = NULL;
                 const char *syspath;
 
                 if (sd_device_get_syspath(d, &syspath) < 0)
                         continue;
 
                 if (arg_verbose)
-                        printf("%s\n", syspath);
+                        printf("%s\n", strna(syspath));
+
                 if (arg_dry_run)
                         continue;
 
-                filename = path_join(syspath, "uevent");
-                if (!filename)
-                        return log_oom();
-
-                r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = sd_device_trigger(d, action);
                 if (r < 0) {
                         bool ignore = IN_SET(r, -ENOENT, -ENODEV);
 
-                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s'%s: %m",
-                                       action, filename, ignore ? ", ignoring" : "");
+                        log_device_full_errno(d, ignore ? LOG_DEBUG : LOG_ERR, r,
+                                              "Failed to write '%s' to '%s/uevent'%s: %m",
+                                              action_str, syspath, ignore ? ", ignoring" : "");
                         if (IN_SET(r, -EACCES, -EROFS))
                                 /* Inovoked by unprivileged user, or read only filesystem. Return earlier. */
                                 return r;
@@ -169,7 +169,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 TYPE_DEVICES,
                 TYPE_SUBSYSTEMS,
         } device_type = TYPE_DEVICES;
-        const char *action = "change";
+        sd_device_action_t action = SD_DEVICE_CHANGE;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -211,18 +211,14 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
                 case 'c': {
-                        sd_device_action_t a;
-
                         if (streq(optarg, "help")) {
                                 dump_device_action_table();
                                 return 0;
                         }
 
-                        a = device_action_from_string(optarg);
-                        if (a < 0)
-                                return log_error_errno(a, "Unknown action '%s'", optarg);
-
-                        action = device_action_to_string(a);
+                        action = device_action_from_string(optarg);
+                        if (action < 0)
+                                return log_error_errno(action, "Unknown action '%s'", optarg);
                         break;
                 }
                 case 's':
