@@ -2854,6 +2854,28 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+      <title>[MPTCP] Section Options</title>
+      <para>The [MPTCP] section accepts the following keys. </para>
+
+      <variablelist>
+      <varlistentry>
+        <term><varname>Id=</varname></term>
+        <listitem>
+          <para>Specifies the unique numeric identifier for the given endpoint. Takes an unsigned integer in the range 1..255.
+          When unset, the kernel will assign the value i.e. auto-increment. </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Address=</varname></term>
+        <listitem>
+          <para>Specifies the IP addresses that will be used and/or announced for additional subflow. This is mandatory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[QDisc] Section Options</title>
     <para>The [QDisc] section manages the traffic control queueing discipline (qdisc).</para>
 
