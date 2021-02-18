@@ -213,6 +213,13 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>-q</option></term>
+          <term><option>--quiet</option></term>
+          <listitem>
+            <para>Suppress error logging in triggering events.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--type=<replaceable>TYPE</replaceable></option></term>
           <listitem>

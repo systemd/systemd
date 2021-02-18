@@ -198,7 +198,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         devpath = syspath + STRLEN("/sys");
 
-        if (devpath[0] == '\0')
+        if (devpath[0] != '/')
                 /* '/sys' alone is not a valid device path */
                 return -ENODEV;
 
@@ -519,7 +519,7 @@ int device_read_uevent_file(sd_device *device) {
                 return 0;
         }
         if (r == -ENOENT)
-                /* some devices may not have uevent files, see set_syspath() */
+                /* some devices may not have uevent files, see device_set_syspath() */
                 return 0;
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
@@ -674,11 +674,11 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
 
 _public_ int sd_device_get_syspath(sd_device *device, const char **ret) {
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         assert(path_startswith(device->syspath, "/sys/"));
 
-        *ret = device->syspath;
+        if (ret)
+                *ret = device->syspath;
 
         return 0;
 }
@@ -720,8 +720,6 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
 }
 
 _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
-
-        assert_return(ret, -EINVAL);
         assert_return(child, -EINVAL);
 
         if (!child->parent_set) {
@@ -733,7 +731,8 @@ _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
         if (!child->parent)
                 return -ENOENT;
 
-        *ret = child->parent;
+        if (ret)
+                *ret = child->parent;
         return 0;
 }
 
@@ -779,7 +778,6 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         const char *syspath, *drivers = NULL;
         int r;
 
-        assert_return(ret, -EINVAL);
         assert_return(device, -EINVAL);
 
         r = sd_device_get_syspath(device, &syspath);
@@ -836,7 +834,8 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         if (!device->subsystem)
                 return -ENOENT;
 
-        *ret = device->subsystem;
+        if (ret)
+                *ret = device->subsystem;
         return 0;
 }
 
@@ -868,10 +867,11 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const
         r = sd_device_get_parent(child, &parent);
         while (r >= 0) {
                 const char *parent_subsystem = NULL;
-                const char *parent_devtype = NULL;
 
                 (void) sd_device_get_subsystem(parent, &parent_subsystem);
                 if (streq_ptr(parent_subsystem, subsystem)) {
+                        const char *parent_devtype = NULL;
+
                         if (!devtype)
                                 break;
 
@@ -885,7 +885,8 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const
         if (r < 0)
                 return r;
 
-        *ret = parent;
+        if (ret)
+                *ret = parent;
         return 0;
 }
 
@@ -928,7 +929,6 @@ int device_set_driver(sd_device *device, const char *_driver) {
 
 _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!device->driver_set) {
                 _cleanup_free_ char *driver = NULL;
@@ -955,18 +955,19 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         if (!device->driver)
                 return -ENOENT;
 
-        *ret = device->driver;
+        if (ret)
+                *ret = device->driver;
         return 0;
 }
 
 _public_ int sd_device_get_devpath(sd_device *device, const char **devpath) {
         assert_return(device, -EINVAL);
-        assert_return(devpath, -EINVAL);
 
         assert(device->devpath);
         assert(device->devpath[0] == '/');
 
-        *devpath = device->devpath;
+        if (devpath)
+                *devpath = device->devpath;
         return 0;
 }
 
@@ -974,7 +975,6 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(devname, -EINVAL);
 
         r = device_read_uevent_file(device);
         if (r < 0)
@@ -985,7 +985,8 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
 
         assert(path_startswith(device->devname, "/dev/"));
 
-        *devname = device->devname;
+        if (devname)
+                *devname = device->devname;
         return 0;
 }
 
@@ -1035,7 +1036,6 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!device->sysname_set) {
                 r = device_set_sysname(device);
@@ -1045,7 +1045,8 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
 
         assert_return(device->sysname, -ENOENT);
 
-        *ret = device->sysname;
+        if (ret)
+                *ret = device->sysname;
         return 0;
 }
 
@@ -1053,7 +1054,6 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!device->sysname_set) {
                 r = device_set_sysname(device);
@@ -1064,7 +1064,8 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
         if (!device->sysnum)
                 return -ENOENT;
 
-        *ret = device->sysnum;
+        if (ret)
+                *ret = device->sysnum;
         return 0;
 }
 
@@ -1434,7 +1435,6 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(usec, -EINVAL);
 
         r = device_read_db(device);
         if (r < 0)
@@ -1451,7 +1451,8 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
         if (now_ts < device->usec_initialized)
                 return -EIO;
 
-        *usec = now_ts - device->usec_initialized;
+        if (usec)
+                *usec = now_ts - device->usec_initialized;
         return 0;
 }
 
@@ -1799,8 +1800,8 @@ _public_ int sd_device_has_current_tag(sd_device *device, const char *tag) {
         return set_contains(device->current_tags, tag);
 }
 
-_public_ int sd_device_get_property_value(sd_device *device, const char *key, const char **_value) {
-        char *value;
+_public_ int sd_device_get_property_value(sd_device *device, const char *key, const char **ret_value) {
+        const char *value;
         int r;
 
         assert_return(device, -EINVAL);
@@ -1814,12 +1815,12 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         if (!value)
                 return -ENOENT;
 
-        if (_value)
-                *_value = value;
+        if (ret_value)
+                *ret_value = value;
         return 0;
 }
 
-static int device_add_sysattr_value(sd_device *device, const char *key, char *value) {
+static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _cleanup_free_ char *new_key = NULL, *old_value = NULL;
         int r;
 
@@ -1862,7 +1863,7 @@ static int device_get_sysattr_value(sd_device *device, const char *_key, const c
 
 /* We cache all sysattr lookups. If an attribute does not exist, it is stored
  * with a NULL value in the cache, otherwise the returned string is stored */
-_public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **_value) {
+_public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
         _cleanup_free_ char *value = NULL;
         const char *path, *syspath, *cached_value = NULL;
         struct stat statbuf;
@@ -1870,6 +1871,10 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
+
+        /* Refuse to read uevent file by using this function. */
+        if (streq(sysattr, "uevent"))
+                return -EINVAL;
 
         /* look for possibly already cached result */
         r = device_get_sysattr_value(device, sysattr, &cached_value);
@@ -1881,8 +1886,8 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                         /* we looked up the sysattr before and it did not exist */
                         return -ENOENT;
 
-                if (_value)
-                        *_value = cached_value;
+                if (ret_value)
+                        *ret_value = cached_value;
 
                 return 0;
         }
@@ -1894,12 +1899,16 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         path = prefix_roota(syspath, sysattr);
         r = lstat(path, &statbuf);
         if (r < 0) {
-                /* remember that we could not access the sysattr */
-                r = device_add_sysattr_value(device, sysattr, NULL);
-                if (r < 0)
-                        return r;
+                int k;
 
-                return -ENOENT;
+                /* remember that we could not access the sysattr */
+                k = device_cache_sysattr_value(device, sysattr, NULL);
+                if (k < 0)
+                        log_device_debug_errno(device, k,
+                                               "sd-device: failed to cache attribute '%s' with NULL, ignoring: %m",
+                                               sysattr);
+
+                return r;
         } else if (S_ISLNK(statbuf.st_mode)) {
                 /* Some core links return only the last element of the target path,
                  * these are just values, the paths should not be exposed. */
@@ -1909,13 +1918,13 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                                 return r;
                 } else
                         return -EINVAL;
-        } else if (S_ISDIR(statbuf.st_mode)) {
+        } else if (S_ISDIR(statbuf.st_mode))
                 /* skip directories */
-                return -EINVAL;
-        } else if (!(statbuf.st_mode & S_IRUSR)) {
+                return -EISDIR;
+        else if (!(statbuf.st_mode & S_IRUSR))
                 /* skip non-readable files */
                 return -EPERM;
-        } else {
+        else {
                 size_t size;
 
                 /* read attribute value */
@@ -1924,20 +1933,25 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                         return r;
 
                 /* drop trailing newlines */
-                while (size > 0 && value[--size] == '\n')
-                        value[size] = '\0';
+                truncate_nl(value);
         }
 
-        r = device_add_sysattr_value(device, sysattr, value);
-        if (r < 0)
-                return r;
-
-        *_value = TAKE_PTR(value);
+        /* Unfortunately, we need to return 'const char*' instead of 'char*'. Hence, failure in caching
+         * sysattr value is critical unlike the other places. */
+        r = device_cache_sysattr_value(device, sysattr, value);
+        if (r < 0) {
+                log_device_debug_errno(device, r,
+                                       "sd-device: failed to cache attribute '%s' with '%s'%s: %m",
+                                       sysattr, value, ret_value ? "" : ", ignoring");
+                if (ret_value)
+                        return r;
+        } else if (ret_value)
+                *ret_value = TAKE_PTR(value);
 
         return 0;
 }
 
-static void device_remove_sysattr_value(sd_device *device, const char *_key) {
+static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {
         _cleanup_free_ char *key = NULL;
 
         assert(device);
@@ -1951,14 +1965,14 @@ static void device_remove_sysattr_value(sd_device *device, const char *_key) {
 _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
         _cleanup_free_ char *value = NULL;
         const char *syspath, *path;
-        size_t len;
         int r;
 
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
 
         if (!_value) {
-                device_remove_sysattr_value(device, sysattr);
+                /* If input value is NULL, then clear cache and not write anything. */
+                device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
 
@@ -1968,43 +1982,32 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         path = prefix_roota(syspath, sysattr);
 
-        len = strlen(_value);
-
-        /* drop trailing newlines */
-        while (len > 0 && _value[len - 1] == '\n')
-                len --;
-
-        /* value length is limited to 4k */
-        if (len > 4096)
-                return -EINVAL;
-
-        value = strndup(_value, len);
+        value = strdup(_value);
         if (!value)
                 return -ENOMEM;
 
+        /* drop trailing newlines */
+        truncate_nl(value);
+
+        /* value length is limited to 4k */
+        if (strlen(value) > 4096)
+                return -EINVAL;
+
         r = write_string_file(path, value, WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_NOFOLLOW);
-        if (r < 0) {
-                if (r == -ELOOP)
-                        return -EINVAL;
-                if (r == -EISDIR)
-                        return r;
-
-                r = free_and_strdup(&value, "");
-                if (r < 0)
-                        return r;
-
-                r = device_add_sysattr_value(device, sysattr, value);
-                if (r < 0)
-                        return r;
-                TAKE_PTR(value);
-
-                return -ENXIO;
-        }
-
-        r = device_add_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
-        TAKE_PTR(value);
+
+        /* Do not cache action string written in uevent file. */
+        if (streq(sysattr, "uevent"))
+                return 0;
+
+        r = device_cache_sysattr_value(device, sysattr, value);
+        if (r < 0)
+                log_device_debug_errno(device, r,
+                                       "sd-device: failed to cache attribute '%s' with '%s', ignoring: %m",
+                                       sysattr, value);
+        else
+                TAKE_PTR(value);
 
         return 0;
 }
@@ -2018,7 +2021,7 @@ _public_ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr
         assert_return(sysattr, -EINVAL);
 
         if (!format) {
-                device_remove_sysattr_value(device, sysattr);
+                device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
 
