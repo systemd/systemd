@@ -274,7 +274,7 @@ NSS:
         with machined to their respective IP addresses.
 
         nss-systemd enables resolution of users/group registered via the
-        User/Group Record Lookup API (https://systemd.io/USER_GROUP_API/),
+        User/Group Record Lookup API (https://systemd.io/USER_GROUP_API),
         including all dynamically allocated service users. (See the
         DynamicUser= setting in unit files.)
 
