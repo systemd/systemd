@@ -1916,16 +1916,13 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 /* skip non-readable files */
                 return -EPERM;
         } else {
-                size_t size;
-
                 /* read attribute value */
-                r = read_full_virtual_file(path, &value, &size);
+                r = read_full_virtual_file(path, &value, NULL);
                 if (r < 0)
                         return r;
 
                 /* drop trailing newlines */
-                while (size > 0 && value[--size] == '\n')
-                        value[size] = '\0';
+                delete_trailing_chars(value, "\n");
         }
 
         r = device_cache_sysattr_value(device, sysattr, value);
@@ -1972,7 +1969,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         len = strlen(_value);
 
         /* drop trailing newlines */
-        while (len > 0 && _value[len - 1] == '\n')
+        while (len > 0 && strchr(NEWLINE, _value[len - 1]))
                 len --;
 
         /* value length is limited to 4k */
