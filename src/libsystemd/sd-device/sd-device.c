@@ -503,7 +503,7 @@ int device_read_uevent_file(sd_device *device) {
                 return 0;
         }
         if (r == -ENOENT)
-                /* some devices may not have uevent files, see set_syspath() */
+                /* some devices may not have uevent files, see device_set_syspath() */
                 return 0;
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
@@ -658,11 +658,11 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
 
 _public_ int sd_device_get_syspath(sd_device *device, const char **ret) {
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         assert(path_startswith(device->syspath, "/sys/"));
 
-        *ret = device->syspath;
+        if (ret)
+                *ret = device->syspath;
 
         return 0;
 }
@@ -704,8 +704,6 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
 }
 
 _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
-
-        assert_return(ret, -EINVAL);
         assert_return(child, -EINVAL);
 
         if (!child->parent_set) {
@@ -717,7 +715,8 @@ _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
         if (!child->parent)
                 return -ENOENT;
 
-        *ret = child->parent;
+        if (ret)
+                *ret = child->parent;
         return 0;
 }
 
@@ -763,7 +762,6 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         const char *syspath, *drivers = NULL;
         int r;
 
-        assert_return(ret, -EINVAL);
         assert_return(device, -EINVAL);
 
         r = sd_device_get_syspath(device, &syspath);
@@ -820,7 +818,8 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         if (!device->subsystem)
                 return -ENOENT;
 
-        *ret = device->subsystem;
+        if (ret)
+                *ret = device->subsystem;
         return 0;
 }
 
@@ -852,10 +851,11 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const
         r = sd_device_get_parent(child, &parent);
         while (r >= 0) {
                 const char *parent_subsystem = NULL;
-                const char *parent_devtype = NULL;
 
                 (void) sd_device_get_subsystem(parent, &parent_subsystem);
                 if (streq_ptr(parent_subsystem, subsystem)) {
+                        const char *parent_devtype = NULL;
+
                         if (!devtype)
                                 break;
 
@@ -869,7 +869,8 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const
         if (r < 0)
                 return r;
 
-        *ret = parent;
+        if (ret)
+                *ret = parent;
         return 0;
 }
 
@@ -912,7 +913,6 @@ int device_set_driver(sd_device *device, const char *_driver) {
 
 _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!device->driver_set) {
                 _cleanup_free_ char *driver = NULL;
@@ -939,18 +939,19 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         if (!device->driver)
                 return -ENOENT;
 
-        *ret = device->driver;
+        if (ret)
+                *ret = device->driver;
         return 0;
 }
 
 _public_ int sd_device_get_devpath(sd_device *device, const char **devpath) {
         assert_return(device, -EINVAL);
-        assert_return(devpath, -EINVAL);
 
         assert(device->devpath);
         assert(device->devpath[0] == '/');
 
-        *devpath = device->devpath;
+        if (devpath)
+                *devpath = device->devpath;
         return 0;
 }
 
@@ -958,7 +959,6 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(devname, -EINVAL);
 
         r = device_read_uevent_file(device);
         if (r < 0)
@@ -969,7 +969,8 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
 
         assert(path_startswith(device->devname, "/dev/"));
 
-        *devname = device->devname;
+        if (devname)
+                *devname = device->devname;
         return 0;
 }
 
@@ -1019,7 +1020,6 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!device->sysname_set) {
                 r = device_set_sysname(device);
@@ -1029,7 +1029,8 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
 
         assert_return(device->sysname, -ENOENT);
 
-        *ret = device->sysname;
+        if (ret)
+                *ret = device->sysname;
         return 0;
 }
 
@@ -1037,7 +1038,6 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         if (!device->sysname_set) {
                 r = device_set_sysname(device);
@@ -1048,7 +1048,8 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
         if (!device->sysnum)
                 return -ENOENT;
 
-        *ret = device->sysnum;
+        if (ret)
+                *ret = device->sysnum;
         return 0;
 }
 
@@ -1394,7 +1395,6 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(usec, -EINVAL);
 
         r = device_read_db(device);
         if (r < 0)
@@ -1411,7 +1411,8 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
         if (now_ts < device->usec_initialized)
                 return -EIO;
 
-        *usec = now_ts - device->usec_initialized;
+        if (usec)
+                *usec = now_ts - device->usec_initialized;
         return 0;
 }
 
@@ -1759,8 +1760,8 @@ _public_ int sd_device_has_current_tag(sd_device *device, const char *tag) {
         return set_contains(device->current_tags, tag);
 }
 
-_public_ int sd_device_get_property_value(sd_device *device, const char *key, const char **_value) {
-        char *value;
+_public_ int sd_device_get_property_value(sd_device *device, const char *key, const char **ret_value) {
+        const char *value;
         int r;
 
         assert_return(device, -EINVAL);
@@ -1774,8 +1775,8 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         if (!value)
                 return -ENOENT;
 
-        if (_value)
-                *_value = value;
+        if (ret_value)
+                *ret_value = value;
         return 0;
 }
 
