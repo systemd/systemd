@@ -9,6 +9,14 @@
 #include "bus-type.h"
 #include "string-util.h"
 
+_public_ int sd_bus_message_send(sd_bus_message *reply) {
+        assert_return(reply, -EINVAL);
+        assert_return(reply->bus, -EINVAL);
+        assert_return(!bus_pid_changed(reply->bus), -ECHILD);
+
+        return sd_bus_send(reply->bus, reply, NULL);
+}
+
 _public_ int sd_bus_emit_signalv(
                 sd_bus *bus,
                 const char *path,
@@ -198,7 +206,7 @@ _public_ int sd_bus_reply_method_returnv(
                         return r;
         }
 
-        return sd_bus_reply(call, m);
+        return sd_bus_message_send(m);
 }
 
 _public_ int sd_bus_reply_method_return(
@@ -239,7 +247,7 @@ _public_ int sd_bus_reply_method_error(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply(call, m);
+        return sd_bus_message_send(m);
 }
 
 _public_ int sd_bus_reply_method_errorfv(
