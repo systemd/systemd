@@ -251,9 +251,12 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         }
 
         if (link->nexthop_messages == 0) {
-                log_link_debug(link, "Nexthop set");
+                log_link_debug(link, "Nexthops set");
                 link->static_nexthops_configured = true;
-                link_check_ready(link);
+                /* Now all nexthops are configured. Let's configure remaining routes. */
+                r = link_set_routes_with_gateway(link);
+                if (r < 0)
+                        link_enter_failed(link);
         }
 
         return 1;
@@ -307,7 +310,7 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
         return r;
 }
 
-int link_set_nexthop(Link *link) {
+int link_set_nexthops(Link *link) {
         enum {
                 PHASE_ID,         /* First phase: Nexthops with ID */
                 PHASE_WITHOUT_ID, /* Second phase: Nexthops without ID */
@@ -340,13 +343,14 @@ int link_set_nexthop(Link *link) {
 
         if (link->nexthop_messages == 0) {
                 link->static_nexthops_configured = true;
-                link_check_ready(link);
-        } else {
-                log_link_debug(link, "Setting nexthop");
-                link_set_state(link, LINK_STATE_CONFIGURING);
+                /* Finaly, configure routes with gateways. */
+                return link_set_routes_with_gateway(link);
         }
 
-        return 1;
+        log_link_debug(link, "Setting nexthops");
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
+        return 0;
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
