@@ -134,6 +134,7 @@ static usec_t arg_kexec_watchdog;
 static char *arg_early_core_pattern;
 static char *arg_watchdog_device;
 static char **arg_default_environment;
+static char **arg_manager_environment;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
@@ -640,6 +641,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               0, &arg_default_environment               },
+                { "Manager", "ManagerEnvironment",           config_parse_environ,               0, &arg_manager_environment               },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU, arg_default_rlimit            },
                 { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE, arg_default_rlimit          },
                 { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA, arg_default_rlimit           },
@@ -2263,6 +2265,26 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
         arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
 }
 
+static void setenv_manager_environment(void) {
+        char **p;
+
+        /* This destroys arg_manager_environment. */
+
+        STRV_FOREACH(p, arg_manager_environment) {
+                char *e;
+
+                assert_se(e = strchr(*p, '='));
+                *e = '\0';
+
+                log_debug("Setting '%s=%s' in our own environment.", *p, e+1);
+
+                if (setenv(*p, e + 1, true) < 0)
+                        log_warning_errno(errno, "Failed to setenv \"%s\", ignoring: %m", *p);
+        }
+
+        arg_manager_environment = strv_free(arg_manager_environment);
+}
+
 static void reset_arguments(void) {
         /* Frees/resets arg_* variables, with a few exceptions commented below. */
 
@@ -2296,6 +2318,7 @@ static void reset_arguments(void) {
         arg_watchdog_device = NULL;
 
         arg_default_environment = strv_free(arg_default_environment);
+        arg_manager_environment = strv_free(arg_manager_environment);
         rlimit_free_all(arg_default_rlimit);
 
         arg_capability_bounding_set = CAP_ALL;
@@ -2356,6 +2379,9 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         /* Initialize the show status setting if it hasn't been set explicitly yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
+
+        /* Push variables into the manager environment block */
+        setenv_manager_environment();
 
         return 0;
 }
