@@ -1924,8 +1924,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                         return r;
 
                 /* drop trailing newlines */
-                while (size > 0 && value[--size] == '\n')
-                        value[size] = '\0';
+                truncate_nl(value);
         }
 
         r = device_add_sysattr_value(device, sysattr, value);
