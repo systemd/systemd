@@ -2001,6 +2001,10 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 return r;
         }
 
+        /* Do not cache action string written into uevent file. */
+        if (streq(sysattr, "uevent"))
+                return 0;
+
         r = device_cache_sysattr_value(device, sysattr, value);
         if (r < 0)
                 log_device_debug_errno(device, r,
