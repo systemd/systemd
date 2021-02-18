@@ -1914,13 +1914,13 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                                 return r;
                 } else
                         return -EINVAL;
-        } else if (S_ISDIR(statbuf.st_mode)) {
+        } else if (S_ISDIR(statbuf.st_mode))
                 /* skip directories */
-                return -EINVAL;
-        } else if (!(statbuf.st_mode & S_IRUSR)) {
+                return -EISDIR;
+        else if (!(statbuf.st_mode & S_IRUSR))
                 /* skip non-readable files */
                 return -EPERM;
-        } else {
+        else {
                 /* read attribute value */
                 r = read_full_virtual_file(path, &value, NULL);
                 if (r < 0)
