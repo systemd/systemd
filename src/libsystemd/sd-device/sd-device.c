@@ -1985,21 +1985,9 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         r = write_string_file(path, value, WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_NOFOLLOW);
         if (r < 0) {
-                if (r == -ELOOP)
-                        return -EINVAL;
-                if (r == -EISDIR)
-                        return r;
-
-                r = free_and_strdup(&value, "");
-                if (r < 0)
-                        return r;
-
-                r = device_cache_sysattr_value(device, sysattr, value);
-                if (r < 0)
-                        return r;
-                TAKE_PTR(value);
-
-                return -ENXIO;
+                /* On failure, clear cache entry, as we do not know how it fails. */
+                device_remove_cached_sysattr_value(device, sysattr);
+                return r;
         }
 
         r = device_cache_sysattr_value(device, sysattr, value);
