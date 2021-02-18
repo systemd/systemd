@@ -10,6 +10,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "log.h"
@@ -525,12 +526,12 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
 
         if (read_value) {
                 r = sd_device_get_sysattr_value(dev, attr, &val);
-                if (r < 0 && r != -ENOENT)
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r) && r != -ENOENT)
                         return r;
-                if (r == -ENOENT)
-                        result[0] = '\0';
-                else
+                if (r >= 0)
                         strscpy(result, maxsize, val);
+                else
+                        result[0] = '\0';
                 log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
         } else {
                 r = sd_device_get_syspath(dev, &val);
