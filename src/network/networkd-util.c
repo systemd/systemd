@@ -9,35 +9,35 @@
 #include "util.h"
 
 static const char* const address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "no",
-        [ADDRESS_FAMILY_YES]           = "yes",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_NO]   = "no",
+        [ADDRESS_FAMILY_YES]  = "yes",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const routing_policy_rule_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_YES]           = "both",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const nexthop_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const duplicate_address_detection_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "none",
-        [ADDRESS_FAMILY_YES]           = "both",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
+        [ADDRESS_FAMILY_NO]   = "none",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
 };
 
 static const char* const dhcp_deprecated_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "none",
-        [ADDRESS_FAMILY_YES]           = "both",
-        [ADDRESS_FAMILY_IPV4]          = "v4",
-        [ADDRESS_FAMILY_IPV6]          = "v6",
+        [ADDRESS_FAMILY_NO]   = "none",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "v4",
+        [ADDRESS_FAMILY_IPV6] = "v6",
 };
 
 static const char* const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
