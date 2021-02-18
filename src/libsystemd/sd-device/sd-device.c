@@ -1820,7 +1820,7 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         return 0;
 }
 
-static int device_add_sysattr_value(sd_device *device, const char *key, char *value) {
+static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _cleanup_free_ char *new_key = NULL, *old_value = NULL;
         int r;
 
@@ -1898,7 +1898,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 int k;
 
                 /* remember that we could not access the sysattr */
-                k = device_add_sysattr_value(device, sysattr, NULL);
+                k = device_cache_sysattr_value(device, sysattr, NULL);
                 if (k < 0)
                         log_device_debug_errno(device, k,
                                                "sd-device: failed to cache attribute '%s' with NULL, ignoring: %m",
@@ -1934,7 +1934,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
         /* Unfortunately, we need to return 'const char*' instead of 'char*'. Hence, failure in caching
          * sysattr value is critical unlike the other places. */
-        r = device_add_sysattr_value(device, sysattr, value);
+        r = device_cache_sysattr_value(device, sysattr, value);
         if (r < 0) {
                 log_device_debug_errno(device, r,
                                        "sd-device: failed to cache attribute '%s' with '%s'%s: %m",
@@ -1947,7 +1947,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         return 0;
 }
 
-static void device_remove_sysattr_value(sd_device *device, const char *_key) {
+static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {
         _cleanup_free_ char *key = NULL;
 
         assert(device);
@@ -1968,7 +1968,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         if (!_value) {
                 /* If input value is NULL, then clear cache and not write anything. */
-                device_remove_sysattr_value(device, sysattr);
+                device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
 
@@ -1993,7 +1993,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         if (r < 0)
                 return r;
 
-        r = device_add_sysattr_value(device, sysattr, value);
+        r = device_cache_sysattr_value(device, sysattr, value);
         if (r < 0)
                 log_device_debug_errno(device, r,
                                        "sd-device: failed to cache attribute '%s' with '%s', ignoring: %m",
@@ -2013,7 +2013,7 @@ _public_ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr
         assert_return(sysattr, -EINVAL);
 
         if (!format) {
-                device_remove_sysattr_value(device, sysattr);
+                device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
 
