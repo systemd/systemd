@@ -481,6 +481,9 @@ static void test_path_startswith(void) {
         assert_se(!path_startswith("/foo/bar/barfoo/", ""));
         assert_se(!path_startswith("/foo/bar/barfoo/", "/bar/foo"));
         assert_se(!path_startswith("/foo/bar/barfoo/", "/f/b/b/"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfo"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/bar"));
+        assert_se(!path_startswith("/foo/bar/barfoo/", "/fo"));
 }
 
 static void test_prefix_root_one(const char *r, const char *p, const char *expected) {
