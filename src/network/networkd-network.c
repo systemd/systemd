@@ -664,7 +664,7 @@ static Network *network_free(Network *network) {
 
         free(network->dhcp_server_timezone);
 
-        for (sd_dhcp_lease_server_type t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
+        for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
 
         set_free_free(network->dnssec_negative_trust_anchors);

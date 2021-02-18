@@ -60,7 +60,7 @@ static Address* link_find_dhcp_server_address(Link *link) {
 
 static int link_push_uplink_to_dhcp_server(
                 Link *link,
-                sd_dhcp_lease_server_type what,
+                sd_dhcp_lease_server_type_t what,
                 sd_dhcp_server *s) {
 
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -307,7 +307,7 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        for (sd_dhcp_lease_server_type type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
+        for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
 
                 if (!link->network->dhcp_server_emit[type].emit)
                         continue;

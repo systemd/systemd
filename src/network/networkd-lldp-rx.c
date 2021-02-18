@@ -47,7 +47,7 @@ static bool link_lldp_rx_enabled(Link *link) {
         return link->network->lldp_mode != LLDP_MODE_NO;
 }
 
-static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata) {
+static void lldp_handler(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor *n, void *userdata) {
         Link *link = userdata;
         int r;
 

@@ -5,7 +5,7 @@
 
 int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftype, char **ssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
-        sd_genl_family family;
+        sd_genl_family_t family;
         int r;
 
         assert(genl);
@@ -75,7 +75,7 @@ nodata:
 
 int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
-        sd_genl_family family;
+        sd_genl_family_t family;
         int r;
 
         assert(genl);

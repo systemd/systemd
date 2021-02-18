@@ -40,5 +40,5 @@ struct sd_ndisc {
 #define log_ndisc_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "NDISC: " fmt, ##__VA_ARGS__)
 #define log_ndisc(fmt, ...) log_ndisc_errno(0, fmt, ##__VA_ARGS__)
 
-const char* ndisc_event_to_string(sd_ndisc_event e) _const_;
-sd_ndisc_event ndisc_event_from_string(const char *s) _pure_;
+const char* ndisc_event_to_string(sd_ndisc_event_t e) _const_;
+sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
