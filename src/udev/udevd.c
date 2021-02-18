@@ -1159,35 +1159,27 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         return 1;
 }
 
-static int synthesize_change_one(sd_device *dev, const char *syspath) {
-        const char *filename;
+static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
-        filename = strjoina(syspath, "/uevent");
-        log_device_debug(dev, "device is closed, synthesising 'change' on %s", syspath);
-        r = write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (DEBUG_LOGGING) {
+                const char *syspath = NULL;
+                (void) sd_device_get_syspath(target, &syspath);
+                log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
+        }
+
+        r = sd_device_set_sysattr_value(target, "uevent", "change");
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to write 'change' to %s: %m", filename);
+                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+
         return 0;
 }
 
 static int synthesize_change(sd_device *dev) {
-        const char *subsystem, *sysname, *devname, *syspath, *devtype;
+        const char *subsystem, *sysname, *devtype;
         int r;
 
         r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_sysname(dev, &sysname);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_devname(dev, &devname);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
                 return r;
 
@@ -1195,20 +1187,26 @@ static int synthesize_change(sd_device *dev) {
         if (r < 0)
                 return r;
 
-        if (streq_ptr("block", subsystem) &&
-            streq_ptr("disk", devtype) &&
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        if (streq_ptr(subsystem, "block") &&
+            streq_ptr(devtype, "disk") &&
             !startswith(sysname, "dm-")) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
                 bool part_table_read = false, has_partitions = false;
+                const char *devname;
                 sd_device *d;
                 int fd;
 
-                /*
-                 * Try to re-read the partition table. This only succeeds if
-                 * none of the devices is busy. The kernel returns 0 if no
-                 * partition table is found, and we will not get an event for
-                 * the disk.
-                 */
+                r = sd_device_get_devname(dev, &devname);
+                if (r < 0)
+                        return r;
+
+                /* Try to re-read the partition table. This only succeeds if none of the devices is
+                 * busy. The kernel returns 0 if no partition table is found, and we will not get an
+                 * event for the disk. */
                 fd = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                 if (fd >= 0) {
                         r = flock(fd, LOCK_EX|LOCK_NB);
@@ -1240,44 +1238,33 @@ static int synthesize_change(sd_device *dev) {
                 FOREACH_DEVICE(e, d) {
                         const char *t;
 
-                        if (sd_device_get_devtype(d, &t) < 0 ||
-                            !streq("partition", t))
+                        if (sd_device_get_devtype(d, &t) < 0 || !streq(t, "partition"))
                                 continue;
 
                         has_partitions = true;
                         break;
                 }
 
-                /*
-                 * We have partitions and re-read the table, the kernel already sent
-                 * out a "change" event for the disk, and "remove/add" for all
-                 * partitions.
-                 */
+                /* We have partitions and re-read the table, the kernel already sent out a "change"
+                 * event for the disk, and "remove/add" for all partitions. */
                 if (part_table_read && has_partitions)
                         return 0;
 
-                /*
-                 * We have partitions but re-reading the partition table did not
-                 * work, synthesize "change" for the disk and all partitions.
-                 */
-                (void) synthesize_change_one(dev, syspath);
+                /* We have partitions but re-reading the partition table did not work, synthesize
+                 * "change" for the disk and all partitions. */
+                (void) synthesize_change_one(dev, dev);
 
                 FOREACH_DEVICE(e, d) {
-                        const char *t, *n, *s;
+                        const char *t;
 
-                        if (sd_device_get_devtype(d, &t) < 0 ||
-                            !streq("partition", t))
+                        if (sd_device_get_devtype(d, &t) < 0 || !streq(t, "partition"))
                                 continue;
 
-                        if (sd_device_get_devname(d, &n) < 0 ||
-                            sd_device_get_syspath(d, &s) < 0)
-                                continue;
-
-                        (void) synthesize_change_one(dev, s);
+                        (void) synthesize_change_one(dev, d);
                 }
 
         } else
-                (void) synthesize_change_one(dev, syspath);
+                (void) synthesize_change_one(dev, dev);
 
         return 0;
 }

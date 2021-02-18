@@ -22,36 +22,53 @@
 
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
+static bool arg_quiet = false;
 
 static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_set) {
         sd_device *d;
         int r, ret = 0;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                _cleanup_free_ char *filename = NULL;
                 const char *syspath;
 
                 if (sd_device_get_syspath(d, &syspath) < 0)
                         continue;
 
                 if (arg_verbose)
-                        printf("%s\n", syspath);
+                        printf("%s\n", strna(syspath));
+
                 if (arg_dry_run)
                         continue;
 
-                filename = path_join(syspath, "uevent");
-                if (!filename)
-                        return log_oom();
-
-                r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = sd_device_set_sysattr_value(d, "uevent", action);
                 if (r < 0) {
+                        /* ENOENT may be returned when a device does not have /uevent or is already
+                         * removed. Hence, this is logged in debug level and ignored.
+                         *
+                         * ENODEV may be returned by some buggy(?) devices e.g. /sys/devices/vio.
+                         * See, https://github.com/systemd/systemd/issues/13652#issuecomment-535129791
+                         * and https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1845319.
+                         * So, this error is also logged in debug level, and ignored.
+                         *
+                         * EROFS is returned when /sys is read only. In that case, all subsequent
+                         * writes should be also failed, hence return earlier.
+                         *
+                         * All other errors (including EACCES, otherwise, nothing can be seen when this
+                         * is invoked by non-privileged user) are logged in error level, but let's
+                         * continue the operation, and propagate the error.
+                         * Why we continue on EACCES? Some device can be owned by a user, e.g., network
+                         * devices configured in a network namespace. See,
+                         * https://github.com/systemd/systemd/pull/18559 and
+                         * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ebb4a4bf76f164457184a3f43ebc1552416bc823
+                         */
+
                         bool ignore = IN_SET(r, -ENOENT, -ENODEV);
 
-                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s'%s: %m",
-                                       action, filename, ignore ? ", ignoring" : "");
-                        if (IN_SET(r, -EACCES, -EROFS))
-                                /* Inovoked by unprivileged user, or read only filesystem. Return earlier. */
+                        log_full_errno((ignore || arg_quiet) ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to write '%s' to '%s/uevent'%s: %m",
+                                       action, syspath, ignore ? ", ignoring" : "");
+
+                        if (r == -EROFS)
                                 return r;
                         if (ret == 0 && !ignore)
                                 ret = r;
@@ -118,6 +135,7 @@ static int help(void) {
                "  -V --version                      Show package version\n"
                "  -v --verbose                      Print the list of devices while running\n"
                "  -n --dry-run                      Do not actually trigger the events\n"
+               "  -q --quiet                        Suppress error logging in triggering events\n"
                "  -t --type=                        Type of events to trigger\n"
                "          devices                     sysfs devices (default)\n"
                "          subsystems                  sysfs subsystems and drivers\n"
@@ -148,6 +166,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         static const struct option options[] = {
                 { "verbose",           no_argument,       NULL, 'v'      },
                 { "dry-run",           no_argument,       NULL, 'n'      },
+                { "quiet",             no_argument,       NULL, 'q'      },
                 { "type",              required_argument, NULL, 't'      },
                 { "action",            required_argument, NULL, 'c'      },
                 { "subsystem-match",   required_argument, NULL, 's'      },
@@ -191,7 +210,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "vnt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 const char *key, *val;
 
@@ -201,6 +220,9 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         break;
                 case 'n':
                         arg_dry_run = true;
+                        break;
+                case 'q':
+                        arg_quiet = true;
                         break;
                 case 't':
                         if (streq(optarg, "devices"))
