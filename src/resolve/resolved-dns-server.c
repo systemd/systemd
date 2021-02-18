@@ -746,18 +746,22 @@ void dns_server_unlink_all(DnsServer *first) {
         dns_server_unlink_all(next);
 }
 
-void dns_server_unlink_marked(DnsServer *first) {
+bool dns_server_unlink_marked(DnsServer *first) {
         DnsServer *next;
+        bool changed;
 
         if (!first)
-                return;
+                return false;
 
         next = first->servers_next;
 
-        if (first->marked)
+        if (first->marked) {
+                changed = true;
                 dns_server_unlink(first);
+        } else
+                changed = false;
 
-        dns_server_unlink_marked(next);
+        return changed || dns_server_unlink_marked(next);
 }
 
 void dns_server_mark_all(DnsServer *first) {
