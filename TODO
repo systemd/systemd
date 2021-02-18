@@ -20,6 +20,18 @@ Janitorial Clean-ups:
 
 Features:
 
+* add an Open= setting to service unit files that can open arbitrary file
+  system paths at service startup time and pass them to the service process via
+  our usual socket activation protocol. If passed path refers to AF_UNIX
+  socket: connect() to it.
+
+* add a ConnectSocket= setting to service unit files, that may reference a
+  socket unit, and which will connect to the socket defined therein, and pass
+  the resulting fd to the service program via socket activation proto.
+
+* Add a concept of ListenStream=anonymous to socket units: listen on a socket
+  that is deleted in the fs. Usecase would be with ConnectSocket= above.
+
 * Hook up journald's FSS logic with TPM2: seal the verification disk by
   time-based policy, so that the verification key can remain on host and ve
   validated via TPM.
