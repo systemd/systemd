@@ -173,6 +173,18 @@ static int link_set_ipv4_accept_local(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local > 0);
 }
 
+static int link_set_ipv4_route_localnet(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->ipv4_route_localnet < 0)
+                return 0;
+
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet > 0);
+}
+
 int link_set_sysctl(Link *link) {
         int r;
 
@@ -215,6 +227,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv4_accept_local(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 accept_local flag for interface, ignoring: %m");
+
+        r = link_set_ipv4_route_localnet(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 route_localnet flag for interface, ignoring: %m");
 
         /* If promote_secondaries is not set, DHCP will work only as long as the IP address does not
          * changes between leases. The kernel will remove all secondary IP addresses of an interface
