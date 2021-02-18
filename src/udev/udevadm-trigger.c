@@ -22,6 +22,7 @@
 
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
+static bool arg_quiet = false;
 
 static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_set) {
         sd_device *d;
@@ -63,7 +64,7 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_s
 
                         bool ignore = IN_SET(r, -ENOENT, -ENODEV);
 
-                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                        log_full_errno((ignore || arg_quiet) ? LOG_DEBUG : LOG_ERR, r,
                                        "Failed to write '%s' to '%s/uevent'%s: %m",
                                        action, syspath, ignore ? ", ignoring" : "");
 
@@ -134,6 +135,7 @@ static int help(void) {
                "  -V --version                      Show package version\n"
                "  -v --verbose                      Print the list of devices while running\n"
                "  -n --dry-run                      Do not actually trigger the events\n"
+               "  -q --quiet                        Suppress error logging in triggering events\n"
                "  -t --type=                        Type of events to trigger\n"
                "          devices                     sysfs devices (default)\n"
                "          subsystems                  sysfs subsystems and drivers\n"
@@ -164,6 +166,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         static const struct option options[] = {
                 { "verbose",           no_argument,       NULL, 'v'      },
                 { "dry-run",           no_argument,       NULL, 'n'      },
+                { "quiet",             no_argument,       NULL, 'q'      },
                 { "type",              required_argument, NULL, 't'      },
                 { "action",            required_argument, NULL, 'c'      },
                 { "subsystem-match",   required_argument, NULL, 's'      },
@@ -207,7 +210,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "vnt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 const char *key, *val;
 
@@ -217,6 +220,9 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         break;
                 case 'n':
                         arg_dry_run = true;
+                        break;
+                case 'q':
+                        arg_quiet = true;
                         break;
                 case 't':
                         if (streq(optarg, "devices"))
