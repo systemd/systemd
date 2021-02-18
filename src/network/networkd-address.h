@@ -36,6 +36,7 @@ typedef struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
+        bool set_broadcast:1;
         bool scope_set:1;
         bool ip_masquerade_done:1;
         bool ipv6_masquerade_done:1;

@@ -1833,6 +1833,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
         self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
         self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
+        self.assertIn('inet 10.8.8.1/16 scope global dummy98', output)
 
         # test for ENOBUFS issue #17012
         for i in range(1,254):
