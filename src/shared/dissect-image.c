@@ -150,7 +150,8 @@ static int device_is_partition(sd_device *d, blkid_partition pp) {
                 return false;
 
         r = sd_device_get_sysattr_value(d, "partition", &v);
-        if (r == -ENOENT) /* Not a partition device */
+        if (r == -ENOENT ||        /* Not a partition device */
+            ERRNO_IS_PRIVILEGE(r)) /* Not ready to access? */
                 return false;
         if (r < 0)
                 return r;
