@@ -55,6 +55,9 @@ typedef struct Image {
         bool metadata_valid:1;
         bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
 
+        struct Image **extension_images; /* Will be overlayed on top of the main image */
+        size_t n_extension_images;
+
         void *userdata;
 } Image;
 

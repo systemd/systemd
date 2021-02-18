@@ -5112,6 +5112,148 @@ int config_parse_mount_images(
                                             .destination = dresolved,
                                             .mount_options = options,
                                             .ignore_enoent = permissive,
+                                            .type = MOUNT_IMAGE_DISCRETE,
+                                    });
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_extension_images(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        const Unit *u = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *source = NULL, *tuple = NULL, *sresolved = NULL;
+                _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                bool permissive = false;
+                const char *q = NULL;
+                char *s = NULL;
+
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax %s=%s, ignoring: %m", lvalue, rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                q = tuple;
+                r = extract_first_word(&q, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax in %s=, ignoring: %s", lvalue, tuple);
+                        return 0;
+                }
+                if (r == 0)
+                        continue;
+
+                r = unit_full_printf(u, source, &sresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
+                        continue;
+                }
+
+                s = sresolved;
+                if (s[0] == '-') {
+                        permissive = true;
+                        s++;
+                }
+
+                r = path_simplify_and_warn(s, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                for (;;) {
+                        _cleanup_free_ char *partition = NULL, *mount_options = NULL, *mount_options_resolved = NULL;
+                        MountOptions *o = NULL;
+                        PartitionDesignator partition_designator;
+
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", q);
+                                return 0;
+                        }
+                        if (r == 0)
+                                break;
+                        /* Single set of options, applying to the root partition/single filesystem */
+                        if (r == 1) {
+                                r = unit_full_printf(u, partition, &mount_options_resolved);
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", partition);
+                                        continue;
+                                }
+
+                                o = new(MountOptions, 1);
+                                if (!o)
+                                        return log_oom();
+                                *o = (MountOptions) {
+                                        .partition_designator = PARTITION_ROOT,
+                                        .options = TAKE_PTR(mount_options_resolved),
+                                };
+                                LIST_APPEND(mount_options, options, o);
+
+                                break;
+                        }
+
+                        partition_designator = partition_designator_from_string(partition);
+                        if (partition_designator < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid partition name %s, ignoring", partition);
+                                continue;
+                        }
+                        r = unit_full_printf(u, mount_options, &mount_options_resolved);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", mount_options);
+                                continue;
+                        }
+
+                        o = new(MountOptions, 1);
+                        if (!o)
+                                return log_oom();
+                        *o = (MountOptions) {
+                                .partition_designator = partition_designator,
+                                .options = TAKE_PTR(mount_options_resolved),
+                        };
+                        LIST_APPEND(mount_options, options, o);
+                }
+
+                r = mount_image_add(&c->extension_images, &c->n_extension_images,
+                                    &(MountImage) {
+                                            .source = s,
+                                            .mount_options = options,
+                                            .ignore_enoent = permissive,
+                                            .type = MOUNT_IMAGE_OVERLAY,
                                     });
                 if (r < 0)
                         return log_oom();

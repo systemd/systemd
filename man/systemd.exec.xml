@@ -433,6 +433,47 @@
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExtensionImages=</varname></term>
+
+        <listitem><para>This setting is similar to <varname>MountImages=</varname> in that it mounts a file
+        system hierarchy from a block device node or loopback file, but instead of providing a destination path,
+        an overlay will be set up. This option expects a whitespace separated list of mount definitions. Each
+        definition consists of a source path, optionally followed by a colon and a list of mount options.</para>
+
+        <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
+        <filename>/opt/</filename> hierarchies from the root. The order in which the images are listed
+        will determine the order in which the overlay is laid down: first to last -> bottom to top.</para>
+
+        <para>Mount options may be defined as a single comma-separated list of options, in which case they
+        will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
+        of partition name and mount options. Valid partition names and mount options are the same as for
+        <varname>RootImageOptions=</varname> setting described above.</para>
+
+        <para>Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
+        ignored when its source path does not exist. The source argument is a path to a block device node or
+        regular file. If the source path contains a <literal>:</literal>, it needs to be escaped as
+        <literal>\:</literal>. The device node or file system image file needs to follow the same rules as
+        specified for <varname>RootImage=</varname>. Any mounts created with this option are specific to the
+        unit, and are not visible in the host's mount table.</para>
+
+        <para>These settings may be used more than once, each usage appends to the unit's list of image
+        paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
+        reset.</para>
+
+        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
+        <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
+        set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
+        <literal>block-loop</literal> and <literal>block-blkext</literal> with <constant>rwm</constant> mode
+        to <varname>DeviceAllow=</varname>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
+        <varname>PrivateDevices=</varname> below, as it may change the setting of
+        <varname>DevicePolicy=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
