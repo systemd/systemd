@@ -23,6 +23,7 @@
 #include "def.h"
 #include "device-nodes.h"
 #include "device-util.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "dm-util.h"
 #include "env-file.h"
@@ -34,6 +35,7 @@
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
+#include "import-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -472,7 +474,7 @@ int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL;
+        const char *pttype = NULL, *sysname = NULL;
         blkid_partlist pl;
         int r, generic_nr, n_partitions;
         struct stat st;
@@ -578,6 +580,34 @@ int dissect_image(
         m = new0(DissectedImage, 1);
         if (!m)
                 return -ENOMEM;
+
+        r = sd_device_get_sysname(d, &sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device sysname: %m");
+        if (startswith(sysname, "loop")) {
+                _cleanup_free_ char *name_stripped = NULL;
+                const char *full_path;
+
+                r = sd_device_get_sysattr_value(d, "loop/backing_file", &full_path);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
+                else {
+                        r = raw_strip_suffixes(basename(full_path), &name_stripped);
+                        if (r < 0)
+                                return r;
+                }
+
+                free_and_replace(m->image_name, name_stripped);
+        } else {
+                r = free_and_strdup(&m->image_name, sysname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!image_name_is_valid(m->image_name)) {
+                log_debug("Image name %s is not valid, ignoring", strempty(m->image_name));
+                m->image_name = mfree(m->image_name);
+        }
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_REQUIRE_ROOT)) ||
@@ -1197,9 +1227,11 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 free(m->partitions[i].mount_options);
         }
 
+        free(m->image_name);
         free(m->hostname);
         strv_free(m->machine_info);
         strv_free(m->os_release);
+        strv_free(m->extension_release);
 
         return mfree(m);
 }
@@ -1370,7 +1402,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         /* Returns:
          *
          *  -ENXIO        → No root partition found
-         *  -EMEDIUMTYPE  → DISSECT_IMAGE_VALIDATE_OS set but no os-release file found
+         *  -EMEDIUMTYPE  → DISSECT_IMAGE_VALIDATE_OS set but no os-release/extension-release file found
          *  -EUNATCH      → Encrypted partition found for which no dm-crypt was set up yet
          *  -EUCLEAN      → fsck for file system failed
          *  -EBUSY        → File system already mounted/used elsewhere (kernel)
@@ -1400,8 +1432,13 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                         r = path_is_os_tree(where);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return -EMEDIUMTYPE;
+                        if (r == 0) {
+                                r = path_is_extension_tree(where, m->image_name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -EMEDIUMTYPE;
+                        }
                 }
         }
 
@@ -1481,7 +1518,7 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
         if (r == -ENXIO)
                 return log_error_errno(r, "Not root file system found in image.");
         if (r == -EMEDIUMTYPE)
-                return log_error_errno(r, "No suitable os-release file in image found.");
+                return log_error_errno(r, "No suitable os-release/extension-release file in image found.");
         if (r == -EUNATCH)
                 return log_error_errno(r, "Encrypted file system discovered, but decryption not requested.");
         if (r == -EUCLEAN)
@@ -2207,18 +2244,20 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 META_MACHINE_ID,
                 META_MACHINE_INFO,
                 META_OS_RELEASE,
+                META_EXTENSION_RELEASE,
                 _META_MAX,
         };
 
-        static const char *const paths[_META_MAX] = {
-                [META_HOSTNAME]     = "/etc/hostname\0",
-                [META_MACHINE_ID]   = "/etc/machine-id\0",
-                [META_MACHINE_INFO] = "/etc/machine-info\0",
-                [META_OS_RELEASE]   = ("/etc/os-release\0"
-                                       "/usr/lib/os-release\0"),
+        static const char *paths[_META_MAX] = {
+                [META_HOSTNAME]          = "/etc/hostname\0",
+                [META_MACHINE_ID]        = "/etc/machine-id\0",
+                [META_MACHINE_INFO]      = "/etc/machine-info\0",
+                [META_OS_RELEASE]        = ("/etc/os-release\0"
+                                           "/usr/lib/os-release\0"),
+                [META_EXTENSION_RELEASE] = NULL,
         };
 
-        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
+        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
         _cleanup_close_pair_ int error_pipe[2] = { -1, -1 };
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
@@ -2232,11 +2271,21 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
         assert(m);
 
-        for (; n_meta_initialized < _META_MAX; n_meta_initialized ++)
+        /* As per the os-release spec, if the image is an extension it will have a file
+         * named after the image name in extension-release.d/ */
+        if (m->image_name)
+                paths[META_EXTENSION_RELEASE] = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name);
+        else
+                log_debug("No image name available, will skip extension-release metadata");
+
+        for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
+                if (!paths[n_meta_initialized])
+                        continue;
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {
                         r = -errno;
                         goto finish;
                 }
+        }
 
         r = mkdtemp_malloc("/tmp/dissect-XXXXXX", &t);
         if (r < 0)
@@ -2265,6 +2314,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 for (k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -ENOENT;
                         const char *p;
+
+                        if (!paths[k])
+                                continue;
 
                         fds[2*k] = safe_close(fds[2*k]);
 
@@ -2295,6 +2347,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
         for (k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
+
+                if (!paths[k])
+                        continue;
 
                 fds[2*k+1] = safe_close(fds[2*k+1]);
 
@@ -2346,6 +2401,13 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 log_debug_errno(r, "Failed to read OS release file: %m");
 
                         break;
+
+                case META_EXTENSION_RELEASE:
+                        r = load_env_file_pairs(f, "extension-release", &extension_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read extension release file: %m");
+
+                        break;
                 }
         }
 
@@ -2369,10 +2431,14 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         m->machine_id = machine_id;
         strv_free_and_replace(m->machine_info, machine_info);
         strv_free_and_replace(m->os_release, os_release);
+        strv_free_and_replace(m->extension_release, extension_release);
 
 finish:
-        for (k = 0; k < n_meta_initialized; k++)
+        for (k = 0; k < n_meta_initialized; k++) {
+                if (!paths[k])
+                        continue;
                 safe_close_pair(fds + 2*k);
+        }
 
         return r;
 }

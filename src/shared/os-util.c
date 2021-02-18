@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "discover-image.h"
 #include "env-file.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -11,7 +12,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-int path_is_os_tree(const char *path) {
+int path_is_extension_tree(const char *path, const char *extension) {
         int r;
 
         assert(path);
@@ -22,8 +23,9 @@ int path_is_os_tree(const char *path) {
         if (laccess(path, F_OK) < 0)
                 return -errno;
 
-        /* We use {/etc|/usr/lib}/os-release as flag file if something is an OS */
-        r = open_os_release(path, NULL, NULL);
+        /* We use /usr/lib/extension-release.d/extension-release.NAME as flag file if something is a system extension,
+         * and {/etc|/usr/lib}/os-release as flag file if something is an OS (in case extension == NULL) */
+        r = open_extension_release(path, extension, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
         if (r < 0)
@@ -178,4 +180,87 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
         *ret = TAKE_PTR(os_release_pairs_prefixed);
 
         return 0;
+}
+
+int load_extension_release_pairs(const char *root, const char *extension, char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = fopen_extension_release(root, extension, &p, &f);
+        if (r < 0)
+                return r;
+
+        return load_env_file_pairs(f, p, ret);
+}
+
+int extension_release_validate(
+                const char *name,
+                const char *host_os_release_id,
+                const char *host_os_release_version_id,
+                const char *host_os_release_sysext_level,
+                char **extension_release) {
+
+        const char *extension_release_id = NULL, *extension_release_sysext_level = NULL;
+
+        assert(name);
+        assert(!isempty(host_os_release_id));
+
+        /* Now that we can look into the extension image, let's see if the OS version is compatible */
+        if (strv_isempty(extension_release)) {
+                log_debug("Extension '%s' carries no extension-release data, ignoring extension.", name);
+                return 0;
+        }
+
+        extension_release_id = strv_env_pairs_get(extension_release, "ID");
+        if (isempty(extension_release_id)) {
+                log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s'",
+                          name, strna(host_os_release_id));
+                return 0;
+        }
+
+        if (!streq_ptr(host_os_release_id, extension_release_id)) {
+                log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
+                          name, strna(extension_release_id), strna(host_os_release_id));
+                return 0;
+        }
+
+        /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
+        if (isempty(host_os_release_version_id) && isempty(host_os_release_sysext_level)) {
+                log_debug("No version info on the host (rolling release?), but ID in %s matched.", name);
+                return 1;
+        }
+
+        /* If the extension has a sysext API level declared, then it must match the host API
+         * level. Otherwise, compare OS version as a whole */
+        extension_release_sysext_level = strv_env_pairs_get(extension_release, "SYSEXT_LEVEL");
+        if (!isempty(host_os_release_sysext_level) && !isempty(extension_release_sysext_level)) {
+                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
+                        log_debug("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s'",
+                                  name, strna(extension_release_sysext_level), strna(host_os_release_sysext_level));
+                        return 0;
+                }
+        } else if (!isempty(host_os_release_version_id)) {
+                const char *extension_release_version_id;
+
+                extension_release_version_id = strv_env_pairs_get(extension_release, "VERSION_ID");
+                if (isempty(extension_release_version_id)) {
+                        log_debug("Extension '%s' does not contain VERSION_ID in extension-release but requested to match '%s'",
+                                  name, strna(host_os_release_version_id));
+                        return 0;
+                }
+
+                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
+                        log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
+                                  name, strna(extension_release_version_id), strna(host_os_release_version_id));
+                        return 0;
+                }
+        } else if (isempty(host_os_release_version_id) && isempty(host_os_release_sysext_level)) {
+                /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
+                log_debug("No version info on the host (rolling release?), but ID in %s matched.", name);
+                return 1;
+        }
+
+        log_debug("Version info of extension '%s' matches host.", name);
+        return 1;
 }
