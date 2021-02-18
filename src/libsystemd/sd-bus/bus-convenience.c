@@ -198,7 +198,7 @@ _public_ int sd_bus_reply_method_returnv(
                         return r;
         }
 
-        return sd_bus_reply(call, m);
+        return sd_bus_reply(m);
 }
 
 _public_ int sd_bus_reply_method_return(
@@ -239,7 +239,7 @@ _public_ int sd_bus_reply_method_error(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply(call, m);
+        return sd_bus_reply(m);
 }
 
 _public_ int sd_bus_reply_method_errorfv(
