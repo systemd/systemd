@@ -28,9 +28,9 @@ static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
         [SD_NDISC_EVENT_ROUTER] = "router",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event);
+DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
 
-static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event event, sd_ndisc_router *rt) {
+static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_router *rt) {
         assert(ndisc);
         assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 

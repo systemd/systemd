@@ -1274,7 +1274,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata) {
+static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
         Link *link = userdata;
         int r;
 

@@ -2823,7 +2823,7 @@ static void serialize_addresses(
                 char **addresses,
                 sd_dhcp_lease *lease,
                 bool conditional,
-                sd_dhcp_lease_server_type what,
+                sd_dhcp_lease_server_type_t what,
                 sd_dhcp6_lease *lease6,
                 bool conditional6,
                 int (*lease6_get_addr)(sd_dhcp6_lease*, const struct in6_addr**),

@@ -65,7 +65,7 @@ DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFa
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
-DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type);
+DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
 
 static AddressFamily address_family_compat_from_string(const char *s) {
         if (streq_ptr(s, "yes"))         /* compat name */

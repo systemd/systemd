@@ -46,10 +46,10 @@ int main(int argc, char **argv) {
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
         test_table_sparse(address_family, ADDRESS_FAMILY);
 
-        assert_cc(sizeof(sd_lldp_event) == sizeof(int64_t));
-        assert_cc(sizeof(sd_ndisc_event) == sizeof(int64_t));
-        assert_cc(sizeof(sd_dhcp_lease_server_type) == sizeof(int64_t));
-        assert_cc(sizeof(sd_genl_family) == sizeof(int64_t));
+        assert_cc(sizeof(sd_lldp_event_t) == sizeof(int64_t));
+        assert_cc(sizeof(sd_ndisc_event_t) == sizeof(int64_t));
+        assert_cc(sizeof(sd_dhcp_lease_server_type_t) == sizeof(int64_t));
+        assert_cc(sizeof(sd_genl_family_t) == sizeof(int64_t));
 
         return EXIT_SUCCESS;
 }

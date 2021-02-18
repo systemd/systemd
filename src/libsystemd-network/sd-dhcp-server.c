@@ -149,7 +149,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         free(server->timezone);
 
-        for (sd_dhcp_lease_server_type i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
+        for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(server->servers[i].addr);
 
         hashmap_free(server->leases_by_client_id);
@@ -509,7 +509,7 @@ static int server_send_ack(
                         return r;
         }
 
-        for (sd_dhcp_lease_server_type k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
+        for (sd_dhcp_lease_server_type_t k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
 
                 if (server->servers[k].size <= 0)
                         continue;
@@ -1118,7 +1118,7 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
-                sd_dhcp_lease_server_type what,
+                sd_dhcp_lease_server_type_t what,
                 const struct in_addr addresses[],
                 size_t n_addresses) {
 

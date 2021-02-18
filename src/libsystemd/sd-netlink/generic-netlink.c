@@ -25,9 +25,9 @@ static const genl_family genl_families[] = {
 int sd_genl_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_GENERIC);
 }
-static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id);
+static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id);
 
-static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
+static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *genl_cmd_type, *nl_type;
         const NLTypeSystem *type_system;
@@ -71,7 +71,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlms
         return 0;
 }
 
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **ret) {
+int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret) {
         uint16_t id;
         int r;
 
@@ -82,7 +82,7 @@ int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_n
         return genl_message_new(nl, family, id, cmd, ret);
 }
 
-static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
+static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         uint16_t u;
         void *v;
@@ -127,7 +127,7 @@ static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id) {
         return 0;
 }
 
-int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family *ret) {
+int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family_t *ret) {
         void *p;
 
         assert_return(nl, -EINVAL);
@@ -151,7 +151,7 @@ int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_famil
         return 0;
 }
 
-int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family *family) {
+int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family_t *family) {
         uint16_t type;
         int r;
 
