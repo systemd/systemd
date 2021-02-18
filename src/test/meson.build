@@ -547,6 +547,8 @@ tests += [
 
         [['src/test/test-bus-util.c']],
 
+        [['src/test/test-percent-util.c']],
+
         [['src/test/test-sd-hwdb.c']],
 
         [['src/test/test-sd-path.c']],

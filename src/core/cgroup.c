@@ -21,6 +21,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "special.h"
@@ -418,7 +419,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sDelegate: %s\n"
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
-                "%sManagedOOMMemoryPressureLimit: %" PRIu32 ".%02" PRIu32 "%%\n"
+                "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s%%\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
@@ -452,7 +453,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, yes_no(c->delegate),
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
-                prefix, c->moom_mem_pressure_limit_permyriad / 100, c->moom_mem_pressure_limit_permyriad % 100,
+                prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference));
 
         if (c->delegate) {
