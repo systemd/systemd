@@ -15,6 +15,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "hashmap.h"
 
 int xdg_user_runtime_dir(char **ret, const char *suffix) {
         const char *e;
@@ -523,6 +524,7 @@ int lookup_paths_init(
                 *persistent_attached = NULL, *runtime_attached = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
+        Hashmap *link_cache = NULL;
         int r;
 
         assert(p);
@@ -715,8 +717,13 @@ int lookup_paths_init(
         if (r < 0)
                 return -ENOMEM;
 
+        r = hashmap_ensure_allocated(&link_cache, &string_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
+
         *p = (LookupPaths) {
                 .search_path = strv_uniq(TAKE_PTR(paths)),
+                .search_path_link_cache = link_cache,
 
                 .persistent_config = TAKE_PTR(persistent_config),
                 .runtime_config = TAKE_PTR(runtime_config),
@@ -763,6 +770,8 @@ void lookup_paths_free(LookupPaths *p) {
 
         p->root_dir = mfree(p->root_dir);
         p->temporary_dir = mfree(p->temporary_dir);
+
+        hashmap_free_free_free(p->search_path_link_cache);
 }
 
 void lookup_paths_log(LookupPaths *p) {
