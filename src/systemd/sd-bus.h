@@ -201,7 +201,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
 int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret_error, sd_bus_message **reply);
 int sd_bus_call_async(sd_bus *bus, sd_bus_slot **slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
-int sd_bus_reply(const sd_bus_message *call, sd_bus_message *reply);
+int sd_bus_reply(sd_bus_message *reply);
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
