@@ -60,6 +60,7 @@ typedef enum sd_ndisc_event {
         SD_NDISC_EVENT_ROUTER,
         _SD_NDISC_EVENT_MAX,
         _SD_NDISC_EVENT_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(NDISC_EVENT),
 } sd_ndisc_event;
 
 typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata);

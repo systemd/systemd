@@ -43,6 +43,7 @@ typedef enum sd_dhcp_lease_server_type {
         SD_DHCP_LEASE_LPR,
         _SD_DHCP_LEASE_SERVER_TYPE_MAX,
         _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(DHCP_LEASE_SERVER_TYPE),
 } sd_dhcp_lease_server_type;
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);

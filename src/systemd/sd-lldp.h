@@ -129,6 +129,7 @@ typedef enum sd_lldp_event {
         SD_LLDP_EVENT_REFRESHED,
         _SD_LLDP_EVENT_MAX,
         _SD_LLDP_EVENT_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(LLDP_EVENT),
 } sd_lldp_event;
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);

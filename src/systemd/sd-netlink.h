@@ -17,6 +17,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
@@ -34,7 +35,7 @@ typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
 
-typedef enum sd_gen_family {
+typedef enum sd_genl_family {
         SD_GENL_ERROR,
         SD_GENL_DONE,
         SD_GENL_ID_CTRL,
@@ -43,6 +44,9 @@ typedef enum sd_gen_family {
         SD_GENL_L2TP,
         SD_GENL_MACSEC,
         SD_GENL_NL80211,
+        _SD_GENL_FAMILY_MAX,
+        _SD_GENL_FAMILY_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(GENL_FAMILY)
 } sd_genl_family;
 
 /* callback */

@@ -99,4 +99,10 @@ typedef void (*_sd_destroy_t)(void *userdata);
         }                                                       \
         struct _sd_useless_struct_to_allow_trailing_semicolon_
 
+/* The following macro should be used in all public enums, to force 64bit wideness on them, so that we can
+ * freely extend them later on, without breaking compatibility. */
+#define _SD_ENUM_FORCE_S64(id)               \
+        _SD_##id##_INT64_MIN = INT64_MIN,    \
+        _SD_##id##_INT64_MAX = INT64_MAX
+
 #endif
