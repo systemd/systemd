@@ -1117,6 +1117,16 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         if (r < 0)
                 goto fail;
 
+        if (type == SOCK_DGRAM) {
+                r = socket_disable_pmtud(fd, l->family);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable UDP PMTUD, ignoring: %m");
+
+                r = socket_set_recvfragsize(fd, l->family, true);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable fragment size reception, ignoring: %m");
+        }
+
         if (bind(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0) {
                 r = -errno;
                 goto fail;
