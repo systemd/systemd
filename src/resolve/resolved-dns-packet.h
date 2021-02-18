@@ -2,6 +2,7 @@
 #pragma once
 
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/udp.h>
 
 #include "hashmap.h"
@@ -32,14 +33,19 @@ struct DnsPacketHeader {
         be16_t ancount;
         be16_t nscount;
         be16_t arcount;
-};
+} _packed_;
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
-#define UDP_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
+#define UDP4_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
+#define UDP6_PACKET_HEADER_SIZE (sizeof(struct ip6_hdr) + sizeof(struct udphdr))
 
-/* The various DNS protocols deviate in how large a packet can grow,
- * but the TCP transport has a 16bit size field, hence that appears to
- * be the absolute maximum. */
+assert_cc(sizeof(struct ip6_hdr) == 40);
+assert_cc(sizeof(struct iphdr) == 20);
+assert_cc(sizeof(struct udphdr) == 8);
+assert_cc(sizeof(DnsPacketHeader) == 12);
+
+/* The various DNS protocols deviate in how large a packet can grow, but the TCP transport has a 16bit size
+ * field, hence that appears to be the absolute maximum. */
 #define DNS_PACKET_SIZE_MAX 0xFFFFu
 
 /* The default size to use for allocation when we don't know how large
@@ -55,7 +61,7 @@ struct DnsPacketHeader {
 struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
-        size_t size, allocated, rindex, max_size;
+        size_t size, allocated, rindex, max_size, fragsize;
         void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
         size_t opt_start, opt_size;
@@ -144,6 +150,14 @@ static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
                 return true;
 
         return DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(p->opt);
+}
+
+static inline bool DNS_PACKET_IS_FRAGMENTED(DnsPacket *p) {
+        assert(p);
+
+        /* For ingress packets: was this packet fragmented according to our knowledge? */
+
+        return p->fragsize != 0;
 }
 
 /* LLMNR defines some bits differently */
@@ -307,3 +321,17 @@ static inline size_t dns_packet_size_max(DnsPacket *p) {
 
         return p->max_size != 0 ? p->max_size : DNS_PACKET_SIZE_MAX;
 }
+
+static inline size_t udp_header_size(int af) {
+
+        switch (af) {
+        case AF_INET:
+                return UDP4_PACKET_HEADER_SIZE;
+        case AF_INET6:
+                return UDP6_PACKET_HEADER_SIZE;
+        default:
+                assert_not_reached("Unexpected address family");
+        }
+}
+
+size_t dns_packet_size_unfragmented(DnsPacket *p);

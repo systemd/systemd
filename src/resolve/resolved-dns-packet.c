@@ -2626,6 +2626,20 @@ int dns_packet_has_nsid_request(DnsPacket *p) {
         return has_nsid;
 }
 
+size_t dns_packet_size_unfragmented(DnsPacket *p) {
+        assert(p);
+
+        if (p->fragsize == 0) /* Wasn't fragmented */
+                return p->size;
+
+        /* The fragment size (p->fragsize) covers the whole (fragmented) IP packet, while the regular packet
+         * size (p->size) only covers the DNS part. Thus, subtract the UDP header from the largest fragment
+         * size, in order to determine which size of DNS packet would have gone through without
+         * fragmenting. */
+
+        return LESS_BY(p->fragsize, udp_header_size(p->family));
+}
+
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_SUCCESS] = "SUCCESS",
         [DNS_RCODE_FORMERR] = "FORMERR",
