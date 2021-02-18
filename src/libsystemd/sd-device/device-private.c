@@ -183,20 +183,8 @@ static int device_set_devgid(sd_device *device, const char *gid) {
         return 0;
 }
 
-int device_get_action(sd_device *device, DeviceAction *action) {
-        assert(device);
-
-        if (device->action < 0)
-                return -ENOENT;
-
-        if (action)
-                *action = device->action;
-
-        return 0;
-}
-
 static int device_set_action(sd_device *device, const char *action) {
-        DeviceAction a;
+        sd_device_action_t a;
         int r;
 
         assert(device);
@@ -206,23 +194,11 @@ static int device_set_action(sd_device *device, const char *action) {
         if (a < 0)
                 return a;
 
-        r = device_add_property_internal(device, "ACTION", action);
+        r = device_add_property_internal(device, "ACTION", device_action_to_string(a));
         if (r < 0)
                 return r;
 
         device->action = a;
-
-        return 0;
-}
-
-int device_get_seqnum(sd_device *device, uint64_t *seqnum) {
-        assert(device);
-
-        if (device->seqnum == 0)
-                return -ENOENT;
-
-        if (seqnum)
-                *seqnum = device->seqnum;
 
         return 0;
 }
@@ -355,7 +331,12 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
         return 0;
 }
 
-static int device_append(sd_device *device, char *key, const char **_major, const char **_minor) {
+static int device_append(
+                sd_device *device,
+                char *key,
+                const char **_major,
+                const char **_minor) {
+
         const char *major = NULL, *minor = NULL;
         char *value;
         int r;
@@ -384,10 +365,10 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
                         return r;
         }
 
-        if (major != 0)
+        if (major)
                 *_major = major;
 
-        if (minor != 0)
+        if (minor)
                 *_minor = minor;
 
         return 0;
@@ -719,22 +700,6 @@ int device_new_from_synthetic_event(sd_device **new_device, const char *syspath,
         return 0;
 }
 
-int device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
-        char type;
-
-        assert(ret);
-        assert(st);
-
-        if (S_ISBLK(st->st_mode))
-                type = 'b';
-        else if (S_ISCHR(st->st_mode))
-                type = 'c';
-        else
-                return -ENOTTY;
-
-        return sd_device_new_from_devnum(ret, type, st->st_rdev);
-}
-
 int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
         const char *property, *value;
         int r;
@@ -998,19 +963,19 @@ int device_delete_db(sd_device *device) {
         return 0;
 }
 
-static const char* const device_action_table[_DEVICE_ACTION_MAX] = {
-        [DEVICE_ACTION_ADD]     = "add",
-        [DEVICE_ACTION_REMOVE]  = "remove",
-        [DEVICE_ACTION_CHANGE]  = "change",
-        [DEVICE_ACTION_MOVE]    = "move",
-        [DEVICE_ACTION_ONLINE]  = "online",
-        [DEVICE_ACTION_OFFLINE] = "offline",
-        [DEVICE_ACTION_BIND]    = "bind",
-        [DEVICE_ACTION_UNBIND]  = "unbind",
+static const char* const device_action_table[_SD_DEVICE_ACTION_MAX] = {
+        [SD_DEVICE_ADD]     = "add",
+        [SD_DEVICE_REMOVE]  = "remove",
+        [SD_DEVICE_CHANGE]  = "change",
+        [SD_DEVICE_MOVE]    = "move",
+        [SD_DEVICE_ONLINE]  = "online",
+        [SD_DEVICE_OFFLINE] = "offline",
+        [SD_DEVICE_BIND]    = "bind",
+        [SD_DEVICE_UNBIND]  = "unbind",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(device_action, DeviceAction);
+DEFINE_STRING_TABLE_LOOKUP(device_action, sd_device_action_t);
 
 void dump_device_action_table(void) {
-        DUMP_STRING_TABLE(device_action, DeviceAction, _DEVICE_ACTION_MAX);
+        DUMP_STRING_TABLE(device_action, sd_device_action_t, _SD_DEVICE_ACTION_MAX);
 }

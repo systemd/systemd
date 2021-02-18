@@ -247,7 +247,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 
         assert(w);
 
-        if (device_for_action(device, DEVICE_ACTION_REMOVE))
+        if (device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
 
         r = sd_device_get_parent(device, &pp);
