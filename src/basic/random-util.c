@@ -495,7 +495,7 @@ int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
         return 1;
 }
 
-int random_u64_range(uint64_t m) {
+uint64_t random_u64_range(uint64_t m) {
         uint64_t x, remainder;
 
         /* Generates a random number in the range 0…m-1, unbiased. (Java's algorithm) */
