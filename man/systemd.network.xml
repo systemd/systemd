@@ -810,6 +810,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv4RouteLocalnet=</varname></term>
+          <listitem><para>Takes a boolean. When true, the kernel does not consider loopback addresses as martian source or destination
+          while routing. This enables the use of 127.0.0.0/8 for local routing purposes. When unset, the kernel's default will be used.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>IPv4ProxyARP=</varname></term>
           <listitem><para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one host,
           usually a router, answers ARP requests intended for another machine. By "faking" its identity,
