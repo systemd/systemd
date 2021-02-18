@@ -740,7 +740,7 @@ global:
 LIBSYSTEMD_248 {
 global:
         sd_bus_open_user_machine;
-        sd_bus_reply;
+        sd_bus_message_send;
 
         sd_event_source_set_ratelimit;
         sd_event_source_get_ratelimit;
