@@ -82,7 +82,7 @@ _public_ unsigned long long udev_device_get_seqnum(struct udev_device *udev_devi
 
         assert_return_errno(udev_device, 0, EINVAL);
 
-        if (device_get_seqnum(udev_device->device, &seqnum) < 0)
+        if (sd_device_get_seqnum(udev_device->device, &seqnum) < 0)
                 return 0;
 
         return seqnum;
@@ -693,11 +693,11 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
  * Returns: the kernel action value, or #NULL if there is no action value available.
  **/
 _public_ const char *udev_device_get_action(struct udev_device *udev_device) {
-        DeviceAction action;
+        sd_device_action_t action;
 
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_action(udev_device->device, &action) < 0)
+        if (sd_device_get_action(udev_device->device, &action) < 0)
                 return NULL;
 
         return device_action_to_string(action);

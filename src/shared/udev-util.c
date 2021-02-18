@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "env-file.h"
 #include "escape.h"
@@ -175,7 +176,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
          * (And yes, we only need to special case REMOVE. It's the only "negative" event type, where a device
          * ceases to exist. All other event types are "positive": the device exists and is registered in the
          * udev database, thus whenever we see the event, we can consider it initialized.) */
-        if (device_for_action(device, DEVICE_ACTION_REMOVE))
+        if (device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
 
         if (data->sysname && sd_device_get_sysname(device, &sysname) >= 0 && streq(sysname, data->sysname))
@@ -318,26 +319,29 @@ int device_is_renaming(sd_device *dev) {
         return true;
 }
 
-bool device_for_action(sd_device *dev, DeviceAction action) {
-        DeviceAction a;
+bool device_for_action(sd_device *dev, sd_device_action_t a) {
+        sd_device_action_t b;
 
         assert(dev);
 
-        if (device_get_action(dev, &a) < 0)
+        if (a < 0)
                 return false;
 
-        return a == action;
+        if (sd_device_get_action(dev, &b) < 0)
+                return false;
+
+        return a == b;
 }
 
 void log_device_uevent(sd_device *device, const char *str) {
-        DeviceAction action = _DEVICE_ACTION_INVALID;
+        sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
         uint64_t seqnum = 0;
 
         if (!DEBUG_LOGGING)
                 return;
 
-        (void) device_get_seqnum(device, &seqnum);
-        (void) device_get_action(device, &action);
+        (void) sd_device_get_seqnum(device, &seqnum);
+        (void) sd_device_get_action(device, &action);
         log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s)",
                          strempty(str), isempty(str) ? "" : " ",
                          seqnum, strna(device_action_to_string(action)));

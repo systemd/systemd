@@ -182,15 +182,15 @@ int manager_connect_bus(Manager *m) {
 }
 
 static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        sd_device_action_t action;
         Manager *m = userdata;
-        DeviceAction action;
         Link *link = NULL;
         int r, ifindex;
 
         assert(m);
         assert(device);
 
-        r = device_get_action(device, &action);
+        r = sd_device_get_action(device, &action);
         if (r < 0) {
                 log_device_debug_errno(device, r, "Failed to get udev action, ignoring device: %m");
                 return 0;
@@ -199,7 +199,7 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
         /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
          * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
          * still exists — and we are interested in that. */
-        if (action == DEVICE_ACTION_REMOVE)
+        if (action == SD_DEVICE_REMOVE)
                 return 0;
 
         r = sd_device_get_ifindex(device, &ifindex);

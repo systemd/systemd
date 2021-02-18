@@ -17,7 +17,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
+#include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
@@ -30,6 +32,20 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
 typedef struct sd_device_monitor sd_device_monitor;
+
+typedef enum sd_device_action_t {
+        SD_DEVICE_ADD,
+        SD_DEVICE_REMOVE,
+        SD_DEVICE_CHANGE,
+        SD_DEVICE_MOVE,
+        SD_DEVICE_ONLINE,
+        SD_DEVICE_OFFLINE,
+        SD_DEVICE_BIND,
+        SD_DEVICE_UNBIND,
+        _SD_DEVICE_ACTION_MAX,
+        _SD_DEVICE_ACTION_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(DEVICE_ACTION),
+} sd_device_action_t;
 
 /* callback */
 
@@ -44,6 +60,7 @@ int sd_device_new_from_syspath(sd_device **ret, const char *syspath);
 int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum);
 int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *subsystem, const char *sysname);
 int sd_device_new_from_device_id(sd_device **ret, const char *id);
+int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st);
 
 int sd_device_get_parent(sd_device *child, sd_device **ret);
 int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *subsystem, const char *devtype, sd_device **ret);
@@ -58,6 +75,8 @@ int sd_device_get_devpath(sd_device *device, const char **ret);
 int sd_device_get_devname(sd_device *device, const char **ret);
 int sd_device_get_sysname(sd_device *device, const char **ret);
 int sd_device_get_sysnum(sd_device *device, const char **ret);
+int sd_device_get_action(sd_device *device, sd_device_action_t *ret);
+int sd_device_get_seqnum(sd_device *device, uint64_t *ret);
 
 int sd_device_get_is_initialized(sd_device *device);
 int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec);

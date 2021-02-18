@@ -20,7 +20,7 @@ static int find_device_from_path(const char *path, sd_device **ret) {
                 if (stat(path, &st) < 0)
                         return -errno;
 
-                return device_new_from_stat_rdev(ret, &st);
+                return sd_device_new_from_stat_rdev(ret, &st);
         }
 
         return -EINVAL;

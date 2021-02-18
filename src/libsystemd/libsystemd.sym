@@ -745,4 +745,8 @@ global:
         sd_event_source_set_ratelimit;
         sd_event_source_get_ratelimit;
         sd_event_source_is_ratelimited;
+
+        sd_device_get_action;
+        sd_device_get_seqnum;
+        sd_device_new_from_stat_rdev;
 } LIBSYSTEMD_247;
