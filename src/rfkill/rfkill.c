@@ -171,14 +171,17 @@ static int load_state(Context *c, const struct rfkill_event *event) {
                 .op = RFKILL_OP_CHANGE,
                 .soft = b,
         };
+        assert_cc(offsetof(struct rfkill_event, op) < RFKILL_EVENT_SIZE_V1);
+        assert_cc(offsetof(struct rfkill_event, soft) < RFKILL_EVENT_SIZE_V1);
 
         ssize_t l = write(c->rfkill_fd, &we, sizeof we);
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
-        if (l != sizeof we)
+        if (l < RFKILL_EVENT_SIZE_V1)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Couldn't write rfkill event structure, too short (wrote %zd of %zu bytes).",
                                        l, sizeof we);
+        log_debug("Writing struct rfkill_event successful (%zd of %zu bytes).", l, sizeof we);
 
         log_debug("Loaded state '%s' from %s.", one_zero(b), state_file);
         return 0;
@@ -304,7 +307,7 @@ static int run(int argc, char *argv[]) {
         }
 
         for (;;) {
-                struct rfkill_event event;
+                struct rfkill_event event = {};
 
                 ssize_t l = read(c.rfkill_fd, &event, sizeof event);
                 if (l < 0) {
@@ -332,9 +335,15 @@ static int run(int argc, char *argv[]) {
                         break;
                 }
 
-                if (l != RFKILL_EVENT_SIZE_V1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Read event structure of unexpected size (%zd, not %d)",
+                if (l < RFKILL_EVENT_SIZE_V1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read of struct rfkill_event: (%zd < %d)",
                                                l, RFKILL_EVENT_SIZE_V1);
+                log_debug("Reading struct rfkill_event: got %zd bytes.", l);
+
+                /* The event structure has more fields. We only care about the first few, so it's OK if we
+                 * don't read the full structure. */
+                assert_cc(offsetof(struct rfkill_event, op) < RFKILL_EVENT_SIZE_V1);
+                assert_cc(offsetof(struct rfkill_event, type) < RFKILL_EVENT_SIZE_V1);
 
                 const char *type = rfkill_type_to_string(event.type);
                 if (!type) {
