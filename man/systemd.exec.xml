@@ -418,7 +418,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Credentials</title>
+    <title>User/Group Identity</title>
 
     <xi:include href="system-only.xml" xpointer="plural"/>
 
