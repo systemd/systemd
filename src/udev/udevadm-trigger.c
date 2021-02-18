@@ -28,28 +28,24 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_s
         int r, ret = 0;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                _cleanup_free_ char *filename = NULL;
                 const char *syspath;
 
                 if (sd_device_get_syspath(d, &syspath) < 0)
                         continue;
 
                 if (arg_verbose)
-                        printf("%s\n", syspath);
+                        printf("%s\n", strna(syspath));
+
                 if (arg_dry_run)
                         continue;
 
-                filename = path_join(syspath, "uevent");
-                if (!filename)
-                        return log_oom();
-
-                r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = sd_device_set_sysattr_value(d, "uevent", action);
                 if (r < 0) {
                         bool ignore = IN_SET(r, -ENOENT, -ENODEV);
 
                         log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s'%s: %m",
-                                       action, filename, ignore ? ", ignoring" : "");
+                                       "Failed to write '%s' to '%s/uevent'%s: %m",
+                                       action, syspath, ignore ? ", ignoring" : "");
                         if (IN_SET(r, -EACCES, -EROFS))
                                 /* Inovoked by unprivileged user, or read only filesystem. Return earlier. */
                                 return r;
