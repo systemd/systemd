@@ -198,7 +198,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         devpath = syspath + STRLEN("/sys");
 
-        if (devpath[0] == '\0')
+        if (devpath[0] != '/')
                 /* '/sys' alone is not a valid device path */
                 return -ENODEV;
 
