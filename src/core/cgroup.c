@@ -24,6 +24,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "restrict-ifaces.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -216,6 +217,8 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
+
+        c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
@@ -544,6 +547,14 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+#if BPF_FRAMEWORK
+        if (c->restrict_network_interfaces) {
+                char *iface;
+                SET_FOREACH(iface, c->restrict_network_interfaces)
+                        fprintf(f, "%sRestrictNetworkInterfaces: %s\n", prefix, iface);
+        }
+#endif
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -1009,6 +1020,12 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+static void cgroup_apply_restrict_network_interfaces(Unit *u) {
+        assert(u);
+
+        (void) restrict_network_interfaces_install(u);
+}
+
 static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         const char *path;
@@ -1428,6 +1445,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
+                cgroup_apply_restrict_network_interfaces(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1458,6 +1478,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_restrict_network_interfaces(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->restrict_network_interfaces != NULL;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1510,6 +1541,10 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_restrict_network_interfaces(u)) {
+                mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
+        }
 
         return mask;
 }
@@ -3006,6 +3041,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF-based cgroup_skb/{egress|ingress} hooks */
+        r = restrict_network_interfaces_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
 
         *ret = mask;
         return 0;

@@ -89,6 +89,8 @@ libcore_sources = '''
         namespace.h
         path.c
         path.h
+        restrict-ifaces.c
+        restrict-ifaces.h
         scope.c
         scope.h
         selinux-access.c
@@ -121,6 +123,11 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+if conf.get('BPF_FRAMEWORK') == 1
+        subdir('bpf')
+        libcore_sources += [restrict_ifaces_skel_h]
+
+endif
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
