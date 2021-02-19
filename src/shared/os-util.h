@@ -26,8 +26,3 @@ int parse_os_release(const char *root, ...) _sentinel_;
 int load_extension_release_pairs(const char *root, const char *extension, char ***ret);
 int load_os_release_pairs(const char *root, char ***ret);
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
-
-/* Given an image name (for logging purposes), a set of os-release values from the host
- * and a key-value pair vector of extension-release variables, check that the distro and
- * (system extension level or distro version) match and return 1, and 0 otherwise. */
-int extension_release_validate(const char *name, const char *host_os_release_id, const char *host_os_release_version_id, const char *host_os_release_sysext_level, char **extension_release);
