@@ -292,7 +292,11 @@
         will remove the file after the service has shut down if it still exists. The PID file does not need to be owned
         by a privileged user, but if it is owned by an unprivileged user additional safety restrictions are enforced:
         the file may not be a symlink to a file owned by a different user (neither directly nor indirectly), and the
-        PID file must refer to a process already belonging to the service.</para></listitem>
+        PID file must refer to a process already belonging to the service.</para>
+
+        <para>Note that PID files should be avoided in modern projects. Use <option>Type=notify</option> or
+        <option>Type=simple</option> where possible, which does not require use of PID files to determine the
+        main process of a service and avoids needless forking.</para></listitem>
       </varlistentry>
 
       <varlistentry>
