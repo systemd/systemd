@@ -206,7 +206,10 @@ int hostname_setup(bool really) {
                 if (enoent)
                         log_info("No hostname configured, using fallback hostname.");
 
-                hn = get_fallback_hostname();
+                hn = b = get_fallback_hostname();
+                if (!hn)
+                        return log_oom();
+
                 source = HOSTNAME_FALLBACK;
 
         }

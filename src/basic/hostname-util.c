@@ -9,22 +9,31 @@
 
 #include "alloc-util.h"
 #include "hostname-util.h"
+#include "os-util.h"
 #include "string-util.h"
 #include "strv.h"
 
-const char* get_fallback_hostname(void) {
-        const char *e;
+char* get_fallback_hostname(void) {
+        int r;
 
-        e = secure_getenv("SYSTEMD_FALLBACK_HOSTNAME");
+        const char *e = secure_getenv("SYSTEMD_FALLBACK_HOSTNAME");
         if (e) {
                 if (!hostname_is_valid(e, 0))
                         log_debug("Invalid hostname in $SYSTEMD_FALLBACK_HOSTNAME, ignoring.");
                 else
-                        return e; /* The pointer is valid as long as a getenv(), putenv(), setenv(), or
-                                   * unsetenv() are not called. */
+                        return strdup(e);
         }
 
-        return FALLBACK_HOSTNAME;
+        _cleanup_free_ char *f = NULL;
+        r = parse_os_release(NULL, "FALLBACK_HOSTNAME", &f);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
+        else if (!hostname_is_valid(f, 0))
+                log_debug("Invalid hostname in os-release, ignoring.");
+        else
+                return TAKE_PTR(f);
+
+        return strdup(FALLBACK_HOSTNAME);
 }
 
 char* gethostname_malloc(void) {
@@ -39,7 +48,7 @@ char* gethostname_malloc(void) {
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)"))
-                s = get_fallback_hostname();
+                return get_fallback_hostname();
 
         return strdup(s);
 }
@@ -47,6 +56,7 @@ char* gethostname_malloc(void) {
 char* gethostname_short_malloc(void) {
         struct utsname u;
         const char *s;
+        _cleanup_free_ char *f = NULL;
 
         /* Like above, but kills the FQDN part if present. */
 
@@ -54,7 +64,10 @@ char* gethostname_short_malloc(void) {
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)") || s[0] == '.') {
-                s = get_fallback_hostname();
+                s = f = get_fallback_hostname();
+                if (!s)
+                        return NULL;
+
                 assert(s[0] != '.');
         }
 
