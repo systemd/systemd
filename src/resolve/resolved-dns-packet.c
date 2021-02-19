@@ -326,13 +326,10 @@ int dns_packet_validate_query(DnsPacket *p) {
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                /* RFC 6762, Section 18 */
-                if (DNS_PACKET_AA(p)    != 0 ||
-                    DNS_PACKET_RD(p)    != 0 ||
-                    DNS_PACKET_RA(p)    != 0 ||
-                    DNS_PACKET_AD(p)    != 0 ||
-                    DNS_PACKET_CD(p)    != 0 ||
-                    DNS_PACKET_RCODE(p) != 0)
+                /* RFC 6762, Section 18 specifies that messages with non-zero RCODE
+                 * must be silently ignored, and that we must ignore the values of
+                 * AA, RD, RA, AD, and CD bits. */
+                if (DNS_PACKET_RCODE(p) != 0)
                         return -EBADMSG;
 
                 break;
@@ -1631,12 +1628,12 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
 int dns_packet_read_key(
                 DnsPacket *p,
                 DnsResourceKey **ret,
-                bool *ret_cache_flush,
+                bool *ret_top_bit,
                 size_t *ret_start) {
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         _cleanup_free_ char *name = NULL;
-        bool cache_flush = false;
+        bool top_bit = false;
         uint16_t class, type;
         int r;
 
@@ -1656,11 +1653,11 @@ int dns_packet_read_key(
                 return r;
 
         if (p->protocol == DNS_PROTOCOL_MDNS) {
-                /* See RFC6762, Section 10.2 */
+                /* See RFC6762, sections 5.4 and 10.2 */
 
                 if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH)) {
                         class &= ~MDNS_RR_CACHE_FLUSH;
-                        cache_flush = true;
+                        top_bit = true;
                 }
         }
 
@@ -1675,8 +1672,8 @@ int dns_packet_read_key(
                 *ret = key;
         }
 
-        if (ret_cache_flush)
-                *ret_cache_flush = cache_flush;
+        if (ret_top_bit)
+                *ret_top_bit = top_bit;
         if (ret_start)
                 *ret_start = rewinder.saved_rindex;
 
@@ -2224,14 +2221,14 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-                        bool cache_flush;
+                        bool qu;
 
-                        r = dns_packet_read_key(p, &key, &cache_flush, NULL);
+                        r = dns_packet_read_key(p, &key, &qu, NULL);
                         if (r < 0)
                                 return r;
 
-                        if (cache_flush)
-                                return -EBADMSG;
+                        if (qu)
+                                p->wants_unicast_reply = true;
 
                         if (!dns_type_is_valid_query(key->type))
                                 return -EBADMSG;
