@@ -28,6 +28,9 @@ NextHop *nexthop_free(NextHop *nexthop) {
         if (nexthop->link) {
                 set_remove(nexthop->link->nexthops, nexthop);
                 set_remove(nexthop->link->nexthops_foreign, nexthop);
+
+                if (nexthop->link->manager && nexthop->id > 0)
+                        hashmap_remove(nexthop->link->manager->nexthops_by_id, UINT32_TO_PTR(nexthop->id));
         }
 
         return mfree(nexthop);
@@ -129,6 +132,23 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
+int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret) {
+        NextHop *nh;
+
+        assert(manager);
+
+        if (id == 0)
+                return -EINVAL;
+
+        nh = hashmap_get(manager->nexthops_by_id, UINT32_TO_PTR(id));
+        if (!nh)
+                return -ENOENT;
+
+        if (ret)
+                *ret = nh;
+        return 0;
+}
+
 static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         NextHop *existing;
 
@@ -221,14 +241,18 @@ static int nexthop_update(Link *link, NextHop *nexthop, const NextHop *in) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(nexthop);
         assert(in);
         assert(in->id > 0);
 
-        /* Currently, this only updates ID. */
+        /* This updates nexthop ID if necessary, and register the nexthop to Manager. */
 
-        if (nexthop->id > 0)
-                return nexthop->id == in->id ? 0 : -EINVAL;
+        if (nexthop->id > 0) {
+                if (nexthop->id == in->id)
+                        goto set_manager;
+                return -EINVAL;
+        }
 
         nexthop = set_remove(link->nexthops, nexthop);
         if (!nexthop)
@@ -251,7 +275,8 @@ static int nexthop_update(Link *link, NextHop *nexthop, const NextHop *in) {
                 return r < 0 ? r : -EEXIST;
         }
 
-        return 0;
+set_manager:
+        return hashmap_ensure_put(&link->manager->nexthops_by_id, NULL, UINT32_TO_PTR(nexthop->id), nexthop);
 }
 
 static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *str, const Link *link) {
