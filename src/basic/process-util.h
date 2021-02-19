@@ -199,3 +199,5 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 int pidfd_get_pid(int fd, pid_t *ret);
 
 int setpriority_closest(int priority);
+
+bool invoked_as(char *argv[], const char *token);

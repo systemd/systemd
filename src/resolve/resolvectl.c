@@ -26,6 +26,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "resolvconf-compat.h"
 #include "resolvectl.h"
 #include "resolved-def.h"
@@ -3394,9 +3395,9 @@ static int run(int argc, char **argv) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        if (streq(program_invocation_short_name, "resolvconf"))
+        if (invoked_as(argv, "resolvconf"))
                 r = resolvconf_parse_argv(argc, argv);
-        else if (streq(program_invocation_short_name, "systemd-resolve"))
+        else if (invoked_as(argv, "systemd-resolve"))
                 r = compat_parse_argv(argc, argv);
         else
                 r = native_parse_argv(argc, argv);
