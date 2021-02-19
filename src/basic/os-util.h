@@ -6,6 +6,8 @@
 /* The *_extension_release flavours will look for /usr/lib/extension-release/extension-release.NAME
  * in accordance with the OS extension specification, rather than for /usr/lib/ or /etc/os-release. */
 
+bool image_name_is_valid(const char *s) _pure_;
+
 int path_is_extension_tree(const char *path, const char *extension);
 static inline int path_is_os_tree(const char *path) {
         return path_is_extension_tree(path, NULL);

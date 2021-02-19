@@ -18,6 +18,7 @@
 #include "loop-util.h"
 #include "missing_capability.h"
 #include "mount-util.h"
+#include "os-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "strv.h"
