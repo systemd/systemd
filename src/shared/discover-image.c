@@ -1250,23 +1250,6 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
         return make_lock_file(p, operation, ret);
 }
 
-bool image_name_is_valid(const char *s) {
-        if (!filename_is_valid(s))
-                return false;
-
-        if (string_has_cc(s, NULL))
-                return false;
-
-        if (!utf8_is_valid(s))
-                return false;
-
-        /* Temporary files for atomically creating new files */
-        if (startswith(s, ".#"))
-                return false;
-
-        return true;
-}
-
 bool image_in_search_path(
                 ImageClass class,
                 const char *root,

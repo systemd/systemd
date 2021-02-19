@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "discover-image.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -9,8 +8,27 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "utf8.h"
+
+bool image_name_is_valid(const char *s) {
+        if (!filename_is_valid(s))
+                return false;
+
+        if (string_has_cc(s, NULL))
+                return false;
+
+        if (!utf8_is_valid(s))
+                return false;
+
+        /* Temporary files for atomically creating new files */
+        if (startswith(s, ".#"))
+                return false;
+
+        return true;
+}
 
 int path_is_extension_tree(const char *path, const char *extension) {
         int r;
