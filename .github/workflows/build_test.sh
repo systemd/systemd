@@ -96,7 +96,7 @@ apt-get -y install "${PACKAGES[@]}"
 # support all the features we need (like --optimization=). Since the build-dep
 # command above installs the distro versions, let's install the pip ones just
 # locally and add the local bin directory to the $PATH.
-pip3 install --user -U meson==0.56.2 ninja
+pip3 install --user -U meson ninja
 export PATH="$HOME/.local/bin:$PATH"
 
 $CC --version
