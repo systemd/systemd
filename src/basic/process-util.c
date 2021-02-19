@@ -1620,6 +1620,16 @@ int setpriority_closest(int priority) {
         return 0;
 }
 
+bool invoked_as(char *argv[], const char *token) {
+        if (!argv || isempty(argv[0]))
+                return false;
+
+        if (isempty(token))
+                return false;
+
+        return strstr(last_path_component(argv[0]), token);
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

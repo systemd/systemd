@@ -8,13 +8,14 @@
 #include "alloc-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "string-util.h"
+#include "udev-util.h"
 #include "udevadm.h"
 #include "udevd.h"
-#include "udev-util.h"
-#include "verbs.h"
 #include "util.h"
+#include "verbs.h"
 
 static int help(void) {
         static const char *const short_descriptions[][2] = {
@@ -111,7 +112,7 @@ static int udevadm_main(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        if (strstr(program_invocation_short_name, "udevd"))
+        if (invoked_as(argv, "udevd"))
                 return run_udevd(argc, argv);
 
         udev_parse_config();
