@@ -28,7 +28,7 @@ typedef struct NetworkConfigSection {
 
 CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_family_with_kernel);
-CONFIG_PARSER_PROTOTYPE(config_parse_address_family_compat);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
 
 const char *address_family_to_string(AddressFamily b) _const_;
 AddressFamily address_family_from_string(const char *s) _pure_;
