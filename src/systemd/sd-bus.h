@@ -201,7 +201,6 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie);
 int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie);
 int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret_error, sd_bus_message **reply);
 int sd_bus_call_async(sd_bus *bus, sd_bus_slot **slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
-int sd_bus_reply(const sd_bus_message *call, sd_bus_message *reply);
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
@@ -355,6 +354,7 @@ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machin
 
 /* Convenience calls */
 
+int sd_bus_message_send(sd_bus_message *m);
 int sd_bus_call_methodv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, va_list ap);
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, ...);
 int sd_bus_call_method_asyncv(sd_bus *bus, sd_bus_slot **slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, va_list ap);

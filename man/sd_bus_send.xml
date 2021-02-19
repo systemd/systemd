@@ -19,6 +19,7 @@
   <refnamediv>
     <refname>sd_bus_send</refname>
     <refname>sd_bus_send_to</refname>
+    <refname>sd_bus_message_send</refname>
 
     <refpurpose>Queue a D-Bus message for transfer</refpurpose>
   </refnamediv>
@@ -40,6 +41,11 @@
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>const char *<parameter>destination</parameter></paramdef>
         <paramdef>uint64_t *<parameter>cookie</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_send</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -76,6 +82,10 @@
     call fails.
     <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> should
     be invoked to write out any queued message data to the transport.</para>
+
+    <para><function>sd_bus_message_send()</function> is the same as <function>sd_bus_send()</function> but
+    without the first and last argument. It's equivalent to
+    <function>sd_bus_message_send(sd_bus_message_get_bus(m), m, NULL)</function>.</para>
   </refsect1>
 
   <refsect1>

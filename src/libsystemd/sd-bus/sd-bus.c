@@ -2604,20 +2604,6 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
         }
 }
 
-int sd_bus_reply(const sd_bus_message *call, sd_bus_message *reply) {
-        assert_return(call, -EINVAL);
-        assert_return(call->sealed, -EPERM);
-        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(call->bus, -EINVAL);
-        assert_return(!bus_pid_changed(call->bus), -ECHILD);
-        assert_return(reply, -EINVAL);
-        assert_return(
-                IN_SET(reply->header->type, SD_BUS_MESSAGE_METHOD_RETURN, SD_BUS_MESSAGE_METHOD_ERROR),
-                -EINVAL);
-
-        return sd_bus_send(call->bus, reply, NULL);
-}
-
 static int process_timeout(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message* m = NULL;
