@@ -1358,8 +1358,7 @@ static int status_welcome(void) {
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &pretty_name,
-                             "ANSI_COLOR", &ansi_color,
-                             NULL);
+                             "ANSI_COLOR", &ansi_color);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
