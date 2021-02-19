@@ -61,8 +61,9 @@
     reply.</para>
 
     <para><function>sd_bus_reply()</function> takes a complete bus message object created with either
-    <citerefentry><refentrytitle>sd_bus_new_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
-    <citerefentry><refentrytitle>sd_bus_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_bus_message_new_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or
+    <citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and sends it as a reply to the <parameter>call</parameter> message.</para>
   </refsect1>
 
