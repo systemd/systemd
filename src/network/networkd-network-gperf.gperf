@@ -19,6 +19,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-mdb.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
@@ -329,6 +330,8 @@ CAN.TripleSampling,                          config_parse_tristate,             
 CAN.BusErrorReporting,                       config_parse_tristate,                                    0,                             offsetof(Network, can_berr_reporting)
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)
 CAN.ListenOnly,                              config_parse_tristate,                                    0,                             offsetof(Network, can_listen_only)
+MPTCP.Id,                                    config_parse_mp_tcp_id,                                   0,                             0
+MPTCP.Address,                               config_parse_mp_tcp_address,                              0,                             0
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
 QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
 BFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_BFIFO,              0

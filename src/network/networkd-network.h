@@ -298,6 +298,7 @@ struct Network {
         Hashmap *rules_by_section;
         OrderedHashmap *tc_by_section;
         OrderedHashmap *sr_iov_by_section;
+        OrderedHashmap *mp_tcp_by_section;
 
         /* All kinds of DNS configuration */
         struct in_addr_full **dns;

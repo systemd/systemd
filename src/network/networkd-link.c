@@ -34,6 +34,7 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -761,6 +762,11 @@ void link_check_ready(Link *link) {
 
         if (!link->bridge_mdb_configured)
                 return (void) log_link_debug(link, "%s(): Bridge MDB is not configured.", __func__);
+
+        if (!link->mp_tcp_configured) {
+                log_link_debug(link, "%s(): MPTCP is not configured.", __func__);
+                return;
+        }
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
                 bool has_ndisc_address = false;
@@ -2024,6 +2030,10 @@ int link_configure(Link *link) {
                 return r;
 
         r = link_configure_sr_iov(link);
+        if (r < 0)
+                return r;
+
+        r = link_configure_mp_tcp(link);
         if (r < 0)
                 return r;
 

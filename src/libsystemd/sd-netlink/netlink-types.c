@@ -21,6 +21,7 @@
 #include <linux/l2tp.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
+#include <linux/mptcp.h>
 #include <linux/nexthop.h>
 #include <linux/nl80211.h>
 #include <linux/pkt_sched.h>
@@ -1326,6 +1327,46 @@ static const NLTypeSystem genl_nl80211_cmds_type_system = {
         .types = genl_nl80211_cmds,
 };
 
+static const NLType genl_mptcp_pm_attr_addr_types[] = {
+        [MPTCP_PM_ADDR_ATTR_FAMILY] = { .type = NETLINK_TYPE_U16 },
+        [MPTCP_PM_ADDR_ATTR_ID]     = { .type = NETLINK_TYPE_U8 },
+        [MPTCP_PM_ADDR_ATTR_ADDR4]  = { .type = NETLINK_TYPE_IN_ADDR },
+        [MPTCP_PM_ADDR_ATTR_ADDR6]  = { .type = NETLINK_TYPE_IN_ADDR },
+        [MPTCP_PM_ADDR_ATTR_PORT]   = { .type = NETLINK_TYPE_U16 },
+        [MPTCP_PM_ADDR_ATTR_FLAGS]  = { .type = NETLINK_TYPE_U16 },
+        [MPTCP_PM_ADDR_ATTR_IF_IDX] = { .type = NETLINK_TYPE_S32 },
+};
+
+static const NLTypeSystem genl_mptcp_pm_attr_addr_type_system = {
+        .count = ELEMENTSOF(genl_mptcp_pm_attr_addr_types),
+        .types = genl_mptcp_pm_attr_addr_types,
+};
+
+static const NLType genl_mptcp_pm_attr_types[] = {
+        [MPTCP_PM_ATTR_ADDR]          = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_addr_type_system },
+        [MPTCP_PM_ATTR_RCV_ADD_ADDRS] = { .type = NETLINK_TYPE_U32 },
+        [MPTCP_PM_ATTR_SUBFLOWS]      = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem genl_mptcp_pm_attr_type_system = {
+        .count = ELEMENTSOF(genl_mptcp_pm_attr_types),
+        .types = genl_mptcp_pm_attr_types,
+};
+
+static const NLType genl_mptcp_cmds[] = {
+        [MPTCP_PM_CMD_ADD_ADDR]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_type_system },
+        [MPTCP_PM_CMD_DEL_ADDR]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_type_system },
+        [MPTCP_PM_CMD_GET_ADDR]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_type_system },
+        [MPTCP_PM_CMD_FLUSH_ADDRS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_type_system },
+        [MPTCP_PM_CMD_SET_LIMITS]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_type_system },
+        [MPTCP_PM_CMD_GET_LIMITS]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_pm_attr_type_system },
+};
+
+static const NLTypeSystem genl_mptcp_cmds_type_system = {
+        .count = ELEMENTSOF(genl_mptcp_cmds),
+        .types = genl_mptcp_cmds,
+};
+
 static const NLType genl_families[] = {
         [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
@@ -1333,6 +1374,7 @@ static const NLType genl_families[] = {
         [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_tunnel_session_type_system },
         [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_device_type_system },
         [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_cmds_type_system },
+        [SD_GENL_MPTCP]     = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_mptcp_cmds_type_system },
 };
 
 static const NLType nfnl_nft_table_types[] = {

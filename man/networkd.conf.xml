@@ -177,6 +177,31 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
   </refsect1>
 
   <refsect1>
+      <title>[MPTCP] Section Options</title>
+      <para>The [MPTCP] section accepts the following keys. </para>
+
+      <variablelist>
+      <varlistentry>
+        <term><varname>AddressMax=</varname></term>
+        <listitem>
+          <para>Specifies if additional subflow creation is allowed by MPTCP limits, the endpoint will be used as the source address to
+          create an additional subflow after that the MPTCP connection is established. Takes an unsigned integer in the range 1..8.
+          Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SubflowsMax=</varname></term>
+        <listitem>
+          <para>Specifies the maximum number of <varname>Address=</varname> suboptions accepted for each MPTCP connection. The MPTCP path manager
+          will try to create a new subflow for each accepted <varname>Address=</varname> option, respecting the <literal>SubflowsMax=</literal>.
+          Takes an unsigned integer in the range 1..8. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
       <title>See Also</title>
       <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
