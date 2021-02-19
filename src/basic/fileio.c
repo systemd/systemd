@@ -385,7 +385,9 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
         if (fd < 0)
                 return -errno;
 
-        /* Start size for files in /proc which usually report a file size of 0. */
+        /* Start size for files in /proc/ which usually report a file size of 0. (Files in /sys/ report a
+         * file size of 4K, which is probably OK for sizing our initial buffer, and sysfs attributes can't be
+         * larger anyway.) */
         size = LINE_MAX / 2;
 
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
