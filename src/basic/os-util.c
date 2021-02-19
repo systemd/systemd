@@ -136,7 +136,7 @@ static int parse_release_internal(const char *root, const char *extension, va_li
         return parse_env_filev(f, p, ap);
 }
 
-int parse_extension_release(const char *root, const char *extension, ...) {
+int _parse_extension_release(const char *root, const char *extension, ...) {
         va_list ap;
         int r;
 
@@ -147,7 +147,7 @@ int parse_extension_release(const char *root, const char *extension, ...) {
         return r;
 }
 
-int parse_os_release(const char *root, ...) {
+int _parse_os_release(const char *root, ...) {
         va_list ap;
         int r;
 
