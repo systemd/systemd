@@ -10,6 +10,7 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extension-release.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
