@@ -77,7 +77,13 @@ uint64_t physical_memory(void) {
 }
 
 uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
-        uint64_t p, m, ps, r;
+        uint64_t p, m, ps;
+
+        /* Shortcut two special cases */
+        if (v == 0)
+                return 0;
+        if (v == max)
+                return physical_memory();
 
         assert(max > 0);
 
@@ -90,17 +96,16 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
         p = physical_memory() / ps;
         assert(p > 0);
 
-        m = p * v;
-        if (m / p != v)
+        if (v > UINT64_MAX / p)
                 return UINT64_MAX;
 
+        m = p * v;
         m /= max;
 
-        r = m * ps;
-        if (r / ps != m)
+        if (m > UINT64_MAX / ps)
                 return UINT64_MAX;
 
-        return r;
+        return m * ps;
 }
 
 uint64_t system_tasks_max(void) {
@@ -138,6 +143,12 @@ uint64_t system_tasks_max(void) {
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
         uint64_t t, m;
 
+        /* Shortcut two special cases */
+        if (v == 0)
+                return 0;
+        if (v == max)
+                return system_tasks_max();
+
         assert(max > 0);
 
         /* Multiply the system's task value by the fraction v/max. Hence, if max==100 this calculates percentages
@@ -146,9 +157,9 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
         t = system_tasks_max();
         assert(t > 0);
 
-        m = t * v;
-        if (m / t != v) /* overflow? */
+        if (v > UINT64_MAX / t) /* overflow? */
                 return UINT64_MAX;
 
+        m = t * v;
         return m / max;
 }

@@ -83,7 +83,7 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, J
                                  JSON_BUILD_PAIR("mode", JSON_BUILD_STRING(mode)),
                                  JSON_BUILD_PAIR("path", JSON_BUILD_STRING(u->cgroup_path)),
                                  JSON_BUILD_PAIR("property", JSON_BUILD_STRING(property)),
-                                 JSON_BUILD_PAIR_CONDITION(use_limit, "limit", JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit_permyriad))));
+                                 JSON_BUILD_PAIR_CONDITION(use_limit, "limit", JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit))));
 }
 
 int manager_varlink_send_managed_oom_update(Unit *u) {

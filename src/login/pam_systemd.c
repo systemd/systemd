@@ -34,6 +34,7 @@
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
@@ -334,9 +335,9 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                 return PAM_SUCCESS;
         }
 
-        r = parse_permille(limit);
+        r = parse_permyriad(limit);
         if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
+                r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", UINT32_SCALE_FROM_PERMYRIAD(r));
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 

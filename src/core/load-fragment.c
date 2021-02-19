@@ -46,6 +46,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -3593,13 +3594,13 @@ int config_parse_cpu_quota(
                 return 0;
         }
 
-        r = parse_permille_unbounded(rvalue);
+        r = parse_permyriad_unbounded(rvalue);
         if (r <= 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid CPU quota '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        c->cpu_quota_per_sec_usec = ((usec_t) r * USEC_PER_SEC) / 1000U;
+        c->cpu_quota_per_sec_usec = ((usec_t) r * USEC_PER_SEC) / 10000U;
         return 0;
 }
 
@@ -3664,7 +3665,7 @@ int config_parse_memory_limit(
                 bytes = CGROUP_LIMIT_MIN;
         else if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
 
-                r = parse_permille(rvalue);
+                r = parse_permyriad(rvalue);
                 if (r < 0) {
                         r = parse_size(rvalue, 1024, &bytes);
                         if (r < 0) {
@@ -3672,7 +3673,7 @@ int config_parse_memory_limit(
                                 return 0;
                         }
                 } else
-                        bytes = physical_memory_scale(r, 1000U);
+                        bytes = physical_memory_scale(r, 10000U);
 
                 if (bytes >= UINT64_MAX ||
                     (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
@@ -3734,9 +3735,9 @@ int config_parse_tasks_max(
                 return 0;
         }
 
-        r = parse_permille(rvalue);
+        r = parse_permyriad(rvalue);
         if (r >= 0)
-                *tasks_max = (TasksMax) { r, 1000U }; /* r‰ */
+                *tasks_max = (TasksMax) { r, 10000U }; /* r‱ */
         else {
                 r = safe_atou64(rvalue, &v);
                 if (r < 0) {
@@ -3842,6 +3843,7 @@ int config_parse_managed_oom_mode(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         ManagedOOMMode *mode = data, m;
         UnitType t;
 
@@ -3861,6 +3863,7 @@ int config_parse_managed_oom_mode(
                 log_syntax(unit, LOG_WARNING, filename, line, m, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
+
         *mode = m;
         return 0;
 }
@@ -3876,6 +3879,7 @@ int config_parse_managed_oom_mem_pressure_limit(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         uint32_t *limit = data;
         UnitType t;
         int r;
@@ -3897,7 +3901,8 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return 0;
         }
 
-        *limit = r;
+        /* Normalize to 2^32-1 == 100% */
+        *limit = UINT32_SCALE_FROM_PERMYRIAD(r);
         return 0;
 }
 
