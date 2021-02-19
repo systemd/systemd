@@ -40,6 +40,13 @@ static const char* const dhcp_deprecated_address_family_table[_ADDRESS_FAMILY_MA
         [ADDRESS_FAMILY_IPV6] = "v6",
 };
 
+static const char* const ip_masquerade_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_NO]   = "no",
+        [ADDRESS_FAMILY_YES]  = "both",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
+};
+
 static const char* const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
         [SD_DHCP_LEASE_DNS]  = "DNS servers",
         [SD_DHCP_LEASE_NTP]  = "NTP servers",
@@ -65,17 +72,8 @@ DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFa
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ip_masquerade_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
-
-static AddressFamily address_family_compat_from_string(const char *s) {
-        if (streq_ptr(s, "yes"))         /* compat name */
-                return ADDRESS_FAMILY_IPV4;
-        if (streq_ptr(s, "both"))
-                return ADDRESS_FAMILY_YES;
-        return address_family_from_string(s);
-}
-DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_compat, address_family_compat,
-                         AddressFamily, "Failed to parse option");
 
 int config_parse_address_family_with_kernel(
                 const char* unit,
@@ -116,6 +114,49 @@ int config_parse_address_family_with_kernel(
 
         *fwd = s;
 
+        return 0;
+}
+
+int config_parse_ip_masquerade(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamily a, *ret = data;
+        int r;
+
+        if (isempty(rvalue)) {
+                *ret = ADDRESS_FAMILY_NO;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r >= 0) {
+                if (r)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "IPMasquerade=%s is deprecated, and it is handled as \"ipv4\" instead of \"both\". "
+                                   "Please use \"ipv4\" or \"both\".",
+                                   rvalue);
+
+                *ret = r ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
+                return 0;
+        }
+
+        a = ip_masquerade_address_family_from_string(rvalue);
+        if (a < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, a,
+                           "Failed to parse IPMasquerade= setting, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        *ret = a;
         return 0;
 }
 
