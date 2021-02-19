@@ -4799,6 +4799,7 @@ char *manager_taint_string(Manager *m) {
 
         buf = new(char, sizeof("split-usr:"
                                "cgroups-missing:"
+                               "cgrousv1:"
                                "local-hwclock:"
                                "var-run-bad:"
                                "overflowuid-not-65534:"
@@ -4814,6 +4815,9 @@ char *manager_taint_string(Manager *m) {
 
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
+
+        if (cg_all_unified() == 0)
+                e = stpcpy(e, "cgroupsv1:");
 
         if (clock_is_localtime(NULL) > 0)
                 e = stpcpy(e, "local-hwclock:");
