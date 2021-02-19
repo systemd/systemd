@@ -21,10 +21,11 @@ CHANGES WITH 248:
           supported system extension level.
 
         * A new configuration file /etc/veritytab may be used to configure
-          integrity protection for block devices. Each line is in the format
-          "volume-name data-device hash-device roothash options".
+          dm-verity integrity protection for block devices. Each line is in the
+          format "volume-name data-device hash-device roothash options",
+          similar to /etc/crypttab.
 
-        * A new kernel command-line option systemd.verity.root-options= may be
+        * A new kernel command-line option systemd.verity.root_options= may be
           used to configure dm-verity behaviour for the root device.
 
         * The key file specified in /etc/crypttab (the third field) may now
@@ -40,11 +41,12 @@ CHANGES WITH 248:
           the need for configuration in an external file.
 
         * systemd-cryptsetup gained support for unlocking LUKS2 volumes using
-          TPM2 hardware, as well as FIDO2 security tokens.
+          TPM2 hardware, as well as FIDO2 security tokens (in addition to the
+          pre-existing support for PKCS#11 security tokens).
 
-        * systemd-repart may lock partitions using TPM2 hardware. This may be
-          useful for example to create an encrypted /var partition bound to the
-          machine on first boot.
+        * systemd-repart may enroll encrypted partitions using TPM2
+          hardware. This may be useful for example to create an encrypted /var
+          partition bound to the machine on first boot.
 
         * A new systemd-cryptenroll tool has been added to enroll TPM2, FIDO2
           and PKCS#11 security tokens to LUKS volumes, list and destroy
@@ -55,23 +57,30 @@ CHANGES WITH 248:
           It also supports enrolling "recovery keys" and regular passphrases.
 
         * The libfido2 dependency is now based on dlopen(), so that the library
-          is used at runtime when installed, but not if not.
+          is used at runtime when installed, but is not a hard runtime
+          dependency.
 
         * systemd-cryptsetup gained support for two new options in
-          /etc/crypttab: no-write-workqueue and no-read-workqueue which request
-          synchronous processing of encryption/decryption IO.
+          /etc/crypttab: "no-write-workqueue" and "no-read-workqueue" which
+          request synchronous processing of encryption/decryption IO.
 
-        * The manager may be configured at compile time to use fexecve instead
-          of execve when spawning children. Using fexecve closes a window
-          between checking the security context of an executable and spawning
-          it, but unfortunately the kernel displays stale information in the
-          comm field, which impacts ps output and such.
+        * The manager may be configured at compile time to use the fexecve()
+          instead of the execve() system call when spawning processes. Using
+          fexecve() closes a window between checking the security context of an
+          executable and spawning it, but unfortunately the kernel displays
+          stale information in the process' "comm" field, which impacts ps
+          output and such.
 
         * The configuration option -Dcompat-gateway-hostname has been dropped.
           "_gateway" is now the only supported name.
 
         * The ConditionSecurity=tpm2 unit file setting may be used to check if
           the system has at least one TPM2 (tpmrm class) device.
+
+        * A new ConditionCPUFeature= has been added that may be used to
+          conditionalize units based on CPU features. For example,
+          ConditionCPUFeature=rdrand will condition a unit so that it is only
+          run when the system CPU supports the RDRAND opcode.
 
         * The tables of system calls in seccomps filters are now automatically
           generated from kernel lists exported on
@@ -95,7 +104,7 @@ CHANGES WITH 248:
           respectively as 'systemctl bind <unit> <path>…' and
           'systemctl mount-image <unit> <image>…'.
 
-        * The StandardOuput= and StandardError= settings can now specify files
+        * The StandardOutput= and StandardError= settings can now specify files
           to be truncated for output (as "truncate:<path>").
 
         * The ExecPaths= and NoExecPaths= settings may be used to specify
@@ -103,8 +112,8 @@ CHANGES WITH 248:
 
         * sd-bus has a new function sd_bus_open_user_machine() to open a
           connection to the session bus of a specific user in a local container
-          or on the local host. This is exposed in the -M switch to systemctl
-          and similar tools:
+          or on the local host. This is exposed in the existing -M switch to
+          systemctl and similar tools:
 
               systemctl --user -M lennart@foobar start foo
 
@@ -166,12 +175,13 @@ CHANGES WITH 248:
           even a single device.
 
         * udev now exports the VOLUME_ID, LOGICAL_VOLUME_ID, VOLUME_SET_ID, and
-          DATA_PREPARED_ID attributes for block devices (when available).
+          DATA_PREPARED_ID properties for block devices with ISO9660 file
+          systems.
 
-        * udev now exports decoded DMI information about used memory slots as
-          device properties under the /sys/class/dmi/id/ pseudo device.
+        * udev now exports decoded DMI information about installed memory slots
+          as device properties under the /sys/class/dmi/id/ pseudo device.
 
-        * /dev/ is not mounted noexec any more. This didn't provide any
+        * /dev/ is not mounted noexec anymore. This didn't provide any
           significant security benefits and would conflicts with the executable
           mappings used with /dev/sgx device nodes.
 
@@ -179,7 +189,8 @@ CHANGES WITH 248:
           and /dev/vhost-net are owned by the kvm group.
 
         * The hardware database has been extended with a list of fingerprint
-          readers that correctly support autosuspend using data from libfprint.
+          readers that correctly support USB auto-suspend using data from
+          libfprint.
 
         * systemd-resolved can now answer DNSSEC questions through the stub
           resolver interface in a way that allows local clients to do DNSSEC
@@ -195,6 +206,22 @@ CHANGES WITH 248:
           caching, under the assumption the local upstream server caches
           anyway.
 
+        * systemd-resolved now implements RFC5001 NSID in its local DNS
+          stub. This may be used by local clients to determine whether they are
+          talking to the DNS resolver stub or a different DNS server.
+
+        * When resolving host names and other records resolvectl will now
+          report where the data was acquired from (i.e. the local cache, the
+          network, locally synthesized, …) and whether the network traffic it
+          effected was encrypted or not. Moreover the tool acquired a number of
+          new options --cache=, --synthesize=, --network=, --zone=,
+          --trust-anchor=, --validate= that take booleans and may be used to
+          tweak a lookup, i.e. whether it may be answered from cached
+          information, locally synthesized information, information acquired
+          through the network, the local mDNS/LLMNR zone, the DNSSEC trust
+          anchor, and whether DNSSEC validation shall be executed for the
+          lookup.
+
         * systemd-nspawn gained a new --ambient-capability= setting
           (AmbientCapability= in .nspawn files) to configure ambient
           capabilities passed to the container payload.
@@ -202,8 +229,8 @@ CHANGES WITH 248:
         * systemd-nspawn gained the ability to configure the firewall using the
           nftables subsystem (in addition to the existing iptables
           support). Similar, systemd-networkd's IPMasquerade= option now
-          supports nftables as backend, too. In both cases NAT on IPv6 is now
-          supported too, in addition to IPv4 (the iptables backend still is
+          supports nftables as back-end, too. In both cases NAT on IPv6 is now
+          supported too, in addition to IPv4 (the iptables back-end still is
           IPv4-only).
 
         * systemd-importd will now download .verity and .roothash.p7s files
@@ -223,8 +250,8 @@ CHANGES WITH 248:
         * systemd-stdio-bridge gained --system/--user options to connect to the
           system bus (previous default) or the user session bus.
 
-        * When the hostname is set to "localhost", systemd-hostnamed will
-          accept this. Previously such a setting would be mostly silently
+        * When the hostname is set explicitly to "localhost", systemd-hostnamed
+          will respect this. Previously such a setting would be mostly silently
           ignored. The goal is to honour configuration as specified by the
           user.
 
@@ -234,8 +261,8 @@ CHANGES WITH 248:
 
         * systemd-hostnamed now exports the "HardwareVendor" and
           "HardwareModel" D-Bus properties, which are supposed to contain a
-          pair of cleaned up, human readable strings describing the system
-          vendor and model. It's typically source from the firmware's DMI
+          pair of cleaned up, human readable strings describing the system's
+          vendor and model. It's typically sourced from the firmware's DMI
           tables, but may be augmented from a new hwdb database. hostnamectl
           shows this in the status output.
 
@@ -261,32 +288,39 @@ CHANGES WITH 248:
           specific variables, and not the full inherited environment.
 
         * systemctl's status output now shows unit state with a more careful
-          selection of Unicode characters: units in maintenance show a "○"
-          symbol instead of the usual "●", failed units show "×", and services
-          being reloaded "↻".
+          choice of Unicode characters: units in maintenance show a "○" symbol
+          instead of the usual "●", failed units show "×", and services being
+          reloaded "↻".
 
         * coredumpctl gained a --debugger-arguments= switch to pass arguments
-          to the debugger.
+          to the debugger. It also gained support for showing coredump info in
+          a simple JSON format.
+
+        * systemctl/loginctl/machinectl's --signal= option now accept a special
+          value "list", which may be used to show a brief table with known
+          process signals and their numbers.
 
         * networkctl now shows the link activation policy in status.
 
-        * Various tools gained --pager/--no-pager/--json switches to
+        * Various tools gained --pager/--no-pager/--json= switches to
           enable/disable the pager and provide JSON output.
 
-        * Various tools now accept SYSTEMD_COLORS=16|256 to configure how
-          many terminal colours are used in output.
+        * Various tools now accept two new values for the SYSTEMD_COLORS
+          environment variable: "16" and "256", to configure how many terminal
+          colors are used in output.
 
-        * less 568 or newer is now required. Hyperlink ANSI sequences in
-          terminal output are now used even if a pager is used, and older
-          versions of less are not able to display these sequences
-          correctly. SYSTEMD_URLIFY=0 may be used to disable it.
+        * less 568 or newer is now required for the auto-paging logic of the
+          various tools. Hyperlink ANSI sequences in terminal output are now
+          used even if a pager is used, and older versions of less are not able
+          to display these sequences correctly. SYSTEMD_URLIFY=0 may be used to
+          disable this output again.
 
-        * Builds with support for separate / and /usr hierarchies (split-usr
+        * Builds with support for separate / and /usr/ hierarchies ("split-usr"
           builds, non-merged-usr builds) are now officially deprecated. A
           warning is emitted during build. Support is slated to be removed in
           about a year (when the Debian Bookworm release development starts).
 
-        * The main development branch has been renamed to 'main'.
+        * The main git development branch has been renamed to 'main'.
 
         * mmcblk[0-9]boot[0-9] devices will no longer be probed automatically
           for partitions, as in the vast majority of cases they contain none
@@ -296,6 +330,45 @@ CHANGES WITH 248:
           spawned processes to the PID of the process itself. This may be used
           by programs for detecting whether they were forked off by the service
           manager itself or are a process forked off further down the tree.
+
+        * The sd-device API gained three new calls sd_device_get_action() (for
+          determining the uevent add/remove/change/… action the device object
+          has been seen for), sd_device_get_seqno() (for determining the uevent
+          sequence number) and sd_device_new_from_stat_rdev() (for allocating a
+          new sd_device object from stat() data of a device node).
+
+        * For most tools the --no-legend= switch has been replaced by
+          --legend=no and --legend=yes, to force whether tables are shown with
+          headers/legends.
+
+        * Units acquired a new property "Markers" that takes a list of zero,
+          one or two of the following strings: "needs-reload" and
+          "needs-restart". These markers may be set via "systemctl
+          set-property". Once a marker is set, "systemctl reload-or-restart
+          --marked" may be invoked to execute the operation the units are
+          marked for. This is useful for package managers that want to mark
+          units for restart/reload while updating, but effect the actual
+          operations at a later step at once.
+
+        * The sd_bus_message_read_strv() API call of sd-bus may now also be
+          used to parse arrays of D-Bus signatures and D-Bus paths, in addition
+          to regular strings.
+
+        * bootctl will now report whether the UEFI firmware used a TPM2 device
+          and measured the boot process into it.
+
+        * systemd-tmpfiles learnt support for a new environment variable
+          $SYSTEMD_TMPFILES_FORCE_SUBVOL which takes a boolean value. If true
+          the v/q/Q lines in tmpfiles.d/ snippets will create btrfs subvolumes
+          even if the root fs of the system is not itself a btrfs volume.
+
+        * systemd-detect-virt/ConditionVirtualization= will now explicitly
+          detect Docker/Podman environments where possible. Moreover, they
+          should be able to generically detect any container manager as long as
+          it assigns the container a cgroup.
+
+        * portablectl gained a new "reattach" verb for detaching/reattaching a
+          portable service image, useful for updating images on-the-fly.
 
 CHANGES WITH 247:
 
