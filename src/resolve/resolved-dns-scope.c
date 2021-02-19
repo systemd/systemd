@@ -679,7 +679,7 @@ DnsScopeMatch dns_scope_good_domain(
                     dns_name_endswith(domain, "local") > 0)
                         return DNS_SCOPE_NO;
 
-                /* If the IP address to look up matches the local subnet, then implicity synthesizes
+                /* If the IP address to look up matches the local subnet, then implicitly synthesizes
                  * DNS_SCOPE_YES_BASE + 0 on this interface, i.e. preferably resolve IP addresses via the DNS
                  * server belonging to this interface. */
                 m = match_subnet_reverse_lookups(s, domain, false);

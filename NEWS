@@ -153,8 +153,8 @@ CHANGES WITH 248:
           ManageTemporaryAddress= switch.
 
           .network files gained a new ActivationPolicy= setting which allows
-          configuraiton how the UP state of an interface shall be managed,
-          i.e. whether the iterface is always upped, always downed, or may be
+          configuration how the UP state of an interface shall be managed,
+          i.e. whether the interface is always upped, always downed, or may be
           upped/downed by the user using "ip dev".
 
         * systemd.netdev files gained a [VLAN] Protocol=, IngressQOSMaps=,
@@ -261,7 +261,7 @@ CHANGES WITH 248:
           specific variables, and not the full inherited environment.
 
         * systemctl's status output now shows unit state with a more careful
-          selection of Unicode characters: units in maintainance show a "○"
+          selection of Unicode characters: units in maintenance show a "○"
           symbol instead of the usual "●", failed units show "×", and services
           being reloaded "↻".
 
@@ -277,7 +277,7 @@ CHANGES WITH 248:
           many terminal colours are used in output.
 
         * less 568 or newer is now required. Hyperlink ANSI sequences in
-          termina output are now used even if a pager is used, and older
+          terminal output are now used even if a pager is used, and older
           versions of less are not able to display these sequences
           correctly. SYSTEMD_URLIFY=0 may be used to disable it.
 

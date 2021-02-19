@@ -639,8 +639,8 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
                         if (server->packet_fragmented)
                                 packet_size = MIN(server->received_udp_fragment_max, packet_size);
 
-                        /* Let's not pick ridiculously large sizes, i.e. not more than 4K. Noone appears to
-                         * ever use such large sized on the Internet IRL, hence let's not either. */
+                        /* Let's not pick ridiculously large sizes, i.e. not more than 4K. No one appears
+                         * to ever use such large sized on the Internet IRL, hence let's not either. */
                         packet_size = MIN(packet_size, 4096U);
                 }
 
