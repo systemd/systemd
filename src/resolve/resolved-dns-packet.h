@@ -86,6 +86,7 @@ struct DnsPacket {
         bool extracted:1;
         bool refuse_compression:1;
         bool canonical_form:1;
+        bool wants_unicast_reply:1; /* mDNS QU bit */
 };
 
 static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
@@ -233,7 +234,7 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start);
 int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start);
 int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, size_t *start);
 int dns_packet_read_name(DnsPacket *p, char **ret, bool allow_compression, size_t *start);
-int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_cache_flush, size_t *start);
+int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_top_bit, size_t *start);
 int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_flush, size_t *start);
 
 void dns_packet_rewind(DnsPacket *p, size_t idx);
