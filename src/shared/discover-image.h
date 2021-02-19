@@ -76,8 +76,6 @@ int image_read_only(Image *i, bool b);
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;
 
-bool image_name_is_valid(const char *s) _pure_;
-
 int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local);
 int image_name_lock(const char *name, int operation, LockFile *ret);
 
