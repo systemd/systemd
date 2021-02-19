@@ -10,7 +10,7 @@
 #include "resolved-mdns.h"
 #include "sort-util.h"
 
-#define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH & (x))
+#define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
 
 void manager_mdns_stop(Manager *m) {
         assert(m);
