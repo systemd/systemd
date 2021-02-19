@@ -2378,7 +2378,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                                 return r;
                 }
 
-                /* Remember this RR, so that we potentically can merge it's ->key object with the
+                /* Remember this RR, so that we can potentially merge its ->key object with the
                  * next RR. Note that we only do this if we actually decided to keep the RR around.
                  */
                 dns_resource_record_unref(previous);
