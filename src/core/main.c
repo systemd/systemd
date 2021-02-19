@@ -164,6 +164,42 @@ static char **saved_env = NULL;
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
 
+static int manager_find_user_config_paths(char **ret_file, char ***ret_dirs) {
+        _cleanup_free_ char *file = NULL, *config = NULL;
+        _cleanup_strv_free_ char **dirs = NULL;
+        int r;
+
+        r = xdg_user_config_dir(&config, "/systemd");
+        /* ENXIO means XDG_RUNTIME_DIR is not set, don't consider that fatal. */
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        file = path_join(config, "user.conf");
+        if (!file)
+                return -ENOMEM;
+
+        if (access(file, F_OK) < 0 &&
+            errno == -ENOENT) {
+                /* We ignore other error types. If the file is not accessible, we'll fail later. */
+
+                file = strdup(PKGSYSCONFDIR "/user.conf");
+                if (!file)
+                        return -ENOMEM;
+        }
+
+        r = strv_consume(&dirs, TAKE_PTR(config));
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv(&dirs, CONF_PATHS_STRV("systemd/user.conf.d"), false);
+        if (r < 0)
+                return r;
+
+        *ret_file = TAKE_PTR(file);
+        *ret_dirs = TAKE_PTR(dirs);
+        return 0;
+}
+
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
         /* If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
@@ -670,26 +706,34 @@ static int parse_config_file(void) {
                 {}
         };
 
-        const char *fn, *conf_dirs_nulstr;
+        _cleanup_free_ char *_free_file = NULL;
+        _cleanup_strv_free_ char **_free_dirs = NULL;
 
-        fn = arg_system ?
-                PKGSYSCONFDIR "/system.conf" :
-                PKGSYSCONFDIR "/user.conf";
+        const char *fn;
+        const char* const *dirs;
+        int r;
 
-        conf_dirs_nulstr = arg_system ?
-                CONF_PATHS_NULSTR("systemd/system.conf.d") :
-                CONF_PATHS_NULSTR("systemd/user.conf.d");
+        if (arg_system) {
+                fn = PKGSYSCONFDIR "/system.conf";
+                dirs = (const char* const*) CONF_PATHS_STRV("systemd/system.conf.d");
+        } else {
+                r = manager_find_user_config_paths(&_free_file, &_free_dirs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine config file paths: %m");
+                fn = _free_file;
+                dirs = (const char* const*) _free_dirs;
+        }
 
-        (void) config_parse_many_nulstr(
-                        fn, conf_dirs_nulstr,
+        (void) config_parse_many(
+                        fn, dirs, "user.conf.d",
                         "Manager\0",
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
                         NULL,
                         NULL);
 
-        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we used USEC_INFINITY
-         * like everywhere else. */
+        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
+         * USEC_INFINITY like everywhere else. */
         if (arg_default_timeout_start_usec <= 0)
                 arg_default_timeout_start_usec = USEC_INFINITY;
         if (arg_default_timeout_stop_usec <= 0)
