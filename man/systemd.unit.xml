@@ -56,7 +56,7 @@
 
     <refsect2>
       <title>User Unit Search Path</title>
-      <para><literallayout><filename>~/.config/systemd/user.control/*</filename>
+      <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user.control/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
