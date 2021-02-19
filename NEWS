@@ -123,8 +123,9 @@ CHANGES WITH 248:
 
               systemctl --user -M lennart@ start quux
 
-        * sd-bus also gained a convenience function sd_bus_reply() to call
-          sd_bus_send() with an existing reply message.
+        * sd-bus also gained a convenience function sd_bus_message_send() to
+          simplify invocations of sd_bus_send(), taking only a single
+          parameter: the message to send.
 
         * sd-event allows rate limits to be set on event sources, for dealing
           with high-priority event sources that might starve out others. See
