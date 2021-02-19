@@ -31,7 +31,9 @@
     <filename>/etc/systemd/system.conf.d/*.conf</filename>,
     <filename>/run/systemd/system.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
-    <para><filename>/etc/systemd/user.conf</filename>,
+
+    <para><filename>~/.config/systemd/user.conf</filename>,
+    <filename>/etc/systemd/user.conf</filename>,
     <filename>/etc/systemd/user.conf.d/*.conf</filename>,
     <filename>/run/systemd/user.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
@@ -40,16 +42,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para>When run as a system instance, systemd interprets the
-    configuration file <filename>system.conf</filename> and the files
-    in <filename>system.conf.d</filename> directories; when run as a
-    user instance, systemd interprets the configuration file
-    <filename>user.conf</filename> and the files in
-    <filename>user.conf.d</filename> directories. These configuration
-    files contain a few settings controlling basic manager
-    operations. See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for a general description of the syntax.</para>
+    <para>When run as a system instance, <command>systemd</command> interprets the configuration file
+    <filename>system.conf</filename> and the files in <filename>system.conf.d</filename> directories; when
+    run as a user instance, it interprets the configuration file <filename>user.conf</filename> (either in
+    the home directory of the user, or if not found, under <filename>/etc/systemd/</filename>) and the files
+    in <filename>user.conf.d</filename> directories. These configuration files contain a few settings
+    controlling basic manager operations.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
