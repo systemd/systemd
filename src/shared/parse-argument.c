@@ -8,7 +8,7 @@
 #include "string-table.h"
 #include "string-util.h"
 
-/* All functions in this file emit warnigs. */
+/* All functions in this file emit warnings. */
 
 int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
         int r;

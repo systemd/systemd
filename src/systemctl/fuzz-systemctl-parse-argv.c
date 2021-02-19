@@ -63,7 +63,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         mac_selinux_finish();
 
         /* Call static destructors to do global state cleanup. We do it here, and not in fuzz-main.c so that
-         * any global state is destoyed between fuzzer runs. */
+         * any global state is destroyed between fuzzer runs. */
         static_destruct();
 
         return 0;
