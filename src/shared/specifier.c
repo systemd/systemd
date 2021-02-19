@@ -203,7 +203,7 @@ static int specifier_os_release_common(const char *field, char **ret) {
         char *t = NULL;
         int r;
 
-        r = parse_os_release(NULL, field, &t, NULL);
+        r = parse_os_release(NULL, field, &t);
         if (r < 0)
                 return r;
         if (!t) {

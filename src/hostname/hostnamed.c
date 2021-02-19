@@ -159,8 +159,7 @@ static void context_read_os_release(Context *c) {
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                              "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                             "HOME_URL", &c->data[PROP_OS_HOME_URL],
-                             NULL);
+                             "HOME_URL", &c->data[PROP_OS_HOME_URL]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
