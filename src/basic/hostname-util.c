@@ -14,11 +14,23 @@
 #include "strv.h"
 
 char* get_default_hostname(void) {
+        int r;
+
         const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
         if (e) {
                 if (hostname_is_valid(e, 0))
                         return strdup(e);
                 log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
+        }
+
+        _cleanup_free_ char *f = NULL;
+        r = parse_os_release(NULL, "DEFAULT_HOSTNAME", &f);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
+        if (f) {
+                if (hostname_is_valid(f, 0))
+                        return TAKE_PTR(f);
+                log_debug("Invalid hostname in os-release, ignoring: %s", f);
         }
 
         return strdup(FALLBACK_HOSTNAME);
