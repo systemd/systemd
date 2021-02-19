@@ -80,7 +80,7 @@ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, s
         })
 
 static inline void freep(void *p) {
-        free(*(void**) p);
+        *(void**)p = mfree(*(void**) p);
 }
 
 #define _cleanup_free_ _cleanup_(freep)
