@@ -442,19 +442,24 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         return 0;
 }
 
-static const char *fallback_hostname(void) {
+static char* fallback_hostname(void) {
 
-        /* Determine the fall back hostname. For exposing this system to the outside world, we cannot have it to be
-         * "localhost" even if that's the compiled in hostname. In this case, let's revert to "linux" instead. */
+        /* Determine the fall back hostname. For exposing this system to the outside world, we cannot have it
+         * to be "localhost" even if that's the compiled in hostname. In this case, let's revert to "linux"
+         * instead. */
 
-        if (is_localhost(FALLBACK_HOSTNAME))
-                return "linux";
+        _cleanup_free_ char *n = get_fallback_hostname();
+        if (!n)
+                return NULL;
 
-        return FALLBACK_HOSTNAME;
+        if (is_localhost(n))
+                return strdup("linux");
+
+        return TAKE_PTR(n);
 }
 
 static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
-        _cleanup_free_ char *n = NULL, *m = NULL;
+        _cleanup_free_ char *_free_hn = NULL, *n = NULL, *m = NULL;
         char label[DNS_LABEL_MAX], *h;
         const char *p;
         int r;
@@ -463,7 +468,10 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         assert(llmnr_hostname);
         assert(mdns_hostname);
 
-        p = fallback_hostname();
+        p = _free_hn = fallback_hostname();
+        if (!p)
+                return log_oom();
+
         r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape fallback hostname: %m");

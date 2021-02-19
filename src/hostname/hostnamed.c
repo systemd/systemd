@@ -159,8 +159,7 @@ static void context_read_os_release(Context *c) {
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                              "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                             "HOME_URL", &c->data[PROP_OS_HOME_URL],
-                             NULL);
+                             "HOME_URL", &c->data[PROP_OS_HOME_URL]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
@@ -323,6 +322,7 @@ static int context_update_kernel_hostname(
                 Context *c,
                 const char *transient_hn) {
 
+        _cleanup_free_ char *_hn_free = NULL;
         const char *hn;
         HostnameSource hns;
         int r;
@@ -341,7 +341,10 @@ static int context_update_kernel_hostname(
 
         /* ... and the ultimate fallback */
         } else {
-                hn = FALLBACK_HOSTNAME;
+                hn = _hn_free = get_fallback_hostname();
+                if (!hn)
+                        return log_oom();
+
                 hns = HOSTNAME_FALLBACK;
         }
 
@@ -503,16 +506,20 @@ static int property_get_hostname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *current = NULL;
+        _cleanup_free_ char *hn = NULL;
         int r;
 
-        r = gethostname_strict(&current);
-        if (r == -ENXIO)
-                return sd_bus_message_append(reply, "s", FALLBACK_HOSTNAME);
-        if (r < 0)
-                return r;
+        r = gethostname_strict(&hn);
+        if (r < 0) {
+                if (r != -ENXIO)
+                        return r;
 
-        return sd_bus_message_append(reply, "s", current);
+                hn = get_fallback_hostname();
+                if (!hn)
+                        return -ENOMEM;
+        }
+
+        return sd_bus_message_append(reply, "s", hn);
 }
 
 static int property_get_static_hostname(
@@ -532,7 +539,21 @@ static int property_get_static_hostname(
         return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
 }
 
-static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_fallback_hostname, "s", FALLBACK_HOSTNAME);
+static int property_get_fallback_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *hn = get_fallback_hostname();
+        if (!hn)
+                return log_oom();
+
+        return sd_bus_message_append(reply, "s", hn);
+}
 
 static int property_get_hostname_source(
                 sd_bus *bus,
