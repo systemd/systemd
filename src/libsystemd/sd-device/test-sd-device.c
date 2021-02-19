@@ -4,6 +4,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "nulstr-util.h"
 #include "string-util.h"
@@ -51,7 +52,7 @@ static void test_sd_device_one(sd_device *d) {
         }
 
         r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
-        assert_se(r >= 0 || IN_SET(r, -ENOENT, -EINVAL));
+        assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
 
         r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
         assert_se(r >= 0 || r == -ENOENT);
