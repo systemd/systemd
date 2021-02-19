@@ -115,7 +115,7 @@ static void test_fallback_hostname(void) {
                 exit(EXIT_FAILURE);
         }
 
-        const char *n = get_fallback_hostname();
+        _cleanup_free_ char *n = get_fallback_hostname();
         assert_se(n);
         log_info("get_fallback_hostname: \"%s\"", n);
         assert_se(hostname_is_valid(n, 0));
