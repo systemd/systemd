@@ -55,7 +55,7 @@
       <varlistentry>
         <term><command>query</command> <replaceable>HOSTNAME|ADDRESS</replaceable>…</term>
 
-        <listitem><para>Resolve domain names, as well as IPv4 and IPv6 addresses. When used in conjuntion
+        <listitem><para>Resolve domain names, as well as IPv4 and IPv6 addresses. When used in conjunction
         with <option>--type=</option> or <option>--class=</option> (see below), resolves low-level DNS
         resource records.</para>
 

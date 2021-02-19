@@ -415,7 +415,7 @@ static const char *nsid_string(void) {
                         SD_ID128_MAKE(ed,d3,12,5d,16,b9,41,f9,a1,49,5f,ab,15,62,ab,27),
                         &id);
         if (r < 0) {
-                log_debug_errno(r, "Failed to determine machine ID, igoring: %m");
+                log_debug_errno(r, "Failed to determine machine ID, ignoring: %m");
                 return NULL;
         }
 
