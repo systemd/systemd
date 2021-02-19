@@ -1220,6 +1220,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['wg99:carrier', 'wg98:routable', 'wg97:carrier'])
 
+        output = check_output('ip -4 address show dev wg98')
+        print(output)
+        self.assertIn('inet 192.168.123.123/24 scope global wg98', output)
+
+        output = check_output('ip -6 address show dev wg98')
+        print(output)
+        self.assertIn('inet6 fd8d:4d6d:3ccb:500::1/64 scope global', output)
+
         if shutil.which('wg'):
             call('wg')
 
@@ -1833,6 +1841,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
         self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
         self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
+        self.assertIn('inet 10.8.8.1/16 scope global dummy98', output)
 
         # test for ENOBUFS issue #17012
         for i in range(1,254):

@@ -2,6 +2,7 @@
 Name=wg98
 
 [Network]
+Address=192.168.123.123/24
 Address=fd8d:4d6d:3ccb:0500::1/64
 
 # nat64 via 1

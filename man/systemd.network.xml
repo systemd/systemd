@@ -1044,12 +1044,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Broadcast=</varname></term>
           <listitem>
-            <para>The broadcast address, which must be in the format
-            described in
+            <para>Takes an IPv4 address or boolean value. The address must be in the format described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-            This key only applies to IPv4 addresses. If it is not
-            given, it is derived from the <varname>Address=</varname>
-            key.</para>
+            If set to <literal>yes</literal>, then broadcast address will be derived from the
+            from the <varname>Address=</varname> setting is used. If set to <literal>no</literal>, then
+            broadcast address will not be set for the address. This setting only applies to IPv4
+            addresses. Defaults to unset, and equivalent to <literal>yes</literal> for non-wireguard
+            interfaces, and <literal>no</literal> for wireguard interfaces.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
