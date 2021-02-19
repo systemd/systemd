@@ -336,6 +336,7 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 /* Common entries that we do not use currently. */
                 { "Desktop Entry", "Categories",                NULL, 0, NULL},
                 { "Desktop Entry", "Comment",                   NULL, 0, NULL},
+                { "Desktop Entry", "DBusActivatable",           NULL, 0, NULL},
                 { "Desktop Entry", "Encoding",                  NULL, 0, NULL},
                 { "Desktop Entry", "GenericName",               NULL, 0, NULL},
                 { "Desktop Entry", "Icon",                      NULL, 0, NULL},
