@@ -224,7 +224,7 @@
     <para>This section provides a short summary of differences in the stub resolver implemented by
     <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry> together
     with <command>systemd-resolved</command> and the traditional stub resolver implemented in
-    <citerefentry><refentrytitle>nss-dns</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <filename>nss-dns</filename>.</para>
 
     <itemizedlist>
       <listitem><para>Some names are always resolved internally (see Synthetic Records above). Traditionally
@@ -235,7 +235,7 @@
       overridden with <varname>ResolveUnicastSingleLabel=</varname>, see
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
       This is similar to the <option>no-tld-query</option> option being set in
-      <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para></listitem>
 
       <listitem><para>Search domains are not used for <emphasis>suffixing</emphasis> of multi-label names.
@@ -270,8 +270,8 @@
 
       <listitem><para>Environment variables <varname>$LOCALDOMAIN</varname> and
       <varname>$RES_OPTIONS</varname> described in
-      <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> are not
-      supported currently.</para></listitem>
+      <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      are not supported currently.</para></listitem>
     </itemizedlist>
   </refsect1>
 

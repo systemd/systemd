@@ -82,7 +82,7 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [hostnamed](https://www.freedesktop.org/wiki/Software/systemd/hostnamed) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
 | [localed](https://www.freedesktop.org/wiki/Software/systemd/localed) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
 | [timedated](https://www.freedesktop.org/wiki/Software/systemd/timedated) | D-Bus | yes | yes | GNOME | yes | [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
-| [initrd interface](https://systemd.io/INITRD_INTERFACE/) | Environment, flag files | yes | yes | dracut, ArchLinux | yes | ArchLinux | no |
+| [initrd interface](https://systemd.io/INITRD_INTERFACE) | Environment, flag files | yes | yes | dracut, ArchLinux | yes | ArchLinux | no |
 | [Container interface](https://systemd.io/CONTAINER_INTERFACE) | Environment, Mounts | yes | yes | libvirt/LXC | yes | - | no |
 | [Boot Loader interface](https://systemd.io/BOOT_LOADER_INTERFACE) | EFI variables | yes | yes | gummiboot | yes | - | no |
 | [Service bus API](https://www.freedesktop.org/wiki/Software/systemd/dbus) | D-Bus | yes | yes | system-config-services | no | - | no |
@@ -94,14 +94,14 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [$XDG_RUNTIME_DIR](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) | Environment | yes | yes | glib, GNOME | yes | - | no |
 | [$LISTEN_FDS $LISTEN_PID FD Passing](https://www.freedesktop.org/software/systemd/man/sd_listen_fds.html) | Environment | yes | yes | numerous (via sd-daemon.h) | yes | - | no |
 | [$NOTIFY_SOCKET Daemon Notifications](https://www.freedesktop.org/software/systemd/man/sd_notify.html) | Environment | yes | yes | a few, including udev | yes | - | no |
-| [argv&#91;0&#93;&#91;0&#93;='@' Logic](https://systemd.io/ROOT_STORAGE_DAEMONS/) | `/proc` marking | yes | yes | mdadm | yes | - | no |
+| [argv&#91;0&#93;&#91;0&#93;='@' Logic](https://systemd.io/ROOT_STORAGE_DAEMONS) | `/proc` marking | yes | yes | mdadm | yes | - | no |
 | [Unit file format](https://www.freedesktop.org/software/systemd/man/systemd.unit.html) | File format | yes | yes | numerous | no | - | no |
 | [Network](https://www.freedesktop.org/software/systemd/man/systemd.network.html) & [Netdev file format](https://www.freedesktop.org/software/systemd/man/systemd.netdev.html) | File format | yes | yes | no | no | - | no |
 | [Link file format](https://www.freedesktop.org/software/systemd/man/systemd.link.html) | File format | yes | yes | no | no | - | no |
 | [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT) | File format | yes | yes | - | maybe | - | no |
 | [Journal Export Format](https://www.freedesktop.org/wiki/Software/systemd/export) | File format | yes | yes | - | yes | - | no |
 | [Cooperation in cgroup tree](https://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups) | Treaty | yes | yes | libvirt | yes | libvirt | no |
-| [Password Agents](https://systemd.io/PASSWORD_AGENTS/) | Socket+Files | yes | yes | - | yes | - | no |
+| [Password Agents](https://systemd.io/PASSWORD_AGENTS) | Socket+Files | yes | yes | - | yes | - | no |
 | [udev multi-seat properties](https://www.freedesktop.org/software/systemd/man/sd-login.html) | udev Property | yes | yes | X11, gdm | no | - | no |
 | udev session switch ACL properties | udev Property | no | no | - | no | - | no |
 | [CLI of systemctl,...](https://www.freedesktop.org/software/systemd/man/systemctl.html) | CLI | yes | yes | numerous | no | - | no |
