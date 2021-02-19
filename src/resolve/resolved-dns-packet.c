@@ -294,13 +294,10 @@ int dns_packet_validate_query(DnsPacket *p) {
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                /* RFC 6762, Section 18 */
-                if (DNS_PACKET_AA(p)    != 0 ||
-                    DNS_PACKET_RD(p)    != 0 ||
-                    DNS_PACKET_RA(p)    != 0 ||
-                    DNS_PACKET_AD(p)    != 0 ||
-                    DNS_PACKET_CD(p)    != 0 ||
-                    DNS_PACKET_RCODE(p) != 0)
+                /* RFC 6762, Section 18 specifies that messages with non-zero RCODE
+                 * must be silently ignored, and that we must ignore the values of
+                 * AA, RD, RA, AD, and CD bits. */
+                if (DNS_PACKET_RCODE(p) != 0)
                         return -EBADMSG;
 
                 break;
