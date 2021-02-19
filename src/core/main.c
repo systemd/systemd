@@ -1415,7 +1415,7 @@ static void redirect_telinit(int argc, char *argv[]) {
         if (getpid_cached() == 1)
                 return;
 
-        if (!strstr(program_invocation_short_name, "init"))
+        if (!invoked_as(argv, "init"))
                 return;
 
         execv(SYSTEMCTL_BINARY_PATH, argv);

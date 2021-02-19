@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "sort-util.h"
 #include "spawn-polkit-agent.h"
 #include "stat-util.h"
@@ -182,8 +183,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        if (strstr(program_invocation_short_name, "systemd-umount"))
-                        arg_action = ACTION_UMOUNT;
+        if (invoked_as(argv, "systemd-umount"))
+                arg_action = ACTION_UMOUNT;
 
         while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGl", options, NULL)) >= 0)
 
