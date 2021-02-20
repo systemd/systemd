@@ -1829,6 +1829,7 @@ static int device_cache_sysattr_value(sd_device *device, const char *key, char *
         /* This takes the reference of the input value. The input value may be NULL.
          * This replaces the value if it already exists. */
 
+        /* First, remove the old cache entry. So, we do not need to clear cache on error. */
         old_value = hashmap_remove2(device->sysattr_values, key, (void **) &new_key);
         if (!new_key) {
                 new_key = strdup(key);
