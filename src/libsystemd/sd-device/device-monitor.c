@@ -83,8 +83,8 @@ static int monitor_set_nl_address(sd_device_monitor *m) {
 }
 
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender) {
-        assert_return(m, -EINVAL);
-        assert_return(sender, -EINVAL);
+        assert(m);
+        assert(sender);
 
         m->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
         return 0;
@@ -104,7 +104,7 @@ int device_monitor_disconnect(sd_device_monitor *m) {
 }
 
 int device_monitor_get_fd(sd_device_monitor *m) {
-        assert_return(m, -EINVAL);
+        assert(m);
 
         return m->sock;
 }
@@ -114,8 +114,8 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         _cleanup_close_ int sock = -1;
         int r;
 
+        assert(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX);
         assert_return(ret, -EINVAL);
-        assert_return(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX, -EINVAL);
 
         if (group == MONITOR_GROUP_UDEV &&
             access("/run/udev/control", F_OK) < 0 &&
@@ -304,7 +304,7 @@ _public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *
 int device_monitor_enable_receiving(sd_device_monitor *m) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert(m);
 
         r = sd_device_monitor_filter_update(m);
         if (r < 0)
@@ -346,8 +346,8 @@ static int passes_filter(sd_device_monitor *m, sd_device *device) {
         const char *tag, *subsystem, *devtype, *s, *d = NULL;
         int r;
 
-        assert_return(m, -EINVAL);
-        assert_return(device, -EINVAL);
+        assert(m);
+        assert(device);
 
         if (hashmap_isempty(m->subsystem_filter))
                 goto tag;
@@ -413,6 +413,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         bool is_initialized = false;
         int r;
 
+        assert(m);
         assert(ret);
 
         buflen = recvmsg(m->sock, &smsg, 0);
