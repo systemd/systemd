@@ -2743,9 +2743,10 @@ static int route_section_verify(Route *route, Network *network) {
         if (route->family == AF_INET6 && route->priority == 0)
                 route->priority = IP6_RT_PRIO_USER;
 
-        if (ordered_hashmap_isempty(network->addresses_by_section) &&
-            in_addr_is_set(route->gw_family, &route->gw) &&
-            route->gateway_onlink < 0) {
+        if (route->gateway_onlink < 0 && in_addr_is_set(route->gw_family, &route->gw) &&
+            ordered_hashmap_isempty(network->addresses_by_section)) {
+                /* If no address is configured, in most cases the gateway cannot be reachable.
+                 * TODO: we may need to improve the condition above. */
                 log_warning("%s: Gateway= without static address configured. "
                             "Enabling GatewayOnLink= option.",
                             network->filename);
