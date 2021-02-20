@@ -404,6 +404,13 @@ def remove_routes(routes):
     for route_type, addr in routes:
         call('ip route del', route_type, addr, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+def remove_blackhole_nexthops():
+    ret = run('ip nexthop show dev lo', stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if ret.returncode == 0:
+        for line in ret.stdout.rstrip().splitlines():
+            id = line.split()[1]
+            call(f'ip nexthop del id {id}')
+
 def remove_l2tp_tunnels(tunnel_ids):
     output = check_output('ip l2tp show tunnel')
     for tid in tunnel_ids:
@@ -1780,6 +1787,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ipv6.network',
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
+        '25-nexthop-nothing.network',
         '25-nexthop.network',
         '25-qdisc-cake.network',
         '25-qdisc-clsact-and-htb.network',
@@ -1817,12 +1825,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     routes = [['blackhole', '202.54.1.2'], ['unreachable', '202.54.1.3'], ['prohibit', '202.54.1.4']]
 
     def setUp(self):
+        remove_blackhole_nexthops()
         remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_routes(self.routes)
         remove_links(self.links)
         stop_networkd(show_logs=False)
 
     def tearDown(self):
+        remove_blackhole_nexthops()
         remove_routing_policy_rule_tables(self.routing_policy_rule_tables)
         remove_routes(self.routes)
         remove_links(self.links)
@@ -2812,7 +2822,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
         self.assertIn('id 3 dev veth99', output)
         self.assertIn('id 4 dev veth99', output)
+        self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
         self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
+
+        # kernel manages blackhole nexthops on lo
+        output = check_output('ip nexthop list dev lo')
+        print(output)
+        self.assertIn('id 6 blackhole', output)
+        self.assertIn('id 7 blackhole', output)
 
         output = check_output('ip route show dev veth99 10.10.10.10')
         print(output)
@@ -2822,9 +2839,48 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
 
+        output = check_output('ip route show dev veth99 10.10.10.12')
+        print(output)
+        self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
+
         output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
         print(output)
         self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
+
+        output = check_output('ip route show 10.10.10.13')
+        print(output)
+        self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
+
+        output = check_output('ip -6 route show 2001:1234:5:8f62::2')
+        print(output)
+        self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+
+        remove_unit_from_networkd_path(['25-nexthop.network'])
+        copy_unit_to_networkd_unit_path('25-nexthop-nothing.network')
+        rc = call(*networkctl_cmd, 'reload', env=env)
+        self.assertEqual(rc, 0)
+        time.sleep(1)
+
+        output = check_output('ip nexthop list dev veth99')
+        print(output)
+        self.assertEqual(output, '')
+        output = check_output('ip nexthop list dev lo')
+        print(output)
+        self.assertEqual(output, '')
+
+        remove_unit_from_networkd_path(['25-nexthop-nothing.network'])
+        copy_unit_to_networkd_unit_path('25-nexthop.network')
+        rc = call(*networkctl_cmd, 'reload', env=env)
+        self.assertEqual(rc, 0)
+        time.sleep(1)
+
+        rc = call('ip link del veth99')
+        self.assertEqual(rc, 0)
+        time.sleep(2)
+
+        output = check_output('ip nexthop list dev lo')
+        print(output)
+        self.assertEqual(output, '')
 
     def test_qdisc(self):
         copy_unit_to_networkd_unit_path('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',

@@ -352,6 +352,8 @@ SendVendorOption=
 Id=
 Gateway=
 Family=
+OnLink=
+Blackhole=
 [QDisc]
 Parent=
 Handle=
