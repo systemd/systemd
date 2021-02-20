@@ -345,7 +345,7 @@ static int context_update_kernel_hostname(
                 if (!hn)
                         return log_oom();
 
-                hns = HOSTNAME_FALLBACK;
+                hns = HOSTNAME_DEFAULT;
         }
 
         r = sethostname_idempotent(hn);
@@ -539,7 +539,7 @@ static int property_get_static_hostname(
         return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
 }
 
-static int property_get_fallback_hostname(
+static int property_get_default_hostname(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -581,16 +581,16 @@ static int property_get_hostname_source(
 
                 else {
                         /* If the hostname was not set by us, try to figure out where it came from. If we set
-                         * it to the fallback hostname, the file will tell us. We compare the string because
+                         * it to the default hostname, the file will tell us. We compare the string because
                          * it is possible that the hostname was set by an older version that had a different
                          * fallback, in the initramfs or before we reexecuted. */
 
-                        r = read_one_line_file("/run/systemd/fallback-hostname", &fallback);
+                        r = read_one_line_file("/run/systemd/default-hostname", &fallback);
                         if (r < 0 && r != -ENOENT)
-                                log_warning_errno(r, "Failed to read /run/systemd/fallback-hostname, ignoring: %m");
+                                log_warning_errno(r, "Failed to read /run/systemd/default-hostname, ignoring: %m");
 
                         if (streq_ptr(fallback, hostname))
-                                c->hostname_source = HOSTNAME_FALLBACK;
+                                c->hostname_source = HOSTNAME_DEFAULT;
                         else
                                 c->hostname_source = HOSTNAME_TRANSIENT;
                 }
@@ -988,7 +988,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StaticHostname", "s", property_get_static_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("PrettyHostname", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("FallbackHostname", "s", property_get_fallback_hostname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultHostname", "s", property_get_default_hostname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HostnameSource", "s", property_get_hostname_source, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
