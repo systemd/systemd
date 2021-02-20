@@ -10,6 +10,7 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extension-release.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -472,8 +473,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         arg_root,
                         "ID", &host_os_release_id,
                         "VERSION_ID", &host_os_release_version_id,
-                        "SYSEXT_LEVEL", &host_os_release_sysext_level,
-                        NULL);
+                        "SYSEXT_LEVEL", &host_os_release_sysext_level);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
 

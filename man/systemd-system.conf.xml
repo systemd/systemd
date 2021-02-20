@@ -31,7 +31,9 @@
     <filename>/etc/systemd/system.conf.d/*.conf</filename>,
     <filename>/run/systemd/system.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
-    <para><filename>/etc/systemd/user.conf</filename>,
+
+    <para><filename>~/.config/systemd/user.conf</filename>,
+    <filename>/etc/systemd/user.conf</filename>,
     <filename>/etc/systemd/user.conf.d/*.conf</filename>,
     <filename>/run/systemd/user.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
@@ -40,16 +42,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para>When run as a system instance, systemd interprets the
-    configuration file <filename>system.conf</filename> and the files
-    in <filename>system.conf.d</filename> directories; when run as a
-    user instance, systemd interprets the configuration file
-    <filename>user.conf</filename> and the files in
-    <filename>user.conf.d</filename> directories. These configuration
-    files contain a few settings controlling basic manager
-    operations. See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for a general description of the syntax.</para>
+    <para>When run as a system instance, <command>systemd</command> interprets the configuration file
+    <filename>system.conf</filename> and the files in <filename>system.conf.d</filename> directories; when
+    run as a user instance, it interprets the configuration file <filename>user.conf</filename> (either in
+    the home directory of the user, or if not found, under <filename>/etc/systemd/</filename>) and the files
+    in <filename>user.conf.d</filename> directories. These configuration files contain a few settings
+    controlling basic manager operations.</para>
+
+    <para>See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -321,11 +323,10 @@
       <varlistentry>
         <term><varname>DefaultEnvironment=</varname></term>
 
-        <listitem><para>Sets manager environment variables passed to
-        all executed processes. Takes a space-separated list of
-        variable assignments. See
-        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details about environment variables.</para>
+        <listitem><para>Configures environment variables passed to all executed processes. Takes a
+        space-separated list of variable assignments. See <citerefentry
+        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details about environment variables.</para>
 
         <para>Example:
 
@@ -335,6 +336,20 @@
         <literal>VAR1</literal>,
         <literal>VAR2</literal>,
         <literal>VAR3</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagerEnvironment=</varname></term>
+
+        <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
+        environment variables just for the manager process itself. These variables are not inherited by
+        processes spawned by the service manager, use <varname>DefaultEnvironment=</varname> for that. Note
+        that these variables are merged into the existing environment block. In particular, in case of the
+        system manager, this includes variables set by the kernel based on the kernel command line.</para>
+
+        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
+        See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
+        variables understood by <command>systemd</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

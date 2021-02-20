@@ -318,6 +318,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DEFAULT_HOSTNAME=</varname></term>
+
+        <listitem><para>A string specifying the hostname if
+        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry> is not
+        present and no other configuration source specifies the hostname. Must be either a single DNS label
+        (a string composed of 7-bit ASCII lower-case characters and no spaces or dots, limited to the format
+        allowed for DNS domain name labels), or a sequence of such labels separated by single dots that forms
+        a valid DNS FQDN. The total length must be at most 64 characters.</para>
+
+        <para>See
+        <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for a description of how
+        <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        determines the fallback hostname.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SYSEXT_LEVEL=</varname></term>
 
         <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,

@@ -256,8 +256,8 @@ CHANGES WITH 248:
           ignored. The goal is to honour configuration as specified by the
           user.
 
-        * systemd-hostnamed now exports the fallback hostname and the source of
-          the configured hostname ("static", "transient", or "fallback") as
+        * systemd-hostnamed now exports the default hostname and the source of
+          the configured hostname ("static", "transient", or "default") as
           D-Bus properties.
 
         * systemd-hostnamed now exports the "HardwareVendor" and

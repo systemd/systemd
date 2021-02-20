@@ -63,7 +63,7 @@ node /org/freedesktop/hostname1 {
       readonly s StaticHostname = '...';
       readonly s PrettyHostname = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s FallbackHostname = '...';
+      readonly s DefaultHostname = '...';
       readonly s HostnameSource = '...';
       readonly s IconName = '...';
       readonly s Chassis = '...';
@@ -124,7 +124,7 @@ node /org/freedesktop/hostname1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrettyHostname"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="FallbackHostname"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HostnameSource"/>
 
@@ -183,13 +183,15 @@ node /org/freedesktop/hostname1 {
     set this setting will be the empty string. Applications should then find a suitable fallback, such as the
     dynamic hostname.</para>
 
-    <para>The <varname>FallbackHostname</varname> property exposes the fallback hostname (configured at
-    compilation time).</para>
+    <para>The <varname>DefaultHostname</varname> property exposes the default hostname (configured through
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>, or a
+    fallback set at compilation time).</para>
 
     <para>The <varname>HostnameSource</varname> property exposes the origin of the currently configured
     hostname. One of <literal>static</literal> (set from <filename>/etc/hostname</filename>),
     <literal>transient</literal> (a non-permanent hostname from an external source),
-    <literal>fallback</literal> (the compiled-in fallback value).</para>
+    <literal>default</literal> (the value from <filename>os-release</filename> or the the compiled-in
+    fallback).</para>
 
     <para>The <varname>IconName</varname> property exposes the <emphasis>icon name</emphasis> following the
     XDG icon naming spec. If not set, information such as the chassis type (see below) is used to find a
@@ -332,8 +334,8 @@ node /org/freedesktop/hostname1 {
       <listitem><para>Limit the hostname to 63 chars, which is the length of a DNS label.</para></listitem>
 
       <listitem><para>If after stripping special chars the empty string is the result, you can pass this
-      as-is to <filename>systemd-hostnamed</filename> in which case it will automatically use
-      <literal>&FALLBACK_HOSTNAME;</literal>.</para></listitem>
+      as-is to <filename>systemd-hostnamed</filename> in which case it will automatically use a suitable
+      fallback.</para></listitem>
 
       <listitem><para>Uppercase charaacters should be replaced with their lowercase equivalents.
       </para></listitem>
