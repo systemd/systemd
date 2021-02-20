@@ -1819,7 +1819,7 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         return 0;
 }
 
-static int device_add_sysattr_value(sd_device *device, const char *key, char *value) {
+static int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _cleanup_free_ char *new_key = NULL, *old_value = NULL;
         int r;
 
@@ -1845,7 +1845,7 @@ static int device_add_sysattr_value(sd_device *device, const char *key, char *va
         return 0;
 }
 
-static int device_get_sysattr_value(sd_device *device, const char *_key, const char **_value) {
+static int device_get_cached_sysattr_value(sd_device *device, const char *_key, const char **_value) {
         const char *key = NULL, *value;
 
         assert(device);
@@ -1872,7 +1872,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(sysattr, -EINVAL);
 
         /* look for possibly already cached result */
-        r = device_get_sysattr_value(device, sysattr, &cached_value);
+        r = device_get_cached_sysattr_value(device, sysattr, &cached_value);
         if (r != -ENOENT) {
                 if (r < 0)
                         return r;
@@ -1895,7 +1895,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         r = lstat(path, &statbuf);
         if (r < 0) {
                 /* remember that we could not access the sysattr */
-                r = device_add_sysattr_value(device, sysattr, NULL);
+                r = device_cache_sysattr_value(device, sysattr, NULL);
                 if (r < 0)
                         return r;
 
@@ -1928,7 +1928,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                         value[size] = '\0';
         }
 
-        r = device_add_sysattr_value(device, sysattr, value);
+        r = device_cache_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
 
@@ -1937,7 +1937,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         return 0;
 }
 
-static void device_remove_sysattr_value(sd_device *device, const char *_key) {
+static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {
         _cleanup_free_ char *key = NULL;
 
         assert(device);
@@ -1958,7 +1958,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         assert_return(sysattr, -EINVAL);
 
         if (!_value) {
-                device_remove_sysattr_value(device, sysattr);
+                device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
 
@@ -1993,7 +1993,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 if (r < 0)
                         return r;
 
-                r = device_add_sysattr_value(device, sysattr, value);
+                r = device_cache_sysattr_value(device, sysattr, value);
                 if (r < 0)
                         return r;
                 TAKE_PTR(value);
@@ -2001,7 +2001,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 return -ENXIO;
         }
 
-        r = device_add_sysattr_value(device, sysattr, value);
+        r = device_cache_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
         TAKE_PTR(value);
@@ -2018,7 +2018,7 @@ _public_ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr
         assert_return(sysattr, -EINVAL);
 
         if (!format) {
-                device_remove_sysattr_value(device, sysattr);
+                device_remove_cached_sysattr_value(device, sysattr);
                 return 0;
         }
 
