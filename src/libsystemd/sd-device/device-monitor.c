@@ -334,8 +334,8 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
         (void) sd_device_monitor_detach_event(m);
 
-        hashmap_free_free_free(m->subsystem_filter);
-        set_free_free(m->tag_filter);
+        hashmap_free(m->subsystem_filter);
+        set_free(m->tag_filter);
 
         return mfree(m);
 }
@@ -718,41 +718,30 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 }
 
 _public_ int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype) {
-        _cleanup_free_ char *s = NULL, *d = NULL;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(subsystem, -EINVAL);
 
-        s = strdup(subsystem);
-        if (!s)
-                return -ENOMEM;
-
-        if (devtype) {
-                d = strdup(devtype);
-                if (!d)
-                        return -ENOMEM;
-        }
-
-        r = hashmap_ensure_put(&m->subsystem_filter, NULL, s, d);
-        if (r < 0)
+        r = hashmap_put_strdup_full(&m->subsystem_filter, &trivial_hash_ops_free_free, subsystem, devtype);
+        if (r <= 0)
                 return r;
 
-        TAKE_PTR(s);
-        TAKE_PTR(d);
-
         m->filter_uptodate = false;
-
-        return 0;
+        return r;
 }
 
 _public_ int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag) {
+        int r;
+
         assert_return(m, -EINVAL);
         assert_return(tag, -EINVAL);
 
-        int r = set_put_strdup(&m->tag_filter, tag);
-        if (r > 0)
-                m->filter_uptodate = false;
+        r = set_put_strdup(&m->tag_filter, tag);
+        if (r <= 0)
+                return r;
+
+        m->filter_uptodate = false;
         return r;
 }
 
@@ -761,8 +750,8 @@ _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
 
         assert_return(m, -EINVAL);
 
-        m->subsystem_filter = hashmap_free_free_free(m->subsystem_filter);
-        m->tag_filter = set_free_free(m->tag_filter);
+        m->subsystem_filter = hashmap_free(m->subsystem_filter);
+        m->tag_filter = set_free(m->tag_filter);
 
         if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
