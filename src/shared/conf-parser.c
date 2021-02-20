@@ -419,11 +419,11 @@ int config_parse(
         if (ret_mtime)
                 *ret_mtime = mtime;
 
-        return 0;
+        return 1;
 }
 
 static int config_parse_many_files(
-                const char *conf_file,
+                const char* const* conf_files,
                 char **files,
                 const char *sections,
                 ConfigItemLookup lookup,
@@ -436,20 +436,23 @@ static int config_parse_many_files(
         char **fn;
         int r;
 
-        if (conf_file) {
-                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, flags, userdata, &mtime);
+        /* First read the first found main config file. */
+        STRV_FOREACH(fn, (char**) conf_files) {
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &mtime);
                 if (r < 0)
                         return r;
+                if (r > 0)
+                        break;
         }
 
+        /* Then read all the drop-ins. */
         STRV_FOREACH(fn, files) {
                 usec_t t;
 
                 r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &t);
                 if (r < 0)
                         return r;
-                if (t > mtime) /* Find the newest */
-                        mtime = t;
+                mtime = MAX(mtime, t); /* Find the newest */
         }
 
         if (ret_mtime)
@@ -476,12 +479,14 @@ int config_parse_many_nulstr(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(STRV_MAKE_CONST(conf_file),
+                                       files, sections, lookup, table, flags, userdata,
+                                       ret_mtime);
 }
 
 /* Parse each config file in the directories specified as strv. */
 int config_parse_many(
-                const char *conf_file,
+                const char* const* conf_files,
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
                 const char *sections,
@@ -505,7 +510,7 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_mtime);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
