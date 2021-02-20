@@ -2812,6 +2812,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
         self.assertIn('id 3 dev veth99', output)
         self.assertIn('id 4 dev veth99', output)
+        self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
         self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
 
         output = check_output('ip route show dev veth99 10.10.10.10')
@@ -2821,6 +2822,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip route show dev veth99 10.10.10.11')
         print(output)
         self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
+
+        output = check_output('ip route show dev veth99 10.10.10.12')
+        print(output)
+        self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
 
         output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
         print(output)
