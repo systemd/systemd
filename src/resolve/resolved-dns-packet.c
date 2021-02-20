@@ -2240,7 +2240,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                                 /* Already in the Question, let's skip */
                                 continue;
 
-                        r = dns_question_add_raw(question, key);
+                        r = dns_question_add_raw(question, key, 0);
                         if (r < 0)
                                 return r;
                 }
@@ -2451,7 +2451,7 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
         if (p->question->n_keys != 1)
                 return 0;
 
-        return dns_resource_key_equal(p->question->keys[0], key);
+        return dns_resource_key_equal(dns_question_first_key(p->question), key);
 }
 
 int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
