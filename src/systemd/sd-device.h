@@ -99,6 +99,7 @@ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const ch
 
 int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value);
 int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr, const char *format, ...) _sd_printf_(3, 4);
+int sd_device_trigger(sd_device *device, sd_device_action_t action);
 
 /* device enumerator */
 

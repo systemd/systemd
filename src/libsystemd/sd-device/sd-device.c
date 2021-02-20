@@ -2038,3 +2038,15 @@ _public_ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr
 
         return sd_device_set_sysattr_value(device, sysattr, value);
 }
+
+_public_ int sd_device_trigger(sd_device *device, sd_device_action_t action) {
+        const char *s;
+
+        assert_return(device, -EINVAL);
+
+        s = device_action_to_string(action);
+        if (!s)
+                return -EINVAL;
+
+        return sd_device_set_sysattr_value(device, "uevent", s);
+}
