@@ -8,6 +8,7 @@
 
 #include "device-enumerator-private.h"
 #include "device-private.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "path-util.h"
@@ -22,36 +23,63 @@
 
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
+static bool arg_quiet = false;
 
-static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_set) {
+static int exec_list(sd_device_enumerator *e, sd_device_action_t action, Set **settle_set) {
+        const char *action_str;
         sd_device *d;
         int r, ret = 0;
 
+        action_str = device_action_to_string(action);
+
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                _cleanup_free_ char *filename = NULL;
                 const char *syspath;
 
                 if (sd_device_get_syspath(d, &syspath) < 0)
                         continue;
 
                 if (arg_verbose)
-                        printf("%s\n", syspath);
+                        printf("%s\n", strna(syspath));
+
                 if (arg_dry_run)
                         continue;
 
-                filename = path_join(syspath, "uevent");
-                if (!filename)
-                        return log_oom();
-
-                r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = sd_device_trigger(d, action);
                 if (r < 0) {
-                        bool ignore = IN_SET(r, -ENOENT, -ENODEV);
+                        /* ENOENT may be returned when a device does not have /uevent or is already
+                         * removed. Hence, this is logged at debug level and ignored.
+                         *
+                         * ENODEV may be returned by some buggy device drivers e.g. /sys/devices/vio.
+                         * See,
+                         * https://github.com/systemd/systemd/issues/13652#issuecomment-535129791 and
+                         * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1845319.
+                         * So, this error is ignored, but logged at warning level to encourage people to
+                         * fix the driver.
+                         *
+                         * EROFS is returned when /sys is read only. In that case, all subsequent
+                         * writes will also fail, hence return immediately.
+                         *
+                         * EACCES or EPERM may be returned when this is invoked by non-priviledged user.
+                         * We do NOT return immediately, but continue operation and propagate the error.
+                         * Why? Some device can be owned by a user, e.g., network devices configured in
+                         * a network namespace. See, https://github.com/systemd/systemd/pull/18559 and
+                         * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ebb4a4bf76f164457184a3f43ebc1552416bc823
+                         *
+                         * All other errors are logged at error level, but let's continue the operation,
+                         * and propagate the error.
+                         */
 
-                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s'%s: %m",
-                                       action, filename, ignore ? ", ignoring" : "");
-                        if (IN_SET(r, -EACCES, -EROFS))
-                                /* Inovoked by unprivileged user, or read only filesystem. Return earlier. */
+                        bool ignore = IN_SET(r, -ENOENT, -ENODEV);
+                        int level =
+                                arg_quiet ? LOG_DEBUG :
+                                r == -ENOENT ? LOG_DEBUG :
+                                r == -ENODEV ? LOG_WARNING : LOG_ERR;
+
+                        log_device_full_errno(d, level, r,
+                                              "Failed to write '%s' to '%s/uevent'%s: %m",
+                                              action_str, syspath, ignore ? ", ignoring" : "");
+
+                        if (r == -EROFS)
                                 return r;
                         if (ret == 0 && !ignore)
                                 ret = r;
@@ -118,6 +146,7 @@ static int help(void) {
                "  -V --version                      Show package version\n"
                "  -v --verbose                      Print the list of devices while running\n"
                "  -n --dry-run                      Do not actually trigger the events\n"
+               "  -q --quiet                        Suppress error logging in triggering events\n"
                "  -t --type=                        Type of events to trigger\n"
                "          devices                     sysfs devices (default)\n"
                "          subsystems                  sysfs subsystems and drivers\n"
@@ -148,6 +177,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         static const struct option options[] = {
                 { "verbose",           no_argument,       NULL, 'v'      },
                 { "dry-run",           no_argument,       NULL, 'n'      },
+                { "quiet",             no_argument,       NULL, 'q'      },
                 { "type",              required_argument, NULL, 't'      },
                 { "action",            required_argument, NULL, 'c'      },
                 { "subsystem-match",   required_argument, NULL, 's'      },
@@ -169,7 +199,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 TYPE_DEVICES,
                 TYPE_SUBSYSTEMS,
         } device_type = TYPE_DEVICES;
-        const char *action = "change";
+        sd_device_action_t action = SD_DEVICE_CHANGE;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -191,7 +221,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "vnt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 const char *key, *val;
 
@@ -202,6 +232,9 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 case 'n':
                         arg_dry_run = true;
                         break;
+                case 'q':
+                        arg_quiet = true;
+                        break;
                 case 't':
                         if (streq(optarg, "devices"))
                                 device_type = TYPE_DEVICES;
@@ -211,18 +244,14 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
                 case 'c': {
-                        sd_device_action_t a;
-
                         if (streq(optarg, "help")) {
                                 dump_device_action_table();
                                 return 0;
                         }
 
-                        a = device_action_from_string(optarg);
-                        if (a < 0)
-                                return log_error_errno(a, "Unknown action '%s'", optarg);
-
-                        action = device_action_to_string(a);
+                        action = device_action_from_string(optarg);
+                        if (action < 0)
+                                return log_error_errno(action, "Unknown action '%s'", optarg);
                         break;
                 }
                 case 's':

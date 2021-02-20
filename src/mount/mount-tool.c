@@ -1197,7 +1197,7 @@ static int acquire_removable(sd_device *d) {
                 return 0;
 
         for (;;) {
-                if (sd_device_get_sysattr_value(d, "removable", &v) > 0)
+                if (sd_device_get_sysattr_value(d, "removable", &v) >= 0)
                         break;
 
                 if (sd_device_get_parent(d, &d) < 0)

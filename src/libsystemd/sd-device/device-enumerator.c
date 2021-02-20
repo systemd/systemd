@@ -285,13 +285,11 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
 
 static bool match_sysattr_value(sd_device *device, const char *sysattr, const char *match_value) {
         const char *value;
-        int r;
 
         assert(device);
         assert(sysattr);
 
-        r = sd_device_get_sysattr_value(device, sysattr, &value);
-        if (r < 0)
+        if (sd_device_get_sysattr_value(device, sysattr, &value) < 0)
                 return false;
 
         if (!match_value)
