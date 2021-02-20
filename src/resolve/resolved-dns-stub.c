@@ -761,6 +761,7 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
 
 static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStream *s, DnsPacket *p) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        DnsResourceKey *key;
         Hashmap **queries_by_packet;
         DnsQuery *existing;
         int r;
@@ -801,16 +802,18 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (dns_type_is_obsolete(p->question->keys[0]->type)) {
-                log_debug("Got message with obsolete key type, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
-                return;
-        }
+        DNS_QUESTION_FOREACH(key, p->question) {
+                if (dns_type_is_obsolete(key->type)) {
+                        log_debug("Got message with obsolete key type, refusing.");
+                        dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                        return;
+                }
 
-        if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
-                log_debug("Got request for zone transfer, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
-                return;
+                if (dns_type_is_zone_transer(key->type)) {
+                        log_debug("Got request for zone transfer, refusing.");
+                        dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                        return;
+                }
         }
 
         if (!DNS_PACKET_RD(p))  {
