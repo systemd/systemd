@@ -22,7 +22,6 @@
 
   <refnamediv>
     <refname>sd_bus_get_fd</refname>
-    <refname>sd_bus_set_fd</refname>
     <refname>sd_bus_get_events</refname>
     <refname>sd_bus_get_timeout</refname>
 
@@ -37,13 +36,6 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_get_fd</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-      </funcprototype>
-
-      <funcprototype>
-        <funcdef>int <function>sd_bus_set_fd</function></funcdef>
-        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>int <parameter>input_fd</parameter></paramdef>
-        <paramdef>int <parameter>output_fd</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -68,11 +60,6 @@
     or a similar function to wait for I/O events on the specified bus connection object. If the bus
     object was configured with the <function>sd_bus_set_fd()</function> function, then the
     <parameter>input_fd</parameter> file descriptor used in that call is returned.</para>
-
-    <para><function>sd_bus_set_fd()</function> sets the file descriptors used to communicate from a
-    message bus object. Both <parameter>input_fd</parameter> and <parameter>output_fd</parameter>
-    must be valid file descriptors. The same file descriptor may be used as both the input and the
-    output file descriptor. This function must be called before the bus is started.</para>
 
     <para><function>sd_bus_get_events()</function> returns the I/O events to wait for, suitable for
     passing to <function>poll()</function> or a similar call. Returns a combination of
@@ -122,9 +109,6 @@
     <para>On success, <function>sd_bus_get_fd()</function> returns the file descriptor used for
     communication. On failure, it returns a negative errno-style error code.</para>
 
-    <para>On success, <function>sd_bus_set_fd()</function> returns a non-negative integer. On
-    failure, it returns a negative errno-style error code.</para>
-
     <para>On success, <function>sd_bus_get_events()</function> returns the I/O event mask to use for
     I/O event watching. On failure, it returns a negative errno-style error code.</para>
 
@@ -165,13 +149,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><constant>-EBADF</constant></term>
-
-          <listitem><para>An invalid file descriptor was passed to
-          <function>sd_bus_set_fd()</function>.</para></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
           <listitem><para>The bus cannot be resolved.</para></listitem>
@@ -191,6 +168,7 @@
       <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_set_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
