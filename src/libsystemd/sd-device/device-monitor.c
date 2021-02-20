@@ -342,49 +342,62 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, device_monitor_free);
 
-static int passes_filter(sd_device_monitor *m, sd_device *device) {
-        const char *tag, *subsystem, *devtype, *s, *d = NULL;
+static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
+        const char *s, *subsystem, *d, *devtype = NULL;
         int r;
 
         assert(m);
         assert(device);
 
         if (hashmap_isempty(m->subsystem_filter))
-                goto tag;
+                return true;
 
-        r = sd_device_get_subsystem(device, &s);
+        r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
                 return r;
 
-        r = sd_device_get_devtype(device, &d);
+        r = sd_device_get_devtype(device, &devtype);
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        HASHMAP_FOREACH_KEY(devtype, subsystem, m->subsystem_filter) {
+        HASHMAP_FOREACH_KEY(d, s, m->subsystem_filter) {
                 if (!streq(s, subsystem))
                         continue;
 
-                if (!devtype)
-                        goto tag;
-
-                if (!d)
-                        continue;
-
-                if (streq(d, devtype))
-                        goto tag;
+                if (!d || streq_ptr(d, devtype))
+                        return true;
         }
 
-        return 0;
+        return false;
+}
 
-tag:
+static bool check_tag_filter(sd_device_monitor *m, sd_device *device) {
+        const char *tag;
+
+        assert(m);
+        assert(device);
+
         if (set_isempty(m->tag_filter))
-                return 1;
+                return true;
 
         SET_FOREACH(tag, m->tag_filter)
                 if (sd_device_has_tag(device, tag) > 0)
-                        return 1;
+                        return true;
 
-        return 0;
+        return false;
+}
+
+static int passes_filter(sd_device_monitor *m, sd_device *device) {
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = check_subsystem_filter(m, device);
+        if (r <= 0)
+                return r;
+
+        return check_tag_filter(m, device);
 }
 
 int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
