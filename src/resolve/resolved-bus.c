@@ -765,7 +765,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (!key)
                 return -ENOMEM;
 
-        r = dns_question_add(question, key);
+        r = dns_question_add(question, key, 0);
         if (r < 0)
                 return r;
 

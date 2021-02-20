@@ -984,7 +984,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 
         assert(dns_question_size(p->question) == 1);
-        key = p->question->keys[0];
+        key = dns_question_first_key(p->question);
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
         if (r < 0) {
