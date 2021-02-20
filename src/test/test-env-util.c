@@ -361,6 +361,19 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
+static void test_putenv_dup(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se(putenv_dup("A=a1", true) == 0);
+        assert_se(streq(getenv("A"), "a1"));
+        assert_se(putenv_dup("A=a1", true) == 0);
+        assert_se(streq(getenv("A"), "a1"));
+        assert_se(putenv_dup("A=a2", false) == 0);
+        assert_se(streq(getenv("A"), "a1"));
+        assert_se(putenv_dup("A=a2", true) == 0);
+        assert_se(streq(getenv("A"), "a2"));
+}
+
 static void test_setenv_systemd_exec_pid(void) {
         _cleanup_free_ char *saved = NULL;
         const char *e;
@@ -416,6 +429,7 @@ int main(int argc, char *argv[]) {
         test_env_name_is_valid();
         test_env_value_is_valid();
         test_env_assignment_is_valid();
+        test_putenv_dup();
         test_setenv_systemd_exec_pid();
 
         return 0;

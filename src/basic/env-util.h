@@ -58,6 +58,9 @@ int getenv_bool_secure(const char *p);
 /* Like setenv, but calls unsetenv if value == NULL. */
 int set_unset_env(const char *name, const char *value, bool overwrite);
 
+/* Like putenv, but duplicates the memory like setenv. */
+int putenv_dup(const char *assignment, bool override);
+
 int setenv_systemd_exec_pid(bool update_only);
 
 /* Parses and does sanity checks on an environment variable containing
