@@ -409,7 +409,7 @@ int link_set_nexthops(Link *link) {
 
         if (link->nexthop_messages == 0) {
                 link->static_nexthops_configured = true;
-                /* Finaly, configure routes with gateways. */
+                /* Finally, configure routes with gateways. */
                 return link_set_routes_with_gateway(link);
         }
 

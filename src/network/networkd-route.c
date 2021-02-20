@@ -1327,7 +1327,7 @@ int link_set_routes_with_gateway(Link *link) {
                  * the addresses now, let's not configure the routes either. */
                 return 0;
 
-        /* Finaly, add routes that needs a gateway. */
+        /* Finally, add routes that needs a gateway. */
         r = link_set_routes_internal(link, true);
         if (r < 0)
                 return r;
