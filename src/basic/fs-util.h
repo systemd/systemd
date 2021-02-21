@@ -122,6 +122,13 @@ static inline char* unlink_and_free(char *p) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 
+static inline void unlinkp(const char **p) {
+        if (*p) {
+                (void) unlink_noerrno(*p);
+                *p = NULL;
+        }
+}
+
 int access_fd(int fd, int mode);
 
 void unlink_tempfilep(char (*p)[]);
