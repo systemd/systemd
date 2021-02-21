@@ -98,7 +98,7 @@
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The bus connection has aleady been started.</para></listitem>
+          <listitem><para>The bus connection has already been started.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
