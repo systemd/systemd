@@ -2323,6 +2323,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return EFI_LOAD_ERROR;
         }
 
+        err = setup_secure_boot(root_dir);
+        if (EFI_ERROR(err)) {
+                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                return err;
+        }
+
         if (secure_boot_enabled() && shim_loaded()) {
                 err = security_policy_install();
                 if (EFI_ERROR(err)) {
