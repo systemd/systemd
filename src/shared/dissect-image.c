@@ -142,13 +142,15 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         return 0;
 }
 
-static int device_is_partition(sd_device *d, blkid_partition pp) {
+static int device_is_partition(sd_device *d, sd_device *expected_parent, blkid_partition pp) {
+        const char *v, *parent_syspath, *expected_parent_syspath;
         blkid_loff_t bsize, bstart;
         uint64_t size, start;
         int partno, bpartno, r;
-        const char *v;
+        sd_device *parent;
 
         assert(d);
+        assert(expected_parent);
         assert(pp);
 
         r = sd_device_get_subsystem(d, &v);
@@ -159,6 +161,21 @@ static int device_is_partition(sd_device *d, blkid_partition pp) {
 
         if (sd_device_get_devtype(d, &v) < 0 || !streq(v, "partition"))
                 return false;
+
+        r = sd_device_get_parent(d, &parent);
+        if (r < 0)
+                return false; /* Doesn't have a parent? No relevant to us */
+
+        r = sd_device_get_syspath(parent, &parent_syspath); /* Check parent of device of this action */
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(expected_parent, &expected_parent_syspath); /* Check parent of device we are looking for */
+        if (r < 0)
+                return r;
+
+        if (!path_equal(parent_syspath, expected_parent_syspath))
+                return false; /* Has a different parent than what we need, not interesting to us */
 
         r = sd_device_get_sysattr_value(d, "partition", &v);
         if (r < 0)
@@ -226,7 +243,7 @@ static int find_partition(
                 return r;
 
         FOREACH_DEVICE(e, q) {
-                r = device_is_partition(q, pp);
+                r = device_is_partition(q, parent, pp);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -249,9 +266,7 @@ static inline void wait_data_done(struct wait_data *d) {
 }
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        const char *parent1_path, *parent2_path;
         struct wait_data *w = userdata;
-        sd_device *pp;
         int r;
 
         assert(w);
@@ -259,22 +274,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
 
-        r = sd_device_get_parent(device, &pp);
-        if (r < 0)
-                return 0; /* Doesn't have a parent? No relevant to us */
-
-        r = sd_device_get_syspath(pp, &parent1_path); /* Check parent of device of this action */
-        if (r < 0)
-                goto finish;
-
-        r = sd_device_get_syspath(w->parent_device, &parent2_path); /* Check parent of device we are looking for */
-        if (r < 0)
-                goto finish;
-
-        if (!path_equal(parent1_path, parent2_path))
-                return 0; /* Has a different parent than what we need, not interesting to us */
-
-        r = device_is_partition(device, w->blkidp);
+        r = device_is_partition(device, w->parent_device, w->blkidp);
         if (r < 0)
                 goto finish;
         if (r == 0) /* Not the one we need */
