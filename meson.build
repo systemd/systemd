@@ -1451,6 +1451,17 @@ else
 endif
 conf.set10('ENABLE_HOMED', have)
 
+want_cloud_providerd = get_option('cloud-providerd')
+if want_cloud_providerd != 'false'
+        have = (conf.get('HAVE_LIBCURL') == 1)
+        if want_cloud_providerd == 'true' and not have
+                error('cloud-providerd support was requested, but dependencies are not available')
+        endif
+else
+        have = false
+endif
+conf.set10('ENABLE_CLOUD_PROVIDERD', have)
+
 have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
@@ -1485,6 +1496,7 @@ foreach term : ['analyze',
                 'gshadow',
                 'hibernate',
                 'hostnamed',
+                'cloud-providerd',
                 'hwdb',
                 'idn',
                 'ima',
@@ -1728,6 +1740,7 @@ subdir('src/libsystemd-network')
 subdir('src/analyze')
 subdir('src/boot/efi')
 subdir('src/busctl')
+subdir('src/cloud-provider')
 subdir('src/coredump')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
@@ -2036,6 +2049,19 @@ if conf.get('ENABLE_RESOLVE') == 1
         meson.add_install_script(meson_make_symlink,
                                  join_paths(bindir, 'resolvectl'),
                                  join_paths(bindir, 'systemd-resolve'))
+endif
+
+if conf.get('ENABLE_CLOUD_PROVIDERD') == 1
+        executable(
+                'systemd-cloud-providerd',
+                systemd_cloud_provider_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                libcurl],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootlibexecdir)
 endif
 
 if conf.get('ENABLE_LOGIND') == 1
@@ -3780,6 +3806,7 @@ foreach tuple : [
         ['userdb'],
         ['homed'],
         ['importd'],
+        ['cloud-providerd'],
         ['hostnamed'],
         ['timedated'],
         ['timesyncd'],
