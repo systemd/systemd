@@ -508,10 +508,10 @@ static uint64_t string_bloom64(const char *str) {
         uint64_t bits = 0;
         uint32_t hash = string_hash32(str);
 
-        bits |= 1LLU << (hash & 63);
-        bits |= 1LLU << ((hash >> 6) & 63);
-        bits |= 1LLU << ((hash >> 12) & 63);
-        bits |= 1LLU << ((hash >> 18) & 63);
+        bits |= UINT64_C(1) << (hash & 63);
+        bits |= UINT64_C(1) << ((hash >> 6) & 63);
+        bits |= UINT64_C(1) << ((hash >> 12) & 63);
+        bits |= UINT64_C(1) << ((hash >> 18) & 63);
         return bits;
 }
 
