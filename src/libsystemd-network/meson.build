@@ -16,6 +16,8 @@ sources = files('''
         sd-ipv4acd.c
         arp-util.h
         arp-util.c
+        network-common.c
+        network-common.h
         network-internal.c
         network-internal.h
         sd-ndisc.c

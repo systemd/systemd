@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "network-common.h"
 #include "ordered-set.h"
 #include "siphash24.h"
 #include "string-util.h"
@@ -158,6 +159,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         ordered_set_free(server->vendor_options);
 
         free(server->bound_leases);
+
+        free(server->ifname);
         return mfree(server);
 }
 
@@ -165,31 +168,54 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        int r;
 
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        server = new0(sd_dhcp_server, 1);
+        server = new(sd_dhcp_server, 1);
         if (!server)
                 return -ENOMEM;
 
-        server->n_ref = 1;
-        server->fd_raw = -1;
-        server->fd = -1;
-        server->address = htobe32(INADDR_ANY);
-        server->netmask = htobe32(INADDR_ANY);
-        server->ifindex = ifindex;
+        *server = (sd_dhcp_server) {
+                .n_ref = 1,
+                .fd_raw = -1,
+                .fd = -1,
+                .address = htobe32(INADDR_ANY),
+                .netmask = htobe32(INADDR_ANY),
+                .ifindex = ifindex,
+                .default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC),
+                .max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC),
+        };
+
+        r = set_ifname(server->ifindex, &server->ifname);
+        if (r < 0)
+                return r;
 
         server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
                 return -ENOMEM;
 
-        server->default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC);
-        server->max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC);
-
         *ret = TAKE_PTR(server);
 
         return 0;
+}
+
+int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname) {
+        assert_return(server, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&server->ifname, ifname);
+}
+
+const char *sd_dhcp_server_get_ifname(const sd_dhcp_server *server) {
+        if (!server)
+                return NULL;
+
+        return server->ifname;
 }
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority) {

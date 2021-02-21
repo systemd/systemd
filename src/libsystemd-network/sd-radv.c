@@ -19,6 +19,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "network-common.h"
 #include "radv-internal.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -122,6 +123,7 @@ static sd_radv *radv_free(sd_radv *ra) {
         sd_radv_detach_event(ra);
 
         ra->fd = safe_close(ra->fd);
+        free(ra->ifname);
 
         return mfree(ra);
 }
@@ -429,7 +431,24 @@ _public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
 
         ra->ifindex = ifindex;
 
-        return 0;
+        return set_ifname(ra->ifindex, &ra->ifname);
+}
+
+int sd_radv_set_ifname(sd_radv *ra, const char *ifname) {
+        assert_return(ra, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&ra->ifname, ifname);
+}
+
+const char *sd_radv_get_ifname(const sd_radv *ra) {
+        if (!ra)
+                return NULL;
+
+        return ra->ifname;
 }
 
 _public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {

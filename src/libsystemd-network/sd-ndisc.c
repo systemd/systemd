@@ -16,6 +16,7 @@
 #include "memory-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -62,7 +63,25 @@ _public_ int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
         assert_return(nd->fd < 0, -EBUSY);
 
         nd->ifindex = ifindex;
-        return 0;
+
+        return set_ifname(nd->ifindex, &nd->ifname);
+}
+
+int sd_ndisc_set_ifname(sd_ndisc *nd, const char *ifname) {
+        assert_return(nd, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&nd->ifname, ifname);
+}
+
+const char *sd_ndisc_get_ifname(const sd_ndisc *nd) {
+        if (!nd)
+                return NULL;
+
+        return nd->ifname;
 }
 
 _public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
@@ -129,6 +148,7 @@ static sd_ndisc *ndisc_free(sd_ndisc *nd) {
 
         ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
+        free(nd->ifname);
         return mfree(nd);
 }
 

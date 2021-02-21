@@ -14,6 +14,7 @@
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "memory-util.h"
+#include "network-common.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
@@ -340,7 +341,25 @@ _public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
         assert_return(lldp->fd < 0, -EBUSY);
 
         lldp->ifindex = ifindex;
-        return 0;
+
+        return set_ifname(lldp->ifindex, &lldp->ifname);
+}
+
+int sd_lldp_set_ifname(sd_lldp *lldp, const char *ifname) {
+        assert_return(lldp, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&lldp->ifname, ifname);
+}
+
+const char *sd_lldp_get_ifname(const sd_lldp *lldp) {
+        if (!lldp)
+                return NULL;
+
+        return lldp->ifname;
 }
 
 static sd_lldp* lldp_free(sd_lldp *lldp) {
@@ -354,6 +373,7 @@ static sd_lldp* lldp_free(sd_lldp *lldp) {
 
         hashmap_free(lldp->neighbor_by_id);
         prioq_free(lldp->neighbor_by_expiry);
+        free(lldp->ifname);
         return mfree(lldp);
 }
 
