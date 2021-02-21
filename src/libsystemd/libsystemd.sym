@@ -749,4 +749,7 @@ global:
         sd_device_get_action;
         sd_device_get_seqnum;
         sd_device_new_from_stat_rdev;
+        sd_device_trigger;
+        sd_device_monitor_filter_add_match_sysattr;
+        sd_device_monitor_filter_add_match_parent;
 } LIBSYSTEMD_247;

@@ -99,6 +99,7 @@ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const ch
 
 int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value);
 int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr, const char *format, ...) _sd_printf_(3, 4);
+int sd_device_trigger(sd_device *device, sd_device_action_t action);
 
 /* device enumerator */
 
@@ -135,6 +136,8 @@ int sd_device_monitor_stop(sd_device_monitor *m);
 
 int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype);
 int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag);
+int sd_device_monitor_filter_add_match_sysattr(sd_device_monitor *m, const char *sysattr, const char *value, int match);
+int sd_device_monitor_filter_add_match_parent(sd_device_monitor *m, sd_device *device, int match);
 int sd_device_monitor_filter_update(sd_device_monitor *m);
 int sd_device_monitor_filter_remove(sd_device_monitor *m);
 
