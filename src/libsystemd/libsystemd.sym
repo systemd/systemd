@@ -755,4 +755,5 @@ global:
 LIBSYSTEMD_249 {
 global:
         sd_device_monitor_filter_add_match_sysattr;
+        sd_device_monitor_filter_add_match_parent;
 } LIBSYSTEMD_248;
