@@ -358,14 +358,13 @@ static int systemd_netlink_fd(void) {
         if (n <= 0)
                 return -EINVAL;
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++)
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
                         if (rtnl_fd >= 0)
                                 return -EINVAL;
 
                         rtnl_fd = fd;
                 }
-        }
 
         return rtnl_fd;
 }
