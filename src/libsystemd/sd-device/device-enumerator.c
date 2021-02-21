@@ -331,24 +331,6 @@ static bool match_tag(sd_device_enumerator *enumerator, sd_device *device) {
         return true;
 }
 
-static bool match_parent(sd_device_enumerator *enumerator, sd_device *device) {
-        const char *syspath_parent, *syspath;
-
-        assert(enumerator);
-        assert(device);
-
-        if (set_isempty(enumerator->match_parent))
-                return true;
-
-        assert_se(sd_device_get_syspath(device, &syspath) >= 0);
-
-        SET_FOREACH(syspath_parent, enumerator->match_parent)
-                if (path_startswith(syspath, syspath_parent))
-                        return true;
-
-        return false;
-}
-
 static bool match_sysname(sd_device_enumerator *enumerator, const char *sysname) {
         const char *sysname_match;
 
@@ -434,7 +416,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                      sd_device_get_ifindex(device, NULL) >= 0))
                         continue;
 
-                if (!match_parent(enumerator, device))
+                if (!device_match_parent(device, enumerator->match_parent, NULL))
                         continue;
 
                 if (!match_tag(enumerator, device))
@@ -564,7 +546,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
                 if (!match_sysname(enumerator, sysname))
                         continue;
 
-                if (!match_parent(enumerator, device))
+                if (!device_match_parent(device, enumerator->match_parent, NULL))
                         continue;
 
                 if (!match_property(enumerator, device))
