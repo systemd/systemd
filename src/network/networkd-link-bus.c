@@ -13,6 +13,7 @@
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-state-file.h"
 #include "parse-util.h"
 #include "resolve-util.h"
 #include "socket-netlink.h"
