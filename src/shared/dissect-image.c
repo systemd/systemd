@@ -126,7 +126,15 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
         r = sd_device_enumerator_add_match_parent(e, d);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "partition", NULL, true);
         if (r < 0)
                 return r;
 
@@ -150,9 +158,6 @@ static int device_is_partition(sd_device *d, blkid_partition pp) {
                 return false;
 
         r = sd_device_get_sysattr_value(d, "partition", &v);
-        if (r == -ENOENT ||        /* Not a partition device */
-            ERRNO_IS_PRIVILEGE(r)) /* Not ready to access? */
-                return false;
         if (r < 0)
                 return r;
         r = safe_atoi(v, &partno);
@@ -309,6 +314,14 @@ static int wait_for_partition_device(
                 return r;
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, "block", "partition");
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_filter_add_match_parent(monitor, parent, true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_filter_add_match_sysattr(monitor, "partition", NULL, true);
         if (r < 0)
                 return r;
 
