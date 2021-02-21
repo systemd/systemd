@@ -10,6 +10,8 @@
 #include "bond.h"
 #include "bridge.h"
 #include "bus-util.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
@@ -1732,7 +1734,7 @@ static void link_detach_from_manager(Link *link) {
         link_unref(link);
 }
 
-void link_drop(Link *link) {
+static void link_drop(Link *link) {
         if (!link || link->state == LINK_STATE_LINGER)
                 return;
 
@@ -2359,7 +2361,7 @@ static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return 1;
 }
 
-int link_initialized(Link *link, sd_device *device) {
+static int link_initialized(Link *link, sd_device *device) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -2399,7 +2401,7 @@ int link_initialized(Link *link, sd_device *device) {
         return 0;
 }
 
-int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
+static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
         Link *link;
@@ -2480,6 +2482,57 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
                         return r;
                 }
         }
+
+        return 0;
+}
+
+int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        sd_device_action_t action;
+        Manager *m = userdata;
+        Link *link = NULL;
+        int r, ifindex;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_action(device, &action);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Failed to get udev action, ignoring device: %m");
+                return 0;
+        }
+
+        /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
+         * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
+         * still exists — and we are interested in that. */
+        if (action == SD_DEVICE_REMOVE)
+                return 0;
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Ignoring udev %s event for device without ifindex or with invalid ifindex: %m",
+                                       device_action_to_string(action));
+                return 0;
+        }
+
+        r = device_is_renaming(device);
+        if (r < 0) {
+                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
+                                       device_action_to_string(action));
+                return 0;
+        }
+        if (r > 0) {
+                log_device_debug(device, "Interface is under renaming, wait for the interface to be renamed.");
+                return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r < 0) {
+                if (r != -ENODEV)
+                        log_debug_errno(r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
+                return 0;
+        }
+
+        (void) link_initialized(link, device);
 
         return 0;
 }
@@ -2597,12 +2650,13 @@ int link_carrier_reset(Link *link) {
         return 0;
 }
 
-/* This is called every time an interface admin state changes to up;
- * specifically, when IFF_UP flag changes from unset to set */
 static int link_admin_state_up(Link *link) {
         int r;
 
         assert(link);
+
+        /* This is called every time an interface admin state changes to up;
+         * specifically, when IFF_UP flag changes from unset to set. */
 
         if (!link->network)
                 return 0;
@@ -2627,7 +2681,6 @@ static int link_admin_state_up(Link *link) {
 }
 
 static int link_admin_state_down(Link *link) {
-
         assert(link);
 
         if (!link->network)
@@ -2641,7 +2694,7 @@ static int link_admin_state_down(Link *link) {
         return 0;
 }
 
-int link_update(Link *link, sd_netlink_message *m) {
+static int link_update(Link *link, sd_netlink_message *m) {
         _cleanup_strv_free_ char **s = NULL;
         hw_addr_data hw_addr;
         const char *ifname;
@@ -2783,6 +2836,93 @@ int link_update(Link *link, sd_netlink_message *m) {
         }
 
         return 0;
+}
+
+int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+        Link *link = NULL;
+        NetDev *netdev = NULL;
+        uint16_t type;
+        const char *name;
+        int r, ifindex;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_message_warning_errno(message, r, "rtnl: Could not receive link message, ignoring");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
+                log_warning("rtnl: Received unexpected message type %u when processing link, ignoring.", type);
+                return 0;
+        }
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get ifindex from link message, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received link message with invalid ifindex %d, ignoring.", ifindex);
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Received link message without ifname, ignoring: %m");
+                return 0;
+        }
+
+        (void) link_get(m, ifindex, &link);
+        (void) netdev_get(m, name, &netdev);
+
+        switch (type) {
+        case RTM_NEWLINK:
+                if (!link) {
+                        /* link is new, so add it */
+                        r = link_add(m, message, &link);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process new link message, ignoring: %m");
+                                return 0;
+                        }
+                }
+
+                if (netdev) {
+                        /* netdev exists, so make sure the ifindex matches */
+                        r = netdev_set_ifindex(netdev, message);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process new link message for netdev, ignoring: %m");
+                                return 0;
+                        }
+                }
+
+                r = link_update(link, message);
+                if (r < 0) {
+                        log_warning_errno(r, "Could not process link message, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case RTM_DELLINK:
+                link_drop(link);
+                netdev_drop(netdev);
+
+                break;
+
+        default:
+                assert_not_reached("Received link message with invalid RTNL message type.");
+        }
+
+        return 1;
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {

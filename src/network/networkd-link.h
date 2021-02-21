@@ -203,19 +203,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
-int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
-void link_drop(Link *link);
 
 int link_down(Link *link, link_netlink_message_handler_t callback);
 
 void link_enter_failed(Link *link);
-int link_initialized(Link *link, sd_device *device);
 
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 
 void link_update_operstate(Link *link, bool also_update_bond_master);
-int link_update(Link *link, sd_netlink_message *message);
 
 int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);
@@ -235,6 +231,9 @@ LinkState link_state_from_string(const char *s) _pure_;
 
 int link_configure(Link *link);
 int link_reconfigure(Link *link, bool force);
+
+int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
+int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
 #define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)
