@@ -65,6 +65,24 @@ _public_ int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
         return 0;
 }
 
+int sd_ndisc_set_ifname(sd_ndisc *nd, const char *ifname) {
+        assert_return(nd, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid(ifname))
+                return -EINVAL;
+
+        strcpy(nd->ifname, ifname);
+        return 0;
+}
+
+const char *sd_ndisc_get_ifname(sd_ndisc *nd) {
+        if (!nd)
+                return NULL;
+
+        return empty_to_null(nd->ifname);
+}
+
 _public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 

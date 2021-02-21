@@ -56,7 +56,7 @@ struct sd_ipv4acd {
         int ifindex;
         int fd;
 
-        char ifname[IF_NAMESIZE + 1];
+        char ifname[IFNAMSIZ + 1];
         unsigned n_iteration;
         unsigned n_conflict;
 
@@ -398,16 +398,10 @@ fail:
 }
 
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int ifindex) {
-        char ifname[IF_NAMESIZE + 1];
-
         assert_return(acd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        if (!format_ifname(ifindex, ifname))
-                return -ENODEV;
-
-        strcpy(acd->ifname, ifname);
         acd->ifindex = ifindex;
 
         return 0;
@@ -418,6 +412,17 @@ int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd) {
                 return -EINVAL;
 
         return acd->ifindex;
+}
+
+int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *ifname) {
+        assert_return(acd, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid(ifname))
+                return -EINVAL;
+
+        strcpy(acd->ifname, ifname);
+        return 0;
 }
 
 const char *sd_ipv4acd_get_ifname(sd_ipv4acd *acd) {

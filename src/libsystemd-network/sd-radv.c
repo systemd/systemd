@@ -432,6 +432,24 @@ _public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         return 0;
 }
 
+int sd_radv_set_ifname(sd_radv *ra, const char *ifname) {
+        assert_return(ra, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid(ifname))
+                return -EINVAL;
+
+        strcpy(ra->ifname, ifname);
+        return 0;
+}
+
+const char *sd_radv_get_ifname(sd_radv *ra) {
+        if (!ra)
+                return NULL;
+
+        return empty_to_null(ra->ifname);
+}
+
 _public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
         assert_return(ra, -EINVAL);
 

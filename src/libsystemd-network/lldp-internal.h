@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <linux/if.h>
+
 #include "sd-event.h"
 #include "sd-lldp.h"
 
@@ -12,6 +14,7 @@ struct sd_lldp {
         unsigned n_ref;
 
         int ifindex;
+        char ifname[IFNAMSIZ + 1];
         int fd;
 
         sd_event *event;

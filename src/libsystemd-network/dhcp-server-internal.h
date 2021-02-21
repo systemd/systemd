@@ -5,6 +5,8 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
+#include <linux/if.h>
+
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
@@ -48,6 +50,7 @@ struct sd_dhcp_server {
         int fd_raw;
 
         int ifindex;
+        char ifname[IFNAMSIZ + 1];
         be32_t address;
         be32_t netmask;
         be32_t subnet;

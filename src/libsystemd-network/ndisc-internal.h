@@ -5,10 +5,12 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include "log.h"
-#include "time-util.h"
+#include <linux/if.h>
 
 #include "sd-ndisc.h"
+
+#include "log.h"
+#include "time-util.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL (4U * USEC_PER_SEC)
 #define NDISC_MAX_ROUTER_SOLICITATION_INTERVAL (3600U * USEC_PER_SEC)
@@ -18,6 +20,7 @@ struct sd_ndisc {
         unsigned n_ref;
 
         int ifindex;
+        char ifname[IFNAMSIZ + 1];
         int fd;
 
         sd_event *event;

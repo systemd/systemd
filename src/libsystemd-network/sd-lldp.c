@@ -343,6 +343,24 @@ _public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
         return 0;
 }
 
+int sd_lldp_set_ifname(sd_lldp *lldp, const char *ifname) {
+        assert_return(lldp, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid(ifname))
+                return -EINVAL;
+
+        strcpy(lldp->ifname, ifname);
+        return 0;
+}
+
+const char *sd_lldp_get_ifname(sd_lldp *lldp) {
+        if (!lldp)
+                return NULL;
+
+        return empty_to_null(lldp->ifname);
+}
+
 static sd_lldp* lldp_free(sd_lldp *lldp) {
         assert(lldp);
 

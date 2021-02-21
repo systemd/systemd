@@ -5,6 +5,8 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
+#include <linux/if.h>
+
 #include "sd-radv.h"
 
 #include "log.h"
@@ -41,6 +43,7 @@ struct sd_radv {
         RAdvState state;
 
         int ifindex;
+        char ifname[IFNAMSIZ + 1];
 
         sd_event *event;
         int event_priority;

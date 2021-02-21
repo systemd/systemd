@@ -192,6 +192,24 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         return 0;
 }
 
+int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname) {
+        assert_return(server, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid(ifname))
+                return -EINVAL;
+
+        strcpy(server->ifname, ifname);
+        return 0;
+}
+
+const char *sd_dhcp_server_get_ifname(sd_dhcp_server *server) {
+        if (!server)
+                return NULL;
+
+        return empty_to_null(server->ifname);
+}
+
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority) {
         int r;
 
