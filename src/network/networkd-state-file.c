@@ -75,10 +75,12 @@ static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address
         return r;
 }
 
-static int ordered_set_put_in4_addrv(OrderedSet *s,
-                                     const struct in_addr *addresses,
-                                     size_t n,
-                                     bool (*predicate)(const struct in_addr *addr)) {
+static int ordered_set_put_in4_addrv(
+                OrderedSet *s,
+                const struct in_addr *addresses,
+                size_t n,
+                bool (*predicate)(const struct in_addr *addr)) {
+
         int r, c = 0;
 
         assert(s);
@@ -354,9 +356,10 @@ static void serialize_addresses(
                 bool conditional6,
                 int (*lease6_get_addr)(sd_dhcp6_lease*, const struct in6_addr**),
                 int (*lease6_get_fqdn)(sd_dhcp6_lease*, char ***)) {
-        int r;
 
         bool _space = false;
+        int r;
+
         if (!space)
                 space = &_space;
 
