@@ -39,6 +39,8 @@ struct sd_device_monitor {
         Set *tag_filter;
         Hashmap *match_sysattr_filter;
         Hashmap *nomatch_sysattr_filter;
+        Set *match_parent_filter;
+        Set *nomatch_parent_filter;
         bool filter_uptodate;
 
         sd_event *event;
@@ -340,6 +342,8 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
         set_free(m->tag_filter);
         hashmap_free(m->match_sysattr_filter);
         hashmap_free(m->nomatch_sysattr_filter);
+        set_free(m->match_parent_filter);
+        set_free(m->nomatch_parent_filter);
 
         return mfree(m);
 }
@@ -404,7 +408,10 @@ static int passes_filter(sd_device_monitor *m, sd_device *device) {
         if (!check_tag_filter(m, device))
                 return false;
 
-        return device_match_sysattr(device, m->match_sysattr_filter, m->nomatch_sysattr_filter);
+        if (!device_match_sysattr(device, m->match_sysattr_filter, m->nomatch_sysattr_filter))
+                return false;
+
+        return device_match_parent(device, m->match_parent_filter, m->nomatch_parent_filter);
 }
 
 int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
@@ -779,6 +786,27 @@ _public_ int sd_device_monitor_filter_add_match_sysattr(sd_device_monitor *m, co
         return hashmap_put_strdup_full(hashmap, &trivial_hash_ops_free_free, sysattr, value);
 }
 
+_public_ int sd_device_monitor_filter_add_match_parent(sd_device_monitor *m, sd_device *device, int match) {
+        const char *syspath;
+        Set **set;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(device, -EINVAL);
+
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        if (match)
+                set = &m->match_parent_filter;
+        else
+                set = &m->nomatch_parent_filter;
+
+        /* TODO: unset m->filter_uptodate on success when we support this filter on BPF. */
+        return set_put_strdup(set, syspath);
+}
+
 _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
         static const struct sock_fprog filter = { 0, NULL };
 
@@ -788,6 +816,8 @@ _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
         m->tag_filter = set_free(m->tag_filter);
         m->match_sysattr_filter = hashmap_free(m->match_sysattr_filter);
         m->nomatch_sysattr_filter = hashmap_free(m->nomatch_sysattr_filter);
+        m->match_parent_filter = set_free(m->match_parent_filter);
+        m->nomatch_parent_filter = set_free(m->nomatch_parent_filter);
 
         if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
