@@ -103,7 +103,8 @@ int manager_save(Manager *m) {
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlinkp) const char *state_file = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         Link *link;
@@ -111,6 +112,8 @@ int manager_save(Manager *m) {
 
         assert(m);
         assert(m->state_file);
+
+        state_file = m->state_file;
 
         /* We add all NTP and DNS server to a set, to filter out duplicates */
         dns = ordered_set_new(&string_hash_ops);
@@ -261,11 +264,14 @@ int manager_save(Manager *m) {
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = conservative_rename(temp_path, m->state_file);
         if (r < 0)
-                goto fail;
+                return r;
+
+        temp_path = mfree(temp_path);
+        TAKE_PTR(state_file);
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
@@ -288,18 +294,12 @@ int manager_save(Manager *m) {
         if (p) {
                 r = manager_send_changed_strv(m, p);
                 if (r < 0)
-                        log_error_errno(r, "Could not emit changed properties: %m");
+                        log_warning_errno(r, "Could not emit changed properties, ignoring: %m");
         }
 
         m->dirty = false;
 
         return 0;
-
-fail:
-        (void) unlink(m->state_file);
-        (void) unlink(temp_path);
-
-        return log_error_errno(r, "Failed to save network state to %s: %m", m->state_file);
 }
 
 static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
@@ -394,7 +394,8 @@ static void serialize_addresses(
 
 int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state;
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlinkp) const char *state_file = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -403,10 +404,10 @@ int link_save(Link *link) {
         assert(link->lease_file);
         assert(link->manager);
 
-        if (link->state == LINK_STATE_LINGER) {
-                (void) unlink(link->state_file);
+        state_file = link->state_file;
+
+        if (link->state == LINK_STATE_LINGER)
                 return 0;
-        }
 
         link_lldp_save(link);
 
@@ -424,7 +425,7 @@ int link_save(Link *link) {
 
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
-                goto fail;
+                return r;
 
         (void) fchmod(fileno(f), 0644);
 
@@ -621,7 +622,7 @@ int link_save(Link *link) {
         if (link->dhcp_lease) {
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 fprintf(f,
                         "DHCP_LEASE=%s\n",
@@ -631,24 +632,20 @@ int link_save(Link *link) {
 
         r = link_serialize_dhcp6_client(link, f);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = conservative_rename(temp_path, link->state_file);
         if (r < 0)
-                goto fail;
+                return r;
+
+        temp_path = mfree(temp_path);
+        TAKE_PTR(state_file);
 
         return 0;
-
-fail:
-        (void) unlink(link->state_file);
-        if (temp_path)
-                (void) unlink(temp_path);
-
-        return log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
 }
 
 void link_dirty(Link *link) {
