@@ -170,6 +170,8 @@ basic_sources = files('''
         nulstr-util.h
         ordered-set.c
         ordered-set.h
+        os-util.c
+        os-util.h
         parse-util.c
         parse-util.h
         path-lookup.c

@@ -152,13 +152,13 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
          * notice if somebody sets the hostname directly (not going through hostnamed).
          */
 
-        if (source == HOSTNAME_FALLBACK) {
-                r = write_string_file("/run/systemd/fallback-hostname", hostname,
+        if (source == HOSTNAME_DEFAULT) {
+                r = write_string_file("/run/systemd/default-hostname", hostname,
                                       WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to create \"/run/systemd/fallback-hostname\": %m");
+                        log_warning_errno(r, "Failed to create \"/run/systemd/default-hostname\": %m");
         } else
-                unlink_or_warn("/run/systemd/fallback-hostname");
+                unlink_or_warn("/run/systemd/default-hostname");
 }
 
 int hostname_setup(bool really) {
@@ -194,7 +194,7 @@ int hostname_setup(bool really) {
                 }
         }
 
-        if (isempty(hn)) {
+        if (!hn) {
                 /* Don't override the hostname if it is already set and not explicitly configured */
 
                 char buf[HOST_NAME_MAX + 1] = {};
@@ -204,10 +204,13 @@ int hostname_setup(bool really) {
                 }
 
                 if (enoent)
-                        log_info("No hostname configured, using fallback hostname.");
+                        log_info("No hostname configured, using default hostname.");
 
-                hn = FALLBACK_HOSTNAME;
-                source = HOSTNAME_FALLBACK;
+                hn = b = get_default_hostname();
+                if (!hn)
+                        return log_oom();
+
+                source = HOSTNAME_DEFAULT;
 
         }
 
@@ -230,7 +233,7 @@ int hostname_setup(bool really) {
 static const char* const hostname_source_table[] = {
         [HOSTNAME_STATIC]    = "static",
         [HOSTNAME_TRANSIENT] = "transient",
-        [HOSTNAME_FALLBACK]  = "fallback",
+        [HOSTNAME_DEFAULT]   = "default",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource);
