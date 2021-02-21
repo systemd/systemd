@@ -147,15 +147,18 @@ static int device_is_partition(sd_device *d, blkid_partition pp) {
         blkid_loff_t bsize, bstart;
         uint64_t size, start;
         int partno, bpartno, r;
-        const char *ss, *v;
+        const char *v;
 
         assert(d);
         assert(pp);
 
-        r = sd_device_get_subsystem(d, &ss);
+        r = sd_device_get_subsystem(d, &v);
         if (r < 0)
                 return r;
-        if (!streq(ss, "block"))
+        if (!streq(v, "block"))
+                return false;
+
+        if (sd_device_get_devtype(d, &v) < 0 || !streq(v, "partition"))
                 return false;
 
         r = sd_device_get_sysattr_value(d, "partition", &v);
