@@ -48,6 +48,7 @@ struct sd_dhcp_server {
         int fd_raw;
 
         int ifindex;
+        char *ifname;
         be32_t address;
         be32_t netmask;
         be32_t subnet;

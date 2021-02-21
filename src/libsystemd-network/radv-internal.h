@@ -41,6 +41,7 @@ struct sd_radv {
         RAdvState state;
 
         int ifindex;
+        char *ifname;
 
         sd_event *event;
         int event_priority;

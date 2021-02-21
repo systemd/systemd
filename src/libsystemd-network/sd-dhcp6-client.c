@@ -21,6 +21,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -47,6 +48,7 @@ struct sd_dhcp6_client {
         sd_event *event;
         int event_priority;
         int ifindex;
+        char *ifname;
         DHCP6Address hint_pd_prefix;
         struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
@@ -163,6 +165,23 @@ int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
 
         client->ifindex = ifindex;
         return 0;
+}
+
+int sd_dhcp6_client_set_ifname(sd_dhcp6_client *client, const char *ifname) {
+        assert_return(client, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&client->ifname, ifname);
+}
+
+const char *sd_dhcp6_client_get_ifname(sd_dhcp6_client *client) {
+        if (!client)
+                return NULL;
+
+        return get_ifname(client->ifindex, &client->ifname);
 }
 
 int sd_dhcp6_client_set_local_address(
@@ -1787,6 +1806,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         ordered_hashmap_free(client->extra_options);
         strv_free(client->user_class);
         strv_free(client->vendor_class);
+        free(client->ifname);
 
         return mfree(client);
 }
