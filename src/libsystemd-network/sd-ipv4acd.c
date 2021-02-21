@@ -16,9 +16,9 @@
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "in-addr-util.h"
 #include "log-link.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "siphash24.h"
 #include "string-table.h"
@@ -56,7 +56,7 @@ struct sd_ipv4acd {
         int ifindex;
         int fd;
 
-        char ifname[IF_NAMESIZE + 1];
+        char *ifname;
         unsigned n_iteration;
         unsigned n_conflict;
 
@@ -125,7 +125,7 @@ static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
 
         ipv4acd_reset(acd);
         sd_ipv4acd_detach_event(acd);
-
+        free(acd->ifname);
         return mfree(acd);
 }
 
@@ -398,16 +398,10 @@ fail:
 }
 
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int ifindex) {
-        char ifname[IF_NAMESIZE + 1];
-
         assert_return(acd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
-        if (!format_ifname(ifindex, ifname))
-                return -ENODEV;
-
-        strcpy(acd->ifname, ifname);
         acd->ifindex = ifindex;
 
         return 0;
@@ -420,11 +414,21 @@ int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd) {
         return acd->ifindex;
 }
 
+int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *ifname) {
+        assert_return(acd, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&acd->ifname, ifname);
+}
+
 const char *sd_ipv4acd_get_ifname(sd_ipv4acd *acd) {
         if (!acd)
                 return NULL;
 
-        return empty_to_null(acd->ifname);
+        return get_ifname(acd->ifindex, &acd->ifname);
 }
 
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {

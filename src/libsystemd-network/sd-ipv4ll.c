@@ -112,6 +112,13 @@ int sd_ipv4ll_get_ifindex(sd_ipv4ll *ll) {
         return sd_ipv4acd_get_ifindex(ll->acd);
 }
 
+int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *ifname) {
+        assert_return(ll, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        return sd_ipv4acd_set_ifname(ll->acd, ifname);
+}
+
 const char *sd_ipv4ll_get_ifname(sd_ipv4ll *ll) {
         if (!ll)
                 return NULL;

@@ -12,6 +12,7 @@ struct sd_lldp {
         unsigned n_ref;
 
         int ifindex;
+        char *ifname;
         int fd;
 
         sd_event *event;
