@@ -3,6 +3,12 @@
 
 #include <efi.h>
 
+#ifndef EFI_VARIABLE_ENHANCED_AUTHENTICATED_ACCESS
+
+#define EFI_VARIABLE_ENHANCED_AUTHENTICATED_ACCESS 0x00000080
+
+#endif
+
 #ifndef EFI_RNG_PROTOCOL_GUID
 
 #define EFI_RNG_PROTOCOL_GUID                                           \
