@@ -470,14 +470,21 @@ static int manager_connect_rtnl(Manager *m) {
 static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
         Link *link;
+        int r;
 
         assert(m);
 
-        if (m->dirty)
-                manager_save(m);
+        if (m->dirty) {
+                r = manager_save(m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update state file %s, ignoring: %m", m->state_file);
+        }
 
-        SET_FOREACH(link, m->dirty_links)
-                (void) link_save_and_clean(link);
+        SET_FOREACH(link, m->dirty_links) {
+                r = link_save_and_clean(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
+        }
 
         return 1;
 }
@@ -647,10 +654,15 @@ int manager_start(Manager *m) {
         /* The dirty handler will deal with future serialization, but the first one
            must be done explicitly. */
 
-        manager_save(m);
+        r = manager_save(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to update state file %s, ignoring: %m", m->state_file);
 
-        HASHMAP_FOREACH(link, m->links)
-                (void) link_save(link);
+        HASHMAP_FOREACH(link, m->links) {
+                r = link_save(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
+        }
 
         return 0;
 }
