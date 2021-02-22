@@ -226,7 +226,7 @@ appliance-like installations.
 ### What partitioning tools will create a DPS-compliant partition table?
 
 As of util-linux 2.25.2, the `fdisk` tool provides type codes to create the
-root, home, and swap partitions that the DPS expects, By default, `fdisk` will
+root, home, and swap partitions that the DPS expects. By default, `fdisk` will
 create an old-style MBR, not a GPT, so typing `l` to list partition types will
 not show the choices to let you set the correct UUID. Make sure to first create
 an empty GPT, then type `l` in order for the DPS-compliant type codes to be
