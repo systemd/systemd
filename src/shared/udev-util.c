@@ -136,7 +136,7 @@ static int device_new_from_dev_path(const char *devlink, sd_device **ret_device)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
                                        "%s does not point to a block device: %m", devlink);
 
-        r = sd_device_new_from_devnum(ret_device, 'b', st.st_rdev);
+        r = sd_device_new_from_stat_rdev(ret_device, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device from %s: %m", devlink);
 

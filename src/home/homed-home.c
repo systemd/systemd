@@ -2711,7 +2711,7 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)
                 return r;
 
