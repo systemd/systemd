@@ -681,27 +681,13 @@ static void dns_stub_query_complete(DnsQuery *q) {
                 }
         }
 
+        /* Note that we don't bother with following CNAMEs here. We propagate the authoritative/additional
+         * sections from the upstream answer however, hence if the upstream server collected that information
+         * already we don't have to collect it ourselves anymore. */
+
         switch (q->state) {
 
         case DNS_TRANSACTION_SUCCESS:
-                /* Follow CNAMEs, and accumulate answers. Except if DNSSEC is requested, then let the client do that. */
-                if (!DNS_PACKET_DO(q->request_packet)) {
-                        r = dns_query_process_cname(q);
-                        if (r == -ELOOP) { /* CNAME loop */
-                                (void) dns_stub_send_reply(q, DNS_RCODE_SERVFAIL);
-                                break;
-                        }
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to process CNAME: %m");
-                                break;
-                        }
-                        if (r == DNS_QUERY_RESTARTED)
-                                return;
-                }
-
-                (void) dns_stub_send_reply(q, q->answer_rcode);
-                break;
-
         case DNS_TRANSACTION_RCODE_FAILURE:
                 (void) dns_stub_send_reply(q, q->answer_rcode);
                 break;
