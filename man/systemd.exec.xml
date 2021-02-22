@@ -2408,7 +2408,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named file descriptors and their ordering.</para>
 
-        <para>This setting defaults to <option>null</option>.</para></listitem>
+        <para>This setting defaults to <option>null</option>, unless
+        <varname>StandardInputText=</varname>/<varname>StandardInputData=</varname> are set, in which case it
+        defaults to <option>data</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2522,9 +2524,11 @@ SystemCallErrorNumber=EPERM</programlisting>
         <term><varname>StandardInputText=</varname></term>
         <term><varname>StandardInputData=</varname></term>
 
-        <listitem><para>Configures arbitrary textual or binary data to pass via file descriptor 0 (STDIN) to the
-        executed processes. These settings have no effect unless <varname>StandardInput=</varname> is set to
-        <option>data</option>. Use this option to embed process input data directly in the unit file.</para>
+        <listitem><para>Configures arbitrary textual or binary data to pass via file descriptor 0 (STDIN) to
+        the executed processes. These settings have no effect unless <varname>StandardInput=</varname> is set
+        to <option>data</option> (which is the default if <varname>StandardInput=</varname> is not set
+        otherwise, but <varname>StandardInputText=</varname>/<varname>StandardInputData=</varname> is). Use
+        this option to embed process input data directly in the unit file.</para>
 
         <para><varname>StandardInputText=</varname> accepts arbitrary textual data. C-style escapes for special
         characters as well as the usual <literal>%</literal>-specifiers are resolved. Each time this setting is used
