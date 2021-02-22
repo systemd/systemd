@@ -755,7 +755,7 @@ static int request_handler_machine(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
-        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
+        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name);
         (void) get_virtualization(&v);
 
         r = asprintf(&json,

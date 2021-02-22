@@ -3,13 +3,38 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "hostname-util.h"
+#include "os-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+char* get_default_hostname(void) {
+        int r;
+
+        const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
+        if (e) {
+                if (hostname_is_valid(e, 0))
+                        return strdup(e);
+                log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
+        }
+
+        _cleanup_free_ char *f = NULL;
+        r = parse_os_release(NULL, "DEFAULT_HOSTNAME", &f);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
+        if (f) {
+                if (hostname_is_valid(f, 0))
+                        return TAKE_PTR(f);
+                log_debug("Invalid hostname in os-release, ignoring: %s", f);
+        }
+
+        return strdup(FALLBACK_HOSTNAME);
+}
 
 char* gethostname_malloc(void) {
         struct utsname u;
@@ -23,7 +48,7 @@ char* gethostname_malloc(void) {
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)"))
-                s = FALLBACK_HOSTNAME;
+                return get_default_hostname();
 
         return strdup(s);
 }
@@ -31,6 +56,7 @@ char* gethostname_malloc(void) {
 char* gethostname_short_malloc(void) {
         struct utsname u;
         const char *s;
+        _cleanup_free_ char *f = NULL;
 
         /* Like above, but kills the FQDN part if present. */
 
@@ -38,7 +64,10 @@ char* gethostname_short_malloc(void) {
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)") || s[0] == '.') {
-                s = FALLBACK_HOSTNAME;
+                s = f = get_default_hostname();
+                if (!s)
+                        return NULL;
+
                 assert(s[0] != '.');
         }
 
