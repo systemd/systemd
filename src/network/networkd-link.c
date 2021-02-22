@@ -540,6 +540,8 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
 
+        sd_event_source_unref(link->dhcp4_mtu_reset_loop_detector);
+
         link_free_engines(link);
         free(link->lease_file);
         free(link->lldp_file);
@@ -1021,7 +1023,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         link_ref(link);
         link->setting_mtu = true;
 
-        return 0;
+        return 1;
 }
 
 static bool link_reduces_vlan_mtu(Link *link) {
