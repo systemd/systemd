@@ -200,7 +200,7 @@ static int validate_device(sd_device *device) {
                 if (find_pci_or_platform_parent(other, &other_parent) < 0)
                         continue;
 
-                if (same_device(parent, other_parent)) {
+                if (same_device(parent, other_parent) > 0) {
                         const char *device_sysname = NULL, *other_sysname = NULL;
 
                         /* Both have the same PCI parent, that means we are out. */
