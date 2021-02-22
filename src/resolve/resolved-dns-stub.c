@@ -246,17 +246,17 @@ static int dns_stub_assign_sections(
         assert(q);
         assert(question);
 
-        /* Let's assign the 'answer' and 'answer_auxiliary' RRs we collected to their respective sections in
-         * the reply datagram. We try to reproduce a section assignment similar to what the upstream DNS
-         * server responded to us. We use the DNS_ANSWER_SECTION_xyz flags to match things up, which is where
-         * the original upstream's packet section assignment is stored in the DnsAnswer object. Not all RRs
-         * in the 'answer' and 'answer_auxiliary' objects come with section information though (for example,
-         * because they were synthesized locally, and not from a DNS packet). To deal with that we extend the
-         * assignment logic a bit: anything from the 'answer' object that directly matches the original
-         * question is always put in the ANSWER section, regardless if it carries section info, or what that
-         * section info says. Then, anything from the 'answer' and 'answer_auxiliary' objects that is from
-         * the ANSWER or AUTHORITY sections, and wasn't already added to the ANSWER section is placed in the
-         * AUTHORITY section. Everything else from either object is added to the ADDITIONAL section. */
+        /* Let's assign the 'answer' RRs we collected to their respective sections in the reply datagram. We
+         * try to reproduce a section assignment similar to what the upstream DNS server responded to us. We
+         * use the DNS_ANSWER_SECTION_xyz flags to match things up, which is where the original upstream's
+         * packet section assignment is stored in the DnsAnswer object. Not all RRs in the 'answer' objects
+         * come with section information though (for example, because they were synthesized locally, and not
+         * from a DNS packet). To deal with that we extend the assignment logic a bit: anything from the
+         * 'answer' object that directly matches the original question is always put in the ANSWER section,
+         * regardless if it carries section info, or what that section info says. Then, anything from the
+         * 'answer' objects that is from the ANSWER or AUTHORITY sections, and wasn't already added to the
+         * ANSWER section is placed in the AUTHORITY section. Everything else from either object is added to
+         * the ADDITIONAL section. */
 
         /* Include all RRs that directly answer the question in the answer section */
         r = dns_stub_collect_answer_by_question(
