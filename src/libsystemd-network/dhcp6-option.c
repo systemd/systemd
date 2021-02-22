@@ -41,13 +41,14 @@ typedef struct DHCP6PDPrefixOption {
 #define DHCP6_OPTION_IA_PD_LEN (sizeof(struct ia_pd))
 #define DHCP6_OPTION_IA_TA_LEN (sizeof(struct ia_ta))
 
-static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode,
-                             size_t optlen) {
-        DHCP6Option *option = (DHCP6Option*) *buf;
+static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode, size_t optlen) {
+        DHCP6Option *option;
 
         assert_return(buf, -EINVAL);
         assert_return(*buf, -EINVAL);
         assert_return(buflen, -EINVAL);
+
+        option = (DHCP6Option*) *buf;
 
         if (optlen > 0xffff || *buflen < optlen + offsetof(DHCP6Option, data))
                 return -ENOBUFS;
@@ -112,10 +113,13 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
 }
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
-        uint16_t len;
-        uint8_t *ia_hdr;
-        size_t iaid_offset, ia_buflen, ia_addrlen = 0;
+        size_t ia_buflen, ia_addrlen = 0;
+        struct ia_na ia_na;
+        struct ia_ta ia_ta;
         DHCP6Address *addr;
+        uint8_t *ia_hdr;
+        uint16_t len;
+        void *p;
         int r;
 
         assert_return(buf, -EINVAL);
@@ -123,15 +127,23 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         assert_return(buflen, -EINVAL);
         assert_return(ia, -EINVAL);
 
+        /* client should not send set T1 and T2. See, RFC 8415, and issue #18090. */
+
         switch (ia->type) {
         case SD_DHCP6_OPTION_IA_NA:
                 len = DHCP6_OPTION_IA_NA_LEN;
-                iaid_offset = offsetof(DHCP6IA, ia_na);
+                ia_na = (struct ia_na) {
+                        .id = ia->ia_na.id,
+                };
+                p = &ia_na;
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
                 len = DHCP6_OPTION_IA_TA_LEN;
-                iaid_offset = offsetof(DHCP6IA, ia_ta);
+                ia_ta = (struct ia_ta) {
+                        .id = ia->ia_ta.id,
+                };
+                p = &ia_ta;
                 break;
 
         default:
@@ -147,30 +159,113 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         *buf += offsetof(DHCP6Option, data);
         *buflen -= offsetof(DHCP6Option, data);
 
-        memcpy(*buf, (char*) ia + iaid_offset, len);
+        memcpy(*buf, p, len);
 
         *buf += len;
         *buflen -= len;
 
         LIST_FOREACH(addresses, addr, ia->addresses) {
-                r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IAADDR,
-                                      sizeof(addr->iaaddr));
+                struct iaaddr a = {
+                        .address = addr->iaaddr.address,
+                };
+
+                r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IAADDR, sizeof(struct iaaddr));
                 if (r < 0)
                         return r;
 
-                memcpy(*buf, &addr->iaaddr, sizeof(addr->iaaddr));
+                memcpy(*buf, &a, sizeof(struct iaaddr));
 
-                *buf += sizeof(addr->iaaddr);
-                *buflen -= sizeof(addr->iaaddr);
+                *buf += sizeof(struct iaaddr);
+                *buflen -= sizeof(struct iaaddr);
 
-                ia_addrlen += offsetof(DHCP6Option, data) + sizeof(addr->iaaddr);
+                ia_addrlen += offsetof(DHCP6Option, data) + sizeof(struct iaaddr);
         }
 
-        r = option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len + ia_addrlen);
+        return option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len + ia_addrlen);
+}
+
+static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const DHCP6Address *prefix) {
+        struct iapdprefix p;
+        int r;
+
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(prefix);
+
+        if (prefix->iapdprefix.prefixlen == 0)
+                return -EINVAL;
+
+        /* Do not append T1 and T2. */
+
+        p = (struct iapdprefix) {
+                .prefixlen = prefix->iapdprefix.prefixlen,
+                .address = prefix->iapdprefix.address,
+        };
+
+        r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IA_PD_PREFIX, sizeof(struct iapdprefix));
         if (r < 0)
                 return r;
 
-        return 0;
+        memcpy(*buf, &p, sizeof(struct iapdprefix));
+
+        *buf += sizeof(struct iapdprefix);
+        *buflen -= sizeof(struct iapdprefix);
+
+        return offsetof(DHCP6Option, data) + sizeof(struct iapdprefix);
+}
+
+int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, const DHCP6Address *hint_pd_prefix) {
+        struct ia_pd ia_pd;
+        size_t len, pd_buflen;
+        uint8_t *pd_hdr;
+        int r;
+
+        assert_return(buf, -EINVAL);
+        assert_return(*buf, -EINVAL);
+        assert_return(buflen, -EINVAL);
+        assert_return(pd, -EINVAL);
+        assert_return(pd->type == SD_DHCP6_OPTION_IA_PD, -EINVAL);
+
+        /* Do not set T1 and T2. */
+        ia_pd = (struct ia_pd) {
+                .id = pd->ia_pd.id,
+        };
+        len = sizeof(struct ia_pd);
+
+        if (*buflen < offsetof(DHCP6Option, data) + len)
+                return -ENOBUFS;
+
+        pd_hdr = *buf;
+        pd_buflen = *buflen;
+
+        /* The header will be written at the end of this function. */
+        *buf += offsetof(DHCP6Option, data);
+        *buflen -= offsetof(DHCP6Option, data);
+
+        memcpy(*buf, &ia_pd, len);
+
+        *buf += sizeof(struct ia_pd);
+        *buflen -= sizeof(struct ia_pd);
+
+        DHCP6Address *prefix;
+        LIST_FOREACH(addresses, prefix, pd->addresses) {
+                r = option_append_pd_prefix(buf, buflen, prefix);
+                if (r < 0)
+                        return r;
+
+                len += r;
+        }
+
+        if (hint_pd_prefix) {
+                r = option_append_pd_prefix(buf, buflen, hint_pd_prefix);
+                if (r < 0 && r != -EINVAL)
+                        return r;
+
+                len += r;
+        }
+
+        return option_append_hdr(&pd_hdr, &pd_buflen, pd->type, len);
 }
 
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
@@ -273,51 +368,6 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const
         }
 
         return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_CLASS, total, p);
-}
-
-int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd, DHCP6Address *hint_pd_prefix) {
-        DHCP6Option *option = (DHCP6Option *)buf;
-        size_t i = sizeof(*option) + sizeof(pd->ia_pd);
-        DHCP6PDPrefixOption *prefix_opt;
-        DHCP6Address *prefix;
-
-        assert_return(buf, -EINVAL);
-        assert_return(pd, -EINVAL);
-        assert_return(pd->type == SD_DHCP6_OPTION_IA_PD, -EINVAL);
-
-        if (len < i)
-                return -ENOBUFS;
-
-        option->code = htobe16(SD_DHCP6_OPTION_IA_PD);
-
-        memcpy(&option->data, &pd->ia_pd, sizeof(pd->ia_pd));
-        LIST_FOREACH(addresses, prefix, pd->addresses) {
-                if (len < i + sizeof(*prefix_opt))
-                        return -ENOBUFS;
-
-                prefix_opt = (DHCP6PDPrefixOption *)&buf[i];
-                prefix_opt->option.code = htobe16(SD_DHCP6_OPTION_IA_PD_PREFIX);
-                prefix_opt->option.len = htobe16(sizeof(prefix_opt->iapdprefix));
-
-                memcpy(&prefix_opt->iapdprefix, &prefix->iapdprefix, sizeof(struct iapdprefix));
-                i += sizeof(*prefix_opt);
-        }
-
-        if (hint_pd_prefix && hint_pd_prefix->iapdprefix.prefixlen > 0) {
-                if (len < i + sizeof(*prefix_opt))
-                        return -ENOBUFS;
-
-                prefix_opt = (DHCP6PDPrefixOption *)&buf[i];
-                prefix_opt->option.code = htobe16(SD_DHCP6_OPTION_IA_PD_PREFIX);
-                prefix_opt->option.len = htobe16(sizeof(prefix_opt->iapdprefix));
-
-                memcpy(&prefix_opt->iapdprefix, &hint_pd_prefix->iapdprefix, sizeof(struct iapdprefix));
-                i += sizeof(*prefix_opt);
-        }
-
-        option->len = htobe16(i - sizeof(*option));
-
-        return i;
 }
 
 static int option_parse_hdr(uint8_t **buf, size_t *buflen, uint16_t *optcode, size_t *optlen) {
