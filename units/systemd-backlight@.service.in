@@ -13,6 +13,7 @@ Documentation=man:systemd-backlight@.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
@@ -20,4 +21,6 @@ RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-backlight load %i
 ExecStop=@rootlibexecdir@/systemd-backlight save %i
 TimeoutSec=90s
+Restart=on-failure
+RestartSec=2s
 StateDirectory=systemd/backlight
