@@ -2621,7 +2621,14 @@ static const char *const partition_designator_table[] = {
         [PARTITION_VAR] = "var",
 };
 
-int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options) {
+int verity_dissect_and_mount(
+                const char *src,
+                const char *dest,
+                const MountOptions *options,
+                const char *required_host_os_release_id,
+                const char *required_host_os_release_version_id,
+                const char *required_host_os_release_sysext_level) {
+
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
@@ -2682,6 +2689,30 @@ int verity_dissect_and_mount(const char *src, const char *dest, const MountOptio
         r = dissected_image_mount(dissected_image, dest, UID_INVALID, dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image: %m");
+
+        /* If we got os-release values from the caller, then we need to match them with the image's
+         * extension-release.d/ content. Return -EINVAL if there's any mismatch.
+         * First, check the distro ID. If that matches, then check the new SYSEXT_LEVEL value if
+         * available, or else fallback to VERSION_ID. */
+        if (required_host_os_release_id &&
+            (required_host_os_release_version_id || required_host_os_release_sysext_level)) {
+                _cleanup_strv_free_ char **extension_release = NULL;
+
+                r = load_extension_release_pairs(dest, dissected_image->image_name, &extension_release);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
+
+                r = extension_release_validate(
+                        dissected_image->image_name,
+                        required_host_os_release_id,
+                        required_host_os_release_version_id,
+                        required_host_os_release_sysext_level,
+                        extension_release);
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", dissected_image->image_name);
+        }
 
         if (decrypted_image) {
                 r = decrypted_image_relinquish(decrypted_image);
