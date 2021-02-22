@@ -388,6 +388,9 @@ static int run(int argc, char *argv[]) {
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");
 
+        if (!STR_IN_SET(argv[1], "load", "save"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
+
         umask(0022);
 
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
@@ -503,7 +506,7 @@ static int run(int argc, char *argv[]) {
                         return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
+                assert_not_reached("Unknown verb.");
 
         return 0;
 }
