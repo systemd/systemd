@@ -231,7 +231,8 @@ $1.ManagedOOMSwap,                       config_parse_managed_oom_mode,         
 $1.ManagedOOMMemoryPressure,             config_parse_managed_oom_mode,               0,                                  offsetof($1, cgroup_context.moom_mem_pressure)
 $1.ManagedOOMMemoryPressureLimit,        config_parse_managed_oom_mem_pressure_limit, 0,                                  offsetof($1, cgroup_context.moom_mem_pressure_limit)
 $1.ManagedOOMPreference,                 config_parse_managed_oom_preference,         0,                                  offsetof($1, cgroup_context.moom_preference)
-$1.NetClass,                             config_parse_warn_compat,                    DISABLED_LEGACY,                    0'
+$1.NetClass,                             config_parse_warn_compat,                    DISABLED_LEGACY,                    0
+$1.RestrictNetworkInterfaces,            config_parse_restrict_network_interfaces,    0,                                  offsetof($1, cgroup_context)'
 )m4_dnl
 Unit.Description,                        config_parse_unit_string_printf,             0,                                  offsetof(Unit, description)
 Unit.Documentation,                      config_parse_documentation,                  0,                                  offsetof(Unit, documentation)

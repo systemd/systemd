@@ -347,6 +347,51 @@ static int property_get_ip_address_access(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_restrict_network_interfaces(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        int r;
+        CGroupContext *c = userdata;
+        _cleanup_strv_free_ char **l = NULL;
+
+#if BPF_FRAMEWORK
+        char *iface;
+#endif
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->restrict_network_interfaces_is_allow_list);
+        if (r < 0)
+                return r;
+
+#if BPF_FRAMEWORK
+        SET_FOREACH(iface, c->restrict_network_interfaces) {
+                r = strv_extend(&l, iface);
+                if (r < 0)
+                        return r;
+        }
+
+        strv_sort(l);
+#endif
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -398,6 +443,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1741,6 +1787,83 @@ int bus_cgroup_set_property(
 
                 return 1;
         }
+
+#if BPF_FRAMEWORK
+        if (streq(name, "RestrictNetworkInterfaces")) {
+                int is_allow_list;
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &is_allow_list);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = NULL;
+                        char **s;
+
+                        if (strv_isempty(l)) {
+                                c->restrict_network_interfaces_is_allow_list = false;
+                                c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
+
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                                return 1;
+                        }
+
+                        if (!c->restrict_network_interfaces) {
+                                c->restrict_network_interfaces = set_new(NULL);
+                                if (!c->restrict_network_interfaces)
+                                        return log_oom();
+
+                                c->restrict_network_interfaces_is_allow_list = is_allow_list;
+                        }
+
+                        STRV_FOREACH(s, l) {
+                                char *it;
+next:
+                                if (c->restrict_network_interfaces_is_allow_list != (bool) is_allow_list) {
+                                        SET_FOREACH(it, c->restrict_network_interfaces) {
+                                                if (streq(it, *s)) {
+                                                        free(set_remove(c->restrict_network_interfaces, it));
+                                                        break;
+                                                }
+                                        }
+                                } else {
+                                        /* Check if element is already present */
+                                        SET_FOREACH(it, c->restrict_network_interfaces) {
+                                                if (streq(it, *s))
+                                                        goto next;
+                                        }
+                                        r = set_put_strdup(&c->restrict_network_interfaces, *s);
+                                        if (r < 0) {
+                                                if (r == -ENOMEM)
+                                                        return log_oom();
+                                                return r;
+                                        }
+                                }
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "%s=%s%s", name, is_allow_list ? "" : "~", joined);
+                }
+
+                return 1;
+        }
+#endif
 
         if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))
                 return bus_cgroup_set_transient_property(u, c, name, message, flags, error);
