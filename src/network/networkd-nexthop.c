@@ -102,6 +102,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
 static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
 
+        siphash24_compress(&nexthop->protocol, sizeof(nexthop->protocol), state);
         siphash24_compress(&nexthop->id, sizeof(nexthop->id), state);
         siphash24_compress(&nexthop->blackhole, sizeof(nexthop->blackhole), state);
         siphash24_compress(&nexthop->family, sizeof(nexthop->family), state);
@@ -120,6 +121,10 @@ static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
 
 static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         int r;
+
+        r = CMP(a->protocol, b->protocol);
+        if (r != 0)
+                return r;
 
         r = CMP(a->id, b->id);
         if (r != 0)
@@ -152,6 +157,7 @@ static void nexthop_copy(NextHop *dest, const NextHop *src) {
 
         /* This only copies entries used in the above hash and compare functions. */
 
+        dest->protocol = src->protocol;
         dest->id = src->id;
         dest->blackhole = src->blackhole;
         dest->family = src->family;
@@ -529,6 +535,12 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         } else if (!IN_SET(tmp->family, AF_INET, AF_INET6))
                 return log_link_debug(link, "rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
+
+        r = sd_rtnl_message_nexthop_get_protocol(message, &tmp->protocol);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: could not get nexthop protocol, ignoring: %m");
+                return 0;
+        }
 
         r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, tmp->family, &tmp->gw);
         if (r < 0 && r != -ENODATA) {
