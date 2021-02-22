@@ -650,12 +650,12 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
                         assert_se(optlen == 40);
                         assert_se(!memcmp(optval, &test_iaid, sizeof(test_iaid)));
 
-                        val = htobe32(80);
+                        /* T1 and T2 should not be set. */
+                        val = 0;
                         assert_se(!memcmp(optval + 4, &val, sizeof(val)));
-
-                        val = htobe32(120);
                         assert_se(!memcmp(optval + 8, &val, sizeof(val)));
 
+                        /* Then, this should refuse all addresses. */
                         assert_se(dhcp6_option_parse_ia(option, &lease->ia, NULL) >= 0);
 
                         break;
@@ -694,14 +694,7 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
                   found_elapsed_time);
 
         sd_dhcp6_lease_reset_address_iter(lease);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
-                                             &lt_valid) >= 0);
-        assert_se(!memcmp(&addr, &msg_advertise[42], sizeof(addr)));
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref,
-                                             &lt_valid) == -ENOMSG);
+        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENOMSG);
 
         return 0;
 }
