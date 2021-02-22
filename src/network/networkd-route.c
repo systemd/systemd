@@ -451,34 +451,18 @@ static int route_get(const Manager *manager, const Link *link, const Route *in, 
         assert(manager || link);
         assert(in);
 
-        if (link) {
-                existing = set_get(link->routes, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
+        existing = set_get(link ? link->routes : manager->routes, in);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 1;
+        }
 
-                existing = set_get(link->routes_foreign, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 0;
-                }
-        } else {
-                existing = set_get(manager->routes, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
-
-                existing = set_get(manager->routes_foreign, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 0;
-                }
+        existing = set_get(link ? link->routes_foreign : manager->routes_foreign, in);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
         }
 
         return -ENOENT;
@@ -488,6 +472,8 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, c
         assert(dest);
         assert(src);
 
+        /* This only copies entries used by the above hash and compare functions. */
+
         dest->family = src->family;
         dest->src = src->src;
         dest->src_prefixlen = src->src_prefixlen;
@@ -496,7 +482,10 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, c
         dest->prefsrc = src->prefsrc;
         dest->scope = src->scope;
         dest->protocol = src->protocol;
-        dest->type = src->type;
+        if (nh && nh->blackhole)
+                dest->type = RTN_BLACKHOLE;
+        else
+                dest->type = src->type;
         dest->tos = src->tos;
         dest->priority = src->priority;
         dest->table = src->table;
@@ -593,19 +582,11 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
                 is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign route */
-                if (link) {
-                        r = set_ensure_put(&link->routes, &route_hash_ops, route);
-                        if (r < 0)
-                                return r;
+                r = set_ensure_put(link ? &link->routes : &manager->routes, &route_hash_ops, route);
+                if (r < 0)
+                        return r;
 
-                        set_remove(link->routes_foreign, route);
-                } else {
-                        r = set_ensure_put(&manager->routes, &route_hash_ops, route);
-                        if (r < 0)
-                                return r;
-
-                        set_remove(manager->routes_foreign, route);
-                }
+                set_remove(link ? link->routes_foreign : manager->routes_foreign, route);
         } else if (r == 1) {
                 /* Route exists, do nothing */
                 ;
@@ -981,8 +962,8 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
 
         (void) manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh);
 
-        if (route_type_is_reject(route))
-                k = route_add(link->manager, NULL, route, NULL, NULL, &nr);
+        if (route_type_is_reject(route) || (nh && nh->blackhole))
+                k = route_add(link->manager, NULL, route, NULL, nh, &nr);
         else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
                 k = route_add(NULL, link, route, m, nh, &nr);
         else {
