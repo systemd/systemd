@@ -451,34 +451,18 @@ static int route_get(const Manager *manager, const Link *link, const Route *in, 
         assert(manager || link);
         assert(in);
 
-        if (link) {
-                existing = set_get(link->routes, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
+        existing = set_get(link ? link->routes : manager->routes, in);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 1;
+        }
 
-                existing = set_get(link->routes_foreign, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 0;
-                }
-        } else {
-                existing = set_get(manager->routes, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
-
-                existing = set_get(manager->routes_foreign, in);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 0;
-                }
+        existing = set_get(link ? link->routes_foreign : manager->routes_foreign, in);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
         }
 
         return -ENOENT;
@@ -487,6 +471,8 @@ static int route_get(const Manager *manager, const Link *link, const Route *in, 
 static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, const NextHop *nh) {
         assert(dest);
         assert(src);
+
+        /* This only copies entries used by the above hash and compare functions. */
 
         dest->family = src->family;
         dest->src = src->src;
@@ -596,19 +582,11 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
                 is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign route */
-                if (link) {
-                        r = set_ensure_put(&link->routes, &route_hash_ops, route);
-                        if (r < 0)
-                                return r;
+                r = set_ensure_put(link ? &link->routes : &manager->routes, &route_hash_ops, route);
+                if (r < 0)
+                        return r;
 
-                        set_remove(link->routes_foreign, route);
-                } else {
-                        r = set_ensure_put(&manager->routes, &route_hash_ops, route);
-                        if (r < 0)
-                                return r;
-
-                        set_remove(manager->routes_foreign, route);
-                }
+                set_remove(link ? link->routes_foreign : manager->routes_foreign, route);
         } else if (r == 1) {
                 /* Route exists, do nothing */
                 ;
