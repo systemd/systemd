@@ -354,6 +354,15 @@ static int condition_test_control_group_controller(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_CONTROL_GROUP_CONTROLLER);
 
+        if (streq(c->parameter, "v2"))
+                return cg_all_unified();
+        if (streq(c->parameter, "v1")) {
+                r = cg_all_unified();
+                if (r < 0)
+                        return r;
+                return !r;
+        }
+
         r = cg_mask_supported(&system_mask);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine supported controllers: %m");
