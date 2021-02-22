@@ -1349,6 +1349,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <literal>no</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Blackhole=</varname></term>
+          <listitem>
+            <para>Takes a boolean. If enabled, packets to the corresponding routes are discarded
+            silently, and <varname>Gateway=</varname> cannot be specified. Defaults to
+            <literal>no</literal>.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
