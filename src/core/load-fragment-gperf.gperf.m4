@@ -28,6 +28,7 @@ $1.RootImageOptions,                     config_parse_root_image_options,       
 $1.RootHash,                             config_parse_exec_root_hash,                 0,                                  offsetof($1, exec_context)
 $1.RootHashSignature,                    config_parse_exec_root_hash_sig,             0,                                  offsetof($1, exec_context)
 $1.RootVerity,                           config_parse_unit_path_printf,               true,                               offsetof($1, exec_context.root_verity)
+$1.ExtensionImages,                      config_parse_extension_images,               0,                                  offsetof($1, exec_context)
 $1.MountImages,                          config_parse_mount_images,                   0,                                  offsetof($1, exec_context)
 $1.User,                                 config_parse_user_group_compat,              0,                                  offsetof($1, exec_context.user)
 $1.Group,                                config_parse_user_group_compat,              0,                                  offsetof($1, exec_context.group)
