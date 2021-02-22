@@ -124,10 +124,26 @@ static void test_condition_test_path(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_control_group_hierarchy(void) {
+        Condition *condition;
+        int r;
+
+        r = cg_unified();
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == (r < CGROUP_UNIFIED_ALL));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == (r >= CGROUP_UNIFIED_ALL));
+        condition_free(condition);
+}
+
 static void test_condition_test_control_group_controller(void) {
         Condition *condition;
         CGroupMask system_mask;
-        CGroupController controller;
         _cleanup_free_ char *controller_name = NULL;
         int r;
 
@@ -151,7 +167,7 @@ static void test_condition_test_control_group_controller(void) {
         assert_se(cg_mask_supported(&system_mask) >= 0);
 
         /* Individual valid controllers one by one */
-        for (controller = 0; controller < _CGROUP_CONTROLLER_MAX; controller++) {
+        for (CGroupController controller = 0; controller < _CGROUP_CONTROLLER_MAX; controller++) {
                 const char *local_controller_name = cgroup_controller_to_string(controller);
                 log_info("chosen controller is '%s'", local_controller_name);
                 if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
@@ -881,6 +897,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_virtualization();
         test_condition_test_user();
         test_condition_test_group();
+        test_condition_test_control_group_hierarchy();
         test_condition_test_control_group_controller();
         test_condition_test_cpus();
         test_condition_test_memory();
