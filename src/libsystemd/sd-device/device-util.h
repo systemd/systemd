@@ -1,6 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
+#include "sd-device.h"
+
+#include "hashmap.h"
+#include "log.h"
+#include "macro.h"
+#include "set.h"
+
 #define FOREACH_DEVICE_PROPERTY(device, key, value)                \
         for (key = sd_device_get_property_first(device, &(value)); \
              key;                                                  \
@@ -62,3 +71,6 @@
 #define log_device_notice_errno(device, error, ...)  log_device_full_errno(device, LOG_NOTICE, error, __VA_ARGS__)
 #define log_device_warning_errno(device, error, ...) log_device_full_errno(device, LOG_WARNING, error, __VA_ARGS__)
 #define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR, error, __VA_ARGS__)
+
+bool device_match_sysattr(sd_device *device, Hashmap *match_sysattr, Hashmap *nomatch_sysattr);
+bool device_match_parent(sd_device *device, Set *match_parent, Set *nomatch_parent);
