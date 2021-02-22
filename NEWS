@@ -167,6 +167,10 @@ CHANGES WITH 248:
           i.e. whether the interface is always upped, always downed, or may be
           upped/downed by the user using "ip dev".
 
+        * The default for the Broadcast= setting in .network files has slightly
+          changed: the broadcast address will not be configured for wireguard
+          devices.
+
         * systemd.netdev files gained a [VLAN] Protocol=, IngressQOSMaps=,
           EgressQOSMaps=, and [MACVLAN] BroadcastMulticastQueueLength=
           configuration options for VLAN packet handling.
@@ -229,17 +233,23 @@ CHANGES WITH 248:
 
         * systemd-nspawn gained the ability to configure the firewall using the
           nftables subsystem (in addition to the existing iptables
-          support). Similar, systemd-networkd's IPMasquerade= option now
+          support). Similarly, systemd-networkd's IPMasquerade= option now
           supports nftables as back-end, too. In both cases NAT on IPv6 is now
           supported too, in addition to IPv4 (the iptables back-end still is
           IPv4-only).
+
+          "IPMasquerade=yes", which was the same as "IPMasquerade=ipv4" before,
+          retains its meaning, but has been deprecated. Please switch to either
+          "ivp4" or "both" (if covering IPv6 is desired).
 
         * systemd-importd will now download .verity and .roothash.p7s files
           along with the machine image (as exposed via machinectl pull-raw).
 
         * systemd-oomd now gained a new DefaultMemoryPressureDurationSec=
           setting to configure the time a unit's cgroup needs to exceed memory
-          pressure limits before action will be taken.
+          pressure limits before action will be taken, and a new
+          ManagedOOMPreference=none|avoid|omit setting to avoid killing certain
+          units.
 
           systemd-oomd is now considered fully supported (the usual
           backwards-compatiblity promises apply). Swap is not required for
@@ -321,6 +331,10 @@ CHANGES WITH 248:
           warning is emitted during build. Support is slated to be removed in
           about a year (when the Debian Bookworm release development starts).
 
+        * Systems with the legacy cgroup v1 hierarchy are now marked as
+          "tainted", to make it clearer that using the legacy hierarchy is not
+          recommended.
+
         * The main git development branch has been renamed to 'main'.
 
         * mmcblk[0-9]boot[0-9] devices will no longer be probed automatically
@@ -332,11 +346,12 @@ CHANGES WITH 248:
           by programs for detecting whether they were forked off by the service
           manager itself or are a process forked off further down the tree.
 
-        * The sd-device API gained three new calls sd_device_get_action() (for
-          determining the uevent add/remove/change/… action the device object
-          has been seen for), sd_device_get_seqno() (for determining the uevent
-          sequence number) and sd_device_new_from_stat_rdev() (for allocating a
-          new sd_device object from stat() data of a device node).
+        * The sd-device API gained four new calls: sd_device_get_action() to
+          determine the uevent add/remove/change/… action the device object has
+          been seen for, sd_device_get_seqno() to determine the uevent sequence
+          number, sd_device_new_from_stat_rdev() to allocate a new sd_device
+          object from stat(2) data of a device node, and sd_device_trigger() to
+          write to the 'uevent' attribute of a device.
 
         * For most tools the --no-legend= switch has been replaced by
           --legend=no and --legend=yes, to force whether tables are shown with
