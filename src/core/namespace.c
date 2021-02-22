@@ -1003,7 +1003,7 @@ static int mount_run(const MountEntry *m) {
         return mount_tmpfs(m);
 }
 
-static int mount_images(const MountEntry *m) {
+static int mount_image(const MountEntry *m) {
         int r;
 
         assert(m);
@@ -1049,7 +1049,7 @@ static int follow_symlink(
         return 0;
 }
 
-static int apply_mount(
+static int apply_one_mount(
                 const char *root_directory,
                 MountEntry *m,
                 const NamespaceInfo *ns_info) {
@@ -1173,7 +1173,7 @@ static int apply_mount(
                 return mount_run(m);
 
         case MOUNT_IMAGES:
-                return mount_images(m);
+                return mount_image(m);
 
         default:
                 assert_not_reached("Unknown mode");
@@ -1376,6 +1376,110 @@ static void normalize_mounts(const char *root_directory, MountEntry *mounts, siz
         drop_outside_root(root_directory, mounts, n_mounts);
         drop_inaccessible(mounts, n_mounts);
         drop_nop(mounts, n_mounts);
+}
+
+static int apply_mounts(
+                const char *root,
+                const NamespaceInfo *ns_info,
+                MountEntry *mounts,
+                size_t *n_mounts,
+                char **error_path) {
+
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_free_ char **deny_list = NULL;
+        size_t j;
+        int r;
+
+        if (n_mounts == 0) /* Shortcut: nothing to do */
+                return 0;
+
+        assert(root);
+        assert(mounts);
+        assert(n_mounts);
+
+        /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of
+         * /proc. For example, this is the case with the option: 'InaccessiblePaths=/proc'. */
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo) {
+                if (error_path)
+                        *error_path = strdup("/proc/self/mountinfo");
+                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+        }
+
+        /* First round, establish all mounts we need */
+        for (;;) {
+                bool again = false;
+
+                for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+
+                        if (m->applied)
+                                continue;
+
+                        r = follow_symlink(root, m);
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
+                                return r;
+                        }
+                        if (r == 0) {
+                                /* We hit a symlinked mount point. The entry got rewritten and might
+                                 * point to a very different place now. Let's normalize the changed
+                                 * list, and start from the beginning. After all to mount the entry
+                                 * at the new location we might need some other mounts first */
+                                again = true;
+                                break;
+                        }
+
+                        r = apply_one_mount(root, m, ns_info);
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
+                                return r;
+                        }
+
+                        m->applied = true;
+                }
+
+                if (!again)
+                        break;
+
+                normalize_mounts(root, mounts, n_mounts);
+        }
+
+        /* Create a deny list we can pass to bind_mount_recursive() */
+        deny_list = new(char*, (*n_mounts)+1);
+        if (!deny_list)
+                return -ENOMEM;
+        for (j = 0; j < *n_mounts; j++)
+                deny_list[j] = (char*) mount_entry_path(mounts+j);
+        deny_list[j] = NULL;
+
+        /* Second round, flip the ro bits if necessary. */
+        for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+                r = make_read_only(m, deny_list, proc_self_mountinfo);
+                if (r < 0) {
+                        if (error_path && mount_entry_path(m))
+                                *error_path = strdup(mount_entry_path(m));
+                        return r;
+                }
+        }
+
+        /* Third round, flip the noexec bits with a simplified deny list. */
+        for (j = 0; j < *n_mounts; j++)
+                if (IN_SET((mounts+j)->mode, EXEC, NOEXEC))
+                        deny_list[j] = (char*) mount_entry_path(mounts+j);
+        deny_list[j] = NULL;
+
+        for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+                r = make_noexec(m, deny_list, proc_self_mountinfo);
+                if (r < 0) {
+                        if (error_path && mount_entry_path(m))
+                                *error_path = strdup(mount_entry_path(m));
+                        return r;
+                }
+        }
+
+        return 1;
 }
 
 static bool root_read_only(
@@ -1894,96 +1998,10 @@ int setup_namespace(
         if (root_image || root_directory)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
-        if (n_mounts > 0) {
-                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-                _cleanup_free_ char **deny_list = NULL;
-                size_t j;
-
-                /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of
-                 * /proc. For example, this is the case with the option: 'InaccessiblePaths=/proc'. */
-                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-                if (!proc_self_mountinfo) {
-                        r = log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
-                        if (error_path)
-                                *error_path = strdup("/proc/self/mountinfo");
-                        goto finish;
-                }
-
-                /* First round, establish all mounts we need */
-                for (;;) {
-                        bool again = false;
-
-                        for (m = mounts; m < mounts + n_mounts; ++m) {
-
-                                if (m->applied)
-                                        continue;
-
-                                r = follow_symlink(root, m);
-                                if (r < 0) {
-                                        if (error_path && mount_entry_path(m))
-                                                *error_path = strdup(mount_entry_path(m));
-                                        goto finish;
-                                }
-                                if (r == 0) {
-                                        /* We hit a symlinked mount point. The entry got rewritten and might
-                                         * point to a very different place now. Let's normalize the changed
-                                         * list, and start from the beginning. After all to mount the entry
-                                         * at the new location we might need some other mounts first */
-                                        again = true;
-                                        break;
-                                }
-
-                                r = apply_mount(root, m, ns_info);
-                                if (r < 0) {
-                                        if (error_path && mount_entry_path(m))
-                                                *error_path = strdup(mount_entry_path(m));
-                                        goto finish;
-                                }
-
-                                m->applied = true;
-                        }
-
-                        if (!again)
-                                break;
-
-                        normalize_mounts(root, mounts, &n_mounts);
-                }
-
-                /* Create a deny list we can pass to bind_mount_recursive() */
-                deny_list = new(char*, n_mounts+1);
-                if (!deny_list) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-                for (j = 0; j < n_mounts; j++)
-                        deny_list[j] = (char*) mount_entry_path(mounts+j);
-                deny_list[j] = NULL;
-
-                /* Second round, flip the ro bits if necessary. */
-                for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = make_read_only(m, deny_list, proc_self_mountinfo);
-                        if (r < 0) {
-                                if (error_path && mount_entry_path(m))
-                                        *error_path = strdup(mount_entry_path(m));
-                                goto finish;
-                        }
-                }
-
-                /* Third round, flip the noexec bits with a simplified deny list. */
-                for (m = mounts, j = 0; m < mounts + n_mounts; ++m)
-                        if (IN_SET(m->mode, EXEC, NOEXEC))
-                                deny_list[j++] = (char*) mount_entry_path(m);
-                deny_list[j] = NULL;
-
-                for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = make_noexec(m, deny_list, proc_self_mountinfo);
-                        if (r < 0) {
-                                if (error_path && mount_entry_path(m))
-                                        *error_path = strdup(mount_entry_path(m));
-                                goto finish;
-                        }
-                }
-        }
+        /* Now make the magic happen */
+        r = apply_mounts(root, ns_info, mounts, &n_mounts, error_path);
+        if (r < 0)
+                goto finish;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_move_root(root);
