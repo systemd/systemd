@@ -329,9 +329,25 @@ int sd_rtnl_message_nexthop_get_family(const sd_netlink_message *m, uint8_t *fam
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(family, -EINVAL);
 
         nhm = NLMSG_DATA(m->hdr);
         *family = nhm->nh_family;
+
+        return 0;
+}
+
+int sd_rtnl_message_nexthop_get_protocol(const sd_netlink_message *m, uint8_t *protocol) {
+        struct nhmsg *nhm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_nexthop(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(protocol, -EINVAL);
+
+        nhm = NLMSG_DATA(m->hdr);
+        *protocol = nhm->nh_protocol;
 
         return 0;
 }
