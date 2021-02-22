@@ -108,6 +108,8 @@ typedef struct Link {
         unsigned dhcp4_messages;
         unsigned dhcp4_remove_messages;
         sd_ipv4acd *dhcp_acd;
+        sd_event_source *dhcp4_mtu_reset_loop_detector;
+        bool dhcp4_mtu_reset_loop_detected:1; /* see issue #18738. */
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
@@ -200,7 +202,7 @@ void link_dns_settings_clear(Link *link);
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
+DEFINE_TRIVIAL_DESTRUCTOR(link_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);

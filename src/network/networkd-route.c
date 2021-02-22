@@ -792,7 +792,7 @@ int route_remove(
 
         r = netlink_call_async(manager->rtnl, NULL, req,
                                callback ?: route_remove_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1190,7 +1190,7 @@ int route_configure(
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
