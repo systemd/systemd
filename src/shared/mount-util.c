@@ -855,7 +855,7 @@ static int mount_in_namespace(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(chased_src, mount_tmp, options);
+                r = verity_dissect_and_mount(chased_src, mount_tmp, options, NULL, NULL, NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
