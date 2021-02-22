@@ -436,7 +436,7 @@ static char* disk_description(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return NULL;
 
-        if (sd_device_new_from_devnum(&device, 'b', st.st_rdev) < 0)
+        if (sd_device_new_from_stat_rdev(&device, &st) < 0)
                 return NULL;
 
         NULSTR_FOREACH(i, name_fields)

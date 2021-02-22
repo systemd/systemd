@@ -287,7 +287,7 @@ static int run(int argc, char *argv[]) {
                                                "%s is not a block device.",
                                                device);
 
-                r = sd_device_new_from_devnum(&dev, 'b', st.st_rdev);
+                r = sd_device_new_from_stat_rdev(&dev, &st);
                 if (r < 0)
                         return log_error_errno(r, "Failed to detect device %s: %m", device);
 
