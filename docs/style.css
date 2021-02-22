@@ -116,6 +116,11 @@ footer {
   margin-top: 4rem;
 }
 
+/* Make tables vertically aligned to the top */
+tbody td {
+  vertical-align: top;
+}
+
 /* Github Code Highlighting */
 .highlight table td { padding: 5px; }
 .highlight table pre { margin: 0; }
