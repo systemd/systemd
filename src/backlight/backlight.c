@@ -71,11 +71,9 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                         return -ENODATA;
 
                 c += strspn(c, DIGITS);
-                if (*c == '-') {
+                if (*c == '-' && !STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-"))
                         /* A connector DRM device, let's ignore all but LVDS and eDP! */
-                        if (!STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-"))
-                                return -EOPNOTSUPP;
-                }
+                        return -EOPNOTSUPP;
 
         } else if (streq(subsystem, "pci") &&
                    sd_device_get_sysattr_value(parent, "class", &value) >= 0) {
@@ -137,19 +135,14 @@ static int validate_device(sd_device *device) {
 
         assert(device);
 
-        /* Verify whether we should actually care for a specific
-         * backlight device. For backlight devices there might be
-         * multiple ways to access the same control: "firmware"
-         * (i.e. ACPI), "platform" (i.e. via the machine's EC) and
-         * "raw" (via the graphics card). In general we should prefer
-         * "firmware" (i.e. ACPI) or "platform" access over "raw"
-         * access, in order not to confuse the BIOS/EC, and
-         * compatibility with possible low-level hotkey handling of
-         * screen brightness. The kernel will already make sure to
-         * expose only one of "firmware" and "platform" for the same
-         * device to userspace. However, we still need to make sure
-         * that we use "raw" only if no "firmware" or "platform"
-         * device for the same device exists. */
+        /* Verify whether we should actually care for a specific backlight device. For backlight devices
+         * there might be multiple ways to access the same control: "firmware" (i.e. ACPI), "platform"
+         * (i.e. via the machine's EC) and "raw" (via the graphics card). In general we should prefer
+         * "firmware" (i.e. ACPI) or "platform" access over "raw" access, in order not to confuse the
+         * BIOS/EC, and compatibility with possible low-level hotkey handling of screen brightness. The
+         * kernel will already make sure to expose only one of "firmware" and "platform" for the same
+         * device to userspace. However, we still need to make sure that we use "raw" only if no
+         * "firmware" or "platform" device for the same device exists. */
 
         r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
@@ -194,13 +187,12 @@ static int validate_device(sd_device *device) {
                     !STR_IN_SET(v, "platform", "firmware"))
                         continue;
 
-                /* OK, so there's another backlight device, and it's a
-                 * platform or firmware device, so, let's see if we
-                 * can verify it belongs to the same device as ours. */
+                /* OK, so there's another backlight device, and it's a platform or firmware device.
+                 * Let's see if we can verify it belongs to the same device as ours. */
                 if (find_pci_or_platform_parent(other, &other_parent) < 0)
                         continue;
 
-                if (same_device(parent, other_parent)) {
+                if (same_device(parent, other_parent) > 0) {
                         const char *device_sysname = NULL, *other_sysname = NULL;
 
                         /* Both have the same PCI parent, that means we are out. */
@@ -257,11 +249,6 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         return 0;
 }
 
-/* Some systems turn the backlight all the way off at the lowest levels.
- * clamp_brightness clamps the saved brightness to at least 1 or 5% of
- * max_brightness in case of 'backlight' subsystem. This avoids preserving
- * an unreadably dim screen, which would otherwise force the user to
- * disable state restoration. */
 static int clamp_brightness(sd_device *device, bool saved, unsigned max_brightness, unsigned *brightness) {
         unsigned new_brightness, min_brightness;
         const char *subsystem;
@@ -269,6 +256,11 @@ static int clamp_brightness(sd_device *device, bool saved, unsigned max_brightne
 
         assert(device);
         assert(brightness);
+
+        /* Some systems turn the backlight all the way off at the lowest levels. This clamps the saved
+         * brightness to at least 1 or 5% of max_brightness in case of 'backlight' subsystem. This
+         * avoids preserving an unreadably dim screen, which would otherwise force the user to disable
+         * state restoration. */
 
         r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
@@ -388,6 +380,9 @@ static int run(int argc, char *argv[]) {
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");
 
+        if (!STR_IN_SET(argv[1], "load", "save"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
+
         umask(0022);
 
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
@@ -409,9 +404,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
 
-        /* If max_brightness is 0, then there is no actual backlight
-         * device. This happens on desktops with Asus mainboards
-         * that load the eeepc-wmi module. */
+        /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
+         * with Asus mainboards that load the eeepc-wmi module. */
         if (get_max_brightness(device, &max_brightness) < 0)
                 return 0;
 
@@ -432,14 +426,11 @@ static int run(int argc, char *argv[]) {
         } else
                 saved = strjoina("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
 
-        /* If there are multiple conflicting backlight devices, then
-         * their probing at boot-time might happen in any order. This
-         * means the validity checking of the device then is not
-         * reliable, since it might not see other devices conflicting
-         * with a specific backlight. To deal with this, we will
-         * actively delete backlight state files at shutdown (where
-         * device probing should be complete), so that the validity
-         * check at boot time doesn't have to be reliable. */
+        /* If there are multiple conflicting backlight devices, then their probing at boot-time might
+         * happen in any order. This means the validity checking of the device then is not reliable,
+         * since it might not see other devices conflicting with a specific backlight. To deal with
+         * this, we will actively delete backlight state files at shutdown (where device probing should
+         * be complete), so that the validity check at boot time doesn't have to be reliable. */
 
         if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
@@ -503,7 +494,7 @@ static int run(int argc, char *argv[]) {
                         return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
+                assert_not_reached("Unknown verb.");
 
         return 0;
 }
