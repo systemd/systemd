@@ -2018,6 +2018,9 @@ bool exec_needs_mount_namespace(
         if (context->n_mount_images > 0)
                 return true;
 
+        if (context->n_extension_images > 0)
+                return true;
+
         if (!IN_SET(context->mount_flags, 0, MS_SHARED))
                 return true;
 
@@ -3230,6 +3233,8 @@ static int apply_mount_namespace(
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
                             context->root_verity,
+                            context->extension_images,
+                            context->n_extension_images,
                             propagate_dir,
                             incoming_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
@@ -4816,6 +4821,7 @@ void exec_context_done(ExecContext *c) {
         c->root_hash_sig_size = 0;
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
+        c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -5653,6 +5659,19 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         c->mount_images[i].source,
                         c->mount_images[i].destination);
                 LIST_FOREACH(mount_options, o, c->mount_images[i].mount_options)
+                        fprintf(f, ":%s:%s",
+                                partition_designator_to_string(o->partition_designator),
+                                strempty(o->options));
+                fprintf(f, "\n");
+        }
+
+        for (size_t i = 0; i < c->n_extension_images; i++) {
+                MountOptions *o;
+
+                fprintf(f, "%sExtensionImages: %s%s", prefix,
+                        c->extension_images[i].ignore_enoent ? "-": "",
+                        c->extension_images[i].source);
+                LIST_FOREACH(mount_options, o, c->extension_images[i].mount_options)
                         fprintf(f, ":%s:%s",
                                 partition_designator_to_string(o->partition_designator),
                                 strempty(o->options));
