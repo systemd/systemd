@@ -23,7 +23,7 @@ typedef struct NextHop {
         Manager *manager;
         Link *link;
 
-        unsigned char protocol;
+        uint8_t protocol;
 
         uint32_t id;
         bool blackhole;
