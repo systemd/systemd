@@ -929,7 +929,7 @@ static int umount_by_device(sd_bus *bus, const char *what) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
                                        "Not a block device: %s", what);
 
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from device number: %m");
 
@@ -1270,7 +1270,7 @@ static int discover_loop_backing_file(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid file type: %s", loop_dev);
 
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from device number: %m");
 
@@ -1314,7 +1314,7 @@ static int discover_device(void) {
                                        "Invalid file type: %s",
                                        arg_mount_what);
 
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from device number: %m");
 
