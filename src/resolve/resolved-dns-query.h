@@ -134,6 +134,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
 
 bool dns_query_fully_authenticated(DnsQuery *q);
 bool dns_query_fully_confidential(DnsQuery *q);
+bool dns_query_fully_synthetic(DnsQuery *q);
 
 static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
         assert(q);

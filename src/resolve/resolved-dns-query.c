@@ -1140,3 +1140,10 @@ bool dns_query_fully_confidential(DnsQuery *q) {
 
         return FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL) && !q->previous_redirect_non_confidential;
 }
+
+bool dns_query_fully_synthetic(DnsQuery *q) {
+        assert(q);
+
+        return (q->answer_query_flags & (SD_RESOLVED_SYNTHETIC | SD_RESOLVED_FROM_TRUST_ANCHOR)) &&
+                !(q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~SD_RESOLVED_FROM_TRUST_ANCHOR);
+}
