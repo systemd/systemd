@@ -326,6 +326,8 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl);
 
 bool dns_resource_record_is_link_local_address(DnsResourceRecord *rr);
 
+int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord *cname, char **ret);
+
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
