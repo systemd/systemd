@@ -179,7 +179,7 @@ static int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
                 return log_link_error_errno(link, r, "Could not append MDBA_SET_ENTRY attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, set_mdb_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

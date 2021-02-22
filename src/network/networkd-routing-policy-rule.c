@@ -625,7 +625,7 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
 
         r = netlink_call_async(link->manager->rtnl, NULL, m,
                                routing_policy_rule_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

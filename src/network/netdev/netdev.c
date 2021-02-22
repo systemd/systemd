@@ -282,7 +282,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_MASTER attribute: %m");
 
         r = netlink_call_async(netdev->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -588,7 +588,7 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
 
                 if (link) {
                         r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
-                                               link_netlink_destroy_callback, link);
+                                               link_destroy_callback, link);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

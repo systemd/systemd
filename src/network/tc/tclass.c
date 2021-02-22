@@ -161,7 +161,7 @@ int tclass_configure(Link *link, TClass *tclass) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, tclass_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, tclass_handler, link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
