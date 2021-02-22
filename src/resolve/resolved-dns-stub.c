@@ -277,9 +277,6 @@ static int dns_stub_assign_sections(
                         edns0_do);
         if (r < 0)
                 return r;
-
-        /* Include all RRs that originate from the answer or authority sections, and aren't listed in the
-         * answer section, in the authority section */
         r = dns_stub_collect_answer_by_section(
                         &q->reply_authoritative,
                         q->answer,
