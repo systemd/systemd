@@ -64,6 +64,7 @@ ConditionHost=
 ConditionKernelCommandLine=
 ConditionKernelVersion=
 ConditionNeedsUpdate=
+ConditionOSRelease=
 ConditionPathExists=
 ConditionPathExistsGlob=
 ConditionPathIsDirectory=
