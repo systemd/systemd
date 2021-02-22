@@ -1021,7 +1021,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         link_ref(link);
         link->setting_mtu = true;
 
-        return 0;
+        return 1;
 }
 
 static bool link_reduces_vlan_mtu(Link *link) {

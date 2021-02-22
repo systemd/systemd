@@ -108,6 +108,8 @@ typedef struct Link {
         unsigned dhcp4_messages;
         unsigned dhcp4_remove_messages;
         sd_ipv4acd *dhcp_acd;
+        sd_event_source *dhcp4_mtu_reset_loop_detector;
+        bool dhcp4_mtu_reset_loop_detected:1; /* see issue #18738. */
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
