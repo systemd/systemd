@@ -139,12 +139,38 @@ static int stub_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
 
 DEFINE_HASH_OPS(stub_packet_hash_ops, DnsPacket, stub_packet_hash_func, stub_packet_compare_func);
 
+static int reply_add_with_rrsig(
+                DnsAnswer **reply,
+                DnsResourceRecord *rr,
+                int ifindex,
+                DnsAnswerFlags flags,
+                DnsResourceRecord *rrsig,
+                bool with_rrsig) {
+        int r;
+
+        assert(reply);
+        assert(rr);
+
+        r = dns_answer_add_extend(reply, rr, ifindex, flags, rrsig);
+        if (r < 0)
+                return r;
+
+        if (with_rrsig && rrsig) {
+                r = dns_answer_add_extend(reply, rrsig, ifindex, flags, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int dns_stub_collect_answer_by_question(
                 DnsAnswer **reply,
                 DnsAnswer *answer,
                 DnsQuestion *question,
                 bool with_rrsig) { /* Add RRSIG RR matching each RR */
 
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *redirected_key = NULL;
         DnsAnswerItem *item;
         int r;
 
@@ -153,36 +179,71 @@ static int dns_stub_collect_answer_by_question(
         /* Copies all RRs from 'answer' into 'reply', if they match 'question'. */
 
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
-
                 if (question) {
-                        bool match = false;
-
                         r = dns_question_matches_rr(question, item->rr, NULL);
                         if (r < 0)
                                 return r;
-                        else if (r > 0)
-                                match = true;
-                        else {
-                                r = dns_question_matches_cname_or_dname(question, item->rr, NULL);
+                        if (r == 0) {
+                                _cleanup_free_ char *target = NULL;
+
+                                /* OK, so the RR doesn't directly match. Let's see if the RR is a matching
+                                 * CNAME or DNAME */
+
+                                r = dns_resource_record_get_cname_target(
+                                                question->keys[0],
+                                                item->rr,
+                                                &target);
+                                if (r == -EUNATCH)
+                                        continue; /* Not a CNAME/DNAME or doesn't match */
                                 if (r < 0)
                                         return r;
-                                if (r > 0)
-                                        match = true;
-                        }
 
-                        if (!match)
-                                continue;
+                                dns_resource_key_unref(redirected_key);
+
+                                /* There can only be one CNAME per name, hence no point in storing more than one here */
+                                redirected_key = dns_resource_key_new(question->keys[0]->class, question->keys[0]->type, target);
+                                if (!redirected_key)
+                                        return -ENOMEM;
+                        }
                 }
 
-                r = dns_answer_add_extend(reply, item->rr, item->ifindex, item->flags, item->rrsig);
+                /* Mask the section info, we want the primary answers to always go without section info, so
+                 * that it is added to the answer section when we synthesize a reply. */
+
+                r = reply_add_with_rrsig(
+                                reply,
+                                item->rr,
+                                item->ifindex,
+                                item->flags & ~DNS_ANSWER_MASK_SECTIONS,
+                                item->rrsig,
+                                with_rrsig);
                 if (r < 0)
                         return r;
+        }
 
-                if (with_rrsig && item->rrsig) {
-                        r = dns_answer_add_extend(reply, item->rrsig, item->ifindex, item->flags, NULL);
-                        if (r < 0)
-                                return r;
-                }
+        if (!redirected_key)
+                return 0;
+
+        /* This is a CNAME/DNAME answer. In this case also append where the redirections point to to the main
+         * answer section */
+
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+
+                r = dns_resource_key_match_rr(redirected_key, item->rr, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = reply_add_with_rrsig(
+                                reply,
+                                item->rr,
+                                item->ifindex,
+                                item->flags & ~DNS_ANSWER_MASK_SECTIONS,
+                                item->rrsig,
+                                with_rrsig);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -197,7 +258,6 @@ static int dns_stub_collect_answer_by_section(
                 bool with_dnssec) { /* Include DNSSEC RRs. RRSIG, NSEC, … */
 
         DnsAnswerItem *item;
-        unsigned c = 0;
         int r;
 
         assert(reply);
@@ -218,22 +278,18 @@ static int dns_stub_collect_answer_by_section(
                 if (((item->flags ^ section) & (DNS_ANSWER_SECTION_ANSWER|DNS_ANSWER_SECTION_AUTHORITY|DNS_ANSWER_SECTION_ADDITIONAL)) != 0)
                         continue;
 
-                r = dns_answer_add_extend(reply, item->rr, item->ifindex, item->flags, item->rrsig);
+                r = reply_add_with_rrsig(
+                                reply,
+                                item->rr,
+                                item->ifindex,
+                                item->flags,
+                                item->rrsig,
+                                with_dnssec);
                 if (r < 0)
                         return r;
-
-                c++;
-
-                if (with_dnssec && item->rrsig) {
-                        r = dns_answer_add_extend(reply, item->rrsig, item->ifindex, item->flags, NULL);
-                        if (r < 0)
-                                return r;
-
-                        c++;
-                }
         }
 
-        return (int) c;
+        return 0;
 }
 
 static int dns_stub_assign_sections(
