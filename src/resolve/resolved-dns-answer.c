@@ -668,7 +668,7 @@ int dns_answer_copy_by_key(
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*a, item->rr, item->ifindex, item->flags|or_flags, item->rrsig);
+                r = dns_answer_add(*a, item->rr, item->ifindex, item->flags|or_flags, rrsig ?: item->rrsig);
                 if (r < 0)
                         return r;
         }
