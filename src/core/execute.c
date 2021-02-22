@@ -5617,15 +5617,14 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         for (size_t i = 0; i < c->n_mount_images; i++) {
                 MountOptions *o;
 
-                fprintf(f, "%sMountImages: %s%s:%s%s", prefix,
+                fprintf(f, "%sMountImages: %s%s:%s", prefix,
                         c->mount_images[i].ignore_enoent ? "-": "",
                         c->mount_images[i].source,
-                        c->mount_images[i].destination,
-                        LIST_IS_EMPTY(c->mount_images[i].mount_options) ? "": ":");
+                        c->mount_images[i].destination);
                 LIST_FOREACH(mount_options, o, c->mount_images[i].mount_options)
-                        fprintf(f, "%s:%s",
+                        fprintf(f, ":%s:%s",
                                 partition_designator_to_string(o->partition_designator),
-                                o->options);
+                                strempty(o->options));
                 fprintf(f, "\n");
         }
 }
