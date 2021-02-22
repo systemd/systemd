@@ -264,3 +264,18 @@ int extension_release_validate(
         log_debug("Version info of extension '%s' matches host.", name);
         return 1;
 }
+
+int parse_env_extension_hierarchies(char ***ret_hierarchies) {
+        int r;
+
+        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", ret_hierarchies);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse SYSTEMD_SYSEXT_HIERARCHIES environment variable : %m");
+        if (!*ret_hierarchies) {
+                *ret_hierarchies = strv_new("/usr", "/opt");
+                if (!*ret_hierarchies)
+                        return -ENOMEM;
+        }
+
+        return 0;
+}
