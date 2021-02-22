@@ -23,6 +23,7 @@
 #include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
+#include "os-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "set.h"
@@ -890,6 +891,39 @@ static void test_condition_test_environment(void) {
         test_condition_test_environment_one("EXISTINGENVVAR=", false);
 }
 
+static void test_condition_test_os_release(void) {
+        _cleanup_strv_free_ char **os_release_pairs = NULL;
+        const char *key_value_pair;
+        Condition *condition;
+
+        /* Should not happen, but it's a test so we don't know the environment. */
+        if (load_os_release_pairs(NULL, &os_release_pairs) < 0)
+                return;
+        if (strv_length(os_release_pairs) < 2)
+                return;
+
+        condition = condition_new(CONDITION_OS_RELEASE, "_THISHOPEFULLYWONTEXIST=1234 5678", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_OS_RELEASE, "WRONG FORMAT", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_OS_RELEASE, "", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        key_value_pair = strjoina(os_release_pairs[0], "=", os_release_pairs[1]);
+        condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -912,6 +946,7 @@ int main(int argc, char *argv[]) {
 #if defined(__i386__) || defined(__x86_64__)
         test_condition_test_cpufeature();
 #endif
+        test_condition_test_os_release();
 
         return 0;
 }

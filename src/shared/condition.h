@@ -21,6 +21,7 @@ typedef enum ConditionType {
         CONDITION_CPUS,
         CONDITION_ENVIRONMENT,
         CONDITION_CPU_FEATURE,
+        CONDITION_OS_RELEASE,
 
         CONDITION_NEEDS_UPDATE,
         CONDITION_FIRST_BOOT,
