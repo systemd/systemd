@@ -41,13 +41,14 @@ typedef struct DHCP6PDPrefixOption {
 #define DHCP6_OPTION_IA_PD_LEN (sizeof(struct ia_pd))
 #define DHCP6_OPTION_IA_TA_LEN (sizeof(struct ia_ta))
 
-static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode,
-                             size_t optlen) {
-        DHCP6Option *option = (DHCP6Option*) *buf;
+static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode, size_t optlen) {
+        DHCP6Option *option;
 
         assert_return(buf, -EINVAL);
         assert_return(*buf, -EINVAL);
         assert_return(buflen, -EINVAL);
+
+        option = (DHCP6Option*) *buf;
 
         if (optlen > 0xffff || *buflen < optlen + offsetof(DHCP6Option, data))
                 return -ENOBUFS;
