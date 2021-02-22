@@ -698,12 +698,9 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 }
 
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
-                        r = dhcp6_option_append_pd(opt, optlen, &client->ia_pd, &client->hint_pd_prefix);
+                        r = dhcp6_option_append_pd(&opt, &optlen, &client->ia_pd, &client->hint_pd_prefix);
                         if (r < 0)
                                 return r;
-
-                        opt += r;
-                        optlen -= r;
                 }
 
                 break;
@@ -762,12 +759,9 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 }
 
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
-                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
+                        r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
-
-                        opt += r;
-                        optlen -= r;
                 }
 
                 break;
@@ -814,12 +808,9 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 }
 
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
-                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
+                        r = dhcp6_option_append_pd(&opt, &optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
-
-                        opt += r;
-                        optlen -= r;
                 }
 
                 break;
