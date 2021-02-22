@@ -60,7 +60,7 @@
 <filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
-<filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
+<filename>~/.config/systemd/user/*</filename>
 <filename>$XDG_CONFIG_DIRS/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>

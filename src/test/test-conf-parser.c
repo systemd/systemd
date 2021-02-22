@@ -349,27 +349,27 @@ static void test_config_parse(unsigned i, const char *s) {
 
         switch (i) {
         case 0 ... 4:
-                assert_se(r == 0);
+                assert_se(r == 1);
                 assert_se(streq(setting1, "1"));
                 break;
 
         case 5 ... 10:
-                assert_se(r == 0);
+                assert_se(r == 1);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
         case 11:
-                assert_se(r == 0);
+                assert_se(r == 1);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
         case 12:
-                assert_se(r == 0);
+                assert_se(r == 1);
                 assert_se(streq(setting1, x1000("ABCD")));
                 break;
 
         case 13 ... 14:
-                assert_se(r == 0);
+                assert_se(r == 1);
                 assert_se(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
@@ -379,7 +379,7 @@ static void test_config_parse(unsigned i, const char *s) {
                 break;
 
         case 17:
-                assert_se(r == 0);
+                assert_se(r == 1);
                 assert_se(streq(setting1, "2"));
                 break;
         }

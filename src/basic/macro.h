@@ -376,6 +376,7 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
 #define STRV_MAKE_EMPTY ((char*[1]) { NULL })
+#define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
 
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
