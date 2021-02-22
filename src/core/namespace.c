@@ -11,6 +11,8 @@
 #include "alloc-util.h"
 #include "base-filesystem.h"
 #include "dev-setup.h"
+#include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -24,6 +26,7 @@
 #include "namespace-util.h"
 #include "namespace.h"
 #include "nulstr-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
@@ -41,6 +44,7 @@
 typedef enum MountMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
+        OVERLAY_MOUNT,
         MOUNT_IMAGES,
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
@@ -57,6 +61,7 @@ typedef enum MountMode {
         NOEXEC,
         EXEC,
         TMPFS,
+        EXTENSION_IMAGES, /* Mounted outside the root directory, and used by subsequent mounts */
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
 } MountMode;
@@ -205,6 +210,7 @@ static const MountEntry protect_system_strict_table[] = {
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [INACCESSIBLE]         = "inaccessible",
+        [OVERLAY_MOUNT]        = "overlay",
         [BIND_MOUNT]           = "bind",
         [BIND_MOUNT_RECURSIVE] = "rbind",
         [PRIVATE_TMP]          = "private-tmp",
@@ -392,6 +398,102 @@ static int append_mount_images(MountEntry **p, const MountImage *mount_images, s
         return 0;
 }
 
+static int append_extension_images(
+                MountEntry **p,
+                const char *root,
+                const char *extension_dir,
+                char **hierarchies,
+                const MountImage *mount_images,
+                size_t n) {
+
+        _cleanup_free_ char *mount_point_parent = NULL;
+        _cleanup_strv_free_ char **overlays = NULL;
+        char **hierarchy;
+        int r;
+
+        assert(p);
+        assert(extension_dir);
+
+        if (n == 0)
+                return 0;
+
+        /* Prepare a list of overlays, that will have as each element a string suitable for being
+         * passed as a lowerdir= parameter, so start with the hierachy on the root.
+         * The overlays vector will have the same number of elements and will correspond to the
+         * hierarchies vector, so they can be iterated upon together. */
+        STRV_FOREACH(hierarchy, hierarchies) {
+                _cleanup_free_ char *prefixed_hierarchy = NULL;
+
+                prefixed_hierarchy = path_join(root, *hierarchy);
+                if (!prefixed_hierarchy)
+                        return -ENOMEM;
+
+                r = strv_consume(&overlays, TAKE_PTR(prefixed_hierarchy));
+                if (r < 0)
+                        return r;
+        }
+
+        /* First, prepare a mount for each image, but these won't be visible to the unit, instead
+         * they will be mounted in our propagate directory, and used as a source for the overlay. */
+        for (size_t i = 0; i < n; i++) {
+                _cleanup_free_ char *mount_point = NULL;
+                const MountImage *m = mount_images + i;
+
+                r = asprintf(&mount_point, "%s/%zu", extension_dir, i);
+                if (r < 0)
+                        return -ENOMEM;
+
+                for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
+                        _cleanup_free_ char *prefixed_hierarchy = NULL, *escaped = NULL, *lowerdir = NULL;
+
+                        prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
+                        if (!prefixed_hierarchy)
+                                return -ENOMEM;
+
+                        escaped = shell_escape(prefixed_hierarchy, ",:");
+                        if (!escaped)
+                                return -ENOMEM;
+
+                        /* Note that lowerdir= parameters are in 'reverse' order, so the
+                         * top-most directory in the overlay comes first in the list. */
+                        lowerdir = strjoin(escaped, ":", overlays[j]);
+                        if (!lowerdir)
+                                return -ENOMEM;
+
+                        free_and_replace(overlays[j], lowerdir);
+                }
+
+                *((*p)++) = (MountEntry) {
+                        .path_malloc = TAKE_PTR(mount_point),
+                        .image_options = m->mount_options,
+                        .ignore = m->ignore_enoent,
+                        .source_const = m->source,
+                        .mode = EXTENSION_IMAGES,
+                        .has_prefix = true,
+                };
+        }
+
+        /* Then, for each hierarchy, prepare an overlay with the list of lowerdir= strings
+         * set up earlier. */
+        for (size_t i = 0; hierarchies && hierarchies[i]; ++i) {
+                _cleanup_free_ char *prefixed_hierarchy = NULL;
+
+                prefixed_hierarchy = path_join(root, hierarchies[i]);
+                if (!prefixed_hierarchy)
+                        return -ENOMEM;
+
+                *((*p)++) = (MountEntry) {
+                        .path_malloc = TAKE_PTR(prefixed_hierarchy),
+                        .options_malloc = TAKE_PTR(overlays[i]),
+                        .mode = OVERLAY_MOUNT,
+                        .has_prefix = true,
+                        .ignore = true, /* If the source image doesn't set the ignore bit it will fail earlier. */
+                };
+        }
+
+        return 0;
+}
+
 static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, size_t n) {
         assert(p);
 
@@ -493,6 +595,12 @@ static int append_protect_system(MountEntry **p, ProtectSystem protect_system, b
 
 static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         int d;
+
+        /* EXTENSION_IMAGES will be used by other mounts as a base, so sort them first
+         * regardless of the prefix - they are set up in the propagate directory anyway */
+        d = -CMP(a->mode == EXTENSION_IMAGES, b->mode == EXTENSION_IMAGES);
+        if (d != 0)
+                return d;
 
         /* If the paths are not equal, then order prefixes first */
         d = path_compare(mount_entry_path(a), mount_entry_path(b));
@@ -640,7 +748,8 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, size_t 
 
         for (f = m, t = m; f < m + *n; f++) {
 
-                if (!path_startswith(mount_entry_path(f), root_directory)) {
+                /* ExtensionImages bases are opened in /run/systemd/unit-extensions on the host */
+                if (f->mode != EXTENSION_IMAGES && !path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
                         continue;
@@ -1003,16 +1112,51 @@ static int mount_run(const MountEntry *m) {
         return mount_tmpfs(m);
 }
 
-static int mount_image(const MountEntry *m) {
+static int mount_image(const MountEntry *m, const char *root_directory) {
+
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
+                            *host_os_release_sysext_level = NULL;
         int r;
 
         assert(m);
 
-        r = verity_dissect_and_mount(mount_entry_source(m), mount_entry_path(m), m->image_options);
+        if (m->mode == EXTENSION_IMAGES) {
+                r = parse_os_release(
+                                empty_to_root(root_directory),
+                                "ID", &host_os_release_id,
+                                "VERSION_ID", &host_os_release_version_id,
+                                "SYSEXT_LEVEL", &host_os_release_sysext_level,
+                                NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+        }
+
+        r = verity_dissect_and_mount(
+                                mount_entry_source(m), mount_entry_path(m), m->image_options,
+                                host_os_release_id, host_os_release_version_id, host_os_release_sysext_level);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_overlay(const MountEntry *m) {
+        const char *options;
+        int r;
+
+        assert(m);
+
+        options = strjoina("lowerdir=", mount_entry_options(m));
+
+        (void) mkdir_p_label(mount_entry_path(m), 0755);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
+        if (r == -ENOENT && m->ignore)
+                return 0;
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -1173,7 +1317,13 @@ static int apply_one_mount(
                 return mount_run(m);
 
         case MOUNT_IMAGES:
-                return mount_image(m);
+                return mount_image(m, NULL);
+
+        case EXTENSION_IMAGES:
+                return mount_image(m, root_directory);
+
+        case OVERLAY_MOUNT:
+                return mount_overlay(m);
 
         default:
                 assert_not_reached("Unknown mode");
@@ -1317,6 +1467,8 @@ static size_t namespace_calculate_mounts(
                 size_t n_bind_mounts,
                 size_t n_temporary_filesystems,
                 size_t n_mount_images,
+                size_t n_extension_images,
+                size_t n_hierarchies,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *creds_path,
@@ -1350,6 +1502,7 @@ static size_t namespace_calculate_mounts(
                 strv_length(empty_directories) +
                 n_bind_mounts +
                 n_mount_images +
+                (n_extension_images > 0 ? n_hierarchies + n_extension_images : 0) + /* Mount each image plus an overlay per hierarchy */
                 n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
@@ -1415,7 +1568,8 @@ static int apply_mounts(
                         if (m->applied)
                                 continue;
 
-                        r = follow_symlink(root, m);
+                        /* ExtensionImages are first opened in the propagate directory, not in the root_directory */
+                        r = follow_symlink(m->mode != EXTENSION_IMAGES ? root : NULL, m);
                         if (r < 0) {
                                 if (error_path && mount_entry_path(m))
                                         *error_path = strdup(mount_entry_path(m));
@@ -1618,6 +1772,8 @@ int setup_namespace(
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
                 const char *verity_data_path,
+                const MountImage *extension_images,
+                size_t n_extension_images,
                 const char *propagate_dir,
                 const char *incoming_dir,
                 const char *notify_socket,
@@ -1628,9 +1784,10 @@ int setup_namespace(
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_strv_free_ char **hierarchies = NULL;
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
-        const char *root;
+        const char *root, *extension_dir = "/run/systemd/unit-extensions";
         size_t n_mounts;
         int r;
 
@@ -1711,6 +1868,12 @@ int setup_namespace(
                 require_prefix = true;
         }
 
+        if (n_extension_images > 0) {
+                r = parse_env_extension_hierarchies(&hierarchies);
+                if (r < 0)
+                        return r;
+        }
+
         n_mounts = namespace_calculate_mounts(
                         ns_info,
                         read_write_paths,
@@ -1722,6 +1885,8 @@ int setup_namespace(
                         n_bind_mounts,
                         n_temporary_filesystems,
                         n_mount_images,
+                        n_extension_images,
+                        strv_length(hierarchies),
                         tmp_dir, var_tmp_dir,
                         creds_path,
                         log_namespace,
@@ -1786,6 +1951,10 @@ int setup_namespace(
                 }
 
                 r = append_mount_images(&m, mount_images, n_mount_images);
+                if (r < 0)
+                        goto finish;
+
+                r = append_extension_images(&m, root, extension_dir, hierarchies, extension_images, n_extension_images);
                 if (r < 0)
                         goto finish;
 
@@ -1947,6 +2116,12 @@ int setup_namespace(
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)
                 (void) mkdir_p(propagate_dir, 0600);
+
+        if (n_extension_images > 0) {
+                /* ExtensionImages mountpoint directories will be created
+                 * while parsing the mounts to create, so have the parent ready */
+                (void) mkdir_p(extension_dir, 0600);
+        }
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */
@@ -2114,9 +2289,11 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         if (!s)
                 return -ENOMEM;
 
-        d = strdup(item->destination);
-        if (!d)
-                return -ENOMEM;
+        if (item->destination) {
+                d = strdup(item->destination);
+                if (!d)
+                        return -ENOMEM;
+        }
 
         LIST_FOREACH(mount_options, i, item->mount_options) {
                 _cleanup_(mount_options_free_allp) MountOptions *o;
@@ -2146,6 +2323,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
                 .destination = TAKE_PTR(d),
                 .mount_options = TAKE_PTR(options),
                 .ignore_enoent = item->ignore_enoent,
+                .type = item->type,
         };
 
         return 0;
