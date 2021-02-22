@@ -24,6 +24,7 @@
 #include "cpu-set-util.h"
 #include "efi-loader.h"
 #include "env-file.h"
+#include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -35,6 +36,7 @@
 #include "list.h"
 #include "macro.h"
 #include "mountpoint-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -258,6 +260,61 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                         return false;
 
                 first = false;
+        }
+
+        return true;
+}
+
+static int condition_test_osrelease(Condition *c, char **env) {
+        const char *parameter = c->parameter;
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_OS_RELEASE);
+
+        for (;;) {
+                _cleanup_free_ char *key = NULL, *condition = NULL, *actual_value = NULL;
+                OrderOperator order;
+                const char *word;
+                bool matches;
+
+                r = extract_first_word(&parameter, &condition, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse parameter: %m");
+                if (r == 0)
+                        break;
+
+                /* parse_order() needs the string to start with the comparators */
+                word = condition;
+                r = extract_first_word(&word, &key, "!<=>", EXTRACT_RETAIN_SEPARATORS);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse parameter: %m");
+                /* The os-release spec mandates env-var-like key names */
+                if (r == 0 || isempty(word) || !env_name_is_valid(key))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Failed to parse parameter, key/value format expected: %m");
+
+                /* Do not allow whitespace after the separator, as that's not a valid os-release format */
+                order = parse_order(&word);
+                if (order < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Failed to parse parameter, key/value format expected: %m");
+
+                r = parse_os_release(NULL, key, &actual_value);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse os-release: %m");
+
+                /* Might not be comparing versions, so do exact string matching */
+                if (order == ORDER_EQUAL)
+                        matches = streq_ptr(actual_value, word);
+                else if (order == ORDER_UNEQUAL)
+                        matches = !streq_ptr(actual_value, word);
+                else
+                        matches = test_order(strverscmp_improved(actual_value, word), order);
+
+                if (!matches)
+                        return false;
         }
 
         return true;
@@ -935,6 +992,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_MEMORY]                   = condition_test_memory,
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
                 [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
+                [CONDITION_OS_RELEASE]               = condition_test_osrelease,
         };
 
         int r, b;
@@ -1059,6 +1117,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_MEMORY] = "ConditionMemory",
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
         [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
+        [CONDITION_OS_RELEASE] = "ConditionOSRelease",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -1092,6 +1151,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_MEMORY] = "AssertMemory",
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",
         [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
+        [CONDITION_OS_RELEASE] = "AssertOSRelease",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
