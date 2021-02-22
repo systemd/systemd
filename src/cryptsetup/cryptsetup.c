@@ -324,7 +324,6 @@ static int parse_options(const char *options) {
 
 static char* disk_description(const char *path) {
         static const char name_fields[] =
-                "ID_PART_ENTRY_NAME\0"
                 "DM_NAME\0"
                 "ID_MODEL_FROM_DATABASE\0"
                 "ID_MODEL\0";
@@ -332,6 +331,7 @@ static char* disk_description(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *i, *name;
         struct stat st;
+        int r;
 
         assert(path);
 
@@ -344,6 +344,24 @@ static char* disk_description(const char *path) {
         if (sd_device_new_from_devnum(&device, 'b', st.st_rdev) < 0)
                 return NULL;
 
+        if (sd_device_get_property_value(device, "ID_PART_ENTRY_NAME", &name) >= 0) {
+                _cleanup_free_ char *unescaped = NULL;
+
+                /* ID_PART_ENTRY_NAME uses \x style escaping, using libblkid's blkid_encode_string(). Let's
+                 * reverse this here to make the string more human friendly in case people embed spaces or
+                 * other weird stuff. */
+
+                r = cunescape(name, UNESCAPE_RELAX, &unescaped);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to unescape ID_PART_ENTRY_NAME, skipping device: %m");
+                        return NULL;
+                }
+
+                if (!isempty(unescaped) && !string_has_cc(unescaped, NULL))
+                        return TAKE_PTR(unescaped);
+        }
+
+        /* These need no unescaping. */
         NULSTR_FOREACH(i, name_fields)
                 if (sd_device_get_property_value(device, i, &name) >= 0 &&
                     !isempty(name))
