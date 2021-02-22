@@ -996,6 +996,60 @@ static int property_get_mount_images(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_extension_images(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sba(ss))");
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < c->n_extension_images; i++) {
+                MountOptions *m;
+
+                r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sba(ss)");
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_append(
+                                reply, "sb",
+                                c->extension_images[i].source,
+                                c->extension_images[i].ignore_enoent);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_open_container(reply, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+                LIST_FOREACH(mount_options, m, c->extension_images[i].mount_options) {
+                        r = sd_bus_message_append(reply, "(ss)",
+                                                  partition_designator_to_string(m->partition_designator),
+                                                  m->options);
+                        if (r < 0)
+                                return r;
+                }
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1044,6 +1098,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtensionImages", "a(sba(ss))", property_get_extension_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3356,6 +3411,7 @@ int bus_exec_context_set_transient_property(
                                                     .destination = destination,
                                                     .mount_options = options,
                                                     .ignore_enoent = permissive,
+                                                    .type = MOUNT_IMAGE_DISCRETE,
                                             });
                         if (r < 0)
                                 return r;
@@ -3388,6 +3444,95 @@ int bus_exec_context_set_transient_property(
                 }
 
                 mount_images = mount_image_free_many(mount_images, &n_mount_images);
+
+                return 1;
+        } else if (streq(name, "ExtensionImages")) {
+                _cleanup_free_ char *format_str = NULL;
+                MountImage *extension_images = NULL;
+                size_t n_extension_images = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sba(ss))");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free_ char *source_escaped = NULL;
+                        char *source, *tuple;
+                        int permissive;
+
+                        r = sd_bus_message_enter_container(message, 'r', "sba(ss)");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read(message, "sb", &source, &permissive);
+                        if (r <= 0)
+                                break;
+
+                        if (!path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                        if (!path_is_normalized(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+
+                        /* Need to store them in the unit with the escapes, so that they can be parsed again */
+                        source_escaped = shell_escape(source, ":");
+                        if (!source_escaped)
+                                return -ENOMEM;
+
+                        tuple = strjoin(format_str,
+                                        format_str ? " " : "",
+                                        permissive ? "-" : "",
+                                        source_escaped);
+                        if (!tuple)
+                                return -ENOMEM;
+                        free_and_replace(format_str, tuple);
+
+                        r = bus_read_mount_options(message, error, &options, &format_str, ":");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        r = mount_image_add(&extension_images, &n_extension_images,
+                                            &(MountImage) {
+                                                    .source = source,
+                                                    .mount_options = options,
+                                                    .ignore_enoent = permissive,
+                                                    .type = MOUNT_IMAGE_EXTENSION,
+                                            });
+                        if (r < 0)
+                                return r;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (n_extension_images == 0) {
+                                c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
+
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                for (size_t i = 0; i < n_extension_images; ++i) {
+                                        r = mount_image_add(&c->extension_images, &c->n_extension_images, &extension_images[i]);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                unit_write_settingf(u, flags|UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS,
+                                                    name,
+                                                    "%s=%s",
+                                                    name,
+                                                    format_str);
+                        }
+                }
+
+                extension_images = mount_image_free_many(extension_images, &n_extension_images);
 
                 return 1;
         }
