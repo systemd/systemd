@@ -1063,28 +1063,32 @@
     <refsect2>
       <title>Conditions and Asserts</title>
 
-      <para>Unit files may also include a number of <varname index="false">Condition…=</varname> and
-      <varname index="false">Assert…=</varname> settings. Before the unit is started, systemd will verify
-      that the specified conditions are true. If not, the starting of the unit will be (mostly silently)
-      skipped. Failing conditions will not result in the unit being moved into the <literal>failed</literal>
-      state. The conditions are checked at the time the queued start job is to be executed. The ordering
-      dependencies are still respected, so other units are still pulled in and ordered as if this unit was
-      successfully activated. Use condition expressions in order to skip units that do not apply to the local
-      system, for example because the kernel or runtime environment doesn't require their functionality.
+      <para>Unit files may also include a number of <varname index="false">Condition…=</varname> and <varname
+      index="false">Assert…=</varname> settings. Before the unit is started, systemd will verify that the
+      specified conditions and asserts are true. If not, the starting of the unit will be (mostly silently)
+      skipped (in case of conditions), or aborted with an error message (in case of asserts). Failing
+      conditions or asserts will not result in the unit being moved into the <literal>failed</literal>
+      state. The conditions and asserts are checked at the time the queued start job is to be executed. The
+      ordering dependencies are still respected, so other units are still pulled in and ordered as if this
+      unit was successfully activated, and the conditions and asserts are executed the precise moment the
+      unit would normally start and thus can validate system state after the units ordered before completed
+      initialization. Use condition expressions for skipping units that do not apply to the local system, for
+      example because the kernel or runtime environment doesn't require their functionality.
       </para>
 
       <para>If multiple conditions are specified, the unit will be executed if all of them apply (i.e. a
       logical AND is applied). Condition checks can use a pipe symbol (<literal>|</literal>) after the equals
-      sign (<literal>Condition…=|…</literal>), which causes the condition becomes a triggering condition. If
-      at least one triggering condition is defined for a unit, then the unit will be executed if at least one
-      of the triggering conditions apply and all of the non-triggering conditions. If you prefix an argument
-      with the pipe symbol and an exclamation mark, the pipe symbol must be passed first, the exclamation
-      second. If any of these options is assigned the empty string, the list of conditions is reset
-      completely, all previous condition settings (of any kind) will have no effect.</para>
+      sign (<literal>Condition…=|…</literal>), which causes the condition to become a
+      <emphasis>triggering</emphasis> condition. If at least one triggering condition is defined for a unit,
+      then the unit will be started if at least one of the triggering conditions of the unit applies and all
+      of the regular (i.e. non-triggering) conditions apply. If you prefix an argument with the pipe symbol
+      and an exclamation mark, the pipe symbol must be passed first, the exclamation second. If any of these
+      options is assigned the empty string, the list of conditions is reset completely, all previous
+      condition settings (of any kind) will have no effect.</para>
 
       <para>The <varname>AssertArchitecture=</varname>, <varname>AssertVirtualization=</varname>, … options
-      provide a similar mechanism that causes the job to fail (instead of being skipped). The failed check is
-      logged. Units with failed conditions are considered to be in a clean state and will be garbage
+      are similar to conditions but cause the start job to fail (instead of being skipped). The failed check
+      is logged. Units with failed conditions are considered to be in a clean state and will be garbage
       collected if they are not referenced. This means that when queried, the condition failure may or may
       not show up in the state of the unit.</para>
 
