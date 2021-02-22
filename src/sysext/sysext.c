@@ -982,15 +982,9 @@ static int run(int argc, char *argv[]) {
         /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
          * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
          * switch. */
-        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", &arg_hierarchies);
+        r = parse_env_extension_hierarchies(&arg_hierarchies);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
-
-        if (!arg_hierarchies) {
-                arg_hierarchies = strv_new("/usr", "/opt");
-                if (!arg_hierarchies)
-                        return log_oom();
-        }
 
         return sysext_main(argc, argv);
 }
