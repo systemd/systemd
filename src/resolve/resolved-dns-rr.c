@@ -1722,6 +1722,7 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl) {
 }
 
 bool dns_resource_record_is_link_local_address(DnsResourceRecord *rr) {
+        assert(rr);
 
         if (rr->key->class != DNS_CLASS_IN)
                 return false;
@@ -1733,6 +1734,47 @@ bool dns_resource_record_is_link_local_address(DnsResourceRecord *rr) {
                 return in6_addr_is_link_local(&rr->aaaa.in6_addr);
 
         return false;
+}
+
+int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord *cname, char **ret) {
+        _cleanup_free_ char *d = NULL;
+        int r;
+
+        assert(key);
+        assert(cname);
+
+        if (key->class != cname->key->class && key->class != DNS_CLASS_ANY)
+                return -EUNATCH;
+
+        if (cname->key->type == DNS_TYPE_CNAME) {
+                r = dns_name_equal(dns_resource_key_name(key),
+                                   dns_resource_key_name(cname->key));
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EUNATCH; /* CNAME RR key doesn't actually match the original key */
+
+                d = strdup(cname->cname.name);
+                if (!d)
+                        return -ENOMEM;
+
+        } else if (cname->key->type == DNS_TYPE_DNAME) {
+
+                r = dns_name_change_suffix(
+                                dns_resource_key_name(key),
+                                dns_resource_key_name(cname->key),
+                                cname->dname.name,
+                                &d);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EUNATCH; /* DNAME RR key doesn't actually match the original key */
+
+        } else
+                return -EUNATCH; /* Not a CNAME/DNAME RR, hence doesn't match the proposition either */
+
+        *ret = TAKE_PTR(d);
+        return 0;
 }
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
