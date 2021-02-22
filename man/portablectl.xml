@@ -352,6 +352,13 @@
         <listitem><para>Don't block waiting for attach --now to complete.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--extension=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Attach an additional image on top of <replaceable>IMAGE</replaceable>, using an
+        overlay-like setup.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
