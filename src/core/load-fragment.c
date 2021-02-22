@@ -4999,20 +4999,20 @@ int config_parse_mount_images(
                 if (r == 0)
                         continue;
 
-                r = unit_full_printf(u, first, &sresolved);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", first);
-                        continue;
-                }
-
-                s = sresolved;
+                s = first;
                 if (s[0] == '-') {
                         permissive = true;
                         s++;
                 }
 
-                r = path_simplify_and_warn(s, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                r = unit_full_printf(u, s, &sresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", s);
+                        continue;
+                }
+
+                r = path_simplify_and_warn(sresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
@@ -5089,7 +5089,7 @@ int config_parse_mount_images(
 
                 r = mount_image_add(&c->mount_images, &c->n_mount_images,
                                     &(MountImage) {
-                                            .source = s,
+                                            .source = sresolved,
                                             .destination = dresolved,
                                             .mount_options = options,
                                             .ignore_enoent = permissive,
