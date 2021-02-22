@@ -10,3 +10,6 @@ int extension_release_validate(
                 const char *host_os_release_version_id,
                 const char *host_os_release_sysext_level,
                 char **extension_release);
+
+/* Parse SYSTEMD_SYSEXT_HIERARCHIES and if not set, return "/usr /opt" */
+int parse_env_extension_hierarchies(char ***ret_hierarchies);
