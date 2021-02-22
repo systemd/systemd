@@ -113,10 +113,13 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
 }
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
-        uint16_t len;
-        uint8_t *ia_hdr;
-        size_t iaid_offset, ia_buflen, ia_addrlen = 0;
+        size_t ia_buflen, ia_addrlen = 0;
+        struct ia_na ia_na;
+        struct ia_ta ia_ta;
         DHCP6Address *addr;
+        uint8_t *ia_hdr;
+        uint16_t len;
+        void *p;
         int r;
 
         assert_return(buf, -EINVAL);
@@ -124,15 +127,23 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         assert_return(buflen, -EINVAL);
         assert_return(ia, -EINVAL);
 
+        /* client should not send set T1 and T2. See, RFC 8415, and issue #18090. */
+
         switch (ia->type) {
         case SD_DHCP6_OPTION_IA_NA:
                 len = DHCP6_OPTION_IA_NA_LEN;
-                iaid_offset = offsetof(DHCP6IA, ia_na);
+                ia_na = (struct ia_na) {
+                        .id = ia->ia_na.id,
+                };
+                p = &ia_na;
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
                 len = DHCP6_OPTION_IA_TA_LEN;
-                iaid_offset = offsetof(DHCP6IA, ia_ta);
+                ia_ta = (struct ia_ta) {
+                        .id = ia->ia_ta.id,
+                };
+                p = &ia_ta;
                 break;
 
         default:
@@ -148,30 +159,29 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         *buf += offsetof(DHCP6Option, data);
         *buflen -= offsetof(DHCP6Option, data);
 
-        memcpy(*buf, (char*) ia + iaid_offset, len);
+        memcpy(*buf, p, len);
 
         *buf += len;
         *buflen -= len;
 
         LIST_FOREACH(addresses, addr, ia->addresses) {
-                r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IAADDR,
-                                      sizeof(addr->iaaddr));
+                struct iaaddr a = {
+                        .address = addr->iaaddr.address,
+                };
+
+                r = option_append_hdr(buf, buflen, SD_DHCP6_OPTION_IAADDR, sizeof(struct iaaddr));
                 if (r < 0)
                         return r;
 
-                memcpy(*buf, &addr->iaaddr, sizeof(addr->iaaddr));
+                memcpy(*buf, &a, sizeof(struct iaaddr));
 
-                *buf += sizeof(addr->iaaddr);
-                *buflen -= sizeof(addr->iaaddr);
+                *buf += sizeof(struct iaaddr);
+                *buflen -= sizeof(struct iaaddr);
 
-                ia_addrlen += offsetof(DHCP6Option, data) + sizeof(addr->iaaddr);
+                ia_addrlen += offsetof(DHCP6Option, data) + sizeof(struct iaaddr);
         }
 
-        r = option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len + ia_addrlen);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return option_append_hdr(&ia_hdr, &ia_buflen, ia->type, len + ia_addrlen);
 }
 
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
