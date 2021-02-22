@@ -258,6 +258,10 @@ static bool test_pointers(sd_device *dev,
         if (is_mouse && id->bustype == BUS_I2C)
                 is_pointing_stick = true;
 
+        /* Any pointing stick is also a mouse (for backwards compatibility) */
+        if (is_pointing_stick)
+                is_mouse = true;
+
         if (is_pointing_stick)
                 udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
         if (is_mouse)
