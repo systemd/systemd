@@ -686,7 +686,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(
-                        filename, NETWORK_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname,
                         NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -729,7 +729,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 NETDEV_VTABLE(netdev)->init(netdev);
 
         r = config_parse_many(
-                        filename, NETWORK_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname,
                         NETDEV_VTABLE(netdev)->sections,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,

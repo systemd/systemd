@@ -102,7 +102,7 @@ int config_parse_many_nulstr(
                 usec_t *ret_mtime);         /* possibly NULL */
 
 int config_parse_many(
-                const char *conf_file,      /* possibly NULL */
+                const char* const* conf_files,  /* possibly empty */
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
                 const char *sections,       /* nulstr */

@@ -768,6 +768,21 @@ int set_unset_env(const char *name, const char *value, bool overwrite) {
         return 0;
 }
 
+int putenv_dup(const char *assignment, bool override) {
+        const char *e, *n;
+
+        e = strchr(assignment, '=');
+        if (!e)
+                return -EINVAL;
+
+        n = strndupa(assignment, e - assignment);
+
+        /* This is like putenv(), but uses setenv() so that our memory doesn't become part of environ[]. */
+        if (setenv(n, e + 1, override) < 0)
+                return -errno;
+        return 0;
+}
+
 int setenv_systemd_exec_pid(bool update_only) {
         char str[DECIMAL_STR_MAX(pid_t)];
         const char *e;

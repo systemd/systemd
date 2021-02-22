@@ -134,6 +134,7 @@ static usec_t arg_kexec_watchdog;
 static char *arg_early_core_pattern;
 static char *arg_watchdog_device;
 static char **arg_default_environment;
+static char **arg_manager_environment;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
@@ -162,6 +163,36 @@ static char **saved_env = NULL;
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
+
+static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
+        _cleanup_free_ char *base = NULL;
+        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        int r;
+
+        r = xdg_user_config_dir(&base, "/systemd");
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(&files, "%s/user.conf", base);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&files, PKGSYSCONFDIR "/user.conf");
+        if (r < 0)
+                return r;
+
+        r = strv_consume(&dirs, TAKE_PTR(base));
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv(&dirs, CONF_PATHS_STRV("systemd"), false);
+        if (r < 0)
+                return r;
+
+        *ret_files = TAKE_PTR(files);
+        *ret_dirs = TAKE_PTR(dirs);
+        return 0;
+}
 
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
@@ -640,6 +671,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               0, &arg_default_environment               },
+                { "Manager", "ManagerEnvironment",           config_parse_environ,               0, &arg_manager_environment               },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU, arg_default_rlimit            },
                 { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE, arg_default_rlimit          },
                 { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA, arg_default_rlimit           },
@@ -668,26 +700,34 @@ static int parse_config_file(void) {
                 {}
         };
 
-        const char *fn, *conf_dirs_nulstr;
+        _cleanup_strv_free_ char **_free_files = NULL, **_free_dirs = NULL;
 
-        fn = arg_system ?
-                PKGSYSCONFDIR "/system.conf" :
-                PKGSYSCONFDIR "/user.conf";
+        const char *const *files, *const *dirs, *suffix;
+        int r;
 
-        conf_dirs_nulstr = arg_system ?
-                CONF_PATHS_NULSTR("systemd/system.conf.d") :
-                CONF_PATHS_NULSTR("systemd/user.conf.d");
+        if (arg_system) {
+                files = STRV_MAKE_CONST(PKGSYSCONFDIR "/system.conf");
+                dirs = (const char* const*) CONF_PATHS_STRV("systemd");
+                suffix = "system.conf.d";
+        } else {
+                r = manager_find_user_config_paths(&_free_files, &_free_dirs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine config file paths: %m");
+                files = (const char* const*) _free_files;
+                dirs = (const char* const*) _free_dirs;
+                suffix = "user.conf.d";
+        }
 
-        (void) config_parse_many_nulstr(
-                        fn, conf_dirs_nulstr,
+        (void) config_parse_many(
+                        files, dirs, suffix,
                         "Manager\0",
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
                         NULL,
                         NULL);
 
-        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we used USEC_INFINITY
-         * like everywhere else. */
+        /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
+         * USEC_INFINITY like everywhere else. */
         if (arg_default_timeout_start_usec <= 0)
                 arg_default_timeout_start_usec = USEC_INFINITY;
         if (arg_default_timeout_stop_usec <= 0)
@@ -1312,8 +1352,7 @@ static int status_welcome(void) {
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &pretty_name,
-                             "ANSI_COLOR", &ansi_color,
-                             NULL);
+                             "ANSI_COLOR", &ansi_color);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
@@ -2263,6 +2302,19 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
         arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
 }
 
+static void setenv_manager_environment(void) {
+        char **p;
+        int r;
+
+        STRV_FOREACH(p, arg_manager_environment) {
+                log_debug("Setting '%s' in our own environment.", *p);
+
+                r = putenv_dup(*p, true);
+                if (r < 0)
+                        log_warning_errno(errno, "Failed to setenv \"%s\", ignoring: %m", *p);
+        }
+}
+
 static void reset_arguments(void) {
         /* Frees/resets arg_* variables, with a few exceptions commented below. */
 
@@ -2296,6 +2348,7 @@ static void reset_arguments(void) {
         arg_watchdog_device = NULL;
 
         arg_default_environment = strv_free(arg_default_environment);
+        arg_manager_environment = strv_free(arg_manager_environment);
         rlimit_free_all(arg_default_rlimit);
 
         arg_capability_bounding_set = CAP_ALL;
@@ -2356,6 +2409,9 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         /* Initialize the show status setting if it hasn't been set explicitly yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
+
+        /* Push variables into the manager environment block */
+        setenv_manager_environment();
 
         return 0;
 }
