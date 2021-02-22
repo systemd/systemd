@@ -200,7 +200,7 @@ void link_dns_settings_clear(Link *link);
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
+DEFINE_TRIVIAL_DESTRUCTOR(link_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
