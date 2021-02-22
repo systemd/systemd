@@ -89,15 +89,6 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         return mfree(p);
 }
 
-uint16_t dns_stub_listener_extra_port(DnsStubListenerExtra *p) {
-        assert(p);
-
-        if (p->port > 0)
-                return p->port;
-
-        return 53;
-}
-
 static void stub_packet_hash_func(const DnsPacket *p, struct siphash *state) {
         assert(p);
 
