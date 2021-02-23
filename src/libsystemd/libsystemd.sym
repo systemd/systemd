@@ -742,6 +742,8 @@ global:
         sd_bus_open_user_machine;
         sd_bus_message_send;
 
+        sd_event_set_can_process_child;
+
         sd_event_source_set_ratelimit;
         sd_event_source_get_ratelimit;
         sd_event_source_is_ratelimited;
