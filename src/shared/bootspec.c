@@ -1033,6 +1033,16 @@ static int verify_fsroot_dir(
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "Block device node of \"%s\" is invalid.", path);
 
+        if (path_equal(path, "/")) {
+                /* Let's assume that the root directory of the OS is always the root of its file system
+                 * (which technically doesn't have to be the case, but it's close enough, and it's not easy
+                 * to be fully correct for it, since we can't look further up than the root dir easily.) */
+                if (ret_dev)
+                        *ret_dev = st.st_dev;
+
+                return 0;
+        }
+
         t2 = strjoina(path, "/..");
         if (stat(t2, &st2) < 0) {
                 if (errno != EACCES)
@@ -1048,10 +1058,7 @@ static int verify_fsroot_dir(
                         if (!parent)
                                 return log_oom();
 
-                        if (stat(parent, &st2) < 0)
-                                r = -errno;
-                        else
-                                r = 0;
+                        r = stat(parent, &st2) < 0 ? -errno : 0;
                 }
 
                 if (r < 0)
