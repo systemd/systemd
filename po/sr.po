@@ -2,23 +2,23 @@
 #
 # SOME DESCRIPTIVE TITLE.
 # This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
+# Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2018-02-18 22:03+0100\n"
-"Last-Translator: Марко М. Костић <marko.m.kostic@gmail.com>\n"
-"Language-Team: \n"
+"PO-Revision-Date: 2021-02-23 22:40+0000\n"
+"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
+"Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
+"master/sr/>\n"
 "Language: sr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 2.0.3\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 4.4.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -334,22 +334,17 @@ msgstr ""
 "систему да уради било шта приликом заклапања екрана."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Дозволи програмима да спрече систему управљање дугметом за напајање"
+msgstr ""
+"Дозволи програмима да спрече систему управљање дугметом за поновно покретање"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
 "Потребно је да се идентификујете да бисте дозволили програму да спречи "
-"систему управљање дугметом за напајање."
+"систему управљање дугметом за поновно покретање."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -478,16 +473,12 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "Заустави систем иако програм тражи да се спречи заустављање"
 
 #: src/login/org.freedesktop.login1.policy:258
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Потребно је да се идентификујете да бисте успавали систем иако је програм "
-"затражио да се спречи успављивање система."
+"Потребно је да се идентификујете да бисте обуставили систем иако је програм "
+"затражио да се спречи обустављање система."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -578,11 +569,10 @@ msgid "Set the reboot \"reason\" in the kernel"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:353
-#, fuzzy
-#| msgid "Authentication is required to set the system timezone."
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
-"Потребно је да се идентификујете да бисте поставили системску временску зону."
+"Потребно је да се идентификујете да бисте поставили \"разлог\" за поновно "
+"поретање унутар језгра."
 
 #: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
