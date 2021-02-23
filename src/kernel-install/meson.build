@@ -4,7 +4,8 @@ want_kernel_install = get_option('kernel-install')
 
 if want_kernel_install
         install_data('kernel-install',
-                     install_mode : 'rwxr-xr-x')
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : bindir)
 
         install_data('00-entry-directory.install',
                      '50-depmod.install',
