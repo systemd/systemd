@@ -118,7 +118,7 @@ CHANGES WITH 248:
           unified v2 cgroup hierachy is used, and "v1" means that legacy v1
           hierarchy or the hybrid hierarchy are used.
 
-        * The tables of system calls in seccomps filters are now automatically
+        * The tables of system calls in seccomp filters are now automatically
           generated from kernel lists exported on
           https://fedora.juszkiewicz.com.pl/syscalls.html.
 
@@ -223,8 +223,10 @@ CHANGES WITH 248:
           as device properties under the /sys/class/dmi/id/ pseudo device.
 
         * /dev/ is not mounted noexec anymore. This didn't provide any
-          significant security benefits and would conflicts with the executable
-          mappings used with /dev/sgx device nodes.
+          significant security benefits and would conflict with the executable
+          mappings used with /dev/sgx device nodes. The previous behaviour can
+          be restored for individual services with NoExecPaths=/dev (or by allow-
+          listing and excluding /dev from ExecPaths=).
 
         * Permissions for /dev/vsock are now set to 0o666, and /dev/vhost-vsock
           and /dev/vhost-net are owned by the kvm group.
