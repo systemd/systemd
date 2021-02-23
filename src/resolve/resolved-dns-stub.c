@@ -190,7 +190,7 @@ static int dns_stub_collect_answer_by_question(
                                  * CNAME or DNAME */
 
                                 r = dns_resource_record_get_cname_target(
-                                                question->keys[0],
+                                                dns_question_first_key(question),
                                                 item->rr,
                                                 &target);
                                 if (r == -EUNATCH)
@@ -201,7 +201,10 @@ static int dns_stub_collect_answer_by_question(
                                 dns_resource_key_unref(redirected_key);
 
                                 /* There can only be one CNAME per name, hence no point in storing more than one here */
-                                redirected_key = dns_resource_key_new(question->keys[0]->class, question->keys[0]->type, target);
+                                redirected_key = dns_resource_key_new(
+                                                dns_question_first_key(question)->class,
+                                                dns_question_first_key(question)->type,
+                                                target);
                                 if (!redirected_key)
                                         return -ENOMEM;
                         }
@@ -843,13 +846,13 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (dns_type_is_obsolete(p->question->keys[0]->type)) {
+        if (dns_type_is_obsolete(dns_question_first_key(p->question)->type)) {
                 log_debug("Got message with obsolete key type, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
 
-        if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
+        if (dns_type_is_zone_transer(dns_question_first_key(p->question)->type)) {
                 log_debug("Got request for zone transfer, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
