@@ -609,6 +609,24 @@
   <refsect1>
     <title>Environment</title>
 
+    <para>The environment block for the system manager is initially set by the kernel. (In particular,
+    <literal>key=value</literal> assignments on the kernel command line are returned into environment
+    variables for PID 1). For the user manager, the system manager sets the environment as described in the
+    "Environment Variables in Spawned Processes" section of
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    <varname>DefaultEnvironment=</varname> setting in the system manager applies to all services including
+    <filename>user@.service</filename>. Additional entries may be configured (as for any other service)
+    through the <varname>Environment=</varname> and <varname>EnvironmentFile=</varname> settings for
+    <filename>user@.service</filename> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Also,
+    additional environment variables may be set through the <varname>ManagerEnvironment=</varname> setting in
+    <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Some of the variables understood by <command>systemd</command>:</para>
+
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
@@ -1090,12 +1108,11 @@
       only the options described below are understood. Nevertheless, <command>systemd</command> is usually
       started in this mode through the
       <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      service, which is shared between all users, and it may be more convenient to use configuration files to
+      service, which is shared between all users. It may be more convenient to use configuration files to
       modify settings (see
       <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
-      or a drop-in that specifies one of the environment variables listed above in the Environment section
-      (see the discussion of <varname>Environment=</varname> and <varname>EnvironmentFile=</varname> in
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+      or environment variables. See the "Environment" section above for a discussion of how the environment
+      block is set.</para>
 
       <variablelist>
         <varlistentry>
