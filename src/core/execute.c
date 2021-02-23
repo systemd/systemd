@@ -3202,11 +3202,16 @@ static int apply_mount_namespace(
 
         if (MANAGER_IS_SYSTEM(u->manager)) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
-                if (!propagate_dir)
-                        return -ENOMEM;
+                if (!propagate_dir) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
                 incoming_dir = strdup("/run/systemd/incoming");
-                if (!incoming_dir)
-                        return -ENOMEM;
+                if (!incoming_dir) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
         }
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
