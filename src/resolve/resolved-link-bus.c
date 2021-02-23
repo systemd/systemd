@@ -61,6 +61,15 @@ static int property_get_dns_internal(
         if (r < 0)
                 return r;
 
+        LIST_FOREACH(servers, s, l->manager->dns_servers) {
+                if (dns_server_ifindex(s) != l->ifindex)
+                        continue;
+
+                r = bus_dns_server_append(reply, s, false, extended);
+                if (r < 0)
+                        return r;
+        }
+
         LIST_FOREACH(servers, s, l->dns_servers) {
                 r = bus_dns_server_append(reply, s, false, extended);
                 if (r < 0)
