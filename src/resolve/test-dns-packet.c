@@ -91,7 +91,7 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 }
 
 static void test_dns_resource_record_get_cname_target(void) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL;
         _cleanup_free_ char *target = NULL;
 
         assert_se(cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "quux.foobar"));
@@ -107,15 +107,15 @@ static void test_dns_resource_record_get_cname_target(void) {
         assert_se(streq(target, "wuff.wuff"));
         target = mfree(target);
 
-        assert_se(cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "quux.foobar"));
-        assert_se(cname->dname.name = strdup("wuff.wuff"));
+        assert_se(dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "quux.foobar"));
+        assert_se(dname->dname.name = strdup("wuff.wuff"));
 
-        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "waldo"), cname, &target) == -EUNATCH);
-        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "foobar"), cname, &target) == -EUNATCH);
-        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "quux"), cname, &target) == -EUNATCH);
-        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, ""), cname, &target) == -EUNATCH);
-        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "."), cname, &target) == -EUNATCH);
-        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "yupp.quux.foobar"), cname, &target) == 0);
+        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "waldo"), dname, &target) == -EUNATCH);
+        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "foobar"), dname, &target) == -EUNATCH);
+        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "quux"), dname, &target) == -EUNATCH);
+        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, ""), dname, &target) == -EUNATCH);
+        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "."), dname, &target) == -EUNATCH);
+        assert_se(dns_resource_record_get_cname_target(&DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_A, "yupp.quux.foobar"), dname, &target) == 0);
         assert_se(streq(target, "yupp.wuff.wuff"));
         target = mfree(target);
 
@@ -124,7 +124,7 @@ static void test_dns_resource_record_get_cname_target(void) {
 }
 
 int main(int argc, char **argv) {
-        int i, N;
+        int N;
         _cleanup_globfree_ glob_t g = {};
         char **fnames;
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
                 fnames = g.gl_pathv;
         }
 
-        for (i = 0; i < N; i++) {
+        for (int i = 0; i < N; i++) {
                 test_packet_from_file(fnames[i], false);
                 puts("");
                 test_packet_from_file(fnames[i], true);
