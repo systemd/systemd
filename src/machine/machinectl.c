@@ -1872,6 +1872,9 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
                         return log_error_errno(r, "Cannot extract container name from filename: %m");
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                               "Path '%s' refers to directory, but we need a regular file: %m", path);
 
                 local = fn;
         }
@@ -1932,6 +1935,9 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
                         return log_error_errno(r, "Cannot extract container name from filename: %m");
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                               "Path '%s' refers to directory, but we need a regular file: %m", path);
 
                 local = fn;
         }
