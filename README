@@ -126,6 +126,9 @@ REQUIREMENTS:
         Required for systemd-nspawn:
           CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
 
+        Required for systemd-oomd:
+          CONFIG_PSI
+
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
         containers, please make sure to either turn off auditing at
