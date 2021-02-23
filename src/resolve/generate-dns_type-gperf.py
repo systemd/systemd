@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"Generate %-from-name.gperf from %-list.txt"
+"""Generate %-from-name.gperf from %-list.txt
+"""
 
 import sys
 
@@ -13,12 +14,12 @@ print("""\
 _Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
 #endif
 %}""")
-print(f"""\
-struct {name}_name {{ const char* name; int id; }};
+print("""\
+struct {}_name {{ const char* name; int id; }};
 %null-strings
-%%""")
+%%""".format(name))
 
 for line in open(input):
     line = line.rstrip()
     s = line.replace('_', '-')
-    print(f'{s}, {prefix}{line}')
+    print("{}, {}{}".format(s, prefix, line))

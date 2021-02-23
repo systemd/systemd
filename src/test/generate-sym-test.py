@@ -18,9 +18,9 @@ for line in open(sys.argv[1]):
     if match:
         s = match.group(1)
         if s == 'sd_bus_object_vtable_format':
-            print(f'    &{s},')
+            print('    &{},'.format(s))
         else:
-            print(f'    {s},')
+            print('    {},'.format(s))
 
 print('''};
 
