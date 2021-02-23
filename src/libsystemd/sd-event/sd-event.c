@@ -131,6 +131,7 @@ struct sd_event {
 
         bool exit_requested:1;
         bool need_process_child:1;
+        bool can_process_child:1;
         bool watchdog:1;
         bool profile_delays:1;
 
@@ -392,6 +393,7 @@ _public_ int sd_event_new(sd_event** ret) {
                 .boottime_alarm.next = USEC_INFINITY,
                 .perturb = USEC_INFINITY,
                 .original_pid = getpid_cached(),
+                .can_process_child = true,
         };
 
         r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
@@ -3913,7 +3915,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
-        if (e->need_process_child) {
+        if (e->need_process_child && e->need_process_child) {
                 r = process_child(e);
                 if (r < 0)
                         goto finish;
@@ -4215,6 +4217,15 @@ _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
         assert_return(!event_pid_changed(e), -ECHILD);
 
         *ret = e->iteration;
+        return 0;
+}
+
+_public_ int sd_event_set_can_process_child(sd_event *e, bool can_process_child) {
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        e->can_process_child = can_process_child;
         return 0;
 }
 

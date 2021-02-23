@@ -545,6 +545,8 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
         assert(!spawn->result || spawn->result_len < spawn->result_size);
 
+        sd_event_set_can_process_child(sd_event_source_get_event(s), true);
+
         if (fd == spawn->fd_stdout && spawn->result) {
                 p = spawn->result + spawn->result_len;
                 size = spawn->result_size - spawn->result_len;
@@ -694,6 +696,9 @@ static int spawn_wait(Spawn *spawn) {
                 r = sd_event_add_io(e, &stdout_source, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
                 if (r < 0)
                         return log_device_debug_errno(spawn->device, r, "Failed to create stdio event source: %m");
+
+                sd_event_set_can_process_child(e, false);
+
                 r = sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
                         return log_device_debug_errno(spawn->device, r, "Failed to enable stdio event source: %m");
