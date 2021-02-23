@@ -34,6 +34,37 @@ CHANGES WITH 248:
           allows the implementation of a service to provide key information
           dynamically, at the moment when it is needed.
 
+        * When the hostname is set explicitly to "localhost", systemd-hostnamed
+          will respect this. Previously such a setting would be mostly silently
+          ignored. The goal is to honour configuration as specified by the
+          user.
+
+        * The fallback hostname that will be used by the system manager and
+          systemd-hostnamed can now be configured in two new ways: by setting
+          DEFAULT_HOSTNAME= in os-release(5), or by setting
+          $SYSTEMD_DEFAULT_HOSTNAME in the environment block. As before, it can
+          also be configured during compilation. The environment variable is
+          intended for testing and local overrides, the os-release(5) field is
+          intended to allow customization by different variants of a
+          distribution that share the same compiled packages.
+
+        * The environment block of the manager itself may be configured through
+          a new ManagerEnvironment= setting in system.conf or user.conf. This
+          complements existing ways to set the environment block (the kernel
+          command line for the system manager, the inherited environment and
+          user@.service unit file settings for the user manager).
+
+        * systemd-hostnamed now exports the default hostname and the source of
+          the configured hostname ("static", "transient", or "default") as
+          D-Bus properties.
+
+        * systemd-hostnamed now exports the "HardwareVendor" and
+          "HardwareModel" D-Bus properties, which are supposed to contain a
+          pair of cleaned up, human readable strings describing the system's
+          vendor and model. It's typically sourced from the firmware's DMI
+          tables, but may be augmented from a new hwdb database. hostnamectl
+          shows this in the status output.
+
         * Support has been added to systemd-cryptsetup for extracting the
           PKCS#11 token URI and encrypted key from the LUKS2 JSON embedded
           metadata header. This allows the information how to open the
@@ -81,6 +112,11 @@ CHANGES WITH 248:
           conditionalize units based on CPU features. For example,
           ConditionCPUFeature=rdrand will condition a unit so that it is only
           run when the system CPU supports the RDRAND opcode.
+
+        * The existing ConditionControlGroupController= setting has been
+          extended with two new values "v1" and "v2". "v2" means that the
+          unified v2 cgroup hierachy is used, and "v1" means that legacy v1
+          hierarchy or the hybrid hierarchy are used.
 
         * The tables of system calls in seccomps filters are now automatically
           generated from kernel lists exported on
@@ -260,22 +296,6 @@ CHANGES WITH 248:
 
         * systemd-stdio-bridge gained --system/--user options to connect to the
           system bus (previous default) or the user session bus.
-
-        * When the hostname is set explicitly to "localhost", systemd-hostnamed
-          will respect this. Previously such a setting would be mostly silently
-          ignored. The goal is to honour configuration as specified by the
-          user.
-
-        * systemd-hostnamed now exports the default hostname and the source of
-          the configured hostname ("static", "transient", or "default") as
-          D-Bus properties.
-
-        * systemd-hostnamed now exports the "HardwareVendor" and
-          "HardwareModel" D-Bus properties, which are supposed to contain a
-          pair of cleaned up, human readable strings describing the system's
-          vendor and model. It's typically sourced from the firmware's DMI
-          tables, but may be augmented from a new hwdb database. hostnamectl
-          shows this in the status output.
 
         * systemd-localed may now call locale-gen to generate missing locales
           on-demand (UTF-8-only). This improves integration with Debian-based
