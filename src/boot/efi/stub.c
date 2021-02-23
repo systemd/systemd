@@ -92,8 +92,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                         efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
-        /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
-        if (efivar_get_raw(&loader_guid, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS) {
+        /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
+         * UEFI firmware without any boot loader, and hence set the LoaderImageIdentifier ourselves. Note
+         * that some boot chain loaders neither set LoaderImageIdentifier nor make FilePath available to us,
+         * in which case there's simple nothing to set for us. (The UEFI spec doesn't really say who's wrong
+         * here, i.e. whether FilePath may be NULL or not, hence handle this gracefully and check if FilePath
+         * is non-NULL explicitly.) */
+        if (efivar_get_raw(&loader_guid, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
+            loaded_image->FilePath) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = DevicePathToStr(loaded_image->FilePath);
