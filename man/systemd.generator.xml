@@ -47,12 +47,13 @@
 
   <refsect1>
     <title>Description</title>
-    <para>Generators are small executables that live in
-    <filename>&systemgeneratordir;/</filename> and other directories listed above.
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    will execute those binaries very early at bootup and at configuration reload time
-    — before unit files are loaded. Their main purpose is to convert configuration
-    that is not native into dynamically generated unit files.</para>
+    <para>Generators are small executables placed in <filename>&systemgeneratordir;/</filename> and other
+    directories listed above.
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will execute
+    these binaries very early at bootup and at configuration reload time — before unit files are
+    loaded. Their main purpose is to convert configuration that is not native to the service manager into
+    dynamically generated unit files, symlinks or unit file drop-ins, so that they can extend the unit file
+    hierarchy the service manager subsequently loads and operates on.</para>
 
     <para>Each generator is called with three directory paths that are to be used for
     generator output. In these three directories, generators may dynamically generate
@@ -155,17 +156,15 @@
       </listitem>
 
       <listitem>
-        <para>Generators are run very early at boot and cannot rely on any external
-        services. They may not talk to any other process. That includes simple things
-        such as logging to
-        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        or <command>systemd</command> itself (this means: no
+        <para>Generators are run very early at boot and cannot rely on any external services. They may not
+        talk to any other process. That includes simple things such as logging to <citerefentry
+        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>, or
+        <command>systemd</command> itself (this means: no
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)!
-        Non-essential file systems like <filename>/var/</filename> and
-        <filename>/home/</filename> are mounted after generators have run. Generators
-        can however rely on the most basic kernel functionality to be available,
-        including a mounted <filename>/sys/</filename>, <filename>/proc/</filename>,
-        <filename>/dev/</filename>, <filename>/usr/</filename>.
+        Non-essential file systems like <filename>/var/</filename> and <filename>/home/</filename> are
+        mounted after generators have run. Generators can however rely on the most basic kernel functionality
+        to be available, as well as mounted <filename>/sys/</filename>, <filename>/proc/</filename>,
+        <filename>/dev/</filename>, <filename>/usr/</filename> and <filename>/run/</filename> file systems.
         </para>
       </listitem>
 
@@ -176,12 +175,18 @@
       </listitem>
 
       <listitem>
-        <para>Generators should only be used to generate unit files and symlinks to
-        them, not any other kind of configuration. Due to the lifecycle logic
-        mentioned above, generators are not a good fit to generate dynamic
-        configuration for other services. If you need to generate dynamic
-        configuration for other services, do so in normal services you order before
-        the service in question.</para>
+        <para>Generators should only be used to generate unit files, <filename>.d/*.conf</filename> drop-ins
+        for them and symlinks to them, not any other kind of non-unit related configuration. Due to the
+        lifecycle logic mentioned above, generators are not a good fit to generate dynamic configuration for
+        other services. If you need to generate dynamic configuration for other services, do so in normal
+        services you order before the service in question.</para>
+
+        <para>Note that using the <varname>StandardInputData=</varname>/<varname>StandardInputText=</varname>
+        settings of service unit files (see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), it
+        is possible to make arbitrary input data (including daemon-specific configuration) part of the unit
+        definitions, which often might be sufficient to embed data or configuration for other programs into
+        unit files in a native fashion.</para>
       </listitem>
 
       <listitem>
