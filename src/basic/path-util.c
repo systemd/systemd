@@ -819,11 +819,21 @@ const char *last_path_component(const char *path) {
 int path_extract_filename(const char *p, char **ret) {
         _cleanup_free_ char *a = NULL;
         const char *c;
+        size_t n;
 
         /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
-         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. Returns
-         * -EADDRNOTAVAIL if specified parameter includes no filename (i.e. is "/" or so). Returns -EINVAL if
-         * not a valid path in the first place. */
+         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing
+         * slashes. Returns:
+         *
+         * -EINVAL        → if the passed in path is not a valid path
+         * -EADDRNOTAVAIL → if only a directory was specified, but no filename, i.e. the root dir itself is specified
+         * -ENOMEM        → no memory
+         *
+         * Returns >= 0 on success. If the input path has a trailing slash, returns O_DIRECTORY, to indicate
+         * the referenced file must be a directory.
+         *
+         * This function guarantees to return a fully valid filename, i.e. one that passes
+         * filename_is_valid() – this means "." and ".." are not accepted. */
 
         if (!path_is_valid(p))
                 return -EINVAL;
@@ -834,8 +844,9 @@ int path_extract_filename(const char *p, char **ret) {
                 return -EADDRNOTAVAIL;
 
         c = last_path_component(p);
+        n = strcspn(c, "/");
 
-        a = strndup(c, strcspn(c, "/"));
+        a = strndup(c, n);
         if (!a)
                 return -ENOMEM;
 
@@ -843,7 +854,7 @@ int path_extract_filename(const char *p, char **ret) {
                 return -EINVAL;
 
         *ret = TAKE_PTR(a);
-        return 0;
+        return c[n] == '/' ? O_DIRECTORY : 0;
 }
 
 int path_extract_directory(const char *p, char **ret) {
