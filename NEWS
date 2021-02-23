@@ -386,6 +386,38 @@ CHANGES WITH 248:
         * portablectl gained a new "reattach" verb for detaching/reattaching a
           portable service image, useful for updating images on-the-fly.
 
+        Contributions from: Adam Nielsen, Adrian Vovk, AJ Jordan, Alan Perry,
+        Alexander Batischev, Ali Abdallah, Andrew Balmos, Anita Zhang, Ansgar
+        Burchardt, Antonius Frie, Ardy, Arian van Putten, Ariel Fermani, Arnaud
+        T, A S Alam, Bastien Nocera, Benjamin Berg, Benjamin Robin, Björn
+        Daase, chri2, Christian Ehrhardt, Christian Hesse, Christopher Obbard,
+        clayton craft, corvusnix, cprn, d032747, Daan De Meyer, Daniele Medri,
+        Dan Streetman, Darren Ng, David Edmundson, Deepak Rawat, Devon Pringle,
+        Dmitry Borodaenko, dropsignal, Einsler Lee, Endre Szabo, Evgeny
+        Vereshchagin, Fabian Affolter, Felipe Borges, feliperodriguesfr, Felix
+        Stupp, Florian Hülsmann, Florian Klink, Florian Westphal, Franck Bui,
+        Frantisek Sumsal, Gablegritule, Gaël PORTAY, Gaurav, Giedrius
+        Statkevičius, Greg Depoire--Ferrer, Hans de Goede, heretoenhance, Iago
+        López Galeiras, igo95862, Ilya Dmitrichenko, Jameer Pathan, Jan Tojnar,
+        Jiehong, Jinyuan Si, John Slade, Jonathan G. Underwood, Jonathan
+        McDowell, Josh Triplett, Joshua Watt, Julia Cartwright, Julien Humbert,
+        Kairui Song, Karel Zak, Kevin P. Fleming, Khem Raj, Konomi, krissgjeng,
+        l4gfcm, Lennart Poettering, Luca Boccassi, Luca BRUNO, Lucas
+        Werkmeister, Luka Kudra, Luna Jernberg, Marc-André Lureau, Matthias
+        Klumpp, Matt Turner, Michael Marley, Michal Fabik, Michał Kopeć, Michal
+        Sekletár, Mike Gilbert, milovlad, moson-mo, Nick, nihilix-melix, Oğuz
+        Ersen, Ondrej Mosnacek, pali, Pavel Hrdina, Pavel Sapezhko, Peter
+        Hutterer, Pierre Dubouilh, Piotr Drąg, Richard Laager, rnhmjoj,
+        RussianNeuroMancer, Sebastiaan van Stijn, Sergey Bugaev, shenyangyang4,
+        Simonas Kazlauskas, Stefan Agner, Steve Ramage, Susant Sahani, Sven
+        Mueller, Tad Fisher, Takashi Iwai, Thomas Haller, Topi Miettinen,
+        Torsten Hilbrich, Tyler Hicks, Ulrich Ölmann, Vinnie Magro, Vito
+        Caputo, Vlad, walbit-de, Weblate, Weblate (bot), Whired Planck, wouter
+        bolsterlee, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
+        Jędrzejewski-Szmek, Zmicer Turok, Дамјан Георгиевски
+
+        — Warsaw, 2021-02-23
+
 CHANGES WITH 247:
 
         * KERNEL API INCOMPATIBILITY: Linux 4.14 introduced two new uevents
