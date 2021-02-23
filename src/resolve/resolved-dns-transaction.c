@@ -121,10 +121,10 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
                 }
 
                 LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
-        }
 
-        if (t->id != 0)
-                hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
+                if (t->id != 0)
+                        hashmap_remove(t->scope->manager->dns_transactions, UINT_TO_PTR(t->id));
+        }
 
         while ((c = set_steal_first(t->notify_query_candidates)))
                 set_remove(c->transactions, t);

@@ -548,7 +548,13 @@ static int manager_watch_hostname(Manager *m) {
 
         r = determine_hostname(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
-                log_info("Defaulting to hostname '%s'.", fallback_hostname());
+                _cleanup_free_ char *d = NULL;
+
+                d = fallback_hostname();
+                if (!d)
+                        return log_oom();
+
+                log_info("Defaulting to hostname '%s'.", d);
 
                 r = make_fallback_hostnames(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
                 if (r < 0)

@@ -162,7 +162,7 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
         };
         struct cmsghdr *cmsg;
         struct in6_addr addr = {};
-        triple_timestamp t;
+        triple_timestamp t = {};
         ssize_t len;
 
         iov = IOVEC_MAKE(buffer, size);

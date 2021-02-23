@@ -2280,8 +2280,11 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 log_debug("No image name available, will skip extension-release metadata");
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
-                if (!paths[n_meta_initialized])
+                if (!paths[n_meta_initialized]) {
+                        fds[2*n_meta_initialized] = fds[2*n_meta_initialized+1] = -1;
                         continue;
+                }
+
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {
                         r = -errno;
                         goto finish;
@@ -2435,11 +2438,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         strv_free_and_replace(m->extension_release, extension_release);
 
 finish:
-        for (k = 0; k < n_meta_initialized; k++) {
-                if (!paths[k])
-                        continue;
+        for (k = 0; k < n_meta_initialized; k++)
                 safe_close_pair(fds + 2*k);
-        }
 
         return r;
 }
