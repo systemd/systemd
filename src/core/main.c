@@ -700,26 +700,24 @@ static int parse_config_file(void) {
                 {}
         };
 
-        _cleanup_strv_free_ char **_free_files = NULL, **_free_dirs = NULL;
-
-        const char *const *files, *const *dirs, *suffix;
+        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        const char *suffix;
         int r;
 
-        if (arg_system) {
-                files = STRV_MAKE_CONST(PKGSYSCONFDIR "/system.conf");
-                dirs = (const char* const*) CONF_PATHS_STRV("systemd");
+        if (arg_system)
                 suffix = "system.conf.d";
-        } else {
-                r = manager_find_user_config_paths(&_free_files, &_free_dirs);
+        else {
+                r = manager_find_user_config_paths(&files, &dirs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine config file paths: %m");
-                files = (const char* const*) _free_files;
-                dirs = (const char* const*) _free_dirs;
+
                 suffix = "user.conf.d";
         }
 
         (void) config_parse_many(
-                        files, dirs, suffix,
+                        (const char* const*) (files ?: STRV_MAKE(PKGSYSCONFDIR "/system.conf")),
+                        (const char* const*) (dirs ?: CONF_PATHS_STRV("systemd")),
+                        suffix,
                         "Manager\0",
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
