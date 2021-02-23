@@ -111,13 +111,15 @@ static int property_get_current_dns_server_internal(
                 sd_bus_error *error,
                 bool extended) {
 
+        Link *l = userdata;
         DnsServer *s;
 
         assert(reply);
         assert(userdata);
 
-        s = *(DnsServer **) userdata;
-
+        s = l->current_dns_server ?: l->manager->current_dns_server;
+        if (dns_server_ifindex(s) != l->ifindex)
+                s = NULL;
         return bus_dns_server_append(reply, s, false, extended);
 }
 
@@ -887,8 +889,8 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
         SD_BUS_PROPERTY("DNSEx", "a(iayqs)", property_get_dns_ex, 0, 0),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
-        SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_ex, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_ex, 0, 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
