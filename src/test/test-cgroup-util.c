@@ -338,7 +338,7 @@ static void test_cg_tests(void) {
 
         r = cg_unified();
         if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping cg hierarchy tests: %m");
+                log_tests_skipped("cgroup not mounted");
                 return;
         }
         assert_se(r >= 0);
