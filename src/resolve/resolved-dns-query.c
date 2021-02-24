@@ -1122,6 +1122,8 @@ int dns_query_process_cname_one(DnsQuery *q) {
                 q->previous_redirect_unauthenticated = true;
         if (!FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL))
                 q->previous_redirect_non_confidential = true;
+        if (!FLAGS_SET(q->answer_query_flags, SD_RESOLVED_SYNTHETIC))
+                q->previous_redirect_non_synthetic = true;
 
         /* OK, let's actually follow the CNAME */
         r = dns_query_cname_redirect(q, cname);
@@ -1244,9 +1246,17 @@ bool dns_query_fully_confidential(DnsQuery *q) {
         return FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL) && !q->previous_redirect_non_confidential;
 }
 
-bool dns_query_fully_synthetic(DnsQuery *q) {
+bool dns_query_fully_authoritative(DnsQuery *q) {
         assert(q);
 
-        return (q->answer_query_flags & (SD_RESOLVED_SYNTHETIC | SD_RESOLVED_FROM_TRUST_ANCHOR)) &&
-                !(q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~SD_RESOLVED_FROM_TRUST_ANCHOR);
+        /* We are authoritative for everything synthetic (except if a previous CNAME/DNAME) wasn't
+         * synthetic. (Note: SD_RESOLVED_SYNTHETIC is reset on each CNAME/DNAME, hence the explicit check for
+         * previous synthetic DNAME/CNAME redirections.)*/
+        if ((q->answer_query_flags & SD_RESOLVED_SYNTHETIC) && !q->previous_redirect_non_synthetic)
+                return true;
+
+        /* We are also authoritative for everything coming only from the trust anchor and the local
+         * zones. (Note: the SD_RESOLVED_FROM_xyz flags we merge on each redirect, hence no need to
+         * explicitly check previous redirects here.)*/
+        return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
 }
