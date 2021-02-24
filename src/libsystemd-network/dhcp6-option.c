@@ -535,7 +535,7 @@ int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6I
                 lt_t1 = be32toh(ia->ia_na.lifetime_t1);
                 lt_t2 = be32toh(ia->ia_na.lifetime_t2);
 
-                if (lt_t1 && lt_t2 && lt_t1 > lt_t2)
+                if ((lt_t1 != 0 || lt_t2 != 0) && lt_t1 > lt_t2)
                         return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                       "IA NA T1 %"PRIu32"sec > T2 %"PRIu32"sec",
                                                       lt_t1, lt_t2);
@@ -553,7 +553,7 @@ int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6I
                 lt_t1 = be32toh(ia->ia_pd.lifetime_t1);
                 lt_t2 = be32toh(ia->ia_pd.lifetime_t2);
 
-                if (lt_t1 && lt_t2 && lt_t1 > lt_t2)
+                if ((lt_t1 != 0 || lt_t2 != 0) && lt_t1 > lt_t2)
                         return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                       "IA PD T1 %"PRIu32"sec > T2 %"PRIu32"sec",
                                                       lt_t1, lt_t2);
@@ -642,7 +642,7 @@ int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6I
 
         switch(iatype) {
         case SD_DHCP6_OPTION_IA_NA:
-                if (!ia->ia_na.lifetime_t1 && !ia->ia_na.lifetime_t2 && lt_min != UINT32_MAX) {
+                if (ia->ia_na.lifetime_t1 == 0 && ia->ia_na.lifetime_t2 == 0 && lt_min != UINT32_MAX) {
                         lt_t1 = lt_min / 2;
                         lt_t2 = lt_min / 10 * 8;
                         ia->ia_na.lifetime_t1 = htobe32(lt_t1);
@@ -655,7 +655,7 @@ int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6I
                 break;
 
         case SD_DHCP6_OPTION_IA_PD:
-                if (!ia->ia_pd.lifetime_t1 && !ia->ia_pd.lifetime_t2 && lt_min != UINT32_MAX) {
+                if (ia->ia_pd.lifetime_t1 == 0 && ia->ia_pd.lifetime_t2 == 0 && lt_min != UINT32_MAX) {
                         lt_t1 = lt_min / 2;
                         lt_t2 = lt_min / 10 * 8;
                         ia->ia_pd.lifetime_t1 = htobe32(lt_t1);
