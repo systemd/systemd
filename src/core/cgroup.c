@@ -1623,19 +1623,19 @@ CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
 }
 
 CGroupMask unit_get_target_mask(Unit *u) {
-        CGroupMask mask;
+        CGroupMask own_mask, mask;
 
-        /* This returns the cgroup mask of all controllers to enable
-         * for a specific cgroup, i.e. everything it needs itself,
-         * plus all that its children need, plus all that its siblings
-         * need. This is primarily useful on the legacy cgroup
-         * hierarchy, where we need to duplicate each cgroup in each
+        /* This returns the cgroup mask of all controllers to enable for a specific cgroup, i.e. everything
+         * it needs itself, plus all that its children need, plus all that its siblings need. This is
+         * primarily useful on the legacy cgroup hierarchy, where we need to duplicate each cgroup in each
          * hierarchy that shall be enabled for it. */
 
-        mask = unit_get_own_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
+        own_mask = unit_get_own_mask(u);
 
-        if (mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
+        if (own_mask & CGROUP_MASK_BPF_FIREWALL & ~u->manager->cgroup_supported)
                 emit_bpf_firewall_warning(u);
+
+        mask = own_mask | unit_get_members_mask(u) | unit_get_siblings_mask(u);
 
         mask &= u->manager->cgroup_supported;
         mask &= ~unit_get_ancestor_disable_mask(u);
