@@ -129,6 +129,11 @@ static void test_condition_test_control_group_hierarchy(void) {
         int r;
 
         r = cg_unified();
+        if (r == -ENOMEDIUM) {
+                log_tests_skipped("cgroup not mounted");
+                return;
+        }
+        assert_se(r >= 0);
 
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false);
         assert_se(condition);
@@ -148,10 +153,11 @@ static void test_condition_test_control_group_controller(void) {
         int r;
 
         r = cg_unified();
-        if (r < 0) {
-                log_notice_errno(r, "Skipping ConditionControlGroupController tests: %m");
+        if (r == -ENOMEDIUM) {
+                log_tests_skipped("cgroup not mounted");
                 return;
         }
+        assert_se(r >= 0);
 
         /* Invalid controllers are ignored */
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false);
