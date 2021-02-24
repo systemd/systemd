@@ -2260,7 +2260,7 @@ int table_print(Table *t, FILE *f) {
 
                                                 /* Drop trailing white spaces of last column when no cosmetics is set. */
                                                 if (j == display_columns - 1 &&
-                                                    (!colors_enabled() || !table_data_color(d)) &&
+                                                    (!colors_enabled() || (!table_data_color(d) && row != t->data)) &&
                                                     (!urlify_enabled() || !d->url))
                                                         delete_trailing_chars(aligned, NULL);
 
