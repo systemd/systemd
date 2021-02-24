@@ -578,6 +578,9 @@ static int service_verify(Service *s) {
         if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
+        if (s->type == SERVICE_ANY && s->pid_file)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has PIDFile= set, which isn't allowed for Type=any services. Refusing");
+
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
 
@@ -897,6 +900,9 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
         /* Checks whether the specified PID is suitable as main PID for this service. returns negative if not, 0 if the
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
+
+        if (s->type == SERVICE_ANY)
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EINVAL), "Type=any can't have a main PID, refusing.");
 
         if (pid == getpid_cached() || pid == 1)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid);
@@ -2119,7 +2125,7 @@ static void service_enter_start(Service *s) {
                 return;
         }
 
-        if (IN_SET(s->type, SERVICE_SIMPLE, SERVICE_IDLE))
+        if (IN_SET(s->type, SERVICE_SIMPLE, SERVICE_IDLE, SERVICE_ANY))
                 /* For simple + idle this is the main process. We don't apply any timeout here, but
                  * service_enter_running() will later apply the .runtime_max_usec timeout. */
                 timeout = USEC_INFINITY;
@@ -2140,7 +2146,10 @@ static void service_enter_start(Service *s) {
 
                 service_set_main_pid(s, pid);
                 service_enter_start_post(s);
+        } else if (s->type == SERVICE_ANY) {
+                /* For Type=any we do not set a main PID */
 
+                service_enter_start_post(s);
         } else  if (s->type == SERVICE_FORKING) {
 
                 /* For forking services we wait until the start
@@ -3398,7 +3407,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        if (s->main_pid == pid) {
+        if (s->main_pid == pid || (s->type == SERVICE_ANY && cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path))) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
@@ -4439,6 +4448,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_SIMPLE] = "simple",
         [SERVICE_FORKING] = "forking",
+        [SERVICE_ANY] = "any",
         [SERVICE_ONESHOT] = "oneshot",
         [SERVICE_DBUS] = "dbus",
         [SERVICE_NOTIFY] = "notify",
