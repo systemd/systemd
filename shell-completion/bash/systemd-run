@@ -70,7 +70,7 @@ _systemd_run() {
             return 0
             ;;
         --service-type)
-            local comps='simple forking oneshot dbus notify idle'
+            local comps='simple forking any oneshot dbus notify idle'
 
             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
             return 0
