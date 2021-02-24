@@ -94,6 +94,7 @@ ExecStartPre=
 ExecStop=
 ExecStopPost=
 ExecStopPre=
+ExitType=
 FailureAction=
 FileDescriptorName=
 FileDescriptorStoreMax=
