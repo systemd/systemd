@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
 #include "bus-util.h"
@@ -265,6 +266,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 link_dirty(link);
 
         if (also_update_master && link->network) {
+                link_update_master_operstate(link, link->network->batadv);
                 link_update_master_operstate(link, link->network->bond);
                 link_update_master_operstate(link, link->network->bridge);
         }
@@ -929,7 +931,7 @@ static int link_set_nomaster(Link *link) {
         assert(link->manager->rtnl);
 
         /* set it free if not enslaved with networkd */
-        if (link->network->bridge || link->network->bond || link->network->vrf)
+        if (link->network->batadv || link->network->bridge || link->network->bond || link->network->vrf)
                 return 0;
 
         log_link_debug(link, "Setting nomaster");
@@ -1740,6 +1742,7 @@ void link_drop(Link *link) {
         link_free_carrier_maps(link);
 
         if (link->network) {
+                link_drop_from_master(link, link->network->batadv);
                 link_drop_from_master(link, link->network->bridge);
                 link_drop_from_master(link, link->network->bond);
         }
@@ -1888,6 +1891,25 @@ static int link_enter_join_netdev(Link *link) {
                                          LOG_LINK_INTERFACE(link),
                                          LOG_NETDEV_INTERFACE(link->network->bond),
                                          LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bond->ifname));
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        if (link->network->batadv) {
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_NETDEV_INTERFACE(link->network->batadv),
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->batadv->ifname));
+
+                link->enslaving++;
+
+                r = netdev_join(link->network->batadv, link, netdev_join_handler);
+                if (r < 0) {
+                        log_struct_errno(LOG_WARNING, r,
+                                         LOG_LINK_INTERFACE(link),
+                                         LOG_NETDEV_INTERFACE(link->network->batadv),
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->batadv->ifname));
                         link_enter_failed(link);
                         return r;
                 }

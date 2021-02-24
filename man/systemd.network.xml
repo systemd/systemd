@@ -1014,7 +1014,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para>
         </listitem>
       </varlistentry>
-
+      <varlistentry>
+          <term><varname>BatmanAdvanced=</varname></term>
+          <listitem>
+            <para>The name of the B.A.T.M.A.N. Advanced interface to add the link to. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
   </refsect1>

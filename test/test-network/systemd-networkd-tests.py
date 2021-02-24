@@ -779,6 +779,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     links = [
         '6rdtun99',
         'bareudp99',
+        'batadv99',
         'bond98',
         'bond99',
         'bridge99',
@@ -855,6 +856,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '21-vlan.network',
         '25-6rd-tunnel.netdev',
         '25-bareudp.netdev',
+        '25-batadv.netdev',
         '25-bond.netdev',
         '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
@@ -1013,6 +1015,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'dstport 1000 ')
         self.assertRegex(output, 'ethertype ip ')
+
+    @expectedFailureIfModuleIsNotAvailable('batman-adv')
+    def test_batadv(self):
+        copy_unit_to_networkd_unit_path('25-batadv.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        self.wait_online(['batadv99:degraded'])
+
+        output = check_output('ip -d link show batadv99')
+        print(output)
+        self.assertRegex(output, 'batadv')
 
     def test_bridge(self):
         copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge-configure-without-carrier.network')
