@@ -267,6 +267,10 @@ int dhcp4_server_configure(Link *link) {
                 if (r < 0)
                         return r;
 
+                r = sd_dhcp_server_set_ifname(link->dhcp_server, link->ifname);
+                if (r < 0)
+                        return r;
+
                 r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
                 if (r < 0)
                         return r;

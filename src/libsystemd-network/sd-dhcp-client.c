@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <linux/if.h>
 #include <linux/if_infiniband.h>
 
 #include "sd-dhcp-client.h"
@@ -76,6 +77,7 @@ struct sd_dhcp_client {
         int event_priority;
         sd_event_source *timeout_resend;
         int ifindex;
+        char ifname[IFNAMSIZ+1];
         int fd;
         uint16_t port;
         union sockaddr_union link;
@@ -280,6 +282,24 @@ int sd_dhcp_client_set_ifindex(sd_dhcp_client *client, int ifindex) {
 
         client->ifindex = ifindex;
         return 0;
+}
+
+int sd_dhcp_client_set_ifname(sd_dhcp_client *client, const char *ifname) {
+        assert_return(client, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid(ifname))
+                return -EINVAL;
+
+        strcpy(client->ifname, ifname);
+        return 0;
+}
+
+const char *sd_dhcp_client_get_ifname(sd_dhcp_client *client) {
+        if (!client)
+                return NULL;
+
+        return empty_to_null(client->ifname);
 }
 
 int sd_dhcp_client_set_mac(

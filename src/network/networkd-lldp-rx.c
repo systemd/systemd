@@ -86,6 +86,10 @@ int link_lldp_rx_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_lldp_set_ifname(link->lldp, link->ifname);
+        if (r < 0)
+                return r;
+
         r = sd_lldp_match_capabilities(link->lldp,
                                        link->network->lldp_mode == LLDP_MODE_ROUTERS_ONLY ?
                                        SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS :

@@ -91,6 +91,10 @@ int sd_dhcp6_client_set_callback(
 int sd_dhcp6_client_set_ifindex(
                 sd_dhcp6_client *client,
                 int interface_index);
+int sd_dhcp6_client_set_ifname(
+                sd_dhcp6_client *client,
+                const char *interface_name);
+const char * sd_dhcp6_client_get_ifname(sd_dhcp6_client *client);
 int sd_dhcp6_client_set_local_address(
                 sd_dhcp6_client *client,
                 const struct in6_addr *local_address);

@@ -176,6 +176,10 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_ipv4ll_set_ifname(link->ipv4ll, link->ifname);
+        if (r < 0)
+                return r;
+
         r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
         if (r < 0)
                 return r;

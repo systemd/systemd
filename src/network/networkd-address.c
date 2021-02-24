@@ -1368,6 +1368,10 @@ static int ipv4_dad_configure(Address *address) {
         if (r < 0)
                 return r;
 
+        r = sd_ipv4acd_set_ifname(address->acd, address->link->ifname);
+        if (r < 0)
+                return r;
+
         r = sd_ipv4acd_set_mac(address->acd, &address->link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
