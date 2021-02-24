@@ -156,8 +156,8 @@
 
         <listitem>
           <para>Configures the process start-up type for this service unit. One of <option>simple</option>,
-          <option>exec</option>, <option>forking</option>, <option>oneshot</option>, <option>dbus</option>,
-          <option>notify</option> or <option>idle</option>:</para>
+          <option>exec</option>, <option>forking</option>, <option>any</option>, <option>oneshot</option>,
+          <option>dbus</option>, <option>notify</option> or <option>idle</option>:</para>
 
           <itemizedlist>
             <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname> is
@@ -190,6 +190,12 @@
             recommended to also use the <varname>PIDFile=</varname> option, so that systemd can reliably identify the
             main process of the service. systemd will proceed with starting follow-up units as soon as the parent
             process exits.</para></listitem>
+
+            <listitem><para>The <option>any</option> type is meant for interactive applications whose forking model is
+            not known ahead of time. Similar to <option>simple</option>, The service manager will consider the unit
+            started as soon as the main service process has been forked off. However, the service will stay runing as
+            long as at least one process in the cgroup is running. There is no specific main process for the service.
+            The exit status of the service is that of the last process in the cgroup to exit.</para></listitem>
 
             <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>;
             however, the service manager will consider the unit up after the main process exits. It will then
