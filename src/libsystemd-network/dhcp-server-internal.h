@@ -12,7 +12,7 @@
 
 #include "dhcp-internal.h"
 #include "ordered-set.h"
-#include "log.h"
+#include "log-link.h"
 #include "time-util.h"
 
 typedef enum DHCPRawOption {
@@ -88,9 +88,6 @@ typedef struct DHCPRequest {
         uint32_t lifetime;
 } DHCPRequest;
 
-#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
-#define log_dhcp_server_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
-
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length);
 int dhcp_server_send_packet(sd_dhcp_server *server,
@@ -99,3 +96,8 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 
 void client_id_hash_func(const DHCPClientId *p, struct siphash *state);
 int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);
+
+#define log_dhcp_server_errno(server, error, fmt, ...)          \
+        log_interface_full_errno(sd_dhcp_server_get_ifname(server), LOG_DEBUG, error, "DHCPv4 server: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server(server, fmt, ...)                       \
+        log_dhcp_server_errno(server, 0, fmt, ##__VA_ARGS__)

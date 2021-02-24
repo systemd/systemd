@@ -76,7 +76,7 @@ struct sd_ipv4acd {
 };
 
 #define log_ipv4acd_errno(acd, error, fmt, ...)                         \
-        log_interface_full_errno(sd_ipv4acd_get_ifname(acd), LOG_DEBUG, error, "IPV4ACD: " fmt, ##__VA_ARGS__)
+        log_interface_full_errno(sd_ipv4acd_get_ifname(acd), LOG_DEBUG, error, "IPv4ACD: " fmt, ##__VA_ARGS__)
 #define log_ipv4acd(acd, fmt, ...)                      \
         log_ipv4acd_errno(acd, 0, fmt, ##__VA_ARGS__)
 

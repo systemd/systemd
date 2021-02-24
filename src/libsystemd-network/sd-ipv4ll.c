@@ -50,7 +50,7 @@ struct sd_ipv4ll {
 };
 
 #define log_ipv4ll_errno(ll, error, fmt, ...)                           \
-        log_interface_full_errno(sd_ipv4ll_get_ifname(ll), LOG_DEBUG, error, "IPV4LL: " fmt, ##__VA_ARGS__)
+        log_interface_full_errno(sd_ipv4ll_get_ifname(ll), LOG_DEBUG, error, "IPv4LL: " fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...)                        \
         log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
 
