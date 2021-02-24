@@ -243,7 +243,7 @@ int unit_file_build_name_map(
                 Set **path_cache) {
 
         /* Build two mappings: any name → main unit (i.e. the end result of symlink resolution), unit name →
-         * all aliases (i.e. the entry for a given key is a a list of all names which point to this key). The
+         * all aliases (i.e. the entry for a given key is a list of all names which point to this key). The
          * key is included in the value iff we saw a file or symlink with that name. In other words, if we
          * have a key, but it is not present in the value for itself, there was an alias pointing to it, but
          * the unit itself is not loadable.

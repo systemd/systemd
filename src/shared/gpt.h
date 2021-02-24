@@ -35,7 +35,7 @@
 #define GPT_LINUX_GENERIC SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
 
 /* Verity partitions for the root partitions above (we only define them for the root and /usr partitions,
- * because only they are are commonly read-only and hence suitable for verity). */
+ * because only they are commonly read-only and hence suitable for verity). */
 #define GPT_ROOT_X86_VERITY    SD_ID128_MAKE(d1,3c,5d,3b,b5,d1,42,2a,b2,9f,94,54,fd,c8,9d,76)
 #define GPT_ROOT_X86_64_VERITY SD_ID128_MAKE(2c,73,57,ed,eb,d2,46,d9,ae,c1,23,d4,37,ec,2b,f5)
 #define GPT_ROOT_ARM_VERITY    SD_ID128_MAKE(73,86,cd,f2,20,3c,47,a9,a4,98,f2,ec,ce,45,a2,d6)

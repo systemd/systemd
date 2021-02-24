@@ -1081,7 +1081,7 @@ DnsTransaction *dns_scope_find_transaction(
                     !(t->query_flags & SD_RESOLVED_NO_CACHE))
                         continue;
 
-                /* If we are are asked to clamp ttls an the existing transaction doesn't do it, we can't
+                /* If we are asked to clamp ttls an the existing transaction doesn't do it, we can't
                  * reuse */
                 if ((query_flags & SD_RESOLVED_CLAMP_TTL) &&
                     !(t->query_flags & SD_RESOLVED_CLAMP_TTL))
