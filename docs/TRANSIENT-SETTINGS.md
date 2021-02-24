@@ -307,6 +307,7 @@ Most service unit settings are available for transient units.
 ✓ ExecStartPre=
 ✓ ExecStop=
 ✓ ExecStopPost=
+✓ ExitType=
 ✓ FileDescriptorStoreMax=
 ✓ GuessMainPID=
 ✓ NonBlocking=
