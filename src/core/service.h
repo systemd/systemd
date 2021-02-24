@@ -35,6 +35,13 @@ typedef enum ServiceType {
         _SERVICE_TYPE_INVALID = -EINVAL,
 } ServiceType;
 
+typedef enum ServiceExitType {
+        SERVICE_EXIT_MAIN,    /* we consider the main PID when deciding if the service exited */
+        SERVICE_EXIT_CGROUP,  /* we wait for the last process in the cgroup to exit */
+        _SERVICE_EXIT_TYPE_MAX,
+        _SERVICE_EXIT_TYPE_INVALID = -EINVAL,
+} ServiceExitType;
+
 typedef enum ServiceExecCommand {
         SERVICE_EXEC_CONDITION,
         SERVICE_EXEC_START_PRE,
@@ -97,6 +104,7 @@ struct Service {
         Unit meta;
 
         ServiceType type;
+        ServiceExitType exit_type;
         ServiceRestart restart;
         ExitStatusSet restart_prevent_status;
         ExitStatusSet restart_force_status;
@@ -226,6 +234,9 @@ ServiceRestart service_restart_from_string(const char *s) _pure_;
 
 const char* service_type_to_string(ServiceType i) _const_;
 ServiceType service_type_from_string(const char *s) _pure_;
+
+const char* service_exit_type_to_string(ServiceExitType i) _const_;
+ServiceExitType service_exit_type_from_string(const char *s) _pure_;
 
 const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
 ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
