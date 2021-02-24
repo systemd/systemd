@@ -334,7 +334,7 @@ $ eog targets.svg</programlisting>
       definition (one of <literal>glibc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
       <literal>BSD</literal>), see the Process Exit Codes section in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      If no additional arguments are specified, all known statuses are are shown. Otherwise, only the
+      If no additional arguments are specified, all known statuses are shown. Otherwise, only the
       definitions for the specified codes are shown.</para>
 
       <example>

@@ -266,7 +266,7 @@
     former. This function cannot fail, as no new memory is allocated. Note that if <parameter>e</parameter> is not set
     (or <constant>NULL</constant>) <parameter>dst</parameter> is initializated to
     <constant>SD_BUS_ERROR_NULL</constant>. Moreover, if <parameter>dst</parameter> is <constant>NULL</constant> no
-    operation is executed on it and and resources held by <parameter>e</parameter> are freed and reset. Returns a
+    operation is executed on it and resources held by <parameter>e</parameter> are freed and reset. Returns a
     converted <varname>errno</varname>-like, negative error code.</para>
 
     <para><function>sd_bus_error_is_set()</function> will return a

@@ -247,7 +247,7 @@ user is a member of the group. If both arguments are specified the specified
 membership will be tested for, but no others, and the pair is returned if it is
 defined. Unless both arguments are specified the method call needs to be made
 with `more` set, so that multiple replies can be returned (since typically
-there are are multiple members per group and also multiple groups a user is
+there are multiple members per group and also multiple groups a user is
 member of). As with `GetUserRecord` and `GetGroupRecord` the `service`
 parameter needs to contain the name of the service being talked to, in order to
 allow implementation of multiple service within the same IPC socket. In case no

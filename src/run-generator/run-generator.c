@@ -99,7 +99,7 @@ static int generate(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        /* Let's create a a target we can link "default.target" to */
+        /* Let's create a target we can link "default.target" to */
         p = strjoina(arg_dest, "/kernel-command-line.target");
         r = write_string_file(
                         p,
