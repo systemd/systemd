@@ -49,7 +49,7 @@ _arguments \
     '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
     {-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
     '--send-sighup[Send SIGHUP when terminating]' \
-    '--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \
+    '--service-type=[Service type]:type:(simple forking any oneshot dbus notify idle)' \
     '--uid=[Run as system user]:user:_users' \
     '--gid=[Run as system group]:group:_groups' \
     '--nice=[Nice level]:nice level' \
