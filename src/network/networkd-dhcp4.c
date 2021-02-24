@@ -653,6 +653,10 @@ static int dhcp4_configure_dad(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_ipv4acd_set_ifname(link->dhcp_acd, link->ifname);
+        if (r < 0)
+                return r;
+
         r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
@@ -1313,6 +1317,10 @@ int dhcp4_configure(Link *link) {
         r = sd_dhcp_client_set_ifindex(link->dhcp_client, link->ifindex);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set ifindex: %m");
+
+        r = sd_dhcp_client_set_ifname(link->dhcp_client, link->ifname);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set ifname: %m");
 
         r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp4_handler, link);
         if (r < 0)

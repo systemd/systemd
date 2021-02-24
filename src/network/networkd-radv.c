@@ -660,6 +660,10 @@ int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_radv_set_ifname(link->radv, link->ifname);
+        if (r < 0)
+                return r;
+
         r = sd_radv_set_managed_information(link->radv, link->network->router_managed);
         if (r < 0)
                 return r;

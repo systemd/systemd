@@ -1332,6 +1332,10 @@ int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_ndisc_set_ifname(link->ndisc, link->ifname);
+        if (r < 0)
+                return r;
+
         r = sd_ndisc_set_callback(link->ndisc, ndisc_handler, link);
         if (r < 0)
                 return r;
