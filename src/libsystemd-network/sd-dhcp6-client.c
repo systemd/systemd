@@ -1191,7 +1191,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->ia, &ia_na_status);
+                        r = dhcp6_option_parse_ia(client, option, &lease->ia, &ia_na_status);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
 
@@ -1224,7 +1224,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->pd, &ia_pd_status);
+                        r = dhcp6_option_parse_ia(client, option, &lease->pd, &ia_pd_status);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
 
