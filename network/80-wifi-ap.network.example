@@ -5,4 +5,4 @@ WLANInterfaceType=ap
 [Network]
 Address=0.0.0.0/24
 DHCPServer=yes
-IPMasquerade=yes
+IPMasquerade=both
