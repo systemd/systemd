@@ -11,6 +11,9 @@ cgroup_type=$(stat -fc %T /sys/fs/cgroup/)
 if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
     echo "no cgroup2" >> /skipped
 fi
+if [ ! -f /usr/lib/systemd/systemd-oomd ] && [ ! -f /lib/systemd/systemd-oomd ]; then
+    echo "no oomd" >> /skipped
+fi
 [[ -e /skipped ]] && exit 0 || true
 
 rm -rf /etc/systemd/system/testsuite-56-testbloat.service.d
