@@ -725,7 +725,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        if (lrtc == c->local_rtc)
+        if (lrtc == c->local_rtc && fix_system == 0)
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -742,13 +742,15 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (r == 0)
                 return 1;
 
-        c->local_rtc = lrtc;
+        if (lrtc != c->local_rtc) {
+                c->local_rtc = lrtc;
 
-        /* 1. Write new configuration file */
-        r = context_write_data_local_rtc(c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
-                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+                /* 1. Write new configuration file */
+                r = context_write_data_local_rtc(c);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+                        return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+                }
         }
 
         /* 2. Tell the kernel our timezone */
