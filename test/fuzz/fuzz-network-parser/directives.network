@@ -226,6 +226,7 @@ VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
 DHCPv6PrefixDelegation=
+BatmanAdvanced=
 [IPv6Prefix]
 Prefix=
 OnLink=

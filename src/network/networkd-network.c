@@ -171,12 +171,14 @@ int network_verify(Network *network) {
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
 
+        (void) network_resolve_netdev_one(network, network->batadv_name, NETDEV_KIND_BATADV, &network->batadv);
         (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
         (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
         (void) network_resolve_netdev_one(network, network->vrf_name, NETDEV_KIND_VRF, &network->vrf);
         (void) network_resolve_stacked_netdevs(network);
 
         /* Free unnecessary entries. */
+        network->batadv_name = mfree(network->batadv_name);
         network->bond_name = mfree(network->bond_name);
         network->bridge_name = mfree(network->bridge_name);
         network->vrf_name = mfree(network->vrf_name);
@@ -633,6 +635,7 @@ static Network *network_free(Network *network) {
         set_free_free(network->ndisc_deny_listed_route_prefix);
         set_free_free(network->ndisc_allow_listed_route_prefix);
 
+        free(network->batadv_name);
         free(network->bridge_name);
         free(network->bond_name);
         free(network->vrf_name);
