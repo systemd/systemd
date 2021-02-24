@@ -3946,7 +3946,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       runtime information that is stored in <varname>ExecStart</varname>. However, it deviates for
       <varname>Type=forking</varname> services where the main process of the service is not forked off
       systemd directly. These fields either contain information of the last run of the process or of the
-      current running process.</para>
+      current running process. Likewise, <varname>Type=any</varname> services have no main PID.</para>
 
       <para><varname>MainPID</varname> and <varname>ControlPID</varname> contain the main and control PID of
       the service. The main PID is the current main PID of the service and is 0 when the service currently
