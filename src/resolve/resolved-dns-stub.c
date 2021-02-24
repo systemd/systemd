@@ -580,7 +580,7 @@ static int dns_stub_send_reply(
                         DNS_PACKET_ID(q->request_packet),
                         rcode,
                         truncated,
-                        dns_query_fully_synthetic(q),
+                        dns_query_fully_authoritative(q),
                         !!q->request_packet->opt,
                         edns0_do,
                         DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
