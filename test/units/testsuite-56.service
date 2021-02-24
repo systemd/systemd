@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-56-EXIT-TYPE
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
