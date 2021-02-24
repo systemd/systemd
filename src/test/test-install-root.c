@@ -1079,7 +1079,7 @@ static void verify_one(
                        alias2 ? "]" : "");
         assert(r == expected);
 
-        /* This is is test for "instance propagation". This propagation matters mostly for WantedBy= and
+        /* This is test for "instance propagation". This propagation matters mostly for WantedBy= and
          * RequiredBy= settings, and less so for Alias=. The only case where it should happen is when we have
          * an Alias=alias@.service an instantiated template template@instance. In that case the instance name
          * should be propagated into the alias as alias@instance. */

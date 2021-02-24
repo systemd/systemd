@@ -116,7 +116,7 @@
     <title>Return Value</title>
 
     <para><function>sd_journal_query_unique()</function> returns 0 on success or a negative errno-style error
-    code. <function>sd_journal_enumerate_unique()</function> and and
+    code. <function>sd_journal_enumerate_unique()</function> and
     <function>sd_journal_query_available_unique()</function> return a positive integer if the next field data
     has been read, 0 when no more fields remain, or a negative errno-style error code.
     <function>sd_journal_restart_unique()</function> doesn't return anything.</para>
