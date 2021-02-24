@@ -115,6 +115,11 @@ prefixdir = get_option('prefix')
 if not prefixdir.startswith('/')
         error('Prefix is not absolute: "@0@"'.format(prefixdir))
 endif
+if prefixdir != rootprefixdir and not prefixdir.startswith(rootprefixdir + '/')
+        error('Prefix is not below root prefix (now rootprefix=@0@ prefix=@1@)'.format(
+                rootprefixdir, prefixdir))
+endif
+
 bindir = join_paths(prefixdir, get_option('bindir'))
 libdir = join_paths(prefixdir, get_option('libdir'))
 sysconfdir = join_paths(prefixdir, get_option('sysconfdir'))
