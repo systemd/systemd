@@ -7,7 +7,7 @@
 
 #include "sd-ndisc.h"
 
-#include "log.h"
+#include "log-link.h"
 #include "time-util.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL (4U * USEC_PER_SEC)
@@ -38,8 +38,18 @@ struct sd_ndisc {
         void *userdata;
 };
 
-#define log_ndisc_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "NDISC: " fmt, ##__VA_ARGS__)
-#define log_ndisc(fmt, ...) log_ndisc_errno(0, fmt, ##__VA_ARGS__)
-
 const char* ndisc_event_to_string(sd_ndisc_event_t e) _const_;
 sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
+
+#define log_ndisc_errno(ndisc, error, fmt, ...)                         \
+        ({                                                              \
+                int _e = (error);                                       \
+                if (DEBUG_LOGGING)                                      \
+                        log_interface_full_errno(                       \
+                                    sd_ndisc_get_ifname(ndisc),         \
+                                    LOG_DEBUG, _e, "NDISC: " fmt,       \
+                                    ##__VA_ARGS__);                     \
+                -ERRNO_VALUE(_e);                                       \
+        })
+#define log_ndisc(ndisc, fmt, ...)                       \
+        log_ndisc_errno(ndisc, 0, fmt, ##__VA_ARGS__)
