@@ -3243,7 +3243,9 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                  * because it includes return codes/signals. Which is
                  * why we ignore the cgroup events for most cases,
                  * except when we don't know pid which to expect the
-                 * SIGCHLD for. */
+                 * SIGCHLD for. In the case of ExitType=cgroup,
+                 * the main PID is unknown and we do listen to the
+                 * cgroup event */
 
         case SERVICE_START:
                 if (s->type == SERVICE_NOTIFY &&
@@ -3385,7 +3387,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached();
 
-        if (s->main_pid == pid) {
+        /* Services with ExitType=cgroup ignore the main PID for purposes of exit status */
+        if (s->exit_type == SERVICE_EXIT_CGROUP && s->main_pid == pid) {
+                service_unwatch_main_pid(s);
+                s->main_pid_known = false;
+        }
+
+        if ((s->exit_type == SERVICE_EXIT_MAIN && s->main_pid == pid)) {
                 /* Clean up the exec_fd event source. We want to do this here, not later in
                  * service_set_state(), because service_enter_stop_post() calls service_spawn().
                  * The source owns its end of the pipe, so this will close that too. */
@@ -4477,6 +4485,13 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
+
+static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
+        [SERVICE_EXIT_MAIN] = "main",
+        [SERVICE_EXIT_CGROUP] = "cgroup",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION]  = "ExecCondition",
