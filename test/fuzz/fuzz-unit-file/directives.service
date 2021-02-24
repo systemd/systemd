@@ -161,6 +161,7 @@ ExecStartPost=
 ExecStartPre=
 ExecStop=
 ExecStopPost=
+ExitType=
 ExtensionImages=
 FailureAction=
 FileDescriptorStoreMax=
