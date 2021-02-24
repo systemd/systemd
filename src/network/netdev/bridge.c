@@ -288,7 +288,7 @@ int link_set_bridge(Link *link) {
                 return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_bridge_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

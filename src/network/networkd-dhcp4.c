@@ -417,6 +417,28 @@ static int link_set_dhcp_routes(Link *link) {
         return link_set_dns_routes(link, &address);
 }
 
+static int dhcp_detect_mtu_reset_loop(Link *link) {
+        int enabled, r;
+
+        assert(link);
+
+        if (!link->dhcp4_mtu_reset_loop_detector)
+                return link->dhcp4_mtu_reset_loop_detected;
+
+        r = sd_event_source_get_enabled(link->dhcp4_mtu_reset_loop_detector, &enabled);
+        if (r < 0)
+                return r;
+
+        if (enabled != SD_EVENT_OFF) {
+                log_link_warning(link, "Detected carrier reset caused by changing MTU, ignoring UseMTU= setting for DHCPv4 client.");
+                link->dhcp4_mtu_reset_loop_detected = true;
+                (void) sd_event_source_set_enabled(link->dhcp4_mtu_reset_loop_detector, SD_EVENT_OFF);
+                link->dhcp4_mtu_reset_loop_detector = sd_event_source_unref(link->dhcp4_mtu_reset_loop_detector);
+        }
+
+        return link->dhcp4_mtu_reset_loop_detected;
+}
+
 static int dhcp_reset_mtu(Link *link) {
         uint16_t mtu;
         int r;
@@ -426,25 +448,24 @@ static int dhcp_reset_mtu(Link *link) {
         if (!link->network->dhcp_use_mtu)
                 return 0;
 
+        r = dhcp_detect_mtu_reset_loop(link);
+        if (r < 0)
+                return r;
+
         r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
         if (r == -ENODATA)
                 return 0;
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP error: failed to get MTU from lease: %m");
+                return r;
 
         if (link->original_mtu == mtu)
                 return 0;
 
-        r = link_set_mtu(link, link->original_mtu);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP error: could not reset MTU: %m");
-
-        return 0;
+        return link_set_mtu(link, link->original_mtu);
 }
 
 static int dhcp_reset_hostname(Link *link) {
         const char *hostname;
-        int r;
 
         assert(link);
 
@@ -459,11 +480,7 @@ static int dhcp_reset_hostname(Link *link) {
                 return 0;
 
         /* If a hostname was set due to the lease, then unset it now. */
-        r = manager_set_hostname(link->manager, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP error: Failed to reset transient hostname: %m");
-
-        return 0;
+        return manager_set_hostname(link->manager, NULL);
 }
 
 static int dhcp4_remove_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -564,11 +581,11 @@ static int dhcp_lease_lost(Link *link) {
 
         k = dhcp_reset_mtu(link);
         if (k < 0)
-                r = k;
+                r = log_link_error_errno(link, k, "DHCP error: Failed to reset mtu: %m");
 
         k = dhcp_reset_hostname(link);
         if (k < 0)
-                r = k;
+                r = log_link_error_errno(link, k, "DHCP error: Failed to reset transient hostname: %m");
 
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link_dirty(link);
@@ -899,6 +916,72 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         return dhcp4_update_address(link, false);
 }
 
+static int dhcp_mtu_reset_loop_detector_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        return 0;
+}
+
+static int dhcp_set_mtu(Link *link) {
+        uint16_t mtu;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->event);
+        assert(link->network);
+        assert(link->dhcp_lease);
+
+        if (!link->network->dhcp_use_mtu)
+                return 0;
+
+        r = dhcp_detect_mtu_reset_loop(link);
+        if (r < 0)
+                return r;
+
+        if (link->dhcp4_mtu_reset_loop_detected)
+                return 0;
+
+        r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = link_set_mtu(link, mtu);
+        if (r <= 0)
+                return r;
+
+        if (!link->dhcp4_mtu_reset_loop_detector) {
+                r = sd_event_add_time_relative(
+                                link->manager->event,
+                                &link->dhcp4_mtu_reset_loop_detector,
+                                CLOCK_MONOTONIC,
+                                10 * USEC_PER_SEC,
+                                0,
+                                dhcp_mtu_reset_loop_detector_handler,
+                                link);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_destroy_callback(
+                                link->dhcp4_mtu_reset_loop_detector,
+                                (sd_event_destroy_t) link_destroy_callback);
+                if (r < 0)
+                        return r;
+
+                link_ref(link);
+        } else {
+                r = sd_event_source_set_time_relative(link->dhcp4_mtu_reset_loop_detector, 10 * USEC_PER_SEC);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_enabled(link->dhcp4_mtu_reset_loop_detector, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         sd_dhcp_lease *lease;
         int r;
@@ -914,16 +997,9 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);
 
-        if (link->network->dhcp_use_mtu) {
-                uint16_t mtu;
-
-                r = sd_dhcp_lease_get_mtu(lease, &mtu);
-                if (r >= 0) {
-                        r = link_set_mtu(link, mtu);
-                        if (r < 0)
-                                log_link_error_errno(link, r, "Failed to set MTU to %" PRIu16 ": %m", mtu);
-                }
-        }
+        r = dhcp_set_mtu(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to set MTU, ignoring: %m");
 
         if (link->network->dhcp_use_hostname) {
                 const char *dhcpname = NULL;
