@@ -1179,7 +1179,7 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
 static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extended, char **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
-        int ifindex, family, r, k;
+        int ifindex = 0, family, r, k;
         union in_addr_union a;
         const char *name = NULL;
         uint16_t port = 0;
