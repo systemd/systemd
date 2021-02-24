@@ -115,7 +115,7 @@ CHANGES WITH 248:
 
         * The existing ConditionControlGroupController= setting has been
           extended with two new values "v1" and "v2". "v2" means that the
-          unified v2 cgroup hierachy is used, and "v1" means that legacy v1
+          unified v2 cgroup hierarchy is used, and "v1" means that legacy v1
           hierarchy or the hybrid hierarchy are used.
 
         * The tables of system calls in seccomp filters are now automatically
