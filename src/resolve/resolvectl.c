@@ -1177,8 +1177,9 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
 }
 
 typedef enum ReadDnsServerFlag {
-        READ_DNS_EXTENDED = 1 << 0,
-        READ_DNS_IFINDEX  = 1 << 1,
+        READ_DNS_EXTENDED               = 1 << 0,
+        READ_DNS_IFINDEX                = 1 << 1,
+        READ_DNS_IGNORE_NONZERO_IFINDEX = 1 << 2,
 } ReadDnsServerFlag;
 
 static const char *read_dns_server_flag_to_container_string(ReadDnsServerFlag flag) {
@@ -1241,7 +1242,7 @@ static int read_dns_server_one(sd_bus_message *m, ReadDnsServerFlag flag, char *
                 return 1;
         }
 
-        if (FLAGS_SET(flag, READ_DNS_IFINDEX) && ifindex != 0) {
+        if (FLAGS_SET(flag, READ_DNS_IFINDEX | READ_DNS_IGNORE_NONZERO_IFINDEX) && ifindex != 0) {
                 /* only show the global ones here */
                 *ret = NULL;
                 return 1;
@@ -1309,10 +1310,18 @@ static int map_link_current_dns_server_ex(sd_bus *bus, const char *member, sd_bu
 }
 
 static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_dns_servers(m, READ_DNS_IFINDEX, userdata);
+        return map_dns_servers(m, READ_DNS_IFINDEX | READ_DNS_IGNORE_NONZERO_IFINDEX, userdata);
 }
 
 static int map_global_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_dns_servers(m, READ_DNS_EXTENDED | READ_DNS_IFINDEX | READ_DNS_IGNORE_NONZERO_IFINDEX, userdata);
+}
+
+static int map_global_fallback_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_dns_servers(m, READ_DNS_IFINDEX, userdata);
+}
+
+static int map_global_fallback_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         return map_dns_servers(m, READ_DNS_EXTENDED | READ_DNS_IFINDEX, userdata);
 }
 
@@ -1739,20 +1748,20 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
 static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, dns)              },
-                { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, dns_ex)           },
-                { "FallbackDNS",                "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, fallback_dns)     },
-                { "FallbackDNSEx",              "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, fallback_dns_ex)  },
-                { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,    offsetof(GlobalInfo, current_dns)      },
-                { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex, offsetof(GlobalInfo, current_dns_ex)   },
-                { "Domains",                    "a(isb)",    map_global_domains,               offsetof(GlobalInfo, domains)          },
-                { "DNSSECNegativeTrustAnchors", "as",        bus_map_strv_sort,                offsetof(GlobalInfo, ntas)             },
-                { "LLMNR",                      "s",         NULL,                             offsetof(GlobalInfo, llmnr)            },
-                { "MulticastDNS",               "s",         NULL,                             offsetof(GlobalInfo, mdns)             },
-                { "DNSOverTLS",                 "s",         NULL,                             offsetof(GlobalInfo, dns_over_tls)     },
-                { "DNSSEC",                     "s",         NULL,                             offsetof(GlobalInfo, dnssec)           },
-                { "DNSSECSupported",            "b",         NULL,                             offsetof(GlobalInfo, dnssec_supported) },
-                { "ResolvConfMode",             "s",         NULL,                             offsetof(GlobalInfo, resolv_conf_mode) },
+                { "DNS",                        "a(iiay)",   map_global_dns_servers,             offsetof(GlobalInfo, dns)              },
+                { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,          offsetof(GlobalInfo, dns_ex)           },
+                { "FallbackDNS",                "a(iiay)",   map_global_fallback_dns_servers,    offsetof(GlobalInfo, fallback_dns)     },
+                { "FallbackDNSEx",              "a(iiayqs)", map_global_fallback_dns_servers_ex, offsetof(GlobalInfo, fallback_dns_ex)  },
+                { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,      offsetof(GlobalInfo, current_dns)      },
+                { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex,   offsetof(GlobalInfo, current_dns_ex)   },
+                { "Domains",                    "a(isb)",    map_global_domains,                 offsetof(GlobalInfo, domains)          },
+                { "DNSSECNegativeTrustAnchors", "as",        bus_map_strv_sort,                  offsetof(GlobalInfo, ntas)             },
+                { "LLMNR",                      "s",         NULL,                               offsetof(GlobalInfo, llmnr)            },
+                { "MulticastDNS",               "s",         NULL,                               offsetof(GlobalInfo, mdns)             },
+                { "DNSOverTLS",                 "s",         NULL,                               offsetof(GlobalInfo, dns_over_tls)     },
+                { "DNSSEC",                     "s",         NULL,                               offsetof(GlobalInfo, dnssec)           },
+                { "DNSSECSupported",            "b",         NULL,                               offsetof(GlobalInfo, dnssec_supported) },
+                { "ResolvConfMode",             "s",         NULL,                               offsetof(GlobalInfo, resolv_conf_mode) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
