@@ -10,6 +10,8 @@
 #include "bond.h"
 #include "bridge.h"
 #include "bus-util.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
@@ -41,6 +43,7 @@
 #include "networkd-sysctl.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-state-file.h"
 #include "networkd-wifi.h"
 #include "set.h"
 #include "socket-util.h"
@@ -1731,7 +1734,7 @@ static void link_detach_from_manager(Link *link) {
         link_unref(link);
 }
 
-void link_drop(Link *link) {
+static void link_drop(Link *link) {
         if (!link || link->state == LINK_STATE_LINGER)
                 return;
 
@@ -2358,7 +2361,7 @@ static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return 1;
 }
 
-int link_initialized(Link *link, sd_device *device) {
+static int link_initialized(Link *link, sd_device *device) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -2398,7 +2401,7 @@ int link_initialized(Link *link, sd_device *device) {
         return 0;
 }
 
-int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
+static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
         Link *link;
@@ -2479,6 +2482,57 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
                         return r;
                 }
         }
+
+        return 0;
+}
+
+int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        sd_device_action_t action;
+        Manager *m = userdata;
+        Link *link = NULL;
+        int r, ifindex;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_action(device, &action);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Failed to get udev action, ignoring device: %m");
+                return 0;
+        }
+
+        /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
+         * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
+         * still exists — and we are interested in that. */
+        if (action == SD_DEVICE_REMOVE)
+                return 0;
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Ignoring udev %s event for device without ifindex or with invalid ifindex: %m",
+                                       device_action_to_string(action));
+                return 0;
+        }
+
+        r = device_is_renaming(device);
+        if (r < 0) {
+                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
+                                       device_action_to_string(action));
+                return 0;
+        }
+        if (r > 0) {
+                log_device_debug(device, "Interface is under renaming, wait for the interface to be renamed.");
+                return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r < 0) {
+                if (r != -ENODEV)
+                        log_debug_errno(r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
+                return 0;
+        }
+
+        (void) link_initialized(link, device);
 
         return 0;
 }
@@ -2596,12 +2650,13 @@ int link_carrier_reset(Link *link) {
         return 0;
 }
 
-/* This is called every time an interface admin state changes to up;
- * specifically, when IFF_UP flag changes from unset to set */
 static int link_admin_state_up(Link *link) {
         int r;
 
         assert(link);
+
+        /* This is called every time an interface admin state changes to up;
+         * specifically, when IFF_UP flag changes from unset to set. */
 
         if (!link->network)
                 return 0;
@@ -2626,7 +2681,6 @@ static int link_admin_state_up(Link *link) {
 }
 
 static int link_admin_state_down(Link *link) {
-
         assert(link);
 
         if (!link->network)
@@ -2640,7 +2694,7 @@ static int link_admin_state_down(Link *link) {
         return 0;
 }
 
-int link_update(Link *link, sd_netlink_message *m) {
+static int link_update(Link *link, sd_netlink_message *m) {
         _cleanup_strv_free_ char **s = NULL;
         hw_addr_data hw_addr;
         const char *ifname;
@@ -2784,388 +2838,91 @@ int link_update(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
-static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
-        bool space = false;
-        Link *link;
+int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+        Link *link = NULL;
+        NetDev *netdev = NULL;
+        uint16_t type;
+        const char *name;
+        int r, ifindex;
 
-        assert(f);
-        assert(prefix);
+        assert(rtnl);
+        assert(message);
+        assert(m);
 
-        if (hashmap_isempty(h))
-                return;
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_message_warning_errno(message, r, "rtnl: Could not receive link message, ignoring");
 
-        fputs(prefix, f);
-        HASHMAP_FOREACH(link, h) {
-                if (space)
-                        fputc(' ', f);
-
-                fprintf(f, "%i", link->ifindex);
-                space = true;
-        }
-
-        fputc('\n', f);
-}
-
-static void link_save_dns(Link *link, FILE *f, struct in_addr_full **dns, unsigned n_dns, bool *space) {
-        for (unsigned j = 0; j < n_dns; j++) {
-                const char *str;
-
-                if (dns[j]->ifindex != 0 && dns[j]->ifindex != link->ifindex)
-                        continue;
-
-                str = in_addr_full_to_string(dns[j]);
-                if (!str)
-                        continue;
-
-                if (*space)
-                        fputc(' ', f);
-                fputs(str, f);
-                *space = true;
-        }
-}
-
-static void serialize_addresses(
-                FILE *f,
-                const char *lvalue,
-                bool *space,
-                char **addresses,
-                sd_dhcp_lease *lease,
-                bool conditional,
-                sd_dhcp_lease_server_type_t what,
-                sd_dhcp6_lease *lease6,
-                bool conditional6,
-                int (*lease6_get_addr)(sd_dhcp6_lease*, const struct in6_addr**),
-                int (*lease6_get_fqdn)(sd_dhcp6_lease*, char ***)) {
-        int r;
-
-        bool _space = false;
-        if (!space)
-                space = &_space;
-
-        if (lvalue)
-                fprintf(f, "%s=", lvalue);
-        fputstrv(f, addresses, NULL, space);
-
-        if (lease && conditional) {
-                const struct in_addr *lease_addresses;
-
-                r = sd_dhcp_lease_get_servers(lease, what, &lease_addresses);
-                if (r > 0)
-                        serialize_in_addrs(f, lease_addresses, r, space, in4_addr_is_non_local);
-        }
-
-        if (lease6 && conditional6 && lease6_get_addr) {
-                const struct in6_addr *in6_addrs;
-
-                r = lease6_get_addr(lease6, &in6_addrs);
-                if (r > 0)
-                        serialize_in6_addrs(f, in6_addrs, r, space);
-        }
-
-        if (lease6 && conditional6 && lease6_get_fqdn) {
-                char **in6_hosts;
-
-                r = lease6_get_fqdn(lease6, &in6_hosts);
-                if (r > 0)
-                        fputstrv(f, in6_hosts, NULL, space);
-        }
-
-        if (lvalue)
-                fputc('\n', f);
-}
-
-int link_save(Link *link) {
-        const char *admin_state, *oper_state, *carrier_state, *address_state;
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        assert(link);
-        assert(link->state_file);
-        assert(link->lease_file);
-        assert(link->manager);
-
-        if (link->state == LINK_STATE_LINGER) {
-                (void) unlink(link->state_file);
                 return 0;
         }
 
-        link_lldp_save(link);
-
-        admin_state = link_state_to_string(link->state);
-        assert(admin_state);
-
-        oper_state = link_operstate_to_string(link->operstate);
-        assert(oper_state);
-
-        carrier_state = link_carrier_state_to_string(link->carrier_state);
-        assert(carrier_state);
-
-        address_state = link_address_state_to_string(link->address_state);
-        assert(address_state);
-
-        r = fopen_temporary(link->state_file, &f, &temp_path);
-        if (r < 0)
-                goto fail;
-
-        (void) fchmod(fileno(f), 0644);
-
-        fprintf(f,
-                "# This is private data. Do not parse.\n"
-                "ADMIN_STATE=%s\n"
-                "OPER_STATE=%s\n"
-                "CARRIER_STATE=%s\n"
-                "ADDRESS_STATE=%s\n",
-                admin_state, oper_state, carrier_state, address_state);
-
-        if (link->network) {
-                char **dhcp6_domains = NULL, **dhcp_domains = NULL;
-                const char *dhcp_domainname = NULL, *p;
-                bool space;
-
-                fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
-                        yes_no(link->network->required_for_online));
-
-                LinkOperationalStateRange st = link->network->required_operstate_for_online;
-                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s%s%s\n",
-                        strempty(link_operstate_to_string(st.min)),
-                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
-                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
-
-                fprintf(f, "ACTIVATION_POLICY=%s\n",
-                        activation_policy_to_string(link->network->activation_policy));
-
-                fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
-
-                /************************************************************/
-
-                fputs("DNS=", f);
-                space = false;
-                if (link->n_dns != (unsigned) -1)
-                        link_save_dns(link, f, link->dns, link->n_dns, &space);
-                else
-                        link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
-
-                serialize_addresses(f, NULL, &space,
-                                    NULL,
-                                    link->dhcp_lease,
-                                    link->network->dhcp_use_dns,
-                                    SD_DHCP_LEASE_DNS,
-                                    link->dhcp6_lease,
-                                    link->network->dhcp6_use_dns,
-                                    sd_dhcp6_lease_get_dns,
-                                    NULL);
-
-                /* Make sure to flush out old entries before we use the NDisc data */
-                ndisc_vacuum(link);
-
-                if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
-                        NDiscRDNSS *dd;
-
-                        SET_FOREACH(dd, link->ndisc_rdnss)
-                                serialize_in6_addrs(f, &dd->address, 1, &space);
-                }
-
-                fputc('\n', f);
-
-                /************************************************************/
-
-                serialize_addresses(f, "NTP", NULL,
-                                    link->ntp ?: link->network->ntp,
-                                    link->dhcp_lease,
-                                    link->network->dhcp_use_ntp,
-                                    SD_DHCP_LEASE_NTP,
-                                    link->dhcp6_lease,
-                                    link->network->dhcp6_use_ntp,
-                                    sd_dhcp6_lease_get_ntp_addrs,
-                                    sd_dhcp6_lease_get_ntp_fqdn);
-
-                serialize_addresses(f, "SIP", NULL,
-                                    NULL,
-                                    link->dhcp_lease,
-                                    link->network->dhcp_use_sip,
-                                    SD_DHCP_LEASE_SIP,
-                                    NULL, false, NULL, NULL);
-
-                /************************************************************/
-
-                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
-                        if (link->dhcp_lease) {
-                                (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
-                                (void) sd_dhcp_lease_get_search_domains(link->dhcp_lease, &dhcp_domains);
-                        }
-                        if (link->dhcp6_lease)
-                                (void) sd_dhcp6_lease_get_domains(link->dhcp6_lease, &dhcp6_domains);
-                }
-
-                fputs("DOMAINS=", f);
-                space = false;
-                ORDERED_SET_FOREACH(p, link->search_domains ?: link->network->search_domains)
-                        fputs_with_space(f, p, NULL, &space);
-
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
-                        if (dhcp_domainname)
-                                fputs_with_space(f, dhcp_domainname, NULL, &space);
-                        if (dhcp_domains)
-                                fputstrv(f, dhcp_domains, NULL, &space);
-                        if (dhcp6_domains)
-                                fputstrv(f, dhcp6_domains, NULL, &space);
-                }
-
-                if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_YES) {
-                        NDiscDNSSL *dd;
-
-                        SET_FOREACH(dd, link->ndisc_dnssl)
-                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
-                }
-
-                fputc('\n', f);
-
-                /************************************************************/
-
-                fputs("ROUTE_DOMAINS=", f);
-                space = false;
-                ORDERED_SET_FOREACH(p, link->route_domains ?: link->network->route_domains)
-                        fputs_with_space(f, p, NULL, &space);
-
-                if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        if (dhcp_domainname)
-                                fputs_with_space(f, dhcp_domainname, NULL, &space);
-                        if (dhcp_domains)
-                                fputstrv(f, dhcp_domains, NULL, &space);
-                        if (dhcp6_domains)
-                                fputstrv(f, dhcp6_domains, NULL, &space);
-                }
-
-                if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_ROUTE) {
-                        NDiscDNSSL *dd;
-
-                        SET_FOREACH(dd, link->ndisc_dnssl)
-                                fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
-                }
-
-                fputc('\n', f);
-
-                /************************************************************/
-
-                fprintf(f, "LLMNR=%s\n",
-                        resolve_support_to_string(link->llmnr >= 0 ? link->llmnr : link->network->llmnr));
-
-                /************************************************************/
-
-                fprintf(f, "MDNS=%s\n",
-                        resolve_support_to_string(link->mdns >= 0 ? link->mdns : link->network->mdns));
-
-                /************************************************************/
-
-                int dns_default_route =
-                        link->dns_default_route >= 0 ? link->dns_default_route :
-                        link->network->dns_default_route;
-                if (dns_default_route >= 0)
-                        fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(dns_default_route));
-
-                /************************************************************/
-
-                DnsOverTlsMode dns_over_tls_mode =
-                        link->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID ? link->dns_over_tls_mode :
-                        link->network->dns_over_tls_mode;
-                if (dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
-                        fprintf(f, "DNS_OVER_TLS=%s\n", dns_over_tls_mode_to_string(dns_over_tls_mode));
-
-                /************************************************************/
-
-                DnssecMode dnssec_mode =
-                        link->dnssec_mode != _DNSSEC_MODE_INVALID ? link->dnssec_mode :
-                        link->network->dnssec_mode;
-                if (dnssec_mode != _DNSSEC_MODE_INVALID)
-                        fprintf(f, "DNSSEC=%s\n", dnssec_mode_to_string(dnssec_mode));
-
-                /************************************************************/
-
-                Set *nta_anchors = link->dnssec_negative_trust_anchors;
-                if (set_isempty(nta_anchors))
-                        nta_anchors = link->network->dnssec_negative_trust_anchors;
-
-                if (!set_isempty(nta_anchors)) {
-                        const char *n;
-
-                        fputs("DNSSEC_NTA=", f);
-                        space = false;
-                        SET_FOREACH(n, nta_anchors)
-                                fputs_with_space(f, n, NULL, &space);
-                        fputc('\n', f);
-                }
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
+                log_warning("rtnl: Received unexpected message type %u when processing link, ignoring.", type);
+                return 0;
         }
 
-        print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
-        print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get ifindex from link message, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received link message with invalid ifindex %d, ignoring.", ifindex);
+                return 0;
+        }
 
-        if (link->dhcp_lease) {
-                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
-                if (r < 0)
-                        goto fail;
+        r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Received link message without ifname, ignoring: %m");
+                return 0;
+        }
 
-                fprintf(f,
-                        "DHCP_LEASE=%s\n",
-                        link->lease_file);
-        } else
-                (void) unlink(link->lease_file);
+        (void) link_get(m, ifindex, &link);
+        (void) netdev_get(m, name, &netdev);
 
-        r = link_serialize_dhcp6_client(link, f);
-        if (r < 0)
-                goto fail;
+        switch (type) {
+        case RTM_NEWLINK:
+                if (!link) {
+                        /* link is new, so add it */
+                        r = link_add(m, message, &link);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process new link message, ignoring: %m");
+                                return 0;
+                        }
+                }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                goto fail;
+                if (netdev) {
+                        /* netdev exists, so make sure the ifindex matches */
+                        r = netdev_set_ifindex(netdev, message);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not process new link message for netdev, ignoring: %m");
+                                return 0;
+                        }
+                }
 
-        r = conservative_rename(temp_path, link->state_file);
-        if (r < 0)
-                goto fail;
+                r = link_update(link, message);
+                if (r < 0) {
+                        log_warning_errno(r, "Could not process link message, ignoring: %m");
+                        return 0;
+                }
 
-        return 0;
+                break;
 
-fail:
-        (void) unlink(link->state_file);
-        if (temp_path)
-                (void) unlink(temp_path);
+        case RTM_DELLINK:
+                link_drop(link);
+                netdev_drop(netdev);
 
-        return log_link_error_errno(link, r, "Failed to save link data to %s: %m", link->state_file);
-}
+                break;
 
-/* The serialized state in /run is no longer up-to-date. */
-void link_dirty(Link *link) {
-        int r;
+        default:
+                assert_not_reached("Received link message with invalid RTNL message type.");
+        }
 
-        assert(link);
-
-        /* mark manager dirty as link is dirty */
-        manager_dirty(link->manager);
-
-        r = set_ensure_put(&link->manager->dirty_links, NULL, link);
-        if (r <= 0)
-                /* Ignore allocation errors and don't take another ref if the link was already dirty */
-                return;
-        link_ref(link);
-}
-
-/* The serialized state in /run is up-to-date */
-void link_clean(Link *link) {
-        assert(link);
-        assert(link->manager);
-
-        link_unref(set_remove(link->manager->dirty_links, link));
-}
-
-int link_save_and_clean(Link *link) {
-        int r;
-
-        r = link_save(link);
-        if (r < 0)
-                return r;
-
-        link_clean(link);
-        return 0;
+        return 1;
 }
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {

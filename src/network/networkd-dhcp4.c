@@ -17,6 +17,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-state-file.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
