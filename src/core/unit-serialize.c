@@ -151,6 +151,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
+        if (u->restrict_ifaces_ingress_bpf_link)
+                (void) serialize_bpf_link(f, fds, "restrict-ifaces-bpf-fd", u->restrict_ifaces_ingress_bpf_link);
+        if (u->restrict_ifaces_egress_bpf_link)
+                (void) serialize_bpf_link(f, fds, "restrict-ifaces-bpf-fd", u->restrict_ifaces_egress_bpf_link);
+
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
         if (gid_is_valid(u->ref_gid))
@@ -362,7 +367,34 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-invalidated-mask", l, v, cg_mask_from_string, u->cgroup_invalidated_mask))
                         continue;
 
-                else if (streq(l, "ref-uid")) {
+                else if (streq(l, "restrict-ifaces-bpf-fd")) {
+                        int fd;
+
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
+                                log_unit_debug(u, "Failed to parse restrict-ifaces-bpf-fd value: %s", v);
+                                continue;
+                        }
+                        if (fdset_remove(fds, fd) < 0) {
+                                log_unit_debug(u, "Failed to remove restrict-ifaces-bpf-fd %d from fdset", fd);
+                                continue;
+                        }
+
+                        if (!u->restrict_ifaces_restored_fds) {
+                                u->restrict_ifaces_restored_fds = fdset_new();
+                                if (!u->restrict_ifaces_restored_fds) {
+                                        log_unit_debug(u, "Failed to allocate fdset for restrict-ifaces-bpf-fd");
+                                        continue;
+                                }
+                        }
+
+                        r = fdset_put(u->restrict_ifaces_restored_fds, fd);
+                        if (r < 0) {
+                                log_unit_debug(u, "Failed to put restrict-ifaces-bpf-fd %d to restored fdset", fd);
+                                continue;
+                        }
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
