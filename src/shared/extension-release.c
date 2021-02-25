@@ -82,8 +82,13 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies) {
         int r;
 
         r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", ret_hierarchies);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse SYSTEMD_SYSEXT_HIERARCHIES environment variable : %m");
+         /* Ignore malformed variables, but propagate OOM */
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
+                return 0;
+        }
         if (!*ret_hierarchies) {
                 *ret_hierarchies = strv_new("/usr", "/opt");
                 if (!*ret_hierarchies)
