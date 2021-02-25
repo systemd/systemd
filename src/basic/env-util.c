@@ -813,11 +813,9 @@ int getenv_path_list(const char *name, char ***ret_paths) {
         assert(name);
         assert(ret_paths);
 
-        *ret_paths = NULL;
-
         e = secure_getenv(name);
         if (!e)
-                return 0;
+                return -ENXIO;
 
         r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
@@ -842,5 +840,5 @@ int getenv_path_list(const char *name, char ***ret_paths) {
                                        "No paths specified, refusing.");
 
         *ret_paths = TAKE_PTR(l);
-        return 0;
+        return 1;
 }
