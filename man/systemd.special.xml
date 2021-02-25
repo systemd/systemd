@@ -489,11 +489,10 @@
             Services After the Network is up</ulink> for more
             information.</para>
 
-            <para>All mount units for remote network file systems
-            automatically pull in this unit, and order themselves after
-            it. Note that networking daemons that simply provide
-            functionality to other hosts generally do not need to pull
-            this in.</para>
+            <para>All mount units for remote network file systems automatically pull in this unit, and order
+            themselves after it. Note that networking daemons that simply <emphasis>provide</emphasis>
+            functionality to other hosts (as opposed to <emphasis>consume</emphasis> functionality of other
+            hosts) generally do not need to pull this in.</para>
 
             <para>systemd automatically adds dependencies of type <varname>Wants=</varname> and
             <varname>After=</varname> for this target unit to all SysV init script service units
