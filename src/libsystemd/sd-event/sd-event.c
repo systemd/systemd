@@ -3780,9 +3780,59 @@ pending:
         return r;
 }
 
+static int epoll_wait_usec(
+                int fd,
+                struct epoll_event *events,
+                int maxevents,
+                usec_t timeout) {
+
+        static bool epoll_pwait2_absent = false;
+        int r, msec;
+
+        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not */
+
+        if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
+                struct timespec ts;
+
+                r = epoll_pwait2(fd,
+                                 events,
+                                 maxevents,
+                                 timespec_store(&ts, timeout),
+                                 NULL);
+                if (r >= 0)
+                        return r;
+                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                        return -errno; /* Only fallback to old epoll_wait() if the syscall is masked or not
+                                        * supported. */
+
+                epoll_pwait2_absent = true;
+        }
+
+        if (timeout == USEC_INFINITY)
+                msec = -1;
+        else {
+                usec_t k;
+
+                k = DIV_ROUND_UP(timeout, USEC_PER_MSEC);
+                if (k >= INT_MAX)
+                        msec = INT_MAX; /* Saturate */
+                else
+                        msec = (int) k;
+        }
+
+        r = epoll_wait(fd,
+                       events,
+                       maxevents,
+                       msec);
+        if (r < 0)
+                return -errno;
+
+        return r;
+}
+
 _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         size_t n_event_queue, m;
-        int r, msec;
+        int r;
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
@@ -3801,21 +3851,16 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
         if (e->inotify_data_buffered)
-                msec = 0;
-        else
-                msec = timeout == (uint64_t) -1 ? -1 : (int) DIV_ROUND_UP(timeout, USEC_PER_MSEC);
+                timeout = 0;
 
         for (;;) {
-                r = epoll_wait(e->epoll_fd, e->event_queue, e->event_queue_allocated, msec);
-                if (r < 0) {
-                        if (errno == EINTR) {
-                                e->state = SD_EVENT_PENDING;
-                                return 1;
-                        }
-
-                        r = -errno;
-                        goto finish;
+                r = epoll_wait_usec(e->epoll_fd, e->event_queue, e->event_queue_allocated, timeout);
+                if (r == -EINTR) {
+                        e->state = SD_EVENT_PENDING;
+                        return 1;
                 }
+                if (r < 0)
+                        goto finish;
 
                 m = (size_t) r;
 
@@ -3828,7 +3873,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, e->event_queue_allocated + n_event_queue))
                         return -ENOMEM;
 
-                msec = 0;
+                timeout = 0;
         }
 
         triple_timestamp_get(&e->timestamp);
