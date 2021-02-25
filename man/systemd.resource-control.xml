@@ -63,6 +63,25 @@
     url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
     Control Group Interfaces</ulink> for an introduction on how to make
     use of resource control APIs from programs.</para>
+
+    <refsect2>
+      <title>Setting resource controls for a group of related units</title>
+
+      <para>As described in
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the
+      settings listed here may be set through the main file of a unit and drop-in snippets in
+      <filename index="false">*.d/</filename> directories. The list of directories searched for drop-ins
+      includes names formed by repeatedly truncating the unit name after all dashes. This is particularly
+      convenient to set resource limits for a group of units with similar names.</para>
+
+      <para>For example, every user gets their own slice
+      <filename>user-<replaceable>nnn</replaceable>.slice</filename>. Drop-ins with local configuration that
+      affect user 1000 may be placed in
+      <filename index="false">/etc/systemd/system/user-1000.slice</filename>,
+      <filename index="false">/etc/systemd/system/user-1000.slice.d/*.conf</filename>, but also
+      <filename index="false">/etc/systemd/system/user-.slice.d/*.conf</filename>. This last directory
+      applies to all user slices.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
