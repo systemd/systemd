@@ -1540,7 +1540,6 @@ static int apply_mounts(
 
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         _cleanup_free_ char **deny_list = NULL;
-        size_t j;
         int r;
 
         if (n_mounts == 0) /* Shortcut: nothing to do */
@@ -1607,9 +1606,9 @@ static int apply_mounts(
         deny_list = new(char*, (*n_mounts)+1);
         if (!deny_list)
                 return -ENOMEM;
-        for (j = 0; j < *n_mounts; j++)
+        for (size_t j = 0; j < *n_mounts; j++)
                 deny_list[j] = (char*) mount_entry_path(mounts+j);
-        deny_list[j] = NULL;
+        deny_list[*n_mounts] = NULL;
 
         /* Second round, flip the ro bits if necessary. */
         for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
@@ -1622,10 +1621,10 @@ static int apply_mounts(
         }
 
         /* Third round, flip the noexec bits with a simplified deny list. */
-        for (j = 0; j < *n_mounts; j++)
+        for (size_t j = 0; j < *n_mounts; j++)
                 if (IN_SET((mounts+j)->mode, EXEC, NOEXEC))
                         deny_list[j] = (char*) mount_entry_path(mounts+j);
-        deny_list[j] = NULL;
+        deny_list[*n_mounts] = NULL;
 
         for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
                 r = make_noexec(m, deny_list, proc_self_mountinfo);
@@ -1664,8 +1663,6 @@ static bool home_read_only(
                 size_t n_temporary_filesystems,
                 ProtectHome protect_home) {
 
-        size_t i;
-
         /* Determine whether the /home directory is going to be read-only given the configured settings. Yes,
          * this is a bit sloppy, since we don't bother checking for cases where / is affected by multiple
          * settings. */
@@ -1678,12 +1675,12 @@ static bool home_read_only(
             prefixed_path_strv_contains(empty_directories, "/home"))
                 return true;
 
-        for (i = 0; i < n_temporary_filesystems; i++)
+        for (size_t i = 0; i < n_temporary_filesystems; i++)
                 if (path_equal(temporary_filesystems[i].path, "/home"))
                         return true;
 
         /* If /home is overmounted with some dir from the host it's not writable. */
-        for (i = 0; i < n_bind_mounts; i++)
+        for (size_t i = 0; i < n_bind_mounts; i++)
                 if (path_equal(bind_mounts[i].destination, "/home"))
                         return true;
 

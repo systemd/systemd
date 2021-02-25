@@ -351,7 +351,7 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
  * @udev: udev library context
  *
  * Create new udev device, and fill in information from the
- * current process environment. This only works reliable if
+ * current process environment. This only works reliably if
  * the process is called from a udev rule. It is usually used
  * for tools executed from IMPORT= rules.
  *
