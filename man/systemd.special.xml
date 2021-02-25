@@ -948,20 +948,29 @@
         <varlistentry>
           <term><filename>network.target</filename></term>
           <listitem>
-            <para>This unit is supposed to indicate when network
-            functionality is available, but it is only very weakly
-            defined what that is supposed to mean, with one exception:
-            at shutdown, a unit that is ordered after
-            <filename>network.target</filename> will be stopped before
-            the network — to whatever level it might be set up then —
-            is shut down. It is hence useful when writing service files
-            that require network access on shutdown, which should order
-            themselves after this target, but not pull it in. Also see
-            <ulink url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
-            Services After the Network is up</ulink> for more
-            information. Also see
-            <filename>network-online.target</filename> described
-            above.</para>
+            <para>This unit is supposed to indicate when network functionality is available, but it is only
+            very weakly defined what that is supposed to mean. However, the following should apply at
+            minimum:</para>
+
+            <itemizedlist>
+              <listitem><para>At start-up, any configured synthetic network devices (i.e. not physical ones
+              that require hardware to show up and be probed, but virtual ones like bridge devices and
+              similar which are created programmatically) that do not depend on any underlying hardware
+              should be allocated by the time this target is reached. It is not necessary for these
+              interfaces to also have completed IP level configuration by the time
+              <filename>network.target</filename> is reached.</para></listitem>
+
+              <listitem><para>At shutdown, a unit that is ordered after <filename>network.target</filename>
+              will be stopped before the network — to whatever level it might be set up by then — is shut
+              down. It is hence useful when writing service files that require network access on shutdown,
+              which should order themselves after this target, but not pull it in. Also see <ulink
+              url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running Services After
+              the Network is up</ulink> for more information.</para></listitem>
+            </itemizedlist>
+
+            <para>It must emphasized that at start-up there's no guarantee that hardware-based devices have
+            shown up by the time this target is reached, or even acquired complete IP configuration. For that
+            purpose use <filename>network-online.target</filename> as described above.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
