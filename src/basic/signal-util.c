@@ -45,11 +45,14 @@ int reset_signal_mask(void) {
         return 0;
 }
 
-static int sigaction_many_ap(const struct sigaction *sa, int sig, va_list ap) {
-        int r = 0;
+int sigaction_many_internal(const struct sigaction *sa, ...) {
+        int sig, r = 0;
+        va_list ap;
+
+        va_start(ap, sa);
 
         /* negative signal ends the list. 0 signal is skipped. */
-        for (; sig >= 0; sig = va_arg(ap, int)) {
+        while ((sig = va_arg(ap, int)) >= 0) {
 
                 if (sig == 0)
                         continue;
@@ -60,49 +63,6 @@ static int sigaction_many_ap(const struct sigaction *sa, int sig, va_list ap) {
                 }
         }
 
-        return r;
-}
-
-int sigaction_many(const struct sigaction *sa, ...) {
-        va_list ap;
-        int r;
-
-        va_start(ap, sa);
-        r = sigaction_many_ap(sa, 0, ap);
-        va_end(ap);
-
-        return r;
-}
-
-int ignore_signals(int sig, ...) {
-
-        static const struct sigaction sa = {
-                .sa_handler = SIG_IGN,
-                .sa_flags = SA_RESTART,
-        };
-
-        va_list ap;
-        int r;
-
-        va_start(ap, sig);
-        r = sigaction_many_ap(&sa, sig, ap);
-        va_end(ap);
-
-        return r;
-}
-
-int default_signals(int sig, ...) {
-
-        static const struct sigaction sa = {
-                .sa_handler = SIG_DFL,
-                .sa_flags = SA_RESTART,
-        };
-
-        va_list ap;
-        int r;
-
-        va_start(ap, sig);
-        r = sigaction_many_ap(&sa, sig, ap);
         va_end(ap);
 
         return r;

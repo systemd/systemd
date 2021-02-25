@@ -1268,7 +1268,7 @@ static int setup_pam(
                 if (setresuid(uid, uid, uid) < 0)
                         log_warning_errno(errno, "Failed to setresuid() in sd-pam: %m");
 
-                (void) ignore_signals(SIGPIPE, -1);
+                (void) ignore_signals(SIGPIPE);
 
                 /* Wait until our parent died. This will only work if
                  * the above setresuid() succeeds, otherwise the kernel
@@ -3733,16 +3733,14 @@ static int exec_child(
 
         rename_process_from_path(command->path);
 
-        /* We reset exactly these signals, since they are the
-         * only ones we set to SIG_IGN in the main daemon. All
-         * others we leave untouched because we set them to
-         * SIG_DFL or a valid handler initially, both of which
-         * will be demoted to SIG_DFL. */
+        /* We reset exactly these signals, since they are the only ones we set to SIG_IGN in the main
+         * daemon. All others we leave untouched because we set them to SIG_DFL or a valid handler initially,
+         * both of which will be demoted to SIG_DFL. */
         (void) default_signals(SIGNALS_CRASH_HANDLER,
-                               SIGNALS_IGNORE, -1);
+                               SIGNALS_IGNORE);
 
         if (context->ignore_sigpipe)
-                (void) ignore_signals(SIGPIPE, -1);
+                (void) ignore_signals(SIGPIPE);
 
         r = reset_signal_mask();
         if (r < 0) {

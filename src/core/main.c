@@ -323,9 +323,8 @@ static void install_crash_handler(void) {
         };
         int r;
 
-        /* We ignore the return value here, since, we don't mind if we
-         * cannot set up a crash handler */
-        r = sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
+        /* We ignore the return value here, since, we don't mind if we cannot set up a crash handler */
+        r = sigaction_many(&sa, SIGNALS_CRASH_HANDLER);
         if (r < 0)
                 log_debug_errno(r, "I had trouble setting up the crash handler, ignoring: %m");
 }
@@ -2756,7 +2755,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset all signal handlers. */
         (void) reset_all_signal_handlers();
-        (void) ignore_signals(SIGNALS_IGNORE, -1);
+        (void) ignore_signals(SIGNALS_IGNORE);
 
         (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
 

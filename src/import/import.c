@@ -306,7 +306,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return 0;
 
-        (void) ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE);
 
         return import_main(argc, argv);
 }
