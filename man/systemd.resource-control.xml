@@ -918,31 +918,34 @@ DeviceAllow=/dev/loop-control
         <term><varname>ManagedOOMPreference=none|avoid|omit</varname></term>
 
         <listitem>
-          <para>Allows deprioritizing or omitting this unit's cgroup as a candidate when <command>systemd-oomd</command>
-          needs to act. Requires support for extended attributes (see
+          <para>Allows deprioritizing or omitting this unit's cgroup as a candidate when
+          <command>systemd-oomd</command> needs to act. Requires support for extended attributes (see
           <citerefentry project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
-          in order to use <option>avoid</option> or <option>omit</option>. Additionally, <command>systemd-oomd</command>
-          will ignore these extended attributes if the unit's cgroup is not owned by the root user.</para>
+          in order to use <option>avoid</option> or <option>omit</option>. Additionally,
+          <command>systemd-oomd</command> will ignore these extended attributes if the unit's cgroup is not
+          owned by the root user.</para>
 
           <para>If this property is set to <option>avoid</option>, the service manager will set the
-          "user.oomd_avoid" extended attribute on the unit's cgroup to "1". If <command>systemd-oomd</command> sees
-          this extended attribute on a cgroup set to "1" when choosing between candidates, it will only select the
-          cgroup with "user.oomd_avoid" if there are no other viable candidates.</para>
+          <literal>user.oomd_avoid</literal> extended attribute on the unit's cgroup to <literal>1</literal>.
+          If <command>systemd-oomd</command> sees this extended attribute on a cgroup set to
+          <literal>1</literal> when choosing between candidates, it will only select the cgroup with
+          <literal>user.oomd_avoid</literal> if there are no other viable candidates.</para>
 
-          <para>If this property is set to <option>omit</option>, the service manager will set the "user.oomd_omit"
-          extended attribute on the unit's cgroup to "1". If <command>systemd-oomd</command> sees the this extended
-          attribute on the cgroup set to "1", it will ignore the cgroup as a candidate and will not perform any actions
-          on the cgroup.</para>
+          <para>If this property is set to <option>omit</option>, the service manager will set the
+          <literal>user.oomd_omit</literal> extended attribute on the unit's cgroup to <literal>1</literal>.
+          If <command>systemd-oomd</command> sees the this extended attribute on the cgroup set to
+          <literal>1</literal>, it will ignore the cgroup as a candidate and will not perform any actions on
+          the cgroup.</para>
 
-          <para>It is recommended to use <option>avoid</option> and <option>omit</option> sparingly as it can adversely
-          affect <command>systemd-oomd</command>'s kill behavior. Also note that these extended attributes are not
-          applied recursively to cgroups under this unit's cgroup.</para>
+          <para>It is recommended to use <option>avoid</option> and <option>omit</option> sparingly, as it
+          can adversely affect <command>systemd-oomd</command>'s kill behavior. Also note that these extended
+          attributes are not applied recursively to cgroups under this unit's cgroup.</para>
 
-          <para>Defaults to <option>none</option> which means no extended attributes will be set and systemd-oomd will
-          sort this unit's cgroup as defined in
+          <para>Defaults to <option>none</option> which means no extended attributes will be set and
+          <command>systemd-oomd</command> will sort this unit's cgroup as defined in
           <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          and <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> (if this
-          unit's cgroup becomes a candidate).</para>
+          and <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          (if this unit's cgroup becomes a candidate).</para>
         </listitem>
       </varlistentry>
     </variablelist>
