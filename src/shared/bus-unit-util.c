@@ -1631,10 +1631,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(r, "Failed to parse argument: %m");
 
                 STRV_FOREACH_PAIR(first, second, l) {
-                        /* Format is either 'root:foo' or 'foo' (root is implied) */
-                        if (!isempty(*second) && partition_designator_from_string(*first) < 0)
-                                return bus_log_create_error(-EINVAL);
-
                         r = sd_bus_message_append(m, "(ss)",
                                                   !isempty(*second) ? *first : "root",
                                                   !isempty(*second) ? *second : *first);
@@ -1683,14 +1679,14 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                         r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                         if (r == 0)
                                 break;
 
                         q = tuple;
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                         if (r == 0)
                                 continue;
 
@@ -1722,7 +1718,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                                 if (r == 0)
                                         break;
                                 /* Single set of options, applying to the root partition/single filesystem */
@@ -1733,9 +1729,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                         break;
                                 }
-
-                                if (partition_designator_from_string(partition) < 0)
-                                        return bus_log_create_error(-EINVAL);
 
                                 r = sd_bus_message_append(m, "(ss)", partition, mount_options);
                                 if (r < 0)
@@ -1792,14 +1785,14 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                         r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
                         if (r == 0)
                                 break;
 
                         q = tuple;
                         r = extract_first_word(&q, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
                         if (r == 0)
                                 continue;
 
@@ -1826,7 +1819,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                 r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
                                 if (r == 0)
                                         break;
                                 /* Single set of options, applying to the root partition/single filesystem */
@@ -1837,9 +1830,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                         break;
                                 }
-
-                                if (partition_designator_from_string(partition) < 0)
-                                        return bus_log_create_error(-EINVAL);
 
                                 r = sd_bus_message_append(m, "(ss)", partition, mount_options);
                                 if (r < 0)

@@ -1554,9 +1554,12 @@ static int apply_mounts(
          * /proc. For example, this is the case with the option: 'InaccessiblePaths=/proc'. */
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo) {
+                r = -errno;
+
                 if (error_path)
                         *error_path = strdup("/proc/self/mountinfo");
-                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+
+                return log_debug_errno(r, "Failed to open /proc/self/mountinfo: %m");
         }
 
         /* First round, establish all mounts we need */
