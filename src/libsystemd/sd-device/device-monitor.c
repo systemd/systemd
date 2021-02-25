@@ -629,8 +629,9 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         if (m->filter_uptodate)
                 return 0;
 
-        if (hashmap_isempty(m->subsystem_filter) &&
-            set_isempty(m->tag_filter)) {
+        if (m->snl.nl.nl_groups == MONITOR_GROUP_KERNEL ||
+            (hashmap_isempty(m->subsystem_filter) &&
+             set_isempty(m->tag_filter))) {
                 m->filter_uptodate = true;
                 return 0;
         }
