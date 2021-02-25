@@ -20,6 +20,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
+  reception limit the kernel silently enforces.
+
 * add an Open= setting to service unit files that can open arbitrary file
   system paths at service startup time and pass them to the service process via
   our usual socket activation protocol. If passed path refers to AF_UNIX
