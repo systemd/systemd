@@ -20,6 +20,10 @@ CHANGES WITH 248:
           The SYSEXT_LEVEL= field in os-release(5) may be used to specify the
           supported system extension level.
 
+        * A new ExtensionImages= unit setting can be used to apply the same
+          system extension image concept from systemd-sysext to services,
+          following the same rules and constraints.
+
         * A new configuration file /etc/veritytab may be used to configure
           dm-verity integrity protection for block devices. Each line is in the
           format "volume-name data-device hash-device roothash options",
