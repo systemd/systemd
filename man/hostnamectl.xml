@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="hostnamectl" conditional='ENABLE_HOSTNAMED'
@@ -76,9 +79,13 @@
         still following the validity rules of the specific name. This simplification of the hostname string is not done
         if only the transient and/or static hostnames are set, and the pretty hostname is left untouched.</para>
 
-        <para>Pass the empty string <literal></literal> as the
-        hostname to reset the selected hostnames to their default
-        (usually <literal>localhost</literal>).</para></listitem>
+        <para>The static and transient hostnames must each be either a single DNS label (a string composed of
+        7-bit ASCII lower-case characters and no spaces or dots, limited to the format allowed for DNS domain
+        name labels), or a sequence of such labels separated by single dots that forms a valid DNS FQDN. The
+        length must be at most 64 characters.</para>
+
+        <para>Pass the empty string <literal></literal> as the hostname to reset the selected hostnames to
+        their default (usually <literal>&FALLBACK_HOSTNAME;</literal>).</para></listitem>
       </varlistentry>
 
       <varlistentry>

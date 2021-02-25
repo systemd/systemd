@@ -325,7 +325,7 @@
         present and no other configuration source specifies the hostname. Must be either a single DNS label
         (a string composed of 7-bit ASCII lower-case characters and no spaces or dots, limited to the format
         allowed for DNS domain name labels), or a sequence of such labels separated by single dots that forms
-        a valid DNS FQDN. The total length must be at most 64 characters.</para>
+        a valid DNS FQDN. The length must be at most 64 characters.</para>
 
         <para>See
         <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
