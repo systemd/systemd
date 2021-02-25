@@ -95,7 +95,7 @@ This is based on crypttab(5).
       </varlistentry>
 
       <varlistentry>
-        <term><option>root-hash-signature=</option></term>
+        <term><option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option></term>
 
         <listitem><para>A base64 string encoding the root hash signature prefixed by <literal>base64:</literal> or a
         path to roothash signature file used to verify the root hash (in kernel). This feature requires Linux kernel
