@@ -79,7 +79,7 @@ struct Manager {
         } samples[8];
         unsigned samples_idx;
         double samples_jitter;
-        usec_t max_root_distance_usec;
+        usec_t root_distance_max_usec;
 
         /* last change */
         bool jumped;
