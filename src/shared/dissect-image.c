@@ -1551,13 +1551,12 @@ struct DecryptedImage {
 
 DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
 #if HAVE_LIBCRYPTSETUP
-        size_t i;
         int r;
 
         if (!d)
                 return NULL;
 
-        for (i = 0; i < d->n_decrypted; i++) {
+        for (size_t i = 0; i < d->n_decrypted; i++) {
                 DecryptedPartition *p = d->decrypted + i;
 
                 if (p->device && p->name && !p->relinquished) {
@@ -2003,19 +2002,15 @@ int dissected_image_decrypt_interactively(
 }
 
 int decrypted_image_relinquish(DecryptedImage *d) {
-
-#if HAVE_LIBCRYPTSETUP
-        size_t i;
-        int r;
-#endif
-
         assert(d);
 
-        /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a boolean so
-         * that we don't clean it up ourselves either anymore */
+        /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a
+         * boolean so that we don't clean it up ourselves either anymore */
 
 #if HAVE_LIBCRYPTSETUP
-        for (i = 0; i < d->n_decrypted; i++) {
+        int r;
+
+        for (size_t i = 0; i < d->n_decrypted; i++) {
                 DecryptedPartition *p = d->decrypted + i;
 
                 if (p->relinquished)
@@ -2265,7 +2260,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
         _cleanup_free_ char *hostname = NULL;
-        unsigned n_meta_initialized = 0, k;
+        unsigned n_meta_initialized = 0;
         int fds[2 * _META_MAX], r, v;
         ssize_t n;
 
@@ -2316,7 +2311,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-                for (k = 0; k < _META_MAX; k++) {
+                for (unsigned k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -ENOENT;
                         const char *p;
 
@@ -2350,7 +2345,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
         error_pipe[1] = safe_close(error_pipe[1]);
 
-        for (k = 0; k < _META_MAX; k++) {
+        for (unsigned k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
 
                 if (!paths[k])
@@ -2439,7 +2434,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         strv_free_and_replace(m->extension_release, extension_release);
 
 finish:
-        for (k = 0; k < n_meta_initialized; k++)
+        for (unsigned k = 0; k < n_meta_initialized; k++)
                 safe_close_pair(fds + 2*k);
 
         return r;
