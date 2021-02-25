@@ -1138,18 +1138,18 @@
               <para><literal>gnome-session.target</literal> pulls in Nautilus as top-level service:</para>
 
               <programlisting>[Unit]
-  Description=User systemd services for GNOME graphical session
-  Wants=nautilus.service
-  BindsTo=graphical-session.target</programlisting>
+Description=User systemd services for GNOME graphical session
+Wants=nautilus.service
+BindsTo=graphical-session.target</programlisting>
 
               <para><literal>nautilus.service</literal> gets stopped when the session stops:</para>
 
               <programlisting>[Unit]
-  Description=Render the desktop icons with Nautilus
-  PartOf=graphical-session.target
+Description=Render the desktop icons with Nautilus
+PartOf=graphical-session.target
 
-  [Service]
-  …</programlisting>
+[Service]
+…</programlisting>
             </example>
           </listitem>
         </varlistentry>
