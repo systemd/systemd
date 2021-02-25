@@ -75,20 +75,22 @@ static int bus_image_method_get_os_release(sd_bus_message *message, void *userda
 static int append_fd(sd_bus_message *m, PortableMetadata *d) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *buf = NULL;
-        size_t n;
+        size_t n = 0;
         int r;
 
         assert(m);
-        assert(d);
-        assert(d->fd >= 0);
 
-        f = take_fdopen(&d->fd, "r");
-        if (!f)
-                return -errno;
+        if (d) {
+                assert(d->fd >= 0);
 
-        r = read_full_stream(f, &buf, &n);
-        if (r < 0)
-                return r;
+                f = take_fdopen(&d->fd, "r");
+                if (!f)
+                        return -errno;
+
+                r = read_full_stream(f, &buf, &n);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_message_append_array(m, 'y', buf, n);
 }
@@ -223,12 +225,14 @@ int bus_image_common_attach(
                 Image *image,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **matches = NULL;
+        _cleanup_strv_free_ char **matches = NULL, **extension_images = NULL;
         PortableChange *changes = NULL;
         PortableFlags flags = 0;
         const char *profile, *copy_mode;
         size_t n_changes = 0;
         int runtime, r;
+        /* Unused for now, but added to the DBUS methods for future-proofing */
+        uint64_t input_flags = 0;
 
         assert(message);
         assert(name_or_path || image);
@@ -238,6 +242,13 @@ int bus_image_common_attach(
                 m = image->userdata;
         }
 
+        if (sd_bus_message_is_method_call(message, NULL, "AttachImageWithExtensions") ||
+                        sd_bus_message_is_method_call(message, NULL, "AttachWithExtensions")) {
+                r = sd_bus_message_read_strv(message, &extension_images);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_bus_message_read_strv(message, &matches);
         if (r < 0)
                 return r;
@@ -245,6 +256,13 @@ int bus_image_common_attach(
         r = sd_bus_message_read(message, "sbs", &profile, &runtime, &copy_mode);
         if (r < 0)
                 return r;
+
+        if (sd_bus_message_is_method_call(message, NULL, "AttachImageWithExtensions") ||
+                        sd_bus_message_is_method_call(message, NULL, "AttachWithExtensions")) {
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+        }
 
         if (streq(copy_mode, "symlink"))
                 flags |= PORTABLE_PREFER_SYMLINK;
@@ -274,6 +292,7 @@ int bus_image_common_attach(
                         image->path,
                         matches,
                         profile,
+                        extension_images,
                         flags,
                         &changes,
                         &n_changes,
@@ -510,10 +529,11 @@ int bus_image_common_reattach(
 
         PortableChange *changes_detached = NULL, *changes_attached = NULL, *changes_gone = NULL;
         size_t n_changes_detached = 0, n_changes_attached = 0, n_changes_gone = 0;
-        _cleanup_strv_free_ char **matches = NULL;
+        _cleanup_strv_free_ char **matches = NULL, **extension_images = NULL;
         PortableFlags flags = PORTABLE_REATTACH;
         const char *profile, *copy_mode;
         int runtime, r;
+        uint64_t input_flags = 0;
 
         assert(message);
         assert(name_or_path || image);
@@ -523,6 +543,13 @@ int bus_image_common_reattach(
                 m = image->userdata;
         }
 
+        if (sd_bus_message_is_method_call(message, NULL, "ReattachImageWithExtensions") ||
+                        sd_bus_message_is_method_call(message, NULL, "ReattachWithExtensions")) {
+                r = sd_bus_message_read_strv(message, &extension_images);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_bus_message_read_strv(message, &matches);
         if (r < 0)
                 return r;
@@ -530,6 +557,13 @@ int bus_image_common_reattach(
         r = sd_bus_message_read(message, "sbs", &profile, &runtime, &copy_mode);
         if (r < 0)
                 return r;
+
+        if (sd_bus_message_is_method_call(message, NULL, "ReattachImageWithExtensions") ||
+                        sd_bus_message_is_method_call(message, NULL, "ReattachWithExtensions")) {
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+        }
 
         if (streq(copy_mode, "symlink"))
                 flags |= PORTABLE_PREFER_SYMLINK;
@@ -569,6 +603,7 @@ int bus_image_common_reattach(
                         image->path,
                         matches,
                         profile,
+                        extension_images,
                         flags,
                         &changes_attached,
                         &n_changes_attached,
@@ -734,6 +769,16 @@ const sd_bus_vtable image_vtable[] = {
                                 SD_BUS_RESULT("a(sss)", changes),
                                 bus_image_method_attach,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AttachWithExtensions",
+                                SD_BUS_ARGS("as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "b", runtime,
+                                            "s", copy_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("a(sss)", changes),
+                                bus_image_method_attach,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Detach",
                                 SD_BUS_ARGS("b", runtime),
                                 SD_BUS_RESULT("a(sss)", changes),
@@ -744,6 +789,17 @@ const sd_bus_vtable image_vtable[] = {
                                             "s", profile,
                                             "b", runtime,
                                             "s", copy_mode),
+                                SD_BUS_RESULT("a(sss)", changes_removed,
+                                              "a(sss)", changes_updated),
+                                bus_image_method_reattach,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ReattacheWithExtensions",
+                                SD_BUS_ARGS("as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "b", runtime,
+                                            "s", copy_mode,
+                                            "t", flags),
                                 SD_BUS_RESULT("a(sss)", changes_removed,
                                               "a(sss)", changes_updated),
                                 bus_image_method_reattach,
