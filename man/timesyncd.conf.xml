@@ -47,54 +47,59 @@
 
       <varlistentry>
         <term><varname>NTP=</varname></term>
-        <listitem><para>A space-separated list of NTP server host
-        names or IP addresses. During runtime this list is combined
-        with any per-interface NTP servers acquired from
+        <listitem><para>A space-separated list of NTP server host names or IP addresses. During runtime this
+        list is combined with any per-interface NTP servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        systemd-timesyncd will contact all configured system or
-        per-interface servers in turn until one is found that
-        responds. When the empty string is assigned, the list of
-        NTP servers is reset, and all assignments prior to this one
-        will have no effect. This setting defaults to an empty
-        list.</para></listitem>
+        <command>systemd-timesyncd</command> will contact all configured system or per-interface servers in
+        turn, until one responds. When the empty string is assigned, the list of NTP servers is reset, and
+        all prior assignments will have no effect. This setting defaults to an empty list.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>FallbackNTP=</varname></term>
-        <listitem><para>A space-separated list of NTP server host
-        names or IP addresses to be used as the fallback NTP servers.
-        Any per-interface NTP servers obtained from
+        <listitem><para>A space-separated list of NTP server host names or IP addresses to be used as the
+        fallback NTP servers. Any per-interface NTP servers obtained from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        take precedence over this setting, as do any servers set via
-        <varname>NTP=</varname> above. This setting is hence only used
-        if no other NTP server information is known. When the empty
-        string is assigned, the list of NTP servers is reset,
-        and all assignments prior to this one will have no effect.
-        If this option is not given, a compiled-in list of NTP servers
-        is used instead.</para></listitem>
+        take precedence over this setting, as do any servers set via <varname>NTP=</varname> above. This
+        setting is hence only relevant if no other NTP server information is known. When the empty string is
+        assigned, the list of NTP servers is reset, and all prior assignments will have no effect. If this
+        option is not given, a compiled-in list of NTP servers is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>RootDistanceMaxSec=</varname></term>
-        <listitem><para>Maximum acceptable root distance. Takes a time value (in seconds).
+        <listitem><para>Maximum acceptable root distance, i.e. the maximum estimated time required for a
+        packet to travel to the server we are connected to from the server with the reference clock. If
+        the current server does not satisfy this limit, <command>systemd-timesyncd</command> will switch
+        to a different server.</para>
+
+        <para>Takes a time value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Defaults to 5 seconds.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>PollIntervalMinSec=</varname></term>
         <term><varname>PollIntervalMaxSec=</varname></term>
-        <listitem><para>The minimum and maximum poll intervals for NTP messages.
-        Each setting takes a time value (in seconds).
-        <varname>PollIntervalMinSec=</varname> must not be smaller than 16 seconds.
-        <varname>PollIntervalMaxSec=</varname> must be larger than <varname>PollIntervalMinSec=</varname>.
-        <varname>PollIntervalMinSec=</varname> defaults to 32 seconds, and
-        <varname>PollIntervalMaxSec=</varname> defaults to 2048 seconds.</para></listitem>
+        <listitem><para>The minimum and maximum poll intervals for NTP messages. Polling starts at the
+        minimum poll interval, and is adjusted within the specified limits in response to received packets.
+        </para>
+
+        <para>Each setting takes a time value. The default unit is seconds, but other units may be specified,
+        see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <varname>PollIntervalMinSec=</varname> defaults to 32 seconds and must not be smaller than
+        16 seconds. <varname>PollIntervalMaxSec=</varname> defaults to 34 min 8 s (2048 seconds) and must be
+        larger than <varname>PollIntervalMinSec=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ConnectionRetrySec=</varname></term>
-        <listitem><para>Specifies the delaying attempts to contact servers after network is online. Takes a time value (in seconds).
-        Defaults to 30 seconds and must not be smaller than 1 seconds.</para></listitem>
+        <listitem><para>Specifies the minimum delay before subsequent attempts to contact a new NTP server
+        are made.</para>
+
+        <para>Takes a time value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Defaults to 30 seconds and must not be smaller than 1 second.</para></listitem>
       </varlistentry>
 
     </variablelist>

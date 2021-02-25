@@ -34,7 +34,7 @@
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
 #endif
 
-/* expected accuracy of time synchronization; used to adjust the poll interval */
+/* Expected accuracy of time synchronization; used to adjust the poll interval */
 #define NTP_ACCURACY_SEC                0.2
 
 /*
@@ -45,7 +45,7 @@
 #define NTP_MAX_ADJUST                  0.4
 
 /* Default of maximum acceptable root distance in microseconds. */
-#define NTP_MAX_ROOT_DISTANCE           (5 * USEC_PER_SEC)
+#define NTP_ROOT_DISTANCE_MAX_USEC      (5 * USEC_PER_SEC)
 
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
@@ -507,7 +507,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         }
 
         root_distance = ntp_ts_short_to_d(&ntpmsg.root_delay) / 2 + ntp_ts_short_to_d(&ntpmsg.root_dispersion);
-        if (root_distance > (double) m->max_root_distance_usec / (double) USEC_PER_SEC) {
+        if (root_distance > (double) m->root_distance_max_usec / (double) USEC_PER_SEC) {
                 log_info("Server has too large root distance. Disconnecting.");
                 return manager_connect(m);
         }
@@ -1081,7 +1081,7 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        m->max_root_distance_usec = NTP_MAX_ROOT_DISTANCE;
+        m->root_distance_max_usec = NTP_ROOT_DISTANCE_MAX_USEC;
         m->poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC;
         m->poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC;
 
