@@ -79,16 +79,18 @@ int extension_release_validate(
 }
 
 int parse_env_extension_hierarchies(char ***ret_hierarchies) {
+        _cleanup_free_ char **l = NULL;
         int r;
 
-        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", ret_hierarchies);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse SYSTEMD_SYSEXT_HIERARCHIES environment variable : %m");
-        if (!*ret_hierarchies) {
-                *ret_hierarchies = strv_new("/usr", "/opt");
-                if (!*ret_hierarchies)
+        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", &l);
+        if (r == -ENXIO) {
+                /* Default when unset */
+                l = strv_new("/usr", "/opt");
+                if (!l)
                         return -ENOMEM;
-        }
+        } else if (r < 0)
+                return r;
 
+        *ret_hierarchies = TAKE_PTR(l);
         return 0;
 }
