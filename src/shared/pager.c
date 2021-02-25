@@ -262,7 +262,7 @@ int pager_open(PagerFlags flags) {
         if (r < 0)
                 return r;
         if (r > 0)
-                (void) ignore_signals(SIGINT, -1);
+                (void) ignore_signals(SIGINT);
 
         return 1;
 }

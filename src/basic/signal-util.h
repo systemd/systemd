@@ -8,9 +8,28 @@
 int reset_all_signal_handlers(void);
 int reset_signal_mask(void);
 
-int ignore_signals(int sig, ...);
-int default_signals(int sig, ...);
-int sigaction_many(const struct sigaction *sa, ...);
+int sigaction_many_internal(const struct sigaction *sa, ...);
+
+#define ignore_signals(...)                                             \
+        sigaction_many_internal(                                        \
+                        &(const struct sigaction) {                     \
+                                .sa_handler = SIG_IGN,                  \
+                                .sa_flags = SA_RESTART                  \
+                        },                                              \
+                        __VA_ARGS__,                                    \
+                        -1)
+
+#define default_signals(...)                                            \
+        sigaction_many_internal(                                        \
+                        &(const struct sigaction) {                     \
+                                .sa_handler = SIG_DFL,                  \
+                                .sa_flags = SA_RESTART                  \
+                        },                                              \
+                        __VA_ARGS__,                                    \
+                        -1)
+
+#define sigaction_many(sa, ...)                                         \
+        sigaction_many_internal(sa, __VA_ARGS__, -1)
 
 int sigset_add_many(sigset_t *ss, ...);
 int sigprocmask_many(int how, sigset_t *old, ...);

@@ -1110,7 +1110,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 return log_oom();
 
         /* Don't interfere with gdb and its handling of SIGINT. */
-        (void) ignore_signals(SIGINT, -1);
+        (void) ignore_signals(SIGINT);
 
         fork_name = strjoina("(", debugger_call[0], ")");
 
@@ -1127,7 +1127,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
         r = wait_for_terminate_and_check(debugger_call[0], pid, WAIT_LOG_ABNORMAL);
 
 finish:
-        (void) default_signals(SIGINT, -1);
+        (void) default_signals(SIGINT);
 
         if (unlink_path) {
                 log_debug("Removed temporary file %s", path);

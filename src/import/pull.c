@@ -349,7 +349,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        (void) ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE);
 
         return pull_main(argc, argv);
 }
