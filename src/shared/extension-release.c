@@ -5,6 +5,7 @@
 #include "extension-release.h"
 #include "log.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "strv.h"
 
 int extension_release_validate(
@@ -79,16 +80,46 @@ int extension_release_validate(
 }
 
 int parse_env_extension_hierarchies(char ***ret_hierarchies) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *e;
+        char **p;
         int r;
 
-        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", ret_hierarchies);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse SYSTEMD_SYSEXT_HIERARCHIES environment variable : %m");
-        if (!*ret_hierarchies) {
-                *ret_hierarchies = strv_new("/usr", "/opt");
-                if (!*ret_hierarchies)
-                        return -ENOMEM;
+        assert(ret_hierarchies);
+
+        e = secure_getenv("");
+        if (e) {
+                r = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES: %m");
+
+                if (strv_isempty(l))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "$SYSTEMD_SYSEXT_HIERARCHIES: no paths specified, refusing.");
+
+                const char *error = NULL;
+                STRV_FOREACH(p, l) {
+                        if (!path_is_absolute(*p))
+                                error = "not absolute";
+                        else if (!path_is_normalized(*p))
+                                error = "not normalized";
+                        else if (path_equal(*p, "/"))
+                                error = "the root fs";
+                        else
+                                continue;
+                        break;
+                }
+
+                if (error)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "$SYSTEMD_SYSEXT_HIERARCHIES: path '%s' is %s, refusing.", *p, error);
+
+        } else {
+                l = strv_new("/usr", "/opt");
+                if (!l)
+                        return log_oom_debug();
         }
 
+        *ret_hierarchies = TAKE_PTR(l);
         return 0;
 }

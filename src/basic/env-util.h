@@ -62,7 +62,3 @@ int set_unset_env(const char *name, const char *value, bool overwrite);
 int putenv_dup(const char *assignment, bool override);
 
 int setenv_systemd_exec_pid(bool update_only);
-
-/* Parses and does sanity checks on an environment variable containing
- * PATH-like colon-separated absolute paths */
-int getenv_path_list(const char *name, char ***ret_paths);
