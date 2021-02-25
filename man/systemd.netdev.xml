@@ -181,13 +181,13 @@
           <entry>A virtual tunnel interface like vti/vti6 but with several advantages.</entry></row>
 
           <row><entry><varname>ifb</varname></entry>
-          <entry> The Intermediate Functional Block (ifb) pseudo network interface acts as a QoS concentrator for multiple different sources of traffic.</entry></row>
+          <entry>The Intermediate Functional Block (ifb) pseudo network interface acts as a QoS concentrator for multiple different sources of traffic.</entry></row>
 
           <row><entry><varname>bareudp</varname></entry>
-          <entry> Bare UDP tunnels provide a generic L3 encapsulation support for tunnelling different L3 protocols like MPLS, IP etc. inside of an UDP tunnel.</entry></row>
+          <entry>Bare UDP tunnels provide a generic L3 encapsulation support for tunnelling different L3 protocols like MPLS, IP etc. inside of an UDP tunnel.</entry></row>
 
           <row><entry><varname>batadv</varname></entry>
-          <entry> (<ulink url="https://www.open-mesh.org/projects/open-mesh/wiki">B.A.T.M.A.N. Advanced</ulink>) is a routing protocol for multi-hop mobile ad hoc networks which operates on layer2.</entry></row>
+          <entry><ulink url="https://www.open-mesh.org/projects/open-mesh/wiki">B.A.T.M.A.N. Advanced</ulink> is a routing protocol for multi-hop mobile ad-hoc networks which operates on layer 2.</entry></row>
         </tbody>
       </tgroup>
     </table>
