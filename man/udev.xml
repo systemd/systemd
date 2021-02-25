@@ -125,7 +125,7 @@
         <title>Values</title>
           <para>Values are written as double quoted strings, such as ("string").
           To include a quotation mark (") in the value, precede it by a backslash (\").
-          Any other occurrences of a character followed by a backslash are not further unescaped.
+          Any other occurrences of a backslash followed by a character are not unescaped.
           That is, "\t\n" is treated as four characters:
           backslash, lowercase t, backslash, lowercase n.</para>
 
@@ -459,7 +459,7 @@
               <para>Specify a program to be executed after processing of all the rules for the event. With
               <literal>+=</literal>, this invocation is added to the list, and with <literal>=</literal> or
               <literal>:=</literal>, it replaces any previous contents of the list. Please note that both
-              <literal>program</literal> and <literal>builtin</literal> types described below use a single
+              <literal>program</literal> and <literal>builtin</literal> types described below share a common
               list, so clearing the list with <literal>:=</literal> and <literal>=</literal> affects both
               types.</para>
 
