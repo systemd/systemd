@@ -788,7 +788,7 @@ static int manager_connect_console(Manager *m) {
                                        "Not enough real-time signals available: %u-%u",
                                        SIGRTMIN, SIGRTMAX);
 
-        assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
+        assert_se(ignore_signals(SIGRTMIN + 1) >= 0);
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);

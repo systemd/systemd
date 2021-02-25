@@ -60,7 +60,7 @@ int switch_root(int argc, char *argv[], void *userdata) {
 
         /* If we are slow to exit after the root switch, the new systemd instance will send us a signal to
          * terminate. Just ignore it and exit normally.  This way the unit does not end up as failed. */
-        r = ignore_signals(SIGTERM, -1);
+        r = ignore_signals(SIGTERM);
         if (r < 0)
                 log_warning_errno(r, "Failed to change disposition of SIGTERM to ignore: %m");
 
@@ -68,7 +68,7 @@ int switch_root(int argc, char *argv[], void *userdata) {
 
         r = bus_call_method(bus, bus_systemd_mgr, "SwitchRoot", &error, NULL, "ss", root, init);
         if (r < 0) {
-                (void) default_signals(SIGTERM, -1);
+                (void) default_signals(SIGTERM);
 
                 return log_error_errno(r, "Failed to switch root: %s", bus_error_message(&error, r));
         }

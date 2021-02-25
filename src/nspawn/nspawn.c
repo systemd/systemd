@@ -4850,7 +4850,7 @@ static int run_container(
         assert_se(sigprocmask(SIG_BLOCK, &mask_chld, NULL) >= 0);
 
         /* Reset signal to default */
-        r = default_signals(SIGCHLD, -1);
+        r = default_signals(SIGCHLD);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset SIGCHLD: %m");
 
@@ -5219,7 +5219,7 @@ static int run(int argc, char *argv[]) {
         /* Ignore SIGPIPE here, because we use splice() on the ptyfwd stuff and that will generate SIGPIPE if
          * the result is closed. Note that the container payload child will reset signal mask+handler anyway,
          * so just turning this off here means we only turn it off in nspawn itself, not any children. */
-        (void) ignore_signals(SIGPIPE, -1);
+        (void) ignore_signals(SIGPIPE);
 
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {

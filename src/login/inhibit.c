@@ -295,7 +295,7 @@ static int run(int argc, char *argv[]) {
                 pid_t pid;
 
                 /* Ignore SIGINT and allow the forked process to receive it */
-                (void) ignore_signals(SIGINT, -1);
+                (void) ignore_signals(SIGINT);
 
                 if (!arg_who) {
                         w = strv_join(argv + optind, " ");

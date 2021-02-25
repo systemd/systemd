@@ -4756,8 +4756,8 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
         if (r != 0)
                 return r;
 
-        (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
-        (void) ignore_signals(SIGPIPE, -1);
+        (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE);
+        (void) ignore_signals(SIGPIPE);
 
         (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
