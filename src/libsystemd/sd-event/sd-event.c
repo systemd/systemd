@@ -1462,7 +1462,7 @@ _public_ int sd_event_add_child(
                 if (r < 0)
                         return r;
 
-                e->need_process_child = true;
+                e->need_process_child = false;
         }
 
         e->n_online_child_sources++;
