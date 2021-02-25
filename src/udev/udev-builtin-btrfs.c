@@ -21,8 +21,17 @@ static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid arguments");
 
         fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
+        if (fd < 0) {
+                if (IN_SET(errno, ENOENT, ENXIO, ENODEV)) {
+                        /* Driver not installed? Then we aren't ready. This is useful in initrds that lack
+                         * btrfs.ko. After the host transition (where btrfs.ko will hopefully become
+                         * available) the device can be retriggered and will then be considered ready. */
+                        udev_builtin_add_property(dev, test, "ID_BTRFS_READY", "0");
+                        return 0;
+                }
+
                 return log_device_debug_errno(dev, errno, "Failed to open /dev/btrfs-control: %m");
+        }
 
         strscpy(args.name, sizeof(args.name), argv[2]);
         r = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);
