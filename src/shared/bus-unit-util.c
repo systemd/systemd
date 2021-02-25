@@ -1631,10 +1631,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(r, "Failed to parse argument: %m");
 
                 STRV_FOREACH_PAIR(first, second, l) {
-                        /* Format is either 'root:foo' or 'foo' (root is implied) */
-                        if (!isempty(*second) && partition_designator_from_string(*first) < 0)
-                                return bus_log_create_error(-EINVAL);
-
                         r = sd_bus_message_append(m, "(ss)",
                                                   !isempty(*second) ? *first : "root",
                                                   !isempty(*second) ? *second : *first);
@@ -1733,9 +1729,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                         break;
                                 }
-
-                                if (partition_designator_from_string(partition) < 0)
-                                        return bus_log_create_error(-EINVAL);
 
                                 r = sd_bus_message_append(m, "(ss)", partition, mount_options);
                                 if (r < 0)
@@ -1837,9 +1830,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
                                         break;
                                 }
-
-                                if (partition_designator_from_string(partition) < 0)
-                                        return bus_log_create_error(-EINVAL);
 
                                 r = sd_bus_message_append(m, "(ss)", partition, mount_options);
                                 if (r < 0)
