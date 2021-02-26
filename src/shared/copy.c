@@ -88,6 +88,23 @@ static int fd_is_nonblock_pipe(int fd) {
         return FLAGS_SET(flags, O_NONBLOCK) ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
 }
 
+static int look_for_signals(CopyFlags copy_flags) {
+        int r;
+
+        if ((copy_flags & (COPY_SIGINT|COPY_SIGTERM)) == 0)
+                return 0;
+
+        r = pop_pending_signal(copy_flags & COPY_SIGINT ? SIGINT : 0,
+                               copy_flags & COPY_SIGTERM ? SIGTERM : 0);
+        if (r < 0)
+                return r;
+        if (r != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINTR),
+                                       "Got %s, cancelling copy operation.", signal_to_string(r));
+
+        return 0;
+}
+
 int copy_bytes_full(
                 int fdf, int fdt,
                 uint64_t max_bytes,
@@ -176,13 +193,9 @@ int copy_bytes_full(
                 if (max_bytes <= 0)
                         return 1; /* return > 0 if we hit the max_bytes limit */
 
-                if (FLAGS_SET(copy_flags, COPY_SIGINT)) {
-                        r = pop_pending_signal(SIGINT);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                return -EINTR;
-                }
+                r = look_for_signals(copy_flags);
+                if (r < 0)
+                        return r;
 
                 if (max_bytes != UINT64_MAX && m > max_bytes)
                         m = max_bytes;
@@ -852,13 +865,9 @@ static int fd_copy_directory(
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                if (FLAGS_SET(copy_flags, COPY_SIGINT)) {
-                        r = pop_pending_signal(SIGINT);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                return -EINTR;
-                }
+                r = look_for_signals(copy_flags);
+                if (r < 0)
+                        return r;
 
                 if (fstatat(dirfd(d), de->d_name, &buf, AT_SYMLINK_NOFOLLOW) < 0) {
                         r = -errno;
@@ -919,7 +928,7 @@ static int fd_copy_directory(
                 else
                         q = -EOPNOTSUPP;
 
-                if (q == -EINTR) /* Propagate SIGINT up instantly */
+                if (q == -EINTR) /* Propagate SIGINT/SIGTERM up instantly */
                         return q;
                 if (q == -EEXIST && (copy_flags & COPY_MERGE))
                         q = 0;
