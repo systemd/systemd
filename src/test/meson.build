@@ -379,6 +379,8 @@ tests += [
 
         [['src/test/test-clock.c']],
 
+        [['src/test/test-tmpfile-util.c']],
+
         [['src/test/test-architecture.c']],
 
         [['src/test/test-log.c']],
