@@ -1,29 +1,21 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "selinux-access.h"
+#include "selinux-generic-access.h"
 
 #if HAVE_SELINUX
 
-#include <errno.h>
 #include <selinux/avc.h>
-#include <selinux/selinux.h>
 #if HAVE_AUDIT
 #include <libaudit.h>
 #endif
 
-#include "sd-bus.h"
-
-#include "alloc-util.h"
 #include "audit-fd.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "path-util.h"
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "strv.h"
-#include "util.h"
 
 static bool initialized = false;
 
@@ -31,6 +23,7 @@ struct audit_info {
         sd_bus_creds *creds;
         const char *path;
         const char *cmdline;
+        const char *function;
 };
 
 /*
@@ -58,10 +51,11 @@ static int audit_callback(
                 xsprintf(gid_buf, GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
-                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
                  login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
+                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "",
+                 audit->function ? " function=\"" : "", strempty(audit->function), audit->function ? "\"" : "");
 
         return 0;
 }
@@ -178,11 +172,13 @@ static int access_init(sd_bus_error *error) {
 int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
+                const char *class,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass, *scon;
+        const char *scon = NULL;
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
@@ -190,15 +186,17 @@ int mac_selinux_generic_access_check(
         int r = 0;
 
         assert(message);
+        assert(class);
         assert(permission);
         assert(error);
+        assert(func);
 
         r = access_init(error);
         if (r <= 0)
                 return r;
 
         /* delay call until we checked in `access_init()` if SELinux is actually enabled */
-        enforce = mac_selinux_enforcing();
+        enforce = security_getenforce() != 0;
 
         r = sd_bus_query_sender_creds(
                         message,
@@ -238,8 +236,6 @@ int mac_selinux_generic_access_check(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                 }
 
-                tclass = "service";
-
         } else {
                 if (getcon_raw(&fcon) < 0) {
                         r = -errno;
@@ -252,8 +248,6 @@ int mac_selinux_generic_access_check(
 
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                 }
-
-                tclass = "system";
         }
 
         sd_bus_creds_get_cmdline(creds, &cmdline);
@@ -263,9 +257,10 @@ int mac_selinux_generic_access_check(
                 .creds = creds,
                 .path = path,
                 .cmdline = cl,
+                .function = func,
         };
 
-        r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
+        r = selinux_check_access(scon, fcon, class, permission, &audit_info);
         if (r < 0) {
                 r = errno_or_else(EPERM);
 
@@ -273,20 +268,11 @@ int mac_selinux_generic_access_check(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
-                        scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
+        // TODO(cgzones): revert to debug
+        log_warning_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline='%s' func=%s result=%m",
+                          scon, fcon, class, permission, enforce ? "enforcing" : "permissive", strna(path), cl, func);
+
         return enforce ? r : 0;
-}
-
-#else /* HAVE_SELINUX */
-
-int mac_selinux_generic_access_check(
-                sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
-
-        return 0;
 }
 
 #endif /* HAVE_SELINUX */

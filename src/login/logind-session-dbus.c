@@ -13,6 +13,7 @@
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat-dbus.h"
+#include "logind-selinux-access.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
 #include "logind-session.h"
@@ -165,6 +166,10 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_TERMINATESESSION, error);
+        if (r < 0)
+                return r;
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_KILL,
@@ -193,6 +198,10 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_ACTIVATESESSION, error);
+        if (r < 0)
+                return r;
+
         r = check_polkit_chvt(message, s->manager, error);
         if (r < 0)
                 return r;
@@ -212,6 +221,10 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_LOCKSESSION, error);
+        if (r < 0)
+                return r;
 
         r = bus_verify_polkit_async(
                         message,
@@ -242,6 +255,10 @@ static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETIDLEHINT, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
@@ -276,6 +293,10 @@ static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETLOCKEDHINT, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
                 return r;
@@ -305,6 +326,10 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_KILLSESSION, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
@@ -351,6 +376,10 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_TAKECONTROL, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "b", &force);
         if (r < 0)
                 return r;
@@ -375,9 +404,14 @@ static int method_take_control(sd_bus_message *message, void *userdata, sd_bus_e
 
 static int method_release_control(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
+        int r;
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_RELEASECONTROL, error);
+        if (r < 0)
+                return r;
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
@@ -422,6 +456,10 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_TAKEDEVICE, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
@@ -473,6 +511,10 @@ static int method_release_device(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(s);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_RELEASEDEVICE, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
                 return r;
@@ -503,6 +545,10 @@ static int method_pause_device_complete(sd_bus_message *message, void *userdata,
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_PAUSEDEVICECOMPLETE, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
@@ -535,6 +581,10 @@ static int method_set_brightness(sd_bus_message *message, void *userdata, sd_bus
 
         assert(message);
         assert(s);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETBRIGHTNESS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "ssu", &subsystem, &name, &brightness);
         if (r < 0)

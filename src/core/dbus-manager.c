@@ -11,6 +11,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "dbus-callbackdata.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
@@ -29,7 +30,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -123,6 +124,10 @@ static int property_set_log_target(
         assert(bus);
         assert(value);
 
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETLOGTARGET, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(value, "s", &t);
         if (r < 0)
                 return r;
@@ -157,6 +162,10 @@ static int property_set_log_level(
 
         assert(bus);
         assert(value);
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETLOGLEVEL, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(value, "s", &t);
         if (r < 0)
@@ -322,6 +331,12 @@ static int property_set_runtime_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
+
         return property_set_watchdog(userdata, WATCHDOG_RUNTIME, value);
 }
 
@@ -333,6 +348,12 @@ static int property_set_reboot_watchdog(
                 sd_bus_message *value,
                 void *userdata,
                 sd_bus_error *error) {
+
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
 
         return property_set_watchdog(userdata, WATCHDOG_REBOOT, value);
 }
@@ -352,7 +373,31 @@ static int property_set_kexec_watchdog(
         assert(bus);
         assert(value);
 
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
+
         return property_set_watchdog(userdata, WATCHDOG_KEXEC, value);
+}
+
+static int property_set_service_watchdogs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
+
+        return bus_property_set_bool(bus, path, interface, property, value, userdata, error);
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
@@ -406,14 +451,11 @@ static int bus_load_unit_by_name(Manager *m, sd_bus_message *message, const char
 
 static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
-        int r;
 
         assert(u);
         assert(message);
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
-        if (r < 0)
-                return r;
+        /* No mac_selinux check: calling functions are performing one. */
 
         path = unit_dbus_path(u);
         if (!path)
@@ -438,6 +480,10 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
                 return r;
 
         r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
         if (r < 0)
                 return r;
 
@@ -478,6 +524,10 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
         u = manager_get_unit_by_pid(m, pid);
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid);
+
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
+        if (r < 0)
+                return r;
 
         return reply_unit_path(u, message, error);
 }
@@ -528,7 +578,7 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
                         return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(id));
         }
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
         if (r < 0)
                 return r;
 
@@ -558,6 +608,10 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
                                          "Control group '%s' is not valid or not managed by this instance",
                                          cgroup);
 
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
+        if (r < 0)
+                return r;
+
         return reply_unit_path(u, message, error);
 }
 
@@ -580,6 +634,10 @@ static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_LOADUNIT, error);
+        if (r < 0)
+                return r;
+
         return reply_unit_path(u, message, error);
 }
 
@@ -599,6 +657,7 @@ static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobTyp
         if (r < 0)
                 return r;
 
+        /* bus_unit_method_start_generic() includes a mac_selinux check */
         return bus_unit_method_start_generic(message, u, job_type, reload_if_possible, error);
 }
 
@@ -791,6 +850,10 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
         assert(message);
         assert(m);
 
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_LISTUNITS, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read_strv(message, &units);
         if (r < 0)
                 return r;
@@ -948,7 +1011,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "start", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_STARTTRANSIENT, error);
         if (r < 0)
                 return r;
 
@@ -971,6 +1034,10 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
                 return r;
 
         r = transient_aux_units_from_message(m, message, error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_START, error);
         if (r < 0)
                 return r;
 
@@ -998,7 +1065,7 @@ static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error 
         if (!j)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
 
-        r = mac_selinux_unit_access_check(j->unit, message, "status", error);
+        r = mac_selinux_unit_access_check(j->unit, message, MAC_SELINUX_UNIT_GETJOB, error);
         if (r < 0)
                 return r;
 
@@ -1036,7 +1103,7 @@ static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_err
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_CLEARJOBS, error);
         if (r < 0)
                 return r;
 
@@ -1058,7 +1125,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_RESETFAILED, error);
         if (r < 0)
                 return r;
 
@@ -1085,7 +1152,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_LISTUNITS, error);
         if (r < 0)
                 return r;
 
@@ -1165,7 +1232,7 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_LISTJOBS, error);
         if (r < 0)
                 return r;
 
@@ -1216,7 +1283,7 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SUBSCRIBE, error);
         if (r < 0)
                 return r;
 
@@ -1250,7 +1317,7 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_UNSUBSCRIBE, error);
         if (r < 0)
                 return r;
 
@@ -1275,7 +1342,7 @@ static int dump_impl(sd_bus_message *message, void *userdata, sd_bus_error *erro
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_DUMP, error);
         if (r < 0)
                 return r;
 
@@ -1353,11 +1420,11 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(m);
 
-        r = verify_run_space("Refusing to reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_RELOAD, error);
         if (r < 0)
                 return r;
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = verify_run_space("Refusing to reload", error);
         if (r < 0)
                 return r;
 
@@ -1389,11 +1456,11 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         assert(message);
         assert(m);
 
-        r = verify_run_space("Refusing to reexecute", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_REEXECUTE, error);
         if (r < 0)
                 return r;
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = verify_run_space("Refusing to reexecute", error);
         if (r < 0)
                 return r;
 
@@ -1417,7 +1484,7 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "halt", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_EXIT, error);
         if (r < 0)
                 return r;
 
@@ -1438,7 +1505,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reboot", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_REBOOT, error);
         if (r < 0)
                 return r;
 
@@ -1458,7 +1525,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "halt", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_POWEROFF, error);
         if (r < 0)
                 return r;
 
@@ -1478,7 +1545,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "halt", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_HALT, error);
         if (r < 0)
                 return r;
 
@@ -1498,7 +1565,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reboot", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_KEXEC, error);
         if (r < 0)
                 return r;
 
@@ -1522,6 +1589,10 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SWITCHROOT, error);
+        if (r < 0)
+                return r;
+
         if (statvfs("/run/systemd", &svfs) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
 
@@ -1534,10 +1605,6 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                             format_bytes(fb_available, sizeof(fb_available), available),
                             format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
         }
-
-        r = mac_selinux_access_check(message, "reboot", error);
-        if (r < 0)
-                return r;
 
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
@@ -1616,7 +1683,7 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SETENVIRONMENT, error);
         if (r < 0)
                 return r;
 
@@ -1647,7 +1714,7 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_UNSETENVIRONMENT, error);
         if (r < 0)
                 return r;
 
@@ -1680,7 +1747,7 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_UNSETANDSETENVIRONMENT, error);
         if (r < 0)
                 return r;
 
@@ -1720,7 +1787,7 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "exit", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SETEXITCODE, error);
         if (r < 0)
                 return r;
 
@@ -1744,6 +1811,10 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDYNAMICUSERS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read_basic(message, 's', &name);
         if (r < 0)
@@ -1776,6 +1847,11 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
         assert(m);
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDYNAMICUSERS, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read_basic(message, 'u', &uid);
         if (r < 0)
                 return r;
@@ -1805,6 +1881,10 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDYNAMICUSERS, error);
+        if (r < 0)
+                return r;
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
@@ -1849,7 +1929,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "start", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_ENQUEUEMARKEDJOBS, error);
         if (r < 0)
                 return r;
 
@@ -1886,7 +1966,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                 else
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, "start", error);
+                r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_TRYRESTART, error);
                 if (r >= 0)
                         r = bus_unit_queue_job_one(message, u,
                                                    JOB_TRY_RESTART, JOB_FAIL, flags,
@@ -1923,7 +2003,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_LISTUNITFILES, error);
         if (r < 0)
                 return r;
 
@@ -1994,7 +2074,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_STATEUNITFILE, error);
         if (r < 0)
                 return r;
 
@@ -2019,7 +2099,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDEFAULTTARGET, error);
         if (r < 0)
                 return r;
 
@@ -2185,11 +2265,27 @@ fail:
         return r;
 }
 
+static int mac_unit_callback_check(const char *unit_name, void *userdata) {
+        MacUnitCallbackUserdata *ud = userdata;
+        int r;
+
+        assert(unit_name);
+        assert(ud);
+
+        r = mac_selinux_unit_callback_check(unit_name, ud);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata),
                 bool carries_install_info,
+                mac_selinux_unit_permission mac_selinux_permission,
+                const char *func,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
@@ -2197,6 +2293,7 @@ static int method_enable_unit_files_generic(
         size_t n_changes = 0;
         UnitFileFlags flags;
         int r;
+        MacUnitCallbackUserdata mcud = { m, message, error, func, mac_selinux_permission };
 
         assert(message);
         assert(m);
@@ -2229,7 +2326,7 @@ static int method_enable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes);
+        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2237,31 +2334,31 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, MAC_SELINUX_UNIT_ENABLE, __func__, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, MAC_SELINUX_UNIT_ENABLE, __func__, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, MAC_SELINUX_UNIT_REENABLE, __func__, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, MAC_SELINUX_UNIT_LINK, __func__, error);
 }
 
-static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes) {
-        return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
+static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata) {
+        return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes, mac_check, userdata);
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, MAC_SELINUX_UNIT_PRESET, __func__, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, MAC_SELINUX_UNIT_MASK, __func__, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2274,6 +2371,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_PRESET };
 
         assert(message);
         assert(m);
@@ -2302,7 +2400,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, mm, &changes, &n_changes);
+        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, mm, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2312,7 +2410,9 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata),
+                mac_selinux_unit_permission mac_selinux_permissions,
+                const char *func,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
@@ -2320,6 +2420,7 @@ static int method_disable_unit_files_generic(
         UnitFileFlags flags;
         size_t n_changes = 0;
         int r;
+        MacUnitCallbackUserdata mcud = { m, message, error, func, mac_selinux_permissions };
 
         assert(message);
         assert(m);
@@ -2353,7 +2454,7 @@ static int method_disable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes);
+        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2361,15 +2462,15 @@ static int method_disable_unit_files_generic(
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, MAC_SELINUX_UNIT_DISABLE, __func__, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, MAC_SELINUX_UNIT_DISABLE, __func__, error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, MAC_SELINUX_UNIT_UNMASK, __func__, error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2378,6 +2479,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         size_t n_changes = 0;
         Manager *m = userdata;
         int r;
+        MacUnitCallbackUserdata mcud = {  m, message, error, __func__, MAC_SELINUX_UNIT_REVERT };
 
         assert(message);
         assert(m);
@@ -2392,7 +2494,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
+        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2409,7 +2511,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "enable", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SETDEFAULTTARGET, error);
         if (r < 0)
                 return r;
 
@@ -2438,11 +2540,12 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         const char *mode;
         UnitFileFlags flags;
         int force, runtime, r;
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_PRESET };
 
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "enable", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_PRESETALLUNITFILES, error);
         if (r < 0)
                 return r;
 
@@ -2466,7 +2569,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, mm, &changes, &n_changes);
+        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, mm, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2482,9 +2585,14 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         char *target, *type;
         UnitDependency dep;
         UnitFileFlags flags;
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_ADDDEPENDENCY };
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_ADDDEPENDENCYUNITFILES, error);
+        if (r < 0)
+                return r;
 
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
@@ -2506,7 +2614,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (dep < 0)
                 return -EINVAL;
 
-        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes);
+        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2514,6 +2622,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0, i;
@@ -2521,6 +2630,14 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         const char *name;
         char **p;
         int runtime, r;
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_GETUNITFILELINKS };
+
+        assert(message);
+        assert(m);
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETUNITFILELINKS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "sb", &name, &runtime);
         if (r < 0)
@@ -2538,7 +2655,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         flags = UNIT_FILE_DRY_RUN |
                 (runtime ? UNIT_FILE_RUNTIME : 0);
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes, mac_unit_callback_check, &mcud);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
@@ -2625,6 +2742,9 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -2670,7 +2790,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         /* The following item is an obsolete alias */
         SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", property_get_reboot_watchdog, property_set_reboot_watchdog, 0, SD_BUS_VTABLE_HIDDEN),
         SD_BUS_WRITABLE_PROPERTY("KExecWatchdogUSec", "t", property_get_kexec_watchdog, property_set_kexec_watchdog, 0, 0),
-        SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, service_watchdogs), 0),
+        SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, property_set_service_watchdogs, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
         SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
         SD_BUS_PROPERTY("ExitCode", "y", bus_property_get_unsigned, offsetof(Manager, return_value), 0),

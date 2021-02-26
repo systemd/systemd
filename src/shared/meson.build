@@ -8,6 +8,8 @@ shared_sources = files('''
         apparmor-util.h
         ask-password-api.c
         ask-password-api.h
+        audit-fd.c
+        audit-fd.h
         barrier.c
         barrier.h
         base-filesystem.c
@@ -226,6 +228,8 @@ shared_sources = files('''
         seccomp-util.h
         securebits-util.c
         securebits-util.h
+        selinux-generic-access.c
+        selinux-generic-access.h
         serialize.c
         serialize.h
         service-util.c
@@ -377,6 +381,7 @@ libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
 libshared_deps = [threads,
                   libacl,
+                  libaudit,
                   libblkid,
                   libcap,
                   libcrypt,

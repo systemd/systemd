@@ -16,6 +16,7 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "selinux-core-access.h"
 #include "serialize.h"
 #include "set.h"
 #include "sort-util.h"
@@ -1638,16 +1639,44 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
 
-const char* job_type_to_access_method(JobType t) {
+mac_selinux_unit_permission job_type_to_access_method(JobType t) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        if (IN_SET(t, JOB_START, JOB_RESTART, JOB_TRY_RESTART))
-                return "start";
-        else if (t == JOB_STOP)
-                return "stop";
-        else
-                return "reload";
+        switch (t) {
+
+        case JOB_START:
+                return MAC_SELINUX_UNIT_START;
+
+        case JOB_STOP:
+                return MAC_SELINUX_UNIT_STOP;
+
+        case JOB_RELOAD:
+                return MAC_SELINUX_UNIT_RELOAD;
+
+        case JOB_RESTART:
+                return MAC_SELINUX_UNIT_RESTART;
+
+        case JOB_TRY_RESTART:
+                return MAC_SELINUX_UNIT_TRYRESTART;
+
+        case JOB_VERIFY_ACTIVE:
+                return MAC_SELINUX_UNIT_VERIFYACTIVE;
+
+        case JOB_RELOAD_OR_START:
+                return MAC_SELINUX_UNIT_RELOADORSTART;
+
+        case JOB_TRY_RELOAD:
+                return MAC_SELINUX_UNIT_TRYRELOAD;
+
+        case JOB_NOP:
+                return MAC_SELINUX_UNIT_NOP;
+
+        default:
+                /* no other job type should be passed */
+                assert(0);
+                return MAC_SELINUX_UNIT_RESTART;
+        }
 }
 
 /*

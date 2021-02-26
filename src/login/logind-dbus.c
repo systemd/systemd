@@ -32,6 +32,7 @@
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat-dbus.h"
+#include "logind-selinux-access.h"
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
 #include "logind.h"
@@ -367,6 +368,10 @@ static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_GETSESSION, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -396,6 +401,10 @@ static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd
         assert(m);
 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_GETSESSIONBYPID, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
@@ -434,6 +443,10 @@ static int method_get_user(sd_bus_message *message, void *userdata, sd_bus_error
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_GETUSER, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
                 return r;
@@ -460,6 +473,10 @@ static int method_get_user_by_pid(sd_bus_message *message, void *userdata, sd_bu
         assert(m);
 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_GETUSERBYPID, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
@@ -498,6 +515,10 @@ static int method_get_seat(sd_bus_message *message, void *userdata, sd_bus_error
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_GETSEAT, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -521,6 +542,10 @@ static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_LISTSESSIONS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -563,6 +588,10 @@ static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_err
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_LISTUSERS, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -602,6 +631,10 @@ static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_err
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_LISTSEATS, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -637,6 +670,10 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_LISTINHIBITORS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -687,6 +724,10 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_CREATESESSION, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "uusssssussbss",
                                 &uid, &leader, &service, &type, &class, &desktop, &cseat,
@@ -983,6 +1024,10 @@ static int method_release_session(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_RELEASESESSION, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -1006,6 +1051,8 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
 
         assert(message);
         assert(m);
+
+        /* mac_selinux check in bus_session_method_activate() */
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -1031,6 +1078,10 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
         assert(m);
 
         /* Same as ActivateSession() but refuses to work if the seat doesn't match */
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_ACTIVATESESSIONONSEAT, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "ss", &session_name, &seat_name);
         if (r < 0)
@@ -1070,6 +1121,8 @@ static int method_lock_session(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(m);
 
+        /* mac_selinux check in bus_session_method_lock() */
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -1087,6 +1140,10 @@ static int method_lock_sessions(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_LOCKSESSIONS, error);
+        if (r < 0)
+                return r;
 
         r = bus_verify_polkit_async(
                         message,
@@ -1118,6 +1175,8 @@ static int method_kill_session(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(m);
 
+        /* max_selinux check in bus_session_method_kill() */
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -1137,6 +1196,8 @@ static int method_kill_user(sd_bus_message *message, void *userdata, sd_bus_erro
 
         assert(message);
         assert(m);
+
+        /* mac_selinux check in bus_user_method_kill() */
 
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
@@ -1158,6 +1219,8 @@ static int method_terminate_session(sd_bus_message *message, void *userdata, sd_
         assert(message);
         assert(m);
 
+        /* mac_selinux check in bus_session_method_terminate() */
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
@@ -1178,6 +1241,8 @@ static int method_terminate_user(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(m);
 
+        /* mac_selinux check in bus_user_method_terminate() */
+
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
                 return r;
@@ -1197,6 +1262,8 @@ static int method_terminate_seat(sd_bus_message *message, void *userdata, sd_bus
 
         assert(message);
         assert(m);
+
+        /* mac_selinux check in bus_seat_method_terminate() */
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -1220,6 +1287,10 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETUSERLINGER, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "ubb", &uid, &b, &interactive);
         if (r < 0)
@@ -1409,6 +1480,10 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_ATTACHDEVICE, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "ssb", &seat, &sysfs, &interactive);
         if (r < 0)
                 return r;
@@ -1457,6 +1532,10 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_FLUSHDEVICES, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "b", &interactive);
         if (r < 0)
@@ -1856,6 +1935,7 @@ static int method_do_shutdown_or_sleep(
                 Manager *m,
                 sd_bus_message *message,
                 const char *unit_name,
+                mac_selinux_logind_permission selinux_perm,
                 InhibitWhat w,
                 const char *action,
                 const char *action_multiple_sessions,
@@ -1872,6 +1952,10 @@ static int method_do_shutdown_or_sleep(
         assert(unit_name);
         assert(w >= 0);
         assert(w <= _INHIBIT_WHAT_MAX);
+
+        r = mac_selinux_logind_access_check(message, selinux_perm, error);
+        if (r < 0)
+                return r;
 
         if (with_flags) {
                 /* New style method: with flags parameter (and interactive bool in the bus message header) */
@@ -1928,6 +2012,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_POWEROFF_TARGET,
+                        MAC_SELINUX_LOGIND_POWEROFF,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.power-off",
                         "org.freedesktop.login1.power-off-multiple-sessions",
@@ -1943,6 +2028,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_REBOOT_TARGET,
+                        MAC_SELINUX_LOGIND_REBOOT,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.reboot",
                         "org.freedesktop.login1.reboot-multiple-sessions",
@@ -1958,6 +2044,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_HALT_TARGET,
+                        MAC_SELINUX_LOGIND_HALT,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.halt",
                         "org.freedesktop.login1.halt-multiple-sessions",
@@ -1973,6 +2060,7 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_SUSPEND_TARGET,
+                        MAC_SELINUX_LOGIND_SUSPEND,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.suspend",
                         "org.freedesktop.login1.suspend-multiple-sessions",
@@ -1988,6 +2076,7 @@ static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_erro
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_HIBERNATE_TARGET,
+                        MAC_SELINUX_LOGIND_HIBERNATE,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
@@ -2003,6 +2092,7 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_HYBRID_SLEEP_TARGET,
+                        MAC_SELINUX_LOGIND_HYBRIDSLEEP,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
@@ -2018,6 +2108,7 @@ static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata
         return method_do_shutdown_or_sleep(
                         m, message,
                         SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
+                        MAC_SELINUX_LOGIND_SUSPENDTHENHIBERNATE,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
@@ -2187,6 +2278,10 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         assert(m);
         assert(message);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SCHEDULESHUTDOWN, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "st", &type, &elapse);
         if (r < 0)
                 return r;
@@ -2284,9 +2379,14 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
 static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         bool cancelled;
+        int r;
 
         assert(m);
         assert(message);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_CANCELSCHEDULEDSHUTDOWN, error);
+        if (r < 0)
+                return r;
 
         cancelled = m->scheduled_shutdown_type != NULL;
         reset_scheduled_shutdown(m);
@@ -2296,7 +2396,6 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                 _cleanup_free_ char *username = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
-                int r;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_TTY|SD_BUS_CREDS_UID, &creds);
                 if (r >= 0) {
@@ -2315,6 +2414,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
 static int method_can_shutdown_or_sleep(
                 Manager *m,
                 sd_bus_message *message,
+                mac_selinux_logind_permission selinux_perm,
                 InhibitWhat w,
                 const char *action,
                 const char *action_multiple_sessions,
@@ -2336,6 +2436,10 @@ static int method_can_shutdown_or_sleep(
         assert(action);
         assert(action_multiple_sessions);
         assert(action_ignore_inhibit);
+
+        r = mac_selinux_logind_access_check(message, selinux_perm, error);
+        if (r < 0)
+                return r;
 
         if (sleep_verb) {
                 r = can_sleep(sleep_verb);
@@ -2432,6 +2536,7 @@ static int method_can_poweroff(sd_bus_message *message, void *userdata, sd_bus_e
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_POWEROFF,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.power-off",
                         "org.freedesktop.login1.power-off-multiple-sessions",
@@ -2445,6 +2550,7 @@ static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_err
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_REBOOT,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.reboot",
                         "org.freedesktop.login1.reboot-multiple-sessions",
@@ -2458,6 +2564,7 @@ static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_HALT,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.halt",
                         "org.freedesktop.login1.halt-multiple-sessions",
@@ -2471,6 +2578,7 @@ static int method_can_suspend(sd_bus_message *message, void *userdata, sd_bus_er
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_SUSPEND,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.suspend",
                         "org.freedesktop.login1.suspend-multiple-sessions",
@@ -2484,6 +2592,7 @@ static int method_can_hibernate(sd_bus_message *message, void *userdata, sd_bus_
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_HIBERNATE,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
@@ -2497,6 +2606,7 @@ static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_b
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_HYBRIDSLEEP,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
@@ -2510,6 +2620,7 @@ static int method_can_suspend_then_hibernate(sd_bus_message *message, void *user
 
         return method_can_shutdown_or_sleep(
                         m, message,
+                        MAC_SELINUX_LOGIND_SUSPENDTHENHIBERNATE,
                         INHIBIT_SLEEP,
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
@@ -2551,6 +2662,10 @@ static int method_set_reboot_parameter(
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTPARAMETER, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "s", &arg);
         if (r < 0)
@@ -2594,11 +2709,16 @@ static int method_can_reboot_parameter(
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTPARAMETER, error);
+        if (r < 0)
+                return r;
+
         r = detect_container();
         if (r < 0)
                 return r;
         if (r > 0) /* Inside containers, specifying a reboot parameter, doesn't make much sense */
                 return sd_bus_reply_method_return(message, "s", "na");
+
 
         return return_test_polkit(
                         message,
@@ -2656,6 +2776,10 @@ static int method_set_reboot_to_firmware_setup(
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTTOFIRMWARESETUP, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
@@ -2725,6 +2849,10 @@ static int method_can_reboot_to_firmware_setup(
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTTOFIRMWARESETUP, error);
+        if (r < 0)
+                return r;
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
         if (r == -ENXIO) {
@@ -2821,6 +2949,10 @@ static int method_set_reboot_to_boot_loader_menu(
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTTOBOOTLOADERMENU, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "t", &x);
         if (r < 0)
                 return r;
@@ -2902,6 +3034,10 @@ static int method_can_reboot_to_boot_loader_menu(
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTTOBOOTLOADERMENU, error);
+        if (r < 0)
+                return r;
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
@@ -3012,6 +3148,10 @@ static int method_set_reboot_to_boot_loader_entry(
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTTOBOOTLOADERENTRY, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "s", &v);
         if (r < 0)
                 return r;
@@ -3098,6 +3238,10 @@ static int method_can_reboot_to_boot_loader_entry(
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETREBOOTTOBOOTLOADERENTRY, error);
+        if (r < 0)
+                return r;
+
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
         if (r == -ENXIO) {
                 uint64_t features = 0;
@@ -3182,6 +3326,10 @@ static int method_set_wall_message(
         assert(message);
         assert(m);
 
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_SETWALLMESSAGE, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(message, "sb", &wall_message, &enable_wall_messages);
         if (r < 0)
                 return r;
@@ -3229,6 +3377,10 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_logind_access_check(message, MAC_SELINUX_LOGIND_INHIBIT, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "ssss", &what, &who, &why, &mode);
         if (r < 0)
@@ -3330,6 +3482,9 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, "h", fifo_fd);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
