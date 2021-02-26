@@ -2157,6 +2157,7 @@ static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_PIDS] = "pids",
         [CGROUP_CONTROLLER_BPF_FIREWALL] = "bpf-firewall",
         [CGROUP_CONTROLLER_BPF_DEVICES] = "bpf-devices",
+        [CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES] = "bpf-restrict-network-interfaces",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
