@@ -21,6 +21,7 @@ typedef enum CopyFlags {
         COPY_HARDLINKS   = 1 << 8,  /* Try to reproduce hard links */
         COPY_FSYNC       = 1 << 9,  /* fsync() after we are done */
         COPY_FSYNC_FULL  = 1 << 10, /* fsync_full() after we are done */
+        COPY_SYNCFS      = 1 << 11, /* syncfs() the *top-level* dir after we are done */
 } CopyFlags;
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
