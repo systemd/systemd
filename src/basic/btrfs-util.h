@@ -127,3 +127,13 @@ static inline int btrfs_log_dev_root(int level, int ret, const char *p) {
                               "File system behind %s is reported by btrfs to be backed by pseudo-device /dev/root, which is not a valid userspace accessible device node. "
                               "Cannot determine correct backing block device.", p);
 }
+
+static inline bool btrfs_might_be_subvol(const struct stat *st) {
+        if (!st)
+                return false;
+
+        /* Returns true if this 'struct stat' looks like it could refer to a btrfs subvolume. To make a final
+         * decision, needs to be combined with an fstatfs() check to see if this is actually btrfs. */
+
+        return S_ISDIR(st->st_mode) && st->st_ino == 256;
+}

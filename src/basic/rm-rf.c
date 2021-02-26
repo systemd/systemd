@@ -147,7 +147,7 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         if (r > 0)
                                 continue;
 
-                        if ((flags & REMOVE_SUBVOLUME) && st.st_ino == 256) {
+                        if ((flags & REMOVE_SUBVOLUME) && btrfs_might_be_subvol(&st)) {
 
                                 /* This could be a subvolume, try to remove it */
 
