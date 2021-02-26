@@ -673,3 +673,58 @@ assert_cc(__NR_statx == systemd_NR_statx);
 #  endif
 #endif
 
+#ifndef __IGNORE_epoll_pwait2
+#  if defined(__aarch64__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__alpha__)
+#    define systemd_NR_epoll_pwait2 551
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__arm__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__i386__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__ia64__)
+#    define systemd_NR_epoll_pwait2 1465
+#  elif defined(__m68k__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_epoll_pwait2 4441
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_epoll_pwait2 6441
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_epoll_pwait2 5441
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__s390__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__sparc__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_epoll_pwait2 (441 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_epoll_pwait2 441
+#    endif
+#  else
+#    warning "epoll_pwait2() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_epoll_pwait2 && __NR_epoll_pwait2 >= 0
+#    if defined systemd_NR_epoll_pwait2
+assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
+#    endif
+#  else
+#    if defined __NR_epoll_pwait2
+#      undef __NR_epoll_pwait2
+#    endif
+#    if defined systemd_NR_epoll_pwait2 && systemd_NR_epoll_pwait2 >= 0
+#      define __NR_epoll_pwait2 systemd_NR_epoll_pwait2
+#    endif
+#  endif
+#endif

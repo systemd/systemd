@@ -17,7 +17,8 @@ SYSCALLS = [
     'pkey_mprotect',
     'renameat2',
     'setns',
-    'statx']
+    'statx',
+    'epoll_pwait2']
 
 def dictify(f):
     def wrap(*args, **kwargs):

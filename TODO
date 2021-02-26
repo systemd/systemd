@@ -39,9 +39,6 @@ Features:
   time-based policy, so that the verification key can remain on host and ve
   validated via TPM.
 
-* sd-event: port to new kernel API epoll_wait2() (new in 5.11), to get more
-  accurate wait timeouts
-
 * sd-boot: define a drop-in dir in the ESP that may contain X.509
   certificates. If the firmware is detected to be in setup mode, automatically
   enroll them as PK/KEK/db, turn off setup mode and proceed. Optionally,
