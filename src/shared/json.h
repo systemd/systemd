@@ -293,8 +293,8 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
 int json_dispatch_boolean(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_tristate(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
-int json_dispatch_integer(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
-int json_dispatch_unsigned(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_intmax(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_uintmax(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
@@ -303,10 +303,10 @@ int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlag
 int json_dispatch_unsupported(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
 assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
-#define json_dispatch_uint64 json_dispatch_unsigned
+#define json_dispatch_uint64 json_dispatch_uintmax
 
 assert_cc(sizeof(intmax_t) == sizeof(int64_t));
-#define json_dispatch_int64 json_dispatch_integer
+#define json_dispatch_int64 json_dispatch_intmax
 
 assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 #define json_dispatch_uint json_dispatch_uint32
