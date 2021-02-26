@@ -92,7 +92,7 @@ int copy_bytes_full(
                 void **ret_remains,
                 size_t *ret_remains_size) {
 
-        bool try_cfr = true, try_sendfile = true, try_splice = true;
+        bool try_cfr = true, try_sendfile = true, try_splice = true, copied_something = false;
         int r, nonblock_pipe = -1;
         size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
 
@@ -185,9 +185,20 @@ int copy_bytes_full(
 
                                 try_cfr = false;
                                 /* use fallback below */
-                        } else if (n == 0) /* EOF */
-                                break;
-                        else
+                        } else if (n == 0) { /* likely EOF */
+
+                                if (copied_something)
+                                        break;
+
+                                /* So, we hit EOF immediately, without having copied a single byte. This
+                                 * could indicate two things: the file is actually empty, or we are on some
+                                 * virtual file system such as procfs/sysfs where the syscall actually
+                                 * doesn't work but doesn't return an error. Try to handle that, by falling
+                                 * back to simple read()s in case we encounter empty files.
+                                 *
+                                 * See: https://lwn.net/Articles/846403/ */
+                                try_cfr = try_sendfile = try_splice = false;
+                        } else
                                 /* Success! */
                                 goto next;
                 }
@@ -201,9 +212,14 @@ int copy_bytes_full(
 
                                 try_sendfile = false;
                                 /* use fallback below */
-                        } else if (n == 0) /* EOF */
+                        } else if (n == 0) { /* likely EOF */
+
+                                if (copied_something)
+                                        break;
+
+                                try_sendfile = try_splice = false; /* same logic as above for copy_file_range() */
                                 break;
-                        else
+                        } else
                                 /* Success! */
                                 goto next;
                 }
@@ -213,14 +229,14 @@ int copy_bytes_full(
 
                         /* splice()'s asynchronous I/O support is a bit weird. When it encounters a pipe file
                          * descriptor, then it will ignore its O_NONBLOCK flag and instead only honour the
-                         * SPLICE_F_NONBLOCK flag specified in its flag parameter. Let's hide this behaviour here, and
-                         * check if either of the specified fds are a pipe, and if so, let's pass the flag
-                         * automatically, depending on O_NONBLOCK being set.
+                         * SPLICE_F_NONBLOCK flag specified in its flag parameter. Let's hide this behaviour
+                         * here, and check if either of the specified fds are a pipe, and if so, let's pass
+                         * the flag automatically, depending on O_NONBLOCK being set.
                          *
-                         * Here's a twist though: when we use it to move data between two pipes of which one has
-                         * O_NONBLOCK set and the other has not, then we have no individual control over O_NONBLOCK
-                         * behaviour. Hence in that case we can't use splice() and still guarantee systematic
-                         * O_NONBLOCK behaviour, hence don't. */
+                         * Here's a twist though: when we use it to move data between two pipes of which one
+                         * has O_NONBLOCK set and the other has not, then we have no individual control over
+                         * O_NONBLOCK behaviour. Hence in that case we can't use splice() and still guarantee
+                         * systematic O_NONBLOCK behaviour, hence don't. */
 
                         if (nonblock_pipe < 0) {
                                 int a, b;
@@ -238,12 +254,13 @@ int copy_bytes_full(
                                     (a == FD_IS_BLOCKING_PIPE && b == FD_IS_NONBLOCKING_PIPE) ||
                                     (a == FD_IS_NONBLOCKING_PIPE && b == FD_IS_BLOCKING_PIPE))
 
-                                        /* splice() only works if one of the fds is a pipe. If neither is, let's skip
-                                         * this step right-away. As mentioned above, if one of the two fds refers to a
-                                         * blocking pipe and the other to a non-blocking pipe, we can't use splice()
-                                         * either, hence don't try either. This hence means we can only use splice() if
-                                         * either only one of the two fds is a pipe, or if both are pipes with the same
-                                         * nonblocking flag setting. */
+                                        /* splice() only works if one of the fds is a pipe. If neither is,
+                                         * let's skip this step right-away. As mentioned above, if one of the
+                                         * two fds refers to a blocking pipe and the other to a non-blocking
+                                         * pipe, we can't use splice() either, hence don't try either. This
+                                         * hence means we can only use splice() if either only one of the two
+                                         * fds is a pipe, or if both are pipes with the same nonblocking flag
+                                         * setting. */
 
                                         try_splice = false;
                                 else
@@ -259,9 +276,13 @@ int copy_bytes_full(
 
                                 try_splice = false;
                                 /* use fallback below */
-                        } else if (n == 0) /* EOF */
-                                break;
-                        else
+                        } else if (n == 0) { /* likely EOF */
+
+                                if (copied_something)
+                                        break;
+
+                                try_splice = false; /* same logic as above for copy_file_range() + sendfile() */
+                        } else
                                 /* Success! */
                                 goto next;
                 }
@@ -312,11 +333,13 @@ int copy_bytes_full(
                         assert(max_bytes >= (uint64_t) n);
                         max_bytes -= n;
                 }
-                /* sendfile accepts at most SSIZE_MAX-offset bytes to copy,
-                 * so reduce our maximum by the amount we already copied,
-                 * but don't go below our copy buffer size, unless we are
-                 * close the limit of bytes we are allowed to copy. */
+
+                /* sendfile accepts at most SSIZE_MAX-offset bytes to copy, so reduce our maximum by the
+                 * amount we already copied, but don't go below our copy buffer size, unless we are close the
+                 * limit of bytes we are allowed to copy. */
                 m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
+
+                copied_something = true;
         }
 
         return 0; /* return 0 if we hit EOF earlier than the size limit */
