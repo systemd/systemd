@@ -1,0 +1,10 @@
+[Unit]
+Description=TEST-62-RESTRICT-IFACES-invert-assigment
+[Service]
+ExecStart=/bin/sh -c '! ping -c 1 -W 0.2 192.168.113.1'
+ExecStart=/bin/sh -c 'ping -c 1 -W 0.2 192.168.113.5'
+ExecStart=/bin/sh -c '! ping -c 1 -W 0.2 192.168.113.9'
+RestrictNetworkInterfaces=veth0
+RestrictNetworkInterfaces=veth0 veth1
+RestrictNetworkInterfaces=~veth0
+Type=oneshot

@@ -672,6 +672,7 @@ setup_basic_environment() {
     has_user_dbus_socket && install_user_dbus
     setup_selinux
     strip_binaries
+    instmods veth
     install_depmod_files
     generate_module_dependencies
     if get_bool "$IS_BUILT_WITH_ASAN"; then
