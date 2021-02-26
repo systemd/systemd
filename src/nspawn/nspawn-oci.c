@@ -1424,7 +1424,7 @@ static int oci_cgroup_block_io_weight_device(const char *name, JsonVariant *v, J
                 static const JsonDispatch table[] =  {
                         { "major",      JSON_VARIANT_UNSIGNED, oci_device_major,       offsetof(struct device_data, major),  JSON_MANDATORY  },
                         { "minor",      JSON_VARIANT_UNSIGNED, oci_device_minor,       offsetof(struct device_data, minor),  JSON_MANDATORY  },
-                        { "weight",     JSON_VARIANT_UNSIGNED, json_dispatch_uintmax,  offsetof(struct device_data, weight), 0               },
+                        { "weight",     JSON_VARIANT_UNSIGNED, json_dispatch_unsigned, offsetof(struct device_data, weight), 0               },
                         { "leafWeight", JSON_VARIANT_INTEGER,  oci_unsupported,        0,                                    JSON_PERMISSIVE },
                         {}
                 };
@@ -1484,7 +1484,7 @@ static int oci_cgroup_block_io_throttle(const char *name, JsonVariant *v, JsonDi
                 static const JsonDispatch table[] = {
                         { "major", JSON_VARIANT_UNSIGNED, oci_device_major,       offsetof(struct device_data, major), JSON_MANDATORY },
                         { "minor", JSON_VARIANT_UNSIGNED, oci_device_minor,       offsetof(struct device_data, minor), JSON_MANDATORY },
-                        { "rate",  JSON_VARIANT_UNSIGNED, json_dispatch_uintmax,  offsetof(struct device_data, rate),  JSON_MANDATORY },
+                        { "rate",  JSON_VARIANT_UNSIGNED, json_dispatch_unsigned, offsetof(struct device_data, rate),  JSON_MANDATORY },
                         {}
                 };
 
