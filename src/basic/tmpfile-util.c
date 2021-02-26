@@ -94,15 +94,10 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
 }
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
-        const char *fn;
-        char *t;
+        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL;
+        int r;
 
         assert(ret);
-
-        if (isempty(p))
-                return -EINVAL;
-        if (path_equal(p, "/"))
-                return -EINVAL;
 
         /*
          * Turns this:
@@ -112,33 +107,40 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
          *         /foo/bar/.#<extra>waldoXXXXXX
          */
 
-        fn = basename(p);
-        if (!filename_is_valid(fn))
-                return -EINVAL;
+        r = path_extract_directory(p, &d);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
+                return r;
 
-        extra = strempty(extra);
+        r = path_extract_filename(p, &fn);
+        if (r < 0)
+                return r;
 
-        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
-        if (!t)
+        nf = strjoin(".#", strempty(extra), fn, "XXXXXX");
+        if (!nf)
                 return -ENOMEM;
 
-        strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
+        if (!filename_is_valid(nf)) /* New name is not valid? (Maybe because too long?) Refuse. */
+                return -EINVAL;
 
-        *ret = path_simplify(t, false);
+        if (d)  {
+                char *j;
+
+                j = path_join(d, nf);
+                if (!j)
+                        return -ENOMEM;
+
+                *ret = path_simplify(j, false);
+        } else
+                *ret = TAKE_PTR(nf);
+
         return 0;
 }
 
 int tempfn_random(const char *p, const char *extra, char **ret) {
-        const char *fn;
-        char *t, *x;
-        uint64_t u;
+        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL;
+        int r;
 
         assert(ret);
-
-        if (isempty(p))
-                return -EINVAL;
-        if (path_equal(p, "/"))
-                return -EINVAL;
 
         /*
          * Turns this:
@@ -148,27 +150,34 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
          *         /foo/bar/.#<extra>waldobaa2a261115984a9
          */
 
-        fn = basename(p);
-        if (!filename_is_valid(fn))
-                return -EINVAL;
+        r = path_extract_directory(p, &d);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
+                return r;
 
-        extra = strempty(extra);
+        r = path_extract_filename(p, &fn);
+        if (r < 0)
+                return r;
 
-        t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
-        if (!t)
+        if (asprintf(&nf, ".#%s%s%016" PRIx64,
+                     strempty(extra),
+                     fn,
+                     random_u64()) < 0)
                 return -ENOMEM;
 
-        x = stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn);
+        if (!filename_is_valid(nf)) /* Not valid? (maybe because too long now?) — refuse early */
+                return -EINVAL;
 
-        u = random_u64();
-        for (unsigned i = 0; i < 16; i++) {
-                *(x++) = hexchar(u & 0xF);
-                u >>= 4;
-        }
+        if (d) {
+                char *j;
 
-        *x = 0;
+                j = path_join(d, nf);
+                if (!j)
+                        return -ENOMEM;
 
-        *ret = path_simplify(t, false);
+                *ret = path_simplify(j, false);
+        } else
+                *ret = TAKE_PTR(nf);
+
         return 0;
 }
 
