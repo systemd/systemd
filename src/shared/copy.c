@@ -999,7 +999,17 @@ int copy_tree_at_full(
         if (r < 0)
                 return r;
 
-        if (copy_flags & COPY_FSYNC_FULL) {
+        if (S_ISDIR(st.st_mode) && (copy_flags & COPY_SYNCFS)) {
+                /* If the top-level inode is a directory run syncf() now. */
+                r = syncfs_path(fdt, to);
+                if (r < 0)
+                        return r;
+        } else if ((copy_flags & (COPY_FSYNC_FULL|COPY_SYNCFS)) != 0) {
+                /* fsync() the parent dir of what we jut copied iF COPY_FSYNC_FULL is set. Also do this in
+                 * case COPY_SYNCFS but the top-level inode wasn't actually a directory. We do this so that
+                 * COPY_SYNCFS provides reasonable synchronization semantics on any kind of inode: when the
+                 * copy operation is done the whole inode — regardless of its type — and all its children
+                 * will be synchronized to disk. */
                 r = fsync_parent_at(fdt, to);
                 if (r < 0)
                         return r;
@@ -1044,7 +1054,11 @@ int copy_directory_fd_full(
         if (r < 0)
                 return r;
 
-        if (copy_flags & COPY_FSYNC_FULL) {
+        if (copy_flags & COPY_SYNCFS) {
+                r = syncfs_path(AT_FDCWD, to);
+                if (r < 0)
+                        return r;
+        } else if (copy_flags & COPY_FSYNC_FULL) {
                 r = fsync_parent_at(AT_FDCWD, to);
                 if (r < 0)
                         return r;
@@ -1089,7 +1103,11 @@ int copy_directory_full(
         if (r < 0)
                 return r;
 
-        if (copy_flags & COPY_FSYNC_FULL) {
+        if (copy_flags & COPY_SYNCFS) {
+                r = syncfs_path(AT_FDCWD, to);
+                if (r < 0)
+                        return r;
+        } else if (copy_flags & COPY_FSYNC_FULL) {
                 r = fsync_parent_at(AT_FDCWD, to);
                 if (r < 0)
                         return r;
