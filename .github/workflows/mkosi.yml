@@ -29,17 +29,21 @@ jobs:
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect
 
-    # glibc 2.33-3 shipped on 2021-02-06 breaks running Arch containers on
-    # systems with older kernels (like Ubuntu Focal). Until the issue is
-    # resolved, let's pin the Arch repositories to glibc 2.32-5 to mitigate
-    # the annoying CI fails.
-    #
-    # See: https://bugs.archlinux.org/task/69563
-    - name: Pin repositories to 2021-02-05
-      run: sed -i '/^\[Distribution\]/aMirror=https://archive.archlinux.org/repos/2021/02/05/' .mkosi/mkosi.arch
-
     - name: Symlink
       run: ln -s .mkosi/mkosi.${{ matrix.distro }} mkosi.default
+
+    # Ubuntu's systemd-nspawn doesn't support faccessat2() syscall, which is
+    # required, since current Arch's glibc implements faccessat() via faccessat2().
+    - name: Update systemd-nspawn
+      if: ${{ matrix.distro == 'arch' }}
+      run: |
+        echo "deb-src http://archive.ubuntu.com/ubuntu/ $(lsb_release -cs) main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+        sudo apt update
+        sudo apt build-dep systemd
+        meson build
+        ninja -C build
+        sudo ln -svf $PWD/build/systemd-nspawn `which systemd-nspawn`
+        systemd-nspawn --version
 
     - name: Build ${{ matrix.distro }}
       run: sudo python3 -m mkosi --password= --qemu-headless build
