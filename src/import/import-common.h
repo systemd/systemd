@@ -18,9 +18,6 @@ typedef enum ImportFlags {
         IMPORT_FLAGS_MASK_RAW = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_CONVERT_QCOW2|IMPORT_DIRECT|IMPORT_SYNC,
 } ImportFlags;
 
-int import_make_read_only_fd(int fd);
-int import_make_read_only(const char *path);
-
 int import_fork_tar_c(const char *path, pid_t *ret);
 int import_fork_tar_x(const char *path, pid_t *ret);
 
