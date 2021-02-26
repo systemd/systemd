@@ -1465,9 +1465,14 @@ int fsync_full(int fd) {
         /* Sync both the file and the directory */
 
         r = fsync(fd) < 0 ? -errno : 0;
-        q = fsync_directory_of_file(fd);
 
-        return r < 0 ? r : q;
+        q = fsync_directory_of_file(fd);
+        if (r < 0) /* Return earlier error */
+                return r;
+        if (q == -ENOTTY) /* Ignore if the 'fd' refers to a block device or so which doesn't really have a
+                           * parent dir */
+                return 0;
+        return q;
 }
 
 int fsync_path_at(int at_fd, const char *path) {
