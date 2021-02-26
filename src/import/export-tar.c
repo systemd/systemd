@@ -283,7 +283,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
 
         e->quota_referenced = (uint64_t) -1;
 
-        if (e->st.st_ino == 256) { /* might be a btrfs subvolume? */
+        if (btrfs_might_be_subvol(&e->st)) {
                 BtrfsQuotaInfo q;
 
                 r = btrfs_subvol_get_subtree_quota_fd(sfd, 0, &q);
