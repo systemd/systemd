@@ -32,29 +32,11 @@
 
   <refsect1>
     <title>Description</title>
-    <para><filename>systemd-coredump@.service</filename> is a system service that can acquire core
-    dumps from the kernel and handle them in various ways. The <command>systemd-coredump</command>
-    executable does the actual work. It is invoked twice: once as the handler by the kernel, and the
-    second time in the <filename>systemd-coredump@.service</filename> to actually write the data to
-    the journal.</para>
-
-    <para>When the kernel invokes <command>systemd-coredump</command> to handle a core dump, it runs
-    in privileged mode, and will connect to the socket created by the
-    <filename>systemd-coredump.socket</filename> unit, which in turn will spawn an unprivileged
-    <filename>systemd-coredump@.service</filename> instance to process the core dump. Hence
-    <filename>systemd-coredump.socket</filename> and <filename>systemd-coredump@.service</filename>
-    are helper units which do the actual processing of core dumps and are subject to normal service
-    management.</para>
-
-    <para>Core dumps can be written to the journal or saved as a file. Once saved they can be retrieved
-    for further processing, for example in
-    <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    </para>
-
-    <para>By default, <command>systemd-coredump</command> will log the core dump including a backtrace
-    if possible to the journal and store the core dump itself in an external file in
-    <filename>/var/lib/systemd/coredump</filename>. These core dumps are deleted after a few days by
-    default; see <filename>/usr/lib/tmpfiles.d/systemd.conf</filename> for details.</para>
+    <para><filename>systemd-coredump@.service</filename> is a system service to process core dumps. It will
+    log a summary of the event to
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    including information about the process identifier, owner, the signal that killed the process, and the
+    stack trace if possible. It may also save the core dump for later processing.</para>
 
     <para>The behavior of a specific program upon reception of a signal is governed by a few
     factors which are described in detail in
@@ -62,14 +44,47 @@
     In particular, the core dump will only be processed when the related resource limits are sufficient.
     </para>
 
-    <para>It is also possible to invoke <command>systemd-coredump</command> with
-    <option>--backtrace</option> option. In this case, <command>systemd-coredump</command> expects
-    a journal entry in the journal
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>
-    on standard input. The entry should contain a <varname>MESSAGE=</varname> field and any additional
-    metadata fields the caller deems reasonable. <command>systemd-coredump</command> will append
-    additional metadata fields in the same way it does for core dumps received from the kernel. In
-    this mode, no core dump is stored in the journal.</para>
+    <para>Core dumps can be written to the journal or saved as a file. In both cases, they can be retrieved
+    for further processing, for example in
+    <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    See <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    in particular the <command>list</command> and <command>debug</command> verbs.</para>
+
+    <para>By default, <command>systemd-coredump</command> will log the core dump to the journal, including a
+    backtrace if possible, and store the core dump (an image of the memory contents of the process) itself in
+    an external file in <filename>/var/lib/systemd/coredump</filename>. These core dumps are deleted after a
+    few days by default; see <filename>/usr/lib/tmpfiles.d/systemd.conf</filename> for details. Note that the
+    removal of core files from the file system and the purging of journal entries are independent, and the
+    core file may be present without the journal entry, and journal entries may point to since-removed core
+    files. Metadata is attached to core files in the form of extended attributes, so the core files may be
+    useful even without the full metadata available in the journal entry.
+    </para>
+
+    <refsect2>
+      <title>Invocation of <command>systemd-coredump</command></title>
+
+      <para>The <command>systemd-coredump</command> executable does the actual work. It is invoked twice:
+      once as the handler by the kernel, and the second time in the
+      <filename>systemd-coredump@.service</filename> to actually write the data to the journal and process
+      and save the core file.</para>
+
+      <para>When the kernel invokes <command>systemd-coredump</command> to handle a core dump, it runs in
+      privileged mode, and will connect to the socket created by the
+      <filename>systemd-coredump.socket</filename> unit, which in turn will spawn an unprivileged
+      <filename>systemd-coredump@.service</filename> instance to process the core dump. Hence
+      <filename>systemd-coredump.socket</filename> and <filename>systemd-coredump@.service</filename> are
+      helper units which do the actual processing of core dumps and are subject to normal service
+      management.</para>
+
+      <para>It is also possible to invoke <command>systemd-coredump</command> with
+      <option>--backtrace</option> option. In this case, <command>systemd-coredump</command> expects a
+      journal entry in the journal
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>
+      on standard input. The entry should contain a <varname>MESSAGE=</varname> field and any additional
+      metadata fields the caller deems reasonable. <command>systemd-coredump</command> will append additional
+      metadata fields in the same way it does for core dumps received from the kernel. In this mode, no core
+      dump is stored in the journal.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -118,9 +133,8 @@
     <refsect2>
       <title>Disabling coredump processing</title>
 
-      <para>To disable potentially resource-intensive processing by <command>systemd-coredump</command>,
-      set <programlisting>Storage=none
-ProcessSizeMax=0</programlisting> in
+      <para>To disable potentially resource-intensive processing by <command>systemd-coredump</command>, set
+      <programlisting>Storage=none ProcessSizeMax=0</programlisting> in
       <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para>
     </refsect2>
@@ -129,10 +143,9 @@ ProcessSizeMax=0</programlisting> in
   <refsect1>
     <title>Usage</title>
     <para>Data stored in the journal can be viewed with
-    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    as usual.
-    <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    can be used to retrieve saved core dumps independent of their location, to display information and to process
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> as usual.
+    <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> can be
+    used to retrieve saved core dumps independent of their location, to display information and to process
     them e.g. by passing to the GNU debugger (gdb).</para>
   </refsect1>
 
