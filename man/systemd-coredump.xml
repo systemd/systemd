@@ -36,7 +36,8 @@
     log a summary of the event to
     <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     including information about the process identifier, owner, the signal that killed the process, and the
-    stack trace if possible. It may also save the core dump for later processing.</para>
+    stack trace if possible. It may also save the core dump for later processing. See the "Information about
+    the crashed process" section below.</para>
 
     <para>The behavior of a specific program upon reception of a signal is governed by a few
     factors which are described in detail in
@@ -141,12 +142,233 @@
   </refsect1>
 
   <refsect1>
-    <title>Usage</title>
-    <para>Data stored in the journal can be viewed with
-    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> as usual.
-    <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> can be
-    used to retrieve saved core dumps independent of their location, to display information and to process
-    them e.g. by passing to the GNU debugger (gdb).</para>
+    <title>Information about the crashed process</title>
+
+    <para><citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> can
+    be used to retrieve saved core dumps independently of their location, to display information, and to
+    process them e.g. by passing to the GNU debugger (gdb).</para>
+
+    <para>Data stored in the journal can be also viewed with
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> as usual
+    (or from any other process, using the
+    <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry> API).
+    The relevant messages have <constant>MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1</constant>:</para>
+    <programlisting>$ journalctl MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1 -o verbose
+…
+MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
+COREDUMP_PID=552351
+COREDUMP_UID=1000
+COREDUMP_GID=1000
+COREDUMP_SIGNAL_NAME=SIGSEGV
+COREDUMP_SIGNAL=11
+COREDUMP_TIMESTAMP=1614342930000000
+COREDUMP_COMM=Web Content
+COREDUMP_EXE=/usr/lib64/firefox/firefox
+COREDUMP_USER_UNIT=app-gnome-firefox-552136.scope
+COREDUMP_CMDLINE=/usr/lib64/firefox/firefox -contentproc -childID 5 -isForBrowser …
+COREDUMP_CGROUP=/user.slice/user-1000.slice/user@1000.service/app.slice/app-….scope
+COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
+…
+    </programlisting>
+
+    <para>The following fields are saved (if known) with the journal entry</para>
+
+    <variablelist class='journal-directives'>
+      <varlistentry>
+        <term><varname>COREDUMP_UID=</varname></term>
+        <term><varname>COREDUMP_PID=</varname></term>
+        <term><varname>COREDUMP_GID=</varname></term>
+        <listitem><para>The process number (PID) and owner (PID and GID) of the crashed process.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_TIMESTAMP=</varname></term>
+        <listitem><para>The time the crash was reported by the kernel (in µs since the epoch).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_RLIMIT=</varname></term>
+        <listitem><para>The core file size soft resource limit, see
+        <citerefentry project='man-pages'><refentrytitle>getrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_UNIT=</varname></term>
+        <term><varname>COREDUMP_SLICE=</varname></term>
+        <listitem><para>The system unit and slice names.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_CGROUP=</varname></term>
+        <listitem><para>Control group information in the format used in
+        <filename>/proc/self/cgroup</filename>. On systems with the unified cgroup hierarchy, this is a
+        single path prefixed with <literal>0::</literal>, and multiple paths prefixed with controller numbers
+        on legacy systems.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_OWNER_UID=</varname></term>
+        <term><varname>COREDUMP_USER_UNIT=</varname></term>
+        <listitem><para>The numerical UID of the user owning the login session or systemd user unit of the
+        crashed process, and the user manager unit. Both fields are only present for user processes.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_SIGNAL_NAME=</varname></term>
+        <term><varname>COREDUMP_SIGNAL=</varname></term>
+
+        <listitem><para>The terminating signal name and numerical value. (Both are included because signal
+        numbers vary by architecture.)</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_CWD=</varname></term>
+        <term><varname>COREDUMP_ROOT=</varname></term>
+
+        <listitem><para>The current working directory and root directory of the crashed process.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_OPEN_FDS=</varname></term>
+
+        <listitem><para>Information about open file descriptors, in the following format:</para>
+        <programlisting><replaceable>fd</replaceable>:<replaceable>/path/to/file</replaceable>
+pos:     ...
+flags:   ...
+...
+
+<replaceable>fd</replaceable>:<replaceable>/path/to/file</replaceable>
+pos:     ...
+flags:   ...
+...
+        </programlisting>
+
+        <para>The first line contains the file descriptor number <replaceable>fd</replaceable> and the path,
+        while subsequent lines show the contents of
+        <filename>/proc/<replaceable>pid</replaceable>/fdinfo/<replaceable>fd</replaceable></filename>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_COMM=</varname></term>
+        <term><varname>COREDUMP_EXE=</varname></term>
+        <term><varname>COREDUMP_PROC_STATUS=</varname></term>
+        <term><varname>COREDUMP_PROC_MAPS=</varname></term>
+        <term><varname>COREDUMP_PROC_LIMITS=</varname></term>
+        <term><varname>COREDUMP_PROC_MOUNTINFO=</varname></term>
+        <term><varname>COREDUMP_ENVIRON=</varname></term>
+
+        <listitem><para>Fields that map the per-process entries in the <filename>/proc/</filename>
+        filesystem: <filename>/proc/<replaceable>pid</replaceable>/comm</filename> (the command name
+        associated with the process), <filename>/proc/<replaceable>pid</replaceable>/exe</filename> (the
+        filename of the executed command), <filename>/proc/<replaceable>pid</replaceable>/status</filename>
+        (various metadata about the process), <filename>/proc/<replaceable>pid</replaceable>/maps</filename>
+        (memory regions visible to the process and their access permissions),
+        <filename>/proc/<replaceable>pid</replaceable>/limits</filename> (the soft and hard resource limits),
+        <filename>/proc/<replaceable>pid</replaceable>/mountinfo</filename> (mount points in the process's
+        mount namespace), <filename>/proc/<replaceable>pid</replaceable>/environ</filename>
+        (the environemnt block of the crashed process).</para>
+
+        <para>See
+        <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more information.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_HOSTNAME=</varname></term>
+
+        <listitem><para>The system hostname.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_CONTAINER_CMDLINE=</varname></term>
+
+        <listitem><para>For processes running in a container, the commandline of the process spawning the
+        container (the first parent process with a different mount namespace).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP=</varname></term>
+
+        <listitem><para>When the core is stored in the journal, the core image itself.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_FILENAME=</varname></term>
+
+        <listitem><para>When the core is stored externally, the path the the core file.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_TRUNCATED=</varname></term>
+
+        <listitem><para>Set to <literal>1</literal> when the saved coredump was truncated. (A partial core
+        image may still be processed by some tools, though obviously not all information is available.)
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MESSAGE=</varname></term>
+
+        <listitem><para>The message generated by <command>systemd-coredump</command> that includes the
+        backtrace if it was successfully generated. When <command>systemd-coredump</command> is invoked with
+        <option>--backtrace</option>, this field is provided by the caller.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Various other fields exist in the journal entry, but pertain to the logging process,
+    i.e. <command>systemd-coredump</command>, not the crashed process. See
+    <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+
+    <para>The following fields are saved (if known) with the external file listed in
+    <varname>COREDUMP_FILENAME=</varname> as extended attributes:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>user.coredump.pid</varname></term>
+        <term><varname>user.coredump.uid</varname></term>
+        <term><varname>user.coredump.gid</varname></term>
+        <term><varname>user.coredump.signal</varname></term>
+        <term><varname>user.coredump.timestamp</varname></term>
+        <term><varname>user.coredump.rlimit</varname></term>
+        <term><varname>user.coredump.hostname</varname></term>
+        <term><varname>user.coredump.comm</varname></term>
+        <term><varname>user.coredump.exe</varname></term>
+
+        <listitem><para>Those are the same as <varname>COREDUMP_PID=</varname>,
+        <varname>COREDUMP_UID=</varname>, <varname>COREDUMP_GID=</varname>,
+        <varname>COREDUMP_SIGNAL=</varname>, <varname>COREDUMP_TIMESTAMP=</varname>,
+        <varname>COREDUMP_RLIMIT=</varname>, <varname>COREDUMP_HOSTNAME=</varname>,
+        <varname>COREDUMP_COMM=</varname>, and <varname>COREDUMP_EXE=</varname>, described above.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Those can be viewed using
+    <citerefentry project='man-pages'><refentrytitle>getfattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    For the core file described in the journal entry shown above:
+    <programlisting>$ getfattr --absolute-names -d /var/lib/systemd/coredump/core.Web….552351.….zst
+# file: /var/lib/systemd/coredump/core.Web….552351.….zst
+user.coredump.pid="552351"
+user.coredump.uid="1000"
+user.coredump.gid="1000"
+user.coredump.signal="11"
+user.coredump.timestamp="1614342930000000"
+user.coredump.comm="Web Content"
+user.coredump.exe="/usr/lib64/firefox/firefox"
+…
+</programlisting>
+    </para>
   </refsect1>
 
   <refsect1>
