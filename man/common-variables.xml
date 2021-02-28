@@ -10,9 +10,9 @@
     <varlistentry id='log-level'>
       <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
 
-      <listitem><para>The maximum log level of emitted messages (messages with a higher log level, i.e. less
-      important ones, will be suppressed). Either one of (in order of decreasing importance)
-      <constant>emerg</constant>, <constant>alert</constant>, <constant>crit</constant>,
+      <listitem><para id='log-level-body'>The maximum log level of emitted messages (messages with a higher
+      log level, i.e. less important ones, will be suppressed). Either one of (in order of decreasing
+      importance) <constant>emerg</constant>, <constant>alert</constant>, <constant>crit</constant>,
       <constant>err</constant>, <constant>warning</constant>, <constant>notice</constant>,
       <constant>info</constant>, <constant>debug</constant>, or an integer in the range 0…7. See
       <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -23,8 +23,8 @@
     <varlistentry id='log-color'>
       <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
 
-      <listitem><para>A boolean. If true, messages written to the tty will be colored according to
-      priority.</para>
+      <listitem><para id='log-color-body'>A boolean. If true, messages written to the tty will be colored
+      according to priority.</para>
 
       <para>This setting is only useful when messages are written directly to the terminal, because
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
@@ -35,7 +35,8 @@
     <varlistentry id='log-time'>
       <term><varname>$SYSTEMD_LOG_TIME</varname></term>
 
-      <listitem><para>A boolean. If true, log messages will be prefixed with a timestamp.</para>
+      <listitem><para id='log-time-body'>A boolean. If true, log messages will be prefixed with a
+      timestamp.</para>
 
       <para>This setting is only useful when messages are written directly to the terminal or a file, because
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
@@ -46,8 +47,8 @@
     <varlistentry id='log-location'>
       <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
 
-      <listitem><para>A boolean. If true, messages will be prefixed with a filename and line number
-      in the source code where the message originates.</para>
+      <listitem><para id='log-location-body'>A boolean. If true, messages will be prefixed with a filename
+      and line number in the source code where the message originates.</para>
 
       <para>Note that the log location is often attached as metadata to journal entries anyway. Including it
       directly in the message text can nevertheless be convenient when debugging programs.</para>
@@ -57,8 +58,8 @@
     <varlistentry id='log-tid'>
       <term><varname>$SYSTEMD_LOG_TID</varname></term>
 
-      <listitem><para>A boolean. If true, messages will be prefixed with the current numerical thread ID
-      (TID).</para>
+      <listitem><para id='log-tid-body'>A boolean. If true, messages will be prefixed with the current
+      numerical thread ID (TID).</para>
 
       <para>Note that the this information is attached as metadata to journal entries anyway. Including it
       directly in the message text can nevertheless be convenient when debugging programs.</para>
@@ -68,9 +69,9 @@
     <varlistentry id='log-target'>
       <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
 
-      <listitem><para>The destination for log messages. One of <constant>console</constant> (log to the
-      attached tty), <constant>console-prefixed</constant> (log to the attached tty but with prefixes
-      encoding the log level and "facility", see <citerefentry
+      <listitem><para id='log-target-body'>The destination for log messages. One of
+      <constant>console</constant> (log to the attached tty), <constant>console-prefixed</constant> (log to
+      the attached tty but with prefixes encoding the log level and "facility", see <citerefentry
       project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <constant>kmsg</constant> (log to the kernel circular log buffer), <constant>journal</constant> (log to
       the journal), <constant>journal-or-kmsg</constant> (log to the journal if available, and to kmsg
