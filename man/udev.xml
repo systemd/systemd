@@ -79,14 +79,16 @@
           <varlistentry>
             <term><literal>==</literal></term>
             <listitem>
-              <para>Compare for equality.</para>
+              <para>Compare for equality. (The specified key has the specified value.)</para>
             </listitem>
           </varlistentry>
 
           <varlistentry>
             <term><literal>!=</literal></term>
             <listitem>
-              <para>Compare for inequality.</para>
+              <para>Compare for inequality. (The specified key doesn't have the specified value, or the
+              specified key is not present at all.)
+              </para>
             </listitem>
           </varlistentry>
 
