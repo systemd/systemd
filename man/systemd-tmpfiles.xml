@@ -81,6 +81,9 @@
     system instance, such as the one typically configured for <filename>/tmp/</filename>, will thus also
     affect files created by the user instance if they are placed in <filename>/tmp/</filename>, even if the
     user instance's time-based cleanup is turned off.</para>
+
+    <para>To debug <command>systemd-tmpfiles</command>, it may be useful to invoke it directly from the
+    command line with increased log level (see <varname>$SYSTEMD_LOG_LEVEL</varname> below).</para>
   </refsect1>
 
   <refsect1>
@@ -225,6 +228,24 @@
     removed and created according to the configuration file:</para>
 
     <programlisting>systemd-tmpfiles --remove --create</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <xi:include href="common-variables.xml" xpointer="log-level" />
+      <xi:include href="common-variables.xml" xpointer="log-color" />
+      <xi:include href="common-variables.xml" xpointer="log-time" />
+      <xi:include href="common-variables.xml" xpointer="log-location" />
+      <xi:include href="common-variables.xml" xpointer="log-target" />
+      <xi:include href="common-variables.xml" xpointer="pager" />
+      <xi:include href="common-variables.xml" xpointer="less" />
+      <xi:include href="common-variables.xml" xpointer="lesscharset" />
+      <xi:include href="common-variables.xml" xpointer="lesssecure" />
+      <xi:include href="common-variables.xml" xpointer="colors" />
+      <xi:include href="common-variables.xml" xpointer="urlify" />
+    </variablelist>
   </refsect1>
 
   <refsect1>
