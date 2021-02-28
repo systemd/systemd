@@ -697,13 +697,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>$SYSTEMD_SYSVINIT_PATH</varname></term>
-
-        <listitem><para>Controls where systemd looks for SysV init
-        scripts.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>$SYSTEMD_SYSVRCND_PATH</varname></term>
 
         <listitem><para>Controls where systemd looks for SysV init
