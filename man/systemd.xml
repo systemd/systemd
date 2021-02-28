@@ -629,39 +629,43 @@
 
     <variablelist class='environment-variables'>
       <varlistentry>
-        <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
-        <listitem><para>Controls whether systemd highlights important log messages. This can be overridden
-        with <option>--log-color=</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
-        <listitem><para>systemd reads the log level from this environment variable. This can be overridden
-        with <option>--log-level=</option>.</para></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-level-body" />
+
+        <para>This can be overridden with <option>--log-level=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
-        <listitem><para>Controls whether systemd prints the code location along with log messages. This can
-        be overridden with <option>--log-location=</option>.</para></listitem>
-      </varlistentry>
+        <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-color-body" />
 
-      <varlistentry>
-        <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
-        <listitem><para>systemd reads the log target from this environment variable. This can be overridden
-        with <option>--log-target=</option>.</para></listitem>
+        <para>This can be overridden with <option>--log-color=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_TIME</varname></term>
-        <listitem><para>Controls whether systemd prefixes log messages with the current time. This can be
-        overridden with <option>--log-time=</option>.</para></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-time-body" />
+
+        <para>This can be overridden with <option>--log-time=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-location-body" />
+
+        <para>This can be overridden with <option>--log-location=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_TID</varname></term>
-        <listitem><para>Controls whether systemd prefixes log messages with the current thread ID
-        (TID).</para></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-tid-body" /></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-target-body" />
+
+        <para>This can be overridden with <option>--log-target=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
