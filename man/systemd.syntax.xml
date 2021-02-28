@@ -74,10 +74,10 @@
     <filename>.ini</filename> files.
     </para>
 
-    <para>Each file is a plain text file divided into sections, with configuration entries in the
-    style <replaceable>key</replaceable>=<replaceable>value</replaceable>.
-    Whitespace immediately before or after the <literal>=</literal> is ignored. Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
-    ignored, which may be used for commenting.</para>
+    <para>Each file is a plain text file divided into sections, with configuration entries in the style
+    <replaceable>key</replaceable>=<replaceable>value</replaceable>. Whitespace immediately before or after
+    the <literal>=</literal> is ignored. Empty lines and lines starting with <literal>#</literal> or
+    <literal>;</literal> are ignored, which may be used for commenting.</para>
 
     <para>Lines ending in a backslash are concatenated with the following line while reading and the
     backslash is replaced by a space character. This may be used to wrap long lines. The limit on
@@ -127,6 +127,88 @@ KeyThree=value 3\
     it is mentioned in the description of the setting. Note that using multiple assignments to the
     same value makes the file incompatible with parsers for the XDG <filename>.desktop</filename>
     file format.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Quoting</title>
+
+    <para>For settings where quoting is allowed, the following general rules apply: double quotes ("…") and
+    single quotes ('…') may be used to wrap a whole item (the opening quote may appear only at the beginning
+    or after whitespace that is not quoted, and the closing quote must be followed by whitespace or the end
+    of line), in which case everything until the next matching quote becomes part of the same item. Quotes
+    themselves are removed. C-style escapes are also supported. The table below contains the list of known
+    escape patterns. Only escape patterns which match the syntax in the table are allowed; other patterns may
+    be added in the future and unknown patterns will result in a warning. In particular, any backslashes
+    should be doubled. Finally, a trailing backslash (<literal>\</literal>) may be used to merge lines, as
+    described above.</para>
+
+    <table>
+      <title>Supported C escapes</title>
+      <tgroup cols='2'>
+        <colspec colname='escape' />
+        <colspec colname='meaning' />
+        <thead>
+          <row>
+            <entry>Literal</entry>
+            <entry>Actual value</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>\a</literal></entry>
+            <entry>bell</entry>
+          </row>
+          <row>
+            <entry><literal>\b</literal></entry>
+            <entry>backspace</entry>
+          </row>
+          <row>
+            <entry><literal>\f</literal></entry>
+            <entry>form feed</entry>
+          </row>
+          <row>
+            <entry><literal>\n</literal></entry>
+            <entry>newline</entry>
+          </row>
+          <row>
+            <entry><literal>\r</literal></entry>
+            <entry>carriage return</entry>
+          </row>
+          <row>
+            <entry><literal>\t</literal></entry>
+            <entry>tab</entry>
+          </row>
+          <row>
+            <entry><literal>\v</literal></entry>
+            <entry>vertical tab</entry>
+          </row>
+          <row>
+            <entry><literal>\\</literal></entry>
+            <entry>backslash</entry>
+          </row>
+          <row>
+            <entry><literal>\"</literal></entry>
+            <entry>double quotation mark</entry>
+          </row>
+          <row>
+            <entry><literal>\'</literal></entry>
+            <entry>single quotation mark</entry>
+          </row>
+          <row>
+            <entry><literal>\s</literal></entry>
+            <entry>space</entry>
+          </row>
+          <row>
+            <entry><literal>\x<replaceable>xx</replaceable></literal></entry>
+            <entry>character number <replaceable>xx</replaceable> in hexadecimal encoding</entry>
+          </row>
+          <row>
+            <entry><literal>\<replaceable>nnn</replaceable></literal></entry>
+            <entry>character number <replaceable>nnn</replaceable> in octal encoding</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>

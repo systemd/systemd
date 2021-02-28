@@ -1107,11 +1107,9 @@
     </variablelist>
 
     <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more settings.</para>
-
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
+    settings.</para>
   </refsect1>
 
   <refsect1>
@@ -1126,21 +1124,13 @@
     <varname>ExecStop=</varname>, and
     <varname>ExecStopPost=</varname> options.</para>
 
-    <para>Multiple command lines may be concatenated in a single
-    directive by separating them with semicolons (these semicolons
-    must be passed as separate words). Lone semicolons may be escaped
-    as <literal>\;</literal>.</para>
+    <para>Multiple command lines may be concatenated in a single directive by separating them with semicolons
+    (these semicolons must be passed as separate words). Lone semicolons may be escaped as
+    <literal>\;</literal>.</para>
 
-    <para>Each command line is split on whitespace, with the first item being the command to
-    execute, and the subsequent items being the arguments. Double quotes ("…") and single quotes
-    ('…') may be used to wrap a whole item (the opening quote may appear only at the beginning or
-    after whitespace that is not quoted, and the closing quote must be followed by whitespace or the
-    end of line), in which case everything until the next matching quote becomes part of the same
-    argument. Quotes themselves are removed. C-style escapes are also supported. The table below
-    contains the list of known escape patterns. Only escape patterns which match the syntax in the
-    table are allowed; other patterns may be added in the future and unknown patterns will result in
-    a warning. In particular, any backslashes should be doubled. Finally, a trailing backslash
-    (<literal>\</literal>) may be used to merge lines.</para>
+    <para>Each command line is unquoted using the rules described in "Quoting" section in
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    first item becomes the command to execute, and the subsequent items the arguments.</para>
 
     <para>This syntax is inspired by shell syntax, but only the meta-characters and expansions
     described in the following paragraphs are understood, and the expansion of variables is
@@ -1240,74 +1230,6 @@ ls</programlisting>
     <literal>&gt;/dev/null</literal>,
     <literal>&amp;</literal>, <literal>;</literal>, and
     <literal>ls</literal>.</para>
-
-    <table>
-      <title>C escapes supported in command lines and environment variables</title>
-      <tgroup cols='2'>
-        <colspec colname='escape' />
-        <colspec colname='meaning' />
-        <thead>
-          <row>
-            <entry>Literal</entry>
-            <entry>Actual value</entry>
-          </row>
-        </thead>
-        <tbody>
-          <row>
-            <entry><literal>\a</literal></entry>
-            <entry>bell</entry>
-          </row>
-          <row>
-            <entry><literal>\b</literal></entry>
-            <entry>backspace</entry>
-          </row>
-          <row>
-            <entry><literal>\f</literal></entry>
-            <entry>form feed</entry>
-          </row>
-          <row>
-            <entry><literal>\n</literal></entry>
-            <entry>newline</entry>
-          </row>
-          <row>
-            <entry><literal>\r</literal></entry>
-            <entry>carriage return</entry>
-          </row>
-          <row>
-            <entry><literal>\t</literal></entry>
-            <entry>tab</entry>
-          </row>
-          <row>
-            <entry><literal>\v</literal></entry>
-            <entry>vertical tab</entry>
-          </row>
-          <row>
-            <entry><literal>\\</literal></entry>
-            <entry>backslash</entry>
-          </row>
-          <row>
-            <entry><literal>\"</literal></entry>
-            <entry>double quotation mark</entry>
-          </row>
-          <row>
-            <entry><literal>\'</literal></entry>
-            <entry>single quotation mark</entry>
-          </row>
-          <row>
-            <entry><literal>\s</literal></entry>
-            <entry>space</entry>
-          </row>
-          <row>
-            <entry><literal>\x<replaceable>xx</replaceable></literal></entry>
-            <entry>character number <replaceable>xx</replaceable> in hexadecimal encoding</entry>
-          </row>
-          <row>
-            <entry><literal>\<replaceable>nnn</replaceable></literal></entry>
-            <entry>character number <replaceable>nnn</replaceable> in octal encoding</entry>
-          </row>
-        </tbody>
-      </tgroup>
-    </table>
   </refsect1>
 
   <refsect1>
