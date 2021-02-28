@@ -1310,15 +1310,15 @@ bool log_on_console(void) {
 }
 
 static const char *const log_target_table[_LOG_TARGET_MAX] = {
-        [LOG_TARGET_CONSOLE] = "console",
+        [LOG_TARGET_CONSOLE]          = "console",
         [LOG_TARGET_CONSOLE_PREFIXED] = "console-prefixed",
-        [LOG_TARGET_KMSG] = "kmsg",
-        [LOG_TARGET_JOURNAL] = "journal",
-        [LOG_TARGET_JOURNAL_OR_KMSG] = "journal-or-kmsg",
-        [LOG_TARGET_SYSLOG] = "syslog",
-        [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
-        [LOG_TARGET_AUTO] = "auto",
-        [LOG_TARGET_NULL] = "null",
+        [LOG_TARGET_KMSG]             = "kmsg",
+        [LOG_TARGET_JOURNAL]          = "journal",
+        [LOG_TARGET_JOURNAL_OR_KMSG]  = "journal-or-kmsg",
+        [LOG_TARGET_SYSLOG]           = "syslog",
+        [LOG_TARGET_SYSLOG_OR_KMSG]   = "syslog-or-kmsg",
+        [LOG_TARGET_AUTO]             = "auto",
+        [LOG_TARGET_NULL]             = "null",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
