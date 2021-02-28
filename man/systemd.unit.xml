@@ -163,7 +163,7 @@
     section. When the unit is enabled, symlinks will be created for those names, and removed when the unit is
     disabled. For example, <filename>reboot.target</filename> specifies
     <varname>Alias=ctrl-alt-del.target</varname>, so when enabled, the symlink
-    <filename>/etc/systemd/systemd/ctrl-alt-del.service</filename> pointing to the
+    <filename>/etc/systemd/system/ctrl-alt-del.service</filename> pointing to the
     <filename>reboot.target</filename> file will be created, and when
     <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> is invoked,
     <command>systemd</command> will look for the <filename>ctrl-alt-del.service</filename> and execute
