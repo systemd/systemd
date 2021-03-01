@@ -446,12 +446,12 @@ static int fixup_input(
         return std_input;
 }
 
-static int fixup_output(ExecOutput std_output, int socket_fd) {
+static int fixup_output(ExecOutput output, int socket_fd) {
 
-        if (std_output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
+        if (output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
                 return EXEC_OUTPUT_INHERIT;
 
-        return std_output;
+        return output;
 }
 
 static int setup_input(
@@ -622,7 +622,7 @@ static int setup_output(
                     o == EXEC_OUTPUT_INHERIT &&
                     i == EXEC_INPUT_NULL &&
                     !is_terminal_input(context->std_input) &&
-                    getppid () != 1)
+                    getppid() != 1)
                         return fileno;
 
                 /* Duplicate from stdout if possible */
@@ -666,7 +666,8 @@ static int setup_output(
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
                 r = connect_logger_as(unit, context, params, o, ident, fileno, uid, gid);
                 if (r < 0) {
-                        log_unit_warning_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m", fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                        log_unit_warning_errno(unit, r, "Failed to connect %s to the journal socket, ignoring: %m",
+                                               fileno == STDOUT_FILENO ? "stdout" : "stderr");
                         r = open_null_as(O_WRONLY, fileno);
                 } else {
                         struct stat st;
