@@ -1272,6 +1272,7 @@ Features:
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
+  - add --test mode
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 

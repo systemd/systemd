@@ -976,16 +976,24 @@
         <term><varname>JobTimeoutSec=</varname></term>
         <term><varname>JobRunningTimeoutSec=</varname></term>
 
-        <listitem><para>When a job for this unit is queued, a timeout <varname>JobTimeoutSec=</varname> may be
-        configured. Similarly, <varname>JobRunningTimeoutSec=</varname> starts counting when the queued job is actually
-        started. If either time limit is reached, the job will be cancelled, the unit however will not change state or
-        even enter the <literal>failed</literal> mode. This value defaults to <literal>infinity</literal> (job timeouts
-        disabled), except for device units (<varname>JobRunningTimeoutSec=</varname> defaults to
-        <varname>DefaultTimeoutStartSec=</varname>). NB: this timeout is independent from any unit-specific timeout
-        (for example, the timeout set with <varname>TimeoutStartSec=</varname> in service units) as the job timeout has
-        no effect on the unit itself, only on the job that might be pending for it. Or in other words: unit-specific
-        timeouts are useful to abort unit state changes, and revert them. The job timeout set with this option however
-        is useful to abort only the job waiting for the unit state to change.</para>
+        <listitem><para><varname>JobTimeoutSec=</varname> specifies a timeout for the whole job that starts
+        running when the job is queued. <varname>JobRunningTimeoutSec=</varname> specifies a timeout that
+        starts running when the queued job is actually started. If either limit is reached, the job will be
+        cancelled, the unit however will not change state or even enter the <literal>failed</literal> mode.
+        </para>
+
+        <para>Both settings take a time span with the default unit of seconds, but other units may be
+        specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The default is <literal>infinity</literal> (job timeouts disabled), except for device units where
+        <varname>JobRunningTimeoutSec=</varname> defaults to <varname>DefaultTimeoutStartSec=</varname>.
+        </para>
+
+        <para>Note: these timeouts are independent from any unit-specific timeouts (for example, the timeout
+        set with <varname>TimeoutStartSec=</varname> in service units). The job timeout has no effect on the
+        unit itself. Or in other words: unit-specific timeouts are useful to abort unit state changes, and
+        revert them. The job timeout set with this option however is useful to abort only the job waiting for
+        the unit state to change.</para>
         </listitem>
       </varlistentry>
 
@@ -993,13 +1001,14 @@
         <term><varname>JobTimeoutAction=</varname></term>
         <term><varname>JobTimeoutRebootArgument=</varname></term>
 
-        <listitem><para><varname>JobTimeoutAction=</varname> optionally configures an additional action to take when
-        the timeout is hit, see description of <varname>JobTimeoutSec=</varname> and
+        <listitem><para><varname>JobTimeoutAction=</varname> optionally configures an additional action to
+        take when the timeout is hit, see description of <varname>JobTimeoutSec=</varname> and
         <varname>JobRunningTimeoutSec=</varname> above. It takes the same values as
-        <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.
-        <varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to the
-        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call.
-        </para></listitem>
+        <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.</para>
+
+        <para><varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to
+        the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
+        call.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1007,28 +1016,39 @@
         <term><varname>StartLimitBurst=<replaceable>burst</replaceable></varname></term>
 
         <listitem><para>Configure unit start rate limiting. Units which are started more than
-        <replaceable>burst</replaceable> times within an <replaceable>interval</replaceable> time interval are not
-        permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the checking interval
-        (defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, set it to 0 to
-        disable any kind of rate limiting). Use <varname>StartLimitBurst=</varname> to configure how many starts per
-        interval are allowed (defaults to <varname>DefaultStartLimitBurst=</varname> in manager configuration
-        file). These configuration options are particularly useful in conjunction with the service setting
-        <varname>Restart=</varname> (see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>); however,
-        they apply to all kinds of starts (including manual), not just those triggered by the
-        <varname>Restart=</varname> logic. Note that units which are configured for <varname>Restart=</varname> and
-        which reach the start limit are not attempted to be restarted anymore; however, they may still be restarted
-        manually at a later point, after the <replaceable>interval</replaceable> has passed.  From this point on, the
-        restart logic is activated again. Note that <command>systemctl reset-failed</command> will cause the restart
-        rate counter for a service to be flushed, which is useful if the administrator wants to manually start a unit
-        and the start limit interferes with that. Note that this rate-limiting is enforced after any unit condition
-        checks are executed, and hence unit activations with failing conditions do not count towards this rate
-        limit. This setting does not apply to slice, target, device, and scope units, since they are unit types whose
-        activation may either never fail, or may succeed only a single time.</para>
+        <replaceable>burst</replaceable> times within an <replaceable>interval</replaceable> time span are
+        not permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the
+        checking interval and <varname>StartLimitBurst=</varname> to configure how many starts per interval
+        are allowed.</para>
 
-        <para>When a unit is unloaded due to the garbage collection logic (see above) its rate limit counters are
-        flushed out too. This means that configuring start rate limiting for a unit that is not referenced continuously
-        has no effect.</para></listitem>
+        <para><replaceable>interval</replaceable> is a time span with the default unit of seconds, but other
+        units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, and may
+        be set to 0 to disable any kind of rate limiting. <replaceable>burst</replaceable> is a number and
+        defaults to <varname>DefaultStartLimitBurst=</varname> in manager configuration file.</para>
+
+        <para>These configuration options are particularly useful in conjunction with the service setting
+        <varname>Restart=</varname> (see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>);
+        however, they apply to all kinds of starts (including manual), not just those triggered by the
+        <varname>Restart=</varname> logic.</para>
+
+        <para>Note that units which are configured for <varname>Restart=</varname>, and which reach the start
+        limit are not attempted to be restarted anymore; however, they may still be restarted manually at a
+        later point, after the <replaceable>interval</replaceable> has passed. From that point on, the
+        restart logic is activated again. <command>systemctl reset-failed</command> will cause the restart
+        rate counter for a service to be flushed, which is useful if the administrator wants to manually
+        start a unit and the start limit interferes with that. Rate-limiting is enforced after any unit
+        condition checks are executed, and hence unit activations with failing conditions do not count
+        towards the rate limit.</para>
+
+        <para>When a unit is unloaded due to the garbage collection logic (see above) its rate limit counters
+        are flushed out too. This means that configuring start rate limiting for a unit that is not
+        referenced continuously has no effect.</para>
+
+        <para>This setting does not apply to slice, target, device, and scope units, since they are unit
+        types whose activation may either never fail, or may succeed only a single time.</para></listitem>
       </varlistentry>
 
       <varlistentry>
