@@ -24,7 +24,7 @@
 #CrashShell=no
 #CrashReboot=no
 #CtrlAltDelBurstAction=reboot-force
-#CPUAffinity=1 2
+#CPUAffinity=
 #NUMAPolicy=default
 #NUMAMask=
 #RuntimeWatchdogSec=0
