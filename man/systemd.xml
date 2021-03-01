@@ -696,13 +696,6 @@
         </para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><varname>$SYSTEMD_SYSVRCND_PATH</varname></term>
-
-        <listitem><para>Controls where systemd looks for SysV init
-        script runlevel link farms.</para></listitem>
-      </varlistentry>
-
       <xi:include href="common-variables.xml" xpointer="pager"/>
       <xi:include href="common-variables.xml" xpointer="less"/>
       <xi:include href="common-variables.xml" xpointer="lesscharset"/>
