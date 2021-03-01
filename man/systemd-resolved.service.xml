@@ -115,8 +115,8 @@
   <refsect1>
     <title>Protocols and Routing</title>
 
-    <para>Lookup requests are routed to the available DNS servers, LLMNR, and MulticastDNS interfaces
-    according to the following rules:</para>
+    <para>The lookup requests that <filename>systemd-resolved.service</filename> receives are routed to the
+    available DNS servers, LLMNR, and MulticastDNS interfaces according to the following rules:</para>
 
     <itemizedlist>
       <listitem><para>Names for which synthetic records are generated (the local hostname,
@@ -172,7 +172,8 @@
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
     description of globally configured DNS settings.</para>
 
-    <para>The following query routing logic applies for unicast DNS traffic:</para>
+    <para>The following query routing logic applies for unicast DNS lookups initiated by
+    <filename>systemd-resolved.service</filename>:</para>
 
     <itemizedlist>
       <listitem><para>If a name to look up matches (that is: is equal to or has as suffix) any of the
@@ -228,8 +229,22 @@
 
     <itemizedlist>
       <listitem><para>Some names are always resolved internally (see Synthetic Records above). Traditionally
-      they would be resolved by <filename>nss-files</filename>, and only if provided in
-      <filename>/etc/hosts</filename>.</para></listitem>
+      they would be resolved by <filename>nss-files</filename> if provided in
+      <filename>/etc/hosts</filename>. But note that the details of how a query is constructed are under the
+      control of the client library. <filename>nss-dns</filename> will first try to resolve names using
+      search domains and even if those queries are routed to <filename>systemd-resolved</filename>, it will
+      send them out over the network using the usual rules for multi-label name routing <footnote><para>For
+      example, if <filename>/etc/nsswitch.conf</filename> has <programlisting>nameserver 127.0.0.53
+search foobar.com barbar.com
+      </programlisting>and we look up <literal>localhost</literal>, <filename>nss-dns</filename> will send
+      the following queries to <filename>systemd-resolved</filename> listening on 127.0.0.53:53: first
+      <literal>localhost.foobar.com</literal>, then <literal>localhost.barbar.com</literal>, and finally
+      <literal>localhost</literal>. If (hopefully) the first two queries fail,
+      <filename>systemd-resolved</filename> will synthesize an answer for the third query.</para>
+
+      <para>When using <filename>nss-dns</filename> with any search domains, it is thus crucial to always
+      configure <filename>nss-files</filename> with higher priority and provide mappings for names that
+      should not be resolved using search domains.</para></footnote>.</para></listitem>
 
       <listitem><para>Single-label names are not resolved for A and AAAA records using unicast DNS (unless
       overridden with <varname>ResolveUnicastSingleLabel=</varname>, see
@@ -246,13 +261,13 @@
       has failed, as absolute, while other names would be resolved in opposite order. The
       <varname>ndots</varname> option in <filename>/etc/resolv.conf</filename> was used to control how many
       dots the name needs to have to be resolved as relative first. This stub resolver does not implement
-      this at all: multi-label names are only resolved as FQDNs. (There are currently more than 1500
-      top-level domain names defined, and new ones are added regularly, often using "attractive" names that
-      are also likely to be used locally. Not looking up multi-label names in this fashion avoids fragility
-      in both directions: a valid global name could be obscured by a local name, and resolution of a relative
-      local name could suddenly break when a new top-level domain is created, or when a new subdomain of a
-      top-level domain in registered. Resolving any given name as either relative or absolute avoids this
-      ambiguity.)</para></listitem>
+      this at all: multi-label names are only resolved as FQDNs.<footnote><para>There are currently more than
+      1500 top-level domain names defined, and new ones are added regularly, often using "attractive" names
+      that are also likely to be used locally. Not looking up multi-label names in this fashion avoids
+      fragility in both directions: a valid global name could be obscured by a local name, and resolution of
+      a relative local name could suddenly break when a new top-level domain is created, or when a new
+      subdomain of a top-level domain in registered. Resolving any given name as either relative or absolute
+      avoids this ambiguity.)</para></footnote></para></listitem>
 
       <listitem><para>This resolver has a notion of the special <literal>.local</literal> domain used for
       MulticastDNS, and will not route queries with that suffix to unicast DNS servers unless explicitly

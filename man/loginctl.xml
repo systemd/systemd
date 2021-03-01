@@ -415,7 +415,7 @@ Apr 09 14:40:30 laptop login[2325]: LOGIN ON tty3 BY fatima
     </example>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>See Also</title>

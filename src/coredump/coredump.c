@@ -354,7 +354,7 @@ static int save_external_coredump(
                                        context->meta[META_ARGV_RLIMIT]);
         if (rlimit < page_size())
                 /* Is coredumping disabled? Then don't bother saving/processing the
-                 * coredump.  Anything below PAGE_SIZE cannot give a readable coredump
+                 * coredump. Anything below PAGE_SIZE cannot give a readable coredump
                  * (the kernel uses ELF_EXEC_PAGESIZE which is not easily accessible, but
                  * is usually the same as PAGE_SIZE. */
                 return log_info_errno(SYNTHETIC_ERRNO(EBADSLT),
@@ -435,10 +435,10 @@ static int save_external_coredump(
                 if (tmp)
                         unlink_noerrno(tmp);
 
-                *ret_filename = TAKE_PTR(fn_compressed);     /* compressed */
-                *ret_node_fd = TAKE_FD(fd_compressed);      /* compressed */
-                *ret_data_fd = TAKE_FD(fd);                 /* uncompressed */
-                *ret_size = (uint64_t) st.st_size; /* uncompressed */
+                *ret_filename = TAKE_PTR(fn_compressed);  /* compressed */
+                *ret_node_fd = TAKE_FD(fd_compressed);    /* compressed */
+                *ret_data_fd = TAKE_FD(fd);               /* uncompressed */
+                *ret_size = (uint64_t) st.st_size;        /* uncompressed */
 
                 return 0;
 
