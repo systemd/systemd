@@ -79,8 +79,8 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         if (!p)
                 return NULL;
 
-        p->udp_event_source = sd_event_source_unref(p->udp_event_source);
-        p->tcp_event_source = sd_event_source_unref(p->tcp_event_source);
+        p->udp_event_source = sd_event_source_disable_unref(p->udp_event_source);
+        p->tcp_event_source = sd_event_source_disable_unref(p->tcp_event_source);
 
         return mfree(p);
 }
@@ -763,12 +763,12 @@ int manager_dns_stub_start(Manager *m) {
 void manager_dns_stub_stop(Manager *m) {
         assert(m);
 
-        m->dns_stub_udp_event_source = sd_event_source_unref(m->dns_stub_udp_event_source);
-        m->dns_stub_tcp_event_source = sd_event_source_unref(m->dns_stub_tcp_event_source);
+        m->dns_stub_udp_event_source = sd_event_source_disable_unref(m->dns_stub_udp_event_source);
+        m->dns_stub_tcp_event_source = sd_event_source_disable_unref(m->dns_stub_tcp_event_source);
 }
 
 static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MAX] = {
-        [DNS_STUB_LISTENER_NO] = "no",
+        [DNS_STUB_LISTENER_NO]  = "no",
         [DNS_STUB_LISTENER_UDP] = "udp",
         [DNS_STUB_LISTENER_TCP] = "tcp",
         [DNS_STUB_LISTENER_YES] = "yes",

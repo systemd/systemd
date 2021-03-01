@@ -15,10 +15,10 @@
 void manager_mdns_stop(Manager *m) {
         assert(m);
 
-        m->mdns_ipv4_event_source = sd_event_source_unref(m->mdns_ipv4_event_source);
+        m->mdns_ipv4_event_source = sd_event_source_disable_unref(m->mdns_ipv4_event_source);
         m->mdns_ipv4_fd = safe_close(m->mdns_ipv4_fd);
 
-        m->mdns_ipv6_event_source = sd_event_source_unref(m->mdns_ipv6_event_source);
+        m->mdns_ipv6_event_source = sd_event_source_disable_unref(m->mdns_ipv6_event_source);
         m->mdns_ipv6_fd = safe_close(m->mdns_ipv6_fd);
 }
 
