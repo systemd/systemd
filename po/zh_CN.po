@@ -5,15 +5,15 @@
 # Frank Hill <hxf.prc@gmail.com>, 2014.
 # Boyuan Yang <073plan@gmail.com>, 2015.
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
-# Charles Lee <lchopn@gmail.com>, 2020.
+# Charles Lee <lchopn@gmail.com>, 2020, 2021.
 # Whired Planck <fungdaat31@outlook.com>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-11-28 13:35+0000\n"
-"Last-Translator: Whired Planck <fungdaat31@outlook.com>\n"
+"PO-Revision-Date: 2021-03-01 09:40+0000\n"
+"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/master/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.3.2\n"
+"X-Generator: Weblate 4.4.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -280,20 +280,14 @@ msgid ""
 msgstr "允许应用程序阻止系统响应笔记本上盖开关事件需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "允许应用程序阻止系统响应电源键"
+msgstr "允许应用程序阻止系统响应重启键"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
-msgstr "允许应用程序阻止系统响应电源键需要认证。"
+msgstr "允许应用程序阻止系统响应重启键需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -412,7 +406,7 @@ msgstr "当存在应用程序阻止时仍然停止系统"
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr "当应用程序阻止时停止系统需要认证。"
+msgstr "当应用程序阻止停止系统时需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
