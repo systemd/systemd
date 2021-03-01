@@ -253,5 +253,9 @@ int vt_release(int fd, bool restore_vt);
 
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
 
+static inline const char* ansi_highlight_green_red(bool b) {
+        return b ? ansi_highlight_green() : ansi_highlight_red();
+}
+
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620

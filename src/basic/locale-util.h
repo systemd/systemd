@@ -90,3 +90,11 @@ void locale_variables_free(char* l[_VARIABLE_LC_MAX]);
 static inline void locale_variables_freep(char*(*l)[_VARIABLE_LC_MAX]) {
         locale_variables_free(*l);
 }
+
+static inline const char *special_glyph_check_mark(bool b) {
+        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+}
+
+static inline const char *special_glyph_check_mark_space(bool b) {
+        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : " ";
+}
