@@ -10490,7 +10490,7 @@ CHANGES WITH 201:
         * 'systemctl status' will also shown information about any
           drop-in configuration file for units. (Drop-In configuration
           files in this context are files such as
-          /etc/systemd/systemd/foobar.service.d/*.conf)
+          /etc/systemd/system/foobar.service.d/*.conf)
 
         * systemd-cgtop now optionally shows summed up CPU times of
           cgroups. Press '%' while running cgtop to switch between
