@@ -819,11 +819,13 @@ const char *last_path_component(const char *path) {
 int path_extract_filename(const char *p, char **ret) {
         _cleanup_free_ char *a = NULL;
         const char *c;
+        size_t n;
 
         /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
          * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. Returns
          * -EADDRNOTAVAIL if specified parameter includes no filename (i.e. is "/" or so). Returns -EINVAL if
-         * not a valid path in the first place. */
+         * not a valid path in the first place. Returns >= 0 on success. If the input path has a trailing
+         * slash, returns O_DIRECTORY, to indicate the referenced file must be a directory. */
 
         if (!path_is_valid(p))
                 return -EINVAL;
@@ -834,12 +836,49 @@ int path_extract_filename(const char *p, char **ret) {
                 return -EADDRNOTAVAIL;
 
         c = last_path_component(p);
+        n = strcspn(c, "/");
 
-        a = strndup(c, strcspn(c, "/"));
+        a = strndup(c, n);
         if (!a)
                 return -ENOMEM;
 
         if (!filename_is_valid(a))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(a);
+        return c[n] == '/' ? O_DIRECTORY : 0;
+}
+
+int path_extract_directory(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *c;
+
+        /* The inverse of path_extract_directory(), i.e. returns the directory path prefix. Returns
+         * -EADDRNOTAVAIL if the passed in parameter simply had no path prefix (which can be because only a
+         * filename was specified or the root dir "/" was specified) */
+
+        if (!path_is_valid(p))
+                return -EINVAL;
+
+        /* Special case the root dir, because otherwise for an input of "///" last_path_component() returns
+         * the pointer to the last slash only, which might be seen as a valid path below. */
+        if (path_equal(p, "/"))
+                return -EADDRNOTAVAIL;
+
+        c = last_path_component(p);
+
+        /* Delete trailing slashes, but keep one */
+        while (c > p+1 && c[-1] == '/')
+                c--;
+
+        if (p == c) /* No path whatsoever? Then return a recognizable error */
+                return -EADDRNOTAVAIL;
+
+        a = strndup(p, c - p);
+        if (!a)
+                return -ENOMEM;
+
+        if (!path_is_valid(a))
                 return -EINVAL;
 
         *ret = TAKE_PTR(a);
