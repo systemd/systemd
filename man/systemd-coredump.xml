@@ -115,7 +115,7 @@
     handler must be installed on the sender side. For example, in case of
     <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry>, this
     means a <varname>sys.excepthook</varname> must be installed, see
-    <ulink url="https://github.com/keszybz/systemd-coredump-python">systemd-coredump-python</ulink>.
+    <ulink url="https://github.com/systemd/systemd-coredump-python">systemd-coredump-python</ulink>.
     </para>
 
     <para>The behavior of <command>systemd-coredump</command> itself is configured through the configuration file
