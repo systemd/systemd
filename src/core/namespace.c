@@ -275,7 +275,7 @@ static bool mount_entry_read_only(const MountEntry *p) {
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE);
+        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, SYSFS, PROCFS);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
