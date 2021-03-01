@@ -115,7 +115,7 @@
     handler must be installed on the sender side. For example, in case of
     <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry>, this
     means a <varname>sys.excepthook</varname> must be installed, see
-    <ulink url="https://github.com/keszybz/systemd-coredump-python">systemd-coredump-python</ulink>.
+    <ulink url="https://github.com/systemd/systemd-coredump-python">systemd-coredump-python</ulink>.
     </para>
 
     <para>The behavior of <command>systemd-coredump</command> itself is configured through the configuration file
@@ -178,7 +178,12 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_UID=</varname></term>
         <term><varname>COREDUMP_PID=</varname></term>
         <term><varname>COREDUMP_GID=</varname></term>
-        <listitem><para>The process number (PID) and owner (UID and GID) of the crashed process.</para>
+        <listitem><para>The process number (PID), owner user number (UID), and group number (GID) of the
+        crashed process.</para>
+
+        <para>When the crashed process was part of a container (or in a process or user namespace in
+        general), those are the values as seen <emphasis>outside</emphasis>, in the namespace where
+        <filename>systemd-coredump</filename> is running.</para>
         </listitem>
       </varlistentry>
 
@@ -199,6 +204,9 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_UNIT=</varname></term>
         <term><varname>COREDUMP_SLICE=</varname></term>
         <listitem><para>The system unit and slice names.</para>
+
+        <para>When the crashed process was in container, those are the units names
+        <emphasis>outside</emphasis>, in the main system manager.</para>
         </listitem>
       </varlistentry>
 
@@ -207,7 +215,11 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <listitem><para>Control group information in the format used in
         <filename>/proc/self/cgroup</filename>. On systems with the unified cgroup hierarchy, this is a
         single path prefixed with <literal>0::</literal>, and multiple paths prefixed with controller numbers
-        on legacy systems.</para></listitem>
+        on legacy systems.</para>
+
+        <para>When the crashed process was in a container, this is the full path, as seen outside of the
+        container.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -215,7 +227,11 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_USER_UNIT=</varname></term>
         <listitem><para>The numerical UID of the user owning the login session or systemd user unit of the
         crashed process, and the user manager unit. Both fields are only present for user processes.
-        </para></listitem>
+        </para>
+
+        <para>When the crashed process was in container, those are the values <emphasis>outside</emphasis>,
+        in the main system.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -232,6 +248,9 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_ROOT=</varname></term>
 
         <listitem><para>The current working directory and root directory of the crashed process.</para>
+
+        <para>When the crashed process is in a container, those paths are relative to the root of the
+        container's mount namespace.</para>
         </listitem>
       </varlistentry>
 
@@ -257,8 +276,17 @@ flags:   ...
       </varlistentry>
 
       <varlistentry>
-        <term><varname>COREDUMP_COMM=</varname></term>
         <term><varname>COREDUMP_EXE=</varname></term>
+
+        <listitem><para>The destination of the <filename>/proc/<replaceable>pid</replaceable>/exe</filename>
+        symlink.</para>
+
+        <para>When the crashed process is in a container, that path is relative to the root of the
+        container's mount namespace.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_COMM=</varname></term>
         <term><varname>COREDUMP_PROC_STATUS=</varname></term>
         <term><varname>COREDUMP_PROC_MAPS=</varname></term>
         <term><varname>COREDUMP_PROC_LIMITS=</varname></term>
@@ -284,7 +312,10 @@ flags:   ...
       <varlistentry>
         <term><varname>COREDUMP_HOSTNAME=</varname></term>
 
-        <listitem><para>The system hostname.</para></listitem>
+        <listitem><para>The system hostname.</para>
+
+        <para>When the crashed process was in container, this is the container hostname.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

@@ -136,14 +136,14 @@ KeyThree=value 3\
     single quotes ('…') may be used to wrap a whole item (the opening quote may appear only at the beginning
     or after whitespace that is not quoted, and the closing quote must be followed by whitespace or the end
     of line), in which case everything until the next matching quote becomes part of the same item. Quotes
-    themselves are removed. C-style escapes are also supported. The table below contains the list of known
-    escape patterns. Only escape patterns which match the syntax in the table are allowed; other patterns may
-    be added in the future and unknown patterns will result in a warning. In particular, any backslashes
-    should be doubled. Finally, a trailing backslash (<literal>\</literal>) may be used to merge lines, as
-    described above.</para>
+    themselves are removed. C-style escapes are supported. The table below contains the list of known escape
+    patterns. Only escape patterns which match the syntax in the table are allowed; other patterns may be
+    added in the future and unknown patterns will result in a warning. In particular, any backslashes should
+    be doubled. Finally, a trailing backslash (<literal>\</literal>) may be used to merge lines, as described
+    above. UTF-8 is accepted, and hence typical unicode characters do not need to be escaped.</para>
 
     <table>
-      <title>Supported C escapes</title>
+      <title>Supported escapes</title>
       <tgroup cols='2'>
         <colspec colname='escape' />
         <colspec colname='meaning' />
@@ -205,6 +205,14 @@ KeyThree=value 3\
           <row>
             <entry><literal>\<replaceable>nnn</replaceable></literal></entry>
             <entry>character number <replaceable>nnn</replaceable> in octal encoding</entry>
+          </row>
+          <row>
+            <entry><literal>\u<replaceable>nnnn</replaceable></literal></entry>
+            <entry>unicode code point <replaceable>nnnn</replaceable> in hexadecimal encoding</entry>
+          </row>
+          <row>
+            <entry><literal>\U<replaceable>nnnnnnnn</replaceable></literal></entry>
+            <entry>unicode code point <replaceable>nnnnnnnn</replaceable> in hexadecimal encoding</entry>
           </row>
         </tbody>
       </tgroup>
