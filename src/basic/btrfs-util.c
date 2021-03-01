@@ -91,7 +91,7 @@ int btrfs_is_subvol_fd(int fd) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (!S_ISDIR(st.st_mode) || st.st_ino != 256)
+        if (!btrfs_might_be_subvol(&st))
                 return 0;
 
         return btrfs_is_filesystem(fd);
@@ -194,7 +194,7 @@ int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (!S_ISDIR(st.st_mode) || st.st_ino != 256)
+        if (!btrfs_might_be_subvol(&st))
                 return -EINVAL;
 
         if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)
@@ -229,7 +229,7 @@ int btrfs_subvol_get_read_only_fd(int fd) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (!S_ISDIR(st.st_mode) || st.st_ino != 256)
+        if (!btrfs_might_be_subvol(&st))
                 return -EINVAL;
 
         if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)

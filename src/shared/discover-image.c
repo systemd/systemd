@@ -260,8 +260,7 @@ static int image_make(
                 if (fd < 0)
                         return -errno;
 
-                /* btrfs subvolumes have inode 256 */
-                if (st->st_ino == 256) {
+                if (btrfs_might_be_subvol(st)) {
 
                         r = btrfs_is_filesystem(fd);
                         if (r < 0)
