@@ -288,8 +288,16 @@ installed systemd tests:
 
 `systemd-tmpfiles`:
 
-* `SYSTEMD_TMPFILES_FORCE_SUBVOL` - if unset, `v`/`q`/`Q` lines will create
+* `SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
   subvolumes only if the OS itself is installed into a subvolume. If set to `1`
   (or another value interpreted as true), these lines will always create
   subvolumes if the backing filesystem supports them. If set to `0`, these
   lines will always create directories.
+
+`systemd-sysv-generator`:
+
+* `$SYSTEMD_SYSVINIT_PATH` — Controls where `systemd-sysv-generator` looks for
+  SysV init scripts.
+
+* `$SYSTEMD_SYSVRCND_PATH` — Controls where `systemd-sysv-generator` looks for
+  SysV init script runlevel link farms.
