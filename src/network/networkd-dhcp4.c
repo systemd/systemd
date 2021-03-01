@@ -1285,7 +1285,7 @@ static int dhcp4_set_request_address(Link *link) {
 int dhcp4_configure(Link *link) {
         sd_dhcp_option *send_option;
         void *request_options;
-        int r;
+        int r, dhcp_broadcast;
 
         assert(link);
         assert(link->network);
@@ -1318,7 +1318,14 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set callback: %m");
 
-        r = sd_dhcp_client_set_request_broadcast(link->dhcp_client, link->network->dhcp_broadcast);
+        dhcp_broadcast = link->network->dhcp_broadcast;
+        if (dhcp_broadcast < 0) {
+                if (streq(link->driver, "qeth_l3"))
+                        dhcp_broadcast = true;
+                else
+                        dhcp_broadcast = false;
+        }
+        r = sd_dhcp_client_set_request_broadcast(link->dhcp_client, dhcp_broadcast);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for broadcast: %m");
 
