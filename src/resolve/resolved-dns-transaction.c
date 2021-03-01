@@ -59,14 +59,15 @@ static void dns_transaction_close_connection(DnsTransaction *t) {
                 t->stream = dns_stream_unref(t->stream);
         }
 
-        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+        t->dns_udp_event_source = sd_event_source_disable_unref(t->dns_udp_event_source);
+
         t->dns_udp_fd = safe_close(t->dns_udp_fd);
 }
 
 static void dns_transaction_stop_timeout(DnsTransaction *t) {
         assert(t);
 
-        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
+        t->timeout_event_source = sd_event_source_disable_unref(t->timeout_event_source);
 }
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {

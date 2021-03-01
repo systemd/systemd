@@ -298,7 +298,7 @@ static void dns_query_stop(DnsQuery *q) {
 
         assert(q);
 
-        q->timeout_event_source = sd_event_source_unref(q->timeout_event_source);
+        q->timeout_event_source = sd_event_source_disable_unref(q->timeout_event_source);
 
         LIST_FOREACH(candidates_by_query, c, q->candidates)
                 dns_query_candidate_stop(c);

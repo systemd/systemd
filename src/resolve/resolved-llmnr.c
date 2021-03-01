@@ -11,16 +11,16 @@
 void manager_llmnr_stop(Manager *m) {
         assert(m);
 
-        m->llmnr_ipv4_udp_event_source = sd_event_source_unref(m->llmnr_ipv4_udp_event_source);
+        m->llmnr_ipv4_udp_event_source = sd_event_source_disable_unref(m->llmnr_ipv4_udp_event_source);
         m->llmnr_ipv4_udp_fd = safe_close(m->llmnr_ipv4_udp_fd);
 
-        m->llmnr_ipv6_udp_event_source = sd_event_source_unref(m->llmnr_ipv6_udp_event_source);
+        m->llmnr_ipv6_udp_event_source = sd_event_source_disable_unref(m->llmnr_ipv6_udp_event_source);
         m->llmnr_ipv6_udp_fd = safe_close(m->llmnr_ipv6_udp_fd);
 
-        m->llmnr_ipv4_tcp_event_source = sd_event_source_unref(m->llmnr_ipv4_tcp_event_source);
+        m->llmnr_ipv4_tcp_event_source = sd_event_source_disable_unref(m->llmnr_ipv4_tcp_event_source);
         m->llmnr_ipv4_tcp_fd = safe_close(m->llmnr_ipv4_tcp_fd);
 
-        m->llmnr_ipv6_tcp_event_source = sd_event_source_unref(m->llmnr_ipv6_tcp_event_source);
+        m->llmnr_ipv6_tcp_event_source = sd_event_source_disable_unref(m->llmnr_ipv6_tcp_event_source);
         m->llmnr_ipv6_tcp_fd = safe_close(m->llmnr_ipv6_tcp_fd);
 }
 

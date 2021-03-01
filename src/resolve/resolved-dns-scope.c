@@ -110,9 +110,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
         hashmap_free(s->transactions_by_key);
 
         ordered_hashmap_free_with_destructor(s->conflict_queue, dns_resource_record_unref);
-        sd_event_source_unref(s->conflict_event_source);
+        sd_event_source_disable_unref(s->conflict_event_source);
 
-        sd_event_source_unref(s->announce_event_source);
+        sd_event_source_disable_unref(s->announce_event_source);
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
@@ -1034,7 +1034,7 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
         assert(es);
         assert(scope);
 
-        scope->conflict_event_source = sd_event_source_unref(scope->conflict_event_source);
+        scope->conflict_event_source = sd_event_source_disable_unref(scope->conflict_event_source);
 
         for (;;) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -1240,7 +1240,7 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 
         assert(s);
 
-        scope->announce_event_source = sd_event_source_unref(scope->announce_event_source);
+        scope->announce_event_source = sd_event_source_disable_unref(scope->announce_event_source);
 
         (void) dns_scope_announce(scope, false);
         return 0;
