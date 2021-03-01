@@ -73,7 +73,7 @@
         the current server does not satisfy this limit, <command>systemd-timesyncd</command> will switch
         to a different server.</para>
 
-        <para>Takes a time value. The default unit is seconds, but other units may be specified, see
+        <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Defaults to 5 seconds.</para></listitem>
       </varlistentry>
@@ -85,8 +85,9 @@
         minimum poll interval, and is adjusted within the specified limits in response to received packets.
         </para>
 
-        <para>Each setting takes a time value. The default unit is seconds, but other units may be specified,
-        see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        <para>Each setting takes a time span value. The default unit is seconds, but other units may be
+        specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         <varname>PollIntervalMinSec=</varname> defaults to 32 seconds and must not be smaller than
         16 seconds. <varname>PollIntervalMaxSec=</varname> defaults to 34 min 8 s (2048 seconds) and must be
         larger than <varname>PollIntervalMinSec=</varname>.</para></listitem>
@@ -97,7 +98,7 @@
         <listitem><para>Specifies the minimum delay before subsequent attempts to contact a new NTP server
         are made.</para>
 
-        <para>Takes a time value. The default unit is seconds, but other units may be specified, see
+        <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Defaults to 30 seconds and must not be smaller than 1 second.</para></listitem>
       </varlistentry>

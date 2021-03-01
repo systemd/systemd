@@ -79,14 +79,16 @@
           <varlistentry>
             <term><literal>==</literal></term>
             <listitem>
-              <para>Compare for equality.</para>
+              <para>Compare for equality. (The specified key has the specified value.)</para>
             </listitem>
           </varlistentry>
 
           <varlistentry>
             <term><literal>!=</literal></term>
             <listitem>
-              <para>Compare for inequality.</para>
+              <para>Compare for inequality. (The specified key doesn't have the specified value, or the
+              specified key is not present at all.)
+              </para>
             </listitem>
           </varlistentry>
 
@@ -167,6 +169,13 @@
           </varlistentry>
 
           <varlistentry>
+            <term><varname>KERNELS</varname></term>
+            <listitem>
+              <para>Search the devpath upwards for a matching device name.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
             <term><varname>NAME</varname></term>
             <listitem>
               <para>Match the name of a network interface. It can be used once the
@@ -190,41 +199,19 @@
               <para>Match the subsystem of the event device.</para>
             </listitem>
           </varlistentry>
-          <varlistentry>
-            <term><varname>DRIVER</varname></term>
-            <listitem>
-              <para>Match the driver name of the event device. Only set this key for devices
-              which are bound to a driver at the time the event is generated.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><varname>ATTR{<replaceable>filename</replaceable>}</varname></term>
-            <listitem>
-              <para>Match sysfs attribute values of the event device. Trailing
-              whitespace in the attribute values is ignored unless the specified match
-              value itself contains trailing whitespace.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
-            <listitem>
-              <para>Match a kernel parameter value.
-              </para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><varname>KERNELS</varname></term>
-            <listitem>
-              <para>Search the devpath upwards for a matching device name.</para>
-            </listitem>
-          </varlistentry>
 
           <varlistentry>
             <term><varname>SUBSYSTEMS</varname></term>
             <listitem>
               <para>Search the devpath upwards for a matching device subsystem name.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname>DRIVER</varname></term>
+            <listitem>
+              <para>Match the driver name of the event device. Only set this key for devices
+              which are bound to a driver at the time the event is generated.</para>
             </listitem>
           </varlistentry>
 
@@ -236,19 +223,31 @@
           </varlistentry>
 
           <varlistentry>
-            <term><varname>ATTRS{<replaceable>filename</replaceable>}</varname></term>
+            <term><varname>ATTR{<replaceable>filename</replaceable>}</varname></term>
             <listitem>
-              <para>Search the devpath upwards for a device with matching sysfs attribute values.
-              If multiple <varname>ATTRS</varname> matches are specified, all of them
-              must match on the same device. Trailing whitespace in the attribute values is ignored
-              unless the specified match value itself contains trailing whitespace.</para>
+              <para>Match sysfs attribute value of the event device.</para>
+
+              <para>Trailing whitespace in the attribute values is ignored unless the specified match value
+              itself contains trailing whitespace.</para>
             </listitem>
           </varlistentry>
 
           <varlistentry>
-            <term><varname>TAGS</varname></term>
+            <term><varname>ATTRS{<replaceable>filename</replaceable>}</varname></term>
             <listitem>
-              <para>Search the devpath upwards for a device with matching tag.</para>
+              <para>Search the devpath upwards for a device with matching sysfs attribute values. If
+              multiple <varname>ATTRS</varname> matches are specified, all of them must match on the same
+              device.</para>
+
+              <para>Trailing whitespace in the attribute values is ignored unless the specified match value
+              itself contains trailing whitespace.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
+            <listitem>
+              <para>Match a kernel parameter value.</para>
             </listitem>
           </varlistentry>
 
@@ -289,6 +288,13 @@
             <term><varname>TAG</varname></term>
             <listitem>
               <para>Match against a device tag.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname>TAGS</varname></term>
+            <listitem>
+              <para>Search the devpath upwards for a device with matching tag.</para>
             </listitem>
           </varlistentry>
 

@@ -48,23 +48,20 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-tmpfiles</command> creates, deletes, and
-    cleans up volatile and temporary files and directories, based on
-    the configuration file format and location specified in
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    </para>
+    <para><command>systemd-tmpfiles</command> creates, deletes, and cleans up volatile and temporary files
+    and directories, using the configuration file format and location specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It must
+    be invoked with one or more options <option>--create</option>, <option>--remove</option>, and
+    <option>--clean</option>, to select the respective subset of operations.</para>
 
-    <para>If invoked with no arguments, it applies all directives from all configuration
-    files. When invoked with <option>--replace=<replaceable>PATH</replaceable></option>,
-    arguments specified on the command line are used instead of the configuration file
-    <replaceable>PATH</replaceable>. Otherwise, if one or more absolute filenames are
-    passed on the command line, only the directives in these files are applied. If
-    <literal>-</literal> is specified instead of a filename, directives are read from
-    standard input. If only the basename of a configuration file is specified, all
-    configuration directories as specified in
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file and the file found that has the highest priority is
-    executed.</para>
+    <para>By default, directives from all configuration files are applied. When invoked with
+    <option>--replace=<replaceable>PATH</replaceable></option>, arguments specified on the command line are
+    used instead of the configuration file <replaceable>PATH</replaceable>. Otherwise, if one or more
+    absolute filenames are passed on the command line, only the directives in these files are applied. If
+    <literal>-</literal> is specified instead of a filename, directives are read from standard input. If only
+    the basename of a configuration file is specified, all configuration directories as specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+    searched for a matching file and the file found that has the highest priority is executed.</para>
 
     <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
     <filename>systemd-tmpfiles-setup-dev.service</filename>,
@@ -81,6 +78,12 @@
     system instance, such as the one typically configured for <filename>/tmp/</filename>, will thus also
     affect files created by the user instance if they are placed in <filename>/tmp/</filename>, even if the
     user instance's time-based cleanup is turned off.</para>
+
+    <para>To re-apply settings after configuration has been modified, simply restart
+    <filename>systemd-tmpfiles-clean.service</filename>, which will apply any settings which can be safely
+    executed at runtime. To debug <command>systemd-tmpfiles</command>, it may be useful to invoke it
+    directly from the command line with increased log level (see <varname>$SYSTEMD_LOG_LEVEL</varname>
+    below).</para>
   </refsect1>
 
   <refsect1>
@@ -225,6 +228,24 @@
     removed and created according to the configuration file:</para>
 
     <programlisting>systemd-tmpfiles --remove --create</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <xi:include href="common-variables.xml" xpointer="log-level" />
+      <xi:include href="common-variables.xml" xpointer="log-color" />
+      <xi:include href="common-variables.xml" xpointer="log-time" />
+      <xi:include href="common-variables.xml" xpointer="log-location" />
+      <xi:include href="common-variables.xml" xpointer="log-target" />
+      <xi:include href="common-variables.xml" xpointer="pager" />
+      <xi:include href="common-variables.xml" xpointer="less" />
+      <xi:include href="common-variables.xml" xpointer="lesscharset" />
+      <xi:include href="common-variables.xml" xpointer="lesssecure" />
+      <xi:include href="common-variables.xml" xpointer="colors" />
+      <xi:include href="common-variables.xml" xpointer="urlify" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

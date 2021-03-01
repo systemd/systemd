@@ -37,12 +37,10 @@
     file without implementing a shell compatible execution
     engine.</para>
 
-    <para><filename>/etc/machine-info</filename> contains metadata
-    about the machine that is set by the user or administrator.</para>
-
-    <para>Depending on the operating system other configuration files
-    might be checked for machine information as well, however only as
-    fallback.</para>
+    <para><filename>/etc/machine-info</filename> contains metadata about the machine that is set by the user
+    or administrator. The settings configured here have the highest precedence. When not set, appropriate
+    values may be determined automatically, based on the information about the hardware or other
+    configuration files. It is thus completely fine for this file to not be present.</para>
 
     <para>You may use
     <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -102,13 +100,11 @@
         as well as the special chassis types
         <literal>vm</literal> and
         <literal>container</literal> for
-        virtualized systems that lack an immediate physical chassis.
-        Note that many systems allow detection of the chassis type
-        automatically (based on firmware information or suchlike).
-        This setting (if set) shall take precedence over automatically
-        detected information and is useful to override misdetected
-        configuration or to manually configure the chassis type where
-        automatic detection is not available.</para></listitem>
+        virtualized systems that lack an immediate physical chassis.</para>
+
+        <para>Note that most systems allow detection of the chassis type automatically (based on firmware
+        information or suchlike). This setting should only be used to override a misdetection or to manually
+        configure the chassis type where automatic detection is not available.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -324,35 +324,47 @@
     <title>Examples</title>
 
     <example>
-      <title>List all the core dumps of a program named foo</title>
+      <title>List all the core dumps of a program</title>
 
-      <programlisting># coredumpctl list foo</programlisting>
+      <programlisting>$ coredumpctl list /usr/lib64/firefox/firefox
+TIME     PID  UID  GID SIG     COREFILE EXE                         SIZE
+Tue …   8018 1000 1000 SIGSEGV missing  /usr/lib64/firefox/firefox   n/a
+Wed … 251609 1000 1000 SIGTRAP missing  /usr/lib64/firefox/firefox   n/a
+Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
+</programlisting>
+
+       <para>The journal has three entries pertaining to <filename>/usr/lib64/firefox/firefox</filename>, and
+       only the last entry still has an available core file (in external storage on disk).</para>
+
+       <para>Note that <filename>coredumpctl</filename> needs access to the journal files to retrieve the
+       relevant entries from the journal. Thus, an unprivileged user will normally only see information about
+       crashing programs of this user.</para>
     </example>
 
     <example>
-      <title>Invoke gdb on the last core dump</title>
+      <title>Invoke <command>gdb</command> on the last core dump</title>
 
-      <programlisting># coredumpctl debug</programlisting>
+      <programlisting>$ coredumpctl debug</programlisting>
     </example>
 
     <example>
-      <title>Use gdb to display full register info from the last core dump</title>
+      <title>Use <command>gdb</command> to display full register info from the last core dump</title>
 
-      <programlisting># coredumpctl debug --debugger-arguments="-batch -ex 'info all-registers'"</programlisting>
+      <programlisting>$ coredumpctl debug --debugger-arguments="-batch -ex 'info all-registers'"</programlisting>
     </example>
 
     <example>
       <title>Show information about a process that dumped core,
       matching by its PID 6654</title>
 
-      <programlisting># coredumpctl info 6654</programlisting>
+      <programlisting>$ coredumpctl info 6654</programlisting>
     </example>
 
     <example>
       <title>Extract the last core dump of /usr/bin/bar to a file named
       <filename index="false">bar.coredump</filename></title>
 
-      <programlisting># coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
+      <programlisting>$ coredumpctl -o bar.coredump dump /usr/bin/bar</programlisting>
     </example>
   </refsect1>
 
