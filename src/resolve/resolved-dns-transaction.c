@@ -66,7 +66,7 @@ static void dns_transaction_close_connection(
                 t->stream = dns_stream_unref(t->stream);
         }
 
-        t->dns_udp_event_source = sd_event_source_unref(t->dns_udp_event_source);
+        t->dns_udp_event_source = sd_event_source_disable_unref(t->dns_udp_event_source);
 
         /* If we have an UDP socket where we sent a packet, but never received one, then add it to the socket
          * graveyard, instead of closing it right away. That way it will stick around for a moment longer,
@@ -87,7 +87,7 @@ static void dns_transaction_close_connection(
 static void dns_transaction_stop_timeout(DnsTransaction *t) {
         assert(t);
 
-        t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
+        t->timeout_event_source = sd_event_source_disable_unref(t->timeout_event_source);
 }
 
 DnsTransaction* dns_transaction_free(DnsTransaction *t) {

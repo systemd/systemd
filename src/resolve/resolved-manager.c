@@ -342,7 +342,7 @@ static int manager_clock_change_listen(Manager *m) {
 
         assert(m);
 
-        m->clock_change_event_source = sd_event_source_unref(m->clock_change_event_source);
+        m->clock_change_event_source = sd_event_source_disable_unref(m->clock_change_event_source);
 
         fd = time_change_fd();
         if (fd < 0)
@@ -789,8 +789,6 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->sigusr2_event_source);
         sd_event_source_unref(m->sigrtmin1_event_source);
 
-        sd_event_unref(m->event);
-
         dns_resource_key_unref(m->llmnr_host_ipv4_key);
         dns_resource_key_unref(m->llmnr_host_ipv6_key);
         dns_resource_key_unref(m->mdns_host_ipv4_key);
@@ -798,6 +796,8 @@ Manager *manager_free(Manager *m) {
 
         sd_event_source_unref(m->hostname_event_source);
         safe_close(m->hostname_fd);
+
+        sd_event_unref(m->event);
 
         free(m->full_hostname);
         free(m->llmnr_hostname);
