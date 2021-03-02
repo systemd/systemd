@@ -418,7 +418,7 @@ static int append_extension_images(
                 return 0;
 
         /* Prepare a list of overlays, that will have as each element a string suitable for being
-         * passed as a lowerdir= parameter, so start with the hierachy on the root.
+         * passed as a lowerdir= parameter, so start with the hierarchy on the root.
          * The overlays vector will have the same number of elements and will correspond to the
          * hierarchies vector, so they can be iterated upon together. */
         STRV_FOREACH(hierarchy, hierarchies) {

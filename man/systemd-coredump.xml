@@ -302,7 +302,7 @@ flags:   ...
         <filename>/proc/<replaceable>pid</replaceable>/limits</filename> (the soft and hard resource limits),
         <filename>/proc/<replaceable>pid</replaceable>/mountinfo</filename> (mount points in the process's
         mount namespace), <filename>/proc/<replaceable>pid</replaceable>/environ</filename>
-        (the environemnt block of the crashed process).</para>
+        (the environment block of the crashed process).</para>
 
         <para>See
         <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>
