@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
-#include <poll.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -276,34 +275,24 @@ int ask_password_plymouth(
         pollfd[POLL_INOTIFY].events = POLLIN;
 
         for (;;) {
-                int sleep_for = -1, j;
+                usec_t timeout;
 
-                if (until > 0) {
-                        usec_t y;
-
-                        y = now(CLOCK_MONOTONIC);
-
-                        if (y > until) {
-                                r = -ETIME;
-                                goto finish;
-                        }
-
-                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
-                }
+                if (until > 0)
+                        timeout = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
+                else
+                        timeout = USEC_INFINITY;
 
                 if (flag_file && access(flag_file, F_OK) < 0) {
                         r = -errno;
                         goto finish;
                 }
 
-                j = poll(pollfd, notify >= 0 ? 2 : 1, sleep_for);
-                if (j < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        r = -errno;
+                r = ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         goto finish;
-                } else if (j == 0) {
+                if (r == 0) {
                         r = -ETIME;
                         goto finish;
                 }
@@ -513,21 +502,13 @@ int ask_password_tty(
 
         for (;;) {
                 _cleanup_(erase_char) char c;
-                int sleep_for = -1, k;
+                usec_t timeout;
                 ssize_t n;
 
-                if (until > 0) {
-                        usec_t y;
-
-                        y = now(CLOCK_MONOTONIC);
-
-                        if (y > until) {
-                                r = -ETIME;
-                                goto finish;
-                        }
-
-                        sleep_for = (int) DIV_ROUND_UP(until - y, USEC_PER_MSEC);
-                }
+                if (until > 0)
+                        timeout = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
+                else
+                        timeout = USEC_INFINITY;
 
                 if (flag_file)
                         if (access(flag_file, F_OK) < 0) {
@@ -535,14 +516,12 @@ int ask_password_tty(
                                 goto finish;
                         }
 
-                k = poll(pollfd, notify >= 0 ? 2 : 1, sleep_for);
-                if (k < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        r = -errno;
+                r = ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         goto finish;
-                } else if (k == 0) {
+                if (r == 0) {
                         r = -ETIME;
                         goto finish;
                 }
@@ -875,27 +854,20 @@ int ask_password_agent(
                 char passphrase[LINE_MAX+1];
                 struct iovec iovec;
                 struct ucred *ucred;
+                usec_t timeout;
                 ssize_t n;
-                int k;
-                usec_t t;
 
-                t = now(CLOCK_MONOTONIC);
+                if (until > 0)
+                        timeout = usec_sub_unsigned(timeout, now(CLOCK_MONOTONIC));
+                else
+                        timeout = USEC_INFINITY;
 
-                if (until > 0 && until <= t) {
-                        r = -ETIME;
+                r = ppoll_usec(pollfd, notify >= 0 ? _FD_MAX : _FD_MAX - 1, timeout);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         goto finish;
-                }
-
-                k = poll(pollfd, notify >= 0 ? _FD_MAX : _FD_MAX - 1, until > 0 ? (int) ((until-t)/USEC_PER_MSEC) : -1);
-                if (k < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        r = -errno;
-                        goto finish;
-                }
-
-                if (k <= 0) {
+                if (r == 0) {
                         r = -ETIME;
                         goto finish;
                 }

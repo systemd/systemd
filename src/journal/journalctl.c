@@ -5,7 +5,6 @@
 #include <fnmatch.h>
 #include <getopt.h>
 #include <linux/fs.h>
-#include <poll.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -2095,8 +2094,6 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
                 { .fd = poll_fd, .events = POLLIN },
                 { .fd = STDOUT_FILENO },
         };
-
-        struct timespec ts;
         usec_t timeout;
         int r;
 
@@ -2110,13 +2107,11 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine journal waiting time: %m");
 
-        if (ppoll(pollfds, ELEMENTSOF(pollfds),
-                  timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0) {
-                if (errno == EINTR)
-                        return 0;
-
-                return log_error_errno(errno, "Couldn't wait for journal event: %m");
-        }
+        r = ppoll_usec(pollfds, ELEMENTSOF(pollfds), timeout);
+        if (r == -EINTR)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Couldn't wait for journal event: %m");
 
         if (pollfds[1].revents & (POLLHUP|POLLERR|POLLNVAL)) /* STDOUT has been closed? */
                 return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),

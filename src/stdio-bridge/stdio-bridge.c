@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <poll.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
@@ -15,6 +14,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "errno-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "util.h"
@@ -181,8 +181,9 @@ static int run(int argc, char *argv[]) {
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
-                uint64_t timeout_a, timeout_b, t;
-                struct timespec _ts, *ts;
+                usec_t timeout_a, timeout_b, t;
+
+                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
                 r = sd_bus_process(a, &m);
                 if (r < 0)
@@ -235,23 +236,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get timeout: %m");
 
-                t = timeout_a;
-                if (t == (uint64_t) -1 || (timeout_b != (uint64_t) -1 && timeout_b < timeout_a))
-                        t = timeout_b;
-
-                if (t == (uint64_t) -1)
-                        ts = NULL;
-                else {
-                        usec_t nw;
-
-                        nw = now(CLOCK_MONOTONIC);
-                        if (t > nw)
-                                t -= nw;
-                        else
-                                t = 0;
-
-                        ts = timespec_store(&_ts, t);
-                }
+                t = usec_sub_unsigned(MIN(timeout_a, timeout_b), now(CLOCK_MONOTONIC));
 
                 struct pollfd p[3] = {
                         { .fd = fd,            .events = events_a           },
@@ -259,9 +244,10 @@ static int run(int argc, char *argv[]) {
                         { .fd = STDOUT_FILENO, .events = events_b & POLLOUT },
                 };
 
-                r = ppoll(p, ELEMENTSOF(p), ts, NULL);
+                r = ppoll_usec(p, ELEMENTSOF(p), t);
                 if (r < 0)
-                        return log_error_errno(errno, "ppoll() failed: %m");
+                        return log_error_errno(r, "ppoll() failed: %m");
+
                 if (p[0].revents & POLLNVAL ||
                     p[1].revents & POLLNVAL ||
                     p[2].revents & POLLNVAL)
