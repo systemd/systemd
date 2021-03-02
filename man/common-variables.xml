@@ -75,7 +75,7 @@
       project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <constant>kmsg</constant> (log to the kernel circular log buffer), <constant>journal</constant> (log to
       the journal), <constant>journal-or-kmsg</constant> (log to the journal if available, and to kmsg
-      otherwise), <constant>auto</constant> (dermine the appropriate log target automatically, the default),
+      otherwise), <constant>auto</constant> (determine the appropriate log target automatically, the default),
       <constant>null</constant> (disable log output).</para>
       <!-- <constant>syslog</constant>, <constant>syslog-or-kmsg</constant> are deprecated -->
       </listitem>
