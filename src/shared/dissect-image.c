@@ -282,6 +282,7 @@ struct wait_data {
         blkid_partition blkidp;
         sd_device *found;
         uint64_t uevent_seqnum_not_before;
+        usec_t timestamp_not_before;
 };
 
 static inline void wait_data_done(struct wait_data *d) {
@@ -324,6 +325,19 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 
 finish:
         return sd_event_exit(sd_device_monitor_get_event(monitor), r);
+}
+
+static int timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct wait_data *w = userdata;
+        int r;
+
+        assert(w);
+
+        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, &w->found);
+        if (r == -ENXIO)
+                r = -ETIMEDOUT;
+
+        return sd_event_exit(sd_event_source_get_event(s), r);
 }
 
 static int wait_for_partition_device(
@@ -375,6 +389,7 @@ static int wait_for_partition_device(
                 .parent_device = parent,
                 .blkidp = pp,
                 .uevent_seqnum_not_before = uevent_seqnum_not_before,
+                .timestamp_not_before = timestamp_not_before,
         };
 
         r = sd_device_monitor_start(monitor, device_monitor_handler, &w);
@@ -390,7 +405,7 @@ static int wait_for_partition_device(
                 r = sd_event_add_time(
                                 event, &timeout_source,
                                 CLOCK_MONOTONIC, deadline, 0,
-                                NULL, INT_TO_PTR(-ETIMEDOUT));
+                                timeout_handler, &w);
                 if (r < 0)
                         return r;
         }
