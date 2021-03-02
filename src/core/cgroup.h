@@ -31,6 +31,7 @@ typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
 typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
+typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
 
 typedef enum CGroupDevicePolicy {
         /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
@@ -94,6 +95,12 @@ struct CGroupBlockIODeviceBandwidth {
         uint64_t wbps;
 };
 
+struct CGroupBPFForeignProgram {
+        LIST_FIELDS(CGroupBPFForeignProgram, programs);
+        uint32_t attach_type;
+        char *bpffs_path;
+};
+
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -142,6 +149,7 @@ struct CGroupContext {
 
         char **ip_filters_ingress;
         char **ip_filters_egress;
+        LIST_HEAD(CGroupBPFForeignProgram, bpf_foreign_programs);
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;
@@ -202,8 +210,10 @@ void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *
 void cgroup_context_free_io_device_latency(CGroupContext *c, CGroupIODeviceLatency *l);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
+void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
 
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 
