@@ -190,6 +190,15 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         free(b);
 }
 
+void cgroup_context_free_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p) {
+        assert(c);
+        assert(p);
+
+        LIST_REMOVE(programs, c->bpf_foreign_programs, p);
+        free(p->bpffs_path);
+        free(p);
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -216,6 +225,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
+
+        while (c->bpf_foreign_programs)
+                cgroup_context_free_bpf_foreign_program(c, c->bpf_foreign_programs);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
@@ -360,6 +372,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupIODeviceLatency *l;
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
+        CGroupBPFForeignProgram *p;
         CGroupDeviceAllow *a;
         CGroupContext *c;
         IPAddressAccessItem *iaai;
@@ -544,6 +557,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs)
+                fprintf(f, "%sBPFProgram: %s:%s", prefix,
+                                bpf_cgroup_attach_type_to_string(p->attach_type), p->bpffs_path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -571,6 +588,31 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 
         LIST_PREPEND(device_allow, c->device_allow, a);
         TAKE_PTR(a);
+
+        return 0;
+}
+
+int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
+        CGroupBPFForeignProgram *p;
+        _cleanup_free_ char *dup = NULL;
+
+        assert(c);
+        assert(bpffs_path);
+
+        dup = strdup(bpffs_path);
+        if (!dup)
+                return log_oom();
+
+        p = new(CGroupBPFForeignProgram, 1);
+        if (!p)
+                return log_oom();
+
+        *p = (CGroupBPFForeignProgram) {
+                .attach_type = attach_type,
+                .bpffs_path = TAKE_PTR(dup),
+        };
+
+        LIST_PREPEND(programs, c->bpf_foreign_programs, TAKE_PTR(p));
 
         return 0;
 }
