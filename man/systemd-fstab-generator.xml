@@ -82,9 +82,20 @@
       <varlistentry>
         <term><varname>root=</varname></term>
 
-        <listitem><para>Takes the root filesystem to mount in the
-        initrd. <varname>root=</varname> is honored by the
-        initrd.</para></listitem>
+        <listitem><para>Configures the operating system's root filesystem to mount when running in the
+        initrd. This accepts a device node path (usually <filename>/dev/disk/by-uuid/…</filename> or
+        <filename>/dev/disk/by-label/…</filename> or similar), or the special values <literal>gpt-auto</literal>
+        and <literal>tmpfs</literal>.</para>
+
+        <para>Use <literal>gpt-auto</literal> to explicitly request automatic root file system discovery via
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>Use <literal>tmpfs</literal> in order to mount a <citerefentry
+        project='man-pages'><refentrytitle>tmpfs</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+        system as root file system of the OS. This is useful in combination with
+        <varname>mount.usr=</varname> (see below) in order to combine a volatile root file system with a
+        separate, immutable <filename>/usr/</filename> file system. Also see
+        <varname>systemd.volatile=</varname> below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -193,10 +204,19 @@
         or any other resources stored in the root file system are physically removed. It's thus safe to boot a system
         that is normally operated in non-volatile mode temporarily into volatile mode, without losing data.</para>
 
-        <para>Note that with the exception of <literal>overlay</literal> mode, enabling this setting will only work
-        correctly on operating systems that can boot up with only <filename>/usr/</filename> mounted, and are able to
-        automatically populate <filename>/etc/</filename>, and also <filename>/var/</filename> in case of
-        <literal>systemd.volatile=yes</literal>.</para></listitem>
+        <para>Note that with the exception of <literal>overlay</literal> mode, enabling this setting will
+        only work correctly on operating systems that can boot up with only <filename>/usr/</filename>
+        mounted, and are able to automatically populate <filename>/etc/</filename>, and also
+        <filename>/var/</filename> in case of <literal>systemd.volatile=yes</literal>.</para>
+
+        <para>Also see <varname>root=tmpfs</varname> above, for a method to combine a
+        <literal>tmpfs</literal> file system with a regular <filename>/usr/</filename> file system (as
+        configured via <varname>mount.usr=</varname>). The main distinction between
+        <varname>systemd.volatile=yes</varname>, and <varname>root=tmpfs</varname> in combination
+        <varname>mount.usr=</varname> is that the former operates on top of a regular root file system and
+        temporarily obstructs the files and directories above its <filename>/usr/</filename> subdirectory,
+        while the latter does not hide any files, but simply mounts a unpopulated tmpfs as root file system
+        and combines it with a user picked <filename>/usr/</filename> file system.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -218,6 +238,7 @@
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>

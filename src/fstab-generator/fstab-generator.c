@@ -671,7 +671,8 @@ static int parse_fstab(bool initrd) {
 
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
-        const char *opts;
+        const char *opts, *fstype;
+        bool default_rw;
         int r;
 
         if (isempty(arg_root_what)) {
@@ -691,12 +692,29 @@ static int add_sysroot_mount(void) {
                 return 0;
         }
 
-        what = fstab_node_to_udev_node(arg_root_what);
-        if (!what)
-                return log_oom();
+        if (streq(arg_root_what, "tmpfs")) {
+                /* If root=tmpfs is specified, then take this as shortcut for a writable tmpfs mount as root */
+
+                what = strdup("rootfs"); /* just a pretty name, to show up in /proc/self/mountinfo */
+                if (!what)
+                        return log_oom();
+
+                fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overriden */
+
+                default_rw = true; /* writable, unless overriden */;
+        } else {
+
+                what = fstab_node_to_udev_node(arg_root_what);
+                if (!what)
+                        return log_oom();
+
+                fstype = arg_root_fstype; /* if not specified explicitly, don't default to anything here */
+
+                default_rw = false; /* read-only, unless overriden */
+        }
 
         if (!arg_root_options)
-                opts = arg_root_rw > 0 ? "rw" : "ro";
+                opts = arg_root_rw > 0 || (arg_root_rw < 0 && default_rw) ? "rw" : "ro";
         else if (arg_root_rw >= 0 ||
                  !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
                 opts = strjoina(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
@@ -715,7 +733,7 @@ static int add_sysroot_mount(void) {
                          what,
                          "/sysroot",
                          NULL,
-                         arg_root_fstype,
+                         fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
                          0,                            /* makefs off, growfs off, noauto off, nofail off, automount off */
