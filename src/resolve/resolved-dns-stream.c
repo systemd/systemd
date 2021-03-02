@@ -18,8 +18,8 @@
 static void dns_stream_stop(DnsStream *s) {
         assert(s);
 
-        s->io_event_source = sd_event_source_unref(s->io_event_source);
-        s->timeout_event_source = sd_event_source_unref(s->timeout_event_source);
+        s->io_event_source = sd_event_source_disable_unref(s->io_event_source);
+        s->timeout_event_source = sd_event_source_disable_unref(s->timeout_event_source);
         s->fd = safe_close(s->fd);
 
         /* Disconnect us from the server object if we are now not usable anymore */

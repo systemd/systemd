@@ -36,7 +36,7 @@ static SocketGraveyard* socket_graveyard_free(SocketGraveyard *g) {
 
         if (g->io_event_source) {
                 log_debug("Closing graveyard socket fd %i", sd_event_source_get_io_fd(g->io_event_source));
-                sd_event_source_unref(g->io_event_source);
+                sd_event_source_disable_unref(g->io_event_source);
         }
 
         return mfree(g);
