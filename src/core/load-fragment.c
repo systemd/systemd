@@ -19,6 +19,7 @@
 #include "alloc-util.h"
 #include "all-units.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -5566,6 +5567,67 @@ int config_parse_ip_filter_bpf_progs(
 
                 warned = true;
         }
+
+        return 0;
+}
+
+int config_parse_bpf_foreign_program(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *bpffs_path = NULL;
+        _cleanup_free_ char *resolved = NULL;
+        _cleanup_free_ char *word = NULL;
+        CGroupContext *c = data;
+        Unit *u = userdata;
+        int attach_type, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                while (c->bpf_foreign_programs)
+                        cgroup_context_free_bpf_foreign_program(c, c->bpf_foreign_programs);
+
+                return 0;
+        }
+
+        r = extract_first_word(&rvalue, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse foreign BPF program, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        attach_type = bpf_cgroup_attach_type_from_string(word);
+        if (attach_type < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown BPF attach type=%s, ignoring: %s", word, rvalue);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        r = cgroup_add_bpf_foreign_program(c, (uint32_t) attach_type, resolved);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add foreign BPF program to cgroup context: %m");
 
         return 0;
 }
