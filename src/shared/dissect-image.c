@@ -352,6 +352,28 @@ static int timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
+static int retry_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct wait_data *w = userdata;
+        int r;
+
+        assert(w);
+
+        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, w->flags, &w->found);
+        if (r != -ENXIO) {
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to find partition: %m");
+
+                log_debug("Partition found by a periodic search.");
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+        }
+
+        r = sd_event_source_set_time_relative(s, 500 * USEC_PER_MSEC);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+}
+
 static int wait_for_partition_device(
                 sd_device *parent,
                 blkid_partition pp,
@@ -361,7 +383,7 @@ static int wait_for_partition_device(
                 DissectImageFlags flags,
                 sd_device **ret) {
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL, *retry_source = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
@@ -427,6 +449,17 @@ static int wait_for_partition_device(
                 if (r < 0)
                         return r;
         }
+
+        r = sd_event_add_time_relative(
+                        event, &retry_source,
+                        CLOCK_MONOTONIC, 500 * USEC_PER_MSEC, 0,
+                        retry_handler, &w);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_exit_on_failure(retry_source, true);
+        if (r < 0)
+                return r;
 
         r = sd_event_loop(event);
         if (r < 0)
