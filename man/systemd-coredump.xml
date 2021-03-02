@@ -238,8 +238,14 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_SIGNAL_NAME=</varname></term>
         <term><varname>COREDUMP_SIGNAL=</varname></term>
 
-        <listitem><para>The terminating signal name and numerical value. (Both are included because signal
-        numbers vary by architecture.)</para>
+        <listitem><para>The terminating signal name (with the <literal>SIG</literal> prefix
+        <footnote><para><citerefentry
+        project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        expects signal names <emphasis>without</emphasis> the prefix; <citerefentry
+        project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry> uses
+        the prefix; all systemd tools accept signal names both with and without the prefix.
+        </para></footnote>) and numerical value. (Both are included because signal numbers vary by
+        architecture.)</para>
         </listitem>
       </varlistentry>
 
