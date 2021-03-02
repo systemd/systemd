@@ -57,9 +57,8 @@
     few days by default; see <filename>/usr/lib/tmpfiles.d/systemd.conf</filename> for details. Note that the
     removal of core files from the file system and the purging of journal entries are independent, and the
     core file may be present without the journal entry, and journal entries may point to since-removed core
-    files. Metadata is attached to core files in the form of extended attributes, so the core files may be
-    useful even without the full metadata available in the journal entry.
-    </para>
+    files. Some metadata is attached to core files in the form of extended attributes, so the core files are
+    useful for some purposes even without the full metadata available in the journal entry.</para>
 
     <refsect2>
       <title>Invocation of <command>systemd-coredump</command></title>
@@ -238,8 +237,14 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_SIGNAL_NAME=</varname></term>
         <term><varname>COREDUMP_SIGNAL=</varname></term>
 
-        <listitem><para>The terminating signal name and numerical value. (Both are included because signal
-        numbers vary by architecture.)</para>
+        <listitem><para>The terminating signal name (with the <literal>SIG</literal> prefix
+        <footnote><para><citerefentry
+        project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        expects signal names <emphasis>without</emphasis> the prefix; <citerefentry
+        project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry> uses
+        the prefix; all systemd tools accept signal names both with and without the prefix.
+        </para></footnote>) and numerical value. (Both are included because signal numbers vary by
+        architecture.)</para>
         </listitem>
       </varlistentry>
 
