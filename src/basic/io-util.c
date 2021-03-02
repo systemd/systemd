@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <limits.h>
-#include <poll.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -159,21 +158,29 @@ int pipe_eof(int fd) {
         return !!(r & POLLHUP);
 }
 
-int fd_wait_for_event(int fd, int event, usec_t t) {
+int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
+        struct timespec ts;
+        int r;
 
+        assert(fds);
+
+        r = ppoll(fds, nfds, timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL);
+        if (r < 0)
+                return -errno;
+
+        return r;
+}
+
+int fd_wait_for_event(int fd, int event, usec_t timeout) {
         struct pollfd pollfd = {
                 .fd = fd,
                 .events = event,
         };
-
-        struct timespec ts;
         int r;
 
-        r = ppoll(&pollfd, 1, t == USEC_INFINITY ? NULL : timespec_store(&ts, t), NULL);
-        if (r < 0)
-                return -errno;
-        if (r == 0)
-                return 0;
+        r = ppoll_usec(&pollfd, 1, timeout);
+        if (r <= 0)
+                return r;
 
         if (pollfd.revents & POLLNVAL)
                 return -EBADF;
