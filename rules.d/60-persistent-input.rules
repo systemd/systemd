@@ -35,8 +35,8 @@ SUBSYSTEMS=="usb", ENV{ID_BUS}=="?*", KERNEL=="event*", ENV{.INPUT_CLASS}=="", A
 SUBSYSTEMS=="pci|usb|platform|acpi", IMPORT{builtin}="path_id"
 ENV{ID_PATH}=="?*", KERNEL=="mouse*|js*", ENV{.INPUT_CLASS}=="?*", SYMLINK+="input/by-path/$env{ID_PATH}-$env{.INPUT_CLASS}"
 ENV{ID_PATH}=="?*", KERNEL=="event*", ENV{.INPUT_CLASS}=="?*", SYMLINK+="input/by-path/$env{ID_PATH}-event-$env{.INPUT_CLASS}"
-# allow empty class for platform and usb devices; platform supports only a single interface that way
-SUBSYSTEMS=="usb|platform", ENV{ID_PATH}=="?*", KERNEL=="event*", ENV{.INPUT_CLASS}=="", \
+# allow empty class for platform, usb and i2c devices; platform supports only a single interface that way
+SUBSYSTEMS=="usb|platform|i2c", ENV{ID_PATH}=="?*", KERNEL=="event*", ENV{.INPUT_CLASS}=="", \
   SYMLINK+="input/by-path/$env{ID_PATH}-event"
 
 LABEL="persistent_input_end"
