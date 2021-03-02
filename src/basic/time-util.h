@@ -155,16 +155,14 @@ usec_t jiffies_to_usec(uint32_t jiffies);
 bool in_utc_timezone(void);
 
 static inline usec_t usec_add(usec_t a, usec_t b) {
-        usec_t c;
 
         /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output, and doesn't
          * overflow. */
 
-        c = a + b;
-        if (c < a || c < b) /* overflow check */
+        if (a > USEC_INFINITY - b) /* overflow check */
                 return USEC_INFINITY;
 
-        return c;
+        return a + b;
 }
 
 static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {
