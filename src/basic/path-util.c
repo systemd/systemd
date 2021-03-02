@@ -819,11 +819,21 @@ const char *last_path_component(const char *path) {
 int path_extract_filename(const char *p, char **ret) {
         _cleanup_free_ char *a = NULL;
         const char *c;
+        size_t n;
 
         /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
-         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. Returns
-         * -EADDRNOTAVAIL if specified parameter includes no filename (i.e. is "/" or so). Returns -EINVAL if
-         * not a valid path in the first place. */
+         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing
+         * slashes. Returns:
+         *
+         * -EINVAL        → if the passed in path is not a valid path
+         * -EADDRNOTAVAIL → if only a directory was specified, but no filename, i.e. the root dir itself is specified
+         * -ENOMEM        → no memory
+         *
+         * Returns >= 0 on success. If the input path has a trailing slash, returns O_DIRECTORY, to indicate
+         * the referenced file must be a directory.
+         *
+         * This function guarantees to return a fully valid filename, i.e. one that passes
+         * filename_is_valid() – this means "." and ".." are not accepted. */
 
         if (!path_is_valid(p))
                 return -EINVAL;
@@ -834,12 +844,55 @@ int path_extract_filename(const char *p, char **ret) {
                 return -EADDRNOTAVAIL;
 
         c = last_path_component(p);
+        n = strcspn(c, "/");
 
-        a = strndup(c, strcspn(c, "/"));
+        a = strndup(c, n);
         if (!a)
                 return -ENOMEM;
 
         if (!filename_is_valid(a))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(a);
+        return c[n] == '/' ? O_DIRECTORY : 0;
+}
+
+int path_extract_directory(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *c;
+
+        /* The inverse of path_extract_filename(), i.e. returns the directory path prefix. Returns:
+         *
+         * -EINVAL        → if the passed in path is not a valid path
+         * -EDESTADDRREQ  → if no directory was specified in the passed in path, i.e. only a filename was passed
+         * -EADDRNOTAVAIL → if the passed in parameter had no filename but did have a directory, i.e. the root dir itself was specified
+         * -ENOMEM        → no memory (surprise!)
+         *
+         * This function guarantees to return a fully valid path, i.e. one that passes path_is_valid().
+         */
+
+        if (!path_is_valid(p))
+                return -EINVAL;
+
+        /* Special case the root dir, because otherwise for an input of "///" last_path_component() returns
+         * the pointer to the last slash only, which might be seen as a valid path below. */
+        if (path_equal(p, "/"))
+                return -EADDRNOTAVAIL;
+
+        c = last_path_component(p);
+
+        /* Delete trailing slashes, but keep one */
+        while (c > p+1 && c[-1] == '/')
+                c--;
+
+        if (p == c) /* No path whatsoever? Then return a recognizable error */
+                return -EDESTADDRREQ;
+
+        a = strndup(p, c - p);
+        if (!a)
+                return -ENOMEM;
+
+        if (!path_is_valid(a))
                 return -EINVAL;
 
         *ret = TAKE_PTR(a);
