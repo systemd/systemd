@@ -57,9 +57,8 @@
     few days by default; see <filename>/usr/lib/tmpfiles.d/systemd.conf</filename> for details. Note that the
     removal of core files from the file system and the purging of journal entries are independent, and the
     core file may be present without the journal entry, and journal entries may point to since-removed core
-    files. Metadata is attached to core files in the form of extended attributes, so the core files may be
-    useful even without the full metadata available in the journal entry.
-    </para>
+    files. Some metadata is attached to core files in the form of extended attributes, so the core files are
+    useful for some purposes even without the full metadata available in the journal entry.</para>
 
     <refsect2>
       <title>Invocation of <command>systemd-coredump</command></title>
