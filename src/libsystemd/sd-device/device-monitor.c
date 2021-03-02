@@ -83,8 +83,8 @@ static int monitor_set_nl_address(sd_device_monitor *m) {
 }
 
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender) {
-        assert_return(m, -EINVAL);
-        assert_return(sender, -EINVAL);
+        assert(m);
+        assert(sender);
 
         m->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
         return 0;
@@ -104,7 +104,7 @@ int device_monitor_disconnect(sd_device_monitor *m) {
 }
 
 int device_monitor_get_fd(sd_device_monitor *m) {
-        assert_return(m, -EINVAL);
+        assert(m);
 
         return m->sock;
 }
@@ -114,8 +114,8 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         _cleanup_close_ int sock = -1;
         int r;
 
+        assert(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX);
         assert_return(ret, -EINVAL);
-        assert_return(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX, -EINVAL);
 
         if (group == MONITOR_GROUP_UDEV &&
             access("/run/udev/control", F_OK) < 0 &&
@@ -304,7 +304,7 @@ _public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *
 int device_monitor_enable_receiving(sd_device_monitor *m) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert(m);
 
         r = sd_device_monitor_filter_update(m);
         if (r < 0)
@@ -334,8 +334,8 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
         (void) sd_device_monitor_detach_event(m);
 
-        hashmap_free_free_free(m->subsystem_filter);
-        set_free_free(m->tag_filter);
+        hashmap_free(m->subsystem_filter);
+        set_free(m->tag_filter);
 
         return mfree(m);
 }
@@ -346,8 +346,8 @@ static int passes_filter(sd_device_monitor *m, sd_device *device) {
         const char *tag, *subsystem, *devtype, *s, *d = NULL;
         int r;
 
-        assert_return(m, -EINVAL);
-        assert_return(device, -EINVAL);
+        assert(m);
+        assert(device);
 
         if (hashmap_isempty(m->subsystem_filter))
                 goto tag;
@@ -413,6 +413,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         bool is_initialized = false;
         int r;
 
+        assert(m);
         assert(ret);
 
         buflen = recvmsg(m->sock, &smsg, 0);
@@ -507,10 +508,10 @@ static uint64_t string_bloom64(const char *str) {
         uint64_t bits = 0;
         uint32_t hash = string_hash32(str);
 
-        bits |= 1LLU << (hash & 63);
-        bits |= 1LLU << ((hash >> 6) & 63);
-        bits |= 1LLU << ((hash >> 12) & 63);
-        bits |= 1LLU << ((hash >> 18) & 63);
+        bits |= UINT64_C(1) << (hash & 63);
+        bits |= UINT64_C(1) << ((hash >> 6) & 63);
+        bits |= UINT64_C(1) << ((hash >> 12) & 63);
+        bits |= UINT64_C(1) << ((hash >> 18) & 63);
         return bits;
 }
 
@@ -717,41 +718,30 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 }
 
 _public_ int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype) {
-        _cleanup_free_ char *s = NULL, *d = NULL;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(subsystem, -EINVAL);
 
-        s = strdup(subsystem);
-        if (!s)
-                return -ENOMEM;
-
-        if (devtype) {
-                d = strdup(devtype);
-                if (!d)
-                        return -ENOMEM;
-        }
-
-        r = hashmap_ensure_put(&m->subsystem_filter, NULL, s, d);
-        if (r < 0)
+        r = hashmap_put_strdup_full(&m->subsystem_filter, &trivial_hash_ops_free_free, subsystem, devtype);
+        if (r <= 0)
                 return r;
 
-        TAKE_PTR(s);
-        TAKE_PTR(d);
-
         m->filter_uptodate = false;
-
-        return 0;
+        return r;
 }
 
 _public_ int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag) {
+        int r;
+
         assert_return(m, -EINVAL);
         assert_return(tag, -EINVAL);
 
-        int r = set_put_strdup(&m->tag_filter, tag);
-        if (r > 0)
-                m->filter_uptodate = false;
+        r = set_put_strdup(&m->tag_filter, tag);
+        if (r <= 0)
+                return r;
+
+        m->filter_uptodate = false;
         return r;
 }
 
@@ -760,8 +750,8 @@ _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
 
         assert_return(m, -EINVAL);
 
-        m->subsystem_filter = hashmap_free_free_free(m->subsystem_filter);
-        m->tag_filter = set_free_free(m->tag_filter);
+        m->subsystem_filter = hashmap_free(m->subsystem_filter);
+        m->tag_filter = set_free(m->tag_filter);
 
         if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
