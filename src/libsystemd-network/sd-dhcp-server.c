@@ -718,6 +718,20 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         assert(server);
         assert(message);
 
+        if (message->op == BOOTREPLY && in4_addr_is_set(&server->relay_target)) {
+            log_dhcp_server(server, "relay BOOTREPLY");
+            be32_t destination = INADDR_ANY;
+            dhcp_server_send_udp(server, destination, DHCP_PORT_CLIENT, message, length);
+            return 0;
+        }
+
+        if (message->op == BOOTREQUEST && in4_addr_is_set(&server->relay_target)) {
+            log_dhcp_server(server, "relay BOOTREQUEST");
+            dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
+            return 0;
+        }
+
+
         if (message->op != BOOTREQUEST ||
             message->htype != ARPHRD_ETHER ||
             message->hlen != ETHER_ADDR_LEN)
@@ -1211,4 +1225,16 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
         server->callback_userdata = userdata;
 
         return 0;
+}
+
+int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address) {
+
+        assert_return(server, -EINVAL);
+
+        if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
+                return 0;
+
+        server->relay_target = *address;
+
+        return 1;
 }

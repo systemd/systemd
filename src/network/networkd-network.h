@@ -181,6 +181,8 @@ struct Network {
 
         /* DHCP Server Support */
         bool dhcp_server;
+        struct in_addr dhcp_server_relay_target;
+
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
