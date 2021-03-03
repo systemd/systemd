@@ -68,7 +68,7 @@ int sd_resolve_get_fd(sd_resolve *resolve);
  * POLLOUT, ...) to check for. */
 int sd_resolve_get_events(sd_resolve *resolve);
 
-/* Return the poll() timeout to pass. Returns (uint64_t) -1 as
+/* Return the poll() timeout to pass. Returns UINT64_MAX as
  * timeout if no timeout is needed. */
 int sd_resolve_get_timeout(sd_resolve *resolve, uint64_t *timeout_usec);
 

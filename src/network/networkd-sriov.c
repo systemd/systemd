@@ -17,7 +17,7 @@ static int sr_iov_new(SRIOV **ret) {
                 return -ENOMEM;
 
         *sr_iov = (SRIOV) {
-                  .vf = (uint32_t) -1,
+                  .vf = UINT32_MAX,
                   .vlan_proto = ETH_P_8021Q,
                   .vf_spoof_check_setting = -1,
                   .trust = -1,
@@ -256,7 +256,7 @@ static int sr_iov_section_verify(SRIOV *sr_iov) {
         if (section_is_invalid(sr_iov->section))
                 return -EINVAL;
 
-        if (sr_iov->vf == (uint32_t) -1)
+        if (sr_iov->vf == UINT32_MAX)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: [SRIOV] section without VirtualFunction= field configured. "
                                          "Ignoring [SRIOV] section from line %u.",
@@ -303,7 +303,7 @@ int config_parse_sr_iov_uint32(
 
         if (isempty(rvalue)) {
                 if (streq(lvalue, "VirtualFunction"))
-                        sr_iov->vf = (uint32_t) -1;
+                        sr_iov->vf = UINT32_MAX;
                 else if (streq(lvalue, "VLANId"))
                         sr_iov->vlan = 0;
                 else if (streq(lvalue, "QualityOfService"))

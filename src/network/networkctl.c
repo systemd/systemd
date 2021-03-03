@@ -1011,7 +1011,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
+        r = table_set_sort(table, (size_t) 0);
         if (r < 0)
                 return r;
 

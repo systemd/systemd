@@ -81,7 +81,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
                         m->header->version);
 
                 /* Display synthetic message serial number in a more readable
-                 * format than (uint32_t) -1 */
+                 * format than UINT32_MAX */
                 if (BUS_MESSAGE_COOKIE(m) == 0xFFFFFFFFULL)
                         fprintf(f, " Cookie=-1");
                 else

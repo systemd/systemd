@@ -4,7 +4,7 @@
 
 int main(int argc, const char *argv[]) {
         _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
-        unsigned n = (unsigned) -1, i = 0;
+        unsigned n = UINT_MAX, i = 0;
 
         b = bitmap_new();
         assert_se(b);
@@ -59,10 +59,10 @@ int main(int argc, const char *argv[]) {
                 else if (i == 1)
                         i = 256;
                 else if (i == 256)
-                        i = (unsigned) -1;
+                        i = UINT_MAX;
         }
 
-        assert_se(i == (unsigned) -1);
+        assert_se(i == UINT_MAX);
 
         i = 0;
 
@@ -73,10 +73,10 @@ int main(int argc, const char *argv[]) {
                 else if (i == 1)
                         i = 256;
                 else if (i == 256)
-                        i = (unsigned) -1;
+                        i = UINT_MAX;
         }
 
-        assert_se(i == (unsigned) -1);
+        assert_se(i == UINT_MAX);
 
         b2 = bitmap_copy(b);
         assert_se(b2);
@@ -92,7 +92,7 @@ int main(int argc, const char *argv[]) {
         bitmap_free(b2);
         b2 = NULL;
 
-        assert_se(bitmap_set(b, (unsigned) -1) == -ERANGE);
+        assert_se(bitmap_set(b, UINT_MAX) == -ERANGE);
 
         bitmap_free(b);
         b = NULL;

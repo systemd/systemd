@@ -73,7 +73,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Table*, table_unref);
 
 int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, const void *data, size_t minimum_width, size_t maximum_width, unsigned weight, unsigned align_percent, unsigned ellipsize_percent);
 static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
-        return table_add_cell_full(t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
+        return table_add_cell_full(t, ret_cell, type, data, SIZE_MAX, SIZE_MAX, UINT_MAX, UINT_MAX, UINT_MAX);
 }
 int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) _printf_(3, 4);
 
@@ -101,8 +101,10 @@ void table_set_width(Table *t, size_t width);
 void table_set_cell_height_max(Table *t, size_t height);
 int table_set_empty_string(Table *t, const char *empty);
 int table_set_display_all(Table *t);
-int table_set_display(Table *t, size_t first_column, ...);
-int table_set_sort(Table *t, size_t first_column, ...);
+int table_set_display_internal(Table *t, size_t first_column, ...);
+#define table_set_display(...) table_set_display_internal(__VA_ARGS__, (size_t) SIZE_MAX)
+int table_set_sort_internal(Table *t, size_t first_column, ...);
+#define table_set_sort(...) table_set_sort_internal(__VA_ARGS__, (size_t) SIZE_MAX)
 int table_set_reverse(Table *t, size_t column, bool b);
 int table_hide_column_from_display(Table *t, size_t column);
 

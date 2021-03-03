@@ -71,7 +71,7 @@ int json_variant_new_null(JsonVariant **ret);
 int json_variant_new_id128(JsonVariant **ret, sd_id128_t id);
 
 static inline int json_variant_new_string(JsonVariant **ret, const char *s) {
-        return json_variant_new_stringn(ret, s, (size_t) -1);
+        return json_variant_new_stringn(ret, s, SIZE_MAX);
 }
 
 JsonVariant *json_variant_ref(JsonVariant *v);

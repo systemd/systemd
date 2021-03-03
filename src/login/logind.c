@@ -1148,7 +1148,7 @@ static int manager_run(Manager *m) {
                 if (r > 0)
                         continue;
 
-                r = sd_event_run(m->event, (uint64_t) -1);
+                r = sd_event_run(m->event, UINT64_MAX);
                 if (r < 0)
                         return r;
         }

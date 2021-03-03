@@ -1043,9 +1043,9 @@ _public_ int sd_login_monitor_get_timeout(sd_login_monitor *m, uint64_t *timeout
         assert_return(m, -EINVAL);
         assert_return(timeout_usec, -EINVAL);
 
-        /* For now we will only return (uint64_t) -1, since we don't
+        /* For now we will only return UINT64_MAX, since we don't
          * need any timeout. However, let's have this API to keep our
          * options open should we later on need it. */
-        *timeout_usec = (uint64_t) -1;
+        *timeout_usec = UINT64_MAX;
         return 0;
 }

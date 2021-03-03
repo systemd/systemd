@@ -1323,7 +1323,7 @@ int show_journal(
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
-        if (how_many == (unsigned) -1)
+        if (how_many == UINT_MAX)
                 need_seek = true;
         else {
                 /* Seek to end */

@@ -118,7 +118,7 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
 
         /* Static/const keys created with DNS_RESOURCE_KEY_CONST will
          * set this to -1, they should not be reffed/unreffed */
-        assert(k->n_ref != (unsigned) -1);
+        assert(k->n_ref != UINT_MAX);
 
         assert(k->n_ref > 0);
         k->n_ref++;
@@ -130,7 +130,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
         if (!k)
                 return NULL;
 
-        assert(k->n_ref != (unsigned) -1);
+        assert(k->n_ref != UINT_MAX);
         assert(k->n_ref > 0);
 
         if (k->n_ref == 1) {
@@ -342,9 +342,9 @@ bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
                 return false;
 
         /* We refuse merging const keys */
-        if ((*a)->n_ref == (unsigned) -1)
+        if ((*a)->n_ref == UINT_MAX)
                 return false;
-        if ((*b)->n_ref == (unsigned) -1)
+        if ((*b)->n_ref == UINT_MAX)
                 return false;
 
         /* Already the same? */
@@ -378,8 +378,8 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
                 .n_ref = 1,
                 .key = dns_resource_key_ref(key),
                 .expiry = USEC_INFINITY,
-                .n_skip_labels_signer = (unsigned) -1,
-                .n_skip_labels_source = (unsigned) -1,
+                .n_skip_labels_signer = UINT_MAX,
+                .n_skip_labels_source = UINT_MAX,
         };
 
         return rr;
@@ -1265,7 +1265,7 @@ int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's signer, if it is known. */
 
-        if (rr->n_skip_labels_signer == (unsigned) -1)
+        if (rr->n_skip_labels_signer == UINT_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1288,7 +1288,7 @@ int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's synthesizing source, if it is known. */
 
-        if (rr->n_skip_labels_source == (unsigned) -1)
+        if (rr->n_skip_labels_source == UINT_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1322,7 +1322,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
 
         /* Returns > 0 if the RR is generated from a wildcard, and is not the asterisk name itself */
 
-        if (rr->n_skip_labels_source == (unsigned) -1)
+        if (rr->n_skip_labels_source == UINT_MAX)
                 return -ENODATA;
 
         if (rr->n_skip_labels_source == 0)

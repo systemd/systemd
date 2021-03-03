@@ -138,7 +138,7 @@ int find_fido2_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "FIDO2 token data lacks 'fido2-credential' field.");
 
-                r = unbase64mem(json_variant_string(w), (size_t) -1, &cid, &cid_size);
+                r = unbase64mem(json_variant_string(w), SIZE_MAX, &cid, &cid_size);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'fido2-credential' field.");
@@ -150,7 +150,7 @@ int find_fido2_auto_data(
 
                 assert(!salt);
                 assert(salt_size == 0);
-                r = unbase64mem(json_variant_string(w), (size_t) -1, &salt, &salt_size);
+                r = unbase64mem(json_variant_string(w), SIZE_MAX, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded salt.");
 

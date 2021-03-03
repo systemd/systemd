@@ -756,7 +756,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
 
         /* Drop into a sigtimewait-based timeout. Waiting for the
          * pid to exit. */
-        until = now(CLOCK_MONOTONIC) + timeout;
+        until = usec_add(now(CLOCK_MONOTONIC), timeout);
         for (;;) {
                 usec_t n;
                 siginfo_t status = {};
