@@ -277,10 +277,7 @@ bool string_has_cc(const char *p, const char *ok) {
                 if (ok && strchr(ok, *t))
                         continue;
 
-                if (*t > 0 && *t < ' ')
-                        return true;
-
-                if (*t == 127)
+                if (char_is_cc(*t))
                         return true;
         }
 

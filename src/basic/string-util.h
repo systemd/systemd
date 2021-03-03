@@ -129,6 +129,9 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
         return s[strspn(s, charset)] == '\0';
 }
 
+static inline bool char_is_cc(char p) {
+        return (p >= 0 && p < ' ') || p == 127;
+}
 bool string_has_cc(const char *p, const char *ok) _pure_;
 
 char *ellipsize_mem(const char *s, size_t old_length_bytes, size_t new_length_columns, unsigned percent);
