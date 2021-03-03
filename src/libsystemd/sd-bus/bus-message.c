@@ -162,7 +162,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
         new_size = start + sz;
 
         if (new_size < start ||
-            new_size > (size_t) ((uint32_t) -1))
+            new_size > (size_t) (UINT32_MAX))
                 goto poison;
 
         if (old_size == new_size)
@@ -1337,7 +1337,7 @@ static void *message_extend_body(
         added = padding + sz;
 
         /* Check for 32bit overflows */
-        if (end_body > (size_t) ((uint32_t) -1) ||
+        if (end_body > (size_t) (UINT32_MAX) ||
             end_body < start_body) {
                 m->poisoned = true;
                 return NULL;
@@ -2340,13 +2340,13 @@ _public_ int sd_bus_message_appendv(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        n_array = (unsigned) -1;
+        n_array = UINT_MAX;
         n_struct = strlen(types);
 
         for (;;) {
                 const char *t;
 
-                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
+                if (n_array == 0 || (n_array == UINT_MAX && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
                         if (r < 0)
                                 return r;
@@ -2361,7 +2361,7 @@ _public_ int sd_bus_message_appendv(
                 }
 
                 t = types;
-                if (n_array != (unsigned) -1)
+                if (n_array != UINT_MAX)
                         n_array--;
                 else {
                         types++;
@@ -2445,7 +2445,7 @@ _public_ int sd_bus_message_appendv(
                                         return r;
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k;
                                 n_struct -= k;
                         }
@@ -2478,7 +2478,7 @@ _public_ int sd_bus_message_appendv(
 
                         types = s;
                         n_struct = strlen(s);
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -2502,7 +2502,7 @@ _public_ int sd_bus_message_appendv(
                                         return r;
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k - 1;
                                 n_struct -= k - 1;
                         }
@@ -2513,7 +2513,7 @@ _public_ int sd_bus_message_appendv(
 
                         types = t + 1;
                         n_struct = k - 2;
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -2675,7 +2675,7 @@ _public_ int sd_bus_message_append_array_memfd(
         if (r < 0)
                 return r;
 
-        if (offset == 0 && size == (uint64_t) -1)
+        if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
         else if (offset + size > real_size)
                 return -EMSGSIZE;
@@ -2692,7 +2692,7 @@ _public_ int sd_bus_message_append_array_memfd(
         if (size % sz != 0)
                 return -EINVAL;
 
-        if (size > (uint64_t) (uint32_t) -1)
+        if (size > (uint64_t) UINT32_MAX)
                 return -EINVAL;
 
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
@@ -2750,7 +2750,7 @@ _public_ int sd_bus_message_append_string_memfd(
         if (r < 0)
                 return r;
 
-        if (offset == 0 && size == (uint64_t) -1)
+        if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
         else if (offset + size > real_size)
                 return -EMSGSIZE;
@@ -2759,7 +2759,7 @@ _public_ int sd_bus_message_append_string_memfd(
         if (size == 0)
                 return -EINVAL;
 
-        if (size > (uint64_t) (uint32_t) -1)
+        if (size > (uint64_t) UINT32_MAX)
                 return -EINVAL;
 
         c = message_get_last_container(m);
@@ -4430,7 +4430,7 @@ _public_ int sd_bus_message_readv(
          * in a single stackframe. We hence implement our own
          * home-grown stack in an array. */
 
-        n_array = (unsigned) -1; /* length of current array entries */
+        n_array = UINT_MAX; /* length of current array entries */
         n_struct = strlen(types); /* length of current struct contents signature */
 
         for (;;) {
@@ -4438,7 +4438,7 @@ _public_ int sd_bus_message_readv(
 
                 n_loop++;
 
-                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
+                if (n_array == 0 || (n_array == UINT_MAX && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
                         if (r < 0)
                                 return r;
@@ -4453,7 +4453,7 @@ _public_ int sd_bus_message_readv(
                 }
 
                 t = types;
-                if (n_array != (unsigned) -1)
+                if (n_array != UINT_MAX)
                         n_array--;
                 else {
                         types++;
@@ -4514,7 +4514,7 @@ _public_ int sd_bus_message_readv(
                                 }
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k;
                                 n_struct -= k;
                         }
@@ -4553,7 +4553,7 @@ _public_ int sd_bus_message_readv(
 
                         types = s;
                         n_struct = strlen(s);
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -4581,7 +4581,7 @@ _public_ int sd_bus_message_readv(
                                 }
                         }
 
-                        if (n_array == (unsigned) -1) {
+                        if (n_array == UINT_MAX) {
                                 types += k - 1;
                                 n_struct -= k - 1;
                         }
@@ -4592,7 +4592,7 @@ _public_ int sd_bus_message_readv(
 
                         types = t + 1;
                         n_struct = k - 2;
-                        n_array = (unsigned) -1;
+                        n_array = UINT_MAX;
 
                         break;
                 }
@@ -5034,7 +5034,7 @@ static int message_skip_fields(
                 char t;
                 size_t l;
 
-                if (array_size != (uint32_t) -1 &&
+                if (array_size != UINT32_MAX &&
                     array_size <= *ri - original_index)
                         return 0;
 
@@ -5122,7 +5122,7 @@ static int message_skip_fields(
                         if (r < 0)
                                 return r;
 
-                        r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
+                        r = message_skip_fields(m, ri, UINT32_MAX, (const char**) &s);
                         if (r < 0)
                                 return r;
 
@@ -5140,7 +5140,7 @@ static int message_skip_fields(
                                 strncpy(sig, *signature + 1, l);
                                 sig[l] = '\0';
 
-                                r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
+                                r = message_skip_fields(m, ri, UINT32_MAX, (const char**) &s);
                                 if (r < 0)
                                         return r;
                         }
@@ -5247,7 +5247,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 _cleanup_free_ char *sig = NULL;
                 const char *signature;
                 uint64_t field_type;
-                size_t item_size = (size_t) -1;
+                size_t item_size = SIZE_MAX;
 
                 if (BUS_MESSAGE_IS_GVARIANT(m)) {
                         uint64_t *u64;
@@ -5461,7 +5461,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                 default:
                         if (!BUS_MESSAGE_IS_GVARIANT(m))
-                                r = message_skip_fields(m, &ri, (uint32_t) -1, (const char **) &signature);
+                                r = message_skip_fields(m, &ri, UINT32_MAX, (const char **) &signature);
                 }
 
                 if (r < 0)

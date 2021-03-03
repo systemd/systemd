@@ -882,7 +882,7 @@ char *mangle_gecos(const char *d) {
                         continue;
                 }
 
-                len = utf8_encoded_valid_unichar(i, (size_t) -1);
+                len = utf8_encoded_valid_unichar(i, SIZE_MAX);
                 if (len < 0) {
                         *i = ' ';
                         continue;

@@ -2542,7 +2542,7 @@ _public_ int sd_journal_get_timeout(sd_journal *j, uint64_t *timeout_usec) {
                 return fd;
 
         if (!j->on_network) {
-                *timeout_usec = (uint64_t) -1;
+                *timeout_usec = UINT64_MAX;
                 return 0;
         }
 
@@ -2724,10 +2724,10 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
         if (r < 0)
                 return r;
 
-        if (t != (uint64_t) -1) {
+        if (t != UINT64_MAX) {
                 t = usec_sub_unsigned(t, now(CLOCK_MONOTONIC));
 
-                if (timeout_usec == (uint64_t) -1 || timeout_usec > t)
+                if (timeout_usec == UINT64_MAX || timeout_usec > t)
                         timeout_usec = t;
         }
 

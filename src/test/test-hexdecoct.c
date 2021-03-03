@@ -80,7 +80,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
         if (retval == 0) {
                 char *answer;
 
-                if (l == (size_t) -1)
+                if (l == SIZE_MAX)
                         l = strlen(s);
 
                 assert_se(hex = hexmem(mem, len));
@@ -96,15 +96,15 @@ static void test_unhexmem(void) {
 
         test_unhexmem_one(NULL, 0, 0);
         test_unhexmem_one("", 0, 0);
-        test_unhexmem_one("", (size_t) -1, 0);
-        test_unhexmem_one("   \n \t\r   \t\t \n\n\n", (size_t) -1, 0);
+        test_unhexmem_one("", SIZE_MAX, 0);
+        test_unhexmem_one("   \n \t\r   \t\t \n\n\n", SIZE_MAX, 0);
         test_unhexmem_one(hex_invalid, strlen(hex_invalid), -EINVAL);
         test_unhexmem_one(hex_invalid, (size_t) - 1, -EINVAL);
         test_unhexmem_one(hex, strlen(hex) - 1, -EPIPE);
         test_unhexmem_one(hex, strlen(hex), 0);
-        test_unhexmem_one(hex, (size_t) -1, 0);
+        test_unhexmem_one(hex, SIZE_MAX, 0);
         test_unhexmem_one(hex_space, strlen(hex_space), 0);
-        test_unhexmem_one(hex_space, (size_t) -1, 0);
+        test_unhexmem_one(hex_space, SIZE_MAX, 0);
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
@@ -186,7 +186,7 @@ static void test_unbase32hexmem_one(const char *hex, bool padding, int retval, c
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unbase32hexmem(hex, (size_t) -1, padding, &mem, &len) == retval);
+        assert_se(unbase32hexmem(hex, SIZE_MAX, padding, &mem, &len) == retval);
         if (retval == 0) {
                 char *str;
 
@@ -279,7 +279,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         _cleanup_free_ void *buffer = NULL;
         size_t size = 0;
 
-        assert_se(unbase64mem(input, (size_t) -1, &buffer, &size) == ret);
+        assert_se(unbase64mem(input, SIZE_MAX, &buffer, &size) == ret);
 
         if (ret >= 0) {
                 assert_se(size == strlen(output));

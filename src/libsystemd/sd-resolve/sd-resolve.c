@@ -621,7 +621,7 @@ _public_ int sd_resolve_get_timeout(sd_resolve *resolve, uint64_t *usec) {
         assert_return(usec, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        *usec = (uint64_t) -1;
+        *usec = UINT64_MAX;
         return 0;
 }
 

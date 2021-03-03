@@ -37,7 +37,7 @@ static void test_non_empty(void) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
@@ -98,8 +98,8 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_move_to_entry_by_seqnum(f, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
-        journal_file_rotate(&f, true, (uint64_t) -1, true, NULL);
-        journal_file_rotate(&f, true, (uint64_t) -1, true, NULL);
+        journal_file_rotate(&f, true, UINT64_MAX, true, NULL);
+        journal_file_rotate(&f, true, UINT64_MAX, true, NULL);
 
         (void) journal_file_close(f);
 
@@ -124,13 +124,13 @@ static void test_empty(void) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f1) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f1) == 0);
 
-        assert_se(journal_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f2) == 0);
+        assert_se(journal_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f2) == 0);
 
-        assert_se(journal_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f3) == 0);
+        assert_se(journal_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f3) == 0);
 
-        assert_se(journal_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f4) == 0);
+        assert_se(journal_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, NULL, NULL, NULL, &f4) == 0);
 
         journal_file_print_header(f1);
         puts("");
@@ -224,8 +224,8 @@ static void test_min_compress_size(void) {
          * carefully */
 
         /* DEFAULT_MIN_COMPRESS_SIZE is 512 */
-        assert_se(!check_compressed((uint64_t) -1, 255));
-        assert_se(check_compressed((uint64_t) -1, 513));
+        assert_se(!check_compressed(UINT64_MAX, 255));
+        assert_se(check_compressed(UINT64_MAX, 513));
 
         /* compress everything */
         assert_se(check_compressed(0, 96));

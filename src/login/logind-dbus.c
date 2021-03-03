@@ -4084,7 +4084,7 @@ int manager_start_scope(
                 return r;
 
         /* disable TasksMax= for the session scope, rely on the slice setting for it */
-        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", (uint64_t)-1);
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", UINT64_MAX);
         if (r < 0)
                 return bus_log_create_error(r);
 

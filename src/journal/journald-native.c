@@ -105,7 +105,7 @@ static int server_process_entry(
          *
          * Note that *remaining is altered on both success and failure. */
 
-        size_t n = 0, j, tn = (size_t) -1, m = 0, entry_size = 0;
+        size_t n = 0, j, tn = SIZE_MAX, m = 0, entry_size = 0;
         char *identifier = NULL, *message = NULL;
         struct iovec *iovec = NULL;
         int priority = LOG_INFO;

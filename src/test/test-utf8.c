@@ -75,7 +75,7 @@ static void test_utf8_encoded_valid_unichar(void) {
         assert_se(utf8_encoded_valid_unichar("\302\256", 1) == -EINVAL); /* truncated */
         assert_se(utf8_encoded_valid_unichar("\302\256", 2) == 2);
         assert_se(utf8_encoded_valid_unichar("\302\256", 3) == 2);
-        assert_se(utf8_encoded_valid_unichar("\302\256", (size_t) -1) == 2);
+        assert_se(utf8_encoded_valid_unichar("\302\256", SIZE_MAX) == 2);
         assert_se(utf8_encoded_valid_unichar("a", 1) == 1);
         assert_se(utf8_encoded_valid_unichar("a", 2) == 1);
         assert_se(utf8_encoded_valid_unichar("\341\204", 1) == -EINVAL); /* truncated, potentially valid */
@@ -196,7 +196,7 @@ static void test_utf8_n_codepoints(void) {
         assert_se(utf8_n_codepoints("串") == 1);
         assert_se(utf8_n_codepoints("") == 0);
         assert_se(utf8_n_codepoints("…👊🔪💐…") == 5);
-        assert_se(utf8_n_codepoints("\xF1") == (size_t) -1);
+        assert_se(utf8_n_codepoints("\xF1") == SIZE_MAX);
 }
 
 static void test_utf8_console_width(void) {
@@ -207,7 +207,7 @@ static void test_utf8_console_width(void) {
         assert_se(utf8_console_width("串") == 2);
         assert_se(utf8_console_width("") == 0);
         assert_se(utf8_console_width("…👊🔪💐…") == 8);
-        assert_se(utf8_console_width("\xF1") == (size_t) -1);
+        assert_se(utf8_console_width("\xF1") == SIZE_MAX);
 }
 
 static void test_utf8_to_utf16(void) {

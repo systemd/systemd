@@ -176,7 +176,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->content_length != (uint64_t) -1 &&
+        if (j->content_length != UINT64_MAX &&
             j->content_length != j->written_compressed) {
                 log_error("Download truncated.");
                 r = -EIO;
@@ -293,7 +293,7 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         if (j->written_compressed + sz > j->compressed_max)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
-        if (j->content_length != (uint64_t) -1 &&
+        if (j->content_length != UINT64_MAX &&
             j->written_compressed + sz > j->content_length)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
                                        "Content length incorrect.");
@@ -502,7 +502,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         if (r > 0) {
                 (void) safe_atou64(length, &j->content_length);
 
-                if (j->content_length != (uint64_t) -1) {
+                if (j->content_length != UINT64_MAX) {
                         char bytes[FORMAT_BYTES_MAX];
 
                         if (j->content_length > j->compressed_max) {
@@ -604,7 +604,7 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
                 .disk_fd = -1,
                 .userdata = userdata,
                 .glue = glue,
-                .content_length = (uint64_t) -1,
+                .content_length = UINT64_MAX,
                 .start_usec = now(CLOCK_MONOTONIC),
                 .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
                 .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */

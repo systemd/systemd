@@ -35,7 +35,7 @@ _noreturn_ static void log_assert_errno(const char *text, int error, const char 
 
 static JournalFile *test_open(const char *name) {
         JournalFile *f;
-        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f));
+        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &f));
         return f;
 }
 
@@ -206,7 +206,7 @@ static void test_sequence_numbers(void) {
         mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
-                                    true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
+                                    true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &one) == 0);
 
         append_number(one, 1, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -223,7 +223,7 @@ static void test_sequence_numbers(void) {
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
         assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0644,
-                                    true, (uint64_t) -1, false, NULL, NULL, NULL, one, &two) == 0);
+                                    true, UINT64_MAX, false, NULL, NULL, NULL, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->header->file_id, one->header->file_id));
@@ -254,7 +254,7 @@ static void test_sequence_numbers(void) {
         seqnum = 0;
 
         assert_se(journal_file_open(-1, "two.journal", O_RDWR, 0,
-                                    true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
+                                    true, UINT64_MAX, false, NULL, NULL, NULL, NULL, &two) == 0);
 
         assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
 

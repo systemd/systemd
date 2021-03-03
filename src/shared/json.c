@@ -393,10 +393,10 @@ int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n) {
 
         assert_return(ret, -EINVAL);
         if (!s) {
-                assert_return(IN_SET(n, 0, (size_t) -1), -EINVAL);
+                assert_return(IN_SET(n, 0, SIZE_MAX), -EINVAL);
                 return json_variant_new_null(ret);
         }
-        if (n == (size_t) -1) /* determine length automatically */
+        if (n == SIZE_MAX) /* determine length automatically */
                 n = strlen(s);
         else if (memchr(s, 0, n)) /* don't allow embedded NUL, as we can't express that in JSON */
                 return -EINVAL;
@@ -2508,7 +2508,7 @@ static int json_parse_string(const char **p, char **ret) {
                         continue;
                 }
 
-                len = utf8_encoded_valid_unichar(c, (size_t) -1);
+                len = utf8_encoded_valid_unichar(c, SIZE_MAX);
                 if (len < 0)
                         return len;
 
@@ -2828,7 +2828,7 @@ typedef struct JsonStack {
         size_t n_elements, n_elements_allocated;
         unsigned line_before;
         unsigned column_before;
-        size_t n_suppress; /* When building: if > 0, suppress this many subsequent elements. If == (size_t) -1, suppress all subsequent elements */
+        size_t n_suppress; /* When building: if > 0, suppress this many subsequent elements. If == SIZE_MAX, suppress all subsequent elements */
 } JsonStack;
 
 static void json_stack_release(JsonStack *s) {
@@ -3532,7 +3532,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack) {
                                 .expect = EXPECT_ARRAY_ELEMENT,
-                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
+                                .n_suppress = current->n_suppress != 0 ? SIZE_MAX : 0, /* if we shall suppress the
                                                                                            * new array, then we should
                                                                                            * also suppress all array
                                                                                            * members */
@@ -3729,7 +3729,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack) {
                                 .expect = EXPECT_OBJECT_KEY,
-                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
+                                .n_suppress = current->n_suppress != 0 ? SIZE_MAX : 0, /* if we shall suppress the
                                                                                            * new object, then we should
                                                                                            * also suppress all object
                                                                                            * members */
@@ -3801,7 +3801,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         n_subtract = 1; /* we generated one item */
 
-                        if (!b && current->n_suppress != (size_t) -1)
+                        if (!b && current->n_suppress != SIZE_MAX)
                                 current->n_suppress += 2; /* Suppress this one and the next item */
 
                         current->expect = EXPECT_OBJECT_VALUE;
@@ -3819,9 +3819,9 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 /* If we are supposed to suppress items, let's subtract how many items where generated from that
-                 * counter. Except if the counter is (size_t) -1, i.e. we shall suppress an infinite number of elements
+                 * counter. Except if the counter is SIZE_MAX, i.e. we shall suppress an infinite number of elements
                  * on this stack level */
-                if (current->n_suppress != (size_t) -1) {
+                if (current->n_suppress != SIZE_MAX) {
                         if (current->n_suppress <= n_subtract) /* Saturated */
                                 current->n_suppress = 0;
                         else
@@ -4233,7 +4233,7 @@ int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFl
         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 
         DISABLE_WARNING_TYPE_LIMITS;
-        assert_cc(((uid_t) -1 < (uid_t) 0) == ((gid_t) -1 < (gid_t) 0));
+        assert_cc((UID_INVALID < (uid_t) 0) == (GID_INVALID < (gid_t) 0));
         REENABLE_WARNING;
 
         if (json_variant_is_null(variant)) {
@@ -4448,7 +4448,7 @@ int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size) {
         if (!json_variant_is_string(v))
                 return -EINVAL;
 
-        return unbase64mem(json_variant_string(v), (size_t) -1, ret, ret_size);
+        return unbase64mem(json_variant_string(v), SIZE_MAX, ret, ret_size);
 }
 
 int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size) {
@@ -4456,7 +4456,7 @@ int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size) {
         if (!json_variant_is_string(v))
                 return -EINVAL;
 
-        return unhexmem(json_variant_string(v), (size_t) -1, ret, ret_size);
+        return unhexmem(json_variant_string(v), SIZE_MAX, ret, ret_size);
 }
 
 static const char* const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {

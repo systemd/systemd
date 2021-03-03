@@ -458,7 +458,7 @@ size_t udev_replace_chars(char *str, const char *allow) {
                 }
 
                 /* accept valid utf8 */
-                len = utf8_encoded_valid_unichar(str + i, (size_t) -1);
+                len = utf8_encoded_valid_unichar(str + i, SIZE_MAX);
                 if (len > 1) {
                         i += len;
                         continue;

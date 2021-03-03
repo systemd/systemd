@@ -30,7 +30,7 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_query_flags = 0;
-        t->answer_nsec_ttl = (uint32_t) -1;
+        t->answer_nsec_ttl = UINT32_MAX;
         t->answer_errno = 0;
 }
 
@@ -275,7 +275,7 @@ int dns_transaction_new(
                 .dns_udp_fd = -1,
                 .answer_source = _DNS_TRANSACTION_SOURCE_INVALID,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
-                .answer_nsec_ttl = (uint32_t) -1,
+                .answer_nsec_ttl = UINT32_MAX,
                 .key = dns_resource_key_ref(key),
                 .query_flags = query_flags,
                 .bypass = dns_packet_ref(bypass),

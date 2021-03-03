@@ -2331,7 +2331,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 continue;
                         }
 
-                        r = copy_bytes(fd, fds[2*k+1], (uint64_t) -1, 0);
+                        r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
                         if (r < 0) {
                                 (void) write(error_pipe[1], &r, sizeof(r));
                                 _exit(EXIT_FAILURE);

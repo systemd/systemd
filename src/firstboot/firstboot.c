@@ -771,7 +771,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
                         .sp_warn = -1,
                         .sp_inact = -1,
                         .sp_expire = -1,
-                        .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
+                        .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
 
                 if (errno != ENOENT)

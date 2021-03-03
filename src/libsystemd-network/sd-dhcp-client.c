@@ -2229,7 +2229,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .mtu = DHCP_DEFAULT_MIN_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .anonymize = !!anonymize,
-                .max_attempts = (uint64_t) -1,
+                .max_attempts = UINT64_MAX,
                 .ip_service_type = -1,
         };
         /* NOTE: this could be moved to a function. */

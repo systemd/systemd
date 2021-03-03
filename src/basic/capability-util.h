@@ -10,7 +10,7 @@
 #include "missing_capability.h"
 #include "util.h"
 
-#define CAP_ALL (uint64_t) -1
+#define CAP_ALL UINT64_MAX
 
 unsigned cap_last_cap(void);
 int have_effective_cap(int value);
@@ -49,7 +49,7 @@ bool ambient_capabilities_supported(void);
 #define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
 
 typedef struct CapabilityQuintet {
-        /* Stores all five types of capabilities in one go. Note that we use (uint64_t) -1 for unset here. This hence
+        /* Stores all five types of capabilities in one go. Note that we use UINT64_MAX for unset here. This hence
          * needs to be updated as soon as Linux learns more than 63 caps. */
         uint64_t effective;
         uint64_t bounding;
@@ -60,14 +60,14 @@ typedef struct CapabilityQuintet {
 
 assert_cc(CAP_LAST_CAP < 64);
 
-#define CAPABILITY_QUINTET_NULL { (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1 }
+#define CAPABILITY_QUINTET_NULL { UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX }
 
 static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
-        return q->effective != (uint64_t) -1 ||
-                q->bounding != (uint64_t) -1 ||
-                q->inheritable != (uint64_t) -1 ||
-                q->permitted != (uint64_t) -1 ||
-                q->ambient != (uint64_t) -1;
+        return q->effective != UINT64_MAX ||
+                q->bounding != UINT64_MAX ||
+                q->inheritable != UINT64_MAX ||
+                q->permitted != UINT64_MAX ||
+                q->ambient != UINT64_MAX;
 }
 
 /* Mangles the specified caps quintet taking the current bounding set into account:
