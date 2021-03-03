@@ -68,7 +68,7 @@ for phase in "${PHASES[@]}"; do
     case $phase in
         SETUP)
             info "Setup phase"
-            info "Using Travis $CENTOS_RELEASE"
+            info "Using $CENTOS_RELEASE image"
             # Pull a Docker image and start a new container
             docker pull quay.io/centos/centos:$CENTOS_RELEASE
             info "Starting container $CONT_NAME"
@@ -110,7 +110,6 @@ for phase in "${PHASES[@]}"; do
             docker exec --interactive=false \
                 -e UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1 \
                 -e ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1 \
-                -e "TRAVIS=$TRAVIS" \
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
             ;;
