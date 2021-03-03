@@ -125,6 +125,10 @@ int sd_dhcp_client_set_request_broadcast(
 int sd_dhcp_client_set_ifindex(
                 sd_dhcp_client *client,
                 int interface_index);
+int sd_dhcp_client_set_ifname(
+                sd_dhcp_client *client,
+                const char *interface_name);
+const char *sd_dhcp_client_get_ifname(const sd_dhcp_client *client);
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
                 const uint8_t *addr,

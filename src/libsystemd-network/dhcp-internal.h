@@ -12,6 +12,7 @@
 #include "sd-dhcp-client.h"
 
 #include "dhcp-protocol.h"
+#include "log-link.h"
 #include "socket-util.h"
 
 typedef struct sd_dhcp_option {
@@ -65,5 +66,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 #define DHCP_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
-#define log_dhcp_client_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCP CLIENT (0x%x): " fmt, client->xid, ##__VA_ARGS__)
-#define log_dhcp_client(client, fmt, ...) log_dhcp_client_errno(client, 0, fmt, ##__VA_ARGS__)
+#define log_dhcp_client_errno(client, error, fmt, ...)          \
+        log_interface_full_errno(sd_dhcp_client_get_ifname(client), LOG_DEBUG, error, "DHCPv4 client: " fmt, ##__VA_ARGS__)
+#define log_dhcp_client(client, fmt, ...)                       \
+        log_dhcp_client_errno(client, 0, fmt, ##__VA_ARGS__)
