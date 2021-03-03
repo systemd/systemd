@@ -546,8 +546,6 @@ static Link *link_free(Link *link) {
         link->ndisc_addresses = set_free(link->ndisc_addresses);
 
         link_free_engines(link);
-        free(link->lease_file);
-        free(link->lldp_file);
 
         free(link->ifname);
         strv_free(link->alternative_names);
@@ -555,8 +553,9 @@ static Link *link_free(Link *link) {
         free(link->ssid);
         free(link->driver);
 
-        (void) unlink(link->state_file);
-        free(link->state_file);
+        unlink_and_free(link->lease_file);
+        unlink_and_free(link->lldp_file);
+        unlink_and_free(link->state_file);
 
         sd_device_unref(link->sd_device);
 
