@@ -504,6 +504,9 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
          * string. Note that we treat benign UTF-8 characters as needing
          * escaping too, but that should be OK. */
 
+        if (FLAGS_SET(flags, SHELL_ESCAPE_EMPTY) && isempty(s))
+                return strdup("''");
+
         for (p = s; *p; p++)
                 if (*p <= ' ' ||
                     *p >= 127 ||
