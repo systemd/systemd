@@ -801,46 +801,59 @@
       <varlistentry>
         <term><option>--network-interface=</option></term>
 
-        <listitem><para>Assign the specified network interface to the
-        container. This will remove the specified interface from the
-        calling namespace and place it in the container. When the
-        container terminates, it is moved back to the host namespace.
-        Note that <option>--network-interface=</option> implies
-        <option>--private-network</option>. This option may be used
-        more than once to add multiple network interfaces to the
-        container.</para></listitem>
+        <listitem><para>Assign the specified network interface to the container. This will remove the
+        specified interface from the calling namespace and place it in the container. When the container
+        terminates, it is moved back to the calling namespace.  Note that
+        <option>--network-interface=</option> implies <option>--private-network</option>. This option may be
+        used more than once to add multiple network interfaces to the container.</para>
+
+        <para>Note that any network interface specified this way must exist already at the time the container
+        is invoked. If the container shall be invoked automatically at boot via a
+        <filename>systemd-nspawn@.service</filename> unit file instance, it might hence make sense to add a
+        unit file drop-in to the service instance
+        (e.g. <filename>/etc/systemd/system/systemd-nspawn@foobar.service.d/50-network.conf</filename>) with
+        contents like the following:</para>
+
+        <programlisting>[Unit]
+Wants=sys-subsystem-net-devices-ens1.device
+After=sys-subsystem-net-devices-ens1.device</programlisting>
+
+        <para>This will make sure that activation of the container service will be delayed until the
+        <literal>ens1</literal> network interface has shown up. This is required since hardware probing is
+        fully asynchronous, and network interfaces might be discovered and probed only later during the boot
+        process, after the container would normally be started without these explicit dependencies.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--network-macvlan=</option></term>
 
-        <listitem><para>Create a <literal>macvlan</literal> interface
-        of the specified Ethernet network interface and add it to the
-        container. A <literal>macvlan</literal> interface is a virtual
-        interface that adds a second MAC address to an existing
-        physical Ethernet link. The interface in the container will be
-        named after the interface on the host, prefixed with
-        <literal>mv-</literal>. Note that
-        <option>--network-macvlan=</option> implies
-        <option>--private-network</option>. This option may be used
-        more than once to add multiple network interfaces to the
-        container.</para></listitem>
+        <listitem><para>Create a <literal>macvlan</literal> interface of the specified Ethernet network
+        interface and add it to the container. A <literal>macvlan</literal> interface is a virtual interface
+        that adds a second MAC address to an existing physical Ethernet link. The interface in the container
+        will be named after the interface on the host, prefixed with <literal>mv-</literal>. Note that
+        <option>--network-macvlan=</option> implies <option>--private-network</option>. This option may be
+        used more than once to add multiple network interfaces to the container.</para>
+
+        <para>As with <option>--network-interface=</option> the underlying Ethernet network interface must
+        exist already at the time the container is started, and thus similar unit file drop-ins as described
+        above might be useful.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--network-ipvlan=</option></term>
 
-        <listitem><para>Create an <literal>ipvlan</literal> interface
-        of the specified Ethernet network interface and add it to the
-        container. An <literal>ipvlan</literal> interface is a virtual
-        interface, similar to a <literal>macvlan</literal> interface,
-        which uses the same MAC address as the underlying interface.
-        The interface in the container will be named after the
-        interface on the host, prefixed with <literal>iv-</literal>.
-        Note that <option>--network-ipvlan=</option> implies
-        <option>--private-network</option>. This option may be used
-        more than once to add multiple network interfaces to the
-        container.</para></listitem>
+        <listitem><para>Create an <literal>ipvlan</literal> interface of the specified Ethernet network
+        interface and add it to the container. An <literal>ipvlan</literal> interface is a virtual interface,
+        similar to a <literal>macvlan</literal> interface, which uses the same MAC address as the underlying
+        interface.  The interface in the container will be named after the interface on the host, prefixed
+        with <literal>iv-</literal>.  Note that <option>--network-ipvlan=</option> implies
+        <option>--private-network</option>. This option may be used more than once to add multiple network
+        interfaces to the container.</para>
+
+        <para>As with <option>--network-interface=</option> the underlying Ethernet network interface must
+        exist already at the time the container is started, and thus similar unit file drop-ins as described
+        above might be useful.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -907,7 +920,11 @@
         this option is used, the host side of the Ethernet link will use the <literal>vb-</literal> prefix
         instead of <literal>ve-</literal>. Regardless of the used naming prefix the same network interface
         name length limits imposed by Linux apply, along with the complications this creates (for details see
-        above).</para></listitem>
+        above).</para>
+
+        <para>As with <option>--network-interface=</option> the underlying Bridge network interface must
+        exist already at the time the container is started, and thus similar unit file drop-ins as described
+        above might be useful.</para></listitem>
       </varlistentry>
 
       <varlistentry>
