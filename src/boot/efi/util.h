@@ -67,5 +67,11 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
+#ifndef UINT32_MAX
+#define UINT32_MAX ((UINT32) -1)
+#endif
+#ifndef UINT64_MAX
+#define UINT64_MAX ((UINT64) -1)
+#endif
 
 EFI_STATUS log_oom(void);
