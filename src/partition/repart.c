@@ -3849,7 +3849,7 @@ static int remove_efi_variable_factory_reset(void) {
 static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        dev_t devno, fd_devno = (mode_t) -1;
+        dev_t devno, fd_devno = MODE_INVALID;
         int r;
 
         assert(p);
@@ -3907,7 +3907,7 @@ static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) 
 
         /* Only if we still lock at the same block device we can reuse the fd. Otherwise return an
          * invalidated fd. */
-        *ret_fd = fd_devno != (mode_t) -1 && fd_devno == devno ? TAKE_FD(fd) : -1;
+        *ret_fd = fd_devno != MODE_INVALID && fd_devno == devno ? TAKE_FD(fd) : -1;
         return 0;
 }
 

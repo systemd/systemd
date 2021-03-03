@@ -56,7 +56,7 @@ typedef struct Group {
 } Group;
 
 static unsigned arg_depth = 3;
-static unsigned arg_iterations = (unsigned) -1;
+static unsigned arg_iterations = UINT_MAX;
 static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
@@ -943,7 +943,7 @@ static int run(int argc, char *argv[]) {
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
-        if (arg_iterations == (unsigned) -1)
+        if (arg_iterations == UINT_MAX)
                 arg_iterations = on_tty() ? 0 : 1;
 
         while (!quit) {

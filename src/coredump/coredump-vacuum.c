@@ -66,7 +66,7 @@ static int uid_from_file_name(const char *filename, uid_t *uid) {
 }
 
 static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t max_use) {
-        uint64_t fs_size = 0, fs_free = (uint64_t) -1;
+        uint64_t fs_size = 0, fs_free = UINT64_MAX;
         struct statvfs sv;
 
         assert(fd >= 0);
@@ -76,7 +76,7 @@ static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t 
                 fs_free = sv.f_frsize * sv.f_bfree;
         }
 
-        if (max_use == (uint64_t) -1) {
+        if (max_use == UINT64_MAX) {
 
                 if (fs_size > 0) {
                         max_use = PAGE_ALIGN(fs_size / 10); /* 10% */
@@ -94,7 +94,7 @@ static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t 
         if (max_use > 0 && sum > max_use)
                 return true;
 
-        if (keep_free == (uint64_t) -1) {
+        if (keep_free == UINT64_MAX) {
 
                 if (fs_size > 0) {
                         keep_free = PAGE_ALIGN((fs_size * 3) / 20); /* 15% */

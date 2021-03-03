@@ -41,6 +41,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static volatile unsigned cached_columns = 0;
@@ -1341,7 +1342,7 @@ int vt_restore(int fd) {
                         q = -errno;
         }
 
-        r = fchmod_and_chown(fd, TTY_MODE, 0, (gid_t) -1);
+        r = fchmod_and_chown(fd, TTY_MODE, 0, GID_INVALID);
         if (r < 0) {
                 log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m");
                 if (q >= 0)

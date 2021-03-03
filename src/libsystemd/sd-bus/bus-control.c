@@ -741,7 +741,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 mask &= ~SD_BUS_CREDS_AUGMENT;
 
         do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
-        do_groups = bus->n_groups != (size_t) -1 && (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS);
+        do_groups = bus->n_groups != SIZE_MAX && (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS);
 
         /* Avoid allocating anything if we have no chance of returning useful data */
         if (!bus->ucred_valid && !do_label && !do_groups)

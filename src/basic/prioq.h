@@ -8,7 +8,7 @@
 
 typedef struct Prioq Prioq;
 
-#define PRIOQ_IDX_NULL ((unsigned) -1)
+#define PRIOQ_IDX_NULL (UINT_MAX)
 
 Prioq *prioq_new(compare_func_t compare);
 Prioq *prioq_free(Prioq *q);

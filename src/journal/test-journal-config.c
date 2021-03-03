@@ -43,7 +43,7 @@ static void test_config_compress(void) {
         /* Invalid Case */
         COMPRESS_PARSE_CHECK("-1", true, 111);
         COMPRESS_PARSE_CHECK("blah blah", true, 111);
-        COMPRESS_PARSE_CHECK("", true, (uint64_t)-1);
+        COMPRESS_PARSE_CHECK("", true, UINT64_MAX);
 }
 
 int main(int argc, char *argv[]) {

@@ -99,7 +99,7 @@ static void socket_init(Unit *u) {
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
         s->trigger_limit.interval = USEC_INFINITY;
-        s->trigger_limit.burst = (unsigned) -1;
+        s->trigger_limit.burst = UINT_MAX;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -313,7 +313,7 @@ static int socket_add_extras(Socket *s) {
         if (s->trigger_limit.interval == USEC_INFINITY)
                 s->trigger_limit.interval = 2 * USEC_PER_SEC;
 
-        if (s->trigger_limit.burst == (unsigned) -1) {
+        if (s->trigger_limit.burst == UINT_MAX) {
                 if (s->accept)
                         s->trigger_limit.burst = 200;
                 else

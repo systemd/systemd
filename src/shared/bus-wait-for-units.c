@@ -414,7 +414,7 @@ int bus_wait_for_units_run(BusWaitForUnits *d) {
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(d->bus, (uint64_t) -1);
+                r = sd_bus_wait(d->bus, UINT64_MAX);
                 if (r < 0)
                         return r;
         }

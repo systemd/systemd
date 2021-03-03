@@ -97,8 +97,8 @@ int tar_export_new(
                 .tar_fd = -1,
                 .on_finished = on_finished,
                 .userdata = userdata,
-                .quota_referenced = (uint64_t) -1,
-                .last_percent = (unsigned) -1,
+                .quota_referenced = UINT64_MAX,
+                .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
@@ -120,7 +120,7 @@ static void tar_export_report_progress(TarExport *e) {
         assert(e);
 
         /* Do we have any quota info? If not, we don't know anything about the progress */
-        if (e->quota_referenced == (uint64_t) -1)
+        if (e->quota_referenced == UINT64_MAX)
                 return;
 
         if (e->written_uncompressed >= e->quota_referenced)
@@ -281,7 +281,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
         if (r < 0)
                 return r;
 
-        e->quota_referenced = (uint64_t) -1;
+        e->quota_referenced = UINT64_MAX;
 
         if (btrfs_might_be_subvol(&e->st)) {
                 BtrfsQuotaInfo q;

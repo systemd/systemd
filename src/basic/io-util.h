@@ -62,7 +62,7 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 
         /* Same as above, but allows one extra value: -1 as indication for infinity. */
 
-        if (l == (uint64_t) -1)
+        if (l == UINT64_MAX)
                 return true;
 
         return FILE_SIZE_VALID(l);

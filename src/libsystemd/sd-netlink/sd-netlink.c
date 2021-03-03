@@ -512,7 +512,7 @@ int sd_netlink_process(sd_netlink *rtnl, sd_netlink_message **ret) {
 }
 
 static usec_t calc_elapse(uint64_t usec) {
-        if (usec == (uint64_t) -1)
+        if (usec == UINT64_MAX)
                 return 0;
 
         if (usec == 0)
@@ -550,7 +550,7 @@ static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
                 }
         }
 
-        if (timeout_usec != (uint64_t) -1 && (m == USEC_INFINITY || timeout_usec < m))
+        if (timeout_usec != UINT64_MAX && (m == USEC_INFINITY || timeout_usec < m))
                 m = timeout_usec;
 
         r = fd_wait_for_event(rtnl->fd, e, m);
@@ -606,7 +606,7 @@ int sd_netlink_call_async(
         if (r < 0)
                 return r;
 
-        if (usec != (uint64_t) -1) {
+        if (usec != UINT64_MAX) {
                 r = prioq_ensure_allocated(&nl->reply_callbacks_prioq, timeout_compare);
                 if (r < 0)
                         return r;
@@ -714,7 +714,7 @@ int sd_netlink_read(sd_netlink *rtnl,
 
                         left = timeout - n;
                 } else
-                        left = (uint64_t) -1;
+                        left = UINT64_MAX;
 
                 r = rtnl_poll(rtnl, true, left);
                 if (r < 0)
@@ -766,7 +766,7 @@ int sd_netlink_get_timeout(const sd_netlink *rtnl, uint64_t *timeout_usec) {
 
         c = prioq_peek(rtnl->reply_callbacks_prioq);
         if (!c) {
-                *timeout_usec = (uint64_t) -1;
+                *timeout_usec = UINT64_MAX;
                 return 0;
         }
 

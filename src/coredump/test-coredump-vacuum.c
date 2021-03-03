@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[]) {
 
-        if (coredump_vacuum(-1, (uint64_t) -1, 70 * 1024) < 0)
+        if (coredump_vacuum(-1, UINT64_MAX, 70 * 1024) < 0)
                 return EXIT_FAILURE;
 
         return EXIT_SUCCESS;

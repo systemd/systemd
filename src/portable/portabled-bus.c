@@ -42,7 +42,7 @@ static int property_get_pool_usage(
                 sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
-        uint64_t usage = (uint64_t) -1;
+        uint64_t usage = UINT64_MAX;
 
         assert(bus);
         assert(reply);
@@ -68,7 +68,7 @@ static int property_get_pool_limit(
                 sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
-        uint64_t size = (uint64_t) -1;
+        uint64_t size = UINT64_MAX;
 
         assert(bus);
         assert(reply);

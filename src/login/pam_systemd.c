@@ -328,7 +328,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                 return PAM_SUCCESS;
 
         if (streq(limit, "infinity")) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", (uint64_t)-1);
+                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", UINT64_MAX);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 

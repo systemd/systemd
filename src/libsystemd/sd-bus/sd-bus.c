@@ -247,7 +247,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
                 .original_pid = getpid_cached(),
-                .n_groups = (size_t) -1,
+                .n_groups = SIZE_MAX,
                 .close_on_exit = true,
         };
 
@@ -1964,8 +1964,8 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * hence let's fill something in for synthetic messages. Since
          * synthetic messages might have a fake sender and we don't
          * want to interfere with the real sender's serial numbers we
-         * pick a fixed, artificial one. We use (uint32_t) -1 rather
-         * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
+         * pick a fixed, artificial one. We use UINT32_MAX rather
+         * than UINT64_MAX since dbus1 only had 32bit identifiers,
          * even though kdbus can do 64bit. */
         return sd_bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
@@ -2332,7 +2332,7 @@ int bus_ensure_running(sd_bus *bus) {
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(bus, (uint64_t) -1);
+                r = sd_bus_wait(bus, UINT64_MAX);
                 if (r < 0)
                         return r;
         }
@@ -2460,7 +2460,7 @@ _public_ int sd_bus_call(
 
                         left = timeout - n;
                 } else
-                        left = (uint64_t) -1;
+                        left = UINT64_MAX;
 
                 r = bus_poll(bus, true, left);
                 if (r < 0)
@@ -2580,12 +2580,12 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 
                 c = prioq_peek(bus->reply_callbacks_prioq);
                 if (!c) {
-                        *timeout_usec = (uint64_t) -1;
+                        *timeout_usec = UINT64_MAX;
                         return 0;
                 }
 
                 if (c->timeout_usec == 0) {
-                        *timeout_usec = (uint64_t) -1;
+                        *timeout_usec = UINT64_MAX;
                         return 0;
                 }
 
@@ -2598,7 +2598,7 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 
         case BUS_WATCH_BIND:
         case BUS_OPENING:
-                *timeout_usec = (uint64_t) -1;
+                *timeout_usec = UINT64_MAX;
                 return 0;
 
         default:
@@ -3310,7 +3310,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
                 }
         }
 
-        if (timeout_usec != (uint64_t) -1 && (m == USEC_INFINITY || timeout_usec < m))
+        if (timeout_usec != UINT64_MAX && (m == USEC_INFINITY || timeout_usec < m))
                 m = timeout_usec;
 
         r = ppoll_usec(p, n, m);
@@ -3376,7 +3376,7 @@ _public_ int sd_bus_flush(sd_bus *bus) {
                 if (bus->wqueue_size <= 0)
                         return 0;
 
-                r = bus_poll(bus, false, (uint64_t) -1);
+                r = bus_poll(bus, false, UINT64_MAX);
                 if (r < 0)
                         return r;
         }

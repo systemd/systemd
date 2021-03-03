@@ -32,7 +32,7 @@ static int show_sysfs_one(
         assert(prefix);
 
         if (flags & OUTPUT_FULL_WIDTH)
-                max_width = (size_t) -1;
+                max_width = SIZE_MAX;
         else if (n_columns < 10)
                 max_width = 10;
         else
@@ -113,7 +113,7 @@ static int show_sysfs_one(
                                 return -ENOMEM;
 
                         r = show_sysfs_one(seat, dev_list, i_dev, n_dev, sysfs, p,
-                                           n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
+                                           n_columns == UINT_MAX || n_columns < 2 ? n_columns : n_columns - 2,
                                            flags);
                         if (r < 0)
                                 return r;
