@@ -125,13 +125,13 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         return reset_uid_gid();
 }
 
-int fd_is_network_ns(int fd) {
+int fd_is_ns(int fd, unsigned long nsflag) {
         struct statfs s;
         int r;
 
-        /* Checks whether the specified file descriptor refers to a network namespace. On old kernels there's no nice
-         * way to detect that, hence on those we'll return a recognizable error (EUCLEAN), so that callers can handle
-         * this somewhat nicely.
+        /* Checks whether the specified file descriptor refers to a namespace created by specifying nsflag in clone().
+         * On old kernels there's no nice way to detect that, hence on those we'll return a recognizable error (EUCLEAN),
+         * so that callers can handle this somewhat nicely.
          *
          * This function returns > 0 if the fd definitely refers to a network namespace, 0 if it definitely does not
          * refer to a network namespace, -EUCLEAN if we can't determine, and other negative error codes on error. */
@@ -168,7 +168,7 @@ int fd_is_network_ns(int fd) {
                 return -errno;
         }
 
-        return r == CLONE_NEWNET;
+        return (unsigned long) r == nsflag;
 }
 
 int detach_mount_namespace(void) {

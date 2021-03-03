@@ -73,6 +73,7 @@ struct NamespaceInfo {
         bool protect_kernel_logs;
         bool mount_apivfs;
         bool protect_hostname;
+        bool private_ipc;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
@@ -160,8 +161,8 @@ int setup_tmp_dirs(
                 char **tmp_dir,
                 char **var_tmp_dir);
 
-int setup_netns(const int netns_storage_socket[static 2]);
-int open_netns_path(const int netns_storage_socket[static 2], const char *path);
+int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsflag);
+int open_shareable_ns_path(const int netns_storage_socket[static 2], const char *path, unsigned long nsflag);
 
 const char* protect_home_to_string(ProtectHome p) _const_;
 ProtectHome protect_home_from_string(const char *s) _pure_;

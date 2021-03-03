@@ -6,6 +6,6 @@
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
-int fd_is_network_ns(int fd);
+int fd_is_ns(int fd, unsigned long nsflag);
 
 int detach_mount_namespace(void);

@@ -117,6 +117,9 @@ struct ExecRuntime {
         /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the network
          * namespace. */
         int netns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
+        int ipcns_storage_socket[2];
 };
 
 typedef enum ExecDirectoryType {
@@ -280,6 +283,7 @@ struct ExecContext {
         bool private_devices;
         bool private_users;
         bool private_mounts;
+        bool private_ipc;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
@@ -314,6 +318,7 @@ struct ExecContext {
         Set *address_families;
 
         char *network_namespace_path;
+        char *ipc_namespace_path;
 
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
