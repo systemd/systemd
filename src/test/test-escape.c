@@ -129,56 +129,43 @@ static void test_shell_escape(void) {
         test_shell_escape_one("foo:bar,baz", ",:", "foo\\:bar\\,baz");
 }
 
-static void test_shell_maybe_quote_one(const char *s,
-                                       EscapeStyle style,
-                                       const char *expected) {
+static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, const char *expected) {
         _cleanup_free_ char *ret = NULL;
 
-        assert_se(ret = shell_maybe_quote(s, style));
+        assert_se(ret = shell_maybe_quote(s, flags));
         log_debug("[%s] → [%s] (%s)", s, ret, expected);
         assert_se(streq(ret, expected));
 }
 
 static void test_shell_maybe_quote(void) {
 
-        test_shell_maybe_quote_one("", ESCAPE_BACKSLASH, "");
-        test_shell_maybe_quote_one("", ESCAPE_BACKSLASH_ONELINE, "");
-        test_shell_maybe_quote_one("", ESCAPE_POSIX, "");
-        test_shell_maybe_quote_one("\\", ESCAPE_BACKSLASH, "\"\\\\\"");
-        test_shell_maybe_quote_one("\\", ESCAPE_BACKSLASH_ONELINE, "\"\\\\\"");
-        test_shell_maybe_quote_one("\\", ESCAPE_POSIX, "$'\\\\'");
-        test_shell_maybe_quote_one("\"", ESCAPE_BACKSLASH, "\"\\\"\"");
-        test_shell_maybe_quote_one("\"", ESCAPE_BACKSLASH_ONELINE, "\"\\\"\"");
-        test_shell_maybe_quote_one("\"", ESCAPE_POSIX, "$'\"'");
-        test_shell_maybe_quote_one("foobar", ESCAPE_BACKSLASH, "foobar");
-        test_shell_maybe_quote_one("foobar", ESCAPE_BACKSLASH_ONELINE, "foobar");
-        test_shell_maybe_quote_one("foobar", ESCAPE_POSIX, "foobar");
-        test_shell_maybe_quote_one("foo bar", ESCAPE_BACKSLASH, "\"foo bar\"");
-        test_shell_maybe_quote_one("foo bar", ESCAPE_BACKSLASH_ONELINE, "\"foo bar\"");
-        test_shell_maybe_quote_one("foo bar", ESCAPE_POSIX, "$'foo bar'");
-        test_shell_maybe_quote_one("foo\tbar", ESCAPE_BACKSLASH, "\"foo\tbar\"");
-        test_shell_maybe_quote_one("foo\tbar", ESCAPE_BACKSLASH_ONELINE, "\"foo\\tbar\"");
-        test_shell_maybe_quote_one("foo\tbar", ESCAPE_POSIX, "$'foo\\tbar'");
-        test_shell_maybe_quote_one("foo\nbar", ESCAPE_BACKSLASH, "\"foo\nbar\"");
-        test_shell_maybe_quote_one("foo\nbar", ESCAPE_BACKSLASH_ONELINE, "\"foo\\nbar\"");
-        test_shell_maybe_quote_one("foo\nbar", ESCAPE_POSIX, "$'foo\\nbar'");
-        test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_BACKSLASH, "\"foo \\\"bar\\\" waldo\"");
-        test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_BACKSLASH_ONELINE, "\"foo \\\"bar\\\" waldo\"");
-        test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_POSIX, "$'foo \"bar\" waldo'");
-        test_shell_maybe_quote_one("foo$bar", ESCAPE_BACKSLASH, "\"foo\\$bar\"");
-        test_shell_maybe_quote_one("foo$bar", ESCAPE_BACKSLASH_ONELINE, "\"foo\\$bar\"");
-        test_shell_maybe_quote_one("foo$bar", ESCAPE_POSIX, "$'foo$bar'");
+        test_shell_maybe_quote_one("", 0, "");
+        test_shell_maybe_quote_one("", SHELL_ESCAPE_POSIX, "");
+        test_shell_maybe_quote_one("\\", 0, "\"\\\\\"");
+        test_shell_maybe_quote_one("\\", SHELL_ESCAPE_POSIX, "$'\\\\'");
+        test_shell_maybe_quote_one("\"", 0, "\"\\\"\"");
+        test_shell_maybe_quote_one("\"", SHELL_ESCAPE_POSIX, "$'\"'");
+        test_shell_maybe_quote_one("foobar", 0, "foobar");
+        test_shell_maybe_quote_one("foobar", SHELL_ESCAPE_POSIX, "foobar");
+        test_shell_maybe_quote_one("foo bar", 0, "\"foo bar\"");
+        test_shell_maybe_quote_one("foo bar", SHELL_ESCAPE_POSIX, "$'foo bar'");
+        test_shell_maybe_quote_one("foo\tbar", 0, "\"foo\\tbar\"");
+        test_shell_maybe_quote_one("foo\tbar", SHELL_ESCAPE_POSIX, "$'foo\\tbar'");
+        test_shell_maybe_quote_one("foo\nbar", 0, "\"foo\\nbar\"");
+        test_shell_maybe_quote_one("foo\nbar", SHELL_ESCAPE_POSIX, "$'foo\\nbar'");
+        test_shell_maybe_quote_one("foo \"bar\" waldo", 0, "\"foo \\\"bar\\\" waldo\"");
+        test_shell_maybe_quote_one("foo \"bar\" waldo", SHELL_ESCAPE_POSIX, "$'foo \"bar\" waldo'");
+        test_shell_maybe_quote_one("foo$bar", 0, "\"foo\\$bar\"");
+        test_shell_maybe_quote_one("foo$bar", SHELL_ESCAPE_POSIX, "$'foo$bar'");
 
         /* Note that current users disallow control characters, so this "test"
          * is here merely to establish current behaviour. If control characters
          * were allowed, they should be quoted, i.e. \001 should become \\001. */
-        test_shell_maybe_quote_one("a\nb\001", ESCAPE_BACKSLASH, "\"a\nb\001\"");
-        test_shell_maybe_quote_one("a\nb\001", ESCAPE_BACKSLASH_ONELINE, "\"a\\nb\001\"");
-        test_shell_maybe_quote_one("a\nb\001", ESCAPE_POSIX, "$'a\\nb\001'");
+        test_shell_maybe_quote_one("a\nb\001", 0, "\"a\\nb\001\"");
+        test_shell_maybe_quote_one("a\nb\001", SHELL_ESCAPE_POSIX, "$'a\\nb\001'");
 
-        test_shell_maybe_quote_one("foo!bar", ESCAPE_BACKSLASH, "\"foo!bar\"");
-        test_shell_maybe_quote_one("foo!bar", ESCAPE_BACKSLASH_ONELINE, "\"foo!bar\"");
-        test_shell_maybe_quote_one("foo!bar", ESCAPE_POSIX, "$'foo!bar'");
+        test_shell_maybe_quote_one("foo!bar", 0, "\"foo!bar\"");
+        test_shell_maybe_quote_one("foo!bar", SHELL_ESCAPE_POSIX, "$'foo!bar'");
 }
 
 int main(int argc, char *argv[]) {

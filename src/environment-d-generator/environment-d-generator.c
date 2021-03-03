@@ -70,7 +70,7 @@ static int load_and_print(void) {
                 t = strchr(*i, '=');
                 assert(t);
 
-                q = shell_maybe_quote(t + 1, ESCAPE_BACKSLASH);
+                q = shell_maybe_quote(t + 1, 0);
                 if (!q)
                         return log_oom();
 
