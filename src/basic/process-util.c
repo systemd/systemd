@@ -162,7 +162,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         if (!t)
                 return -ENOMEM;
 
-        k = fread(t, 1, max_length, f);
+        k = fread(t, 1, max_length - 1, f);
         if (k > 0) {
                 /* Arguments are separated by NULs. Let's replace those with spaces. */
                 for (size_t i = 0; i < k - 1; i++)
