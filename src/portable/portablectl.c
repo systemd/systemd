@@ -21,6 +21,7 @@
 #include "main-func.h"
 #include "os-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -44,6 +45,9 @@ static const char *arg_host = NULL;
 static bool arg_enable = false;
 static bool arg_now = false;
 static bool arg_no_block = false;
+static char **arg_extension_images = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 
 static bool is_portable_managed(const char *unit) {
         return ENDSWITH_SET(unit, ".service", ".target", ".socket", ".path", ".timer");
@@ -219,15 +223,68 @@ static int maybe_reload(sd_bus **bus) {
         return 0;
 }
 
-static int inspect_image(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *method;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        method = strv_isempty(arg_extension_images) ? "GetImageMetadata" : "GetImageMetadataWithExtensions";
+
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", image);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!strv_isempty(arg_extension_images)) {
+                char **p;
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                STRV_FOREACH(p, arg_extension_images) {
+                        _cleanup_free_ char *resolved_extension_image = NULL;
+
+                        r = determine_image(*p, false, &resolved_extension_image);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(m, "s", resolved_extension_image);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_append_strv(m, matches);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to inspect image metadata: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int inspect_image(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **matches = NULL;
         _cleanup_free_ char *image = NULL;
         bool nl = false, header = false;
-        const void *data;
         const char *path;
+        const void *data;
         size_t sz;
         int r;
 
@@ -243,21 +300,9 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "GetImageMetadata");
+        r = get_image_metadata(bus, image, matches, &reply);
         if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(m, "s", image);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append_strv(m, matches);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to inspect image metadata: %s", bus_error_message(&error, r));
+                return r;
 
         r = sd_bus_message_read(reply, "s", &path);
         if (r < 0)
@@ -623,21 +668,9 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not watch jobs: %m");
 
-        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "GetImageMetadata");
+        r = get_image_metadata(bus, image, matches, &reply);
         if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(m, "s", image);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append_strv(m, matches);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to inspect image metadata: %s", bus_error_message(&error, r));
+                return r;
 
         r = sd_bus_message_skip(reply, "say");
         if (r < 0)
@@ -690,10 +723,11 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **matches = NULL;
         _cleanup_free_ char *image = NULL;
+        uint64_t flags = 0;
         int r;
 
         assert(method);
-        assert(STR_IN_SET(method, "AttachImage", "ReattachImage"));
+        assert(STR_IN_SET(method, "AttachImage", "ReattachImage", "AttachImageWithExtensions", "ReattachImageWithExtensions"));
 
         r = determine_image(argv[1], false, &image);
         if (r < 0)
@@ -717,6 +751,30 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         if (r < 0)
                 return bus_log_create_error(r);
 
+        if (!strv_isempty(arg_extension_images)) {
+                char **p;
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                STRV_FOREACH(p, arg_extension_images) {
+                        _cleanup_free_ char *resolved_extension_image = NULL;
+
+                        r = determine_image(*p, false, &resolved_extension_image);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(m, "s", resolved_extension_image);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
         r = sd_bus_message_append_strv(m, matches);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -724,6 +782,12 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         r = sd_bus_message_append(m, "sbs", arg_profile, arg_runtime, arg_copy_mode);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
+                r = sd_bus_message_append(m, "t", flags);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
@@ -733,7 +797,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 
         print_changes(reply);
 
-        if (streq(method, "AttachImage"))
+        if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions"))
                 (void) maybe_enable_start(bus, reply);
         else {
                 /* ReattachImage returns 2 lists - removed units first, and changed/added second */
@@ -745,18 +809,20 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 }
 
 static int attach_image(int argc, char *argv[], void *userdata) {
-        return attach_reattach_image(argc, argv, "AttachImage");
+        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) ? "AttachImage" : "AttachImageWithExtensions");
 }
 
 static int reattach_image(int argc, char *argv[], void *userdata) {
-        return attach_reattach_image(argc, argv, "ReattachImage");
+        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) ? "ReattachImage" : "ReattachImageWithExtensions");
 }
 
 static int detach_image(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
+        const char *method;
+        uint64_t flags = 0;
         int r;
 
         r = determine_image(argv[1], true, &image);
@@ -771,9 +837,53 @@ static int detach_image(int argc, char *argv[], void *userdata) {
 
         (void) maybe_stop_disable(bus, image, argv);
 
-        r = bus_call_method(bus, bus_portable_mgr, "DetachImage", &error, &reply, "sb", image, arg_runtime);
+        method = strv_isempty(arg_extension_images) ? "DetachImage" : "DetachImageWithExtensions";
+
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
         if (r < 0)
-                return log_error_errno(r, "Failed to detach image: %s", bus_error_message(&error, r));
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", image);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!strv_isempty(arg_extension_images)) {
+                char **p;
+
+                r = sd_bus_message_open_container(m, 'a', "s");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                STRV_FOREACH(p, arg_extension_images) {
+                        _cleanup_free_ char *resolved_extension_image = NULL;
+
+                        r = determine_image(*p, false, &resolved_extension_image);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(m, "s", resolved_extension_image);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_append(m, "b", arg_runtime);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!strv_isempty(arg_extension_images)) {
+                r = sd_bus_message_append(m, "t", flags);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
 
         (void) maybe_reload(&bus);
 
@@ -1045,6 +1155,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --now                    Immediately start/stop the portable service after\n"
                "                              attach/before detach\n"
                "     --no-block               Don't block waiting for attach --now to complete\n"
+               "     --extension=PATH         Extend the image with an overlay\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1068,6 +1179,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ENABLE,
                 ARG_NOW,
                 ARG_NO_BLOCK,
+                ARG_EXTENSION,
         };
 
         static const struct option options[] = {
@@ -1087,6 +1199,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "enable",          no_argument,       NULL, ARG_ENABLE          },
                 { "now",             no_argument,       NULL, ARG_NOW             },
                 { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
+                { "extension",       required_argument, NULL, ARG_EXTENSION       },
                 {}
         };
 
@@ -1184,6 +1297,19 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_BLOCK:
                         arg_no_block = true;
                         break;
+
+                case ARG_EXTENSION: {
+                        char *extension_image = NULL;
+                        int r;
+
+                        r = parse_path_argument(optarg, false, &extension_image);
+                        if (r < 0)
+                                return r;
+                        r = strv_consume(&arg_extension_images, extension_image);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
