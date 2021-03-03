@@ -64,6 +64,7 @@ typedef enum MountMode {
         EXEC,
         TMPFS,
         EXTENSION_IMAGES, /* Mounted outside the root directory, and used by subsequent mounts */
+        MQUEUEFS,
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
 } MountMode;
@@ -228,6 +229,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [READWRITE_IMPLICIT]   = "rw-implicit",
         [EXEC]                 = "exec",
         [NOEXEC]               = "noexec",
+        [MQUEUEFS]             = "mqueuefs",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
@@ -1113,6 +1115,24 @@ static int mount_run(const MountEntry *m) {
         return mount_tmpfs(m);
 }
 
+static int mount_mqueuefs(const MountEntry *m) {
+        int r;
+        const char *entry_path;
+
+        assert(m);
+
+        entry_path = mount_entry_path(m);
+
+        (void) mkdir_p_label(entry_path, 0755);
+        (void) umount_recursive(entry_path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "mqueue", entry_path, "mqueue", m->flags, mount_entry_options(m));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int mount_image(const MountEntry *m, const char *root_directory) {
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
@@ -1317,6 +1337,9 @@ static int apply_one_mount(
         case RUN:
                 return mount_run(m);
 
+        case MQUEUEFS:
+                return mount_mqueuefs(m);
+
         case MOUNT_IMAGES:
                 return mount_image(m, NULL);
 
@@ -1516,7 +1539,8 @@ static size_t namespace_calculate_mounts(
                 (creds_path ? 2 : 1) +
                 !!log_namespace +
                 setup_propagate + /* /run/systemd/incoming */
-                !!notify_socket;
+                !!notify_socket +
+                ns_info->private_ipc; /* /dev/mqueue */
 }
 
 static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
@@ -2024,6 +2048,14 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                        };
+                }
+
+                if (ns_info->private_ipc) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/dev/mqueue",
+                                .mode = MQUEUEFS,
+                                .flags = MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RELATIME,
                         };
                 }
 
