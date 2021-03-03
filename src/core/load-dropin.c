@@ -112,6 +112,7 @@ int unit_load_dropin(Unit *u) {
                         return log_oom();
         }
 
+        u->dropin_mtime = 0;
         STRV_FOREACH(f, u->dropin_paths)
                 (void) config_parse(
                                 u->id, *f, NULL,
