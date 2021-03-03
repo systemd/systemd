@@ -15,6 +15,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-state-file.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
