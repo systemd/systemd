@@ -834,7 +834,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         if (table_get_rows(table) > 1) {
-                r = table_set_sort(table, (size_t) 0, (size_t) -1);
+                r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
 

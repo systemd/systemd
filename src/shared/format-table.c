@@ -1094,7 +1094,7 @@ int table_set_display_all(Table *t) {
         return 0;
 }
 
-int table_set_display(Table *t, size_t first_column, ...) {
+int table_set_display_internal(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
 
@@ -1124,7 +1124,7 @@ int table_set_display(Table *t, size_t first_column, ...) {
         return 0;
 }
 
-int table_set_sort(Table *t, size_t first_column, ...) {
+int table_set_sort_internal(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
 
