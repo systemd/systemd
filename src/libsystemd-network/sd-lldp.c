@@ -14,6 +14,7 @@
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "memory-util.h"
+#include "network-common.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
@@ -39,12 +40,10 @@ static void lldp_callback(sd_lldp *lldp, sd_lldp_event_t event, sd_lldp_neighbor
         assert(lldp);
         assert(event >= 0 && event < _SD_LLDP_EVENT_MAX);
 
-        if (!lldp->callback) {
-                log_lldp("Received '%s' event.", lldp_event_to_string(event));
-                return;
-        }
+        if (!lldp->callback)
+                return (void) log_lldp(lldp, "Received '%s' event.", lldp_event_to_string(event));
 
-        log_lldp("Invoking callback for '%s' event.", lldp_event_to_string(event));
+        log_lldp(lldp, "Invoking callback for '%s' event.", lldp_event_to_string(event));
         lldp->callback(lldp, event, n, lldp->userdata);
 }
 
@@ -186,11 +185,11 @@ static int lldp_handle_datagram(sd_lldp *lldp, sd_lldp_neighbor *n) {
 
         r = lldp_add_neighbor(lldp, n);
         if (r < 0) {
-                log_lldp_errno(r, "Failed to add datagram. Ignoring.");
+                log_lldp_errno(lldp, r, "Failed to add datagram. Ignoring.");
                 return 0;
         }
 
-        log_lldp("Successfully processed LLDP datagram.");
+        log_lldp(lldp, "Successfully processed LLDP datagram.");
         return 0;
 }
 
@@ -204,8 +203,10 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
         assert(lldp);
 
         space = next_datagram_size_fd(fd);
-        if (space < 0)
-                return log_lldp_errno(space, "Failed to determine datagram size to read: %m");
+        if (space < 0) {
+                log_lldp_errno(lldp, space, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
 
         n = lldp_neighbor_new(space);
         if (!n)
@@ -216,12 +217,13 @@ static int lldp_receive_datagram(sd_event_source *s, int fd, uint32_t revents, v
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
-                return log_lldp_errno(errno, "Failed to read LLDP datagram: %m");
+                log_lldp_errno(lldp, errno, "Failed to read LLDP datagram, ignoring: %m");
+                return 0;
         }
 
         if ((size_t) length != n->raw_size) {
-                log_lldp("Packet size mismatch.");
-                return -EINVAL;
+                log_lldp(lldp, "Packet size mismatch, ignoring");
+                return 0;
         }
 
         /* Try to get the timestamp of this packet if it is known */
@@ -267,7 +269,7 @@ _public_ int sd_lldp_start(sd_lldp *lldp) {
 
         (void) sd_event_source_set_description(lldp->io_event_source, "lldp-io");
 
-        log_lldp("Started LLDP client");
+        log_lldp(lldp, "Started LLDP client");
         return 1;
 
 fail:
@@ -282,7 +284,7 @@ _public_ int sd_lldp_stop(sd_lldp *lldp) {
         if (lldp->fd < 0)
                 return 0;
 
-        log_lldp("Stopping LLDP client");
+        log_lldp(lldp, "Stopping LLDP client");
 
         lldp_reset(lldp);
         lldp_flush_neighbors(lldp);
@@ -343,6 +345,23 @@ _public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
         return 0;
 }
 
+int sd_lldp_set_ifname(sd_lldp *lldp, const char *ifname) {
+        assert_return(lldp, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&lldp->ifname, ifname);
+}
+
+const char *sd_lldp_get_ifname(sd_lldp *lldp) {
+        if (!lldp)
+                return NULL;
+
+        return get_ifname(lldp->ifindex, &lldp->ifname);
+}
+
 static sd_lldp* lldp_free(sd_lldp *lldp) {
         assert(lldp);
 
@@ -354,6 +373,7 @@ static sd_lldp* lldp_free(sd_lldp *lldp) {
 
         hashmap_free(lldp->neighbor_by_id);
         prioq_free(lldp->neighbor_by_expiry);
+        free(lldp->ifname);
         return mfree(lldp);
 }
 
@@ -398,12 +418,16 @@ static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         int r;
 
         r = lldp_make_space(lldp, 0);
-        if (r < 0)
-                return log_lldp_errno(r, "Failed to make space: %m");
+        if (r < 0) {
+                log_lldp_errno(lldp, r, "Failed to make space, ignoring: %m");
+                return 0;
+        }
 
         r = lldp_start_timer(lldp, NULL);
-        if (r < 0)
-                return log_lldp_errno(r, "Failed to restart timer: %m");
+        if (r < 0) {
+                log_lldp_errno(lldp, r, "Failed to restart timer, ignoring: %m");
+                return 0;
+        }
 
         return 0;
 }
