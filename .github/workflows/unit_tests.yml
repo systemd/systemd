@@ -7,19 +7,20 @@ on: [pull_request]
 jobs:
   build:
     runs-on: ubuntu-20.04
-    env:
-      CENTOS_RELEASE: "centos8"
-      CONT_NAME:      "systemd-centos8-ci"
     strategy:
       fail-fast: false
       matrix:
-        run_phase: [GCC, GCC_ASAN]
+        image: [centos8, stream8]
+        phase: [GCC, GCC_ASAN]
+    env:
+      CONT_NAME: "systemd-centos8-ci"
+      CENTOS_RELEASE: ${{ matrix.image }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@v1
       - name: Install build dependencies
         run: sudo -E .github/workflows/unit_tests.sh SETUP
-      - name: Build & test (${{ matrix.run_phase }})
-        run: sudo -E .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
+      - name: Build & test (${{ env.CENTOS_RELEASE }} / ${{ matrix.phase }})
+        run: sudo -E .github/workflows/unit_tests.sh RUN_${{ matrix.phase }}
       - name: Cleanup
         run: sudo -E .github/workflows/unit_tests.sh CLEANUP

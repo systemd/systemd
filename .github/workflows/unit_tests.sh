@@ -58,6 +58,53 @@ CONFIGURE_OPTS=(
     -Ddefault-hierarchy=legacy
 )
 
+# CentOS 8 Stream still doesn't provide SRPMs, so we can't use dnf's builddep
+# command to fetch this list for us. Hopefully, we'll be able to get rid
+# of this in the future.
+# See: https://bugs.centos.org/view.php?id=16715
+SYSTEMD_BUILD_DEPS=(
+        audit-libs-devel
+        bzip2-devel
+        cryptsetup-devel
+        dbus-devel
+        docbook-style-xsl
+        elfutils-devel
+        firewalld-filesystem
+        gcc
+        gcc-c++
+        gettext
+        git
+        gnu-efi
+        gnu-efi-devel
+        gnutls-devel
+        gobject-introspection-devel
+        gperf
+        iptables-devel
+        kmod-devel
+        libacl-devel
+        libblkid-devel
+        libcap-devel
+        libcurl-devel
+        libgcrypt-devel
+        libgpg-error-devel
+        libidn2-devel
+        libmicrohttpd-devel
+        libmount-devel
+        libseccomp-devel
+        libselinux-devel
+        libxkbcommon-devel
+        libxslt
+        lz4
+        lz4-devel
+        meson
+        pam-devel
+        pkgconf-pkg-config
+        python3-lxml
+        python36-devel
+        tree
+        xz-devel
+)
+
 function info() {
     echo -e "\033[33;1m$1\033[0m"
 }
@@ -85,7 +132,10 @@ for phase in "${PHASES[@]}"; do
             # Upgrade the container to get the most recent environment
             $DOCKER_EXEC dnf -y upgrade
             # Install systemd's build dependencies
-            $DOCKER_EXEC dnf -q -y --enablerepo "powertools" builddep systemd
+            if ! $DOCKER_EXEC dnf -q -y --enablerepo "powertools" builddep systemd; then
+                    # See the $SYSTEMD_BUILD_DEPS above for reasoning
+                    $DOCKER_EXEC dnf -q -y --enablerepo "powertools" install "${SYSTEMD_BUILD_DEPS[@]}"
+            fi
             ;;
         RUN|RUN_GCC)
             info "Run phase"
