@@ -494,7 +494,7 @@ char* shell_escape(const char *s, const char *bad) {
         return r;
 }
 
-char* shell_maybe_quote(const char *s, EscapeStyle style) {
+char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         const char *p;
         char *r, *t;
 
@@ -513,36 +513,27 @@ char* shell_maybe_quote(const char *s, EscapeStyle style) {
         if (!*p)
                 return strdup(s);
 
-        r = new(char, (style == ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
+        r = new(char, FLAGS_SET(flags, SHELL_ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
         if (!r)
                 return NULL;
 
         t = r;
-        switch (style) {
-        case ESCAPE_BACKSLASH:
-        case ESCAPE_BACKSLASH_ONELINE:
-                *(t++) = '"';
-                break;
-        case ESCAPE_POSIX:
+        if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX)) {
                 *(t++) = '$';
                 *(t++) = '\'';
-                break;
-        default:
-                assert_not_reached("Bad EscapeStyle");
-        }
+        } else
+                *(t++) = '"';
 
         t = mempcpy(t, s, p - s);
 
-        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE,
-                                             style == ESCAPE_BACKSLASH_ONELINE);
-        else
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE_POSIX, true);
+        t = strcpy_backslash_escaped(t, p,
+                                     FLAGS_SET(flags, SHELL_ESCAPE_POSIX) ? SHELL_NEED_ESCAPE_POSIX : SHELL_NEED_ESCAPE,
+                                     true);
 
-        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
-                *(t++) = '"';
-        else
+        if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX))
                 *(t++) = '\'';
+        else
+                *(t++) = '"';
         *t = 0;
 
         return r;
