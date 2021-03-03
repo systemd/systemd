@@ -1090,7 +1090,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
+        r = table_set_sort(table, (size_t) 0);
         if (r < 0)
                 return r;
 
@@ -1622,7 +1622,7 @@ static int dump_capabilities(int argc, char *argv[], void *userdata) {
                                 return table_log_add_error(r);
                 }
 
-                (void) table_set_sort(table, (size_t) 1, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 1);
         }
 
         (void) pager_open(arg_pager_flags);

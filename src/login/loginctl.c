@@ -90,7 +90,7 @@ static int show_table(Table *table, const char *word) {
         assert(word);
 
         if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
-                r = table_set_sort(table, (size_t) 0, (size_t) -1);
+                r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
 
