@@ -125,7 +125,7 @@ int get_process_comm(pid_t pid, char **ret) {
 
 int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *t = NULL, *ans = NULL;
+        char *ans;
         const char *p;
         int r;
         size_t k;
@@ -136,12 +136,19 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         assert(line);
         assert(pid >= 0);
 
-        /* Retrieves a process' command line. Replaces non-utf8 bytes by replacement character (�). If
-         * max_columns is != -1 will return a string of the specified console width at most, abbreviated with
-         * an ellipsis. If PROCESS_CMDLINE_COMM_FALLBACK is specified in flags and the process has no command
-         * line set (the case for kernel threads), or has a command line that resolves to the empty string
-         * will return the "comm" name of the process instead. This will use at most _SC_ARG_MAX bytes of
-         * input data.
+        /* Retrieves a process' command line.
+         *
+         * If PROCESS_CMDLINE_COMM_FALLBACK is specified in flags and the process has no command line set
+         * (the case for kernel threads), or has a command line that resolves to the empty string, will
+         * return the "comm" name of the process instead. This will use at most _SC_ARG_MAX bytes of input
+         * data.
+         *
+         * There are two main modes:
+         * - if the output has limited size (max_columns is specified), returns a compact non-roundtrippable
+         *   output. Non-utf8 bytes are replaced by �. The returned string is of the specified console width
+         *   at most, abbreviated with an ellipsis.
+         * - otherwise, the output is shell-quoted and escaped, and in principle can by copy-pasted into
+         *   the terminal to execute. UTF-8 output is assumed.
          *
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * comm_fallback is false). Returns 0 and sets *line otherwise. */
@@ -158,51 +165,103 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         if ((size_t) 4 * max_columns + 1 < max_columns)
                 max_length = MIN(max_length, (size_t) 4 * max_columns + 1);
 
-        t = new(char, max_length);
-        if (!t)
-                return -ENOMEM;
+        if (max_columns < SIZE_MAX) {
+                _cleanup_free_ char *t = NULL;
 
-        k = fread(t, 1, max_length - 1, f);
-        if (k > 0) {
-                /* Arguments are separated by NULs. Let's replace those with spaces. */
-                for (size_t i = 0; i < k - 1; i++)
-                        if (t[i] == '\0')
-                                t[i] = ' ';
-
-                t[k] = '\0'; /* Normally, t[k] is already NUL, so this is just a guard in case of short read */
-        } else {
-                /* We only treat getting nothing as an error. We *could* also get an error after reading some
-                 * data, but we ignore that case, as such an error is rather unlikely and we prefer to get
-                 * some data rather than none. */
-                if (ferror(f))
-                        return -errno;
-
-                if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
-                        return -ENOENT;
-
-                /* Kernel threads have no argv[] */
-                _cleanup_free_ char *t2 = NULL;
-
-                r = get_process_comm(pid, &t2);
-                if (r < 0)
-                        return r;
-
-                mfree(t);
-                t = strjoin("[", t2, "]");
+                t = new(char, max_length);
                 if (!t)
+                        return -ENOMEM;
+
+                k = fread(t, 1, max_length - 1, f);
+                if (k > 0) {
+                        /* Arguments are separated by NULs. Let's replace those with spaces. */
+                        for (size_t i = 0; i < k - 1; i++)
+                                if (t[i] == '\0')
+                                        t[i] = ' ';
+
+                        t[k] = '\0'; /* Normally, t[k] is already NUL, so this is just a guard in case of short read */
+
+                        delete_trailing_chars(t, WHITESPACE);
+
+                } else {
+                        /* We only treat getting nothing as an error. We *could* also get an error after
+                         * reading some data, but we ignore that case, as such an error is rather unlikely
+                         * and we prefer to get some data rather than none. */
+                        if (ferror(f))
+                                return -errno;
+
+                        if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
+                                return -ENOENT;
+
+                        /* Kernel threads have no argv[] */
+                        _cleanup_free_ char *t2 = NULL;
+
+                        r = get_process_comm(pid, &t2);
+                        if (r < 0)
+                                return r;
+
+                        mfree(t);
+                        t = strjoin("[", t2, "]");
+                        if (!t)
+                                return -ENOMEM;
+                }
+
+                bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
+
+                ans = escape_non_printable_full(t, max_columns, eight_bit);
+                if (!ans)
+                        return -ENOMEM;
+
+                (void) str_realloc(&ans);
+
+        } else {
+                _cleanup_strv_free_ char **args = NULL;
+
+                assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
+
+                for (;;) {
+                        _cleanup_free_ char *arg = NULL, *escaped = NULL;
+
+                        r = read_nul_string(f, max_length, &arg);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        escaped = shell_maybe_quote(arg, SHELL_ESCAPE_EMPTY);
+                        if (!escaped)
+                                return -ENOMEM;
+
+                        r = strv_consume(&args, TAKE_PTR(escaped) ?: TAKE_PTR(arg));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (args)
+                        ans = strv_join(args, " ");
+                else {
+                        if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
+                                return -ENOENT;
+
+                        /* Kernel threads have no argv[] */
+                        _cleanup_free_ char *arg = NULL, *arg2 = NULL;
+
+                        r = get_process_comm(pid, &arg);
+                        if (r < 0)
+                                return r;
+
+                        arg2 = strjoin("[", arg, "]");
+                        if (!arg2)
+                                return -ENOMEM;
+
+                        ans = shell_maybe_quote(arg2, 0);
+                }
+
+                if (!ans)
                         return -ENOMEM;
         }
 
-        delete_trailing_chars(t, WHITESPACE);
-
-        bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
-
-        ans = escape_non_printable_full(t, max_columns, eight_bit);
-        if (!ans)
-                return -ENOMEM;
-
-        (void) str_realloc(&ans);
-        *line = TAKE_PTR(ans);
+        *line = ans;
         return 0;
 }
 
