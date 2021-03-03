@@ -242,8 +242,14 @@ static void test_get_process_cmdline_harder(void) {
 
         assert_se(get_process_cmdline(0, SIZE_MAX, 0, &line) == -ENOENT);
 
-        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
+        assert_se(get_process_cmdline(0, SIZE_MAX-1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
+        log_info("'%s'", line);
         assert_se(streq(line, "[testa]"));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
+        log_info("'%s'", line);
+        assert_se(streq(line, "\"[testa]\"")); /* quoting is enabled here */
         line = mfree(line);
 
         assert_se(get_process_cmdline(0, 0, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
@@ -282,6 +288,8 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(get_process_cmdline(0, 8, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         assert_se(streq(line, "[testa]"));
         line = mfree(line);
+
+        /* Test with multiple arguments that don't require quoting */
 
         assert_se(write(fd, "foo\0bar", 8) == 8);
 
@@ -369,7 +377,7 @@ static void test_get_process_cmdline_harder(void) {
 
         assert_se(get_process_cmdline(0, SIZE_MAX, 0, &line) == -ENOENT);
 
-        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
+        assert_se(get_process_cmdline(0, SIZE_MAX - 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         assert_se(streq(line, "[aaaa bbbb cccc]"));
         line = mfree(line);
 
@@ -385,6 +393,32 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(streq(line, "[aaaa bbbb …"));
         line = mfree(line);
 
+        /* Test with multiple arguments that do require quoting */
+
+#define CMDLINE1 "foo\0'bar'\0\"bar$\"\0x y z\0!``\0"
+#define EXPECT1  "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\" \"\""
+        assert_se(lseek(fd, SEEK_SET, 0) == 0);
+        assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
+        assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
+
+        assert_se(get_process_cmdline(0, SIZE_MAX, 0, &line) >= 0);
+        log_info("got: ==%s==", line);
+        log_info("exp: ==%s==", EXPECT1);
+        assert_se(streq(line, EXPECT1));
+        line = mfree(line);
+
+#define CMDLINE2 "foo\0\1\2\3\0\0"
+#define EXPECT2  "foo \"\\001\\002\\003\" \"\" \"\""
+        assert_se(lseek(fd, SEEK_SET, 0) == 0);
+        assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
+        assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);
+
+        assert_se(get_process_cmdline(0, SIZE_MAX, 0, &line) >= 0);
+        log_info("got: ==%s==", line);
+        log_info("exp: ==%s==", EXPECT2);
+        assert_se(streq(line, EXPECT2));
+        line = mfree(line);
+
         safe_close(fd);
         _exit(EXIT_SUCCESS);
 }
@@ -397,6 +431,8 @@ static void test_rename_process_now(const char *p, int ret) {
         assert_se(r == ret ||
                   (ret == 0 && r >= 0) ||
                   (ret > 0 && r > 0));
+
+        log_info_errno(r, "rename_process(%s): %m", p);
 
         if (r < 0)
                 return;
@@ -420,9 +456,12 @@ static void test_rename_process_now(const char *p, int ret) {
                 if (r == 0 && detect_container() > 0)
                         log_info("cmdline = <%s> (not verified, Running in unprivileged container?)", cmdline);
                 else {
-                        log_info("cmdline = <%s>", cmdline);
-                        assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
-                        assert_se(startswith(p, cmdline));
+                        log_info("cmdline = <%s> (expected <%.*s>)", cmdline, (int) strlen("test-process-util"), p);
+
+                        bool skip = cmdline[0] == '"'; /* A shortcut to check if the string is quoted */
+
+                        assert_se(strneq(cmdline + skip, p, strlen("test-process-util")));
+                        assert_se(startswith(cmdline + skip, p));
                 }
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);
