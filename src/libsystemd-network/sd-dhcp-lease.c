@@ -869,7 +869,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
 }
 
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct sd_dhcp_raw_option *option;
         struct in_addr address;
@@ -889,7 +889,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = fopen_temporary(lease_file, &f, &temp_path);
         if (r < 0)
-                goto fail;
+                return r;
 
         (void) fchmod(fileno(f), 0644);
 
@@ -992,10 +992,8 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 _cleanup_free_ char *client_id_hex = NULL;
 
                 client_id_hex = hexmem(client_id, client_id_len);
-                if (!client_id_hex) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!client_id_hex)
+                        return -ENOMEM;
                 fprintf(f, "CLIENTID=%s\n", client_id_hex);
         }
 
@@ -1004,10 +1002,8 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 _cleanup_free_ char *option_hex = NULL;
 
                 option_hex = hexmem(data, data_len);
-                if (!option_hex) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!option_hex)
+                        return -ENOMEM;
                 fprintf(f, "VENDOR_SPECIFIC=%s\n", option_hex);
         }
 
@@ -1017,28 +1013,23 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 xsprintf(key, "OPTION_%" PRIu8, option->tag);
                 r = serialize_dhcp_option(f, key, option->data, option->length);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = conservative_rename(temp_path, lease_file);
         if (r < 0)
-                goto fail;
+                return r;
+
+        temp_path = mfree(temp_path);
 
         return 0;
-
-fail:
-        if (temp_path)
-                (void) unlink(temp_path);
-
-        return log_error_errno(r, "Failed to save lease data %s: %m", lease_file);
 }
 
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
-
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char
                 *address = NULL,
