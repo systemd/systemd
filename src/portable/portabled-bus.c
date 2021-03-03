@@ -252,10 +252,13 @@ static int method_attach_image(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **extension_images = NULL;
         PortableChange *changes = NULL;
         Manager *m = userdata;
         size_t n_changes = 0;
         const char *name_or_path;
+        /* Unused for now, but added to the DBUS methods for future-proofing */
+        uint64_t flags = 0;
         int r, runtime;
 
         assert(message);
@@ -265,9 +268,30 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
          * detach already deleted images too, in case the user already deleted an image before properly detaching
          * it. */
 
-        r = sd_bus_message_read(message, "sb", &name_or_path, &runtime);
+        r = sd_bus_message_read(message, "s", &name_or_path);
         if (r < 0)
                 return r;
+
+        if (sd_bus_message_is_method_call(message, NULL, "DetachImageWithExtensions")) {
+                r = sd_bus_message_read_strv(message, &extension_images);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_read(message, "b", &runtime);
+        if (r < 0)
+                return r;
+
+        if (sd_bus_message_is_method_call(message, NULL, "DetachImageWithExtensions")) {
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+                /* Let clients know that this version doesn't support any flags */
+                if (flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          flags);
+        }
 
         r = bus_verify_polkit_async(
                         message,
@@ -286,6 +310,7 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
         r = portable_detach(
                         sd_bus_message_get_bus(message),
                         name_or_path,
+                        extension_images,
                         runtime ? PORTABLE_RUNTIME : 0,
                         &changes,
                         &n_changes,
@@ -383,6 +408,16 @@ const sd_bus_vtable manager_vtable[] = {
                                               "a{say}", units),
                                 method_get_image_metadata,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetImageMetadataWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "as", matches,
+                                            "t", flags),
+                                SD_BUS_RESULT("s", image,
+                                              "ay", os_release,
+                                              "a{say}", units),
+                                method_get_image_metadata,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetImageState",
                                 SD_BUS_ARGS("s", image),
                                 SD_BUS_RESULT("s", state),
@@ -397,9 +432,28 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_RESULT("a(sss)", changes),
                                 method_attach_image,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AttachImageWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "b", runtime,
+                                            "s", copy_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("a(sss)", changes),
+                                method_attach_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("DetachImage",
                                 SD_BUS_ARGS("s", image,
                                             "b", runtime),
+                                SD_BUS_RESULT("a(sss)", changes),
+                                method_detach_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DetachImageWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "b", runtime,
+                                            "t", flags),
                                 SD_BUS_RESULT("a(sss)", changes),
                                 method_detach_image,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
@@ -411,6 +465,17 @@ const sd_bus_vtable manager_vtable[] = {
                                             "s", copy_mode),
                                 SD_BUS_RESULT("a(sss)", changes_removed,
                                               "a(sss)", changes_updated),
+                                method_reattach_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ReattachImageWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "b", runtime,
+                                            "s", copy_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("a(sss)", changes),
                                 method_reattach_image,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("RemoveImage",
