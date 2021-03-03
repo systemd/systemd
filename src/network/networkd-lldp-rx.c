@@ -6,6 +6,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "networkd-link.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
@@ -181,10 +182,9 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        if (rename(temp_path, link->lldp_file) < 0) {
-                r = -errno;
+        r = conservative_rename(temp_path, link->lldp_file);
+        if (r < 0)
                 goto finish;
-        }
 
 finish:
         if (r < 0) {
