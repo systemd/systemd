@@ -2506,7 +2506,7 @@ static int write_credential(
                                             * user can no longer chmod() the file to gain write access. */
                                 return r;
 
-                        if (fchown(fd, uid, (gid_t) -1) < 0)
+                        if (fchown(fd, uid, GID_INVALID) < 0)
                                 return -errno;
                 }
         }
@@ -2624,7 +2624,7 @@ static int acquire_credentials(
                         if (!ownership_ok)
                                 return r;
 
-                        if (fchown(dfd, uid, (gid_t) -1) < 0)
+                        if (fchown(dfd, uid, GID_INVALID) < 0)
                                 return -errno;
                 }
         }

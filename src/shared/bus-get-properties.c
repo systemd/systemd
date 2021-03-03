@@ -142,9 +142,9 @@ int bus_property_get_rlimit(
                 x = is_soft ? buf.rlim_cur : buf.rlim_max;
         }
 
-        /* rlim_t might have different sizes, let's map RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on all
+        /* rlim_t might have different sizes, let's map RLIMIT_INFINITY to UINT64_MAX, so that it is the same on all
          * archs */
-        u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
+        u = x == RLIM_INFINITY ? UINT64_MAX : (uint64_t) x;
 
         return sd_bus_message_append(reply, "t", u);
 }

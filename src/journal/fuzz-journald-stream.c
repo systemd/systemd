@@ -27,7 +27,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(stdout_stream_install(&s, stream_fds[0], &stream) >= 0);
         assert_se(write(stream_fds[1], data, size) == (ssize_t) size);
         while (ioctl(stream_fds[0], SIOCINQ, &v) == 0 && v)
-                sd_event_run(s.event, (uint64_t) -1);
+                sd_event_run(s.event, UINT64_MAX);
         if (s.n_stdout_streams)
                 stdout_stream_destroy(stream);
         server_done(&s);

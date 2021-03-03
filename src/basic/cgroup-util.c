@@ -1975,7 +1975,7 @@ int cg_kernel_controllers(Set **ret) {
                 return r;
 
         /* Ignore the header line */
-        (void) read_line(f, (size_t) -1, NULL);
+        (void) read_line(f, SIZE_MAX, NULL);
 
         for (;;) {
                 char *controller;

@@ -325,7 +325,7 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
         if (timeout > 0) {
                 usec_t usec;
 
-                usec = now(clock_boottime_or_monotonic()) + timeout;
+                usec = usec_add(now(clock_boottime_or_monotonic()), timeout);
 
                 r = sd_event_add_time(m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)

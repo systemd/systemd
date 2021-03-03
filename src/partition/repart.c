@@ -1838,10 +1838,10 @@ static int context_dump_partitions(Context *context, const char *node) {
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 8, (size_t) 11, (size_t) -1);
+                                                    (size_t) 8, (size_t) 11);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12, (size_t) -1);
+                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
@@ -3847,7 +3847,7 @@ static int remove_efi_variable_factory_reset(void) {
 static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        dev_t devno, fd_devno = (mode_t) -1;
+        dev_t devno, fd_devno = MODE_INVALID;
         int r;
 
         assert(p);
@@ -3905,7 +3905,7 @@ static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) 
 
         /* Only if we still lock at the same block device we can reuse the fd. Otherwise return an
          * invalidated fd. */
-        *ret_fd = fd_devno != (mode_t) -1 && fd_devno == devno ? TAKE_FD(fd) : -1;
+        *ret_fd = fd_devno != MODE_INVALID && fd_devno == devno ? TAKE_FD(fd) : -1;
         return 0;
 }
 

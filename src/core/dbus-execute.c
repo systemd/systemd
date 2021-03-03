@@ -3301,7 +3301,7 @@ int bus_exec_context_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        if (rl == (uint64_t) -1)
+                        if (rl == UINT64_MAX)
                                 x = RLIM_INFINITY;
                         else {
                                 x = (rlim_t) rl;

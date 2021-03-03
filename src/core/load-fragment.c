@@ -1094,7 +1094,7 @@ int config_parse_exec_input_data(
                 return 0;
         }
 
-        r = unbase64mem(rvalue, (size_t) -1, &p, &sz);
+        r = unbase64mem(rvalue, SIZE_MAX, &p, &sz);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to decode base64 data, ignoring: %s", rvalue);

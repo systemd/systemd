@@ -141,8 +141,8 @@ static bool arg_compress = true;
 static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
 static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
-static uint64_t arg_keep_free = (uint64_t) -1;
-static uint64_t arg_max_use = (uint64_t) -1;
+static uint64_t arg_keep_free = UINT64_MAX;
+static uint64_t arg_max_use = UINT64_MAX;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {

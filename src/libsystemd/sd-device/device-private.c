@@ -98,7 +98,7 @@ int device_get_devnode_mode(sd_device *device, mode_t *mode) {
         if (r < 0)
                 return r;
 
-        if (device->devmode == (mode_t) -1)
+        if (device->devmode == MODE_INVALID)
                 return -ENOENT;
 
         if (mode)
@@ -116,7 +116,7 @@ int device_get_devnode_uid(sd_device *device, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        if (device->devuid == (uid_t) -1)
+        if (device->devuid == UID_INVALID)
                 return -ENOENT;
 
         if (uid)
@@ -154,7 +154,7 @@ int device_get_devnode_gid(sd_device *device, gid_t *gid) {
         if (r < 0)
                 return r;
 
-        if (device->devgid == (gid_t) -1)
+        if (device->devgid == GID_INVALID)
                 return -ENOENT;
 
         if (gid)

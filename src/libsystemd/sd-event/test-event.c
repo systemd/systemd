@@ -217,7 +217,7 @@ static void test_basic(bool with_pidfd) {
         got_unref = false;
         assert_se(sd_event_add_io(e, &t, k[0], EPOLLIN, unref_handler, NULL) >= 0);
         assert_se(write(k[1], &ch, 1) == 1);
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(got_unref);
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
@@ -227,10 +227,10 @@ static void test_basic(bool with_pidfd) {
         assert_se(sd_event_add_io(e, &w, d[0], EPOLLIN, io_handler, INT_TO_PTR('d')) >= 0);
         assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);
         assert_se(write(d[1], &ch, 1) >= 0);
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(got_d == 1);
         assert_se(write(d[1], &ch, 1) >= 0);
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(got_d == 2);
 
         assert_se(sd_event_add_io(e, &x, a[0], EPOLLIN, io_handler, INT_TO_PTR('a')) >= 0);
@@ -258,15 +258,15 @@ static void test_basic(bool with_pidfd) {
 
         assert_se(!got_a && !got_b && !got_c);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
 
         assert_se(!got_a && got_b && !got_c);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
 
         assert_se(!got_a && got_b && got_c);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
 
         assert_se(got_a && got_b && got_c);
 
@@ -357,19 +357,19 @@ static void test_rtqueue(void) {
         assert_se(n_rtqueue == 0);
         assert_se(last_rtqueue_sigval == 0);
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 1);
         assert_se(last_rtqueue_sigval == 2); /* first SIGRTMIN+3 */
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 2);
         assert_se(last_rtqueue_sigval == 4); /* second SIGRTMIN+3 */
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 3);
         assert_se(last_rtqueue_sigval == 3); /* first SIGUSR2 */
 
-        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(sd_event_run(e, UINT64_MAX) >= 1);
         assert_se(n_rtqueue == 4);
         assert_se(last_rtqueue_sigval == 1); /* SIGRTMIN+2 */
 

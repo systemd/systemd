@@ -834,7 +834,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         if (table_get_rows(table) > 1) {
-                r = table_set_sort(table, (size_t) 0, (size_t) -1);
+                r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
 
@@ -923,7 +923,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
-                limit = (uint64_t) -1;
+                limit = UINT64_MAX;
         else {
                 r = parse_size(argv[argc-1], 1024, &limit);
                 if (r < 0)

@@ -703,28 +703,28 @@ static const char buffer[] =
 static void test_read_line_one_file(FILE *f) {
         _cleanup_free_ char *line = NULL;
 
-        assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "Some test data"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 15 && streq(line, "Some test data"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) > 0 && streq(line, "루Non-ascii chars: ąę„”"));
+        assert_se(read_line(f, SIZE_MAX, &line) > 0 && streq(line, "루Non-ascii chars: ąę„”"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 13 && streq(line, "terminators"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 13 && streq(line, "terminators"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "and even more"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 15 && streq(line, "and even more"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 25 && streq(line, "now the same with a NUL"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 25 && streq(line, "now the same with a NUL"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 10 && streq(line, "and more"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 10 && streq(line, "and more"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 16 && streq(line, "and even more"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 16 && streq(line, "and even more"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 20 && streq(line, "and yet even more"));
+        assert_se(read_line(f, SIZE_MAX, &line) == 20 && streq(line, "and yet even more"));
         line = mfree(line);
 
         assert_se(read_line(f, 1024, &line) == 30 && streq(line, "With newlines, and a NUL byte"));
@@ -736,7 +736,7 @@ static void test_read_line_one_file(FILE *f) {
         assert_se(read_line(f, 1024, &line) == 14 && streq(line, "an empty line"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, NULL) == 16);
+        assert_se(read_line(f, SIZE_MAX, NULL) == 16);
 
         assert_se(read_line(f, 16, &line) == -ENOBUFS);
         line = mfree(line);
@@ -819,11 +819,11 @@ static void test_read_line4(void) {
 
                 assert_se(f = fmemopen_unlocked((void*) eof_endings[i].string, eof_endings[i].length, "r"));
 
-                r = read_line(f, (size_t) -1, &s);
+                r = read_line(f, SIZE_MAX, &s);
                 assert_se((size_t) r == eof_endings[i].length);
                 assert_se(streq_ptr(s, "foo"));
 
-                assert_se(read_line(f, (size_t) -1, NULL) == 0); /* Ensure we hit EOF */
+                assert_se(read_line(f, SIZE_MAX, NULL) == 0); /* Ensure we hit EOF */
         }
 }
 

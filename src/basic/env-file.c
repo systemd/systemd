@@ -20,7 +20,7 @@ static int parse_env_file_internal(
                 void *userdata,
                 int *n_pushed) {
 
-        size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = (size_t) -1, last_key_whitespace = (size_t) -1;
+        size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
         _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
         unsigned line = 1;
         char *p;
@@ -56,7 +56,7 @@ static int parse_env_file_internal(
                                 state = COMMENT;
                         else if (!strchr(WHITESPACE, c)) {
                                 state = KEY;
-                                last_key_whitespace = (size_t) -1;
+                                last_key_whitespace = SIZE_MAX;
 
                                 if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
                                         return -ENOMEM;
@@ -72,11 +72,11 @@ static int parse_env_file_internal(
                                 n_key = 0;
                         } else if (c == '=') {
                                 state = PRE_VALUE;
-                                last_value_whitespace = (size_t) -1;
+                                last_value_whitespace = SIZE_MAX;
                         } else {
                                 if (!strchr(WHITESPACE, c))
-                                        last_key_whitespace = (size_t) -1;
-                                else if (last_key_whitespace == (size_t) -1)
+                                        last_key_whitespace = SIZE_MAX;
+                                else if (last_key_whitespace == SIZE_MAX)
                                          last_key_whitespace = n_key;
 
                                 if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
@@ -97,7 +97,7 @@ static int parse_env_file_internal(
                                         value[n_value] = 0;
 
                                 /* strip trailing whitespace from key */
-                                if (last_key_whitespace != (size_t) -1)
+                                if (last_key_whitespace != SIZE_MAX)
                                         key[last_key_whitespace] = 0;
 
                                 r = push(fname, line, key, value, userdata, n_pushed);
@@ -136,11 +136,11 @@ static int parse_env_file_internal(
                                         value[n_value] = 0;
 
                                 /* Chomp off trailing whitespace from value */
-                                if (last_value_whitespace != (size_t) -1)
+                                if (last_value_whitespace != SIZE_MAX)
                                         value[last_value_whitespace] = 0;
 
                                 /* strip trailing whitespace from key */
-                                if (last_key_whitespace != (size_t) -1)
+                                if (last_key_whitespace != SIZE_MAX)
                                         key[last_key_whitespace] = 0;
 
                                 r = push(fname, line, key, value, userdata, n_pushed);
@@ -153,11 +153,11 @@ static int parse_env_file_internal(
 
                         } else if (c == '\\') {
                                 state = VALUE_ESCAPE;
-                                last_value_whitespace = (size_t) -1;
+                                last_value_whitespace = SIZE_MAX;
                         } else {
                                 if (!strchr(WHITESPACE, c))
-                                        last_value_whitespace = (size_t) -1;
-                                else if (last_value_whitespace == (size_t) -1)
+                                        last_value_whitespace = SIZE_MAX;
+                                else if (last_value_whitespace == SIZE_MAX)
                                         last_value_whitespace = n_value;
 
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
@@ -255,11 +255,11 @@ static int parse_env_file_internal(
                         value[n_value] = 0;
 
                 if (state == VALUE)
-                        if (last_value_whitespace != (size_t) -1)
+                        if (last_value_whitespace != SIZE_MAX)
                                 value[last_value_whitespace] = 0;
 
                 /* strip trailing whitespace from key */
-                if (last_key_whitespace != (size_t) -1)
+                if (last_key_whitespace != SIZE_MAX)
                         key[last_key_whitespace] = 0;
 
                 r = push(fname, line, key, value, userdata, n_pushed);

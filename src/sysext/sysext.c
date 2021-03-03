@@ -228,7 +228,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         ret = r;
         }
 
-        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
+        (void) table_set_sort(t, (size_t) 0);
 
         r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         if (r < 0)
@@ -842,7 +842,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                         return table_log_add_error(r);
         }
 
-        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
+        (void) table_set_sort(t, (size_t) 0);
 
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }

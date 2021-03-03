@@ -400,7 +400,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .ifindex = ifindex,
                 .iftype = iftype,
 
-                .n_dns = (unsigned) -1,
+                .n_dns = UINT_MAX,
                 .dns_default_route = -1,
                 .llmnr = _RESOLVE_SUPPORT_INVALID,
                 .mdns = _RESOLVE_SUPPORT_INVALID,
@@ -469,11 +469,11 @@ void link_ntp_settings_clear(Link *link) {
 }
 
 void link_dns_settings_clear(Link *link) {
-        if (link->n_dns != (unsigned) -1)
+        if (link->n_dns != UINT_MAX)
                 for (unsigned i = 0; i < link->n_dns; i++)
                         in_addr_full_free(link->dns[i]);
         link->dns = mfree(link->dns);
-        link->n_dns = (unsigned) -1;
+        link->n_dns = UINT_MAX;
 
         link->search_domains = ordered_set_free_free(link->search_domains);
         link->route_domains = ordered_set_free_free(link->route_domains);
@@ -2963,7 +2963,7 @@ int link_save(Link *link) {
 
                 fputs("DNS=", f);
                 space = false;
-                if (link->n_dns != (unsigned) -1)
+                if (link->n_dns != UINT_MAX)
                         link_save_dns(link, f, link->dns, link->n_dns, &space);
                 else
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);

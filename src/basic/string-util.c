@@ -71,7 +71,7 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         assert(suffix);
 
         a = strlen(s);
-        if (b > ((size_t) -1) - a)
+        if (b > (SIZE_MAX) - a)
                 return NULL;
 
         r = new(char, a+b+1);
@@ -307,7 +307,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
 
         assert(s);
         assert(percent <= 100);
-        assert(new_length != (size_t) -1);
+        assert(new_length != SIZE_MAX);
 
         if (old_length <= new_length)
                 return strndup(s, old_length);
@@ -378,7 +378,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         assert(s);
         assert(percent <= 100);
 
-        if (new_length == (size_t) -1)
+        if (new_length == SIZE_MAX)
                 return strndup(s, old_length);
 
         if (new_length == 0)
