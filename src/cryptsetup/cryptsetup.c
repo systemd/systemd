@@ -1503,10 +1503,9 @@ static int run(int argc, char *argv[]) {
 
                 flags = determine_flags();
 
-                if (arg_timeout == USEC_INFINITY)
+                until = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
+                if (until == USEC_INFINITY)
                         until = 0;
-                else
-                        until = now(CLOCK_MONOTONIC) + arg_timeout;
 
                 arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
 

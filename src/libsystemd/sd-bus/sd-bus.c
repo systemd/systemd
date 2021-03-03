@@ -2205,7 +2205,9 @@ _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destinat
 static usec_t calc_elapse(sd_bus *bus, uint64_t usec) {
         assert(bus);
 
-        if (usec == (uint64_t) -1)
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+
+        if (usec == USEC_INFINITY)
                 return 0;
 
         /* We start all timeouts the instant we enter BUS_HELLO/BUS_RUNNING state, so that the don't run in parallel
@@ -2215,7 +2217,7 @@ static usec_t calc_elapse(sd_bus *bus, uint64_t usec) {
         if (IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING))
                 return usec;
         else
-                return now(CLOCK_MONOTONIC) + usec;
+                return usec_add(now(CLOCK_MONOTONIC), usec);
 }
 
 static int timeout_compare(const void *a, const void *b) {
