@@ -236,10 +236,10 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to get timeout: %m");
 
                 t = timeout_a;
-                if (t == (uint64_t) -1 || (timeout_b != (uint64_t) -1 && timeout_b < timeout_a))
+                if (t == UINT64_MAX || (timeout_b != UINT64_MAX && timeout_b < timeout_a))
                         t = timeout_b;
 
-                if (t == (uint64_t) -1)
+                if (t == UINT64_MAX)
                         ts = NULL;
                 else {
                         usec_t nw;

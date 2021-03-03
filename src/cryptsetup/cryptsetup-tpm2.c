@@ -125,7 +125,7 @@ int find_tpm2_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-blob' field.");
 
-                r = unbase64mem(json_variant_string(w), (size_t) -1, &blob, &blob_size);
+                r = unbase64mem(json_variant_string(w), SIZE_MAX, &blob, &blob_size);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-blob' field.");
@@ -136,7 +136,7 @@ int find_tpm2_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
-                r = unhexmem(json_variant_string(w), (size_t) -1, &policy_hash, &policy_hash_size);
+                r = unhexmem(json_variant_string(w), SIZE_MAX, &policy_hash, &policy_hash_size);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");

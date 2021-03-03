@@ -476,7 +476,7 @@ static int dns_cache_put_positive(
                 .rr = dns_resource_record_ref(rr),
                 .answer = dns_answer_ref(answer),
                 .full_packet = dns_packet_ref(full_packet),
-                .until = calculate_until(rr, (uint32_t) -1, timestamp, false),
+                .until = calculate_until(rr, UINT32_MAX, timestamp, false),
                 .query_flags = query_flags & CACHEABLE_QUERY_FLAGS,
                 .shared_owner = shared_owner,
                 .dnssec_result = dnssec_result,

@@ -277,7 +277,7 @@ static void test_monitor(void) {
                 nw = now(CLOCK_MONOTONIC);
 
                 r = poll(&pollfd, 1,
-                         timeout == (uint64_t) -1 ? -1 :
+                         timeout == UINT64_MAX ? -1 :
                          timeout > nw ? (int) ((timeout - nw) / 1000) :
                          0);
 

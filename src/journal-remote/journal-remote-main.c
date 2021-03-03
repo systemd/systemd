@@ -471,7 +471,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         }
 
         r = sd_event_add_time(s->events, &d->timer_event,
-                              CLOCK_MONOTONIC, (uint64_t) -1, 0,
+                              CLOCK_MONOTONIC, UINT64_MAX, 0,
                               null_timer_event_handler, d);
         if (r < 0) {
                 log_error_errno(r, "Failed to add timer_event: %m");

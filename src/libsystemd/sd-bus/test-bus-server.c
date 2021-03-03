@@ -47,7 +47,7 @@ static void *server(void *p) {
                 }
 
                 if (r == 0) {
-                        r = sd_bus_wait(bus, (uint64_t) -1);
+                        r = sd_bus_wait(bus, UINT64_MAX);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to wait: %m");
                                 goto fail;

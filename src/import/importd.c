@@ -161,7 +161,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
                 .stdin_fd = -1,
                 .stdout_fd = -1,
                 .verify = _IMPORT_VERIFY_INVALID,
-                .progress_percent= (unsigned) -1,
+                .progress_percent= UINT_MAX,
         };
 
         id = m->current_transfer_id + 1;
@@ -186,7 +186,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
 static double transfer_percent_as_double(Transfer *t) {
         assert(t);
 
-        if (t->progress_percent == (unsigned) -1)
+        if (t->progress_percent == UINT_MAX)
                 return -DBL_MAX;
 
         return (double) t->progress_percent / 100.0;

@@ -2185,7 +2185,7 @@ int server_init(Server *s, const char *namespace) {
                 .notify_fd = -1,
 
                 .compress.enabled = true,
-                .compress.threshold_bytes = (uint64_t) -1,
+                .compress.threshold_bytes = UINT64_MAX,
                 .seal = true,
 
                 .set_audit = true,
@@ -2593,7 +2593,7 @@ int config_parse_compress(
 
         if (isempty(rvalue)) {
                 compress->enabled = true;
-                compress->threshold_bytes = (uint64_t) -1;
+                compress->threshold_bytes = UINT64_MAX;
         } else if (streq(rvalue, "1")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Compress= ambiguously specified as 1, enabling compression with default threshold");

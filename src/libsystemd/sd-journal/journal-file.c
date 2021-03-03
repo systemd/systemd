@@ -1561,7 +1561,7 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
 
            http://pubs.opengroup.org/onlinepubs/000095399/basedefs/xbd_chap08.html */
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* No empty field names */
@@ -2352,7 +2352,7 @@ static int generic_array_bisect(
                 uint64_t *ret_offset,
                 uint64_t *ret_idx) {
 
-        uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = (uint64_t) -1;
+        uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
         bool subtract_one = false;
         Object *o, *array = NULL;
         int r;
@@ -2422,7 +2422,7 @@ static int generic_array_bisect(
                         left = 0;
                         right -= 1;
 
-                        if (last_index != (uint64_t) -1) {
+                        if (last_index != UINT64_MAX) {
                                 assert(last_index <= right);
 
                                 /* If we cached the last index we
@@ -2522,7 +2522,7 @@ static int generic_array_bisect(
 
                 n -= k;
                 t += k;
-                last_index = (uint64_t) -1;
+                last_index = UINT64_MAX;
                 a = le64toh(array->entry_array.next_entry_array_offset);
         }
 
@@ -2533,7 +2533,7 @@ found:
                 return 0;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, le64toh(array->entry_array.items[0]), t, subtract_one ? (i > 0 ? i-1 : (uint64_t) -1) : i);
+        chain_cache_put(f->chain_cache, ci, first, a, le64toh(array->entry_array.items[0]), t, subtract_one ? (i > 0 ? i-1 : UINT64_MAX) : i);
 
         if (subtract_one && i == 0)
                 p = last_p;
@@ -3447,7 +3447,7 @@ int journal_file_open(
 #elif HAVE_XZ
                 .compress_xz = compress,
 #endif
-                .compress_threshold_bytes = compress_threshold_bytes == (uint64_t) -1 ?
+                .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
 #if HAVE_GCRYPT
@@ -3964,12 +3964,12 @@ void journal_reset_metrics(JournalMetrics *m) {
         /* Set everything to "pick automatic values". */
 
         *m = (JournalMetrics) {
-                .min_use = (uint64_t) -1,
-                .max_use = (uint64_t) -1,
-                .min_size = (uint64_t) -1,
-                .max_size = (uint64_t) -1,
-                .keep_free = (uint64_t) -1,
-                .n_max_files = (uint64_t) -1,
+                .min_use = UINT64_MAX,
+                .max_use = UINT64_MAX,
+                .min_size = UINT64_MAX,
+                .max_size = UINT64_MAX,
+                .keep_free = UINT64_MAX,
+                .n_max_files = UINT64_MAX,
         };
 }
 
@@ -3986,7 +3986,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         else
                 log_debug_errno(errno, "Failed to determine disk size: %m");
 
-        if (m->max_use == (uint64_t) -1) {
+        if (m->max_use == UINT64_MAX) {
 
                 if (fs_size > 0)
                         m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
@@ -4000,7 +4000,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->max_use = JOURNAL_FILE_SIZE_MIN*2;
         }
 
-        if (m->min_use == (uint64_t) -1) {
+        if (m->min_use == UINT64_MAX) {
                 if (fs_size > 0)
                         m->min_use = CLAMP(PAGE_ALIGN(fs_size / 50), /* 2% of file system size */
                                            MIN_USE_LOW, MIN_USE_HIGH);
@@ -4011,7 +4011,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         if (m->min_use > m->max_use)
                 m->min_use = m->max_use;
 
-        if (m->max_size == (uint64_t) -1)
+        if (m->max_size == UINT64_MAX)
                 m->max_size = MIN(PAGE_ALIGN(m->max_use / 8), /* 8 chunks */
                                   MAX_SIZE_UPPER);
         else
@@ -4025,14 +4025,14 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->max_use = m->max_size*2;
         }
 
-        if (m->min_size == (uint64_t) -1)
+        if (m->min_size == UINT64_MAX)
                 m->min_size = JOURNAL_FILE_SIZE_MIN;
         else
                 m->min_size = CLAMP(PAGE_ALIGN(m->min_size),
                                     JOURNAL_FILE_SIZE_MIN,
                                     m->max_size ?: UINT64_MAX);
 
-        if (m->keep_free == (uint64_t) -1) {
+        if (m->keep_free == UINT64_MAX) {
                 if (fs_size > 0)
                         m->keep_free = MIN(PAGE_ALIGN(fs_size / 20), /* 5% of file system size */
                                            KEEP_FREE_UPPER);
@@ -4040,7 +4040,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 
-        if (m->n_max_files == (uint64_t) -1)
+        if (m->n_max_files == UINT64_MAX)
                 m->n_max_files = DEFAULT_N_MAX_FILES;
 
         log_debug("Fixed min_use=%s max_use=%s max_size=%s min_size=%s keep_free=%s n_max_files=%" PRIu64,

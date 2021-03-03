@@ -394,7 +394,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
-                        r = copy_bytes(fd, pair[1], (uint64_t) -1, 0);
+                        r = copy_bytes(fd, pair[1], UINT64_MAX, 0);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 

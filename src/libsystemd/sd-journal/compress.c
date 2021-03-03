@@ -176,7 +176,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
         if (ret != LZMA_OK)
                 return -ENOMEM;
 
-        space = MIN(src_size * 2, dst_max ?: (size_t) -1);
+        space = MIN(src_size * 2, dst_max ?: SIZE_MAX);
         if (!greedy_realloc(dst, dst_alloc_size, space, 1))
                 return -ENOMEM;
 
@@ -202,7 +202,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
                         return -ENOBUFS;
 
                 used = space - s.avail_out;
-                space = MIN(2 * space, dst_max ?: (size_t) -1);
+                space = MIN(2 * space, dst_max ?: SIZE_MAX);
                 if (!greedy_realloc(dst, dst_alloc_size, space, 1))
                         return -ENOMEM;
 
@@ -554,7 +554,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                         size_t m = sizeof(buf);
                         ssize_t n;
 
-                        if (max_bytes != (uint64_t) -1 && (uint64_t) m > max_bytes)
+                        if (max_bytes != UINT64_MAX && (uint64_t) m > max_bytes)
                                 m = (size_t) max_bytes;
 
                         n = read(fdf, buf, m);
@@ -566,7 +566,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 s.next_in = buf;
                                 s.avail_in = n;
 
-                                if (max_bytes != (uint64_t) -1) {
+                                if (max_bytes != UINT64_MAX) {
                                         assert(max_bytes >= (uint64_t) n);
                                         max_bytes -= n;
                                 }
@@ -664,7 +664,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 offset += n;
                 total_out += n;
 
-                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
+                if (max_bytes != UINT64_MAX && total_out > (size_t) max_bytes) {
                         r = log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
                                             "Compressed stream longer than %" PRIu64 " bytes", max_bytes);
                         goto cleanup;
@@ -752,7 +752,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
                         n = sizeof(out) - s.avail_out;
 
-                        if (max_bytes != (uint64_t) -1) {
+                        if (max_bytes != UINT64_MAX) {
                                 if (max_bytes < (uint64_t) n)
                                         return -EFBIG;
 
@@ -816,7 +816,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                 total_in += used;
                 total_out += produced;
 
-                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
+                if (max_bytes != UINT64_MAX && total_out > (size_t) max_bytes) {
                         log_debug("Decompressed stream longer than %"PRIu64" bytes", max_bytes);
                         r = -EFBIG;
                         goto cleanup;

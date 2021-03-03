@@ -256,7 +256,7 @@ static int make_backup(const char *target, const char *x) {
         if (r < 0)
                 return r;
 
-        r = copy_bytes(src, fileno(dst), (uint64_t) -1, COPY_REFLINK);
+        r = copy_bytes(src, fileno(dst), UINT64_MAX, COPY_REFLINK);
         if (r < 0)
                 return r;
 
@@ -539,7 +539,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         .sp_warn = -1,
                         .sp_inact = -1,
                         .sp_expire = -1,
-                        .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
+                        .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
 
                 r = putspent_sane(&n, shadow);

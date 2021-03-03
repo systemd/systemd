@@ -82,8 +82,8 @@ int dns_packet_new(
                 .rindex = DNS_PACKET_HEADER_SIZE,
                 .allocated = a,
                 .max_size = max_size,
-                .opt_start = (size_t) -1,
-                .opt_size = (size_t) -1,
+                .opt_start = SIZE_MAX,
+                .opt_size = SIZE_MAX,
         };
 
         *ret = p;
@@ -182,8 +182,8 @@ int dns_packet_dup(DnsPacket **ret, DnsPacket *p) {
                 .rindex = DNS_PACKET_HEADER_SIZE,
                 .allocated = p->size,
                 .max_size = p->max_size,
-                .opt_start = (size_t) -1,
-                .opt_size = (size_t) -1,
+                .opt_start = SIZE_MAX,
+                .opt_size = SIZE_MAX,
         };
 
         memcpy(DNS_PACKET_DATA(c), DNS_PACKET_DATA(p), p->size);
@@ -736,10 +736,10 @@ int dns_packet_append_opt(
         assert(rcode >= 0);
         assert(rcode <= _DNS_RCODE_MAX);
 
-        if (p->opt_start != (size_t) -1)
+        if (p->opt_start != SIZE_MAX)
                 return -EBUSY;
 
-        assert(p->opt_size == (size_t) -1);
+        assert(p->opt_size == SIZE_MAX);
 
         saved_size = p->size;
 
@@ -851,12 +851,12 @@ fail:
 int dns_packet_truncate_opt(DnsPacket *p) {
         assert(p);
 
-        if (p->opt_start == (size_t) -1) {
-                assert(p->opt_size == (size_t) -1);
+        if (p->opt_start == SIZE_MAX) {
+                assert(p->opt_size == SIZE_MAX);
                 return 0;
         }
 
-        assert(p->opt_size != (size_t) -1);
+        assert(p->opt_size != SIZE_MAX);
         assert(DNS_PACKET_ARCOUNT(p) > 0);
 
         if (p->opt_start + p->opt_size != p->size)
@@ -864,7 +864,7 @@ int dns_packet_truncate_opt(DnsPacket *p) {
 
         dns_packet_truncate(p, p->opt_start);
         DNS_PACKET_HEADER(p)->arcount = htobe16(DNS_PACKET_ARCOUNT(p) - 1);
-        p->opt_start = p->opt_size = (size_t) -1;
+        p->opt_start = p->opt_size = SIZE_MAX;
 
         return 1;
 }
@@ -2458,10 +2458,10 @@ int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
         assert(p);
         assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
 
-        if (p->opt_start == (size_t) -1) /* No OPT section, nothing to patch */
+        if (p->opt_start == SIZE_MAX) /* No OPT section, nothing to patch */
                 return 0;
 
-        assert(p->opt_size != (size_t) -1);
+        assert(p->opt_size != SIZE_MAX);
         assert(p->opt_size >= 5);
 
         unaligned_write_be16(DNS_PACKET_DATA(p) + p->opt_start + 3, max_udp_size);
