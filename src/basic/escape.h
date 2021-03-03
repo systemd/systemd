@@ -38,6 +38,7 @@ typedef enum EscapeFlags {
          * Tabs and newlines are escaped. */
 
         ESCAPE_POSIX   = 1 << 1, /* Use POSIX shell escape syntax (a string enclosed in $'') instead of plain quotes. */
+        ESCAPE_EMPTY   = 1 << 2, /* Format empty arguments as "". */
 } EscapeFlags;
 
 char* cescape(const char *s);

@@ -510,7 +510,7 @@ char* shell_maybe_quote(const char *s, EscapeFlags flags) {
                     strchr(SHELL_NEED_QUOTES, *p))
                         break;
 
-        if (!*p)
+        if (!*p && (p > s || !FLAGS_SET(flags, ESCAPE_EMPTY)))
                 return strdup(s);
 
         r = new(char, FLAGS_SET(flags, ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);

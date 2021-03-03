@@ -141,6 +141,9 @@ static void test_shell_maybe_quote(void) {
 
         test_shell_maybe_quote_one("", 0, "");
         test_shell_maybe_quote_one("", ESCAPE_POSIX, "");
+        test_shell_maybe_quote_one("", ESCAPE_EMPTY, "\"\"");
+        test_shell_maybe_quote_one("", ESCAPE_POSIX, "");
+        test_shell_maybe_quote_one("", ESCAPE_POSIX | ESCAPE_EMPTY, "$''");
         test_shell_maybe_quote_one("\\", 0, "\"\\\\\"");
         test_shell_maybe_quote_one("\\", ESCAPE_POSIX, "$'\\\\'");
         test_shell_maybe_quote_one("\"", 0, "\"\\\"\"");
@@ -156,7 +159,9 @@ static void test_shell_maybe_quote(void) {
         test_shell_maybe_quote_one("foo \"bar\" waldo", 0, "\"foo \\\"bar\\\" waldo\"");
         test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_POSIX, "$'foo \"bar\" waldo'");
         test_shell_maybe_quote_one("foo$bar", 0, "\"foo\\$bar\"");
+        test_shell_maybe_quote_one("foo$bar", ESCAPE_EMPTY, "\"foo\\$bar\"");
         test_shell_maybe_quote_one("foo$bar", ESCAPE_POSIX, "$'foo$bar'");
+        test_shell_maybe_quote_one("foo$bar", ESCAPE_POSIX | ESCAPE_EMPTY, "$'foo$bar'");
 
         /* Note that current users disallow control characters, so this "test"
          * is here merely to establish current behaviour. If control characters
