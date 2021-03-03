@@ -127,6 +127,7 @@ static void test_shell_escape(void) {
         test_shell_escape_one("foobar", "", "foobar");
         test_shell_escape_one("foobar", "o", "f\\o\\obar");
         test_shell_escape_one("foo:bar,baz", ",:", "foo\\:bar\\,baz");
+        test_shell_escape_one("foo\nbar\nbaz", ",:", "foo\\nbar\\nbaz");
 }
 
 static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, const char *expected) {
