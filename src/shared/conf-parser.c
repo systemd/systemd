@@ -263,7 +263,7 @@ int config_parse(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime) {
+                usec_t *latest_mtime) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
@@ -274,6 +274,9 @@ int config_parse(
 
         assert(filename);
         assert(lookup);
+
+        /* latest_mtime is an input-output parameter: it will be updated if the mtime of the file we're
+         * looking at is later than the current *latest_mtime value. */
 
         if (!f) {
                 f = ours = fopen(filename, "re");
@@ -417,8 +420,8 @@ int config_parse(
                 }
         }
 
-        if (ret_mtime)
-                *ret_mtime = mtime;
+        if (latest_mtime)
+                *latest_mtime = MAX(*latest_mtime, mtime);
 
         return 1;
 }
@@ -448,12 +451,9 @@ static int config_parse_many_files(
 
         /* Then read all the drop-ins. */
         STRV_FOREACH(fn, files) {
-                usec_t t;
-
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &t);
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &mtime);
                 if (r < 0)
                         return r;
-                mtime = MAX(mtime, t); /* Find the newest */
         }
 
         if (ret_mtime)
