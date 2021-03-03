@@ -2594,10 +2594,11 @@ _public_ int sd_event_source_set_time_relative(sd_event_source *s, uint64_t usec
         if (r < 0)
                 return r;
 
-        if (usec >= USEC_INFINITY - t)
+        usec = usec_add(t, usec);
+        if (usec == USEC_INFINITY)
                 return -EOVERFLOW;
 
-        return sd_event_source_set_time(s, t + usec);
+        return sd_event_source_set_time(s, usec);
 }
 
 _public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {

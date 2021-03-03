@@ -2725,10 +2725,7 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
                 return r;
 
         if (t != (uint64_t) -1) {
-                usec_t n;
-
-                n = now(CLOCK_MONOTONIC);
-                t = t > n ? t - n : 0;
+                t = usec_sub_unsigned(t, now(CLOCK_MONOTONIC));
 
                 if (timeout_usec == (uint64_t) -1 || timeout_usec > t)
                         timeout_usec = t;

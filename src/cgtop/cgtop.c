@@ -953,7 +953,7 @@ static int run(int argc, char *argv[]) {
 
                 t = now(CLOCK_MONOTONIC);
 
-                if (t >= last_refresh + arg_delay || immediate_refresh) {
+                if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
 
                         r = refresh(root, a, b, iteration++);
                         if (r < 0)
@@ -978,7 +978,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_batch)
                         (void) usleep(last_refresh + arg_delay - t);
                 else {
-                        r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
+                        r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), NULL);
                         if (r == -ETIMEDOUT)
                                 continue;
                         if (r < 0)
@@ -1056,7 +1056,7 @@ static int run(int argc, char *argv[]) {
                         if (arg_delay < USEC_PER_SEC)
                                 arg_delay += USEC_PER_MSEC*250;
                         else
-                                arg_delay += USEC_PER_SEC;
+                                arg_delay = usec_add(arg_delay, USEC_PER_SEC);
 
                         fprintf(stdout, "\nIncreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);

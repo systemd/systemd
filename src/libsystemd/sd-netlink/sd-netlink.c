@@ -518,7 +518,7 @@ static usec_t calc_elapse(uint64_t usec) {
         if (usec == 0)
                 usec = RTNL_DEFAULT_TIMEOUT;
 
-        return now(CLOCK_MONOTONIC) + usec;
+        return usec_add(now(CLOCK_MONOTONIC), usec);
 }
 
 static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
