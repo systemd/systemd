@@ -181,7 +181,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         assert(service);
 
-        service_shell_quoted = shell_maybe_quote(service, ESCAPE_BACKSLASH);
+        service_shell_quoted = shell_maybe_quote(service, 0);
 
         if (!strv_isempty((char**) extra_args)) {
                 _cleanup_free_ char *t;

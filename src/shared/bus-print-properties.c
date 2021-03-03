@@ -270,7 +270,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
                                 _cleanup_free_ char *e = NULL;
 
-                                e = shell_maybe_quote(str, ESCAPE_BACKSLASH_ONELINE);
+                                e = shell_maybe_quote(str, 0);
                                 if (!e)
                                         return -ENOMEM;
 
