@@ -118,6 +118,7 @@ static void test_shell_escape_one(const char *s, const char *bad, const char *ex
         _cleanup_free_ char *r;
 
         assert_se(r = shell_escape(s, bad));
+        log_debug("%s → %s (expected %s)", s, r, expected);
         assert_se(streq_ptr(r, expected));
 }
 
@@ -163,14 +164,22 @@ static void test_shell_maybe_quote(void) {
         test_shell_maybe_quote_one("foo$bar", SHELL_ESCAPE_POSIX, "$'foo$bar'");
         test_shell_maybe_quote_one("foo$bar", SHELL_ESCAPE_POSIX | SHELL_ESCAPE_EMPTY, "$'foo$bar'");
 
-        /* Note that current users disallow control characters, so this "test"
-         * is here merely to establish current behaviour. If control characters
-         * were allowed, they should be quoted, i.e. \001 should become \\001. */
-        test_shell_maybe_quote_one("a\nb\001", 0, "\"a\\nb\001\"");
-        test_shell_maybe_quote_one("a\nb\001", SHELL_ESCAPE_POSIX, "$'a\\nb\001'");
-
+        /* Exclamation mark is special in the interactive shell, but we don't treat it so. */
         test_shell_maybe_quote_one("foo!bar", 0, "\"foo!bar\"");
         test_shell_maybe_quote_one("foo!bar", SHELL_ESCAPE_POSIX, "$'foo!bar'");
+
+        /* Control characters and unicode */
+        test_shell_maybe_quote_one("a\nb\001", 0, "\"a\\nb\\001\"");
+        test_shell_maybe_quote_one("a\nb\001", SHELL_ESCAPE_POSIX, "$'a\\nb\\001'");
+
+        test_shell_maybe_quote_one("głąb", 0, "głąb");
+        test_shell_maybe_quote_one("głąb", SHELL_ESCAPE_POSIX, "głąb");
+
+        test_shell_maybe_quote_one("głąb\002\003", 0, "\"głąb\\002\\003\"");
+        test_shell_maybe_quote_one("głąb\002\003", SHELL_ESCAPE_POSIX, "$'głąb\\002\\003'");
+
+        test_shell_maybe_quote_one("głąb\002\003rząd", 0, "\"głąb\\002\\003rząd\"");
+        test_shell_maybe_quote_one("głąb\002\003rząd", SHELL_ESCAPE_POSIX, "$'głąb\\002\\003rząd'");
 }
 
 int main(int argc, char *argv[]) {
