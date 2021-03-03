@@ -1637,7 +1637,7 @@ static int execute_shutdown_or_sleep(
         m->action_what = w;
 
         /* Make sure the lid switch is ignored for a while */
-        manager_set_lid_switch_ignore(m, now(CLOCK_MONOTONIC) + m->holdoff_timeout_usec);
+        manager_set_lid_switch_ignore(m, usec_add(now(CLOCK_MONOTONIC), m->holdoff_timeout_usec));
 
         return 0;
 

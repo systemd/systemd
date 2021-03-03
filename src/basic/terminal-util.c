@@ -440,11 +440,11 @@ int acquire_terminal(
 
                                 assert(ts != USEC_INFINITY);
 
-                                n = now(CLOCK_MONOTONIC);
-                                if (ts + timeout < n)
+                                n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
+                                if (n >= timeout)
                                         return -ETIMEDOUT;
 
-                                r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
+                                r = fd_wait_for_event(notify, POLLIN, usec_sub_unsigned(timeout, n));
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
