@@ -470,7 +470,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 if (entry->call)
                         Print(L"internal call           yes\n");
 
-                if (entry->tries_left != (UINTN) -1)
+                if (entry->tries_left != UINTN_MAX)
                         Print(L"counting boots          yes\n"
                                "tries done              %u\n"
                                "tries left              %u\n"
@@ -1077,7 +1077,7 @@ static VOID config_entry_parse_tries(
                 CHAR16 *file,
                 CHAR16 *suffix) {
 
-        UINTN left = (UINTN) -1, done = (UINTN) -1, factor = 1, i, next_left, next_done;
+        UINTN left = UINTN_MAX, done = UINTN_MAX, factor = 1, i, next_left, next_done;
         _cleanup_freepool_ CHAR16 *prefix = NULL;
 
         /*
@@ -1114,46 +1114,46 @@ static VOID config_entry_parse_tries(
                 switch (file[i]) {
 
                 case '+':
-                        if (left == (UINTN) -1) /* didn't read at least one digit for 'left'? */
+                        if (left == UINTN_MAX) /* didn't read at least one digit for 'left'? */
                                 return;
 
-                        if (done == (UINTN) -1) /* no 'done' counter? If so, it's equivalent to 0 */
+                        if (done == UINTN_MAX) /* no 'done' counter? If so, it's equivalent to 0 */
                                 done = 0;
 
                         goto good;
 
                 case '-':
-                        if (left == (UINTN) -1) /* didn't parse any digit yet? */
+                        if (left == UINTN_MAX) /* didn't parse any digit yet? */
                                 return;
 
-                        if (done != (UINTN) -1) /* already encountered a dash earlier? */
+                        if (done != UINTN_MAX) /* already encountered a dash earlier? */
                                 return;
 
                         /* So we encountered a dash. This means this counter is of the form +LEFT-DONE. Let's assign
                          * what we already parsed to 'done', and start fresh for the 'left' part. */
 
                         done = left;
-                        left = (UINTN) -1;
+                        left = UINTN_MAX;
                         factor = 1;
                         break;
 
                 case '0'...'9': {
                         UINTN new_factor;
 
-                        if (left == (UINTN) -1)
+                        if (left == UINTN_MAX)
                                 left = file[i] - '0';
                         else {
                                 UINTN new_left, digit;
 
                                 digit = file[i] - '0';
-                                if (digit > (UINTN) -1 / factor) /* overflow check */
+                                if (digit > UINTN_MAX / factor) /* overflow check */
                                         return;
 
                                 new_left = left + digit * factor;
                                 if (new_left < left) /* overflow check */
                                         return;
 
-                                if (new_left == (UINTN) -1) /* don't allow us to be confused */
+                                if (new_left == UINTN_MAX) /* don't allow us to be confused */
                                         return;
                         }
 
@@ -1197,7 +1197,7 @@ static VOID config_entry_bump_counters(
         UINTN file_info_size, a, b;
         EFI_STATUS r;
 
-        if (entry->tries_left == (UINTN) -1)
+        if (entry->tries_left == UINTN_MAX)
                 return;
 
         if (!entry->path || !entry->current_name || !entry->next_name)
@@ -1275,8 +1275,8 @@ static VOID config_entry_add_from_file(
         entry = AllocatePool(sizeof(ConfigEntry));
 
         *entry = (ConfigEntry) {
-                .tries_done = (UINTN) -1,
-                .tries_left = (UINTN) -1,
+                .tries_done = UINTN_MAX,
+                .tries_left = UINTN_MAX,
         };
 
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
@@ -1482,8 +1482,8 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
         if (r != 0)
                 return r;
 
-        if (a->tries_left == (UINTN) -1 ||
-            b->tries_left == (UINTN) -1)
+        if (a->tries_left == UINTN_MAX ||
+            b->tries_left == UINTN_MAX)
                 return 0;
 
         /* If both items have boot counting, and otherwise are identical, put the entry with more tries left last */
@@ -1701,8 +1701,8 @@ static BOOLEAN config_entry_add_call(
                 .title = StrDuplicate(title),
                 .call = call,
                 .no_autoselect = TRUE,
-                .tries_done = (UINTN) -1,
-                .tries_left = (UINTN) -1,
+                .tries_done = UINTN_MAX,
+                .tries_left = UINTN_MAX,
         };
 
         config_add_entry(config, entry);
@@ -1730,8 +1730,8 @@ static ConfigEntry *config_entry_add_loader(
                 .loader = StrDuplicate(loader),
                 .id = StrDuplicate(id),
                 .key = key,
-                .tries_done = (UINTN) -1,
-                .tries_left = (UINTN) -1,
+                .tries_done = UINTN_MAX,
+                .tries_left = UINTN_MAX,
         };
 
         StrLwr(entry->id);
@@ -1971,9 +1971,9 @@ static VOID config_load_xbootldr(
                 EFI_HANDLE *device) {
 
         EFI_DEVICE_PATH *partition_path, *disk_path, *copy;
-        UINT32 found_partition_number = (UINT32) -1;
-        UINT64 found_partition_start = (UINT64) -1;
-        UINT64 found_partition_size = (UINT64) -1;
+        UINT32 found_partition_number = UINT32_MAX;
+        UINT64 found_partition_start = UINT64_MAX;
+        UINT64 found_partition_size = UINT64_MAX;
         UINT8 found_partition_signature[16] = {};
         EFI_HANDLE new_device;
         EFI_FILE *root_dir;
@@ -2053,7 +2053,7 @@ static VOID config_load_xbootldr(
                                 continue;
 
                         /* Calculate CRC check */
-                        c = ~crc32_exclude_offset((UINT32) -1,
+                        c = ~crc32_exclude_offset(UINT32_MAX,
                                                   (const UINT8*) &gpt_header_buffer,
                                                   h->Header.HeaderSize,
                                                   OFFSETOF(EFI_PARTITION_TABLE_HEADER, Header.CRC32),
@@ -2087,7 +2087,7 @@ static VOID config_load_xbootldr(
                                 continue;
 
                         /* Calculate CRC of entries array, too */
-                        c = ~crc32((UINT32) -1, entries, sz);
+                        c = ~crc32(UINT32_MAX, entries, sz);
                         if (c != h->PartitionEntryArrayCRC32)
                                 continue;
 
