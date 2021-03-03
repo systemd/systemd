@@ -465,62 +465,55 @@ char* octescape(const char *s, size_t len) {
 static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
 
-        for (; *s; s++) {
-                if (IN_SET(*s, '\n', '\t')) {
-                        *(t++) = '\\';
-                        *(t++) = *s == '\n' ? 'n' : 't';
-                        continue;
+        for (; *s; s++)
+                if (char_is_cc(*s))
+                        t += cescape_char(*s, t);
+                else {
+                        if (*s == '\\' || strchr(bad, *s))
+                                *(t++) = '\\';
+                        *(t++) = *s;
                 }
-
-                if (*s == '\\' || strchr(bad, *s))
-                        *(t++) = '\\';
-
-                *(t++) = *s;
-        }
 
         return t;
 }
 
 char* shell_escape(const char *s, const char *bad) {
-        char *r, *t;
+        char *buf, *t;
 
-        r = new(char, strlen(s)*2+1);
-        if (!r)
+        buf = new(char, strlen(s)*4+1);
+        if (!buf)
                 return NULL;
 
-        t = strcpy_backslash_escaped(r, s, bad);
+        t = strcpy_backslash_escaped(buf, s, bad);
         *t = 0;
 
-        return r;
+        return buf;
 }
 
 char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         const char *p;
-        char *r, *t;
+        char *buf, *t;
 
         assert(s);
 
-        /* Encloses a string in quotes if necessary to make it OK as a shell
-         * string. Note that we treat benign UTF-8 characters as needing
-         * escaping too, but that should be OK. */
+        /* Encloses a string in quotes if necessary to make it OK as a shell string. */
 
         if (FLAGS_SET(flags, SHELL_ESCAPE_EMPTY) && isempty(s))
                 return strdup("\"\""); /* We don't use $'' here in the POSIX mode. "" is fine too. */
 
         for (p = s; *p; p++)
-                if (*p <= ' ' ||
-                    *p >= 127 ||
-                    strchr(SHELL_NEED_QUOTES, *p))
+                if (char_is_cc(*p) ||
+                    strchr(WHITESPACE SHELL_NEED_QUOTES, *p))
                         break;
 
         if (!*p)
                 return strdup(s);
 
-        r = new(char, FLAGS_SET(flags, SHELL_ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
-        if (!r)
+        buf = new(char, FLAGS_SET(flags, SHELL_ESCAPE_POSIX) + 1 + strlen(s)*4 + 1 + 1);
+        if (!buf)
                 return NULL;
 
-        t = r;
+        t = buf;
         if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX)) {
                 *(t++) = '$';
                 *(t++) = '\'';
@@ -538,5 +531,5 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
                 *(t++) = '"';
         *t = 0;
 
-        return r;
+        return str_realloc(buf);
 }
