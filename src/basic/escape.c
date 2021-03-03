@@ -462,11 +462,11 @@ char* octescape(const char *s, size_t len) {
 
 }
 
-static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad, bool escape_tab_nl) {
+static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
 
         for (; *s; s++) {
-                if (escape_tab_nl && IN_SET(*s, '\n', '\t')) {
+                if (IN_SET(*s, '\n', '\t')) {
                         *(t++) = '\\';
                         *(t++) = *s == '\n' ? 'n' : 't';
                         continue;
@@ -488,7 +488,7 @@ char* shell_escape(const char *s, const char *bad) {
         if (!r)
                 return NULL;
 
-        t = strcpy_backslash_escaped(r, s, bad, false);
+        t = strcpy_backslash_escaped(r, s, bad);
         *t = 0;
 
         return r;
@@ -530,8 +530,7 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         t = mempcpy(t, s, p - s);
 
         t = strcpy_backslash_escaped(t, p,
-                                     FLAGS_SET(flags, SHELL_ESCAPE_POSIX) ? SHELL_NEED_ESCAPE_POSIX : SHELL_NEED_ESCAPE,
-                                     true);
+                                     FLAGS_SET(flags, SHELL_ESCAPE_POSIX) ? SHELL_NEED_ESCAPE_POSIX : SHELL_NEED_ESCAPE);
 
         if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX))
                 *(t++) = '\'';
