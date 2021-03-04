@@ -707,8 +707,8 @@ void bus_match_parse_free(struct bus_match_component *components, unsigned n_com
 
 int bus_match_parse(
                 const char *match,
-                struct bus_match_component **_components,
-                unsigned *_n_components) {
+                struct bus_match_component **ret_components,
+                unsigned *ret_n_components) {
 
         const char *p = match;
         struct bus_match_component *components = NULL;
@@ -718,8 +718,8 @@ int bus_match_parse(
         int r;
 
         assert(match);
-        assert(_components);
-        assert(_n_components);
+        assert(ret_components);
+        assert(ret_n_components);
 
         while (*p != 0) {
                 const char *eq, *q;
@@ -835,8 +835,8 @@ int bus_match_parse(
                         goto fail;
                 }
 
-        *_components = components;
-        *_n_components = n_components;
+        *ret_components = components;
+        *ret_n_components = n_components;
 
         return 0;
 
