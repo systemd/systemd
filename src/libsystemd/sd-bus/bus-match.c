@@ -408,12 +408,9 @@ int bus_match_run(
                         if (r != 0)
                                 return r;
                 }
-        } else {
-                struct bus_match_node *c;
-
+        } else
                 /* No hash table, so let's iterate manually... */
-
-                for (c = node->child; c; c = c->next) {
+                for (struct bus_match_node *c = node->child; c; c = c->next) {
                         if (!value_node_test(c, node->type, test_u8, test_str, test_strv, m))
                                 continue;
 
@@ -424,7 +421,6 @@ int bus_match_run(
                         if (bus && bus->match_callbacks_modified)
                                 return 0;
                 }
-        }
 
         if (bus && bus->match_callbacks_modified)
                 return 0;
@@ -440,7 +436,7 @@ static int bus_match_add_compare_value(
                 const char *value_str,
                 struct bus_match_node **ret) {
 
-        struct bus_match_node *c = NULL, *n = NULL;
+        struct bus_match_node *c, *n = NULL;
         int r;
 
         assert(where);
@@ -452,25 +448,22 @@ static int bus_match_add_compare_value(
                 ;
 
         if (c) {
-                /* Comparison node already exists? Then let's see if
-                 * the value node exists too. */
+                /* Comparison node already exists? Then let's see if the value node exists too. */
 
                 if (t == BUS_MATCH_MESSAGE_TYPE)
                         n = hashmap_get(c->compare.children, UINT_TO_PTR(value_u8));
                 else if (BUS_MATCH_CAN_HASH(t))
                         n = hashmap_get(c->compare.children, value_str);
-                else {
+                else
                         for (n = c->child; n && !value_node_same(n, t, value_u8, value_str); n = n->next)
                                 ;
-                }
 
                 if (n) {
                         *ret = n;
                         return 0;
                 }
         } else {
-                /* Comparison node, doesn't exist yet? Then let's
-                 * create it. */
+                /* Comparison node, doesn't exist yet? Then let's create it. */
 
                 c = new0(struct bus_match_node, 1);
                 if (!c) {
@@ -706,9 +699,7 @@ static int match_component_compare(const struct bus_match_component *a, const st
 }
 
 void bus_match_parse_free(struct bus_match_component *components, unsigned n_components) {
-        unsigned i;
-
-        for (i = 0; i < n_components; i++)
+        for (unsigned i = 0; i < n_components; i++)
                 free(components[i].value_str);
 
         free(components);
@@ -722,7 +713,7 @@ int bus_match_parse(
         const char *p = match;
         struct bus_match_component *components = NULL;
         size_t components_allocated = 0;
-        unsigned n_components = 0, i;
+        unsigned n_components = 0;
         _cleanup_free_ char *value = NULL;
         int r;
 
@@ -838,7 +829,7 @@ int bus_match_parse(
         typesafe_qsort(components, n_components, match_component_compare);
 
         /* Check for duplicates */
-        for (i = 0; i+1 < n_components; i++)
+        for (unsigned i = 0; i+1 < n_components; i++)
                 if (components[i].type == components[i+1].type) {
                         r = -EINVAL;
                         goto fail;
@@ -855,10 +846,8 @@ fail:
 }
 
 char *bus_match_to_string(struct bus_match_component *components, unsigned n_components) {
-        _cleanup_fclose_ FILE *f = NULL;
         char *buffer = NULL;
         size_t size = 0;
-        unsigned i;
         int r;
 
         if (n_components <= 0)
@@ -866,11 +855,11 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
 
         assert(components);
 
-        f = open_memstream_unlocked(&buffer, &size);
+        _cleanup_fclose_ FILE *f = open_memstream_unlocked(&buffer, &size);
         if (!f)
                 return NULL;
 
-        for (i = 0; i < n_components; i++) {
+        for (unsigned i = 0; i < n_components; i++) {
                 char buf[32];
 
                 if (i != 0)
@@ -901,23 +890,22 @@ int bus_match_add(
                 unsigned n_components,
                 struct match_callback *callback) {
 
-        unsigned i;
-        struct bus_match_node *n;
         int r;
 
         assert(root);
         assert(callback);
 
-        n = root;
-        for (i = 0; i < n_components; i++) {
-                r = bus_match_add_compare_value(
-                                n, components[i].type,
-                                components[i].value_u8, components[i].value_str, &n);
+        for (unsigned i = 0; i < n_components; i++) {
+                r = bus_match_add_compare_value(root,
+                                                components[i].type,
+                                                components[i].value_u8,
+                                                components[i].value_str,
+                                                &root);
                 if (r < 0)
                         return r;
         }
 
-        return bus_match_add_leaf(n, callback);
+        return bus_match_add_leaf(root, callback);
 }
 
 int bus_match_remove(
@@ -1029,7 +1017,6 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
 }
 
 void bus_match_dump(struct bus_match_node *node, unsigned level) {
-        struct bus_match_node *c;
         _cleanup_free_ char *pfx = NULL;
         char buf[32];
 
@@ -1047,23 +1034,23 @@ void bus_match_dump(struct bus_match_node *node, unsigned level) {
         } else if (node->type == BUS_MATCH_ROOT)
                 puts(" root");
         else if (node->type == BUS_MATCH_LEAF)
-                printf(" %p/%p\n", node->leaf.callback->callback, container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
+                printf(" %p/%p\n", node->leaf.callback->callback,
+                       container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
         else
                 putchar('\n');
 
         if (BUS_MATCH_CAN_HASH(node->type)) {
-
+                struct bus_match_node *c;
                 HASHMAP_FOREACH(c, node->compare.children)
                         bus_match_dump(c, level + 1);
         }
 
-        for (c = node->child; c; c = c->next)
+        for (struct bus_match_node *c = node->child; c; c = c->next)
                 bus_match_dump(c, level + 1);
 }
 
 enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, unsigned n_components) {
         bool found_driver = false;
-        unsigned i;
 
         if (n_components <= 0)
                 return BUS_MATCH_GENERIC;
@@ -1076,7 +1063,7 @@ enum bus_match_scope bus_match_get_scope(const struct bus_match_component *compo
          * local messages, then we check if it only matches on the
          * driver. */
 
-        for (i = 0; i < n_components; i++) {
+        for (unsigned i = 0; i < n_components; i++) {
                 const struct bus_match_component *c = components + i;
 
                 if (c->type == BUS_MATCH_SENDER) {
@@ -1095,5 +1082,4 @@ enum bus_match_scope bus_match_get_scope(const struct bus_match_component *compo
         }
 
         return found_driver ? BUS_MATCH_DRIVER : BUS_MATCH_GENERIC;
-
 }
