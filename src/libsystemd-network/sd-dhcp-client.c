@@ -24,6 +24,7 @@
 #include "hostname-util.h"
 #include "io-util.h"
 #include "memory-util.h"
+#include "ordered-set.h"
 #include "random-util.h"
 #include "set.h"
 #include "sort-util.h"
@@ -104,8 +105,8 @@ struct sd_dhcp_client {
         usec_t expire_time;
         uint64_t attempt;
         uint64_t max_attempts;
-        OrderedHashmap *extra_options;
-        OrderedHashmap *vendor_options;
+        OrderedSet *extra_options;
+        OrderedSet *vendor_options;
         usec_t request_sent;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
@@ -629,7 +630,7 @@ int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v) {
         assert_return(client, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_put(&client->extra_options, &dhcp_option_hash_ops, UINT_TO_PTR(v->option), v);
+        r = ordered_set_ensure_put(&client->extra_options, &dhcp_option_hash_ops, v);
         if (r < 0)
                 return r;
 
@@ -643,11 +644,7 @@ int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v) 
         assert_return(client, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&client->vendor_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return -ENOMEM;
-
-        r = ordered_hashmap_put(client->vendor_options, v, v);
+        r = ordered_set_ensure_put(&client->vendor_options, &dhcp_option_hash_ops, v);
         if (r < 0)
                 return r;
 
@@ -1026,18 +1023,18 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
+        ORDERED_SET_FOREACH(j, client->extra_options) {
                 r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
                                        j->option, j->length, j->data);
                 if (r < 0)
                         return r;
         }
 
-        if (!ordered_hashmap_isempty(client->vendor_options)) {
+        if (!ordered_set_isempty(client->vendor_options)) {
                 r = dhcp_option_append(
                                 &packet->dhcp, optlen, optoffset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                ordered_hashmap_size(client->vendor_options), client->vendor_options);
+                                ordered_set_size(client->vendor_options), client->vendor_options);
                 if (r < 0)
                         return r;
         }
@@ -2203,8 +2200,8 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         free(client->vendor_class_identifier);
         free(client->mudurl);
         client->user_class = strv_free(client->user_class);
-        ordered_hashmap_free(client->extra_options);
-        ordered_hashmap_free(client->vendor_options);
+        ordered_set_free(client->extra_options);
+        ordered_set_free(client->vendor_options);
         return mfree(client);
 }
 
