@@ -425,66 +425,19 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
         return 0;
 }
 
-static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
-                             be32_t address) {
-        _cleanup_free_ DHCPPacket *packet = NULL;
-        size_t offset;
-        be32_t lease_time;
-        int r;
-
-        r = server_message_init(server, &packet, DHCP_OFFER, &offset, req);
-        if (r < 0)
-                return r;
-
-        packet->dhcp.yiaddr = address;
-
-        lease_time = htobe32(req->lifetime);
-        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4,
-                               &lease_time);
-        if (r < 0)
-                return r;
-
-        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                               SD_DHCP_OPTION_SUBNET_MASK, 4, &server->netmask);
-        if (r < 0)
-                return r;
-
-        if (server->emit_router) {
-                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                                       SD_DHCP_OPTION_ROUTER, 4, &server->address);
-                if (r < 0)
-                        return r;
-        }
-
-        r = dhcp_server_send_packet(server, req, packet, DHCP_OFFER, offset);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int server_send_ack(
+static int server_send_offer_or_ack(
                 sd_dhcp_server *server,
                 DHCPRequest *req,
-                be32_t address) {
-
-        static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
-                [SD_DHCP_LEASE_DNS] = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
-                [SD_DHCP_LEASE_NTP] = SD_DHCP_OPTION_NTP_SERVER,
-                [SD_DHCP_LEASE_SIP] = SD_DHCP_OPTION_SIP_SERVER,
-                [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
-                [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
-                [SD_DHCP_LEASE_LPR] = SD_DHCP_OPTION_LPR_SERVER,
-        };
+                be32_t address,
+                bool is_offer) {
 
         _cleanup_free_ DHCPPacket *packet = NULL;
-        be32_t lease_time;
         sd_dhcp_option *j;
+        be32_t lease_time;
         size_t offset;
         int r;
 
-        r = server_message_init(server, &packet, DHCP_ACK, &offset, req);
+        r = server_message_init(server, &packet, is_offer ? DHCP_OFFER : DHCP_ACK, &offset, req);
         if (r < 0)
                 return r;
 
@@ -505,29 +458,6 @@ static int server_send_ack(
         if (server->emit_router) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                        SD_DHCP_OPTION_ROUTER, 4, &server->address);
-                if (r < 0)
-                        return r;
-        }
-
-        for (sd_dhcp_lease_server_type_t k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
-
-                if (server->servers[k].size <= 0)
-                        continue;
-
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                option_map[k],
-                                sizeof(struct in_addr) * server->servers[k].size, server->servers[k].addr);
-                if (r < 0)
-                        return r;
-        }
-
-
-        if (server->timezone) {
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_NEW_TZDB_TIMEZONE,
-                                strlen(server->timezone), server->timezone);
                 if (r < 0)
                         return r;
         }
@@ -548,11 +478,59 @@ static int server_send_ack(
                         return r;
         }
 
-        r = dhcp_server_send_packet(server, req, packet, DHCP_ACK, offset);
+        if (!is_offer) {
+                static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
+                        [SD_DHCP_LEASE_DNS] = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+                        [SD_DHCP_LEASE_NTP] = SD_DHCP_OPTION_NTP_SERVER,
+                        [SD_DHCP_LEASE_SIP] = SD_DHCP_OPTION_SIP_SERVER,
+                        [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
+                        [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
+                        [SD_DHCP_LEASE_LPR] = SD_DHCP_OPTION_LPR_SERVER,
+                };
+
+                for (sd_dhcp_lease_server_type_t k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
+                        if (server->servers[k].size <= 0)
+                                continue;
+
+                        r = dhcp_option_append(
+                                        &packet->dhcp, req->max_optlen, &offset, 0,
+                                        option_map[k],
+                                        sizeof(struct in_addr) * server->servers[k].size,
+                                        server->servers[k].addr);
+                        if (r < 0)
+                                return r;
+                }
+
+
+                if (server->timezone) {
+                        r = dhcp_option_append(
+                                        &packet->dhcp, req->max_optlen, &offset, 0,
+                                        SD_DHCP_OPTION_NEW_TZDB_TIMEZONE,
+                                        strlen(server->timezone), server->timezone);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = dhcp_server_send_packet(server, req, packet, is_offer ? DHCP_OFFER : DHCP_ACK, offset);
         if (r < 0)
                 return r;
 
         return 0;
+}
+
+static int server_send_offer(
+                sd_dhcp_server *server,
+                DHCPRequest *req,
+                be32_t address) {
+        return server_send_offer_or_ack(server, req, address, true);
+}
+
+static int server_send_ack(
+                sd_dhcp_server *server,
+                DHCPRequest *req,
+                be32_t address) {
+        return server_send_offer_or_ack(server, req, address, false);
 }
 
 static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
