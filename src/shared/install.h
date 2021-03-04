@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum UnitFileChangeType UnitFileChangeType;
 typedef enum UnitFileFlags UnitFileFlags;
@@ -8,8 +10,6 @@ typedef enum UnitFileType UnitFileType;
 typedef struct UnitFileChange UnitFileChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
-
-#include <stdbool.h>
 
 #include "hashmap.h"
 #include "macro.h"
