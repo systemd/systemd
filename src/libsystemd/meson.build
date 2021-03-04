@@ -320,4 +320,6 @@ endif
 
 fuzzers += [
         [['src/libsystemd/sd-bus/fuzz-bus-message.c']],
+
+        [['src/libsystemd/sd-bus/fuzz-bus-match.c']],
 ]
