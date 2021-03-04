@@ -32,23 +32,31 @@
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
     general description of the syntax.</para>
 
-    <para>The link files are read from the files located in the system
-    network directory <filename>/usr/lib/systemd/network</filename>,
-    the volatile runtime network directory
-    <filename>/run/systemd/network</filename>, and the local
-    administration network directory
-    <filename>/etc/systemd/network</filename>. Link files must have
-    the extension <filename>.link</filename>; other extensions are
-    ignored. All link files are collectively sorted and processed in
-    lexical order, regardless of the directories in which they live.
-    However, files with identical filenames replace each other. Files
-    in <filename>/etc/</filename> have the highest priority, files in
-    <filename>/run/</filename> take precedence over files with the same
-    name in <filename>/usr/lib/</filename>. This can be used to
-    override a system-supplied link file with a local file if needed.
-    As a special case, an empty file (file size 0) or symlink with the
-    same name pointing to <filename>/dev/null</filename> disables the
-    configuration file entirely (it is "masked").</para>
+    <para>The link files are read from the files located in the system network directory
+    <filename>/usr/lib/systemd/network</filename>, the volatile runtime network directory
+    <filename>/run/systemd/network</filename>, and the local administration network directory
+    <filename>/etc/systemd/network</filename>. Link files must have the extension
+    <filename>.link</filename>; other extensions are ignored. All link files are collectively sorted
+    and processed in lexical order, regardless of the directories in which they live. However, files
+    with identical filenames replace each other. Files in <filename>/etc/</filename> have the highest
+    priority, files in <filename>/run/</filename> take precedence over files with the same name in
+    <filename>/usr/lib/</filename>. This can be used to override a system-supplied link file with a
+    local file if needed. As a special case, an empty file (file size 0) or symlink with the same name
+    pointing to <filename>/dev/null</filename> disables the configuration file entirely (it is
+    "masked").</para>
+
+    <para>Along with the link file <filename>foo.link</filename>, a "drop-in" directory
+    <filename>foo.link.d/</filename> may exist. All files with the suffix <literal>.conf</literal>
+    from this directory will be parsed after the file itself is parsed. This is useful to alter or add
+    configuration settings, without having to modify the main configuration file. Each drop-in file
+    must have appropriate section headers.</para>
+
+    <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
+    directories can be placed in <filename>/usr/lib/systemd/network</filename> or
+    <filename>/run/systemd/network</filename> directories. Drop-in files in <filename>/etc/</filename>
+    take precedence over those in <filename>/run/</filename> which in turn take precedence over those
+    in <filename>/usr/lib/</filename>. Drop-in files under any of these directories take precedence
+    over the main network file wherever located.</para>
 
     <para>The link file contains a [Match] section, which determines if a given link file may be applied to a
     given device, as well as a [Link] section specifying how the device should be configured. The first (in
