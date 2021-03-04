@@ -675,7 +675,7 @@ static int write_root_passwd(const char *passwd_path, const char *password, cons
         if (original) {
                 struct passwd *i;
 
-                r = sync_rights(fileno(original), fileno(passwd));
+                r = copy_rights(fileno(original), fileno(passwd));
                 if (r < 0)
                         return r;
 
@@ -743,7 +743,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         if (original) {
                 struct spwd *i;
 
-                r = sync_rights(fileno(original), fileno(shadow));
+                r = copy_rights(fileno(original), fileno(shadow));
                 if (r < 0)
                         return r;
 
