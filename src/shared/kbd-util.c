@@ -12,6 +12,7 @@
 #include "strv.h"
 #include "utf8.h"
 
+static thread_local const char *keymap_name = NULL;
 static thread_local Set *keymaps = NULL;
 
 static int nftw_cb(
@@ -23,6 +24,9 @@ static int nftw_cb(
         _cleanup_free_ char *p = NULL;
         char *e;
         int r;
+
+        /* If keymap_name is non-null, return true if keymap keymap_name is found.
+         * Otherwise, add all keymaps to keymaps. */
 
         if (tflag != FTW_F)
                 return 0;
@@ -42,6 +46,9 @@ static int nftw_cb(
                 e = endswith(p, ".map.gz");
         if (e)
                 *e = 0;
+
+        if (keymap_name)
+                return streq(p, keymap_name);
 
         if (!keymap_is_valid(p))
                 return 0;
@@ -107,4 +114,26 @@ bool keymap_is_valid(const char *name) {
                 return false;
 
         return true;
+}
+
+int keymap_exists(const char *name) {
+        int r = 0;
+
+        if (!keymap_is_valid(name))
+                return -EINVAL;
+
+        keymap_name = name;
+
+        const char *dir;
+        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
+                r = nftw(dir, nftw_cb, 20, FTW_PHYS);
+                if (r > 0)
+                        break;
+                if (r < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to read keymap list from %s, ignoring: %m", dir);
+        }
+
+        keymap_name = NULL;
+
+        return r > 0;
 }

@@ -18,3 +18,4 @@
 
 int get_keymaps(char ***l);
 bool keymap_is_valid(const char *name);
+int keymap_exists(const char *name);
