@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
         assert_se(match_add(slots, &root, "arg4has='po'", 17) >= 0);
         assert_se(match_add(slots, &root, "arg4='pi'", 18) >= 0);
 
-        bus_match_dump(&root, 0);
+        bus_match_dump(stdout, &root, 0);
 
         assert_se(sd_bus_message_new_signal(bus, &m, "/foo/bar", "bar.x", "waldo") >= 0);
         assert_se(sd_bus_message_append(m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po") >= 0);
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
         assert_se(bus_match_remove(&root, &slots[8].match_callback) >= 0);
         assert_se(bus_match_remove(&root, &slots[13].match_callback) >= 0);
 
-        bus_match_dump(&root, 0);
+        bus_match_dump(stdout, &root, 0);
 
         zero(mask);
         assert_se(bus_match_run(NULL, &root, m) == 0);

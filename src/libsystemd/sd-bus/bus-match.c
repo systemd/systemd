@@ -1016,7 +1016,7 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
         }
 }
 
-void bus_match_dump(struct bus_match_node *node, unsigned level) {
+void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level) {
         _cleanup_free_ char *pfx = NULL;
         char buf[32];
 
@@ -1024,29 +1024,29 @@ void bus_match_dump(struct bus_match_node *node, unsigned level) {
                 return;
 
         pfx = strrep("  ", level);
-        printf("%s[%s]", strempty(pfx), bus_match_node_type_to_string(node->type, buf, sizeof(buf)));
+        fprintf(out, "%s[%s]", strempty(pfx), bus_match_node_type_to_string(node->type, buf, sizeof(buf)));
 
         if (node->type == BUS_MATCH_VALUE) {
                 if (node->parent->type == BUS_MATCH_MESSAGE_TYPE)
-                        printf(" <%u>\n", node->value.u8);
+                        fprintf(out, " <%u>\n", node->value.u8);
                 else
-                        printf(" <%s>\n", node->value.str);
+                        fprintf(out, " <%s>\n", node->value.str);
         } else if (node->type == BUS_MATCH_ROOT)
-                puts(" root");
+                fputs(" root\n", out);
         else if (node->type == BUS_MATCH_LEAF)
-                printf(" %p/%p\n", node->leaf.callback->callback,
-                       container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
+                fprintf(out, " %p/%p\n", node->leaf.callback->callback,
+                        container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
         else
-                putchar('\n');
+                putc('\n', out);
 
         if (BUS_MATCH_CAN_HASH(node->type)) {
                 struct bus_match_node *c;
                 HASHMAP_FOREACH(c, node->compare.children)
-                        bus_match_dump(c, level + 1);
+                        bus_match_dump(out, c, level + 1);
         }
 
         for (struct bus_match_node *c = node->child; c; c = c->next)
-                bus_match_dump(c, level + 1);
+                bus_match_dump(out, c, level + 1);
 }
 
 enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, unsigned n_components) {
