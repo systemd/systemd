@@ -89,7 +89,6 @@ int get_keymaps(char ***ret) {
 }
 
 bool keymap_is_valid(const char *name) {
-
         if (isempty(name))
                 return false;
 
