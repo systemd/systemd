@@ -2693,6 +2693,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -2776,6 +2778,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3194,6 +3198,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property PrivateMounts is not documented!-->
 
+    <!--property PrivateIPC is not documented!-->
+
     <!--property ProtectHome is not documented!-->
 
     <!--property ProtectSystem is not documented!-->
@@ -3277,6 +3283,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ProtectHostname is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
+
+    <!--property IPCNamespacePath is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -3772,6 +3780,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -3855,6 +3865,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -4454,6 +4466,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -4537,6 +4551,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4983,6 +4999,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PrivateMounts is not documented!-->
 
+    <!--property PrivateIPC is not documented!-->
+
     <!--property ProtectHome is not documented!-->
 
     <!--property ProtectSystem is not documented!-->
@@ -5066,6 +5084,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ProtectHostname is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
+
+    <!--property IPCNamespacePath is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -5559,6 +5579,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -5642,6 +5664,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -6143,6 +6167,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -6226,6 +6252,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6600,6 +6628,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property PrivateMounts is not documented!-->
 
+    <!--property PrivateIPC is not documented!-->
+
     <!--property ProtectHome is not documented!-->
 
     <!--property ProtectSystem is not documented!-->
@@ -6683,6 +6713,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ProtectHostname is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
+
+    <!--property IPCNamespacePath is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -7094,6 +7126,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -7177,6 +7211,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -7799,6 +7835,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PrivateMounts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PrivateIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectHome = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectSystem = '...';
@@ -7882,6 +7920,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8242,6 +8282,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property PrivateMounts is not documented!-->
 
+    <!--property PrivateIPC is not documented!-->
+
     <!--property ProtectHome is not documented!-->
 
     <!--property ProtectSystem is not documented!-->
@@ -8325,6 +8367,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ProtectHostname is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
+
+    <!--property IPCNamespacePath is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -8722,6 +8766,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrivateMounts"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PrivateIPC"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHome"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectSystem"/>
@@ -8805,6 +8851,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 

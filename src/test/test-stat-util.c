@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
+#include <sched.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -67,18 +68,22 @@ static void test_path_is_temporary_fs(void) {
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
 }
 
-static void test_fd_is_network_ns(void) {
+static void test_fd_is_ns(void) {
         _cleanup_close_ int fd = -1;
-        assert_se(fd_is_network_ns(STDIN_FILENO) == 0);
-        assert_se(fd_is_network_ns(STDERR_FILENO) == 0);
-        assert_se(fd_is_network_ns(STDOUT_FILENO) == 0);
+        assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
+        assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
+        assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
 
         assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY)) >= 0);
-        assert_se(IN_SET(fd_is_network_ns(fd), 0, -EUCLEAN));
+        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
+        fd = safe_close(fd);
+
+        assert_se((fd = open("/proc/self/ns/ipc", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWIPC), 1, -EUCLEAN));
         fd = safe_close(fd);
 
         assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC|O_RDONLY)) >= 0);
-        assert_se(IN_SET(fd_is_network_ns(fd), 1, -EUCLEAN));
+        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 1, -EUCLEAN));
 }
 
 static void test_device_major_minor_valid(void) {
@@ -159,7 +164,7 @@ int main(int argc, char *argv[]) {
         test_is_symlink();
         test_path_is_fs_type();
         test_path_is_temporary_fs();
-        test_fd_is_network_ns();
+        test_fd_is_ns();
         test_device_major_minor_valid();
         test_device_path_make_canonical();
 

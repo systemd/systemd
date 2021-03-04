@@ -63,7 +63,7 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
         }
 }
 
-static void test_netns(void) {
+static void test_shareable_ns(unsigned long nsflag) {
         _cleanup_close_pair_ int s[2] = { -1, -1 };
         pid_t pid1, pid2, pid3;
         int r, n = 0;
@@ -80,7 +80,7 @@ static void test_netns(void) {
         assert_se(pid1 >= 0);
 
         if (pid1 == 0) {
-                r = setup_netns(s);
+                r = setup_shareable_ns(s, nsflag);
                 assert_se(r >= 0);
                 _exit(r);
         }
@@ -89,7 +89,7 @@ static void test_netns(void) {
         assert_se(pid2 >= 0);
 
         if (pid2 == 0) {
-                r = setup_netns(s);
+                r = setup_shareable_ns(s, nsflag);
                 assert_se(r >= 0);
                 exit(r);
         }
@@ -98,7 +98,7 @@ static void test_netns(void) {
         assert_se(pid3 >= 0);
 
         if (pid3 == 0) {
-                r = setup_netns(s);
+                r = setup_shareable_ns(s, nsflag);
                 assert_se(r >= 0);
                 exit(r);
         }
@@ -119,6 +119,14 @@ static void test_netns(void) {
         n += si.si_status;
 
         assert_se(n == 1);
+}
+
+static void test_netns(void) {
+        test_shareable_ns(CLONE_NEWNET);
+}
+
+static void test_ipcns(void) {
+        test_shareable_ns(CLONE_NEWIPC);
 }
 
 static void test_protect_kernel_logs(void) {
@@ -224,6 +232,7 @@ int main(int argc, char *argv[]) {
         test_tmpdir("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device", z, zz);
 
         test_netns();
+        test_ipcns();
         test_protect_kernel_logs();
 
         return EXIT_SUCCESS;
