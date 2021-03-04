@@ -147,7 +147,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 goto finalize;
         }
 
-        if (l->n_dns != (unsigned) -1)
+        if (l->n_dns != UINT_MAX)
                 for (unsigned i = 0; i < l->n_dns; i++)
                         in_addr_full_free(l->dns[i]);
 

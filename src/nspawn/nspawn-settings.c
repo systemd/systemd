@@ -51,10 +51,10 @@ Settings *settings_new(void) {
                 .gid = GID_INVALID,
 
                 .console_mode = _CONSOLE_MODE_INVALID,
-                .console_width = (unsigned) -1,
-                .console_height = (unsigned) -1,
+                .console_width = UINT_MAX,
+                .console_height = UINT_MAX,
 
-                .clone_ns_flags = (unsigned long) -1,
+                .clone_ns_flags = ULONG_MAX,
                 .use_cgns = -1,
         };
 
@@ -274,7 +274,7 @@ int config_parse_capability(
                         break;
 
                 if (streq(word, "all"))
-                        u = (uint64_t) -1;
+                        u = UINT64_MAX;
                 else {
                         r = capability_from_name(word);
                         if (r < 0) {

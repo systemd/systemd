@@ -1383,7 +1383,7 @@ static int list_devices(void) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
+        r = table_set_sort(table, (size_t) 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to set sort index: %m");
 

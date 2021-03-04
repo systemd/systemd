@@ -22,7 +22,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_proto)),     /* A <- protocol */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LLDP, 1, 0),                /* A != ETHERTYPE_LLDP */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                             /* drop packet */
-                BPF_STMT(BPF_RET + BPF_K, (uint32_t) -1),                                 /* accept packet */
+                BPF_STMT(BPF_RET + BPF_K, UINT32_MAX),                                    /* accept packet */
         };
 
         static const struct sock_fprog fprog = {

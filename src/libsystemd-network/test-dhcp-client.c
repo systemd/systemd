@@ -308,7 +308,7 @@ static void test_discover_message(sd_event *e) {
 
         assert_se(IN_SET(res, 0, -EINPROGRESS));
 
-        sd_event_run(e, (uint64_t) -1);
+        sd_event_run(e, UINT64_MAX);
 
         sd_dhcp_client_stop(client);
         sd_dhcp_client_unref(client);

@@ -570,7 +570,7 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
         uintmax_t k;
 
         if (json_variant_is_null(variant)) {
-                *m = (mode_t) -1;
+                *m = MODE_INVALID;
                 return 0;
         }
 
@@ -590,7 +590,7 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
         uintmax_t k;
 
         if (json_variant_is_null(variant)) {
-                *m = (mode_t) -1;
+                *m = MODE_INVALID;
                 return 0;
         }
 
@@ -866,7 +866,7 @@ static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, Json
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
 
@@ -933,7 +933,7 @@ static int dispatch_fido2_hmac_credential(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -963,7 +963,7 @@ static int dispatch_fido2_hmac_credential_array(const char *name, JsonVariant *v
                 if (!array)
                         return log_oom();
 
-                r = unbase64mem(json_variant_string(e), (size_t) -1, &b, &l);
+                r = unbase64mem(json_variant_string(e), SIZE_MAX, &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -993,7 +993,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
 
@@ -1754,7 +1754,7 @@ const char *user_record_skeleton_directory(UserRecord *h) {
 mode_t user_record_access_mode(UserRecord *h) {
         assert(h);
 
-        return h->access_mode != (mode_t) -1 ? h->access_mode : 0700;
+        return h->access_mode != MODE_INVALID ? h->access_mode : 0700;
 }
 
 const char* user_record_home_directory(UserRecord *h) {

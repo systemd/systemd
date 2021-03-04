@@ -154,7 +154,7 @@ int manager_save(Manager *m) {
                         continue;
 
                 /* First add the static configured entries */
-                if (link->n_dns != (unsigned) -1)
+                if (link->n_dns != UINT_MAX)
                         r = ordered_set_put_dns_servers(dns, link->ifindex, link->dns, link->n_dns);
                 else
                         r = ordered_set_put_dns_servers(dns, link->ifindex, link->network->dns, link->network->n_dns);
@@ -456,7 +456,7 @@ int link_save(Link *link) {
 
                 fputs("DNS=", f);
                 space = false;
-                if (link->n_dns != (unsigned) -1)
+                if (link->n_dns != UINT_MAX)
                         link_save_dns(link, f, link->dns, link->n_dns, &space);
                 else
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);

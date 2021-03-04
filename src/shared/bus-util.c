@@ -101,7 +101,7 @@ int bus_event_loop_with_idle(
                 else
                         idle = true;
 
-                r = sd_event_run(e, exiting || !idle ? (uint64_t) -1 : timeout);
+                r = sd_event_run(e, exiting || !idle ? UINT64_MAX : timeout);
                 if (r < 0)
                         return r;
 

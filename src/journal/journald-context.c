@@ -69,7 +69,7 @@
 static size_t cache_max(void) {
         static size_t cached = -1;
 
-        if (cached == (size_t) -1) {
+        if (cached == SIZE_MAX) {
                 uint64_t mem_total;
                 int r;
 

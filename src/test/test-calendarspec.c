@@ -59,7 +59,7 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
         printf("At: %s\n", r < 0 ? strerror_safe(r) : format_timestamp_style(buf, sizeof buf, u, TIMESTAMP_US));
-        if (expect != (usec_t)-1)
+        if (expect != USEC_INFINITY)
                 assert_se(r >= 0 && u == expect);
         else
                 assert(r == -ENOENT);

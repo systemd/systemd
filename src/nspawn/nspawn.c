@@ -217,7 +217,7 @@ static bool arg_oom_score_adjust_set = false;
 static CPUSet arg_cpu_set = {};
 static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 static TimezoneMode arg_timezone = TIMEZONE_AUTO;
-static unsigned arg_console_width = (unsigned) -1, arg_console_height = (unsigned) -1;
+static unsigned arg_console_width = UINT_MAX, arg_console_height = UINT_MAX;
 static DeviceNode* arg_extra_nodes = NULL;
 static size_t arg_n_extra_nodes = 0;
 static char **arg_sysctl = NULL;
@@ -549,7 +549,7 @@ static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
                 }
 
                 if (streq(t, "all"))
-                        mask = (uint64_t) -1;
+                        mask = UINT64_MAX;
                 else {
                         r = capability_from_name(t);
                         if (r < 0)
@@ -1768,7 +1768,7 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
 
         if (arg_caps_ambient) {
-                if (arg_caps_ambient == (uint64_t)-1)
+                if (arg_caps_ambient == UINT64_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
 
                 if ((arg_caps_ambient & arg_caps_retain) != arg_caps_ambient)
@@ -2640,19 +2640,19 @@ static int drop_capabilities(uid_t uid) {
         if (capability_quintet_is_set(&arg_full_capabilities)) {
                 q = arg_full_capabilities;
 
-                if (q.bounding == (uint64_t) -1)
+                if (q.bounding == UINT64_MAX)
                         q.bounding = uid == 0 ? arg_caps_retain : 0;
 
-                if (q.effective == (uint64_t) -1)
+                if (q.effective == UINT64_MAX)
                         q.effective = uid == 0 ? q.bounding : 0;
 
-                if (q.inheritable == (uint64_t) -1)
+                if (q.inheritable == UINT64_MAX)
                         q.inheritable = uid == 0 ? q.bounding : arg_caps_ambient;
 
-                if (q.permitted == (uint64_t) -1)
+                if (q.permitted == UINT64_MAX)
                         q.permitted = uid == 0 ? q.bounding : arg_caps_ambient;
 
-                if (q.ambient == (uint64_t) -1 && ambient_capabilities_supported())
+                if (q.ambient == UINT64_MAX && ambient_capabilities_supported())
                         q.ambient = arg_caps_ambient;
 
                 if (capability_quintet_mangle(&q))
@@ -2664,7 +2664,7 @@ static int drop_capabilities(uid_t uid) {
                         .effective = uid == 0 ? arg_caps_retain : 0,
                         .inheritable = uid == 0 ? arg_caps_retain : arg_caps_ambient,
                         .permitted = uid == 0 ? arg_caps_retain : arg_caps_ambient,
-                        .ambient = ambient_capabilities_supported() ? arg_caps_ambient : (uint64_t) -1,
+                        .ambient = ambient_capabilities_supported() ? arg_caps_ambient : UINT64_MAX,
                 };
 
                 /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)
@@ -3045,7 +3045,7 @@ static int determine_uid_shift(const char *directory) {
                 arg_uid_range = UINT32_C(0x10000);
         }
 
-        if (arg_uid_shift > (uid_t) -1 - arg_uid_range)
+        if (arg_uid_shift > UID_INVALID - arg_uid_range)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "UID base too high for UID range.");
 
@@ -4336,7 +4336,7 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         if ((arg_settings_mask & SETTING_CLONE_NS_FLAGS) == 0 &&
-            settings->clone_ns_flags != (unsigned long) -1) {
+            settings->clone_ns_flags != ULONG_MAX) {
 
                 if (!arg_settings_trusted)
                         log_warning("Ignoring namespace setting, file '%s' is not trusted.", path);
@@ -4931,7 +4931,7 @@ static int run_container(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
-                        if (arg_console_width != (unsigned) -1 || arg_console_height != (unsigned) -1)
+                        if (arg_console_width != UINT_MAX || arg_console_height != UINT_MAX)
                                 (void) pty_forward_set_width_height(forward,
                                                                     arg_console_width,
                                                                     arg_console_height);
@@ -5552,7 +5552,7 @@ finish:
 
         /* Try to flush whatever is still queued in the pty */
         if (master >= 0) {
-                (void) copy_bytes(master, STDOUT_FILENO, (uint64_t) -1, 0);
+                (void) copy_bytes(master, STDOUT_FILENO, UINT64_MAX, 0);
                 master = safe_close(master);
         }
 

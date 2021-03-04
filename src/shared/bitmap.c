@@ -18,7 +18,7 @@
 #define BITMAPS_MAX_ENTRY 0xffff
 
 /* This indicates that we reached the end of the bitmap */
-#define BITMAP_END ((unsigned) -1)
+#define BITMAP_END (UINT_MAX)
 
 #define BITMAP_NUM_TO_OFFSET(n)           ((n) / (sizeof(uint64_t) * 8))
 #define BITMAP_NUM_TO_REM(n)              ((n) % (sizeof(uint64_t) * 8))

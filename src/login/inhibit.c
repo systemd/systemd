@@ -131,7 +131,7 @@ static int print_inhibitors(sd_bus *bus) {
                 return bus_log_parse_error(r);
 
         if (table_get_rows(table) > 1) {
-                r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6, (size_t) -1);
+                r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6);
                 if (r < 0)
                         return table_log_sort_error(r);
 
