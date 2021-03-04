@@ -728,9 +728,12 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         if (message->op == BOOTREQUEST && in4_addr_is_set(&server->relay_target)) {
             log_dhcp_server(server, "relay BOOTREQUEST");
 
+
+            /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
             if (message->giaddr == 0) {
                 message->giaddr = server->address;
             }
+
 
             dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
             return 0;
