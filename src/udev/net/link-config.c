@@ -110,7 +110,6 @@ int link_config_ctx_new(link_config_ctx **ret) {
 
 int link_load_one(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
-        _cleanup_fclose_ FILE *file = NULL;
         _cleanup_free_ char *name = NULL;
         const char *dropin_dirname;
         size_t i;
@@ -119,11 +118,12 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         assert(ctx);
         assert(filename);
 
-        file = fopen(filename, "re");
-        if (!file)
-                return errno == ENOENT ? 0 : -errno;
-
-        if (null_or_empty_fd(fileno(file))) {
+        r = null_or_empty_path(filename);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
