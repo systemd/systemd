@@ -1162,11 +1162,11 @@ int table_set_sort_internal(Table *t, size_t first_column, ...) {
         return 0;
 }
 
-int table_hide_column_from_display(Table *t, size_t column) {
+int table_hide_column_from_display_internal(Table *t, ...) {
+        size_t cur = 0;
         int r;
 
         assert(t);
-        assert(column < t->n_columns);
 
         /* If the display map is empty, initialize it with all available columns */
         if (!t->display_map) {
@@ -1175,10 +1175,25 @@ int table_hide_column_from_display(Table *t, size_t column) {
                         return r;
         }
 
-        size_t allocated = t->n_display_map, cur = 0;
+        for (size_t i = 0; i < t->n_display_map; i++) {
+                bool listed = false;
+                va_list ap;
 
-        for (size_t i = 0; i < allocated; i++) {
-                if (t->display_map[i] == column)
+                va_start(ap, t);
+                for (;;) {
+                        size_t column;
+
+                        column = va_arg(ap, size_t);
+                        if (column == SIZE_MAX)
+                                break;
+                        if (column == t->display_map[i]) {
+                                listed = true;
+                                break;
+                        }
+                }
+                va_end(ap);
+
+                if (listed)
                         continue;
 
                 t->display_map[cur++] = t->display_map[i];
