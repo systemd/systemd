@@ -548,7 +548,9 @@ int read_full_stream_full(
                 }
 
                 buf = t;
-                n = n_next;
+                /* Unless a size has been explicitly specified, try to read as much as fits into the memory
+                 * we allocated (minus 1, to leave one byte for the safety NUL byte) */
+                n = size == SIZE_MAX ? malloc_usable_size(buf) - 1 : n_next;
 
                 errno = 0;
                 k = fread(buf + l, 1, n - l, f);
