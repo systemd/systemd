@@ -101,7 +101,7 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        bus_match_dump(&bus->match_callbacks, 0);
+        bus_match_dump(stdout, &bus->match_callbacks, 0);
 
         *_bus = bus;
         return 0;

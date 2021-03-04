@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdio.h>
+
 #include "sd-bus.h"
 
 #include "hashmap.h"
@@ -68,7 +70,7 @@ int bus_match_remove(struct bus_match_node *root, struct match_callback *callbac
 
 void bus_match_free(struct bus_match_node *node);
 
-void bus_match_dump(struct bus_match_node *node, unsigned level);
+void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level);
 
 const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[], size_t l);
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n);
