@@ -563,6 +563,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_EXE", exe);
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
                 RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
+                RETRIEVE(d, l, "COREDUMP_HOSTNAME", hostname);
                 RETRIEVE(d, l, "COREDUMP_UNIT", unit);
                 RETRIEVE(d, l, "COREDUMP_USER_UNIT", user_unit);
                 RETRIEVE(d, l, "COREDUMP_SESSION", session);
@@ -575,7 +576,6 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP", coredump);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
-                RETRIEVE(d, l, "_HOSTNAME", hostname);
                 RETRIEVE(d, l, "MESSAGE", message);
         }
 
