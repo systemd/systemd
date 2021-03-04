@@ -149,6 +149,8 @@ shared_sources = files('''
         json-internal.h
         json.c
         json.h
+        kbd-util.c
+        kbd-util.h
         killall.c
         killall.h
         libcrypt-util.c
