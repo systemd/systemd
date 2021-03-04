@@ -955,10 +955,12 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
                 return 0;
         }
 
-        /* We managed to get the unique name, then let's use that to
-         * name our transient units. */
+        /* We managed to get the unique name, then let's use that to name our transient units. */
 
-        id = startswith(unique, ":");
+        id = startswith(unique, ":1."); /* let' strip the usual prefix */
+        if (!id)
+                id = startswith(unique, ":"); /* the spec only requires things to start with a colon, hence
+                                               * let's add a generic fallback for that. */
         if (!id)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unique name %s has unexpected format.",
