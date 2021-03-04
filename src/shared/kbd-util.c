@@ -31,14 +31,14 @@ static int nftw_cb(
                 return 0;
 
         p = strdup(basename(fpath));
-        if (!p)
-                return FTW_STOP;
+        if (!p) {
+                errno = ENOMEM;
+                return -1;
+        }
 
         e = endswith(p, ".map");
-        if (e)
-                *e = 0;
-
-        e = endswith(p, ".map.gz");
+        if (!e)
+                e = endswith(p, ".map.gz");
         if (e)
                 *e = 0;
 
@@ -46,37 +46,33 @@ static int nftw_cb(
                 return 0;
 
         r = set_consume(keymaps, TAKE_PTR(p));
-        if (r < 0 && r != -EEXIST)
-                return r;
+        if (r < 0 && r != -EEXIST) {
+                errno = -r;
+                return -1;
+        }
 
         return 0;
 }
 
 int get_keymaps(char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char *dir;
-        int r;
-
         keymaps = set_new(&string_hash_ops);
         if (!keymaps)
                 return -ENOMEM;
 
-        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
-                r = nftw(dir, nftw_cb, 20, FTW_PHYS|FTW_ACTIONRETVAL);
+        const char *dir;
+        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS)
+                if (nftw(dir, nftw_cb, 20, FTW_PHYS) < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Failed to read keymap list from %s, ignoring: %m", dir);
+                }
 
-                if (r == FTW_STOP)
-                        log_debug("Directory not found %s", dir);
-                else if (r < 0)
-                        log_debug_errno(r, "Can't add keymap: %m");
-        }
-
-        l = set_get_strv(keymaps);
+        _cleanup_strv_free_ char **l = set_get_strv(keymaps);
         if (!l) {
-                set_free_free(keymaps);
+                keymaps = set_free_free(keymaps);
                 return -ENOMEM;
         }
 
-        set_free(keymaps);
+        keymaps = set_free(keymaps);
 
         if (strv_isempty(l))
                 return -ENOENT;
