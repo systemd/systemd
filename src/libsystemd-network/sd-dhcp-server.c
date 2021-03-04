@@ -719,8 +719,12 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         assert(message);
 
         if (message->op == BOOTREPLY && in4_addr_is_set(&server->relay_target)) {
+            if (message->giaddr != server->address) {
+                log_dhcp_server(server, "relay BOOTREPLY giaddr mismatch, discarding");
+                return 0;
+            }
             log_dhcp_server(server, "relay BOOTREPLY");
-            be32_t destination = INADDR_ANY;
+            be32_t destination = INADDR_BROADCAST; //todo check BROADCAST flag
             dhcp_server_send_udp(server, destination, DHCP_PORT_CLIENT, message, length);
             return 0;
         }
