@@ -22,7 +22,6 @@ static int nftw_cb(
                 struct FTW *ftwbuf) {
 
         _cleanup_free_ char *p = NULL;
-        char *e;
         int r;
 
         /* If keymap_name is non-null, return true if keymap keymap_name is found.
@@ -31,21 +30,17 @@ static int nftw_cb(
         if (tflag != FTW_F)
                 return 0;
 
-        if (!endswith(fpath, ".map") &&
-            !endswith(fpath, ".map.gz"))
+        fpath = basename(fpath);
+
+        const char *e = endswith(fpath, ".map") ?: endswith(fpath, ".map.gz");
+        if (!e)
                 return 0;
 
-        p = strdup(basename(fpath));
+        p = strndup(fpath, e - fpath);
         if (!p) {
                 errno = ENOMEM;
                 return -1;
         }
-
-        e = endswith(p, ".map");
-        if (!e)
-                e = endswith(p, ".map.gz");
-        if (e)
-                *e = 0;
 
         if (keymap_name)
                 return streq(p, keymap_name);
