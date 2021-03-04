@@ -113,6 +113,8 @@ sources = files('''
         networkd-speed-meter.h
         networkd-sriov.c
         networkd-sriov.h
+        networkd-state-file.c
+        networkd-state-file.h
         networkd-sysctl.c
         networkd-sysctl.h
         networkd-util.c

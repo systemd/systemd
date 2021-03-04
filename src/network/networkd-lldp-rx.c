@@ -6,6 +6,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "networkd-link.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
@@ -134,7 +135,7 @@ int link_update_lldp(Link *link) {
 }
 
 int link_lldp_save(Link *link) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         sd_lldp_neighbor **l = NULL;
         int n = 0, r, i;
@@ -149,10 +150,10 @@ int link_lldp_save(Link *link) {
 
         r = sd_lldp_get_neighbors(link->lldp, &l);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0) {
                 (void) unlink(link->lldp_file);
-                goto finish;
+                return 0;
         }
 
         n = r;
@@ -181,19 +182,13 @@ int link_lldp_save(Link *link) {
         if (r < 0)
                 goto finish;
 
-        if (rename(temp_path, link->lldp_file) < 0) {
-                r = -errno;
+        r = conservative_rename(temp_path, link->lldp_file);
+        if (r < 0)
                 goto finish;
-        }
 
 finish:
-        if (r < 0) {
-                (void) unlink(link->lldp_file);
-                if (temp_path)
-                        (void) unlink(temp_path);
-
+        if (r < 0)
                 log_link_error_errno(link, r, "Failed to save LLDP data to %s: %m", link->lldp_file);
-        }
 
         if (l) {
                 for (i = 0; i < n; i++)
