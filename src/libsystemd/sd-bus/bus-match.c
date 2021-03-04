@@ -1017,14 +1017,12 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
 }
 
 void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level) {
-        _cleanup_free_ char *pfx = NULL;
         char buf[32];
 
         if (!node)
                 return;
 
-        pfx = strrep("  ", level);
-        fprintf(out, "%s[%s]", strempty(pfx), bus_match_node_type_to_string(node->type, buf, sizeof(buf)));
+        fprintf(out, "%*s[%s]", 2 * level, "", bus_match_node_type_to_string(node->type, buf, sizeof(buf)));
 
         if (node->type == BUS_MATCH_VALUE) {
                 if (node->parent->type == BUS_MATCH_MESSAGE_TYPE)
