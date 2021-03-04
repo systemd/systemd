@@ -24,7 +24,7 @@ static inline char *rm_rf_physical_and_free(char *p) {
         if (!p)
                 return NULL;
 
-        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK|REMOVE_CHMOD);
         free(p);
         return NULL;
 }
@@ -37,7 +37,7 @@ static inline char *rm_rf_subvolume_and_free(char *p) {
         if (!p)
                 return NULL;
 
-        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
         free(p);
         return NULL;
 }
