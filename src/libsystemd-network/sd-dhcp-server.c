@@ -264,6 +264,58 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
         return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }
 
+static int dhcp_server_send_udp_unicast(sd_dhcp_server *server, be32_t destination,
+                                uint16_t destination_port,
+                                DHCPMessage *message, size_t len) {
+        union sockaddr_union dest = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(destination_port),
+                .in.sin_addr.s_addr = destination,
+        };
+        struct iovec iov = {
+                .iov_base = message,
+                .iov_len = len,
+        };
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
+        struct msghdr msg = {
+                .msg_name = &dest,
+                .msg_namelen = sizeof(dest.in),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        struct in_pktinfo *pktinfo;
+
+        assert(server);
+        assert(server->fd >= 0);
+        assert(message);
+        assert(len > sizeof(DHCPMessage));
+
+        cmsg = CMSG_FIRSTHDR(&msg);
+        assert(cmsg);
+
+        cmsg->cmsg_level = IPPROTO_IP;
+        cmsg->cmsg_type = IP_PKTINFO;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+
+        /* we attach source interface and address info to the message
+           rather than binding the socket. This will be mostly useful
+           when we gain support for arbitrary number of server addresses
+         */
+        /* pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg); */
+        /* assert(pktinfo); */
+
+        /* pktinfo->ipi_ifindex = server->ifindex; */
+        /* pktinfo->ipi_spec_dst.s_addr = server->address; */
+
+        if (sendmsg(server->fd, &msg, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                                 uint16_t destination_port,
                                 DHCPMessage *message, size_t len) {
@@ -739,7 +791,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
             }
 
 
-            dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
+            dhcp_server_send_udp_unicast(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
             return 0;
         }
 
