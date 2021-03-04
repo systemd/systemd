@@ -1147,24 +1147,24 @@ int copy_file_atomic_full(
          * writing it. */
 
         if (copy_flags & COPY_REPLACE) {
-                r = tempfn_random(to, NULL, &t);
+                _cleanup_free_ char *f = NULL;
+
+                r = tempfn_random(to, NULL, &f);
                 if (r < 0)
                         return r;
 
                 if (copy_flags & COPY_MAC_CREATE) {
                         r = mac_selinux_create_file_prepare(to, S_IFREG);
-                        if (r < 0) {
-                                t = mfree(t);
+                        if (r < 0)
                                 return r;
-                        }
                 }
-                fdt = open(t, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+                fdt = open(f, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
                 if (copy_flags & COPY_MAC_CREATE)
                         mac_selinux_create_file_clear();
-                if (fdt < 0) {
-                        t = mfree(t);
+                if (fdt < 0)
                         return -errno;
-                }
+
+                t = TAKE_PTR(f);
         } else {
                 if (copy_flags & COPY_MAC_CREATE) {
                         r = mac_selinux_create_file_prepare(to, S_IFREG);
