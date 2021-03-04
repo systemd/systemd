@@ -1078,17 +1078,21 @@ int table_set_empty_string(Table *t, const char *empty) {
         return free_and_strdup(&t->empty_string, empty);
 }
 
-int table_set_display_all(Table *t) {
+static int table_set_display_all(Table *t) {
+        size_t *d;
+
         assert(t);
 
-        size_t allocated = t->n_display_map;
+        /* Initialize the display map to the identity */
 
-        if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, allocated)))
+        d = reallocarray(t->display_map, t->n_columns, sizeof(size_t));
+        if (!d)
                 return -ENOMEM;
 
         for (size_t i = 0; i < t->n_columns; i++)
-                t->display_map[i] = i;
+                d[i] = i;
 
+        t->display_map = d;
         t->n_display_map = t->n_columns;
 
         return 0;
