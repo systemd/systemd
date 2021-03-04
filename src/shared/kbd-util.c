@@ -2,6 +2,7 @@
 
 #include <ftw.h>
 
+#include "errno-util.h"
 #include "kbd-util.h"
 #include "log.h"
 #include "nulstr-util.h"
@@ -62,8 +63,13 @@ int get_keymaps(char ***ret) {
         const char *dir;
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS)
                 if (nftw(dir, nftw_cb, 20, FTW_PHYS) < 0) {
-                        if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to read keymap list from %s, ignoring: %m", dir);
+                        if (errno == ENOENT)
+                                continue;
+                        if (ERRNO_IS_RESOURCE(errno)) {
+                                keymaps = set_free_free(keymaps);
+                                return log_warning_errno(errno, "Failed to read keymap list from %s: %m", dir);
+                        }
+                        log_debug_errno(errno, "Failed to read keymap list from %s, ignoring: %m", dir);
                 }
 
         _cleanup_strv_free_ char **l = set_get_strv(keymaps);
