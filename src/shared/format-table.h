@@ -107,7 +107,8 @@ int table_set_display_internal(Table *t, size_t first_column, ...);
 int table_set_sort_internal(Table *t, size_t first_column, ...);
 #define table_set_sort(...) table_set_sort_internal(__VA_ARGS__, SIZE_MAX)
 int table_set_reverse(Table *t, size_t column, bool b);
-int table_hide_column_from_display(Table *t, size_t column);
+int table_hide_column_from_display_internal(Table *t, ...);
+#define table_hide_column_from_display(t, ...) table_hide_column_from_display_internal(t, __VA_ARGS__, (size_t) -1)
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
