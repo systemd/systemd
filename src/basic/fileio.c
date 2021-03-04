@@ -1325,15 +1325,6 @@ int warn_file_is_world_accessible(const char *filename, struct stat *st, const c
         return 0;
 }
 
-int sync_rights(int from, int to) {
-        struct stat st;
-
-        if (fstat(from, &st) < 0)
-                return -errno;
-
-        return fchmod_and_chown(to, st.st_mode & 07777, st.st_uid, st.st_gid);
-}
-
 int rename_and_apply_smack_floor_label(const char *from, const char *to) {
         int r = 0;
         if (rename(from, to) < 0)
