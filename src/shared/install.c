@@ -1335,8 +1335,8 @@ static int unit_file_load_or_readlink(
                 const char *path,
                 const char *root_dir,
                 SearchFlags flags) {
+
         _cleanup_free_ char *resolved = NULL;
-        struct stat st;
         int r;
 
         r = unit_file_load(c, info, path, root_dir, flags);
@@ -1351,9 +1351,7 @@ static int unit_file_load_or_readlink(
                  * so let's see if the path is a (possibly dangling) symlink to /dev/null. */
                 info->type = UNIT_FILE_TYPE_MASKED;
 
-        else if (r > 0 &&
-                 stat(resolved, &st) >= 0 &&
-                 null_or_empty(&st))
+        else if (r > 0 && null_or_empty_path(resolved) > 0)
 
                 info->type = UNIT_FILE_TYPE_MASKED;
 
