@@ -419,8 +419,8 @@ int config_parse_dhcp_server_relay_target(
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse %s= address '%s', ignoring: %m", lvalue, rvalue);
         }
-        return r;
         network->dhcp_server_relay_target = a.in;
+        return r;
 }
 
 
