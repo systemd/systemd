@@ -1041,14 +1041,14 @@ int udev_event_execute_rules(UdevEvent *event,
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
 
+        device_set_is_initialized(dev);
+
         /* Yes, we run update_devnode() twice, because in the first invocation, that is before update of udev database,
          * it could happen that two contenders are replacing each other's symlink. Hence we run it again to make sure
          * symlinks point to devices that claim them with the highest priority. */
         r = update_devnode(event);
         if (r < 0)
                 return r;
-
-        device_set_is_initialized(dev);
 
         return 0;
 }
