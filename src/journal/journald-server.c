@@ -1625,17 +1625,19 @@ static int server_parse_config_file(Server *s) {
         assert(s);
 
         if (s->namespace) {
-                const char *namespaced;
+                const char *namespaced, *dropin_dirname;
 
                 /* If we are running in namespace mode, load the namespace specific configuration file, and nothing else */
                 namespaced = strjoina(PKGSYSCONFDIR "/journald@", s->namespace, ".conf");
+                dropin_dirname = strjoina("journald@", s->namespace, ".conf.d");
 
-                r = config_parse(NULL,
-                                 namespaced, NULL,
-                                 "Journal\0",
-                                 config_item_perf_lookup, journald_gperf_lookup,
-                                 CONFIG_PARSE_WARN, s,
-                                 NULL);
+                r = config_parse_many(
+                                STRV_MAKE_CONST(namespaced),
+                                (const char* const*) CONF_PATHS_STRV("systemd"),
+                                dropin_dirname,
+                                "Journal\0",
+                                config_item_perf_lookup, journald_gperf_lookup,
+                                CONFIG_PARSE_WARN, s, NULL);
                 if (r < 0)
                         return r;
 

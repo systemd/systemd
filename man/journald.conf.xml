@@ -28,6 +28,9 @@
     <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
     <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
     <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></para>
+    <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -41,8 +44,9 @@
 
     <para>The <command>systemd-journald</command> instance managing the default namespace is configured by
     <filename>/etc/systemd/journald.conf</filename> and associated drop-ins. Instances managing other
-    namespaces read <filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename> with
-    the namespace identifier filled in. This allows each namespace to carry a distinct configuration. See
+    namespaces read <filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename>
+    and associated drop-ins with the namespace identifier filled in. This allows each namespace to carry
+    a distinct configuration. See
     <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for details about journal namespaces.</para>
   </refsect1>
