@@ -656,7 +656,6 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
 
 int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
-        _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         bool independent = false;
         int r;
@@ -664,15 +663,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
         assert(manager);
         assert(filename);
 
-        file = fopen(filename, "re");
-        if (!file) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-        if (null_or_empty_fd(fileno(file))) {
+        r = null_or_empty_path(filename);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }

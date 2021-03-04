@@ -288,7 +288,6 @@ int network_verify(Network *network) {
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
-        _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         char *d;
         int r;
@@ -296,15 +295,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         assert(manager);
         assert(filename);
 
-        file = fopen(filename, "re");
-        if (!file) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-        if (null_or_empty_fd(fileno(file))) {
+        r = null_or_empty_path(filename);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
