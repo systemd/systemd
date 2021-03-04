@@ -110,19 +110,20 @@ int link_config_ctx_new(link_config_ctx **ret) {
 
 int link_load_one(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
-        _cleanup_fclose_ FILE *file = NULL;
         _cleanup_free_ char *name = NULL;
+        const char *dropin_dirname;
         size_t i;
         int r;
 
         assert(ctx);
         assert(filename);
 
-        file = fopen(filename, "re");
-        if (!file)
-                return errno == ENOENT ? 0 : -errno;
-
-        if (null_or_empty_fd(fileno(file))) {
+        r = null_or_empty_path(filename);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+        if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
@@ -151,11 +152,14 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         for (i = 0; i < ELEMENTSOF(link->features); i++)
                 link->features[i] = -1;
 
-        r = config_parse(NULL, filename, file,
-                         "Match\0Link\0",
-                         config_item_perf_lookup, link_config_gperf_lookup,
-                         CONFIG_PARSE_WARN, link,
-                         NULL);
+        dropin_dirname = strjoina(basename(filename), ".d");
+        r = config_parse_many(
+                        STRV_MAKE_CONST(filename),
+                        (const char* const*) CONF_PATHS_STRV("systemd/network"),
+                        dropin_dirname,
+                        "Match\0Link\0",
+                        config_item_perf_lookup, link_config_gperf_lookup,
+                        CONFIG_PARSE_WARN, link, NULL);
         if (r < 0)
                 return r;
 
