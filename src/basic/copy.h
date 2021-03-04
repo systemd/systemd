@@ -64,4 +64,5 @@ static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags cop
 
 int copy_times(int fdf, int fdt, CopyFlags flags);
 int copy_access(int fdf, int fdt);
+int copy_rights(int fdf, int fdt);
 int copy_xattr(int fdf, int fdt);

@@ -118,6 +118,4 @@ int safe_fgetc(FILE *f, char *ret);
 
 int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
 
-int sync_rights(int from, int to);
-
 int rename_and_apply_smack_floor_label(const char *temp_path, const char *dest_path);

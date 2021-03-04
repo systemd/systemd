@@ -1232,6 +1232,8 @@ int copy_access(int fdf, int fdt) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
+        /* Copies just the access mode (and not the ownership) from fdf to fdt */
+
         if (fstat(fdf, &st) < 0)
                 return -errno;
 
@@ -1239,6 +1241,20 @@ int copy_access(int fdf, int fdt) {
                 return -errno;
 
         return 0;
+}
+
+int copy_rights(int fdf, int fdt) {
+        struct stat st;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        /* Copies both access mode and ownership from fdf to fdt */
+
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        return fchmod_and_chown(fdt, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
 int copy_xattr(int fdf, int fdt) {
