@@ -714,10 +714,6 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        r = fseek(file, 0, SEEK_SET);
-        if (r < 0)
-                return -errno;
-
         netdev = malloc0(NETDEV_VTABLE(netdev_raw)->object_size);
         if (!netdev)
                 return log_oom();
