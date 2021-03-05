@@ -175,7 +175,6 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
 
         server->n_ref = 1;
         server->fd_raw = -1;
-        server->fd_relay = -1;
         server->fd = -1;
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
@@ -235,7 +234,6 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
-        server->fd_relay = safe_close(server->fd_relay);
 
         log_dhcp_server(server, "STOPPED");
 
@@ -291,7 +289,7 @@ static int dhcp_server_send_udp_unicast(sd_dhcp_server *server, be32_t destinati
         struct in_pktinfo *pktinfo;
 
         assert(server);
-        assert(server->fd_relay >= 0);
+        assert(server->fd >= 0);
         assert(message);
         assert(len > sizeof(DHCPMessage));
 
@@ -312,7 +310,7 @@ static int dhcp_server_send_udp_unicast(sd_dhcp_server *server, be32_t destinati
         /* pktinfo->ipi_ifindex = server->ifindex; */
         /* pktinfo->ipi_spec_dst.s_addr = server->address; */
 
-        if (sendmsg(server->fd_relay, &msg, 0) < 0)
+        if (sendmsg(server->fd, &msg, 0) < 0)
                 return -errno;
 
         return 0;
@@ -1098,7 +1096,6 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         assert_return(server->event, -EINVAL);
         assert_return(!server->receive_message, -EBUSY);
         assert_return(server->fd_raw < 0, -EBUSY);
-        assert_return(server->fd_relay < 0, -EBUSY);
         assert_return(server->fd < 0, -EBUSY);
         assert_return(server->address != htobe32(INADDR_ANY), -EUNATCH);
 
@@ -1109,14 +1106,6 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
                 return r;
         }
         server->fd_raw = r;
-
-        r = dhcp_network_bind_udp_socket(0, INADDR_ANY, DHCP_PORT_SERVER, -1);
-        if (r < 0) {
-                r = -errno;
-                sd_dhcp_server_stop(server);
-                return r;
-        }
-        server->fd_relay = r;
 
         r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         if (r < 0) {

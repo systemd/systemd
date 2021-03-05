@@ -47,7 +47,6 @@ struct sd_dhcp_server {
         sd_event_source *receive_message;
         int fd;
         int fd_raw;
-        int fd_relay;
 
         int ifindex;
         be32_t address;
