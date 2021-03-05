@@ -31,6 +31,7 @@ static void test_encode_devnode_name(void) {
         assert_se(expect_encoded_as("s/ash/ng", "s\\x2fash\\x2fng"));
         assert_se(expect_encoded_as("/", "\\x2f"));
         assert_se(expect_encoded_as("!", "\\x21"));
+        assert_se(expect_encoded_as("QEMU    ", "QEMU\\x20\\x20\\x20\\x20"));
 }
 
 int main(int argc, char *argv[]) {
