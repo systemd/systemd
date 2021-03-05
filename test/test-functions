@@ -725,6 +725,12 @@ printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=240s\
 mkdir -p /etc/systemd/system/systemd-journal-flush.service.d
 printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush.service.d/timeout.conf
 
+# D-Bus has troubles during system shutdown causing it to fail. Although it's
+# harmless, it causes unnecessary noise in the logs, so let's disable LSan
+# just for the dbus.service
+mkdir -p /etc/systemd/system/dbus.service.d
+printf "[Service]\nEnvironment=ASAN_OPTIONS=leak_check_at_exit=false\n" >/etc/systemd/system/dbus.service.d/disable-lsan.conf
+
 # The 'mount' utility doesn't behave well under libasan, causing unexpected
 # fails during boot and subsequent test results check:
 # bash-5.0# mount -o remount,rw -v /
