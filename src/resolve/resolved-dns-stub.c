@@ -586,13 +586,6 @@ static int dns_stub_send_reply(
 
         edns0_do = dns_stub_reply_with_edns0_do(q); /* let' check if we shall reply with EDNS0 DO? */
 
-        r = dns_stub_assign_sections(
-                        q,
-                        q->request_packet->question,
-                        edns0_do);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to assign sections: %m");
-
         r = dns_stub_make_reply_packet(
                         &reply,
                         DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_packet),
@@ -743,13 +736,37 @@ static void dns_stub_query_complete(DnsQuery *q) {
                 }
         }
 
-        /* Note that we don't bother with following CNAMEs here. We propagate the authoritative/additional
-         * sections from the upstream answer however, hence if the upstream server collected that information
-         * already we don't have to collect it ourselves anymore. */
+        /* Take all data from the current reply, and merge it into the three reply sections we are building
+         * up. We do this before processing CNAME redirects, so that we gradually build up our sections, and
+         * and keep adding all RRs in the CNAME chain. */
+        r = dns_stub_assign_sections(
+                        q,
+                        q->request_packet->question,
+                        dns_stub_reply_with_edns0_do(q));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to assign sections: %m");
+                dns_query_free(q);
+                return;
+        }
 
         switch (q->state) {
 
         case DNS_TRANSACTION_SUCCESS:
+                r = dns_query_process_cname(q);
+                if (r == -ELOOP) { /* CNAME loop, let's send what we already have */
+                        log_debug_errno(r, "Detected CNAME loop, returning what we already have.");
+                        (void) dns_stub_send_reply(q, q->answer_rcode);
+                        break;
+                }
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to process CNAME: %m");
+                        break;
+                }
+                if (r == DNS_QUERY_RESTARTED)
+                        return;
+
+                _fallthrough_;
+
         case DNS_TRANSACTION_RCODE_FAILURE:
                 (void) dns_stub_send_reply(q, q->answer_rcode);
                 break;
@@ -888,7 +905,6 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
                                   SD_RESOLVED_PROTOCOLS_ALL|
                                   SD_RESOLVED_NO_SEARCH|
-                                  SD_RESOLVED_NO_CNAME|
                                   (DNS_PACKET_DO(p) ? SD_RESOLVED_REQUIRE_PRIMARY : 0)|
                                   SD_RESOLVED_CLAMP_TTL);
         if (r < 0) {
