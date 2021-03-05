@@ -118,6 +118,20 @@ static const char* const input_table_one_empty[] = {
         NULL,
 };
 
+static const char* const input_table_unescape[] = {
+        "ID_VENDOR=QEMU",
+        "ID_VENDOR_ENC=QEMUx20x20x20x20",
+        "ID_MODEL_ENC=QEMUx20HARDDISKx20x20x20",
+        NULL,
+};
+
+static const char* const input_table_retain_escape[] = {
+        "ID_VENDOR=QEMU",
+        "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20",
+        "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20",
+        NULL,
+};
+
 static void test_strv_find(void) {
         log_info("/* %s */", __func__);
 
@@ -451,6 +465,25 @@ static void test_strv_split_newlines(void) {
 
         STRV_FOREACH(s, l)
                 assert_se(streq(*s, input_table_multiple[i++]));
+}
+
+static void test_strv_split_newlines_full(void) {
+        const char str[] =
+                "ID_VENDOR=QEMU\n"
+                "ID_VENDOR_ENC=QEMU\\x20\\x20\\x20\\x20\n"
+                "ID_MODEL_ENC=QEMU\\x20HARDDISK\\x20\\x20\\x20\n"
+                "\n\n\n";
+        _cleanup_strv_free_ char **l = NULL;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(strv_split_newlines_full(&l, str, 0) == 3);
+        assert_se(strv_equal(l, (char**) input_table_unescape));
+
+        l = strv_free(l);
+
+        assert_se(strv_split_newlines_full(&l, str, EXTRACT_RETAIN_ESCAPE) == 3);
+        assert_se(strv_equal(l, (char**) input_table_retain_escape));
 }
 
 static void test_strv_split_nulstr(void) {
@@ -1031,6 +1064,7 @@ int main(int argc, char *argv[]) {
         test_strv_split_full();
         test_strv_split_colon_pairs();
         test_strv_split_newlines();
+        test_strv_split_newlines_full();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
         test_strv_overlap();
