@@ -122,7 +122,7 @@ static size_t TABLE_CELL_TO_INDEX(TableCell *cell) {
 }
 
 static TableCell* TABLE_INDEX_TO_CELL(size_t index) {
-        assert(index != (size_t) -1);
+        assert(index != SIZE_MAX);
         return SIZE_TO_PTR(index + 1);
 }
 
@@ -131,9 +131,9 @@ struct Table {
         size_t n_cells;
 
         bool header;   /* Whether to show the header row? */
-        size_t width;  /* If == 0 format this as wide as necessary. If (size_t) -1 format this to console
+        size_t width;  /* If == 0 format this as wide as necessary. If SIZE_MAX format this to console
                         * width or less wide, but not wider. Otherwise the width to format this table in. */
-        size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If (size_t) -1 then no limit is set, the default. == 0 is not allowed.) */
+        size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If SIZE_MAX then no limit is set, the default. == 0 is not allowed.) */
 
         TableData **data;
         size_t n_allocated;
@@ -161,8 +161,8 @@ Table *table_new_raw(size_t n_columns) {
         *t = (struct Table) {
                 .n_columns = n_columns,
                 .header = true,
-                .width = (size_t) -1,
-                .cell_height_max = (size_t) -1,
+                .width = SIZE_MAX,
+                .cell_height_max = SIZE_MAX,
         };
 
         return TAKE_PTR(t);
@@ -427,16 +427,16 @@ int table_add_cell_full(
                 p = NULL;
 
         /* If formatting parameters are left unspecified, copy from the previous row */
-        if (minimum_width == (size_t) -1)
+        if (minimum_width == SIZE_MAX)
                 minimum_width = p ? p->minimum_width : 1;
 
-        if (weight == (unsigned) -1)
+        if (weight == UINT_MAX)
                 weight = p ? p->weight : DEFAULT_WEIGHT;
 
-        if (align_percent == (unsigned) -1)
+        if (align_percent == UINT_MAX)
                 align_percent = p ? p->align_percent : 0;
 
-        if (ellipsize_percent == (unsigned) -1)
+        if (ellipsize_percent == UINT_MAX)
                 ellipsize_percent = p ? p->ellipsize_percent : 100;
 
         assert(align_percent <= 100);
@@ -591,7 +591,7 @@ int table_set_minimum_width(Table *t, TableCell *cell, size_t minimum_width) {
         assert(t);
         assert(cell);
 
-        if (minimum_width == (size_t) -1)
+        if (minimum_width == SIZE_MAX)
                 minimum_width = 1;
 
         r = table_dedup_cell(t, cell);
@@ -622,7 +622,7 @@ int table_set_weight(Table *t, TableCell *cell, unsigned weight) {
         assert(t);
         assert(cell);
 
-        if (weight == (unsigned) -1)
+        if (weight == UINT_MAX)
                 weight = DEFAULT_WEIGHT;
 
         r = table_dedup_cell(t, cell);
@@ -639,7 +639,7 @@ int table_set_align_percent(Table *t, TableCell *cell, unsigned percent) {
         assert(t);
         assert(cell);
 
-        if (percent == (unsigned) -1)
+        if (percent == UINT_MAX)
                 percent = 0;
 
         assert(percent <= 100);
@@ -658,7 +658,7 @@ int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent) {
         assert(t);
         assert(cell);
 
-        if (percent == (unsigned) -1)
+        if (percent == UINT_MAX)
                 percent = 100;
 
         assert(percent <= 100);
@@ -1067,7 +1067,7 @@ void table_set_width(Table *t, size_t width) {
 
 void table_set_cell_height_max(Table *t, size_t height) {
         assert(t);
-        assert(height >= 1 || height == (size_t) -1);
+        assert(height >= 1 || height == SIZE_MAX);
 
         t->cell_height_max = height;
 }
@@ -1094,7 +1094,7 @@ int table_set_display_all(Table *t) {
         return 0;
 }
 
-int table_set_display(Table *t, size_t first_column, ...) {
+int table_set_display_internal(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
 
@@ -1115,7 +1115,7 @@ int table_set_display(Table *t, size_t first_column, ...) {
                 t->display_map[t->n_display_map++] = column;
 
                 column = va_arg(ap, size_t);
-                if (column == (size_t) -1)
+                if (column == SIZE_MAX)
                         break;
 
         }
@@ -1124,7 +1124,7 @@ int table_set_display(Table *t, size_t first_column, ...) {
         return 0;
 }
 
-int table_set_sort(Table *t, size_t first_column, ...) {
+int table_set_sort_internal(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
 
@@ -1145,7 +1145,7 @@ int table_set_sort(Table *t, size_t first_column, ...) {
                 t->sort_map[t->n_sort_map++] = column;
 
                 column = va_arg(ap, size_t);
-                if (column == (size_t) -1)
+                if (column == SIZE_MAX)
                         break;
         }
         va_end(ap);
@@ -1758,7 +1758,7 @@ static int console_width_height(
                         k = utf8_console_width(s);
                         s = NULL;
                 }
-                if (k == (size_t) -1)
+                if (k == SIZE_MAX)
                         return -EINVAL;
                 if (k > max_width)
                         max_width = k;
@@ -1794,7 +1794,7 @@ static int table_data_requested_width_height(
         if (!t)
                 return -ENOMEM;
 
-        if (table->cell_height_max != (size_t) -1) {
+        if (table->cell_height_max != SIZE_MAX) {
                 r = string_truncate_lines(t, table->cell_height_max, &truncated);
                 if (r < 0)
                         return r;
@@ -1808,7 +1808,7 @@ static int table_data_requested_width_height(
         if (r < 0)
                 return r;
 
-        if (d->maximum_width != (size_t) -1 && width > d->maximum_width)
+        if (d->maximum_width != SIZE_MAX && width > d->maximum_width)
                 width = d->maximum_width;
 
         if (width < d->minimum_width)
@@ -1965,14 +1965,14 @@ int table_print(Table *t, FILE *f) {
 
         for (size_t j = 0; j < display_columns; j++) {
                 minimum_width[j] = 1;
-                maximum_width[j] = (size_t) -1;
+                maximum_width[j] = SIZE_MAX;
         }
 
         for (unsigned pass = 0; pass < 2; pass++) {
                 /* First pass: determine column sizes */
 
                 for (size_t j = 0; j < display_columns; j++)
-                        requested_width[j] = (size_t) -1;
+                        requested_width[j] = SIZE_MAX;
 
                 bool any_soft = false;
 
@@ -2020,7 +2020,7 @@ int table_print(Table *t, FILE *f) {
                                 }
 
                                 /* Determine the biggest width that any cell in this column would like to have */
-                                if (requested_width[j] == (size_t) -1 ||
+                                if (requested_width[j] == SIZE_MAX ||
                                     requested_width[j] < req_width)
                                         requested_width[j] = req_width;
 
@@ -2029,8 +2029,8 @@ int table_print(Table *t, FILE *f) {
                                         minimum_width[j] = d->minimum_width;
 
                                 /* Determine the maximum width any cell in this column needs */
-                                if (d->maximum_width != (size_t) -1 &&
-                                    (maximum_width[j] == (size_t) -1 ||
+                                if (d->maximum_width != SIZE_MAX &&
+                                    (maximum_width[j] == SIZE_MAX ||
                                      maximum_width[j] > d->maximum_width))
                                         maximum_width[j] = d->maximum_width;
 
@@ -2049,8 +2049,8 @@ int table_print(Table *t, FILE *f) {
 
                         table_minimum_width += minimum_width[j];
 
-                        if (maximum_width[j] == (size_t) -1)
-                                table_maximum_width = (size_t) -1;
+                        if (maximum_width[j] == SIZE_MAX)
+                                table_maximum_width = SIZE_MAX;
                         else
                                 table_maximum_width += maximum_width[j];
 
@@ -2058,7 +2058,7 @@ int table_print(Table *t, FILE *f) {
                 }
 
                 /* Calculate effective table width */
-                if (t->width != 0 && t->width != (size_t) -1)
+                if (t->width != 0 && t->width != SIZE_MAX)
                         table_effective_width = t->width;
                 else if (t->width == 0 ||
                          ((pass > 0 || !any_soft) && (pager_have() || !isatty(STDOUT_FILENO))))
@@ -2066,7 +2066,7 @@ int table_print(Table *t, FILE *f) {
                 else
                         table_effective_width = MIN(table_requested_width, columns());
 
-                if (table_maximum_width != (size_t) -1 && table_effective_width > table_maximum_width)
+                if (table_maximum_width != SIZE_MAX && table_effective_width > table_maximum_width)
                         table_effective_width = table_maximum_width;
 
                 if (table_effective_width < table_minimum_width)
@@ -2091,7 +2091,7 @@ int table_print(Table *t, FILE *f) {
                                 else
                                         width[j] = requested_width[j] + (extra * column_weight[j]) / weight_sum;
 
-                                if (maximum_width[j] != (size_t) -1 && width[j] > maximum_width[j])
+                                if (maximum_width[j] != SIZE_MAX && width[j] > maximum_width[j])
                                         width[j] = maximum_width[j];
 
                                 if (width[j] < minimum_width[j])
@@ -2119,7 +2119,7 @@ int table_print(Table *t, FILE *f) {
                         extra = table_effective_width - table_minimum_width;
 
                         for (size_t j = 0; j < display_columns; j++)
-                                width[j] = (size_t) -1;
+                                width[j] = SIZE_MAX;
 
                         for (;;) {
                                 bool restart = false;
@@ -2128,7 +2128,7 @@ int table_print(Table *t, FILE *f) {
                                         size_t delta, w;
 
                                         /* Did this column already get something assigned? If so, let's skip to the next */
-                                        if (width[j] != (size_t) -1)
+                                        if (width[j] != SIZE_MAX)
                                                 continue;
 
                                         if (weight_sum == 0)
@@ -2210,7 +2210,7 @@ int table_print(Table *t, FILE *f) {
                                         return r;
                                 if (r > 0) {
                                         /* There are more lines to come */
-                                        if ((t->cell_height_max == (size_t) -1 || n_subline + 1 < t->cell_height_max))
+                                        if ((t->cell_height_max == SIZE_MAX || n_subline + 1 < t->cell_height_max))
                                                 more_sublines = true; /* There are more lines to come */
                                         else
                                                 lines_truncated = true;
@@ -2445,7 +2445,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_SIZE:
         case TABLE_BPS:
-                if (d->size == (uint64_t) -1)
+                if (d->size == UINT64_MAX)
                         return json_variant_new_null(ret);
 
                 return json_variant_new_unsigned(ret, d->size);

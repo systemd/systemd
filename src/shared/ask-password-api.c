@@ -204,7 +204,7 @@ static int backspace_string(int ttyfd, const char *str) {
                 return 0;
 
         size_t m = utf8_n_codepoints(str);
-        if (m == (size_t) -1)
+        if (m == SIZE_MAX)
                 m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes
                                   * output. Most likely this happened because we are not in an UTF-8 locale,
                                   * and in that case that is the correct thing to do. And even if it's not,
@@ -583,9 +583,9 @@ int ask_password_tty(
                                 for (;;) {
                                         size_t z;
 
-                                        z = utf8_encoded_valid_unichar(passphrase + q, (size_t) -1);
+                                        z = utf8_encoded_valid_unichar(passphrase + q, SIZE_MAX);
                                         if (z == 0) {
-                                                q = (size_t) -1; /* Invalid UTF8! */
+                                                q = SIZE_MAX; /* Invalid UTF8! */
                                                 break;
                                         }
 
@@ -595,7 +595,7 @@ int ask_password_tty(
                                         q += z;
                                 }
 
-                                p = codepoint = q == (size_t) -1 ? p - 1 : q;
+                                p = codepoint = q == SIZE_MAX ? p - 1 : q;
                                 explicit_bzero_safe(passphrase + p, sizeof(passphrase) - p);
 
                         } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
@@ -632,7 +632,7 @@ int ask_password_tty(
 
                         if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
                                 /* Check if we got a complete UTF-8 character now. If so, let's output one '*'. */
-                                n = utf8_encoded_valid_unichar(passphrase + codepoint, (size_t) -1);
+                                n = utf8_encoded_valid_unichar(passphrase + codepoint, SIZE_MAX);
                                 if (n >= 0) {
                                         if (flags & ASK_PASSWORD_ECHO)
                                                 (void) loop_write(ttyfd, passphrase + codepoint, n, false);

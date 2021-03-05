@@ -1236,7 +1236,7 @@ _public_ int sd_event_add_time(
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(accuracy != (uint64_t) -1, -EINVAL);
+        assert_return(accuracy != UINT64_MAX, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -2594,10 +2594,11 @@ _public_ int sd_event_source_set_time_relative(sd_event_source *s, uint64_t usec
         if (r < 0)
                 return r;
 
-        if (usec >= USEC_INFINITY - t)
+        usec = usec_add(t, usec);
+        if (usec == USEC_INFINITY)
                 return -EOVERFLOW;
 
-        return sd_event_source_set_time(s, t + usec);
+        return sd_event_source_set_time(s, usec);
 }
 
 _public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
@@ -2614,7 +2615,7 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
         int r;
 
         assert_return(s, -EINVAL);
-        assert_return(usec != (uint64_t) -1, -EINVAL);
+        assert_return(usec != UINT64_MAX, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -4082,7 +4083,7 @@ _public_ int sd_event_loop(sd_event *e) {
         _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
 
         while (e->state != SD_EVENT_FINISHED) {
-                r = sd_event_run(e, (uint64_t) -1);
+                r = sd_event_run(e, UINT64_MAX);
                 if (r < 0)
                         return r;
         }

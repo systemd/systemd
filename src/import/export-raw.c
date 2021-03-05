@@ -95,7 +95,7 @@ int raw_export_new(
                 .input_fd = -1,
                 .on_finished = on_finished,
                 .userdata = userdata,
-                .last_percent = (unsigned) -1,
+                .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 

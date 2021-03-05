@@ -26,6 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "user-util.h"
 #include "util.h"
 
 int device_new_aux(sd_device **ret) {
@@ -40,9 +41,9 @@ int device_new_aux(sd_device **ret) {
         *device = (sd_device) {
                 .n_ref = 1,
                 .watch_handle = -1,
-                .devmode = (mode_t) -1,
-                .devuid = (uid_t) -1,
-                .devgid = (gid_t) -1,
+                .devmode = MODE_INVALID,
+                .devuid = UID_INVALID,
+                .devgid = GID_INVALID,
                 .action = _SD_DEVICE_ACTION_INVALID,
         };
 

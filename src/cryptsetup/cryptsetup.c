@@ -320,7 +320,7 @@ static int parse_one_option(const char *option) {
                         _cleanup_free_ void *cid = NULL;
                         size_t cid_size;
 
-                        r = unbase64mem(val, (size_t) -1, &cid, &cid_size);
+                        r = unbase64mem(val, SIZE_MAX, &cid, &cid_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode FIDO2 CID data: %m");
 
@@ -1503,10 +1503,9 @@ static int run(int argc, char *argv[]) {
 
                 flags = determine_flags();
 
-                if (arg_timeout == USEC_INFINITY)
+                until = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
+                if (until == USEC_INFINITY)
                         until = 0;
-                else
-                        until = now(CLOCK_MONOTONIC) + arg_timeout;
 
                 arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
 

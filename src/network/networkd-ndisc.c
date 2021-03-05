@@ -535,7 +535,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->gw_family = AF_INET6;
         route->gw = gateway;
-        route->lifetime = time_now + lifetime * USEC_PER_SEC;
+        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
         route->mtu = mtu;
 
         r = ndisc_route_configure(route, link, rt);
@@ -559,7 +559,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         route_gw->protocol = RTPROT_RA;
                 if (!route_gw->pref_set)
                         route->pref = preference;
-                route_gw->lifetime = time_now + lifetime * USEC_PER_SEC;
+                route_gw->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
                 if (route_gw->mtu == 0)
                         route_gw->mtu = mtu;
 
@@ -818,7 +818,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
-        route->lifetime = time_now + lifetime * USEC_PER_SEC;
+        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
 
         r = sd_ndisc_router_prefix_get_address(rt, &route->dst.in6);
         if (r < 0)
@@ -906,7 +906,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->gw_family = AF_INET6;
         route->dst = dst;
         route->dst_prefixlen = prefixlen;
-        route->lifetime = time_now + lifetime * USEC_PER_SEC;
+        route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
 
         r = ndisc_route_configure(route, link, rt);
         if (r < 0)

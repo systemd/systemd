@@ -490,7 +490,7 @@ static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
         assert(rrsig->key->type == DNS_TYPE_RRSIG);
 
         /* Check if this RRSIG RR is already prepared */
-        if (rrsig->n_skip_labels_source != (unsigned) -1)
+        if (rrsig->n_skip_labels_source != UINT_MAX)
                 return 0;
 
         if (rrsig->rrsig.inception > rrsig->rrsig.expiration)
@@ -1297,10 +1297,10 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
 
         /* Ignore NSEC3 RRs generated from wildcards. If these NSEC3 RRs weren't correctly signed we can't make this
          * check (since rr->n_skip_labels_source is -1), but that's OK, as we won't trust them anyway in that case. */
-        if (!IN_SET(rr->n_skip_labels_source, 0, (unsigned) -1))
+        if (!IN_SET(rr->n_skip_labels_source, 0, UINT_MAX))
                 return 0;
         /* Ignore NSEC3 RRs that are located anywhere else than one label below the zone */
-        if (!IN_SET(rr->n_skip_labels_signer, 1, (unsigned) -1))
+        if (!IN_SET(rr->n_skip_labels_signer, 1, UINT_MAX))
                 return 0;
 
         if (!nsec3)

@@ -81,7 +81,7 @@ enum {
         SD_LLDP_SYSTEM_CAPABILITIES_TPMR     = 1 << 10,
 };
 
-#define SD_LLDP_SYSTEM_CAPABILITIES_ALL ((uint16_t) -1)
+#define SD_LLDP_SYSTEM_CAPABILITIES_ALL (UINT16_MAX)
 
 #define SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS                         \
         ((uint16_t)                                                     \

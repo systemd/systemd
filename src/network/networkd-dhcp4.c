@@ -1507,7 +1507,7 @@ int config_parse_dhcp_max_attempts(
         }
 
         if (streq(rvalue, "infinity")) {
-                network->dhcp_max_attempts = (uint64_t) -1;
+                network->dhcp_max_attempts = UINT64_MAX;
                 return 0;
         }
 

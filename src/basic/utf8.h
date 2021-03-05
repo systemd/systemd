@@ -16,7 +16,7 @@ bool unichar_is_valid(char32_t c);
 
 char *utf8_is_valid_n(const char *str, size_t len_bytes) _pure_;
 static inline char *utf8_is_valid(const char *s) {
-        return utf8_is_valid_n(s, (size_t) -1);
+        return utf8_is_valid_n(s, SIZE_MAX);
 }
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
@@ -27,7 +27,7 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
 char *utf8_escape_invalid(const char *s);
 char *utf8_escape_non_printable_full(const char *str, size_t console_width);
 static inline char *utf8_escape_non_printable(const char *str) {
-        return utf8_escape_non_printable_full(str, (size_t) -1);
+        return utf8_escape_non_printable_full(str, SIZE_MAX);
 }
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);

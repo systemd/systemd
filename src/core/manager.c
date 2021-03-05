@@ -2200,7 +2200,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
         if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message)
-                budget = (unsigned) -1; /* infinite budget in this case */
+                budget = UINT_MAX; /* infinite budget in this case */
         else {
                 /* Anything to do at all? */
                 if (!m->dbus_unit_queue && !m->dbus_job_queue)
@@ -2232,7 +2232,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 bus_unit_send_change_signal(u);
                 n++;
 
-                if (budget != (unsigned) -1)
+                if (budget != UINT_MAX)
                         budget--;
         }
 
@@ -2242,7 +2242,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 bus_job_send_change_signal(j);
                 n++;
 
-                if (budget != (unsigned) -1)
+                if (budget != UINT_MAX)
                         budget--;
         }
 

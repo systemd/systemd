@@ -166,7 +166,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_timeout > 0)
-                timeout = now(CLOCK_MONOTONIC) + arg_timeout;
+                timeout = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
         else
                 timeout = 0;
 

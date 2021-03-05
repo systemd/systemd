@@ -53,7 +53,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(write(test_fd[1], data, size) == (ssize_t) size);
-        (void) sd_event_run(e, (uint64_t) -1);
+        (void) sd_event_run(e, UINT64_MAX);
         assert_se(sd_ndisc_stop(nd) >= 0);
         close(test_fd[1]);
 

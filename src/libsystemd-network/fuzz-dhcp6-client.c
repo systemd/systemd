@@ -41,7 +41,7 @@ static void fuzz_client(const uint8_t *data, size_t size, bool is_information_re
 
         assert_se(write(test_dhcp_fd[1], data, size) == (ssize_t) size);
 
-        sd_event_run(e, (uint64_t) -1);
+        sd_event_run(e, UINT64_MAX);
 
         assert_se(sd_dhcp6_client_stop(client) >= 0);
 

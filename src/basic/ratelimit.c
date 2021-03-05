@@ -19,7 +19,7 @@ bool ratelimit_below(RateLimit *r) {
         ts = now(CLOCK_MONOTONIC);
 
         if (r->begin <= 0 ||
-            ts - r->begin > r->interval) {
+            usec_sub_unsigned(ts, r->begin) > r->interval) {
                 r->begin = ts;
 
                 /* Reset counter */

@@ -360,7 +360,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 
         if (!arg_show_types) {
                 /* Hide the second (TYPE) column */
-                r = table_set_display(table, (size_t) 0, (size_t) 2, (size_t) 3, (size_t) -1);
+                r = table_set_display(table, (size_t) 0, (size_t) 2, (size_t) 3);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set columns to display: %m");
         }

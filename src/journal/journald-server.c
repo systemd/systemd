@@ -144,7 +144,7 @@ static int cache_space_refresh(Server *s, JournalStorage *storage) {
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (space->timestamp != 0 && space->timestamp + RECHECK_SPACE_USEC > ts)
+        if (space->timestamp != 0 && usec_add(space->timestamp, RECHECK_SPACE_USEC) > ts)
                 return 0;
 
         r = determine_path_usage(s, storage->path, &vfs_used, &vfs_avail);
@@ -1206,7 +1206,7 @@ finish:
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
                                           s->system_storage.path,
-                                          format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0),
+                                          format_timespan(ts, sizeof(ts), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
                                           n),
                               NULL);
 
@@ -2187,7 +2187,7 @@ int server_init(Server *s, const char *namespace) {
                 .notify_fd = -1,
 
                 .compress.enabled = true,
-                .compress.threshold_bytes = (uint64_t) -1,
+                .compress.threshold_bytes = UINT64_MAX,
                 .seal = true,
 
                 .set_audit = true,
@@ -2595,7 +2595,7 @@ int config_parse_compress(
 
         if (isempty(rvalue)) {
                 compress->enabled = true;
-                compress->threshold_bytes = (uint64_t) -1;
+                compress->threshold_bytes = UINT64_MAX;
         } else if (streq(rvalue, "1")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Compress= ambiguously specified as 1, enabling compression with default threshold");

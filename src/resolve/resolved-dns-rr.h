@@ -76,7 +76,7 @@ struct DnsResourceKey {
  * resource key object. */
 #define DNS_RESOURCE_KEY_CONST(c, t, n)                 \
         ((DnsResourceKey) {                             \
-                .n_ref = (unsigned) -1,                 \
+                .n_ref = UINT_MAX,                      \
                 .class = c,                             \
                 .type = t,                              \
                 ._name = (char*) n,                     \

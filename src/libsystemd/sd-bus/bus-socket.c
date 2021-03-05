@@ -620,7 +620,7 @@ static void bus_get_peercred(sd_bus *b) {
         assert(b);
         assert(!b->ucred_valid);
         assert(!b->label);
-        assert(b->n_groups == (size_t) -1);
+        assert(b->n_groups == SIZE_MAX);
 
         /* Get the peer for socketpair() sockets */
         b->ucred_valid = getpeercred(b->input_fd, &b->ucred) >= 0;

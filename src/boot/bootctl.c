@@ -541,7 +541,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                         return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", t);
         }
 
-        r = copy_bytes(fd_from, fd_to, (uint64_t) -1, COPY_REFLINK);
+        r = copy_bytes(fd_from, fd_to, UINT64_MAX, COPY_REFLINK);
         if (r < 0) {
                 (void) unlink(t);
                 return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);

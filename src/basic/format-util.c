@@ -47,7 +47,7 @@ char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {
 
         assert_cc(ELEMENTSOF(table_iec) == ELEMENTSOF(table_si));
 
-        if (t == (uint64_t) -1)
+        if (t == UINT64_MAX)
                 return NULL;
 
         table = flag & FORMAT_BYTES_USE_IEC ? table_iec : table_si;

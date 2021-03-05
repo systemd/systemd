@@ -62,7 +62,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
 
         r = journal_file_open_reliably(filename,
                                        O_RDWR|O_CREAT, 0640,
-                                       s->compress, (uint64_t) -1, s->seal,
+                                       s->compress, UINT64_MAX, s->seal,
                                        &w->metrics,
                                        w->mmap, NULL,
                                        NULL, &w->journal);

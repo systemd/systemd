@@ -373,7 +373,7 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
                 .n_ref = 1,
                 .fd = -1,
                 .neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX,
-                .capability_mask = (uint16_t) -1,
+                .capability_mask = UINT16_MAX,
         };
 
         lldp->neighbor_by_id = hashmap_new(&lldp_neighbor_hash_ops);
