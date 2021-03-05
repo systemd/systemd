@@ -1746,9 +1746,10 @@ static int udev_rule_apply_token_to_event(
                         return token->op == OP_NOMATCH;
                 }
 
-                lines = strv_split_newlines(result);
-                if (!lines)
-                        return log_oom();
+                r = strv_split_newlines_full(&lines, result, EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        log_rule_warning_errno(dev, rules, r,
+                                               "Failed to extract lines from result of command \"%s\", ignoring: %m", buf);
 
                 STRV_FOREACH(line, lines) {
                         char *key, *value;
