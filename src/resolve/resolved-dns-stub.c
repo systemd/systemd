@@ -162,79 +162,88 @@ static int dns_stub_collect_answer_by_question(
                 bool with_rrsig) { /* Add RRSIG RR matching each RR */
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *redirected_key = NULL;
+        unsigned n_cname_redirects = 0;
         DnsAnswerItem *item;
         int r;
 
         assert(reply);
 
-        /* Copies all RRs from 'answer' into 'reply', if they match 'question'. */
+        /* Copies all RRs from 'answer' into 'reply', if they match 'question'. There might be direct and
+         * indirect matches (i.e. via CNAME/DNAME). If they have an indirect one, remember where we need to
+         * go, and restart the loop */
 
-        DNS_ANSWER_FOREACH_ITEM(item, answer) {
-                if (question) {
-                        r = dns_question_matches_rr(question, item->rr, NULL);
-                        if (r < 0)
-                                return r;
+        for (;;) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *next_redirected_key = NULL;
+
+                DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                        DnsResourceKey *k = NULL;
+
+                        if (redirected_key) {
+                                /* There was a redirect in this packet, let's collect all matching RRs for the redirect */
+                                r = dns_resource_key_match_rr(redirected_key, item->rr, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                k = redirected_key;
+                        } else if (question) {
+                                /* We have a question, let's see if this RR matches it */
+                                r = dns_question_matches_rr(question, item->rr, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                k = question->keys[0];
+                        } else
+                                r = 1; /* No question, everything matches */
+
                         if (r == 0) {
                                 _cleanup_free_ char *target = NULL;
 
                                 /* OK, so the RR doesn't directly match. Let's see if the RR is a matching
                                  * CNAME or DNAME */
 
-                                r = dns_resource_record_get_cname_target(
-                                                question->keys[0],
-                                                item->rr,
-                                                &target);
+                                assert(k);
+
+                                r = dns_resource_record_get_cname_target(k, item->rr, &target);
                                 if (r == -EUNATCH)
                                         continue; /* Not a CNAME/DNAME or doesn't match */
                                 if (r < 0)
                                         return r;
 
-                                dns_resource_key_unref(redirected_key);
+                                /* Oh, wow, this is a redirect. Let's remember where this points, and store
+                                 * it in 'next_redirected_key'. Once we finished iterating through the rest
+                                 * of the RR's we'll start again, with the redirected RR key. */
+
+                                n_cname_redirects++;
+                                if (n_cname_redirects > CNAME_REDIRECT_MAX) /* don't loop forever */
+                                        return -ELOOP;
+
+                                dns_resource_key_unref(next_redirected_key);
 
                                 /* There can only be one CNAME per name, hence no point in storing more than one here */
-                                redirected_key = dns_resource_key_new(question->keys[0]->class, question->keys[0]->type, target);
-                                if (!redirected_key)
+                                next_redirected_key = dns_resource_key_new(k->class, k->type, target);
+                                if (!next_redirected_key)
                                         return -ENOMEM;
                         }
+
+                        /* Mask the section info, we want the primary answers to always go without section info, so
+                         * that it is added to the answer section when we synthesize a reply. */
+
+                        r = reply_add_with_rrsig(
+                                        reply,
+                                        item->rr,
+                                        item->ifindex,
+                                        item->flags & ~DNS_ANSWER_MASK_SECTIONS,
+                                        item->rrsig,
+                                        with_rrsig);
+                        if (r < 0)
+                                return r;
                 }
 
-                /* Mask the section info, we want the primary answers to always go without section info, so
-                 * that it is added to the answer section when we synthesize a reply. */
+                if (!next_redirected_key)
+                        break;
 
-                r = reply_add_with_rrsig(
-                                reply,
-                                item->rr,
-                                item->ifindex,
-                                item->flags & ~DNS_ANSWER_MASK_SECTIONS,
-                                item->rrsig,
-                                with_rrsig);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!redirected_key)
-                return 0;
-
-        /* This is a CNAME/DNAME answer. In this case also append where the redirections point to to the main
-         * answer section */
-
-        DNS_ANSWER_FOREACH_ITEM(item, answer) {
-
-                r = dns_resource_key_match_rr(redirected_key, item->rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue;
-
-                r = reply_add_with_rrsig(
-                                reply,
-                                item->rr,
-                                item->ifindex,
-                                item->flags & ~DNS_ANSWER_MASK_SECTIONS,
-                                item->rrsig,
-                                with_rrsig);
-                if (r < 0)
-                        return r;
+                dns_resource_key_unref(redirected_key);
+                redirected_key = TAKE_PTR(next_redirected_key);
         }
 
         return 0;
