@@ -96,14 +96,14 @@ int sysctl_write_ip_property(int af, const char *ifname, const char *property, c
         return write_string_file(p, value, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
-int sysctl_read(const char *property, char **content) {
+int sysctl_read(const char *property, char **ret) {
         char *p;
 
         assert(property);
-        assert(content);
+        assert(ret);
 
         p = strjoina("/proc/sys/", property);
-        return read_full_file(p, content, NULL);
+        return read_full_virtual_file(p, ret, NULL);
 }
 
 int sysctl_read_ip_property(int af, const char *ifname, const char *property, char **ret) {
@@ -118,7 +118,7 @@ int sysctl_read_ip_property(int af, const char *ifname, const char *property, ch
                      ifname ? "/conf/" : "", strempty(ifname),
                      property[0] == '/' ? "" : "/", property);
 
-        r = read_one_line_file(p, &value);
+        r = read_full_virtual_file(p, &value, NULL);
         if (r < 0)
                 return r;
 
