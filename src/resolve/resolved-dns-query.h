@@ -128,3 +128,5 @@ const char *dns_query_string(DnsQuery *q);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
 
 bool dns_query_fully_authenticated(DnsQuery *q);
+
+#define CNAME_REDIRECT_MAX 16

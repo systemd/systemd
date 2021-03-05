@@ -10,7 +10,6 @@
 #include "resolved-etc-hosts.h"
 #include "string-util.h"
 
-#define CNAME_MAX 8
 #define QUERIES_MAX 2048
 #define AUXILIARY_QUERIES_MAX 64
 
@@ -912,7 +911,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         assert(q);
 
         q->n_cname_redirects++;
-        if (q->n_cname_redirects > CNAME_MAX)
+        if (q->n_cname_redirects > CNAME_REDIRECT_MAX)
                 return -ELOOP;
 
         r = dns_question_cname_redirect(q->question_idna, cname, &nq_idna);
