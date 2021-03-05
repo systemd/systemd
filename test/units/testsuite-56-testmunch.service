@@ -1,7 +1,0 @@
-[Unit]
-Description=Create some memory pressure
-
-[Service]
-MemoryHigh=2M
-Slice=testsuite-56-workload.slice
-ExecStart=/usr/lib/systemd/tests/testdata/units/testsuite-56-slowgrowth.sh

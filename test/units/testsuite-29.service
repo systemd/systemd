@@ -1,5 +1,5 @@
 [Unit]
-Description=TEST-29-UDEV-ID_RENAMING
+Description=TEST-29-PORTABLE
 
 [Service]
 ExecStartPre=rm -f /failed /testok

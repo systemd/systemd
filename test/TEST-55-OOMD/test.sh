@@ -45,4 +45,4 @@ check_result_qemu() {
     return $ret
 }
 
-do_test "$@" 56
+do_test "$@" 55

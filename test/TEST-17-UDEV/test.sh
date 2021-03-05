@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -e
-TEST_DESCRIPTION="UDEV ID_RENAMING property"
-IMAGE_NAME="udev-id-renaming"
+TEST_DESCRIPTION="UDEV"
+IMAGE_NAME="udev"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-QEMU_TIMEOUT=300
+QEMU_TIMEOUT=500
 
 test_append_files() {
     (
@@ -14,4 +14,4 @@ test_append_files() {
     )
 }
 
-do_test "$@" 29
+do_test "$@" 17

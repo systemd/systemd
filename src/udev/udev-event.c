@@ -573,9 +573,11 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                 _cleanup_strv_free_ char **v = NULL;
                 char **q;
 
-                v = strv_split_newlines(p);
-                if (!v)
-                        log_oom_debug();
+                r = strv_split_newlines_full(&v, p, EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        log_device_debug(spawn->device,
+                                         "Failed to split output from '%s'(%s), ignoring: %m",
+                                         spawn->cmd, fd == spawn->fd_stdout ? "out" : "err");
 
                 STRV_FOREACH(q, v)
                         log_device_debug(spawn->device, "'%s'(%s) '%s'", spawn->cmd,
