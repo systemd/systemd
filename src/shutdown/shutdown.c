@@ -322,6 +322,9 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_parse_environment();
 
+        if (getpid_cached() == 1)
+                log_set_always_reopen_console(true);
+
         r = parse_argv(argc, argv);
         if (r < 0)
                 goto error;
