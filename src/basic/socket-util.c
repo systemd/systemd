@@ -31,6 +31,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -294,6 +295,31 @@ bool socket_ipv6_is_supported(void) {
         }
 
         return cached;
+}
+
+bool socket_ipv6_is_enabled(void) {
+        _cleanup_free_ char *v;
+        int r;
+
+        /* Much like socket_ipv6_is_supported(), but also checks that the sysctl that disables IPv6 on all
+         * interfaces isn't turned on */
+
+        if (!socket_ipv6_is_supported())
+                return false;
+
+        r = sysctl_read_ip_property(AF_INET6, "all", "disable_ipv6", &v);
+        if (r < 0) {
+                log_debug_errno(r, "Unexpected error reading 'net.ipv6.conf.all.disable_ipv6' sysctl: %m");
+                return true;
+        }
+
+        r = parse_boolean(v);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to pare 'net.ipv6.conf.all.disable_ipv6' sysctl: %m");
+                return true;
+        }
+
+        return !r;
 }
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {
