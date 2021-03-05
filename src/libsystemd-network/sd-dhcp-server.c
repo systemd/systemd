@@ -1055,7 +1055,11 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        if (in4_addr_is_set(&server->relay_target)) {
+                r = dhcp_network_bind_udp_socket(0, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        } else {
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        }
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;
