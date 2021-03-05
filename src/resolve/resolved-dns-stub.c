@@ -561,6 +561,19 @@ static int dns_stub_send(
         return 0;
 }
 
+static int dns_stub_reply_with_edns0_do(DnsQuery *q) {
+         assert(q);
+
+        /* Reply with DNSSEC DO set? Only if client supports it; and we did any DNSSEC verification
+         * ourselves, or consider the data fully authenticated because we generated it locally, or the client
+         * set cd */
+
+         return DNS_PACKET_DO(q->request_packet) &&
+                 (q->answer_dnssec_result >= 0 ||        /* we did proper DNSSEC validation … */
+                  dns_query_fully_authenticated(q) ||    /* … or we considered it authentic otherwise … */
+                  DNS_PACKET_CD(q->request_packet));     /* … or client set CD */
+}
+
 static int dns_stub_send_reply(
                 DnsQuery *q,
                 int rcode) {
@@ -571,14 +584,7 @@ static int dns_stub_send_reply(
 
         assert(q);
 
-        /* Reply with DNSSEC DO set? Only if client supports it; and we did any DNSSEC verification
-         * ourselves, or consider the data fully authenticated because we generated it locally, or
-         * the client set cd */
-        edns0_do =
-                DNS_PACKET_DO(q->request_packet) &&
-                (q->answer_dnssec_result >= 0 ||        /* we did proper DNSSEC validation … */
-                 dns_query_fully_authenticated(q) ||    /* … or we considered it authentic otherwise … */
-                 DNS_PACKET_CD(q->request_packet));     /* … or client set CD */
+        edns0_do = dns_stub_reply_with_edns0_do(q); /* let's check if we shall reply with EDNS0 DO? */
 
         r = dns_stub_assign_sections(
                         q,
