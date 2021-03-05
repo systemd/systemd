@@ -301,3 +301,15 @@ installed systemd tests:
 
 * `$SYSTEMD_SYSVRCND_PATH` — Controls where `systemd-sysv-generator` looks for
   SysV init script runlevel link farms.
+
+fuzzers:
+
+* `$SYSTEMD_FUZZ_OUTPUT` — A boolean that specifies whether to write output to
+  stdout. Setting to true is useful in manual invocations, since all output is
+  suppressed by default.
+
+* `$SYSTEMD_FUZZ_RUNS` — The number of times execution should be repeated in
+  manual invocations.
+
+Note that is may be also useful to set `$SYSTEMD_LOG_LEVEL`, since all logging
+is suppressed by default.
