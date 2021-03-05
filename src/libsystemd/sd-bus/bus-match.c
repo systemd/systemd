@@ -743,12 +743,16 @@ int bus_match_parse(
                 p += strspn(p, " ");
 
                 eq = strchr(p, '=');
-                if (!eq)
-                        return -EINVAL;
+                if (!eq) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 t = bus_match_node_type_from_string(p, eq - p);
-                if (t < 0)
-                        return -EINVAL;
+                if (t < 0) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 quoted = eq[1] == '\'';
 
