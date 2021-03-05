@@ -640,6 +640,31 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
         return 1;
 }
 
+int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *prev = NULL;
+        DnsAnswerItem *item;
+        int r;
+
+        /* Removes all items from '*a' that have a matching key in 'b' */
+
+        DNS_ANSWER_FOREACH_ITEM(item, b) {
+
+                if (prev && dns_resource_key_equal(item->rr->key, prev)) /* Skip this one, we already looked at it */
+                        continue;
+
+                r = dns_answer_remove_by_key(a, item->rr->key);
+                if (r < 0)
+                        return r;
+
+                /* Let's remember this entry's RR key, to optimize the loop a bit: if we have an RRset with
+                 * more than one item then we don't need to remove the key multiple times */
+                dns_resource_key_unref(prev);
+                prev = dns_resource_key_ref(item->rr->key);
+        }
+
+        return 0;
+}
+
 int dns_answer_copy_by_key(
                 DnsAnswer **a,
                 DnsAnswer *source,
