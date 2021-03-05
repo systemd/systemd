@@ -307,7 +307,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, int ifindex, be32_t dest
         pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
         assert(pktinfo);
 
-        pktinfo->ipi_ifindex = server->ifindex;
+        pktinfo->ipi_ifindex = ifindex;
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
         if (sendmsg(server->fd, &msg, 0) < 0)
