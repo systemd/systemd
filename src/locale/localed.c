@@ -19,6 +19,7 @@
 #include "bus-polkit.h"
 #include "def.h"
 #include "dlfcn-util.h"
+#include "kbd-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -474,7 +475,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
-        const char *keymap, *keymap_toggle;
+        const char *name, *keymap, *keymap_toggle;
         int convert, interactive, r;
 
         assert(m);
@@ -490,16 +491,22 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         r = vconsole_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read virtual console keymap data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read virtual console keymap data");
+                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
+        }
+
+        FOREACH_STRING(name, keymap ?: keymap_toggle, keymap ? keymap_toggle : NULL) {
+                r = keymap_exists(name); /* This also verifies that the keymap name is kosher. */
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check keymap %s: %m", name);
+                        return sd_bus_error_set_errnof(error, r, "Failed to check keymap %s: %m", name);
+                }
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
         if (streq_ptr(keymap, c->vc_keymap) &&
             streq_ptr(keymap_toggle, c->vc_keymap_toggle))
                 return sd_bus_reply_method_return(m, NULL);
-
-        if ((keymap && (!filename_is_valid(keymap) || !string_is_safe(keymap))) ||
-            (keymap_toggle && (!filename_is_valid(keymap_toggle) || !string_is_safe(keymap_toggle))))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keymap data");
 
         r = bus_verify_polkit_async(
                         m,
