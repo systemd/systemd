@@ -710,35 +710,34 @@ int bus_match_parse(
                 struct bus_match_component **ret_components,
                 unsigned *ret_n_components) {
 
-        const char *p = match;
         struct bus_match_component *components = NULL;
         size_t components_allocated = 0;
         unsigned n_components = 0;
-        _cleanup_free_ char *value = NULL;
         int r;
 
         assert(match);
         assert(ret_components);
         assert(ret_n_components);
 
-        while (*p != 0) {
+        while (*match != '\0') {
                 const char *eq, *q;
                 enum bus_match_node_type t;
                 unsigned j = 0;
+                _cleanup_free_ char *value = NULL;
                 size_t value_allocated = 0;
                 bool escaped = false, quoted;
                 uint8_t u;
 
                 /* Avahi's match rules appear to include whitespace, skip over it */
-                p += strspn(p, " ");
+                match += strspn(match, " ");
 
-                eq = strchr(p, '=');
+                eq = strchr(match, '=');
                 if (!eq) {
                         r = -EINVAL;
                         goto fail;
                 }
 
-                t = bus_match_node_type_from_string(p, eq - p);
+                t = bus_match_node_type_from_string(match, eq - match);
                 if (t < 0) {
                         r = -EINVAL;
                         goto fail;
@@ -748,14 +747,14 @@ int bus_match_parse(
 
                 for (q = eq + 1 + quoted;; q++) {
 
-                        if (*q == 0) {
+                        if (*q == '\0') {
 
                                 if (quoted) {
                                         r = -EINVAL;
                                         goto fail;
                                 } else {
                                         if (value)
-                                                value[j] = 0;
+                                                value[j] = '\0';
                                         break;
                                 }
                         }
@@ -769,14 +768,13 @@ int bus_match_parse(
                                 if (quoted) {
                                         if (*q == '\'') {
                                                 if (value)
-                                                        value[j] = 0;
+                                                        value[j] = '\0';
                                                 break;
                                         }
                                 } else {
                                         if (*q == ',') {
                                                 if (value)
-                                                        value[j] = 0;
-
+                                                        value[j] = '\0';
                                                 break;
                                         }
                                 }
@@ -813,10 +811,11 @@ int bus_match_parse(
                         goto fail;
                 }
 
-                components[n_components].type = t;
-                components[n_components].value_str = TAKE_PTR(value);
-                components[n_components].value_u8 = u;
-                n_components++;
+                components[n_components++] = (struct bus_match_component) {
+                        .type = t,
+                        .value_str = TAKE_PTR(value),
+                        .value_u8 = u,
+                };
 
                 if (q[quoted] == 0)
                         break;
@@ -826,7 +825,7 @@ int bus_match_parse(
                         goto fail;
                 }
 
-                p = q + 1 + quoted;
+                match = q + 1 + quoted;
         }
 
         /* Order the whole thing, so that we always generate the same tree */
