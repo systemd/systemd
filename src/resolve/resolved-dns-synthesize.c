@@ -81,7 +81,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, int if
                         return r;
         }
 
-        if (IN_SET(key->type, DNS_TYPE_AAAA, DNS_TYPE_ANY)) {
+        if (IN_SET(key->type, DNS_TYPE_AAAA, DNS_TYPE_ANY) && socket_ipv6_is_enabled()) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_AAAA, dns_resource_key_name(key));
@@ -234,7 +234,7 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
                                         .address.in.s_addr = htobe32(0x7F000002),
                                 };
 
-                        if (IN_SET(af, AF_INET6, AF_UNSPEC))
+                        if (IN_SET(af, AF_INET6, AF_UNSPEC) && socket_ipv6_is_enabled())
                                 buffer[n++] = (struct local_address) {
                                         .family = AF_INET6,
                                         .ifindex = dns_synthesize_ifindex(ifindex),
