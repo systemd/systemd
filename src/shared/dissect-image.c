@@ -2270,9 +2270,11 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
         /* As per the os-release spec, if the image is an extension it will have a file
          * named after the image name in extension-release.d/ */
-        if (m->image_name)
-                paths[META_EXTENSION_RELEASE] = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name);
-        else
+        if (m->image_name) {
+                char *ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
+                ext[strlen(ext) - 1] = '\0'; /* Extra \0 for NULSTR_FOREACH using placeholder from above */
+                paths[META_EXTENSION_RELEASE] = ext;
+        } else
                 log_debug("No image name available, will skip extension-release metadata");
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
