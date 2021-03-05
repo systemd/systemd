@@ -736,6 +736,11 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         if (dot_or_dot_dot(p))
                 return false;
 
+        /* Let's refuse "all" and "default" as interface name, to avoid collisions with the special sysctl
+         * directories /proc/sys/net/{ipv4,ipv6}/conf/{all,default} */
+        if (STR_IN_SET(p, "all", "default"))
+                return false;
+
         for (const char *t = p; *t; t++) {
                 if ((unsigned char) *t >= 127U)
                         return false;
