@@ -242,8 +242,6 @@ shared_sources = files('''
         specifier.h
         switch-root.c
         switch-root.h
-        sysctl-util.c
-        sysctl-util.h
         tmpfile-util-label.c
         tmpfile-util-label.h
         tomoyo-util.c
