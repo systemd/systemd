@@ -73,15 +73,21 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-char **strv_split_newlines(const char *s);
-
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags);
 static inline char **strv_split(const char *s, const char *separators) {
         char **ret;
-        int r;
 
-        r = strv_split_full(&ret, s, separators, 0);
-        if (r < 0)
+        if (strv_split_full(&ret, s, separators, 0) < 0)
+                return NULL;
+
+        return ret;
+}
+
+int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags);
+static inline char **strv_split_newlines(const char *s) {
+        char **ret;
+
+        if (strv_split_newlines_full(&ret, s, 0) < 0)
                 return NULL;
 
         return ret;

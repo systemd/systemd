@@ -1,7 +1,7 @@
 [Unit]
-Description=TESTSUITE-55-UDEV-TAGS
+Description=TESTSUITE-55-OOMD
 
 [Service]
-ExecStartPre=rm -f /failed /testok
+ExecStartPre=rm -f /failed /skipped /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot

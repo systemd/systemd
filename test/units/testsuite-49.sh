@@ -1,46 +1,42 @@
 #!/usr/bin/env bash
-
 set -ex
 
-test_rule="/run/udev/rules.d/49-test.rules"
+echo "MARKER_FIXED" > /run/testservice-49-fixed
+mkdir -p /run/inaccessible
 
-setup() {
-    mkdir -p "${test_rule%/*}"
-    cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bckp
-    echo 'KERNEL=="lo", SUBSYSTEM=="net", PROGRAM=="/bin/sleep 60"' > "${test_rule}"
-    echo "event_timeout=30" >> /etc/udev/udev.conf
-    echo "timeout_signal=SIGABRT" >> /etc/udev/udev.conf
+systemctl start testsuite-49-namespaced.service
 
-    systemctl restart systemd-udevd.service
-}
+# Ensure that inaccessible paths aren't bypassed by the runtime setup
+set +e
+systemctl bind --mkdir testsuite-49-namespaced.service /run/testservice-49-fixed /run/inaccessible/testfile_fixed && exit 1
+set -e
 
-teardown() {
-    set +e
+echo "MARKER_RUNTIME" > /run/testservice-49-runtime
 
-    mv -f /etc/udev/udev.conf.bckp /etc/udev/udev.conf
-    rm -f "$test_rule"
-    systemctl restart systemd-udevd.service
-}
+systemctl bind --mkdir testsuite-49-namespaced.service /run/testservice-49-runtime /tmp/testfile_runtime
 
-run_test() {
-    since="$(date +%T)"
+while systemctl show -P SubState testsuite-49-namespaced.service | grep -q running
+do
+    sleep 0.1
+done
 
-    echo add > /sys/class/net/lo/uevent
+systemctl is-active testsuite-49-namespaced.service
 
-    for n in {1..20}; do
-        sleep 5
-        if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
-            return 0
-        fi
-    done
+# Now test that systemctl bind fails when attempted on a non-namespaced unit
+systemctl start testsuite-49-non-namespaced.service
 
-    return 1
-}
+set +e
+systemctl bind --mkdir testsuite-49-non-namespaced.service /run/testservice-49-runtime /tmp/testfile_runtime && exit 1
+set -e
 
-trap teardown EXIT
+while systemctl show -P SubState testsuite-49-non-namespaced.service | grep -q running
+do
+    sleep 0.1
+done
 
-setup
-run_test
+set +e
+systemctl is-active testsuite-49-non-namespaced.service && exit 1
+set -e
 
 echo OK > /testok
 
