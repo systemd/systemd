@@ -45,6 +45,10 @@ static bool arg_enable = false;
 static bool arg_now = false;
 static bool arg_no_block = false;
 
+static bool is_portable_managed(const char *unit) {
+        return ENDSWITH_SET(unit, ".service", ".target", ".socket", ".path", ".timer");
+}
+
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
 
@@ -511,7 +515,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
                 if (r == 0)
                         break;
 
-                if (STR_IN_SET(type, "symlink", "copy") && ENDSWITH_SET(path, ".service", ".target", ".socket")) {
+                if (STR_IN_SET(type, "symlink", "copy") && is_portable_managed(path)) {
                         (void) maybe_enable_disable(bus, path, true);
                         (void) maybe_start_stop(bus, path, true, wait);
                 }
