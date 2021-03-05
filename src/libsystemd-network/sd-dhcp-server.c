@@ -1024,7 +1024,7 @@ static int server_receive_message(sd_event_source *s, int fd,
 
                                 /* TODO figure out if this can be done as a filter on
                                  * the socket, like for IPv6 */
-                                if (server->ifindex != info->ipi_ifindex &&
+                                if (server->ifindex != info->ipi_ifindex)
                                         return 0;
 
                                 break;
