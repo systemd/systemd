@@ -574,6 +574,22 @@ static int dns_stub_reply_with_edns0_do(DnsQuery *q) {
                   DNS_PACKET_CD(q->request_packet));     /* … or client set CD */
 }
 
+static void dns_stub_suppress_duplicate_section_rrs(DnsQuery *q) {
+        /* If we follow a CNAME/DNAME chain we might end up populating our sections with redundant RRs
+         * because we built up the sections from multiple reply packets (one from each CNAME/DNAME chain
+         * element). e.g. it could be that an RR that was included in the first reply's additional section
+         * ends up being relevant as main answer in a subsequent reply in the chain. Let's clean this up, and
+         * remove everything from the "higher priority" sections from the "lower priority" sections if they
+         * exists in both.
+         *
+         * Note that this removal matches by RR keys instead of the full RRs. This is because RRsets should
+         * always end up in one section fully or not at all, but never be split among sections. */
+
+        dns_answer_remove_by_answer_keys(&q->reply_authoritative, q->reply_answer);
+        dns_answer_remove_by_answer_keys(&q->reply_additional, q->reply_answer);
+        dns_answer_remove_by_answer_keys(&q->reply_additional, q->reply_authoritative);
+}
+
 static int dns_stub_send_reply(
                 DnsQuery *q,
                 int rcode) {
@@ -593,6 +609,8 @@ static int dns_stub_send_reply(
                         &truncated);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
+
+        dns_stub_suppress_duplicate_section_rrs(q);
 
         r = dns_stub_add_reply_packet_body(
                         reply,
