@@ -277,10 +277,23 @@ const char* socket_address_get_path(const SocketAddress *a) {
 }
 
 bool socket_ipv6_is_supported(void) {
-        if (access("/proc/net/if_inet6", F_OK) != 0)
-                return false;
+        static int cached = -1;
 
-        return true;
+        if (cached < 0) {
+
+                if (access("/proc/net/if_inet6", F_OK) < 0) {
+
+                        if (errno != ENOENT) {
+                                log_debug_errno(errno, "Unexpected error when checking whether /proc/net/if_inet6 exists: %m");
+                                return false;
+                        }
+
+                        cached = false;
+                } else
+                        cached = true;
+        }
+
+        return cached;
 }
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {
