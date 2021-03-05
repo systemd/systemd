@@ -559,8 +559,10 @@ int main(int argc, char *argv[]) {
                 sync_with_progress();
 
         if (streq(arg_verb, "exit")) {
-                if (in_container)
+                if (in_container) {
+                        log_info("Exiting container.");
                         return arg_exit_code;
+                }
 
                 cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
         }
