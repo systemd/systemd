@@ -240,27 +240,28 @@ int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix) {
         return 0;
 }
 
-char **strv_split_newlines(const char *s) {
-        char **l;
+int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
+        _cleanup_strv_free_ char **l = NULL;
         size_t n;
+        int r;
 
         assert(s);
 
-        /* Special version of strv_split() that splits on newlines and
-         * suppresses an empty string at the end */
+        /* Special version of strv_split_full() that splits on newlines and
+         * suppresses an empty string at the end. */
 
-        l = strv_split(s, NEWLINE);
-        if (!l)
-                return NULL;
+        r = strv_split_full(&l, s, NEWLINE, flags);
+        if (r < 0)
+                return r;
 
         n = strv_length(l);
-        if (n <= 0)
-                return l;
-
-        if (isempty(l[n - 1]))
+        if (n > 0 && isempty(l[n - 1])) {
                 l[n - 1] = mfree(l[n - 1]);
+                n--;
+        }
 
-        return l;
+        *ret = TAKE_PTR(l);
+        return n;
 }
 
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {

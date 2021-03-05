@@ -1,0 +1,7 @@
+[Unit]
+Description=TESTSUITE-59-UDEV-IMPORT
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
