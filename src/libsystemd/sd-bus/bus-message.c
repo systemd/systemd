@@ -161,8 +161,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
         start = ALIGN_TO(old_size, align);
         new_size = start + sz;
 
-        if (new_size < start ||
-            new_size > (size_t) UINT32_MAX)
+        if (new_size < start || new_size > UINT32_MAX)
                 goto poison;
 
         if (old_size == new_size)
@@ -1337,8 +1336,7 @@ static void *message_extend_body(
         added = padding + sz;
 
         /* Check for 32bit overflows */
-        if (end_body > (size_t) UINT32_MAX ||
-            end_body < start_body) {
+        if (end_body < start_body || end_body > UINT32_MAX) {
                 m->poisoned = true;
                 return NULL;
         }
