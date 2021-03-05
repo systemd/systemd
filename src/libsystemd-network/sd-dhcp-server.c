@@ -264,7 +264,7 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
         return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }
 
-static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
+static int dhcp_server_send_udp(sd_dhcp_server *server, int ifindex, be32_t destination,
                                 uint16_t destination_port,
                                 DHCPMessage *message, size_t len) {
         union sockaddr_union dest = {
@@ -378,11 +378,11 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                 destination = req->message->ciaddr;
 
         if (destination != INADDR_ANY)
-                return dhcp_server_send_udp(server, destination,
+                return dhcp_server_send_udp(server, server->ifindex, destination,
                                             destination_port, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
         else if (requested_broadcast(req) || type == DHCP_NAK)
-                return dhcp_server_send_udp(server, INADDR_BROADCAST,
+                return dhcp_server_send_udp(server, server->ifindex, INADDR_BROADCAST,
                                             destination_port, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
         else
@@ -594,7 +594,7 @@ static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
 
         memcpy(&packet->dhcp.chaddr, chaddr, ETH_ALEN);
 
-        r = dhcp_server_send_udp(server, address, DHCP_PORT_CLIENT,
+        r = dhcp_server_send_udp(server, server->ifindex, address, DHCP_PORT_CLIENT,
                                  &packet->dhcp,
                                  sizeof(DHCPMessage) + optoffset);
         if (r < 0)
@@ -725,7 +725,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
             }
             log_dhcp_server(server, "relay BOOTREPLY");
             be32_t destination = INADDR_BROADCAST; //todo check BROADCAST flag
-            dhcp_server_send_udp(server, destination, DHCP_PORT_CLIENT, message, length);
+            dhcp_server_send_udp(server, server->ifindex, destination, DHCP_PORT_CLIENT, message, length);
             return 0;
         }
 
@@ -739,7 +739,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
             }
 
 
-            dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
+            dhcp_server_send_udp(server, 0, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
             return 0;
         }
 
