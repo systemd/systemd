@@ -911,7 +911,7 @@ static int update_devnode(UdevEvent *event) {
         return udev_node_add(dev, apply_mac, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
-static void event_execute_rules_on_remove(
+static int event_execute_rules_on_remove(
                 UdevEvent *event,
                 int inotify_fd,
                 usec_t timeout_usec,
@@ -937,10 +937,12 @@ static void event_execute_rules_on_remove(
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_watch_end(inotify_fd, dev);
 
-        (void) udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
+        r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
+
+        return r;
 }
 
 static int udev_event_on_move(sd_device *dev) {
@@ -993,10 +995,8 @@ int udev_event_execute_rules(
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
-        if (action == SD_DEVICE_REMOVE) {
-                event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
-                return 0;
-        }
+        if (action == SD_DEVICE_REMOVE)
+                return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
