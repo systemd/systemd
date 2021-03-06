@@ -323,12 +323,8 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         if (timeout > 0) {
-                usec_t usec;
-
-                usec = usec_add(now(clock_boottime_or_monotonic()), timeout);
-
-                r = sd_event_add_time(m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
-                if (r < 0)
+                r = sd_event_add_time_relative(m->event, NULL, clock_boottime_or_monotonic(), timeout, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                if (r < 0 && r != -EOVERFLOW)
                         return r;
         }
 
