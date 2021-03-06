@@ -94,13 +94,13 @@
     connection object <parameter>bus</parameter>. The syntax of the match rule expression passed in
     <parameter>match</parameter> is described in the <ulink
     url="https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus Specification</ulink>. The specified handler
-    function <parameter>callback</parameter> is called for eaching incoming message matching the specified expression,
+    function <parameter>callback</parameter> is called for each incoming message matching the specified expression,
     the <parameter>userdata</parameter> parameter is passed as-is to the callback function. The match is installed
     synchronously when connected to a bus broker, i.e. the call sends a control message requested the match to be added
     to the broker and waits until the broker confirms the match has been installed successfully.</para>
 
     <para><function>sd_bus_add_match_async()</function> operates very similar to
-    <function>sd_bus_match_signal()</function>, however it installs the match asynchronously, in a non-blocking
+    <function>sd_bus_add_match()</function>, however it installs the match asynchronously, in a non-blocking
     fashion: a request is sent to the broker, but the call does not wait for a response. The
     <parameter>install_callback</parameter> function is called when the response is later received, with the response
     message from the broker as parameter. If this function is specified as <constant>NULL</constant> a default

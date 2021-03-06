@@ -100,7 +100,7 @@
     is sent to the bus broker, and the call waits until the broker responds.</para>
 
     <para><function>sd_bus_request_name_async()</function> is an asynchronous version of
-    <function>sd_bus_release_name()</function>. Instead of waiting for the request to complete, the request message is
+    <function>sd_bus_request_name()</function>. Instead of waiting for the request to complete, the request message is
     enqueued. The specified <parameter>callback</parameter> will be called when the broker's response is received. If
     the parameter is specified as <constant>NULL</constant> a default implementation is used instead which will
     terminate the connection when the name cannot be acquired. The function returns a slot object in its
