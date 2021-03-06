@@ -980,7 +980,6 @@ int udev_event_execute_rules(
                 Hashmap *properties_list,
                 UdevRules *rules) {
 
-        const char *subsystem;
         sd_device_action_t action;
         sd_device *dev;
         int r;
@@ -989,10 +988,6 @@ int udev_event_execute_rules(
         assert(rules);
 
         dev = event->dev;
-
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get subsystem: %m");
 
         r = sd_device_get_action(dev, &action);
         if (r < 0)
