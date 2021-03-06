@@ -14,6 +14,7 @@
 #include "fs-util.h"
 #include "mkdir.h"
 #include "stdio-util.h"
+#include "udev-util.h"
 #include "udev-watch.h"
 
 /* Move any old watches directory out of the way, and then restore the watches. */
@@ -86,6 +87,9 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
                                              "Failed to add device '%s' to watch: %m", devnode);
 
         device_set_watch_handle(dev, wd);
+        r = device_update_db(dev);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to save watch handle in database under /run/udev/data/: %m");
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = mkdir_parents(filename, 0755);
@@ -136,6 +140,11 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
         (void) unlink(filename);
 
         device_set_watch_handle(dev, -1);
+        if (!device_for_action(dev, SD_DEVICE_REMOVE)) {
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to remove watch handle from database under /run/udev/data/: %m");
+        }
 
         return 0;
 }
