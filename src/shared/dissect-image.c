@@ -1121,6 +1121,7 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
                 free(p->name);
         }
 
+        free(d->decrypted);
         free(d);
 #endif
         return NULL;
