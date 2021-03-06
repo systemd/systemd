@@ -423,7 +423,7 @@ static int add_mount(
                  * mount.nfs (so systemd can manage the job-control aspects of 'bg'),
                  * we need to explicitly preserve that default, and also ensure
                  * the systemd mount-timeout doesn't interfere.
-                 * By placing these options first, they can be over-ridden by
+                 * By placing these options first, they can be overridden by
                  * settings in /etc/fstab. */
                 opts = strjoina("x-systemd.mount-timeout=infinity,retry=10000,nofail,", opts, ",fg");
                 SET_FLAG(flags, NOFAIL, true);
@@ -699,9 +699,9 @@ static int add_sysroot_mount(void) {
                 if (!what)
                         return log_oom();
 
-                fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overriden */
+                fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overridden */
 
-                default_rw = true; /* writable, unless overriden */;
+                default_rw = true; /* writable, unless overridden */;
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);
@@ -710,7 +710,7 @@ static int add_sysroot_mount(void) {
 
                 fstype = arg_root_fstype; /* if not specified explicitly, don't default to anything here */
 
-                default_rw = false; /* read-only, unless overriden */
+                default_rw = false; /* read-only, unless overridden */
         }
 
         if (!arg_root_options)
