@@ -198,13 +198,15 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
     QEMU_MEM="2048M"
-    QEMU_SMP=4
+    QEMU_SMP="${QEMU_SMP:-4}"
 
     # We need to correctly distinguish between gcc's and clang's ASan DSOs.
-    if ldd $SYSTEMD | grep -q libasan.so; then
+    if ASAN_RT_NAME="$(ldd "$SYSTEMD" | awk '/libasan.so/ {print $1; exit}')"; then
         ASAN_COMPILER=gcc
-    elif ldd $SYSTEMD | grep -q libclang_rt.asan; then
+        ASAN_RT_PATH="$(readlink -f "$(${CC:-gcc} --print-file-name "$ASAN_RT_NAME")")"
+    elif ASAN_RT_NAME="$(ldd "$SYSTEMD" | awk '/libclang_rt.asan/ {print $1; exit}')"; then
         ASAN_COMPILER=clang
+        ASAN_RT_PATH="$(readlink -f "$(${CC:-clang} --print-file-name "$ASAN_RT_NAME")")"
 
         # As clang's ASan DSO is usually in a non-standard path, let's check if
         # the environment is set accordingly. If not, warn the user and exit.
@@ -212,10 +214,8 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
         # user should encounter (and fix) the same issue when running the unit
         # tests (meson test)
         if ldd "$SYSTEMD" | grep -q "libclang_rt.asan.*not found"; then
-            _asan_rt_name="$(ldd $SYSTEMD | awk '/libclang_rt.asan/ {print $1; exit}')"
-            _asan_rt_path="$(find /usr/lib* /usr/local/lib* -type f -name "$_asan_rt_name" 2>/dev/null | sed 1q)"
-            echo >&2 "clang's ASan DSO ($_asan_rt_name) is not present in the runtime library path"
-            echo >&2 "Consider setting LD_LIBRARY_PATH=${_asan_rt_path%/*}"
+            echo >&2 "clang's ASan DSO ($ASAN_RT_NAME) is not present in the runtime library path"
+            echo >&2 "Consider setting LD_LIBRARY_PATH=${ASAN_RT_PATH%/*}"
             exit 1
         fi
     else
@@ -223,6 +223,8 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
         echo >&2 "gcc does this by default, for clang compile with -shared-libasan"
         exit 1
     fi
+
+    echo "Detected ASan RT '$ASAN_RT_NAME' located at '$ASAN_RT_PATH'"
 fi
 
 function find_qemu_bin() {
@@ -490,6 +492,13 @@ install_verity_minimal() {
         mkdir -p $initdir/usr/lib/systemd/system $initdir/usr/lib/extension-release.d $initdir/etc $initdir/var/tmp $initdir/opt
         setup_basic_dirs
         install_basic_tools
+        if [[ -v ASAN_RT_PATH ]]; then
+            # If we're compiled with ASan, install the ASan RT (and its dependencies)
+            # into the verity images to get rid of the annoying errors about
+            # missing $LD_PRELOAD libraries.
+            inst_libs "$ASAN_RT_PATH"
+            inst_library "$ASAN_RT_PATH"
+        fi
         cp $os_release $initdir/usr/lib/os-release
         ln -s ../usr/lib/os-release $initdir/etc/os-release
         touch $initdir/etc/machine-id $initdir/etc/resolv.conf
@@ -654,25 +663,22 @@ create_asan_wrapper() {
     local _asan_rt_pattern
     ddebug "Create $_asan_wrapper"
 
-    case "$ASAN_COMPILER" in
-        gcc)
-            _asan_rt_pattern="*libasan*"
-            ;;
-        clang)
-            _asan_rt_pattern="libclang_rt.asan-*"
-            # Install llvm-symbolizer to generate useful reports
-            # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
-            dracut_install "llvm-symbolizer"
-            ;;
-        *)
-            dfail "Unsupported compiler: $ASAN_COMPILER"
-            exit 1
-    esac
+    [[ -z "$ASAN_RT_PATH" ]] && dfatal "ASAN_RT_PATH is empty, but it shouldn't be"
+
+    # clang: install llvm-symbolizer to generate useful reports
+    # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
+    [[ "$ASAN_COMPILER" == "clang" ]] && dracut_install "llvm-symbolizer"
 
     cat >$_asan_wrapper <<EOF
 #!/usr/bin/env bash
 
 set -x
+
+echo "ASan RT: $ASAN_RT_PATH"
+if [[ ! -e "$ASAN_RT_PATH" ]]; then
+    echo >&2 "Couldn't find ASan RT at '$ASAN_RT_PATH', can't continue"
+    exit 1
+fi
 
 DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
 DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
@@ -686,15 +692,15 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -o remount,rw /
 
-PATH_TO_ASAN=\$(find / -name '$_asan_rt_pattern' | sed 1q)
-if [[ "\$PATH_TO_ASAN" ]]; then
-  # A lot of services (most notably dbus) won't start without preloading libasan
-  # See https://github.com/systemd/systemd/issues/5004
-  DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=\$PATH_TO_ASAN"
+# A lot of services (most notably dbus) won't start without preloading libasan
+# See https://github.com/systemd/systemd/issues/5004
+DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=$ASAN_RT_PATH"
+
+if [[ "$ASAN_COMPILER" == "clang" ]]; then
   # Let's add the ASan DSO's path to the dynamic linker's cache. This is pretty
   # unnecessary for gcc & libasan, however, for clang this is crucial, as its
   # runtime ASan DSO is in a non-standard (library) path.
-  echo \${PATH_TO_ASAN%/*} > /etc/ld.so.conf.d/asan-path-override.conf
+  echo "${ASAN_RT_PATH%/*}" > /etc/ld.so.conf.d/asan-path-override.conf
   ldconfig
 fi
 echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
@@ -730,6 +736,14 @@ printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush
 # at_exit check just for the dbus.service
 mkdir -p /etc/systemd/system/dbus.service.d
 printf "[Service]\nEnvironment=ASAN_OPTIONS=leak_check_at_exit=false\n" >/etc/systemd/system/dbus.service.d/disable-lsan.conf
+
+# Some utilities run via IMPORT/RUN/PROGRAM udev directives fail because
+# they're uninstrumented (like dmsetup). Let's add a simple rule which sets
+# LD_PRELOAD to the ASan RT library to fix this.
+mkdir -p /etc/udev/rules.d
+cat > /etc/udev/rules.d/00-set-LD_PRELOAD.rules << INNER_EOF
+SUBSYSTEM=="block", ENV{LD_PRELOAD}="$ASAN_RT_PATH"
+INNER_EOF
 
 # The 'mount' utility doesn't behave well under libasan, causing unexpected
 # fails during boot and subsequent test results check:
