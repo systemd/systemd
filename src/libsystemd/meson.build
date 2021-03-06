@@ -315,3 +315,11 @@ if cxx_cmd != ''
                 [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc']],
         ]
 endif
+
+############################################################
+
+fuzzers += [
+        [['src/libsystemd/sd-bus/fuzz-bus-message.c']],
+
+        [['src/libsystemd/sd-bus/fuzz-bus-match.c']],
+]
