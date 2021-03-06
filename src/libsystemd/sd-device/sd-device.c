@@ -1296,7 +1296,6 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         if (!subsystem)
                                 return -EINVAL;
 
-
                         if (streq(subsystem, "drivers"))
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real subsystem
                                  * encoded as well */
