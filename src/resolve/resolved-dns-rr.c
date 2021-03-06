@@ -244,6 +244,9 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
         if (cname->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
 
+        if (!dns_type_may_redirect(key->type))
+                return 0;
+
         if (cname->type == DNS_TYPE_CNAME)
                 r = dns_name_equal(dns_resource_key_name(key), dns_resource_key_name(cname));
         else if (cname->type == DNS_TYPE_DNAME)
@@ -1743,7 +1746,14 @@ int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord 
         assert(key);
         assert(cname);
 
+        /* Checks if the RR `cname` is a CNAME/DNAME RR that matches the specified `key`. If so, returns the
+         * target domain. If not, returns -EUNATCH */
+
         if (key->class != cname->key->class && key->class != DNS_CLASS_ANY)
+                return -EUNATCH;
+
+        if (!dns_type_may_redirect(key->type)) /* This key type is not subject to CNAME/DNAME redirection?
+                                                * Then let's refuse right-away */
                 return -EUNATCH;
 
         if (cname->key->type == DNS_TYPE_CNAME) {

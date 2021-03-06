@@ -68,6 +68,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free);
 
 int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key);
 int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr);
+int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b);
 
 int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key, DnsAnswerFlags or_flags, DnsResourceRecord *rrsig);
 int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKey *key, DnsAnswerFlags or_flags, DnsResourceRecord *rrsig);
