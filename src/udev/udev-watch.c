@@ -68,6 +68,7 @@ unlink:
 
 int udev_watch_begin(int inotify_fd, sd_device *dev) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *old_id = NULL;
         const char *devnode, *id;
         int wd, r;
 
@@ -90,11 +91,21 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
         r = mkdir_parents(filename, 0755);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to create parent directory of '%s': %m", filename);
-        (void) unlink(filename);
 
         r = device_get_id_filename(dev, &id);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get device id-filename: %m");
+
+        r = readlink_malloc(filename, &old_id);
+        if (r >= 0) {
+                if (streq(id, old_id))
+                        return 0;
+
+                log_device_warning(dev, "'%s' is a symbolic link to a differnt device '%s', ignoring.", filename, old_id);
+        } else if (r != -ENOENT)
+                log_device_warning_errno(dev, r, "Failed to read target of symbolic link '%s', ignoring: %m", filename);
+
+        (void) unlink(filename);
 
         if (symlink(id, filename) < 0)
                 return log_device_error_errno(dev, errno, "Failed to create symlink %s: %m", filename);
