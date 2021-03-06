@@ -16,28 +16,13 @@
 #include "stdio-util.h"
 #include "udev-watch.h"
 
-static int inotify_fd = -1;
-
-/* inotify descriptor, will be shared with rules directory;
- * set to cloexec since we need our children to be able to add
- * watches for us. */
-int udev_watch_init(void) {
-        inotify_fd = inotify_init1(IN_CLOEXEC);
-        if (inotify_fd < 0)
-                return -errno;
-
-        return inotify_fd;
-}
-
 /* Move any old watches directory out of the way, and then restore the watches. */
-int udev_watch_restore(void) {
+int udev_watch_restore(int inotify_fd) {
         struct dirent *ent;
         DIR *dir;
         int r;
 
-        if (inotify_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid inotify descriptor.");
+        assert(inotify_fd >= 0);
 
         if (rename("/run/udev/watch", "/run/udev/watch.old") < 0) {
                 if (errno != ENOENT)
@@ -70,7 +55,7 @@ int udev_watch_restore(void) {
                 }
 
                 log_device_debug(dev, "Restoring old watch");
-                (void) udev_watch_begin(dev);
+                (void) udev_watch_begin(inotify_fd, dev);
 unlink:
                 (void) unlinkat(dirfd(dir), ent->d_name, 0);
         }
@@ -81,14 +66,13 @@ unlink:
         return 0;
 }
 
-int udev_watch_begin(sd_device *dev) {
+int udev_watch_begin(int inotify_fd, sd_device *dev) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         const char *devnode, *id_filename;
         int wd, r;
 
-        if (inotify_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid inotify descriptor.");
+        assert(inotify_fd >= 0);
+        assert(dev);
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
@@ -118,12 +102,15 @@ int udev_watch_begin(sd_device *dev) {
         return 0;
 }
 
-int udev_watch_end(sd_device *dev) {
+int udev_watch_end(int inotify_fd, sd_device *dev) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         int wd, r;
 
+        assert(dev);
+
+        /* This may be called by 'udevadm test'. In that case, inotify_fd is not initialized. */
         if (inotify_fd < 0)
-                return 0; /* Nothing to do. */
+                return 0;
 
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
@@ -147,15 +134,8 @@ int udev_watch_lookup(int wd, sd_device **ret) {
         _cleanup_free_ char *device = NULL;
         int r;
 
+        assert(wd >= 0);
         assert(ret);
-
-        if (inotify_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid inotify descriptor.");
-
-        if (wd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid watch handle.");
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = readlink_malloc(filename, &device);
