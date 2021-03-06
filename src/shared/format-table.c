@@ -1317,9 +1317,9 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
 }
 
 static char* format_strv_width(char **strv, size_t column_width) {
+        _cleanup_free_ char *buf = NULL; /* buf must be freed after f */
         _cleanup_fclose_ FILE *f = NULL;
         size_t sz = 0;
-        _cleanup_free_ char *buf = NULL;
 
         f = open_memstream_unlocked(&buf, &sz);
         if (!f)
@@ -2320,8 +2320,8 @@ int table_print(Table *t, FILE *f) {
 }
 
 int table_format(Table *t, char **ret) {
+        _cleanup_free_ char *buf = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char *buf = NULL;
         size_t sz = 0;
         int r;
 
@@ -2335,7 +2335,7 @@ int table_format(Table *t, char **ret) {
 
         f = safe_fclose(f);
 
-        *ret = buf;
+        *ret = TAKE_PTR(buf);
 
         return 0;
 }
