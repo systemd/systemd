@@ -33,7 +33,7 @@ actions:
     #     will fail (with error: cast from pointer to integer of different size)
     #
     # [0] https://github.com/mesonbuild/meson/issues/7360
-    - 'sed -i "/^CONFIGURE_OPTS=(/a%ifnarch i386 i686\n-Dc_args=\"-Werror -Wno-deprecated-declarations\" -Dcpp_args=\"-Werror -Wno-deprecated-declarations\" -Db_pie=true\n%endif" .packit_rpm/systemd.spec'
+    - 'sed -i "/^CONFIGURE_OPTS=(/a%ifnarch i386 i686\n-Dc_args=\"-Werror -Wno-deprecated-declarations -fPIC\" -Dcpp_args=\"-Werror -Wno-deprecated-declarations -fPIC\" -Db_pie=true\n%endif" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
