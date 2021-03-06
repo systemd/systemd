@@ -145,3 +145,5 @@ static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
                                       dns_query_fully_confidential(q)) |
                 (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
 }
+
+#define CNAME_REDIRECT_MAX 16
