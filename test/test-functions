@@ -492,6 +492,13 @@ install_verity_minimal() {
         mkdir -p $initdir/usr/lib/systemd/system $initdir/usr/lib/extension-release.d $initdir/etc $initdir/var/tmp $initdir/opt
         setup_basic_dirs
         install_basic_tools
+        if [[ -v ASAN_RT_PATH ]]; then
+            # If we're compiled with ASan, install the ASan RT (and its dependencies)
+            # into the verity images to get rid of the annoying errors about
+            # missing $LD_PRELOAD libraries.
+            inst_libs "$ASAN_RT_PATH"
+            inst_library "$ASAN_RT_PATH"
+        fi
         cp $os_release $initdir/usr/lib/os-release
         ln -s ../usr/lib/os-release $initdir/etc/os-release
         touch $initdir/etc/machine-id $initdir/etc/resolv.conf
@@ -729,6 +736,14 @@ printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush
 # at_exit check just for the dbus.service
 mkdir -p /etc/systemd/system/dbus.service.d
 printf "[Service]\nEnvironment=ASAN_OPTIONS=leak_check_at_exit=false\n" >/etc/systemd/system/dbus.service.d/disable-lsan.conf
+
+# Some utilities run via IMPORT/RUN/PROGRAM udev directives fail because
+# they're uninstrumented (like dmsetup). Let's add a simple rule which sets
+# LD_PRELOAD to the ASan RT library to fix this.
+mkdir -p /etc/udev/rules.d
+cat > /etc/udev/rules.d/00-set-LD_PRELOAD.rules << INNER_EOF
+SUBSYSTEM=="block", ENV{LD_PRELOAD}="$ASAN_RT_PATH"
+INNER_EOF
 
 # The 'mount' utility doesn't behave well under libasan, causing unexpected
 # fails during boot and subsequent test results check:
