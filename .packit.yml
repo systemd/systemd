@@ -21,7 +21,7 @@ actions:
     # Drop backported patches from the specfile, but keep the downstream-only ones
     # - Patch0000-0499: backported patches from upstream
     # - Patch0500-9999: downstream-only patches
-    - "sed -ri '/^Patch0[0-4][0-9]{2}+\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+    - "sed -ri '/^Patch0[0-4]?[0-9]{0,2}\\:.+\\.patch/d' .packit_rpm/systemd.spec"
     # Build the RPMs with -Werror to catch possible compiler warnings. Since
     # --werror in meson doesn't seem to work with -Db_lto=true [0], let's use
     # -Dc_args= and -Dcpp_args= instead.
@@ -33,7 +33,7 @@ actions:
     #     will fail (with error: cast from pointer to integer of different size)
     #
     # [0] https://github.com/mesonbuild/meson/issues/7360
-    - 'sed -i "/^CONFIGURE_OPTS=(/a%ifnarch i386 i686\n-Dc_args=\"-Werror -Wno-deprecated-declarations\" -Dcpp_args=\"-Werror -Wno-deprecated-declarations\"\n%endif" .packit_rpm/systemd.spec'
+    - 'sed -i "/^CONFIGURE_OPTS=(/a%ifnarch i386 i686\n-Dc_args=\"-Werror -Wno-deprecated-declarations -fPIC\" -Dcpp_args=\"-Werror -Wno-deprecated-declarations -fPIC\"\n%endif" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
