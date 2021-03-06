@@ -51,20 +51,28 @@ UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rt
 UdevEvent *udev_event_free(UdevEvent *event);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
 
-size_t udev_event_apply_format(UdevEvent *event,
-                               const char *src, char *dest, size_t size,
-                               bool replace_whitespace);
+size_t udev_event_apply_format(
+                UdevEvent *event,
+                const char *src,
+                char *dest,
+                size_t size,
+                bool replace_whitespace);
 int udev_check_format(const char *value, size_t *offset, const char **hint);
-int udev_event_spawn(UdevEvent *event,
-                     usec_t timeout_usec,
-                     int timeout_signal,
-                     bool accept_failure,
-                     const char *cmd, char *result, size_t ressize);
-int udev_event_execute_rules(UdevEvent *event,
-                             usec_t timeout_usec,
-                             int timeout_signal,
-                             Hashmap *properties_list,
-                             UdevRules *rules);
+int udev_event_spawn(
+                UdevEvent *event,
+                usec_t timeout_usec,
+                int timeout_signal,
+                bool accept_failure,
+                const char *cmd,
+                char *result,
+                size_t ressize);
+int udev_event_execute_rules(
+                UdevEvent *event,
+                int inotify_fd,
+                usec_t timeout_usec,
+                int timeout_signal,
+                Hashmap *properties_list,
+                UdevRules *rules);
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal);
 
 static inline usec_t udev_warn_timeout(usec_t timeout_usec) {

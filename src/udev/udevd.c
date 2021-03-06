@@ -92,10 +92,12 @@ typedef struct Manager {
 
         sd_device_monitor *monitor;
         struct udev_ctrl *ctrl;
-        int fd_inotify;
         int worker_watch[2];
 
+        /* used by udev-watch */
+        int inotify_fd;
         sd_event_source *inotify_event;
+
         sd_event_source *kill_workers_event;
 
         usec_t last_usec;
@@ -304,7 +306,7 @@ static Manager* manager_free(Manager *manager) {
         hashmap_free_free_free(manager->properties);
         udev_rules_free(manager->rules);
 
-        safe_close(manager->fd_inotify);
+        safe_close(manager->inotify_fd);
         safe_close_pair(manager->worker_watch);
 
         return mfree(manager);
@@ -473,7 +475,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                  * degree — they go hand-in-hand after all. */
 
                 log_device_debug(dev, "Block device is currently locked, installing watch to wait until the lock is released.");
-                (void) udev_watch_begin(dev);
+                (void) udev_watch_begin(manager->inotify_fd, dev);
 
                 /* Now the watch is installed, let's lock the device again, maybe in the meantime things changed */
                 r = worker_lock_block_device(dev, &fd_lock);
@@ -484,7 +486,13 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         (void) worker_mark_block_device_read_only(dev);
 
         /* apply rules, create node, symlinks */
-        r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_timeout_signal, manager->properties, manager->rules);
+        r = udev_event_execute_rules(
+                          udev_event,
+                          manager->inotify_fd,
+                          arg_event_timeout_usec,
+                          arg_timeout_signal,
+                          manager->properties,
+                          manager->rules);
         if (r < 0)
                 return r;
 
@@ -496,12 +504,12 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         /* apply/restore/end inotify watch */
         if (udev_event->inotify_watch) {
-                (void) udev_watch_begin(dev);
+                (void) udev_watch_begin(manager->inotify_fd, dev);
                 r = device_update_db(dev);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
         } else
-                (void) udev_watch_end(dev);
+                (void) udev_watch_end(manager->inotify_fd, dev);
 
         log_device_uevent(dev, "Device processed");
         return 0;
@@ -872,7 +880,7 @@ static void manager_exit(Manager *manager) {
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
 
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-        manager->fd_inotify = safe_close(manager->fd_inotify);
+        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
 
@@ -1309,7 +1317,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 if (e->mask & IN_CLOSE_WRITE)
                         synthesize_change(dev);
                 else if (e->mask & IN_IGNORED)
-                        udev_watch_end(dev);
+                        udev_watch_end(manager->inotify_fd, dev);
         }
 
         return 1;
@@ -1669,7 +1677,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
                 return log_oom();
 
         *manager = (Manager) {
-                .fd_inotify = -1,
+                .inotify_fd = -1,
                 .worker_watch = { -1, -1 },
                 .cgroup = cgroup,
         };
@@ -1722,12 +1730,11 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
 
-        r = udev_watch_init();
-        if (r < 0)
-                return log_error_errno(r, "Failed to create inotify descriptor: %m");
-        manager->fd_inotify = r;
+        manager->inotify_fd = inotify_init1(IN_CLOEXEC);
+        if (manager->inotify_fd < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
 
-        udev_watch_restore();
+        udev_watch_restore(manager->inotify_fd);
 
         /* block and listen to all signals on signalfd */
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
@@ -1772,7 +1779,7 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->fd_inotify, EPOLLIN, on_inotify, manager);
+        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
 
