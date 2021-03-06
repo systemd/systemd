@@ -502,14 +502,9 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 /* in case rtnl was initialized */
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
-        /* apply/restore/end inotify watch */
-        if (udev_event->inotify_watch) {
-                (void) udev_watch_begin(manager->inotify_fd, dev);
-                r = device_update_db(dev);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
-        } else
-                (void) udev_watch_end(manager->inotify_fd, dev);
+        r = udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
+        if (r < 0)
+                return r;
 
         log_device_uevent(dev, "Device processed");
         return 0;
