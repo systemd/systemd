@@ -235,6 +235,8 @@ basic_sources = files('''
         strv.h
         strxcpyx.c
         strxcpyx.h
+        sysctl-util.c
+        sysctl-util.h
         syslog-util.c
         syslog-util.h
         terminal-util.c

@@ -504,6 +504,11 @@ static void test_flush_accept(void) {
         assert_se(flush_accept(listen_seqpacket) >= 0);
 }
 
+static void test_ipv6_enabled(void) {
+        log_info("IPv6 supported: %s", yes_no(socket_ipv6_is_supported()));
+        log_info("IPv6 enabled: %s", yes_no(socket_ipv6_is_enabled()));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -519,6 +524,7 @@ int main(int argc, char *argv[]) {
         test_send_nodata_nofd();
         test_send_emptydata();
         test_flush_accept();
+        test_ipv6_enabled();
 
         return 0;
 }
