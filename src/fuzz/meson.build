@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 fuzzers += [
-        [['src/fuzz/fuzz-bus-message.c']],
-
         [['src/fuzz/fuzz-catalog.c']],
 
         [['src/fuzz/fuzz-json.c']],
