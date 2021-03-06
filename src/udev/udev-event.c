@@ -913,6 +913,7 @@ static int update_devnode(UdevEvent *event) {
 
 static void event_execute_rules_on_remove(
                 UdevEvent *event,
+                int inotify_fd,
                 usec_t timeout_usec,
                 int timeout_signal,
                 Hashmap *properties_list,
@@ -934,7 +935,7 @@ static void event_execute_rules_on_remove(
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
-                (void) udev_watch_end(dev);
+                (void) udev_watch_end(inotify_fd, dev);
 
         (void) udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
@@ -971,11 +972,14 @@ static int copy_all_tags(sd_device *d, sd_device *s) {
         return 0;
 }
 
-int udev_event_execute_rules(UdevEvent *event,
-                             usec_t timeout_usec,
-                             int timeout_signal,
-                             Hashmap *properties_list,
-                             UdevRules *rules) {
+int udev_event_execute_rules(
+                UdevEvent *event,
+                int inotify_fd, /* This may be negative */
+                usec_t timeout_usec,
+                int timeout_signal,
+                Hashmap *properties_list,
+                UdevRules *rules) {
+
         const char *subsystem;
         sd_device_action_t action;
         sd_device *dev;
@@ -995,7 +999,7 @@ int udev_event_execute_rules(UdevEvent *event,
                 return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
         if (action == SD_DEVICE_REMOVE) {
-                event_execute_rules_on_remove(event, timeout_usec, timeout_signal, properties_list, rules);
+                event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
                 return 0;
         }
 
@@ -1009,7 +1013,7 @@ int udev_event_execute_rules(UdevEvent *event,
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 /* Disable watch during event processing. */
-                (void) udev_watch_end(event->dev_db_clone);
+                (void) udev_watch_end(inotify_fd, event->dev_db_clone);
 
         if (action == SD_DEVICE_MOVE) {
                 r = udev_event_on_move(event->dev);
