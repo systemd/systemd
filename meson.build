@@ -552,7 +552,11 @@ foreach ident : [
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        have = cc.has_function(
+                        ident[0],
+                        prefix : ident[1],
+                        args : ['-D_GNU_SOURCE',
+                                '-D_DEFAULT_SOURCE']) # reallocarray is defined with _DEFAULT_SOURCE since glibc 2.29
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
