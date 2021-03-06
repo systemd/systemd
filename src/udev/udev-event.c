@@ -1047,11 +1047,7 @@ int udev_event_execute_rules(
         /* Yes, we run update_devnode() twice, because in the first invocation, that is before update of udev database,
          * it could happen that two contenders are replacing each other's symlink. Hence we run it again to make sure
          * symlinks point to devices that claim them with the highest priority. */
-        r = update_devnode(event);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return update_devnode(event);
 }
 
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal) {
