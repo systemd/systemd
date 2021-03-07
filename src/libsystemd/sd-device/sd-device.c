@@ -623,7 +623,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 struct ifreq ifr = {};
                 int ifindex;
 
-                r = ifr.ifr_ifindex = parse_ifindex(&id[1]);
+                r = ifr.ifr_ifindex = parse_ifindex(id + 1);
                 if (r < 0)
                         return r;
 
@@ -652,15 +652,14 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case '+': {
-                char subsys[PATH_MAX];
-                char *sysname;
+                char subsys[NAME_MAX+1]; /* NAME_MAX does not include the trailing NUL. */
+                const char *sysname;
 
-                (void) strscpy(subsys, sizeof(subsys), id + 1);
-                sysname = strchr(subsys, ':');
+                sysname = strchr(id + 1, ':');
                 if (!sysname)
                         return -EINVAL;
 
-                sysname[0] = '\0';
+                (void) strnscpy(subsys, sizeof(subsys), id + 1, sysname - id - 1);
                 sysname++;
 
                 return sd_device_new_from_subsystem_sysname(ret, subsys, sysname);
