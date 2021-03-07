@@ -12,6 +12,7 @@ mkdir -p /run/udev/rules.d/
     udevadm info /dev/null | grep -q -v 'E: CURRENT_TAGS=.*:changed:.*'
 
 cat > /run/udev/rules.d/50-testsuite.rules <<EOF
+SUBSYSTEM=="mem", KERNEL=="null", OPTIONS="log_level=debug"
 ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", TAG+="added"
 ACTION=="change", SUBSYSTEM=="mem", KERNEL=="null", TAG+="changed"
 EOF
