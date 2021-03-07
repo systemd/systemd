@@ -41,6 +41,7 @@ int device_new_aux(sd_device **ret) {
         *device = (sd_device) {
                 .n_ref = 1,
                 .watch_handle = -1,
+                .watch_handle_from_database = -1,
                 .devmode = MODE_INVALID,
                 .devuid = UID_INVALID,
                 .devgid = GID_INVALID,
@@ -1239,7 +1240,7 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
 
                 break;
         case 'W':
-                r = safe_atoi(value, &device->watch_handle);
+                r = safe_atoi(value, &device->watch_handle_from_database);
                 if (r < 0)
                         return r;
 
