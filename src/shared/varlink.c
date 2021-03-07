@@ -1206,8 +1206,9 @@ int varlink_close(Varlink *v) {
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
 
-        /* Let's take a reference first, since varlink_detach_server() might drop the final (dangling) ref
-         * which would destroy us before we can call varlink_clear() */
+        /* Let's take a reference first, since varlink_detach_server() might drop the final ref from the
+         * disconnect callback, which would invalidate the pointer we are holding before we can call
+         * varlink_clear(). */
         varlink_ref(v);
         varlink_detach_server(v);
         varlink_clear(v);
@@ -1219,17 +1220,23 @@ int varlink_close(Varlink *v) {
 Varlink* varlink_close_unref(Varlink *v) {
         if (!v)
                 return NULL;
-
-        (void) varlink_close(v);
+                                   /* n_ref >= 1 */
+        varlink_ref(v);            /* n_ref >= 2 */
+        varlink_close(v);          /* n_ref >= 1 */
+        if (v->n_ref > 1)
+                v->n_ref--;        /* n_ref >= 1 */
         return varlink_unref(v);
 }
 
 Varlink* varlink_flush_close_unref(Varlink *v) {
         if (!v)
                 return NULL;
-
-        (void) varlink_flush(v);
-        (void) varlink_close(v);
+                                   /* n_ref >= 1 */
+        varlink_ref(v);            /* n_ref >= 2 */
+        varlink_flush(v);          /* n_ref >= 1 */
+        varlink_close(v);
+        if (v->n_ref > 1)
+                v->n_ref--;        /* n_ref >= 1 */
         return varlink_unref(v);
 }
 
