@@ -41,6 +41,7 @@ int device_new_aux(sd_device **ret) {
         *device = (sd_device) {
                 .n_ref = 1,
                 .watch_handle = -1,
+                .watch_handle_from_database = -1,
                 .devmode = MODE_INVALID,
                 .devuid = UID_INVALID,
                 .devgid = GID_INVALID,
@@ -62,7 +63,7 @@ static sd_device *device_free(sd_device *device) {
         free(device->subsystem);
         free(device->driver_subsystem);
         free(device->driver);
-        free(device->id_filename);
+        free(device->device_id);
         free(device->properties_strv);
         free(device->properties_nulstr);
 
@@ -625,7 +626,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 struct ifreq ifr = {};
                 int ifindex;
 
-                r = ifr.ifr_ifindex = parse_ifindex(&id[1]);
+                r = ifr.ifr_ifindex = parse_ifindex(id + 1);
                 if (r < 0)
                         return r;
 
@@ -654,15 +655,14 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case '+': {
-                char subsys[PATH_MAX];
-                char *sysname;
+                char subsys[FILENAME_MAX];
+                const char *sysname;
 
-                (void) strscpy(subsys, sizeof(subsys), id + 1);
-                sysname = strchr(subsys, ':');
+                sysname = strchr(id + 1, ':');
                 if (!sysname)
                         return -EINVAL;
 
-                sysname[0] = '\0';
+                (void) strnscpy(subsys, sizeof(subsys), id + 1, sysname - id - 1);
                 sysname++;
 
                 return sd_device_new_from_subsystem_sysname(ret, subsys, sysname);
@@ -1241,7 +1241,7 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
 
                 break;
         case 'W':
-                r = safe_atoi(value, &device->watch_handle);
+                r = safe_atoi(value, &device->watch_handle_from_database);
                 if (r < 0)
                         return r;
 
@@ -1259,11 +1259,11 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         return 0;
 }
 
-int device_get_id_filename(sd_device *device, const char **ret) {
+int device_get_device_id(sd_device *device, const char **ret) {
         assert(device);
         assert(ret);
 
-        if (!device->id_filename) {
+        if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
                 const char *subsystem;
                 dev_t devnum;
@@ -1300,7 +1300,6 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         if (!subsystem)
                                 return -EINVAL;
 
-
                         if (streq(subsystem, "drivers"))
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real subsystem
                                  * encoded as well */
@@ -1311,10 +1310,10 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                                 return -ENOMEM;
                 }
 
-                device->id_filename = TAKE_PTR(id);
+                device->device_id = TAKE_PTR(id);
         }
 
-        *ret = device->id_filename;
+        *ret = device->device_id;
         return 0;
 }
 
@@ -1410,7 +1409,7 @@ int device_read_db_internal(sd_device *device, bool force) {
         if (device->db_loaded || (!force && device->sealed))
                 return 0;
 
-        r = device_get_id_filename(device, &id);
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
