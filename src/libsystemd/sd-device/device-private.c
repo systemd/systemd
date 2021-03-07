@@ -20,6 +20,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -568,28 +569,142 @@ int device_get_devlink_priority(sd_device *device, int *priority) {
         return 0;
 }
 
-int device_get_watch_handle(sd_device *device, int *handle) {
+int device_get_watch_handle(sd_device *device) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *buf = NULL;
+        const char *id, *path_id;
+        int wd, r;
+
+        assert(device);
+
+        if (device->watch_handle >= 0)
+                return device->watch_handle;
+
+        r = device_get_device_id(device, &id);
+        if (r < 0)
+                return r;
+
+        path_id = strjoina("/run/udev/watch/", id);
+        r = readlink_malloc(path_id, &buf);
+        if (r < 0)
+                return r;
+
+        r = safe_atoi(buf, &wd);
+        if (r < 0)
+                return r;
+
+        if (wd < 0)
+                return -EBADF;
+
+        buf = mfree(buf);
+        xsprintf(path_wd, "/run/udev/watch/%d", wd);
+        r = readlink_malloc(path_wd, &buf);
+        if (r < 0)
+                return r;
+
+        if (!streq(buf, id))
+                return -EBADF;
+
+        return device->watch_handle = wd;
+}
+
+static void device_remove_watch_handle(sd_device *device) {
+        const char *id;
+        int wd;
+
+        assert(device);
+
+        /* First, remove the symlink from handle to device id. */
+        wd = device_get_watch_handle(device);
+        if (wd >= 0) {
+                char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+
+                xsprintf(path_wd, "/run/udev/watch/%d", wd);
+                if (unlink(path_wd) < 0 && errno != ENOENT)
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: failed to remove %s, ignoring: %m",
+                                               path_wd);
+        }
+
+        /* Next, remove the symlink from device id to handle. */
+        if (device_get_device_id(device, &id) >= 0) {
+                const char *path_id;
+
+                path_id = strjoina("/run/udev/watch/", id);
+                if (unlink(path_id) < 0 && errno != ENOENT)
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: failed to remove %s, ignoring: %m",
+                                               path_id);
+        }
+
+        device->watch_handle = -1;
+}
+
+int device_set_watch_handle(sd_device *device, int wd) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        const char *id, *path_id;
         int r;
 
         assert(device);
 
-        r = device_read_db(device);
+        if (wd >= 0 && wd == device->watch_handle)
+                return 0;
+
+        device_remove_watch_handle(device);
+
+        if (wd < 0)
+                /* negative wd means that the caller requests to clear saved watch handle. */
+                return 0;
+
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
-        if (device->watch_handle < 0)
-                return -ENOENT;
+        path_id = strjoina("/run/udev/watch/", id);
+        xsprintf(path_wd, "/run/udev/watch/%d", wd);
 
-        if (handle)
-                *handle = device->watch_handle;
+        r = mkdir_parents(path_wd, 0755);
+        if (r < 0)
+                return r;
+
+        if (symlink(id, path_wd) < 0)
+                return -errno;
+
+        if (symlink(path_wd + STRLEN("/run/udev/watch/"), path_id) < 0) {
+                r = -errno;
+                if (unlink(path_wd) < 0 && errno != ENOENT)
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: failed to remove %s, ignoring: %m",
+                                               path_wd);
+                return r;
+        }
+
+        device->watch_handle = wd;
 
         return 0;
 }
 
-void device_set_watch_handle(sd_device *device, int handle) {
-        assert(device);
+int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *id = NULL;
+        int r;
 
-        device->watch_handle = handle;
+        assert(ret);
+
+        if (wd < 0)
+                return -EBADF;
+
+        if (dirfd >= 0) {
+                xsprintf(path_wd, "%d", wd);
+                r = readlinkat_malloc(dirfd, path_wd, &id);
+        } else {
+                xsprintf(path_wd, "/run/udev/watch/%d", wd);
+                r = readlink_malloc(path_wd, &id);
+        }
+        if (r < 0)
+                return r;
+
+        return sd_device_new_from_device_id(ret, id);
 }
 
 int device_rename(sd_device *device, const char *name) {
@@ -822,9 +937,6 @@ static bool device_has_info(sd_device *device) {
         if (!set_isempty(device->current_tags))
                 return true;
 
-        if (device->watch_handle >= 0)
-                return true;
-
         return false;
 }
 
@@ -899,9 +1011,6 @@ int device_update_db(sd_device *device) {
 
                         if (device->devlink_priority != 0)
                                 fprintf(f, "L:%i\n", device->devlink_priority);
-
-                        if (device->watch_handle >= 0)
-                                fprintf(f, "W:%i\n", device->watch_handle);
                 }
 
                 if (device->usec_initialized > 0)
