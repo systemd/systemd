@@ -468,10 +468,10 @@ conf.set('_GNU_SOURCE', true)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 conf.set10('HAVE_WSTRINGOP_TRUNCATION', has_wstringop_truncation)
 
-conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
-conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
+conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>', args: '-fPIC'))
+conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>', args: '-fPIC'))
+conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>', args: '-fPIC'))
+conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>', args: '-fPIC'))
 
 decl_headers = '''
 #include <uchar.h>
@@ -484,7 +484,7 @@ foreach decl : ['char16_t',
                ]
 
         # We get -1 if the size cannot be determined
-        have = cc.sizeof(decl, prefix : decl_headers, args : '-D_GNU_SOURCE') > 0
+        have = cc.sizeof(decl, prefix : decl_headers, args : ['-D_GNU_SOURCE', '-fPIC']) > 0
 
         if decl == 'struct statx'
                 if have
@@ -492,7 +492,7 @@ foreach decl : ['char16_t',
                 else
                         have = cc.sizeof(decl,
                                          prefix : decl_headers + '#include <linux/stat.h>',
-                                         args : '-D_GNU_SOURCE') > 0
+                                         args : ['-D_GNU_SOURCE', '-fPIC']) > 0
                         want_linux_stat_h = have
                 endif
         endif
@@ -503,7 +503,7 @@ endforeach
 conf.set10('WANT_LINUX_STAT_H', want_linux_stat_h)
 
 foreach ident : ['secure_getenv', '__secure_getenv']
-        conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident))
+        conf.set10('HAVE_' + ident.to_upper(), cc.has_function(ident), args : '-fPIC')
 endforeach
 
 foreach ident : [
@@ -552,15 +552,15 @@ foreach ident : [
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        have = cc.has_function(ident[0], prefix : ident[1], args : ['-D_GNU_SOURCE', '-fPIC'])
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
-if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
+if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : ['-D_GNU_SOURCE', '-fPIC'])
         conf.set10('USE_SYS_RANDOM_H', true)
         conf.set10('HAVE_GETRANDOM', true)
 else
-        have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''')
+        have = cc.has_function('getrandom', prefix : '''#include <linux/random.h>''', args : '-fPIC')
         conf.set10('USE_SYS_RANDOM_H', false)
         conf.set10('HAVE_GETRANDOM', have)
 endif
@@ -918,7 +918,7 @@ foreach ident : [
         ['crypt_preferred_method', crypt_header],
         ['crypt_gensalt_ra',       crypt_header]]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE',
+        have = cc.has_function(ident[0], prefix : ident[1], args : ['-D_GNU_SOURCE', '-fPIC'],
                                dependencies : libcrypt)
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
@@ -1036,7 +1036,7 @@ if want_blkid != 'false' and not skip_deps
         have = libblkid.found()
 
         conf.set10('HAVE_BLKID_PROBE_SET_HINT',
-                   have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
+                   have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid, args : '-fPIC'))
 else
         have = false
         libblkid = []
@@ -1087,11 +1087,11 @@ if want_libcryptsetup != 'false' and not skip_deps
         have = libcryptsetup.found()
 
         conf.set10('HAVE_CRYPT_SET_METADATA_SIZE',
-                   have and cc.has_function('crypt_set_metadata_size', dependencies : libcryptsetup))
+                   have and cc.has_function('crypt_set_metadata_size', dependencies : libcryptsetup, args : '-fPIC'))
         conf.set10('HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY',
-                   have and cc.has_function('crypt_activate_by_signed_key', dependencies : libcryptsetup))
+                   have and cc.has_function('crypt_activate_by_signed_key', dependencies : libcryptsetup, args : '-fPIC'))
         conf.set10('HAVE_CRYPT_TOKEN_MAX',
-                   have and cc.has_function('crypt_token_max', dependencies : libcryptsetup))
+                   have and cc.has_function('crypt_token_max', dependencies : libcryptsetup, args : '-fPIC'))
 else
         have = false
         libcryptsetup = []

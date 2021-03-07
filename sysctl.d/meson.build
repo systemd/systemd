@@ -9,7 +9,7 @@ in_files = []
 # Kernel determines PID_MAX_LIMIT by
 # #define PID_MAX_LIMIT (CONFIG_BASE_SMALL ? PAGE_SIZE * 8 : \
 #         (sizeof(long) > 4 ? 4 * 1024 * 1024 : PID_MAX_DEFAULT))
-if cc.sizeof('long') > 4
+if cc.sizeof('long', args : '-fPIC') > 4
         install_data('50-pid-max.conf', install_dir : sysctldir)
 endif
 
