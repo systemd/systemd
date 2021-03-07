@@ -1085,7 +1085,6 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
 
 int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
         sd_device *dev;
-        int r;
 
         assert(event);
         assert(inotify_fd >= 0);
@@ -1100,16 +1099,10 @@ int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
         if (sd_device_get_devname(dev, NULL) < 0)
                 return 0;
 
-        if (!event->inotify_watch) {
+        if (event->inotify_watch)
+                (void) udev_watch_begin(inotify_fd, dev);
+        else
                 (void) udev_watch_end(inotify_fd, dev);
-                return 0;
-        }
-
-        (void) udev_watch_begin(inotify_fd, dev);
-
-        r = device_update_db(dev);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
 
         return 0;
 }
