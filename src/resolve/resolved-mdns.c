@@ -10,7 +10,7 @@
 #include "resolved-mdns.h"
 #include "sort-util.h"
 
-#define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH & (x))
+#define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
 
 void manager_mdns_stop(Manager *m) {
         assert(m);
@@ -173,12 +173,69 @@ static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p
         return 0;
 }
 
+static bool mdns_should_reply_using_unicast(DnsPacket *p) {
+        DnsQuestionItem *item;
+
+        /* Work out if we should respond using multicast or unicast. */
+
+        /* The query was a legacy "one-shot mDNS query", RFC 6762, sections 5.1 and 6.7 */
+        if (p->sender_port != MDNS_PORT)
+                return true;
+
+        /* The query was a "direct unicast query", RFC 6762, section 5.5 */
+        switch (p->family) {
+        case AF_INET:
+                if (!in4_addr_equal(&p->destination.in, &MDNS_MULTICAST_IPV4_ADDRESS))
+                        return true;
+                break;
+        case AF_INET6:
+                if (!in6_addr_equal(&p->destination.in6, &MDNS_MULTICAST_IPV6_ADDRESS))
+                        return true;
+                break;
+        }
+
+        /* All the questions in the query had a QU bit set, RFC 6762, section 5.4 */
+        DNS_QUESTION_FOREACH_ITEM(item, p->question) {
+                if (!FLAGS_SET(item->flags, DNS_QUESTION_WANTS_UNICAST_REPLY))
+                        return false;
+        }
+        return true;
+}
+
+static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
+        LinkAddress *a;
+        int r;
+
+        /* Check whether the sender is on a local subnet. */
+
+        if (!s->link)
+                return false;
+
+        LIST_FOREACH(addresses, a, s->link->addresses) {
+                if (a->family != p->family)
+                        continue;
+                if (a->prefixlen == UCHAR_MAX) /* don't know subnet mask */
+                        continue;
+
+                r = in_addr_prefix_covers(a->family, &a->in_addr, a->prefixlen, &p->sender);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether link address covers sender address: %m");
+                if (r > 0)
+                        return true;
+        }
+
+        return false;
+}
+
+
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         DnsResourceRecord *rr;
         bool tentative = false;
+        bool legacy_query = p->sender_port != MDNS_PORT;
+        bool unicast_reply;
         int r;
 
         assert(s);
@@ -190,8 +247,18 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
         assert_return((dns_question_size(p->question) > 0), -EINVAL);
 
+        unicast_reply = mdns_should_reply_using_unicast(p);
+        if (unicast_reply && !sender_on_local_subnet(s, p)) {
+                /* RFC 6762, section 5.5 recommends silently ignoring unicast queries
+                 * from senders outside the local network, so that we don't reveal our
+                 * internal network structure to outsiders. */
+                log_debug("Sender wants a unicast reply, but is not on a local subnet. Ignoring.");
+                return 0;
+        }
+
         DNS_QUESTION_FOREACH(key, p->question) {
                 _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+                DnsAnswerItem *item;
 
                 r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
                 if (r < 0)
@@ -222,21 +289,48 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                         }
                 }
 
-                r = dns_answer_extend(&full_answer, answer);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to extend answer: %m");
+                if (dns_answer_isempty(answer))
+                        continue;
+
+                /* Copy answer items from full_answer to answer, tweaking them if needed. */
+                if (full_answer) {
+                        r = dns_answer_reserve(&full_answer, dns_answer_size(answer));
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to reserve space in answer");
+                } else {
+                        full_answer = dns_answer_new(dns_answer_size(answer));
+                        if (!full_answer)
+                                return log_oom();
+                }
+
+                DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                        DnsAnswerFlags flags = item->flags;
+                        /* The cache-flush bit must not be set in legacy unicast responses.
+                         * See section 6.7 of RFC 6762. */
+                        if (legacy_query)
+                                flags &= ~DNS_ANSWER_CACHE_FLUSH;
+                        r = dns_answer_add(full_answer, item->rr, item->ifindex, flags, item->rrsig);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extend answer: %m");
+                }
         }
 
         if (dns_answer_isempty(full_answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, full_answer, NULL, false, &reply);
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS,
+                                        legacy_query ? p->question : NULL, full_answer,
+                                        NULL, false, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
         if (!ratelimit_below(&s->ratelimit))
                 return 0;
 
+        if (unicast_reply) {
+                reply->destination = p->sender;
+                reply->destination_port = p->sender_port;
+        }
         r = dns_scope_emit_udp(s, -1, AF_UNSPEC, reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
