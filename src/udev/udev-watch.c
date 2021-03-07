@@ -37,20 +37,20 @@ int udev_watch_restore(int inotify_fd) {
 
         FOREACH_DIRENT_ALL(ent, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                _cleanup_free_ char *device = NULL;
+                _cleanup_free_ char *id = NULL;
 
                 if (ent->d_name[0] == '.')
                         continue;
 
-                r = readlinkat_malloc(dirfd(dir), ent->d_name, &device);
+                r = readlinkat_malloc(dirfd(dir), ent->d_name, &id);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
                         goto unlink;
                 }
 
-                r = sd_device_new_from_device_id(&dev, device);
+                r = sd_device_new_from_device_id(&dev, id);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to create sd_device object for '%s', ignoring: %m", device);
+                        log_debug_errno(r, "Failed to create sd_device object for '%s', ignoring: %m", id);
                         goto unlink;
                 }
 
@@ -68,7 +68,7 @@ unlink:
 
 int udev_watch_begin(int inotify_fd, sd_device *dev) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
-        const char *devnode, *id_filename;
+        const char *devnode, *id;
         int wd, r;
 
         assert(inotify_fd >= 0);
@@ -92,11 +92,11 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
                 return log_device_error_errno(dev, r, "Failed to create parent directory of '%s': %m", filename);
         (void) unlink(filename);
 
-        r = device_get_id_filename(dev, &id_filename);
+        r = device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get device id-filename: %m");
 
-        if (symlink(id_filename, filename) < 0)
+        if (symlink(id, filename) < 0)
                 return log_device_error_errno(dev, errno, "Failed to create symlink %s: %m", filename);
 
         return 0;
@@ -131,24 +131,24 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
 
 int udev_watch_lookup(int wd, sd_device **ret) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *device = NULL;
+        _cleanup_free_ char *id = NULL;
         int r;
 
         assert(wd >= 0);
         assert(ret);
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
-        r = readlink_malloc(filename, &device);
+        r = readlink_malloc(filename, &id);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to read link '%s': %m", filename);
 
-        r = sd_device_new_from_device_id(ret, device);
+        r = sd_device_new_from_device_id(ret, id);
         if (r == -ENODEV)
                 return 0;
         if (r < 0)
-                return log_debug_errno(r, "Failed to create sd_device object for '%s': %m", device);
+                return log_debug_errno(r, "Failed to create sd_device object for '%s': %m", id);
 
         return 1;
 }
