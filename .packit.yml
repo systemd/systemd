@@ -21,19 +21,14 @@ actions:
     # Drop backported patches from the specfile, but keep the downstream-only ones
     # - Patch0000-0499: backported patches from upstream
     # - Patch0500-9999: downstream-only patches
-    - "sed -ri '/^Patch0[0-4][0-9]{2}+\\:.+\\.patch/d' .packit_rpm/systemd.spec"
-    # Build the RPMs with -Werror to catch possible compiler warnings. Since
-    # --werror in meson doesn't seem to work with -Db_lto=true [0], let's use
-    # -Dc_args= and -Dcpp_args= instead.
-    #
-    # Exceptions:
-    #   - use -Wno-deprecated-declarations to get around mallinfo() use in
-    #     basic/selinux-util.c
-    #   - don't use -Werror on x86 architectures, otherwise all function checks
-    #     will fail (with error: cast from pointer to integer of different size)
+    - "sed -ri '/^Patch0[0-4]?[0-9]{0,2}\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+    # Build the RPM with --werror. Even though --werror doesn't work in all
+    # cases (see [0]), we can't use -Dc_args=/-Dcpp_args= here because of the
+    # RPM hardening macros, that use $CFLAGS/$CPPFLAGS (see [1]).
     #
     # [0] https://github.com/mesonbuild/meson/issues/7360
-    - 'sed -i "/^CONFIGURE_OPTS=(/a%ifnarch i386 i686\n-Dc_args=\"-Werror -Wno-deprecated-declarations\" -Dcpp_args=\"-Werror -Wno-deprecated-declarations\"\n%endif" .packit_rpm/systemd.spec'
+    # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
+    - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
