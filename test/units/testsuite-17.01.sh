@@ -20,6 +20,7 @@ while : ; do
 done
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+SUBSYSTEM=="block", KERNEL=="sda", OPTIONS="log_level=debug"
 ACTION!="remove", SUBSYSTEM=="block", KERNEL=="sda", ENV{SYSTEMD_WANTS}="foobar.service"
 EOF
 udevadm control --reload
@@ -37,6 +38,7 @@ while : ; do
 done
 
 cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+SUBSYSTEM=="block", KERNEL=="sda", OPTIONS="log_level=debug"
 ACTION!="remove", SUBSYSTEM=="block", KERNEL=="sda", ENV{SYSTEMD_WANTS}="waldo.service"
 EOF
 udevadm control --reload
