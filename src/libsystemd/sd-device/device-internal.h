@@ -22,6 +22,7 @@ struct sd_device {
         unsigned database_version;
 
         int watch_handle;
+        int watch_handle_from_database;
 
         sd_device *parent;
 
