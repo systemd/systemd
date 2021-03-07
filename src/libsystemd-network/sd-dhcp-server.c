@@ -706,19 +706,13 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
         return be32toh(requested_ip & ~server->netmask) - server->pool_offset;
 }
 
-#define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
-
-int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
+int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length) {
-        _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
-        _cleanup_free_ char *error_message = NULL;
-        DHCPLease *existing_lease;
-        int type, r;
-
         assert(server);
         assert(message);
+        assert(in4_addr_is_set(&server->relay_target));
 
-        if (message->op == BOOTREPLY && in4_addr_is_set(&server->relay_target)) {
+        if (message->op == BOOTREPLY) {
             if (message->giaddr != server->address) {
                 log_dhcp_server(server, "relay BOOTREPLY giaddr mismatch, discarding");
                 return 0;
@@ -729,7 +723,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
             return 0;
         }
 
-        if (message->op == BOOTREQUEST && in4_addr_is_set(&server->relay_target)) {
+        if (message->op == BOOTREQUEST) {
             log_dhcp_server(server, "relay BOOTREQUEST");
 
 
@@ -742,7 +736,20 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
             dhcp_server_send_udp(server, 0, server->relay_target.s_addr, DHCP_PORT_SERVER, message, length);
             return 0;
         }
+        return 1;
+}
 
+#define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
+
+int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
+                               size_t length) {
+        _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
+        _cleanup_free_ char *error_message = NULL;
+        DHCPLease *existing_lease;
+        int type, r;
+
+        assert(server);
+        assert(message);
 
         if (message->op != BOOTREQUEST ||
             message->htype != ARPHRD_ETHER ||
@@ -1030,6 +1037,10 @@ static int server_receive_message(sd_event_source *s, int fd,
                                 break;
                         }
                 }
+        }
+
+        if (in4_addr_is_set(&server->relay_target)) {
+                return dhcp_server_relay_message(server, message, (size_t) len);
         }
 
         r = dhcp_server_handle_message(server, message, (size_t) len);
