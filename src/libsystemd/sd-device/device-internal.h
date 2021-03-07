@@ -67,7 +67,7 @@ struct sd_device {
         char *driver_subsystem; /* only set for the 'drivers' subsystem */
         char *driver;
 
-        char *id_filename;
+        char *device_id;
 
         uint64_t usec_initialized;
 

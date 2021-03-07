@@ -62,7 +62,7 @@ static sd_device *device_free(sd_device *device) {
         free(device->subsystem);
         free(device->driver_subsystem);
         free(device->driver);
-        free(device->id_filename);
+        free(device->device_id);
         free(device->properties_strv);
         free(device->properties_nulstr);
 
@@ -1259,11 +1259,11 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         return 0;
 }
 
-int device_get_id_filename(sd_device *device, const char **ret) {
+int device_get_device_id(sd_device *device, const char **ret) {
         assert(device);
         assert(ret);
 
-        if (!device->id_filename) {
+        if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
                 const char *subsystem;
                 dev_t devnum;
@@ -1310,10 +1310,10 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                                 return -ENOMEM;
                 }
 
-                device->id_filename = TAKE_PTR(id);
+                device->device_id = TAKE_PTR(id);
         }
 
-        *ret = device->id_filename;
+        *ret = device->device_id;
         return 0;
 }
 
@@ -1409,7 +1409,7 @@ int device_read_db_internal(sd_device *device, bool force) {
         if (device->db_loaded || (!force && device->sealed))
                 return 0;
 
-        r = device_get_id_filename(device, &id);
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
