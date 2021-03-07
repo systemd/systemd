@@ -30,7 +30,7 @@
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
-        const char *id_filename, *slink_tmp;
+        const char *id, *slink_tmp;
         struct stat stats;
         int r;
 
@@ -81,10 +81,10 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         }
 
         log_device_debug(dev, "Atomically replace '%s'", slink);
-        r = device_get_id_filename(dev, &id_filename);
+        r = device_get_device_id(dev, &id);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get id_filename: %m");
-        slink_tmp = strjoina(slink, ".tmp-", id_filename);
+                return log_device_error_errno(dev, r, "Failed to get device id: %m");
+        slink_tmp = strjoina(slink, ".tmp-", id);
         (void) unlink(slink_tmp);
         do {
                 r = mkdir_parents_label(slink_tmp, 0755);
@@ -147,7 +147,7 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *dev_db = NULL;
-                const char *devnode, *id_filename;
+                const char *devnode, *id;
                 int db_prio = 0;
 
                 if (dent->d_name[0] == '\0')
@@ -157,11 +157,11 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
 
                 log_device_debug(dev, "Found '%s' claiming '%s'", dent->d_name, stackdir);
 
-                if (device_get_id_filename(dev, &id_filename) < 0)
+                if (device_get_device_id(dev, &id) < 0)
                         continue;
 
                 /* did we find ourself? */
-                if (streq(dent->d_name, id_filename))
+                if (streq(dent->d_name, id))
                         continue;
 
                 if (sd_device_new_from_device_id(&dev_db, dent->d_name) < 0)
@@ -229,21 +229,21 @@ static size_t escape_path(const char *src, char *dest, size_t size) {
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *filename = NULL, *dirname = NULL;
         char name_enc[PATH_MAX];
-        const char *id_filename;
+        const char *id;
         int i, r, retries;
 
         assert(dev);
         assert(slink);
 
-        r = device_get_id_filename(dev, &id_filename);
+        r = device_get_device_id(dev, &id);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get id_filename: %m");
+                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
 
         escape_path(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
         dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
                 return log_oom();
-        filename = path_join(dirname, id_filename);
+        filename = path_join(dirname, id);
         if (!filename)
                 return log_oom();
 
@@ -348,7 +348,7 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
 static int node_permissions_apply(sd_device *dev, bool apply_mac,
                                   mode_t mode, uid_t uid, gid_t gid,
                                   OrderedHashmap *seclabel_list) {
-        const char *devnode, *subsystem, *id_filename = NULL;
+        const char *devnode, *subsystem, *id = NULL;
         bool apply_mode, apply_uid, apply_gid;
         _cleanup_close_ int node_fd = -1;
         struct stat stats;
@@ -366,7 +366,7 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
-        (void) device_get_id_filename(dev, &id_filename);
+        (void) device_get_device_id(dev, &id);
 
         if (streq(subsystem, "block"))
                 mode |= S_IFBLK;
@@ -388,7 +388,7 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
         if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum) {
                 log_device_debug(dev, "Found node '%s' with non-matching devnum %s, skipping handling.",
-                                 devnode, id_filename);
+                                 devnode, strna(id));
                 return 0; /* We might process a device that already got replaced by the time we have a look
                            * at it, handle this gracefully and step away. */
         }
@@ -509,10 +509,10 @@ int udev_node_add(sd_device *dev, bool apply,
                 return log_device_debug_errno(dev, r, "Failed to get devnode: %m");
 
         if (DEBUG_LOGGING) {
-                const char *id_filename = NULL;
+                const char *id = NULL;
 
-                (void) device_get_id_filename(dev, &id_filename);
-                log_device_debug(dev, "Handling device node '%s', devnum=%s", devnode, strnull(id_filename));
+                (void) device_get_device_id(dev, &id);
+                log_device_debug(dev, "Handling device node '%s', devnum=%s", devnode, strna(id));
         }
 
         r = node_permissions_apply(dev, apply, mode, uid, gid, seclabel_list);
