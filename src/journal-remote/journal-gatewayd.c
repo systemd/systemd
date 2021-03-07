@@ -501,7 +501,9 @@ static int request_handler_entries(
         if (!response)
                 return respond_oom(connection);
 
-        MHD_add_response_header(response, "Content-Type", mime_types[m->mode]);
+        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode]) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -629,7 +631,9 @@ static int request_handler_fields(
         if (!response)
                 return respond_oom(connection);
 
-        MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
+        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -652,8 +656,10 @@ static int request_handler_redirect(
                 return respond_oom(connection);
         }
 
-        MHD_add_response_header(response, "Content-Type", "text/html");
-        MHD_add_response_header(response, "Location", target);
+        if (MHD_add_response_header(response, "Content-Type", "text/html") == MHD_NO ||
+            MHD_add_response_header(response, "Location", target) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
 }
 
@@ -682,7 +688,9 @@ static int request_handler_file(
                 return respond_oom(connection);
         TAKE_FD(fd);
 
-        MHD_add_response_header(response, "Content-Type", mime_type);
+        if (MHD_add_response_header(response, "Content-Type", mime_type) == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -783,7 +791,9 @@ static int request_handler_machine(
                 return respond_oom(connection);
         TAKE_PTR(json);
 
-        MHD_add_response_header(response, "Content-Type", "application/json");
+        if (MHD_add_response_header(response, "Content-Type", "application/json") == MHD_NO)
+                return respond_oom(connection);
+
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 

@@ -65,15 +65,15 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
 
                 extension_full_path = strjoina("/usr/lib/extension-release.d/extension-release.", extension);
                 r = chase_symlinks(extension_full_path, root, CHASE_PREFIX_ROOT,
-                                  ret_path ? &q : NULL,
-                                  ret_fd ? &fd : NULL);
+                                   ret_path ? &q : NULL,
+                                   ret_fd ? &fd : NULL);
         } else {
                 const char *p;
 
                 FOREACH_STRING(p, "/etc/os-release", "/usr/lib/os-release") {
                         r = chase_symlinks(p, root, CHASE_PREFIX_ROOT,
-                                        ret_path ? &q : NULL,
-                                        ret_fd ? &fd : NULL);
+                                           ret_path ? &q : NULL,
+                                           ret_fd ? &fd : NULL);
                         if (r != -ENOENT)
                                 break;
                 }
@@ -116,10 +116,9 @@ int fopen_extension_release(const char *root, const char *extension, char **ret_
         if (!f)
                 return -errno;
 
-        *ret_file = f;
-
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+        *ret_file = f;
 
         return 0;
 }
