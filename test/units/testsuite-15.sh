@@ -144,7 +144,8 @@ test_linked_units () {
 
     check_ok test15-a Names test15-a.service
     check_ok test15-a Names test15-b.service
-    check_ko test15-a Names test15-b@
+    check_ko test15-a Names test15-a@     # test15-a@.scope is the symlink target.
+                                          # Make sure it is completely ignored.
 
     rm /test15-a@.scope
     clear_services test15-a test15-b
