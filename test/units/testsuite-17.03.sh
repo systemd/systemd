@@ -7,7 +7,10 @@ test_rule="/run/udev/rules.d/49-test.rules"
 setup() {
     mkdir -p "${test_rule%/*}"
     cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bckp
-    echo 'KERNEL=="lo", SUBSYSTEM=="net", PROGRAM=="/bin/sleep 60"' >"${test_rule}"
+    cat >"${test_rule}" <<EOF
+SUBSYSTEM=="net", KERNEL=="lo", OPTIONS="log_level=debug"
+SUBSYSTEM=="net", KERNEL=="lo", PROGRAM=="/bin/sleep 60"
+EOF
     echo "event_timeout=30" >>/etc/udev/udev.conf
     echo "timeout_signal=SIGABRT" >>/etc/udev/udev.conf
 
