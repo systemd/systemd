@@ -79,6 +79,10 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
 
+int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address);
+int sd_dhcp_server_set_agent_circuit_id(sd_dhcp_server *server, const char* agent_circuit_id);
+int sd_dhcp_server_set_agent_remote_id(sd_dhcp_server *server, const char* agent_remote_id);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server, sd_dhcp_server_unref);
 
 _SD_END_DECLARATIONS;
