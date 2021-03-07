@@ -1293,17 +1293,18 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 const char *devnode;
 
-                if (udev_watch_lookup(e->wd, &dev) <= 0)
+                r = device_new_from_watch_handle(&dev, e->wd);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
                         continue;
+                }
 
                 if (sd_device_get_devname(dev, &devnode) < 0)
                         continue;
 
                 log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
                 if (e->mask & IN_CLOSE_WRITE)
-                        synthesize_change(dev);
-                else if (e->mask & IN_IGNORED)
-                        udev_watch_end(manager->inotify_fd, dev);
+                        (void) synthesize_change(dev);
         }
 
         return 1;

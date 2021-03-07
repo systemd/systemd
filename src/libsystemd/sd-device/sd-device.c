@@ -1239,10 +1239,7 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
 
                 break;
         case 'W':
-                r = safe_atoi(value, &device->watch_handle);
-                if (r < 0)
-                        return r;
-
+                /* Deprecated. */
                 break;
         case 'V':
                 r = safe_atou(value, &device->database_version);
