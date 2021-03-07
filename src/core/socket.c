@@ -1555,7 +1555,7 @@ static int socket_address_listen_in_cgroup(
         if (s->exec_context.ipc_namespace_path &&
             s->exec_runtime &&
             s->exec_runtime->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWIPC);
+                r = open_shareable_ns_path(s->exec_runtime->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
         }
