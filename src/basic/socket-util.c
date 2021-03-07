@@ -298,7 +298,7 @@ bool socket_ipv6_is_supported(void) {
 }
 
 bool socket_ipv6_is_enabled(void) {
-        _cleanup_free_ char *v;
+        _cleanup_free_ char *v = NULL;
         int r;
 
         /* Much like socket_ipv6_is_supported(), but also checks that the sysctl that disables IPv6 on all
