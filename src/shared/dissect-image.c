@@ -2250,8 +2250,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 [META_HOSTNAME]          = "/etc/hostname\0",
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
-                [META_OS_RELEASE]        = ("/etc/os-release\0"
-                                           "/usr/lib/os-release\0"),
+                [META_OS_RELEASE]        = "/etc/os-release\0"
+                                           "/usr/lib/os-release\0",
                 [META_EXTENSION_RELEASE] = NULL,
         };
 
@@ -2272,7 +2272,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         /* As per the os-release spec, if the image is an extension it will have a file
          * named after the image name in extension-release.d/ */
         if (m->image_name) {
-                char *ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
+                char *ext;
+
+                ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
                 ext[strlen(ext) - 1] = '\0'; /* Extra \0 for NULSTR_FOREACH using placeholder from above */
                 paths[META_EXTENSION_RELEASE] = ext;
         } else
