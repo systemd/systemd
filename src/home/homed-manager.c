@@ -100,7 +100,9 @@ static void manager_watch_home(Manager *m) {
 
         m->scan_slash_home = true;
 
-        r = sd_event_add_inotify(m->event, &m->inotify_event_source, "/home/", IN_CREATE|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_ONLYDIR|IN_MOVED_TO|IN_MOVED_FROM|IN_DELETE, on_home_inotify, m);
+        r = sd_event_add_inotify(m->event, &m->inotify_event_source, "/home/",
+                                 IN_CREATE|IN_CLOSE_WRITE|IN_DELETE_SELF|IN_MOVE_SELF|IN_ONLYDIR|IN_MOVED_TO|IN_MOVED_FROM|IN_DELETE,
+                                 on_home_inotify, m);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to create inotify watch on /home/, ignoring.");
@@ -368,7 +370,9 @@ static int manager_add_home_by_record(
                 return r;
 
         if (!streq_ptr(hr->user_name, name))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Identity's user name %s does not match file name %s, refusing.", hr->user_name, name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Identity's user name %s does not match file name %s, refusing.",
+                                       hr->user_name, name);
 
         is_signed = manager_verify_user_record(m, hr);
         switch (is_signed) {
@@ -599,19 +603,22 @@ static int manager_acquire_uid(
 
                 other = hashmap_get(m->homes_by_uid, UID_TO_PTR(candidate));
                 if (other) {
-                        log_debug("Candidate UID " UID_FMT " already used by another home directory (%s), let's try another.", candidate, other->user_name);
+                        log_debug("Candidate UID " UID_FMT " already used by another home directory (%s), let's try another.",
+                                  candidate, other->user_name);
                         continue;
                 }
 
                 pw = getpwuid(candidate);
                 if (pw) {
-                        log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.", candidate, pw->pw_name);
+                        log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.",
+                                  candidate, pw->pw_name);
                         continue;
                 }
 
                 gr = getgrgid((gid_t) candidate);
                 if (gr) {
-                        log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.", candidate, gr->gr_name);
+                        log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.",
+                                  candidate, gr->gr_name);
                         continue;
                 }
 
@@ -619,7 +626,8 @@ static int manager_acquire_uid(
                 if (r < 0)
                         continue;
                 if (r > 0) {
-                        log_debug_errno(r, "Candidate UID " UID_FMT " already owns IPC objects, let's try another: %m", candidate);
+                        log_debug_errno(r, "Candidate UID " UID_FMT " already owns IPC objects, let's try another: %m",
+                                        candidate);
                         continue;
                 }
 
@@ -692,7 +700,9 @@ static int manager_add_home_by_image(
         if (h && uid_is_valid(h->uid))
                 uid = h->uid;
         else {
-                r = manager_acquire_uid(m, start_uid, user_name, IN_SET(storage, USER_SUBVOLUME, USER_DIRECTORY, USER_FSCRYPT) ? image_path : NULL, &uid);
+                r = manager_acquire_uid(m, start_uid, user_name,
+                                        IN_SET(storage, USER_SUBVOLUME, USER_DIRECTORY, USER_FSCRYPT) ? image_path : NULL,
+                                        &uid);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to acquire unused UID for %s: %m", user_name);
         }
