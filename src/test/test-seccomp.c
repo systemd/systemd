@@ -72,6 +72,12 @@ static void test_parse_syscall_and_errno(void) {
         assert_se(e == 255);
         n = mfree(n);
 
+        /* 0 is also a valid errno. */
+        assert_se(parse_syscall_and_errno("hoge:0", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == 0);
+        n = mfree(n);
+
         assert_se(parse_syscall_and_errno("hoge:kill", &n, &e) >= 0);
         assert_se(streq(n, "hoge"));
         assert_se(e == SECCOMP_ERROR_NUMBER_KILL);
