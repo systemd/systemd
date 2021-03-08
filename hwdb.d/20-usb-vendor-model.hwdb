@@ -67337,6 +67337,15 @@ usb:v3344*
 usb:v3344p3744*
  ID_MODEL_FROM_DATABASE=OEM PC Remote
 
+usb:v3384*
+ ID_VENDOR_FROM_DATABASE=System76
+
+usb:v3384p0000*
+ ID_MODEL_FROM_DATABASE=Thelio Io (thelio-io)
+
+usb:v3384p0001*
+ ID_MODEL_FROM_DATABASE=Launch Configurable Keyboard (launch_1)
+
 usb:v348F*
  ID_VENDOR_FROM_DATABASE=ISY
 
