@@ -166,7 +166,7 @@ static int run(int argc, char *argv[]) {
 
         notify_msg = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
-        log_info("systemd-oomd starting%s!", arg_dry_run ? " in dry run mode" : "");
+        log_debug("systemd-oomd started%s.", arg_dry_run ? " in dry run mode" : "");
 
         r = sd_event_loop(m->event);
         if (r < 0)
