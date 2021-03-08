@@ -809,10 +809,8 @@ bool efi_has_tpm2(void) {
 #endif
 
 bool efi_loader_entry_name_valid(const char *s) {
-        if (isempty(s))
-                return false;
 
-        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
+        if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
                 return false;
 
         return in_charset(s, ALPHANUMERICAL "+-_.");
