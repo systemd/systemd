@@ -384,7 +384,7 @@ int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *
 
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *curr_ctx = NULL;
-        OomdCGroupContext *old_ctx, *ctx;
+        OomdCGroupContext *old_ctx;
         const char *norm_path;
         int r;
 
@@ -406,11 +406,11 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
 
         assert_se(streq(norm_path, curr_ctx->path));
 
-        ctx = TAKE_PTR(curr_ctx);
-        r = hashmap_put(new_h, norm_path, ctx);
+        r = hashmap_put(new_h, norm_path, curr_ctx);
         if (r < 0)
                 return r;
 
+        TAKE_PTR(curr_ctx);
         return 0;
 }
 
