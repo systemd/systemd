@@ -25,6 +25,10 @@ CHANGES WITH 248:
           file hierarchy of specific services, following the same rules and
           constraints.
 
+        * Support for a new special "root=tmpfs" kernel command-line option has
+          been added. When specified, a tmpfs is mounted on /, and mount.usr=
+          should be used to point to the operating system implementation.
+
         * A new configuration file /etc/veritytab may be used to configure
           dm-verity integrity protection for block devices. Each line is in the
           format "volume-name data-device hash-device roothash options",
@@ -123,6 +127,13 @@ CHANGES WITH 248:
           unified v2 cgroup hierarchy is used, and "v1" means that legacy v1
           hierarchy or the hybrid hierarchy are used.
 
+        * A new PrivateIPC= setting on a unit file allows executed processes to
+          be moved into a private IPC namespace, with separate System V IPC
+          identifiers and POSIX message queues.
+
+          A new IPCNamespacePath= allows the unit to be joined to an existing
+          IPC namespace.
+
         * The tables of system calls in seccomp filters are now automatically
           generated from kernel lists exported on
           https://fedora.juszkiewicz.com.pl/syscalls.html.
@@ -185,6 +196,13 @@ CHANGES WITH 248:
           GenericSegmentOffloadMaxSegments= allow capping the packet size and
           the number of segments accepted in Generic Segment Offload.
 
+        * systemd-networkd gained support for the "B.A.T.M.A.N. advanced"
+          wireless routing protocol that operates on ISO/OSI Layer 2 only and
+          uses ethernet frames to route/bridge packets. This encompasses a new
+          "batadv" netdev Type=, a new [BatmanAdvanced] section with a bunch of
+          new settings in .netdev files, and a new BatmanAdvanced= setting in
+          .network files.
+
         * systemd.network files gained a [Network] RouteTable= configuration
           switch to select the routing policy table.
 
@@ -203,8 +221,8 @@ CHANGES WITH 248:
           systemd.network files gained a [DHCPv6PrefixDelegation]
           ManageTemporaryAddress= switch.
 
-          .network files gained a new ActivationPolicy= setting which allows
-          configuration how the UP state of an interface shall be managed,
+          systemd.network files gained a new ActivationPolicy= setting which
+          allows configuring how the UP state of an interface shall be managed,
           i.e. whether the interface is always upped, always downed, or may be
           upped/downed by the user using "ip dev".
 
@@ -361,6 +379,12 @@ CHANGES WITH 248:
         * Systems with the legacy cgroup v1 hierarchy are now marked as
           "tainted", to make it clearer that using the legacy hierarchy is not
           recommended.
+
+        * systemd-localed will now refuse to configure a keymap which is not
+          installed in the file system. This is intended as a bug fix, but
+          could break cases where systemd-localed was used to configure the
+          keymap in advanced of it being installed. It is necessary to install
+          the keymap file first.
 
         * The main git development branch has been renamed to 'main'.
 
