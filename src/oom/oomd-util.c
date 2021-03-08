@@ -384,7 +384,7 @@ int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *
 
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *curr_ctx = NULL;
-        OomdCGroupContext *old_ctx, *ctx;
+        OomdCGroupContext *old_ctx;
         int r;
 
         assert(new_h);
@@ -401,11 +401,11 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
                 curr_ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
         }
 
-        ctx = TAKE_PTR(curr_ctx);
-        r = hashmap_put(new_h, ctx->path, ctx);
+        r = hashmap_put(new_h, curr_ctx->path, curr_ctx);
         if (r < 0)
                 return r;
 
+        TAKE_PTR(curr_ctx);
         return 0;
 }
 
