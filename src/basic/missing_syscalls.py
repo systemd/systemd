@@ -37,7 +37,7 @@ def parse_syscall_tables(filenames):
     return {filename.split('-')[-1][:-4]: parse_syscall_table(filename)
             for filename in filenames}
 
-DEF_TEMPLATE = '''\
+DEF_TEMPLATE = '''
 #ifndef __IGNORE_{syscall}
 #  if defined(__aarch64__)
 #    define systemd_NR_{syscall} {nr_arm64}
@@ -99,13 +99,13 @@ def print_syscall_def(syscall, tables, out):
     mappings = {f'nr_{arch}':t.get(syscall, -1)
                 for arch, t in tables.items()}
     print(DEF_TEMPLATE.format(syscall=syscall, **mappings),
-          file=out)
+          file=out, end='')
 
 def print_syscall_defs(syscalls, tables, out):
     print('''\
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * This file is generated. Do not edit! */
-''' , file=out)
+''' , file=out, end='')
     for syscall in syscalls:
         print_syscall_def(syscall, tables, out)
 
