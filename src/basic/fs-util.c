@@ -428,9 +428,9 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
         if (make_relative) {
                 _cleanup_free_ char *parent = NULL;
 
-                parent = dirname_malloc(to);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(to, &parent);
+                if (r < 0)
+                        return r;
 
                 r = path_make_relative(parent, from, &relpath);
                 if (r < 0)
