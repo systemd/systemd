@@ -325,6 +325,7 @@ Most service unit settings are available for transient units.
 ✓ TimeoutStopFailureMode=
 ✓ TimeoutStopSec=
 ✓ Type=
+✓ ServiceType=
 ✓ USBFunctionDescriptors=
 ✓ USBFunctionStrings=
 ✓ WatchdogSec=
