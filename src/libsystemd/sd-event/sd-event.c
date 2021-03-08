@@ -1039,7 +1039,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
                 }
         }
 
-        return 0;
+        return 1;
 }
 
 static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType type) {
@@ -3117,6 +3117,7 @@ static int process_timer(
 }
 
 static int process_child(sd_event *e) {
+        bool something_new = false;
         sd_event_source *s;
         int r;
 
@@ -3181,10 +3182,12 @@ static int process_child(sd_event *e) {
                         r = source_set_pending(s, true);
                         if (r < 0)
                                 return r;
+                        if (r > 0)
+                                something_new = true;
                 }
         }
 
-        return 0;
+        return something_new;
 }
 
 static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
@@ -3831,20 +3834,11 @@ static int epoll_wait_usec(
         return r;
 }
 
-_public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
+static int process_epoll(sd_event *e, usec_t timeout) {
         size_t n_event_queue, m;
         int r;
 
-        assert_return(e, -EINVAL);
-        assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(!event_pid_changed(e), -ECHILD);
-        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(e->state == SD_EVENT_ARMED, -EBUSY);
-
-        if (e->exit_requested) {
-                e->state = SD_EVENT_PENDING;
-                return 1;
-        }
+        assert(e);
 
         n_event_queue = MAX(e->n_sources, 1u);
         if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, n_event_queue))
@@ -3861,7 +3855,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                         return 1;
                 }
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 m = (size_t) r;
 
@@ -3932,8 +3926,33 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                         }
                 }
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
+
+        return m;
+}
+
+#define N_PROCESS_EPOLL_AND_CHILD_MAX 10
+
+_public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
+        int r, n_epoll;
+
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_pid_changed(e), -ECHILD);
+        assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
+        assert_return(e->state == SD_EVENT_ARMED, -EBUSY);
+
+        if (e->exit_requested) {
+                e->state = SD_EVENT_PENDING;
+                return 1;
+        }
+
+        r = process_epoll(e, timeout);
+        if (r < 0)
+                goto finish;
+
+        n_epoll = r;
 
         r = process_watchdog(e);
         if (r < 0)
@@ -3959,11 +3978,39 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
-        if (e->need_process_child) {
-                r = process_child(e);
-                if (r < 0)
-                        goto finish;
-        }
+        if (e->need_process_child)
+                for (unsigned i = 0; ; ) {
+                        r = process_child(e);
+                        if (r < 0)
+                                goto finish;
+                        if (r == 0)
+                                /* No new child event. */
+                                break;
+
+                        /* New child events are queued. There may be a possibility that new epoll
+                         * events with higher priority were triggered just after the previous
+                         * process_epoll(). To salvage these events, let's call epoll_wait() again.
+                         * See issue https://github.com/systemd/systemd/issues/18190 and comment
+                         * https://github.com/systemd/systemd/pull/18750#issuecomment-785801085 */
+
+                        r = process_epoll(e, 0);
+                        if (r < 0)
+                                goto finish;
+
+                        if (r <= n_epoll)
+                                /* No new epoll event.*/
+                                break;
+
+                        /* New epoll events are queued. Check new child events again. */
+
+                        i++;
+                        if (i >= N_PROCESS_EPOLL_AND_CHILD_MAX)
+                                /* Too many trial... Give up. */
+                                break;
+
+                        n_epoll = r;
+                        e->need_process_child = true;
+                }
 
         r = process_inotify(e);
         if (r < 0)
