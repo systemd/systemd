@@ -241,24 +241,23 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(h, m->homes_by_worker_pid)
                 (void) home_wait_for_worker(h);
 
+        sd_bus_flush_close_unref(m->bus);
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
+
+        m->device_monitor = sd_device_monitor_unref(m->device_monitor);
+
+        m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
+        m->notify_socket_event_source = sd_event_source_unref(m->notify_socket_event_source);
+        m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
+        m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
+        m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
+
+        sd_event_unref(m->event);
+
         hashmap_free(m->homes_by_uid);
         hashmap_free(m->homes_by_name);
         hashmap_free(m->homes_by_worker_pid);
         hashmap_free(m->homes_by_sysfs);
-
-        m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
-
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
-
-        sd_bus_flush_close_unref(m->bus);
-        sd_event_unref(m->event);
-
-        m->notify_socket_event_source = sd_event_source_unref(m->notify_socket_event_source);
-        m->device_monitor = sd_device_monitor_unref(m->device_monitor);
-
-        m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
-        m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
-        m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
 
         if (m->private_key)
                 EVP_PKEY_free(m->private_key);
