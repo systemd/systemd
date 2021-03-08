@@ -122,6 +122,7 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup) == 0);
         c1 = hashmap_get(h1, cgroup);
         assert_se(c1);
+        assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup) == -EEXIST);
 
          /* make sure certain values from h1 get updated in h2 */
         c1->pgscan = 5555;
