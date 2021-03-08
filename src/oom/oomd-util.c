@@ -390,9 +390,13 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         assert(new_h);
         assert(path);
 
+        path = empty_to_root(path);
+
         r = oomd_cgroup_context_acquire(path, &curr_ctx);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get OomdCGroupContext for %s: %m", path);
+
+        assert_se(streq(path, curr_ctx->path));
 
         old_ctx = hashmap_get(old_h, path);
         if (old_ctx) {
