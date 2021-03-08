@@ -695,16 +695,25 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         setgid bits, or filesystem capabilities). This is the simplest and most effective way to ensure that
         a process and its children can never elevate privileges again. Defaults to false, but certain
         settings override this and ignore the value of this setting.  This is the case when
-        <varname>SystemCallFilter=</varname>, <varname>SystemCallArchitectures=</varname>,
-        <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
-        <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
-        <varname>ProtectKernelModules=</varname>, <varname>ProtectKernelLogs=</varname>,
-        <varname>ProtectClock=</varname>, <varname>MemoryDenyWriteExecute=</varname>,
-        <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname>
-        or <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by them,
-        <command>systemctl show</command> shows the original value of this setting.
-        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
-        Flag</ulink>.</para></listitem>
+        <varname>DynamicUser=</varname>,
+        <varname>LockPersonality=</varname>,
+        <varname>MemoryDenyWriteExecute=</varname>,
+        <varname>PrivateDevices=</varname>,
+        <varname>ProtectClock=</varname>,
+        <varname>ProtectHostname=</varname>,
+        <varname>ProtectKernelLogs=</varname>,
+        <varname>ProtectKernelModules=</varname>,
+        <varname>ProtectKernelTunables=</varname>,
+        <varname>RestrictAddressFamilies=</varname>,
+        <varname>RestrictNamespaces=</varname>,
+        <varname>RestrictRealtime=</varname>,
+        <varname>RestrictSUIDSGID=</varname>,
+        <varname>SystemCallArchitectures=</varname>,
+        <varname>SystemCallFilter=</varname>, or
+        <varname>SystemCallLog=</varname> are specified. Note that even if this setting is overridden
+        by them, <command>systemctl show</command> shows the original value of this setting. Also see
+        <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New
+        Privileges Flag</ulink>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1537,14 +1546,14 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         unit (see above), and set <varname>DevicePolicy=closed</varname> (see
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details). Note that using this setting will disconnect propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work).  This means that this setting may not be used for
+        (propagation in the opposite direction continues to work). This means that this setting may not be used for
         services which shall be able to install mount points in the main mount namespace. The new
         <filename>/dev/</filename> will be mounted read-only and 'noexec'. The latter may break old programs which try
         to set up executable memory by using
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
         <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the same
         restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
-        related calls, see above.  If turned on and if running in user mode, or in system mode, but without the
+        related calls, see above. If turned on and if running in user mode, or in system mode, but without the
         <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
@@ -1697,6 +1706,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         the system into the service, it is hence not suitable for services that need to take notice of system
         hostname changes dynamically.</para>
 
+        <para>If this setting is on, but the unit doesn't have the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. services for which <varname>User=</varname> is set),
+        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
@@ -1710,7 +1723,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         clock, and <varname>DeviceAllow=char-rtc r</varname> is implied. This ensures <filename>/dev/rtc0</filename>,
         <filename>/dev/rtc1</filename>, etc. are made read-only to the service. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for the details about <varname>DeviceAllow=</varname>.</para>
+        for the details about <varname>DeviceAllow=</varname>. If this setting is on, but the unit
+        doesn't have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for which
+        <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -1727,13 +1742,14 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> mechanism. Few
         services need to write to these at runtime; it is hence recommended to turn this on for most services. For this
         setting the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off.  If turned on and if running
-        in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g.  services
-        for which <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied. Note that this
-        option does not prevent indirect changes to kernel tunables effected by IPC calls to other processes. However,
-        <varname>InaccessiblePaths=</varname> may be used to make relevant IPC file system objects inaccessible. If
-        <varname>ProtectKernelTunables=</varname> is set, <varname>MountAPIVFS=yes</varname> is
-        implied.</para>
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. Defaults to off. If this
+        setting is on, but the unit doesn't have the <constant>CAP_SYS_ADMIN</constant> capability
+        (e.g. services for which <varname>User=</varname> is set),
+        <varname>NoNewPrivileges=yes</varname> is implied. Note that this option does not prevent
+        indirect changes to kernel tunables effected by IPC calls to other processes. However,
+        <varname>InaccessiblePaths=</varname> may be used to make relevant IPC file system objects
+        inaccessible. If <varname>ProtectKernelTunables=</varname> is set,
+        <varname>MountAPIVFS=yes</varname> is implied.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -1752,9 +1768,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         both privileged and unprivileged. To disable module auto-load feature please see
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         <constant>kernel.modules_disabled</constant> mechanism and
-        <filename>/proc/sys/kernel/modules_disabled</filename> documentation.  If turned on and if running in user
-        mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para>
+        <filename>/proc/sys/kernel/modules_disabled</filename> documentation. If this setting is on,
+        but the unit doesn't have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for
+        which <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -1770,7 +1786,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         system call (not to be confused with the libc API
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for userspace logging). The kernel exposes its log buffer to userspace via <filename>/dev/kmsg</filename> and
-        <filename>/proc/kmsg</filename>. If enabled, these are made inaccessible to all the processes in the unit.</para>
+        <filename>/proc/kmsg</filename>. If enabled, these are made inaccessible to all the processes in the unit.
+        If this setting is on, but the unit doesn't have the <constant>CAP_SYS_ADMIN</constant>
+        capability (e.g. services for which <varname>User=</varname> is set),
+        <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -1810,7 +1829,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         restrictions of this option. Specifically, it is recommended to combine this option with
         <varname>SystemCallArchitectures=native</varname> or similar. If running in user mode, or in system
         mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. By default, no
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied. By default, no
         restrictions apply, all address families are accessible to processes. If assigned the empty string,
         any previous address family restriction changes are undone. This setting does not affect commands
         prefixed with <literal>+</literal>.</para>
@@ -2040,7 +2059,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         explicitly specify killing. This value takes precedence over the one given in
         <varname>SystemCallErrorNumber=</varname>, see below.  If running in user mode, or in system mode,
         but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
         makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful
         for enforcing a minimal sandboxing environment. Note that the <function>execve()</function>,
         <function>exit()</function>, <function>exit_group()</function>, <function>getrlimit()</function>,
@@ -2262,7 +2281,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         the special identifier <constant>native</constant>.  The special identifier <constant>native</constant>
         implicitly maps to the native architecture of the system (or more precisely: to the architecture the system
         manager is compiled for). If running in user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=nobody</varname>),
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied. By default, this option is set to the empty list, i.e. no
         filtering is applied.</para>
 
@@ -2291,7 +2310,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         system calls executed by the unit processes for the listed ones will be logged. If the first
         character of the list is <literal>~</literal>, the effect is inverted: all system calls except the
         listed system calls will be logged. If running in user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=nobody</varname>),
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied. This feature makes use of the Secure Computing
         Mode 2 interfaces of the kernel ('seccomp filtering') and is useful for auditing or setting up a
         minimal sandboxing environment. This option may be specified more than once, in which case the filter
