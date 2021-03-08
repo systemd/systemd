@@ -1142,10 +1142,10 @@ int seccomp_parse_syscall_filter(
 
                 set = syscall_filter_set_find(name);
                 if (!set) {
-                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
+                        if (!FLAGS_SET(flags, SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
 
-                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
                                    "Unknown system call group, ignoring: %s", name);
                         return 0;
                 }
@@ -1164,10 +1164,10 @@ int seccomp_parse_syscall_filter(
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
+                        if (!FLAGS_SET(flags, SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
 
-                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
                                    "Failed to parse system call, ignoring: %s", name);
                         return 0;
                 }
@@ -1179,7 +1179,7 @@ int seccomp_parse_syscall_filter(
                         if (r < 0)
                                 switch (r) {
                                 case -ENOMEM:
-                                        return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                        return FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? log_oom() : -ENOMEM;
                                 case -EEXIST:
                                         assert_se(hashmap_update(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num)) == 0);
                                         break;
