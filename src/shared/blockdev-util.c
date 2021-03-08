@@ -57,20 +57,15 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         return 1;
 }
 
-int get_block_device(const char *path, dev_t *ret) {
-        _cleanup_close_ int fd = -1;
+int get_block_device_fd(int fd, dev_t *ret) {
         struct stat st;
         int r;
 
-        assert(path);
+        assert(fd >= 0);
         assert(ret);
 
         /* Gets the block device directly backing a file system. If the block device is encrypted, returns
          * the device mapper block device. */
-
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
 
         if (fstat(fd, &st))
                 return -errno;
@@ -88,6 +83,19 @@ int get_block_device(const char *path, dev_t *ret) {
 
         *ret = 0;
         return 0;
+}
+
+int get_block_device(const char *path, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return get_block_device_fd(fd, ret);
 }
 
 int block_get_originating(dev_t dt, dev_t *ret) {
@@ -174,24 +182,37 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         return 1;
 }
 
-int get_block_device_harder(const char *path, dev_t *ret) {
+int get_block_device_harder_fd(int fd, dev_t *ret) {
         int r;
 
-        assert(path);
+        assert(fd >= 0);
         assert(ret);
 
         /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking for its
          * immediate parent, if there is one. */
 
-        r = get_block_device(path, ret);
+        r = get_block_device_fd(fd, ret);
         if (r <= 0)
                 return r;
 
         r = block_get_originating(*ret, ret);
         if (r < 0)
-                log_debug_errno(r, "Failed to chase block device '%s', ignoring: %m", path);
+                log_debug_errno(r, "Failed to chase block device, ignoring: %m");
 
         return 1;
+}
+
+int get_block_device_harder(const char *path, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return get_block_device_harder_fd(fd, ret);
 }
 
 int lock_whole_block_device(dev_t devt, int operation) {
