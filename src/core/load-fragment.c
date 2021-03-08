@@ -3218,6 +3218,10 @@ int config_parse_syscall_filter(
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse syscall:errno, ignoring: %s", word);
                         continue;
                 }
+                if (!invert && num >= 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Allow listed system calls cannot take error number, ignoring: %s", word);
+                        continue;
+                }
 
                 r = seccomp_parse_syscall_filter(
                                 name, num, c->syscall_filter,
@@ -3280,8 +3284,7 @@ int config_parse_syscall_log(
 
         p = rvalue;
         for (;;) {
-                _cleanup_free_ char *word = NULL, *name = NULL;
-                int num;
+                _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r == 0)
@@ -3293,14 +3296,8 @@ int config_parse_syscall_log(
                         return 0;
                 }
 
-                r = parse_syscall_and_errno(word, &name, &num);
-                if (r < 0 || num >= 0) { /* errno code not allowed */
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse syscall, ignoring: %s", word);
-                        continue;
-                }
-
                 r = seccomp_parse_syscall_filter(
-                                name, 0, c->syscall_log,
+                                word, -1, c->syscall_log,
                                 SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|
                                 (invert ? SECCOMP_PARSE_INVERT : 0)|
                                 (c->syscall_log_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),

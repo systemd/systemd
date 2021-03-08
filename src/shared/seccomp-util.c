@@ -1063,7 +1063,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         uint32_t arch;
         int r;
 
-        /* Similar to seccomp_load_syscall_filter_set(), but takes a raw Set* of syscalls, instead of a
+        /* Similar to seccomp_load_syscall_filter_set(), but takes a raw Hashmap* of syscalls, instead of a
          * SyscallFilterSet* table. */
 
         if (hashmap_isempty(set) && default_action == SCMP_ACT_ALLOW)
@@ -1090,7 +1090,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                         else if (action == SCMP_ACT_LOG)
                                 a = SCMP_ACT_LOG;
 #endif
-                        else if (action != SCMP_ACT_ALLOW && error >= 0)
+                        else if (error >= 0)
                                 a = SCMP_ACT_ERRNO(error);
 
                         r = seccomp_rule_add_exact(seccomp, a, id, 0);
@@ -1133,16 +1133,19 @@ int seccomp_parse_syscall_filter(
         assert(name);
         assert(filter);
 
+        if (!FLAGS_SET(flags, SECCOMP_PARSE_INVERT) && errno_num >= 0)
+                return -EINVAL;
+
         if (name[0] == '@') {
                 const SyscallFilterSet *set;
                 const char *i;
 
                 set = syscall_filter_set_find(name);
                 if (!set) {
-                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
+                        if (!FLAGS_SET(flags, SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
 
-                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
                                    "Unknown system call group, ignoring: %s", name);
                         return 0;
                 }
@@ -1161,22 +1164,24 @@ int seccomp_parse_syscall_filter(
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
+                        if (!FLAGS_SET(flags, SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
 
-                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                        log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
                                    "Failed to parse system call, ignoring: %s", name);
                         return 0;
                 }
 
-                /* If we previously wanted to forbid a syscall and now
-                 * we want to allow it, then remove it from the list. */
-                if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_ALLOW_LIST)) {
+                /* If we previously wanted to forbid a syscall and now we want to allow it, then remove
+                 * it from the list. The entries in allow-list with non-negative error value will be
+                 * handled with SCMP_ACT_ERRNO() instead of the default action. */
+                if (!FLAGS_SET(flags, SECCOMP_PARSE_INVERT) == FLAGS_SET(flags, SECCOMP_PARSE_ALLOW_LIST) ||
+                    (FLAGS_SET(flags, SECCOMP_PARSE_INVERT | SECCOMP_PARSE_ALLOW_LIST) && errno_num >= 0)) {
                         r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
                                 switch (r) {
                                 case -ENOMEM:
-                                        return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                        return FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? log_oom() : -ENOMEM;
                                 case -EEXIST:
                                         assert_se(hashmap_update(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num)) == 0);
                                         break;
