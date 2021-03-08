@@ -885,7 +885,7 @@ static int on_deferred_change(sd_event_source *s, void *userdata) {
 
         assert(h);
 
-        h->deferred_change_event_source = sd_event_source_unref(h->deferred_change_event_source);
+        h->deferred_change_event_source = sd_event_source_disable_unref(h->deferred_change_event_source);
 
         r = bus_home_path(h, &path);
         if (r < 0) {

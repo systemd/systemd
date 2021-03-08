@@ -79,7 +79,7 @@ static void manager_watch_home(Manager *m) {
 
         assert(m);
 
-        m->inotify_event_source = sd_event_source_unref(m->inotify_event_source);
+        m->inotify_event_source = sd_event_source_disable_unref(m->inotify_event_source);
         m->scan_slash_home = false;
 
         if (statfs("/home/", &sfs) < 0) {
@@ -1636,7 +1636,7 @@ static int on_deferred_rescan(sd_event_source *s, void *userdata) {
 
         assert(m);
 
-        m->deferred_rescan_event_source = sd_event_source_unref(m->deferred_rescan_event_source);
+        m->deferred_rescan_event_source = sd_event_source_disable_unref(m->deferred_rescan_event_source);
 
         manager_enumerate_devices(m);
         manager_enumerate_images(m);
@@ -1674,7 +1674,7 @@ static int on_deferred_gc(sd_event_source *s, void *userdata) {
 
         assert(m);
 
-        m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
+        m->deferred_gc_event_source = sd_event_source_disable_unref(m->deferred_gc_event_source);
 
         manager_gc_images(m);
         return 0;

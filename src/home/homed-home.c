@@ -187,17 +187,17 @@ Home *home_free(Home *h) {
         user_record_unref(h->record);
         user_record_unref(h->secret);
 
-        h->worker_event_source = sd_event_source_unref(h->worker_event_source);
+        h->worker_event_source = sd_event_source_disable_unref(h->worker_event_source);
         safe_close(h->worker_stdout_fd);
         free(h->user_name);
         free(h->sysfs);
 
-        h->ref_event_source_please_suspend = sd_event_source_unref(h->ref_event_source_please_suspend);
-        h->ref_event_source_dont_suspend = sd_event_source_unref(h->ref_event_source_dont_suspend);
+        h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
+        h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
 
         h->pending_operations = ordered_set_free(h->pending_operations);
-        h->pending_event_source = sd_event_source_unref(h->pending_event_source);
-        h->deferred_change_event_source = sd_event_source_unref(h->deferred_change_event_source);
+        h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
+        h->deferred_change_event_source = sd_event_source_disable_unref(h->deferred_change_event_source);
 
         h->current_operation = operation_unref(h->current_operation);
 
@@ -885,7 +885,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
 
         h->worker_pid = 0;
-        h->worker_event_source = sd_event_source_unref(h->worker_event_source);
+        h->worker_event_source = sd_event_source_disable_unref(h->worker_event_source);
 
         if (si->si_code != CLD_EXITED) {
                 assert(IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED));
@@ -1054,7 +1054,7 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
 
         r = hashmap_put(h->manager->homes_by_worker_pid, PID_TO_PTR(pid), h);
         if (r < 0) {
-                h->worker_event_source = sd_event_source_unref(h->worker_event_source);
+                h->worker_event_source = sd_event_source_disable_unref(h->worker_event_source);
                 return r;
         }
 

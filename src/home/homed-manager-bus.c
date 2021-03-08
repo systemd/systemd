@@ -824,7 +824,7 @@ static int on_deferred_auto_login(sd_event_source *s, void *userdata) {
 
         assert(m);
 
-        m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
+        m->deferred_auto_login_event_source = sd_event_source_disable_unref(m->deferred_auto_login_event_source);
 
         r = sd_bus_emit_properties_changed(
                         m->bus,
