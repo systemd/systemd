@@ -51,6 +51,9 @@ acpi:ATML*:
 acpi:AUTH*:
  ID_VENDOR_FROM_DATABASE=AuthenTec
 
+acpi:BABA*:
+ ID_VENDOR_FROM_DATABASE=Alibaba Co., Ltd.
+
 acpi:BOOT*:
  ID_VENDOR_FROM_DATABASE=Coreboot Project
 
@@ -242,6 +245,9 @@ acpi:RKCP*:
 
 acpi:RZSN*:
  ID_VENDOR_FROM_DATABASE=Rozsnyó, s.r.o.
+
+acpi:SECC*:
+ ID_VENDOR_FROM_DATABASE=Seiko Epson Corporation
 
 acpi:SHRP*:
  ID_VENDOR_FROM_DATABASE=Sharp Corporation
@@ -1472,6 +1478,9 @@ acpi:CLM*:
 
 acpi:CLO*:
  ID_VENDOR_FROM_DATABASE=Clone Computers
+
+acpi:CLR*:
+ ID_VENDOR_FROM_DATABASE=Clover Electronics
 
 acpi:CLT*:
  ID_VENDOR_FROM_DATABASE=automated computer control systems
@@ -3890,6 +3899,9 @@ acpi:KTK*:
 
 acpi:KTN*:
  ID_VENDOR_FROM_DATABASE=Katron Tech Inc
+
+acpi:KTS*:
+ ID_VENDOR_FROM_DATABASE=Kyokko Communication System Co., Ltd.
 
 acpi:KUR*:
  ID_VENDOR_FROM_DATABASE=Kurta Corporation
@@ -6815,6 +6827,9 @@ acpi:TMI*:
 
 acpi:TMM*:
  ID_VENDOR_FROM_DATABASE=Time Management, Inc.
+
+acpi:TMO*:
+ ID_VENDOR_FROM_DATABASE=Terumo Corporation
 
 acpi:TMR*:
  ID_VENDOR_FROM_DATABASE=Taicom International Inc

@@ -16,11 +16,9 @@ arm_fadvise64_64
 atomic_barrier
 atomic_cmpxchg_32
 bdflush	1138
-bfin_spinlock
 bind	1191
 bpf	1341
 brk	1060
-cache_sync
 cachectl
 cacheflush
 capget	1185
@@ -216,6 +214,7 @@ mmap	1151
 mmap2	1172
 modify_ldt
 mount	1043
+mount_setattr	1466
 move_mount	1453
 move_pages	1276
 mprotect	1155
