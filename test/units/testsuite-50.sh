@@ -240,6 +240,8 @@ MountAPIVFS=yes
 TemporaryFileSystem=/run
 RootImage=${image}.raw
 ExtensionImages=/usr/share/app0.raw /usr/share/app1.raw:nosuid
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
 ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
 ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
 Type=oneshot
