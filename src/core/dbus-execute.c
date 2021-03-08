@@ -2252,6 +2252,9 @@ int bus_exec_context_set_transient_property(
                                 if (r < 0)
                                         return r;
 
+                                if (allow_list && e >= 0)
+                                        return -EINVAL;
+
                                 r = seccomp_parse_syscall_filter(n,
                                                                  e,
                                                                  c->syscall_filter,

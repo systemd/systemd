@@ -3209,13 +3209,20 @@ int config_parse_syscall_filter(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
                 r = parse_syscall_and_errno(word, &name, &num);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse syscall:errno, ignoring: %s", word);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse syscall:errno, ignoring: %s", word);
+                        continue;
+                }
+                if (!invert && num >= 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Allow-listed system calls cannot take error number, ignoring: %s", word);
                         continue;
                 }
 
