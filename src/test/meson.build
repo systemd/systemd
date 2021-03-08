@@ -224,9 +224,7 @@ tests += [
 
         [['src/test/test-parse-argument.c']],
 
-        [['src/test/test-parse-util.c'],
-         [],
-         [libseccomp]],
+        [['src/test/test-parse-util.c']],
 
         [['src/test/test-sysctl-util.c']],
 
