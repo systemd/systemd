@@ -211,7 +211,7 @@ static int context_parse_ntp_services_from_disk(Context *c) {
                                 break;
 
                         word = strstrip(line);
-                        if (isempty(word) || startswith("#", word))
+                        if (isempty(word) || startswith(word, "#"))
                                 continue;
 
                         r = context_add_ntp_service(c, word, *f);
