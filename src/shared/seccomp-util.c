@@ -1133,6 +1133,9 @@ int seccomp_parse_syscall_filter(
         assert(name);
         assert(filter);
 
+        if (!FLAGS_SET(flags, SECCOMP_PARSE_INVERT) && errno_num >= 0)
+                return -EINVAL;
+
         if (name[0] == '@') {
                 const SyscallFilterSet *set;
                 const char *i;

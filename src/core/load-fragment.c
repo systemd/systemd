@@ -3218,6 +3218,10 @@ int config_parse_syscall_filter(
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse syscall:errno, ignoring: %s", word);
                         continue;
                 }
+                if (!invert && num >= 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Allow listed system calls cannot take error number, ignoring: %s", word);
+                        continue;
+                }
 
                 r = seccomp_parse_syscall_filter(
                                 name, num, c->syscall_filter,
