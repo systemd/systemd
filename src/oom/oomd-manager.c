@@ -112,7 +112,7 @@ static int process_managed_oom_reply(
                                 continue;
                 }
 
-                ret = oomd_insert_cgroup_context(NULL, monitor_hm, empty_to_root(reply.path));
+                ret = oomd_insert_cgroup_context(NULL, monitor_hm, reply.path);
                 if (ret == -ENOMEM) {
                         r = ret;
                         goto finish;
