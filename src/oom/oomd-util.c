@@ -385,16 +385,21 @@ int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *curr_ctx = NULL;
         OomdCGroupContext *old_ctx;
+        const char *norm_path;
         int r;
 
         assert(new_h);
         assert(path);
 
-        r = oomd_cgroup_context_acquire(path, &curr_ctx);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get OomdCGroupContext for %s: %m", path);
+        norm_path = empty_to_root(path);
 
-        old_ctx = hashmap_get(old_h, path);
+        r = oomd_cgroup_context_acquire(norm_path, &curr_ctx);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get OomdCGroupContext for %s: %m", norm_path);
+
+        assert(streq(norm_path, curr_ctx->path));
+
+        old_ctx = hashmap_get(old_h, norm_path);
         if (old_ctx) {
                 curr_ctx->last_pgscan = old_ctx->pgscan;
                 curr_ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
