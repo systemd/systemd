@@ -41,6 +41,64 @@
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
 
+static void test_parse_syscall_and_errno(void) {
+        _cleanup_free_ char *n = NULL;
+        int e;
+
+        assert_se(parse_syscall_and_errno("uname:EILSEQ", &n, &e) >= 0);
+        assert_se(streq(n, "uname"));
+        assert_se(e == errno_from_name("EILSEQ") && e >= 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("uname:EINVAL", &n, &e) >= 0);
+        assert_se(streq(n, "uname"));
+        assert_se(e == errno_from_name("EINVAL") && e >= 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("@sync:4095", &n, &e) >= 0);
+        assert_se(streq(n, "@sync"));
+        assert_se(e == 4095);
+        n = mfree(n);
+
+        /* If errno is omitted, then e is set to -1 */
+        assert_se(parse_syscall_and_errno("mount", &n, &e) >= 0);
+        assert_se(streq(n, "mount"));
+        assert_se(e == -1);
+        n = mfree(n);
+
+        /* parse_syscall_and_errno() does not check the syscall name is valid or not. */
+        assert_se(parse_syscall_and_errno("hoge:255", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == 255);
+        n = mfree(n);
+
+        /* 0 is also a valid errno. */
+        assert_se(parse_syscall_and_errno("hoge:0", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == 0);
+        n = mfree(n);
+
+        assert_se(parse_syscall_and_errno("hoge:kill", &n, &e) >= 0);
+        assert_se(streq(n, "hoge"));
+        assert_se(e == SECCOMP_ERROR_NUMBER_KILL);
+        n = mfree(n);
+
+        /* The function checks the syscall name is empty or not. */
+        assert_se(parse_syscall_and_errno("", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno(":255", &n, &e) == -EINVAL);
+
+        /* errno must be a valid errno name or number between 0 and ERRNO_MAX == 4095, or "kill" */
+        assert_se(parse_syscall_and_errno("hoge:4096", &n, &e) == -ERANGE);
+        assert_se(parse_syscall_and_errno("hoge:-3", &n, &e) == -ERANGE);
+        assert_se(parse_syscall_and_errno("hoge:12.3", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:123junk", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:junk123", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:255:EILSEQ", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:-EINVAL", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:EINVALaaa", &n, &e) == -EINVAL);
+        assert_se(parse_syscall_and_errno("hoge:", &n, &e) == -EINVAL);
+}
+
 static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
         const char *name;
@@ -1075,6 +1133,7 @@ static void test_restrict_suid_sgid(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
+        test_parse_syscall_and_errno();
         test_seccomp_arch_to_string();
         test_architecture_table();
         test_syscall_filter_set_find();
