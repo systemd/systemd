@@ -1430,21 +1430,21 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 return false;
 
         /* We need NNP if we have any form of seccomp and are unprivileged */
-        return context_has_address_families(c) ||
+        return c->lock_personality ||
                 c->memory_deny_write_execute ||
-                c->restrict_realtime ||
-                c->restrict_suid_sgid ||
-                exec_context_restrict_namespaces_set(c) ||
+                c->private_devices ||
                 c->protect_clock ||
+                c->protect_hostname ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
-                c->private_devices ||
-                context_has_syscall_filters(c) ||
-                context_has_syscall_logs(c) ||
+                context_has_address_families(c) ||
+                exec_context_restrict_namespaces_set(c) ||
+                c->restrict_realtime ||
+                c->restrict_suid_sgid ||
                 !set_isempty(c->syscall_archs) ||
-                c->lock_personality ||
-                c->protect_hostname;
+                context_has_syscall_filters(c) ||
+                context_has_syscall_logs(c);
 }
 
 static bool exec_context_has_credentials(const ExecContext *context) {
