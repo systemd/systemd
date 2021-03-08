@@ -2315,15 +2315,8 @@ int bus_exec_context_set_transient_property(
                         }
 
                         STRV_FOREACH(s, l) {
-                                _cleanup_free_ char *n = NULL;
-                                int e;
-
-                                r = parse_syscall_and_errno(*s, &n, &e);
-                                if (r < 0)
-                                        return r;
-
-                                r = seccomp_parse_syscall_filter(n,
-                                                                 0, /* errno not used */
+                                r = seccomp_parse_syscall_filter(*s,
+                                                                 -1, /* errno not used */
                                                                  c->syscall_log,
                                                                  SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
                                                                  invert_flag |
