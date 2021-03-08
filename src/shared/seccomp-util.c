@@ -1063,7 +1063,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         uint32_t arch;
         int r;
 
-        /* Similar to seccomp_load_syscall_filter_set(), but takes a raw Set* of syscalls, instead of a
+        /* Similar to seccomp_load_syscall_filter_set(), but takes a raw Hashmap* of syscalls, instead of a
          * SyscallFilterSet* table. */
 
         if (hashmap_isempty(set) && default_action == SCMP_ACT_ALLOW)
