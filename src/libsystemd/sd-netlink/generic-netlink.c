@@ -32,7 +32,6 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *genl_cmd_type, *nl_type;
         const NLTypeSystem *type_system;
-        struct genlmsghdr *genl;
         size_t size;
         int r;
 
@@ -63,9 +62,11 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         m->hdr->nlmsg_type = nlmsg_type;
 
         type_get_type_system(nl_type, &m->containers[0].type_system);
-        genl = NLMSG_DATA(m->hdr);
-        genl->cmd = cmd;
-        genl->version = genl_families[family].version;
+
+        *(struct genlmsghdr *) NLMSG_DATA(m->hdr) = (struct genlmsghdr) {
+                .cmd = cmd,
+                .version = genl_families[family].version,
+        };
 
         *ret = TAKE_PTR(m);
 
