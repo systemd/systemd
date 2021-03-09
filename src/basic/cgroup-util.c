@@ -2054,7 +2054,9 @@ int cg_unified_cached(bool flush) {
                         unified_systemd_v232 = false;
                 } else {
                         if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0)
-                                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/systemd\" failed: %m");
+                                /* Some other software may have set up /sys/fs/cgroup in a configuration we do not recognize. */
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                                       "No known cgroup or cgroup2 hierarchy found");
 
                         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
                                 log_debug("Found cgroup2 on /sys/fs/cgroup/systemd, unified hierarchy for systemd controller (v232 variant)");
