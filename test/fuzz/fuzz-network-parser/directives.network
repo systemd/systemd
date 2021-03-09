@@ -350,6 +350,7 @@ EmitTimezone=
 DNS=
 SendOption=
 SendVendorOption=
+BindToInterface=
 [NextHop]
 Id=
 Gateway=

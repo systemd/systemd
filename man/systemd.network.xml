@@ -2407,6 +2407,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           then all options specified earlier are cleared. Defaults to unset.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>BindToInterface=</varname></term>
+        <listitem>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
+        to its network interface and all socket communication will be restricted to this interface.
+        Defaults to <literal>yes</literal>.
+        </listitem>
+      </varlistentry>
 
     </variablelist>
   </refsect1>

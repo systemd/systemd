@@ -184,6 +184,7 @@ struct Network {
 
         /* DHCP Server Support */
         bool dhcp_server;
+        bool dhcp_server_bind_to_interface;
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
