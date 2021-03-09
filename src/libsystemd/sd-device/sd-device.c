@@ -751,15 +751,34 @@ int device_set_subsystem(sd_device *device, const char *_subsystem) {
         return free_and_replace(device->subsystem, subsystem);
 }
 
-static int device_set_drivers_subsystem(sd_device *device, const char *_subsystem) {
+static int device_set_drivers_subsystem(sd_device *device) {
         _cleanup_free_ char *subsystem = NULL;
+        const char *syspath, *drivers, *p;
         int r;
 
         assert(device);
-        assert(_subsystem);
-        assert(*_subsystem);
 
-        subsystem = strdup(_subsystem);
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        drivers = strstr(syspath, "/drivers/");
+        if (!drivers)
+                return -EINVAL;
+
+        for (p = drivers - 1; p >= syspath; p--)
+                if (*p == '/')
+                        break;
+
+        if (p <= syspath)
+                /* syspath does not start with /sys/ ?? */
+                return -EINVAL;
+        p++;
+        if (p >= drivers)
+                /* refuse duplicated slashes */
+                return -EINVAL;
+
+        subsystem = strndup(p, drivers - p);
         if (!subsystem)
                 return -ENOMEM;
 
@@ -771,60 +790,46 @@ static int device_set_drivers_subsystem(sd_device *device, const char *_subsyste
 }
 
 _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
-        const char *syspath, *drivers = NULL;
         int r;
 
         assert_return(device, -EINVAL);
 
-        r = sd_device_get_syspath(device, &syspath);
-        if (r < 0)
-                return r;
-
         if (!device->subsystem_set) {
                 _cleanup_free_ char *subsystem = NULL;
+                const char *syspath;
                 char *path;
+
+                r = sd_device_get_syspath(device, &syspath);
+                if (r < 0)
+                        return r;
 
                 /* read 'subsystem' link */
                 path = strjoina(syspath, "/subsystem");
                 r = readlink_value(path, &subsystem);
-                if (r >= 0)
+                if (r < 0 && r != -ENOENT)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to read subsystem for %s: %m",
+                                                      device->devpath);
+
+                if (subsystem)
                         r = device_set_subsystem(device, subsystem);
                 /* use implicit names */
                 else if (path_startswith(device->devpath, "/module/"))
                         r = device_set_subsystem(device, "module");
-                else if (!(drivers = strstr(syspath, "/drivers/")) &&
-                         PATH_STARTSWITH_SET(device->devpath, "/subsystem/",
+                else if (strstr(syspath, "/drivers/"))
+                        r = device_set_drivers_subsystem(device);
+                else if (PATH_STARTSWITH_SET(device->devpath, "/subsystem/",
                                                               "/class/",
                                                               "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
-                if (r < 0 && r != -ENOENT)
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for %s: %m", device->devpath);
-
-                device->subsystem_set = true;
-        } else if (!device->driver_subsystem_set)
-                drivers = strstr(syspath, "/drivers/");
-
-        if (!device->driver_subsystem_set) {
-                if (drivers) {
-                        _cleanup_free_ char *subpath = NULL;
-
-                        subpath = strndup(syspath, drivers - syspath);
-                        if (!subpath)
-                                r = -ENOMEM;
-                        else {
-                                const char *subsys;
-
-                                subsys = strrchr(subpath, '/');
-                                if (!subsys)
-                                        r = -EINVAL;
-                                else
-                                        r = device_set_drivers_subsystem(device, subsys + 1);
-                        }
-                        if (r < 0 && r != -ENOENT)
-                                return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for driver %s: %m", device->devpath);
+                else {
+                        device->subsystem_set = true;
+                        r = 0;
                 }
-
-                device->driver_subsystem_set = true;
+                if (r < 0)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to set subsystem for %s: %m",
+                                                      device->devpath);
         }
 
         if (!device->subsystem)
