@@ -19,7 +19,6 @@
 
 static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int family, uint16_t type, uint16_t flags) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        struct nfgenmsg *nfh;
         const NLType *nl_type;
         size_t size;
         int r;
@@ -57,10 +56,11 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int famil
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = NFNL_SUBSYS_NFTABLES << 8 | type;
 
-        nfh = NLMSG_DATA(m->hdr);
-        nfh->nfgen_family = family;
-        nfh->version = NFNETLINK_V0;
-        nfh->res_id = nfnl->serial;
+        *(struct nfgenmsg*) NLMSG_DATA(m->hdr) = (struct nfgenmsg) {
+                .nfgen_family = family,
+                .version = NFNETLINK_V0,
+                .res_id = nfnl->serial,
+        };
 
         *ret = TAKE_PTR(m);
         return 0;
@@ -68,17 +68,17 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int famil
 
 static int sd_nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, int v) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        struct nfgenmsg *nfh;
         int r;
 
         r = message_new(nfnl, &m, v);
         if (r < 0)
                 return r;
 
-        nfh = NLMSG_DATA(m->hdr);
-        nfh->nfgen_family = AF_UNSPEC;
-        nfh->version = NFNETLINK_V0;
-        nfh->res_id = NFNL_SUBSYS_NFTABLES;
+        *(struct nfgenmsg*) NLMSG_DATA(m->hdr) = (struct nfgenmsg) {
+                .nfgen_family = AF_UNSPEC,
+                .version = NFNETLINK_V0,
+                .res_id = NFNL_SUBSYS_NFTABLES,
+        };
 
         *ret = TAKE_PTR(m);
         return r;
