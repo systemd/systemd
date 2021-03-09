@@ -990,7 +990,7 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
         return 0;
 }
 
-static int device_set_sysname(sd_device *device) {
+static int device_set_sysname_and_sysnum(sd_device *device) {
         _cleanup_free_ char *sysname = NULL;
         const char *sysnum = NULL;
         const char *pos;
@@ -1027,7 +1027,6 @@ static int device_set_sysname(sd_device *device) {
         if (len == 0)
                 sysnum = NULL;
 
-        device->sysname_set = true;
         device->sysnum = sysnum;
         return free_and_replace(device->sysname, sysname);
 }
@@ -1037,13 +1036,11 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
 
         assert_return(device, -EINVAL);
 
-        if (!device->sysname_set) {
-                r = device_set_sysname(device);
+        if (!device->sysname) {
+                r = device_set_sysname_and_sysnum(device);
                 if (r < 0)
                         return r;
         }
-
-        assert_return(device->sysname, -ENOENT);
 
         if (ret)
                 *ret = device->sysname;
@@ -1055,8 +1052,8 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
 
         assert_return(device, -EINVAL);
 
-        if (!device->sysname_set) {
-                r = device_set_sysname(device);
+        if (!device->sysname) {
+                r = device_set_sysname_and_sysnum(device);
                 if (r < 0)
                         return r;
         }
