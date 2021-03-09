@@ -87,6 +87,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_NO_PARTITION_TABLE  = 1 << 12, /* Only recognize single file system images */
         DISSECT_IMAGE_VERITY_SHARE        = 1 << 13, /* When activating a verity device, reuse existing one if already open */
         DISSECT_IMAGE_MKDIR               = 1 << 14, /* Make top-level directory to mount right before mounting, if missing */
+        DISSECT_IMAGE_USR_NO_ROOT         = 1 << 15, /* If no root fs is in the image, but /usr is, then allow this (so that we can mount the rootfs as tmpfs or so */
 } DissectImageFlags;
 
 struct DissectedImage {
