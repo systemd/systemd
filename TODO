@@ -22,6 +22,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-sysusers: pick up passwords from credentials logic, so that users can
+  easily set root user pw
+
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
 
