@@ -723,7 +723,10 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 if ((unsigned char) *t <= 32U)
                         return false;
 
-                if (IN_SET(*t, ':', '/'))
+                if (IN_SET(*t,
+                           ':',  /* colons are used by the legacy "alias" interface logic */
+                           '/',  /* slashes cannot work, since we need to use network interfaces in sysfs paths, and in paths slashes are separators */
+                           '%')) /* %d is used in the kernel's weird foo%d format string naming feature which we really really don't want to ever run into by accident */
                         return false;
 
                 numeric = numeric && (*t >= '0' && *t <= '9');

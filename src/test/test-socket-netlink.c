@@ -72,7 +72,7 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("[::1]:1234%lo", 0, AF_INET6, NULL);
         test_socket_address_parse_one("[::1]:0%lo", -EINVAL, 0, NULL);
         test_socket_address_parse_one("[::1]%lo", -EINVAL, 0, NULL);
-        test_socket_address_parse_one("[::1]:1234%lo%lo", -ENODEV, 0, NULL);
+        test_socket_address_parse_one("[::1]:1234%lo%lo", -EINVAL, 0, NULL);
         test_socket_address_parse_one("[::1]:1234%xxxxasdf", -ENODEV, 0, NULL);
         test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
         test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
