@@ -155,7 +155,7 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link, uint32
                                 &eth_mac, arp_type, dhcp_hlen, port);
 }
 
-int dhcp_network_bind_udp_socket(be32_t address, uint16_t port, int ip_service_type) {
+int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type) {
         union sockaddr_union src = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(port),
@@ -180,7 +180,13 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port, int ip_service_t
         if (r < 0)
                 return r;
 
+
         if (address == INADDR_ANY) {
+                if (ifindex > 0) {
+                        r = socket_bind_to_ifindex(s, ifindex);
+                        if (r < 0)
+                                return r;
+                }
                 r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
                 if (r < 0)
                         return r;

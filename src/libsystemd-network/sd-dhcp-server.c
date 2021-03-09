@@ -307,6 +307,11 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
         assert(pktinfo);
 
+        if (server->address == INADDR_ANY)
+                pktinfo->ipi_ifindex = server->ifindex;
+        else
+                pktinfo->ipi_ifindex = 0;
+
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
         if (sendmsg(server->fd, &msg, 0) < 0)
@@ -996,7 +1001,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->address, DHCP_PORT_SERVER, -1);
+        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;
