@@ -509,7 +509,11 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                         _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
                         _cleanup_(verity_settings_done) VeritySettings verity_settings = VERITY_SETTINGS_DEFAULT;
-                        DissectImageFlags flags = DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_MOUNT_ROOT_ONLY;
+                        DissectImageFlags flags =
+                                DISSECT_IMAGE_READ_ONLY|
+                                DISSECT_IMAGE_REQUIRE_ROOT|
+                                DISSECT_IMAGE_MOUNT_ROOT_ONLY|
+                                DISSECT_IMAGE_USR_NO_ROOT;
 
                         r = verity_settings_load(&verity_settings, img->path, NULL, NULL);
                         if (r < 0)
