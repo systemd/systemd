@@ -130,17 +130,12 @@ static int broadcast_group_set_ref(sd_netlink *nl, unsigned group, unsigned n_re
 }
 
 static int broadcast_group_join(sd_netlink *nl, unsigned group) {
-        int r;
-
         assert(nl);
         assert(nl->fd >= 0);
         assert(group > 0);
 
-        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &group, sizeof(group));
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        /* group is "unsigned", but netlink(7) says the argument for NETLINK_ADD_MEMBERSHIP is "int" */
+        return setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group);
 }
 
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group) {
@@ -173,8 +168,6 @@ int socket_broadcast_group_ref(sd_netlink *nl, unsigned group) {
 }
 
 static int broadcast_group_leave(sd_netlink *nl, unsigned group) {
-        int r;
-
         assert(nl);
         assert(nl->fd >= 0);
         assert(group > 0);
@@ -182,11 +175,8 @@ static int broadcast_group_leave(sd_netlink *nl, unsigned group) {
         if (nl->broadcast_group_dont_leave)
                 return 0;
 
-        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, &group, sizeof(group));
-        if (r < 0)
-                return -errno;
-
-        return 0;
+        /* group is "unsigned", but netlink(7) says the argument for NETLINK_DROP_MEMBERSHIP is "int" */
+        return setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group);
 }
 
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
