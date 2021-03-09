@@ -1345,7 +1345,7 @@ static int mount_partition(
 
         if (directory) {
                 if (!FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY)) {
-                        /* Automatically create missing mount points, if necessary. */
+                        /* Automatically create missing mount points inside the image, if necessary. */
                         r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
                         if (r < 0)
                                 return r;
@@ -1356,8 +1356,18 @@ static int mount_partition(
                         return r;
 
                 p = chased;
-        } else
+        } else {
+                /* Create top-level mount if missing – but only if this is asked for. This won't modify the
+                 * image (as the branch above does) but the host hierarchy, and the created directory might
+                 * survive our mount in the host hierarchy hence. */
+                if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
+                        r = mkdir_p(where, 0755);
+                        if (r < 0)
+                                return r;
+                }
+
                 p = where;
+        }
 
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
@@ -1381,12 +1391,6 @@ static int mount_partition(
         if (!isempty(m->mount_options))
                 if (!strextend_with_separator(&options, ",", m->mount_options))
                         return -ENOMEM;
-
-        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
-                r = mkdir_p(p, 0755);
-                if (r < 0)
-                        return r;
-        }
 
         r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
@@ -1419,10 +1423,6 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 if (r < 0)
                         return r;
         }
-
-        /* Mask DISSECT_IMAGE_MKDIR for all subdirs: the idea is that only the top-level mount point is
-         * created if needed, but the image itself not modified. */
-        flags &= ~DISSECT_IMAGE_MKDIR;
 
         if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
                 /* For us mounting root always means mounting /usr as well */
