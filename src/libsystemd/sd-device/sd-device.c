@@ -1306,6 +1306,9 @@ int device_get_device_id(sd_device *device, const char **ret) {
                                 return -ENOMEM;
                 }
 
+                if (!filename_is_valid(id))
+                        return -EINVAL;
+
                 device->device_id = TAKE_PTR(id);
         }
 
