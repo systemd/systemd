@@ -180,13 +180,13 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
         if (r < 0)
                 return r;
 
-        if (ifindex > 0) {
-                r = socket_bind_to_ifindex(s, ifindex);
-                if (r < 0)
-                        return r;
-        }
 
         if (address == INADDR_ANY) {
+                if (ifindex > 0) {
+                        r = socket_bind_to_ifindex(s, ifindex);
+                        if (r < 0)
+                                return r;
+                }
                 r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
                 if (r < 0)
                         return r;
