@@ -693,132 +693,88 @@ static int is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *
         return false;
 }
 
-static int find_symlinks_fd(
+static int find_symlinks_in_directory(
+                DIR *dir,
+                const char *dir_path,
                 const char *root_dir,
                 const UnitFileInstallInfo *i,
                 bool match_aliases,
                 bool ignore_same_name,
-                int fd,
-                const char *path,
                 const char *config_path,
                 bool *same_name_link) {
 
-        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
-        assert(i);
-        assert(fd >= 0);
-        assert(path);
-        assert(config_path);
-        assert(same_name_link);
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_free_ char *dest = NULL;
+                bool found_path = false, found_dest, b = false;
+                int q;
 
-        d = fdopendir(fd);
-        if (!d) {
-                safe_close(fd);
-                return -errno;
-        }
+                dirent_ensure_type(dir, de);
 
-        FOREACH_DIRENT(de, d, return -errno) {
+                if (de->d_type != DT_LNK)
+                        continue;
 
-                dirent_ensure_type(d, de);
-
-                if (de->d_type == DT_DIR) {
-                        _cleanup_free_ char *p = NULL;
-                        int nfd, q;
-
-                        nfd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                        if (nfd < 0) {
-                                if (errno == ENOENT)
-                                        continue;
-
-                                if (r == 0)
-                                        r = -errno;
-                                continue;
-                        }
-
-                        p = path_make_absolute(de->d_name, path);
-                        if (!p) {
-                                safe_close(nfd);
-                                return -ENOMEM;
-                        }
-
-                        /* This will close nfd, regardless whether it succeeds or not */
-                        q = find_symlinks_fd(root_dir, i, match_aliases, ignore_same_name, nfd,
-                                             p, config_path, same_name_link);
-                        if (q > 0)
-                                return 1;
+                /* Acquire symlink destination */
+                q = readlinkat_malloc(dirfd(dir), de->d_name, &dest);
+                if (q == -ENOENT)
+                        continue;
+                if (q < 0) {
                         if (r == 0)
                                 r = q;
+                        continue;
+                }
 
-                } else if (de->d_type == DT_LNK) {
-                        _cleanup_free_ char *p = NULL, *dest = NULL;
-                        bool found_path = false, found_dest, b = false;
-                        int q;
+                /* Make absolute */
+                if (!path_is_absolute(dest)) {
+                        char *x;
 
-                        /* Acquire symlink name */
-                        p = path_make_absolute(de->d_name, path);
-                        if (!p)
+                        x = path_join(dir_path, dest);
+                        if (!x)
                                 return -ENOMEM;
 
-                        /* Acquire symlink destination */
-                        q = readlink_malloc(p, &dest);
-                        if (q == -ENOENT)
-                                continue;
-                        if (q < 0) {
-                                if (r == 0)
-                                        r = q;
-                                continue;
-                        }
+                        free_and_replace(dest, x);
+                }
 
-                        /* Make absolute */
-                        if (!path_is_absolute(dest)) {
-                                char *x;
+                assert(unit_name_is_valid(i->name, UNIT_NAME_ANY));
+                if (!ignore_same_name)
+                               /* Check if the symlink itself matches what we are looking for.
+                                *
+                                * If ignore_same_name is specified, we are in one of the directories which
+                                * have lower priority than the unit file, and even if a file or symlink with
+                                * this name was found, we should ignore it. */
+                                found_path = streq(de->d_name, i->name);
 
-                                x = path_join(root_dir, dest);
-                                if (!x)
-                                        return -ENOMEM;
+                /* Check if what the symlink points to matches what we are looking for */
+                found_dest = streq(basename(dest), i->name);
 
-                                free_and_replace(dest, x);
-                        }
+                if (found_path && found_dest) {
+                        _cleanup_free_ char *p = NULL, *t = NULL;
 
-                        assert(unit_name_is_valid(i->name, UNIT_NAME_ANY));
-                        if (!ignore_same_name)
-                                /* Check if the symlink itself matches what we are looking for.
-                                 *
-                                 * If ignore_same_name is specified, we are in one of the directories which
-                                 * have lower priority than the unit file, and even if a file or symlink with
-                                 * this name was found, we should ignore it. */
-                                 found_path = streq(de->d_name, i->name);
+                        /* Filter out same name links in the main
+                         * config path */
+                        p = path_make_absolute(de->d_name, dir_path);
+                        t = path_make_absolute(i->name, config_path);
 
-                        /* Check if what the symlink points to matches what we are looking for */
-                        found_dest = streq(basename(dest), i->name);
+                        if (!p || !t)
+                                return -ENOMEM;
 
-                        if (found_path && found_dest) {
-                                _cleanup_free_ char *t = NULL;
+                        b = path_equal(p, t);
+                }
 
-                                /* Filter out same name links in the main
-                                 * config path */
-                                t = path_make_absolute(i->name, config_path);
-                                if (!t)
-                                        return -ENOMEM;
+                if (b)
+                        *same_name_link = true;
+                else if (found_path || found_dest) {
+                        if (!match_aliases)
+                                return 1;
 
-                                b = path_equal(t, p);
-                        }
-
-                        if (b)
-                                *same_name_link = true;
-                        else if (found_path || found_dest) {
-                                if (!match_aliases)
-                                        return 1;
-
-                                /* Check if symlink name is in the set of names used by [Install] */
-                                q = is_symlink_with_known_name(i, de->d_name);
-                                if (q < 0)
-                                        return q;
-                                if (q > 0)
-                                        return 1;
-                        }
+                        /* Check if symlink name is in the set of names used by [Install] */
+                        q = is_symlink_with_known_name(i, de->d_name);
+                        if (q < 0)
+                                return q;
+                        if (q > 0)
+                                return 1;
                 }
         }
 
@@ -833,22 +789,55 @@ static int find_symlinks(
                 const char *config_path,
                 bool *same_name_link) {
 
-        int fd;
+        _cleanup_closedir_ DIR *config_dir = NULL;
+        struct dirent *de;
+        int r = 0;
 
         assert(i);
         assert(config_path);
         assert(same_name_link);
 
-        fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
-        if (fd < 0) {
+        config_dir = opendir(config_path);
+        if (!config_dir) {
                 if (IN_SET(errno, ENOENT, ENOTDIR, EACCES))
                         return 0;
                 return -errno;
         }
 
-        /* This takes possession of fd and closes it */
-        return find_symlinks_fd(root_dir, i, match_name, ignore_same_name, fd,
-                                config_path, config_path, same_name_link);
+        FOREACH_DIRENT(de, config_dir, return -errno) {
+                const char *suffix;
+                _cleanup_free_ const char *path = NULL;
+                _cleanup_closedir_ DIR *d = NULL;
+
+                dirent_ensure_type(config_dir, de);
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                suffix = strrchr(de->d_name, '.');
+                if (!STRPTR_IN_SET(suffix, ".wants", ".requires"))
+                        continue;
+
+                path = path_join(config_path, de->d_name);
+                if (!path)
+                        return -ENOMEM;
+
+                d = opendir(path);
+                if (!d) {
+                        log_error_errno(errno, "Failed to open directory '%s' while scanning for symlinks, ignoring: %m", path);
+                        continue;
+                }
+
+                r = find_symlinks_in_directory(d, path, root_dir, i, match_name, ignore_same_name, config_path, same_name_link);
+                if (r > 0)
+                        return 1;
+                else if (r < 0)
+                        log_debug_errno(r, "Failed to lookup for symlinks in '%s': %m", path);
+        }
+
+        /* We didn't find any suitable symlinks in .wants or .requires directories, let's look for linked unit files in this directory. */
+        rewinddir(config_dir);
+        return find_symlinks_in_directory(config_dir, config_path, root_dir, i, match_name, ignore_same_name, config_path, same_name_link);
 }
 
 static int find_symlinks_in_scope(
