@@ -3,21 +3,22 @@
 # Korean translation for the systemd.
 # Seong-ho Cho <shcho@gnome.org>, 2015.
 # Dongsu Park <dongsu@endocode.com>, 2015.
-#
+# simmon <simmon@nplob.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2015-11-03 13:19+0100\n"
-"Last-Translator: Dongsu Park <dongsu@endocode.com>\n"
-"Language-Team: GNOME Korea <gnome-kr@googlegroups.com>\n"
+"PO-Revision-Date: 2021-03-09 12:01+0000\n"
+"Last-Translator: simmon <simmon@nplob.com>\n"
+"Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
+"master/ko/>\n"
 "Language: ko\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Gtranslator 2.91.7\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 4.5.1\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -67,67 +68,53 @@ msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "홈 영역 생성"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to create a user's home area."
-msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
+msgstr "사용자 홈 영역을 생성하기 위해서는 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "홈 영역 제거"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to remove a user's home area."
-msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
+msgstr "사용자 홈 영역을 제거하기 위해서는 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "홈영역 자격증명 확인"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "활성 세션, 사용자 시트를 관리하려면 인증이 필요합니다."
+msgstr "사용자 홈 영역의 자격증명 확인하려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "홈 영역을 최신화"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid "Authentication is required to update a user's home area."
-msgstr "시트에 장치 부착을 허용하려면 인증이 필요합니다."
+msgstr "사용자 홈 영역을 최신화 하려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "홈 영역을 조절"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to resize a user's home area."
-msgstr "wall 메시지를 설정하려면 인증이 필요합니다"
+msgstr "사용자 홈 영역의 크기를 조절하려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "홈 영역의 비밀번호를 변경"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "활성 세션, 사용자 시트를 관리하려면 인증이 필요합니다."
+msgstr "사용자 홈 영역의 비밀번호를 변경하려면 비밀번호가 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -145,9 +132,7 @@ msgstr "정적 호스트 이름 설정"
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr ""
-"로컬 호스트 이름을 모양새를 갖춘 호스트 이름 처럼  정적으로 설정하려면 인증"
-"이 필요합니다."
+msgstr "로컬호스트 이름을 모양새를 갖춘 호스트이름 처럼 정적으로 설정하려면 인증이 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -159,13 +144,11 @@ msgstr "로컬 머신 정보를 설정하려면 인증이 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "제품 UUID를 획득"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
-#, fuzzy
-#| msgid "Authentication is required to reload '$(unit)'."
 msgid "Authentication is required to get product UUID."
-msgstr "'$(unit)' 서비스 유닛을 다시 불러오려면 인증이 필요합니다."
+msgstr "제품 UUID를 얻기 위해서는 인증이 필요합니다."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -300,33 +283,22 @@ msgstr ""
 "니다."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "프로그램의 시스템 전원 키 처리 방지 요청 허용"
+msgstr "응용프로그램이 리부트 키 처리하는 시스템 방지 허용"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
-msgstr ""
-"프로그램의 시스템 전원 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
+msgstr "응용프로그램이 시스템 리부트 키 처리 방지 요청을 허용하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:128
-#, fuzzy
-#| msgid "Allow non-logged-in users to run programs"
 msgid "Allow non-logged-in user to run programs"
 msgstr "비 로그인 사용자 프로그램 실행 허용"
 
 #: src/login/org.freedesktop.login1.policy:129
-#, fuzzy
-#| msgid "Authentication is required to run programs as a non-logged-in user."
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "비 로그인 사용자에게 프로그램 실행을 허용하려면 인증이 필요합니다."
+msgstr "비 로그인 사용자에게 프로그램 실행하려면 명시적 요청이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -414,53 +386,32 @@ msgstr ""
 "인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:235
-#, fuzzy
-#| msgid "Hibernate the system"
 msgid "Halt the system"
-msgstr "시스템 최대 절전 상태 진입"
+msgstr "시스템 정지 진입"
 
 #: src/login/org.freedesktop.login1.policy:236
-#, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to halt the system."
-msgstr "시스템을 최대 절전 상태로 놓으려면 인증이 필요합니다."
+msgstr "시스템을 정지 상태로 놓으려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:246
-#, fuzzy
-#| msgid "Hibernate the system while other users are logged in"
 msgid "Halt the system while other users are logged in"
-msgstr "다른 사용자가 로그인 했을 때 시스템 최대 절전 상태 진입"
+msgstr "다른 사용자가 로그인 했을 때 시스템이 정지 상태진입"
 
 #: src/login/org.freedesktop.login1.policy:247
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while other users are "
-#| "logged in."
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr ""
-"다른 사용자가 로그인 했을 때 시스템을 최대 절전 상태로 놓으려면 인증이 필요합"
-"니다."
+msgstr "다른 사용자가 로그인 했을 때 시스템을 정지 상태로 놓으려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:257
-#, fuzzy
-#| msgid "Hibernate the system while an application is inhibiting this"
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"프로그램이 최대 절전 상태 진입을 못하게 요청할 때 시스템 최대 절전 상태 진입"
+msgstr "응용프로그램이 이와 같이 금지 상태일 때에 시스템 정지 상태 진입"
 
 #: src/login/org.freedesktop.login1.policy:258
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr ""
-"프로그램이 최대 절전 상태 진입을 못하게 요청할 때 시스템을 최대 절전 상태로 "
-"놓으려면 인증이 필요합니다."
+msgstr "응용프로그램이 이와 같이 금지 할 때에는 시스템을 정지 할 때에는인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -544,7 +495,7 @@ msgstr "활성화 세션을 잠금 또는 잠금 해제하려면 인증이 필�
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "커널이 재시작 \"원인\"을 설정합니다"
 
 #: src/login/org.freedesktop.login1.policy:353
 #, fuzzy
@@ -553,10 +504,8 @@ msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr "시스템 시간대를 설정하려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:363
-#, fuzzy
-#| msgid "Allow indication to the firmware to boot to setup interface"
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "설정 화면으로 부팅하도록 펌웨어에게 지시 허용"
+msgstr "설정 화면으로 부팅하도록 펌웨어에게 지시"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
@@ -566,7 +515,7 @@ msgstr "설정 화면으로 부팅하도록 펌웨어에게 지시하려면 인�
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
+msgstr "부트로더 메뉴에 부팅하기 위해 부트로더에 표시하기"
 
 #: src/login/org.freedesktop.login1.policy:375
 #, fuzzy
@@ -580,7 +529,7 @@ msgstr "설정 화면으로 부팅하도록 펌웨어에게 지시하려면 인�
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "특정 항목으로 재시작 하기 위해 부트로더 표시"
 
 #: src/login/org.freedesktop.login1.policy:386
 #, fuzzy
@@ -602,7 +551,7 @@ msgstr "wall 메시지를 설정하려면 인증이 필요합니다"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "세션 변경"
 
 #: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
@@ -680,7 +629,7 @@ msgstr "로컬 가상 머신 및 컨테이너 이미지를 관리하려면 인�
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "NTP 서버 설정"
 
 #: src/network/org.freedesktop.network1.policy:23
 #, fuzzy
@@ -691,7 +640,7 @@ msgstr "시스템 시간을 설정하려면 인증이 필요합니다."
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "DNS 서버 설정"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
@@ -703,7 +652,7 @@ msgstr "시스템 시간을 설정하려면 인증이 필요합니다."
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "도메인 설정"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
@@ -715,7 +664,7 @@ msgstr "'$(unit)' 서비스 유닛을 멈추려면 인증이 필요합니다."
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "기본 라우트 설정"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
@@ -727,7 +676,7 @@ msgstr "로컬 호스트 이름을 설정하려면 인증이 필요합니다."
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "LLMNR 활성화/비활성화"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
@@ -739,7 +688,7 @@ msgstr "시스템을 최대 절전 상태로 놓으려면 인증이 필요합니
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "멀티캐스트 DNS 활성화/비활성화"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
@@ -751,7 +700,7 @@ msgstr "로컬 호스트로 로그인하려면 인증이 필요합니다."
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "TLS를 통한 DNS 활성화/비활성화"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
@@ -763,7 +712,7 @@ msgstr "로컬 호스트 이름을 설정하려면 인증이 필요합니다."
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "DNSSEC 활성화/비활성화"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
@@ -775,7 +724,7 @@ msgstr "시스템을 최대 절전 상태로 놓으려면 인증이 필요합니
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "DNSSEC 부정적인 신뢰 고정 설정"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
@@ -786,7 +735,7 @@ msgstr "시스템 로캘을 설정하려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "NTP 설정 되돌리기"
 
 #: src/network/org.freedesktop.network1.policy:122
 #, fuzzy
@@ -796,7 +745,7 @@ msgstr "시스템 시간을 설정하려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "DNS 설정 되돌리기"
 
 #: src/network/org.freedesktop.network1.policy:133
 #, fuzzy
@@ -806,27 +755,23 @@ msgstr "시스템 시간을 설정하려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "DHCP 서버는 새로운 메시지를 강제로 보냅니다"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
-msgstr "wall 메시지를 설정하려면 인증이 필요합니다"
+msgstr "새로운 메시지를 보내려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "동적 주소 갱신"
 
 #: src/network/org.freedesktop.network1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to renew dynamic addresses."
-msgstr "wall 메시지를 설정하려면 인증이 필요합니다"
+msgstr "동적주소를 새로 변경하려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "네트웍설정 다시 적재함"
 
 #: src/network/org.freedesktop.network1.policy:166
 #, fuzzy
@@ -836,7 +781,7 @@ msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "네트워크 인터페이스 재설정"
 
 #: src/network/org.freedesktop.network1.policy:177
 #, fuzzy
@@ -846,17 +791,15 @@ msgstr "시스템을 다시 시작하려면 인증이 필요합니다."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "이동 서비스 이미지 검사"
 
 #: src/portable/org.freedesktop.portable1.policy:14
-#, fuzzy
-#| msgid "Authentication is required to import a VM or container image"
 msgid "Authentication is required to inspect a portable service image."
-msgstr "VM 또는 컨테이너의 이미지를 가져오려면 인증이 필요합니다"
+msgstr "이동형 서비스 이미지를 검사하려면 인증이 필요합니다."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "이동 서비스 첨부 또는 분리"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
@@ -867,18 +810,16 @@ msgstr "시트에 장치 부착을 허용하려면 인증이 필요합니다."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "이동 서비스 이미지 삭제 또는 변경"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-#, fuzzy
-#| msgid "Authentication is required to download a VM or container image"
 msgid ""
 "Authentication is required to delete or modify a portable service image."
-msgstr "가상머신 또는 컨테이너 이미지를 다운로드하려면 인증이 필요합니다"
+msgstr "이동형 서비스 이미지를 지우거나 변경하려면 인증이 필요합니다."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "DNS-SD 서비스 등록"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
@@ -888,7 +829,7 @@ msgstr "wall 메시지를 설정하려면 인증이 필요합니다"
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "DNS-SD 서비스 해제"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
@@ -898,7 +839,7 @@ msgstr "wall 메시지를 설정하려면 인증이 필요합니다"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "이름 확인 설정 되돌리기"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
