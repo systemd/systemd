@@ -29,7 +29,6 @@ int socket_open(int family) {
 static int broadcast_groups_get(sd_netlink *nl) {
         _cleanup_free_ uint32_t *groups = NULL;
         socklen_t len = 0, old_len;
-        unsigned i, j;
         int r;
 
         assert(nl);
@@ -37,11 +36,11 @@ static int broadcast_groups_get(sd_netlink *nl) {
 
         r = getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len);
         if (r < 0) {
-                if (errno == ENOPROTOOPT) {
-                        nl->broadcast_group_dont_leave = true;
-                        return 0;
-                } else
+                if (errno != ENOPROTOOPT)
                         return -errno;
+
+                nl->broadcast_group_dont_leave = true;
+                return 0;
         }
 
         if (len == 0)
@@ -64,23 +63,15 @@ static int broadcast_groups_get(sd_netlink *nl) {
         if (r < 0)
                 return r;
 
-        for (i = 0; i < len; i++) {
-                for (j = 0; j < sizeof(uint32_t) * 8; j++) {
-                        uint32_t offset;
-                        unsigned group;
+        for (unsigned i = 0; i < len; i++)
+                for (unsigned j = 0; j < sizeof(uint32_t) * 8; j++)
+                        if (groups[i] & (1U << j)) {
+                                unsigned group = i * sizeof(uint32_t) * 8 + j + 1;
 
-                        offset = 1U << j;
-
-                        if (!(groups[i] & offset))
-                                continue;
-
-                        group = i * sizeof(uint32_t) * 8 + j + 1;
-
-                        r = hashmap_put(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(1));
-                        if (r < 0)
-                                return r;
-                }
-        }
+                                r = hashmap_put(nl->broadcast_group_refs, UINT_TO_PTR(group), UINT_TO_PTR(1));
+                                if (r < 0)
+                                        return r;
+                        }
 
         return 0;
 }
@@ -104,11 +95,7 @@ int socket_bind(sd_netlink *nl) {
         if (r < 0)
                 return -errno;
 
-        r = broadcast_groups_get(nl);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return broadcast_groups_get(nl);
 }
 
 static unsigned broadcast_group_get_ref(sd_netlink *nl, unsigned group) {
@@ -230,8 +217,6 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
 
 int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount) {
         _cleanup_free_ struct iovec *iovs = NULL;
-        ssize_t k;
-        size_t i;
 
         assert(nl);
         assert(m);
@@ -241,13 +226,13 @@ int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcoun
         if (!iovs)
                 return -ENOMEM;
 
-        for (i = 0; i < msgcount; i++) {
+        for (size_t i = 0; i < msgcount; i++) {
                 assert(m[i]->hdr != NULL);
                 assert(m[i]->hdr->nlmsg_len > 0);
                 iovs[i] = IOVEC_MAKE(m[i]->hdr, m[i]->hdr->nlmsg_len);
         }
 
-        k = writev(nl->fd, iovs, msgcount);
+        ssize_t k = writev(nl->fd, iovs, msgcount);
         if (k < 0)
                 return -errno;
 
@@ -315,7 +300,6 @@ int socket_read_message(sd_netlink *rtnl) {
         struct iovec iov = {};
         uint32_t group = 0;
         bool multi_part = false, done = false;
-        struct nlmsghdr *new_msg;
         size_t len;
         int r;
         unsigned i = 0;
@@ -362,7 +346,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
         }
 
-        for (new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
+        for (struct nlmsghdr *new_msg = rtnl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 const NLType *nl_type;
 
