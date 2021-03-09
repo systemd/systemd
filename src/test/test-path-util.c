@@ -838,6 +838,15 @@ static void test_path_startswith_strv(void) {
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
+        log_info("PATH_MAX=%zu\n"
+                 "FILENAME_MAX=%zu\n"
+                 "NAME_MAX=%zu",
+                 (size_t) PATH_MAX,
+                 (size_t) FILENAME_MAX,
+                 (size_t) NAME_MAX);
+
+        assert_cc(FILENAME_MAX == PATH_MAX);
+
         test_print_paths();
         test_path();
         test_path_equal_root();
