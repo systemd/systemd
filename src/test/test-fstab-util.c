@@ -98,6 +98,10 @@ static void test_fstab_filter_options(void) {
         /* unnecessary comma separators */
         do_fstab_filter_options("opt=x,,,,", "opt\0", 1, "opt", "x", "");
         do_fstab_filter_options(",,,opt=x,,,,", "opt\0", 1, "opt", "x", "");
+
+        /* escaped characters */
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, "opt1", "\\", "opt2=\\xff");
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, "opt2", "\\xff", "opt1=\\");
 }
 
 static void test_fstab_find_pri(void) {

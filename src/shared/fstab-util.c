@@ -97,16 +97,17 @@ int fstab_filter_options(const char *opts, const char *names,
                 for (const char *word = opts;;) {
                         const char *end = word;
 
-                        /* Look for an *non-escaped* comma separator. Only commas can be escaped, so "\," is
-                         * the only valid escape sequence, so we can do a very simple test here. */
+                        /* Look for a *non-escaped* comma separator. Only commas and backslashes can be
+                         * escaped, so "\," and "\\" are the only valid escape sequences, and we can do a
+                         * very simple test here. */
                         for (;;) {
-                                size_t n = strcspn(end, ",");
+                                end += strcspn(end, ",\\");
 
-                                end += n;
-                                if (n > 0 && end[-1] == '\\')
-                                        end++;
-                                else
+                                if (IN_SET(*end, ',', '\0'))
                                         break;
+                                end ++;                 /* Skip the backslash */
+                                if (*end != '\0')
+                                        end ++;         /* Skip the escaped char, but watch out for a trailing commma */
                         }
 
                         NULSTR_FOREACH(name, names) {
@@ -140,7 +141,9 @@ int fstab_filter_options(const char *opts, const char *names,
                                 break;
                 }
         } else {
-                r = strv_split_full(&stor, opts, ",", EXTRACT_UNESCAPE_SEPARATORS);
+                /* For backwards compatibility, we need to pass-through escape characters.
+                 * The only ones we "consume" are the ones used as "\," or "\\". */
+                r = strv_split_full(&stor, opts, ",", EXTRACT_UNESCAPE_SEPARATORS | EXTRACT_UNESCAPE_RELAX);
                 if (r < 0)
                         return r;
 
