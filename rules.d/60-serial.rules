@@ -4,9 +4,8 @@ ACTION=="remove", GOTO="serial_end"
 SUBSYSTEM!="tty", GOTO="serial_end"
 
 SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
-# We already ran the hwdb builtin for devices with MODALIAS in 50-default.rules.
-# Let's cover the remaining case here, where we walk up the tree to find a node with $MODALIAS.
-ENV{MODALIAS}=="", SUBSYSTEMS=="pci", IMPORT{builtin}="hwdb --subsystem=pci"
+SUBSYSTEMS=="pci", IMPORT{builtin}="hwdb --subsystem=pci"
+SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
 
 # /dev/serial/by-path/, /dev/serial/by-id/ for USB devices
 KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="serial_end"
