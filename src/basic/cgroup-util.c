@@ -533,14 +533,12 @@ static int controller_is_v1_accessible(const char *root, const char *controller)
         assert(controller);
 
         dn = controller_to_dirname(controller);
-        cpath = strjoina("/sys/fs/cgroup/", dn);
-        if (root)
-                /* Also check that:
-                 * - possible subcgroup is created at root,
-                 * - we can modify the hierarchy.
-                 * "Leak" cpath on stack */
-                cpath = strjoina(cpath, root, "/cgroup.procs");
 
+        /* If root if specified, we check that:
+         * - possible subcgroup is created at root,
+         * - we can modify the hierarchy. */
+
+        cpath = strjoina("/sys/fs/cgroup/", dn, root, root ? "/cgroup.procs" : NULL);
         if (laccess(cpath, root ? W_OK : F_OK) < 0)
                 return -errno;
 
