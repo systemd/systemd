@@ -1230,6 +1230,11 @@ int safe_fork_full(
 
         original_pid = getpid_cached();
 
+        if (flags & FORK_FLUSH_STDIO) {
+                fflush(stdout);
+                fflush(stderr); /* This one shouldn't be necessary, stderr should be unbuffered anyway, but let's better be safe than sorry */
+        }
+
         if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG)) {
                 /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can
                  * be sure that SIGTERMs are not lost we might send to the child. */
