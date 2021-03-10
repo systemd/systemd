@@ -280,12 +280,6 @@ Features:
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
 
-* when systemd-nspawn and suchlike dissect an OS image, and there are multiple
-  root partitions, do an strverscmp() on the partition label and boot
-  first. That is inspired how sd-boot figures out which kernel to boot, and
-  thus allows defining OS images which can be A/B updated and we default to the
-  newest version automatically, both in nspawn and in sd-boot
-
 * systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
   creates
 
@@ -806,9 +800,6 @@ Features:
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
-
-* mount: automatically search for "main" partition of an image has multiple
-  partitions
 
 * in nss-systemd, if we run inside of RootDirectory= with PrivateUsers= set,
   find a way to map the User=/Group= of the service to the right name. This way

@@ -44,7 +44,12 @@ static const char *arg_image = NULL;
 static const char *arg_path = NULL;
 static const char *arg_source = NULL;
 static const char *arg_target = NULL;
-static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
+static DissectImageFlags arg_flags =
+        DISSECT_IMAGE_GENERIC_ROOT |
+        DISSECT_IMAGE_DISCARD_ON_LOOP |
+        DISSECT_IMAGE_RELAX_VAR_CHECK |
+        DISSECT_IMAGE_FSCK |
+        DISSECT_IMAGE_USR_NO_ROOT;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -293,6 +298,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_FROM:
@@ -304,7 +310,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_source = argv[optind + 1];
                 arg_target = argc > optind + 2 ? argv[optind + 2] : "-" /* this means stdout */ ;
 
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags |= DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_TO:
@@ -322,6 +328,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_target = argv[optind + 1];
                 }
 
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         default:
@@ -460,7 +467,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_oom();
         }
 
-        t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
+        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "node", "partno");
         if (!t)
                 return log_oom();
 
@@ -489,6 +496,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = table_add_many(
                                 t,
+                                TABLE_STRING, p->label,
                                 TABLE_STRING, p->fstype,
                                 TABLE_STRING, architecture_to_string(p->architecture));
                 if (r < 0)
@@ -631,7 +639,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
 
-                        /* When we copy to stdou we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                        /* When we copy to stdout we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
                         return 0;
                 }
 
