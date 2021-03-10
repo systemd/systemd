@@ -6,7 +6,7 @@
 typedef enum ExtractFlags {
         EXTRACT_RELAX                    = 1 << 0, /* Allow unbalanced quote and eat up trailing backslash. */
         EXTRACT_CUNESCAPE                = 1 << 1, /* Unescape known escape sequences. */
-        EXTRACT_CUNESCAPE_RELAX          = 1 << 2, /* Allow and keep unknown escape sequences, allow and keep trailing backslash. */
+        EXTRACT_UNESCAPE_RELAX           = 1 << 2, /* Allow and keep unknown escape sequences, allow and keep trailing backslash. */
         EXTRACT_UNESCAPE_SEPARATORS      = 1 << 3, /* Unescape separators (those specified, or whitespace by default). */
         EXTRACT_UNQUOTE                  = 1 << 4, /* Remove quoting with "" and ''. */
         EXTRACT_DONT_COALESCE_SEPARATORS = 1 << 5, /* Don't treat multiple adjacent separators as one */
