@@ -30,6 +30,7 @@
 #include "clean-ipc.h"
 #include "clock-util.h"
 #include "core-varlink.h"
+#include "creds-util.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
@@ -49,8 +50,8 @@
 #include "install.h"
 #include "io-util.h"
 #include "label.h"
-#include "locale-setup.h"
 #include "load-fragment.h"
+#include "locale-setup.h"
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
@@ -852,8 +853,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         if (r < 0)
                 return r;
 
-        e = secure_getenv("CREDENTIALS_DIRECTORY");
-        if (e) {
+        r = get_credentials_dir(&e);
+        if (r >= 0) {
                 m->received_credentials = strdup(e);
                 if (!m->received_credentials)
                         return -ENOMEM;
