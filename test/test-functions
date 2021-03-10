@@ -744,6 +744,7 @@ mkdir -p /etc/udev/rules.d
 cat > /etc/udev/rules.d/00-set-LD_PRELOAD.rules << INNER_EOF
 SUBSYSTEM=="block", ENV{LD_PRELOAD}="$ASAN_RT_PATH"
 INNER_EOF
+chmod 0644 /etc/udev/rules.d/00-set-LD_PRELOAD.rules
 
 # The 'mount' utility doesn't behave well under libasan, causing unexpected
 # fails during boot and subsequent test results check:
