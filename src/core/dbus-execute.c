@@ -13,6 +13,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "dbus-execute.h"
 #include "dbus-util.h"
 #include "env-util.h"
