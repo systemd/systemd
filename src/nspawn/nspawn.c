@@ -5389,6 +5389,7 @@ static int run(int argc, char *argv[]) {
 
         } else {
                 DissectImageFlags dissect_image_flags =
+                        DISSECT_IMAGE_GENERIC_ROOT |
                         DISSECT_IMAGE_REQUIRE_ROOT |
                         DISSECT_IMAGE_RELAX_VAR_CHECK |
                         DISSECT_IMAGE_USR_NO_ROOT;
