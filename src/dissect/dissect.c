@@ -467,7 +467,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_oom();
         }
 
-        t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
+        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "node", "partno");
         if (!t)
                 return log_oom();
 
@@ -496,6 +496,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = table_add_many(
                                 t,
+                                TABLE_STRING, p->label,
                                 TABLE_STRING, p->fstype,
                                 TABLE_STRING, architecture_to_string(p->architecture));
                 if (r < 0)
