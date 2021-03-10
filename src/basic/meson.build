@@ -35,6 +35,8 @@ basic_sources = files('''
         conf-files.h
         copy.c
         copy.h
+        creds-util.c
+        creds-util.h
         def.h
         device-nodes.c
         device-nodes.h

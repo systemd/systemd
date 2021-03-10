@@ -35,6 +35,7 @@
 #include "cgroup-util.h"
 #include "copy.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "dev-setup.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -1592,9 +1593,9 @@ static int parse_argv(int argc, char *argv[]) {
                         else {
                                 const char *e;
 
-                                e = getenv("CREDENTIALS_DIRECTORY");
-                                if (!e)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential not available (no credentials passed at all): %s", word);
+                                r = get_credentials_dir(&e);
+                                if (r < 0)
+                                        return log_error_errno(r, "Credential not available (no credentials passed at all): %s", word);
 
                                 j = path_join(e, p);
                                 if (!j)
