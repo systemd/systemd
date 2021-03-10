@@ -208,7 +208,10 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         if (full < 0)
                 return full;
 
-        if (flags & PROCESS_CMDLINE_QUOTE) {
+        if (flags & (PROCESS_CMDLINE_QUOTE | PROCESS_CMDLINE_QUOTE_POSIX)) {
+                ShellEscapeFlags shflags = SHELL_ESCAPE_EMPTY |
+                        FLAGS_SET(flags, PROCESS_CMDLINE_QUOTE_POSIX) * SHELL_ESCAPE_POSIX;
+
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
                 _cleanup_strv_free_ char **args = NULL;
@@ -220,7 +223,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 for (size_t i = 0; args[i]; i++) {
                         char *e;
 
-                        e = shell_maybe_quote(args[i], SHELL_ESCAPE_EMPTY);
+                        e = shell_maybe_quote(args[i], shflags);
                         if (!e)
                                 return -ENOMEM;
 

@@ -431,6 +431,7 @@ static void test_get_process_cmdline_harder(void) {
 
 #define CMDLINE1 "foo\0'bar'\0\"bar$\"\0x y z\0!``\0"
 #define EXPECT1  "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\" \"\""
+#define EXPECT1p  "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``' \"\""
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
         assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
@@ -441,8 +442,15 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(streq(line, EXPECT1));
         line = mfree(line);
 
+        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
+        log_debug("got: ==%s==", line);
+        log_debug("exp: ==%s==", EXPECT1p);
+        assert_se(streq(line, EXPECT1p));
+        line = mfree(line);
+
 #define CMDLINE2 "foo\0\1\2\3\0\0"
 #define EXPECT2  "foo \"\\001\\002\\003\" \"\" \"\""
+#define EXPECT2p  "foo $'\\001\\002\\003' \"\" \"\""
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
         assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);
@@ -451,6 +459,12 @@ static void test_get_process_cmdline_harder(void) {
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2);
         assert_se(streq(line, EXPECT2));
+        line = mfree(line);
+
+        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
+        log_debug("got: ==%s==", line);
+        log_debug("exp: ==%s==", EXPECT2p);
+        assert_se(streq(line, EXPECT2p));
         line = mfree(line);
 
         safe_close(fd);
