@@ -46,7 +46,6 @@ static const char *arg_source = NULL;
 static const char *arg_target = NULL;
 static DissectImageFlags arg_flags =
         DISSECT_IMAGE_GENERIC_ROOT |
-        DISSECT_IMAGE_REQUIRE_ROOT |
         DISSECT_IMAGE_DISCARD_ON_LOOP |
         DISSECT_IMAGE_RELAX_VAR_CHECK |
         DISSECT_IMAGE_FSCK |
@@ -299,6 +298,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_FROM:
@@ -310,7 +310,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_source = argv[optind + 1];
                 arg_target = argc > optind + 2 ? argv[optind + 2] : "-" /* this means stdout */ ;
 
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags |= DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_TO:
@@ -328,6 +328,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_target = argv[optind + 1];
                 }
 
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         default:
