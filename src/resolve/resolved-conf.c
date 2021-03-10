@@ -348,7 +348,7 @@ int config_parse_dnssd_txt(
                 int r;
 
                 r = extract_first_word(&rvalue, &word, NULL,
-                                       EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX);
+                                       EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)

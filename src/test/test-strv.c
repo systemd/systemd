@@ -333,12 +333,12 @@ static void test_strv_split(void) {
         l = strv_free_erase(l);
 
         assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five", NULL,
-                                     EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 2);
+                                     EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX) == 2);
         assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
         l = strv_free_erase(l);
 
-        assert_se(strv_split_full(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 1);
+        assert_se(strv_split_full(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX) == 1);
         assert_se(strv_equal(l, STRV_MAKE("\\")));
 }
 
