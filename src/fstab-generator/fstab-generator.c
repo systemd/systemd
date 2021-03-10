@@ -611,11 +611,11 @@ static int parse_fstab(bool initrd) {
                          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
                          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
                          * target is the final directory. */
-                        r = chase_symlinks(where, initrd ? "/sysroot" : NULL,
+                        k = chase_symlinks(where, initrd ? "/sysroot" : NULL,
                                            CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
                                            &canonical_where, NULL);
-                        if (r < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
-                                log_debug_errno(r, "Failed to read symlink target for %s, ignoring: %m", where);
+                        if (k < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
+                                log_debug_errno(k, "Failed to read symlink target for %s, ignoring: %m", where);
                         else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
                                 canonical_where = mfree(canonical_where);
                         else
