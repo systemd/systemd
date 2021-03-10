@@ -190,6 +190,18 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         free(b);
 }
 
+void cgroup_context_free_socket_bind(CGroupSocketBindItem **head) {
+        CGroupSocketBindItem *h;
+
+        assert(head);
+
+        while (*head) {
+                h = *head;
+                LIST_REMOVE(socket_bind_items, *head, h);
+                free(h);
+        }
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -210,6 +222,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_deny);
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
