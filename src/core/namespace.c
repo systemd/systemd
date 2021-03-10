@@ -1825,7 +1825,7 @@ int setup_namespace(
                 mount_flags = MS_SHARED;
 
         if (root_image) {
-                dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+                dissect_image_flags |= DISSECT_IMAGE_GENERIC_ROOT | DISSECT_IMAGE_REQUIRE_ROOT;
 
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
