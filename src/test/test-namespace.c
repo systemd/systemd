@@ -187,7 +187,6 @@ static void test_protect_kernel_logs(void) {
                                     NULL,
                                     NULL,
                                     NULL,
-                                    0,
                                     NULL);
                 assert_se(r == 0);
 
