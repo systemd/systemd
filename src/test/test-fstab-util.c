@@ -6,6 +6,7 @@
 #include "fstab-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "strv.h"
 
 /*
 int fstab_filter_options(const char *opts, const char *names,
@@ -157,11 +158,25 @@ static void test_fstab_node_to_udev_node(void) {
         free(n);
 }
 
+static void test_fstab_extract_values(void) {
+        _cleanup_strv_free_ char **values = NULL;
+        int r;
+
+        r = fstab_extract_values(
+                "x-systemd.requires=/dev/disk/by-partlabel/\\x2fmnt\\x2fd0",
+                "x-systemd.requires",
+                &values);
+        assert_se(r == 1);
+        assert(values);
+        assert(streq("/dev/disk/by-partlabel/\\x2fmnt\\x2fd0", *values));
+}
+
 int main(void) {
         test_fstab_filter_options();
         test_fstab_find_pri();
         test_fstab_yes_no_option();
         test_fstab_node_to_udev_node();
+        test_fstab_extract_values();
 
         return 0;
 }
