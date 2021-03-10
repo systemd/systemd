@@ -91,9 +91,17 @@ static void test_fstab_filter_options(void) {
         do_fstab_filter_options("opt =0", "x-opt\0opt\0noopt\0x-noopt\0", 0, NULL, NULL, NULL);
         do_fstab_filter_options(" opt ", "opt\0x-opt\0", 0, NULL, NULL, NULL);
 
-        /* check function will NULL args */
+        /* check function with NULL args */
         do_fstab_filter_options(NULL, "opt\0", 0, NULL, NULL, "");
         do_fstab_filter_options("", "opt\0", 0, NULL, NULL, "");
+
+        /* unnecessary comma separators */
+        do_fstab_filter_options("opt=x,,,,", "opt\0", 1, "opt", "x", "");
+        do_fstab_filter_options(",,,opt=x,,,,", "opt\0", 1, "opt", "x", "");
+
+        /* escaped characters */
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt1\0", 1, "opt1", "\\", "opt2=\\xff");
+        do_fstab_filter_options("opt1=\\\\,opt2=\\xff", "opt2\0", 1, "opt2", "\\xff", "opt1=\\");
 }
 
 static void test_fstab_find_pri(void) {
