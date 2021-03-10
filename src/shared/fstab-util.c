@@ -140,7 +140,7 @@ int fstab_filter_options(const char *opts, const char *names,
                                 break;
                 }
         } else {
-                r = strv_split_full(&stor, opts, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
+                r = strv_split_full(&stor, opts, ",", EXTRACT_UNESCAPE_SEPARATORS);
                 if (r < 0)
                         return r;
 
