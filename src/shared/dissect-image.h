@@ -23,6 +23,7 @@ struct DissectedPartition {
         sd_id128_t uuid;   /* Partition entry UUID as reported by the GPT */
         char *fstype;
         char *node;
+        char *label;
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;
@@ -47,6 +48,23 @@ typedef enum PartitionDesignator {
         _PARTITION_DESIGNATOR_MAX,
         _PARTITION_DESIGNATOR_INVALID = -EINVAL,
 } PartitionDesignator;
+
+static inline bool PARTITION_DESIGNATOR_VERSIONED(PartitionDesignator d) {
+        /* Returns true for all designators where we want to support a concept of "versioning", i.e. which
+         * likely contain software binaries (or hashes thereof) that make sense to be versioned as a
+         * whole. We use this check to automatically pick the newest version of these partitions, by version
+         * comparing the partition labels. */
+
+        return IN_SET(d,
+                      PARTITION_ROOT,
+                      PARTITION_ROOT_SECONDARY,
+                      PARTITION_USR,
+                      PARTITION_USR_SECONDARY,
+                      PARTITION_ROOT_VERITY,
+                      PARTITION_ROOT_SECONDARY_VERITY,
+                      PARTITION_USR_VERITY,
+                      PARTITION_USR_SECONDARY_VERITY);
+}
 
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
         switch (p) {
