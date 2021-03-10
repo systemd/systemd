@@ -506,7 +506,9 @@ int dissect_image(
         /* Probes a disk image, and returns information about what it found in *ret.
          *
          * Returns -ENOPKG if no suitable partition table or file system could be found.
-         * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found. */
+         * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found.
+         * Returns -ENXIO if we couldn't find any partition suitable as root or /usr partition
+         * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that */
 
         if (verity && verity->root_hash) {
                 sd_id128_t fsuuid, vuuid;
