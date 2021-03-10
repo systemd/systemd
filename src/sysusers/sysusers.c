@@ -1946,7 +1946,11 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
-                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_FSCK,
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);

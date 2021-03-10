@@ -630,7 +630,7 @@ int dissect_image(
         }
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
-            (flags & DISSECT_IMAGE_REQUIRE_ROOT)) ||
+            (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
             (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) {
                 const char *usage = NULL;
 
@@ -1178,44 +1178,46 @@ int dissect_image(
         } else if (m->partitions[PARTITION_USR_SECONDARY_VERITY].found)
                 return -EADDRNOTAVAIL; /* as above */
 
-        else if (flags & DISSECT_IMAGE_REQUIRE_ROOT) {
-                _cleanup_free_ char *o = NULL;
-                const char *options = NULL;
+        else if ((flags & DISSECT_IMAGE_GENERIC_ROOT) &&
+                 (!verity || !verity->root_hash)) {
 
                 /* OK, we found nothing usable, then check if there's a single generic one distro, and use
-                 * that. */
-
-                /* If the root hash was set, then we won't fall back to a generic node, because the root hash
-                 * decides. */
-                if (verity && verity->root_hash)
-                        return -EADDRNOTAVAIL;
-
-                /* If we didn't find a generic node, then we can't fix this up either */
-                if (!generic_node)
-                        return -ENXIO;
+                 * that. If the root hash was set however, then we won't fall back to a generic node, because
+                 * the root hash decides. */
 
                 /* If we didn't find a properly marked root partition, but we did find a single suitable
                  * generic Linux partition, then use this as root partition, if the caller asked for it. */
                 if (multiple_generic)
                         return -ENOTUNIQ;
 
-                options = mount_options_from_designator(mount_options, PARTITION_ROOT);
-                if (options) {
-                        o = strdup(options);
-                        if (!o)
-                                return -ENOMEM;
-                }
+                /* If we didn't find a generic node, then we can't fix this up either */
+                if (generic_node) {
+                        _cleanup_free_ char *o = NULL;
+                        const char *options;
 
-                m->partitions[PARTITION_ROOT] = (DissectedPartition) {
-                        .found = true,
-                        .rw = generic_rw,
-                        .partno = generic_nr,
-                        .architecture = _ARCHITECTURE_INVALID,
-                        .node = TAKE_PTR(generic_node),
-                        .uuid = generic_uuid,
-                        .mount_options = TAKE_PTR(o),
-                };
+                        options = mount_options_from_designator(mount_options, PARTITION_ROOT);
+                        if (options) {
+                                o = strdup(options);
+                                if (!o)
+                                        return -ENOMEM;
+                        }
+
+                        m->partitions[PARTITION_ROOT] = (DissectedPartition) {
+                                .found = true,
+                                .rw = generic_rw,
+                                .partno = generic_nr,
+                                .architecture = _ARCHITECTURE_INVALID,
+                                .node = TAKE_PTR(generic_node),
+                                .uuid = generic_uuid,
+                                .mount_options = TAKE_PTR(o),
+                        };
+                }
         }
+
+        /* Check if we have a root fs if we are told to do check. /usr alone is fine too, but only if appropriate flag for that is set too */
+        if (FLAGS_SET(flags, DISSECT_IMAGE_REQUIRE_ROOT) &&
+            !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
+                return -ENXIO;
 
         /* Refuse if we found a verity partition for /usr but no matching file system partition */
         if (!m->partitions[PARTITION_USR].found && m->partitions[PARTITION_USR_VERITY].found)

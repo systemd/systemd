@@ -380,7 +380,16 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
-                r = dissect_image(d->fd, NULL, NULL, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_USR_NO_ROOT, &m);
+                r = dissect_image(
+                                d->fd,
+                                NULL, NULL,
+                                DISSECT_IMAGE_READ_ONLY |
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_DISCARD_ON_LOOP |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_USR_NO_ROOT,
+                                &m);
                 if (r == -ENOPKG)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
                 else if (r == -EADDRNOTAVAIL)
