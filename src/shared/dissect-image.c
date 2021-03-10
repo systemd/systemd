@@ -456,6 +456,22 @@ static int device_wait_for_initialization_harder(
 
 #define DEVICE_TIMEOUT_USEC (45 * USEC_PER_SEC)
 
+static void dissected_partition_done(DissectedPartition *p) {
+        assert(p);
+
+        free(p->fstype);
+        free(p->node);
+        free(p->label);
+        free(p->decrypted_fstype);
+        free(p->decrypted_node);
+        free(p->mount_options);
+
+        *p = (DissectedPartition) {
+                .partno = -1,
+                .architecture = -1
+        };
+}
+
 int dissect_image(
                 int fd,
                 const VeritySettings *verity,
@@ -727,7 +743,7 @@ int dissect_image(
                 if (is_gpt) {
                         PartitionDesignator designator = _PARTITION_DESIGNATOR_INVALID;
                         int architecture = _ARCHITECTURE_INVALID;
-                        const char *stype, *sid, *fstype = NULL;
+                        const char *stype, *sid, *fstype = NULL, *label;
                         sd_id128_t type_id, id;
                         bool rw = true;
 
@@ -742,6 +758,8 @@ int dissect_image(
                                 continue;
                         if (sd_id128_from_string(stype, &type_id) < 0)
                                 continue;
+
+                        label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
                         if (sd_id128_equal(type_id, GPT_HOME)) {
 
@@ -997,12 +1015,21 @@ int dissect_image(
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
-                                _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
+                                _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL, *l = NULL;
                                 const char *options = NULL;
 
-                                /* First one wins */
-                                if (m->partitions[designator].found)
-                                        continue;
+                                if (m->partitions[designator].found) {
+                                        /* For most partition types the first one we see wins. Except for the
+                                         * rootfs and /usr, where we do a version compare of the label, and
+                                         * let the newest version win. This permits a simple A/B versioning
+                                         * scheme in OS images. */
+
+                                        if (!PARTITION_DESIGNATOR_VERSIONED(designator) ||
+                                            strverscmp_improved(m->partitions[designator].label, label) >= 0)
+                                                continue;
+
+                                        dissected_partition_done(m->partitions + designator);
+                                }
 
                                 if (fstype) {
                                         t = strdup(fstype);
@@ -1013,6 +1040,12 @@ int dissect_image(
                                 n = strdup(node);
                                 if (!n)
                                         return -ENOMEM;
+
+                                if (label) {
+                                        l = strdup(label);
+                                        if (!l)
+                                                return -ENOMEM;
+                                }
 
                                 options = mount_options_from_designator(mount_options, designator);
                                 if (options) {
@@ -1028,6 +1061,7 @@ int dissect_image(
                                         .architecture = architecture,
                                         .node = TAKE_PTR(n),
                                         .fstype = TAKE_PTR(t),
+                                        .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
                                 };
@@ -1242,13 +1276,8 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         if (!m)
                 return NULL;
 
-        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
-                free(m->partitions[i].fstype);
-                free(m->partitions[i].node);
-                free(m->partitions[i].decrypted_fstype);
-                free(m->partitions[i].decrypted_node);
-                free(m->partitions[i].mount_options);
-        }
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                dissected_partition_done(m->partitions + i);
 
         free(m->image_name);
         free(m->hostname);
