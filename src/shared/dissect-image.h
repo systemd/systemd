@@ -95,7 +95,7 @@ typedef enum DissectImageFlags {
                                     DISSECT_IMAGE_DISCARD |
                                     DISSECT_IMAGE_DISCARD_ON_CRYPTO,
         DISSECT_IMAGE_GPT_ONLY            = 1 << 4,  /* Only recognize images with GPT partition tables */
-        DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 5,  /* Don't accept disks without root partition (and if no partition table or only single generic partition, assume it's root) */
+        DISSECT_IMAGE_GENERIC_ROOT        = 1 << 5,  /* If no partition table or only single generic partition, assume it's the root fs */
         DISSECT_IMAGE_MOUNT_ROOT_ONLY     = 1 << 6,  /* Mount only the root and /usr partitions */
         DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY = 1 << 7,  /* Mount only the non-root and non-/usr partitions */
         DISSECT_IMAGE_VALIDATE_OS         = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
@@ -106,6 +106,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_VERITY_SHARE        = 1 << 13, /* When activating a verity device, reuse existing one if already open */
         DISSECT_IMAGE_MKDIR               = 1 << 14, /* Make top-level directory to mount right before mounting, if missing */
         DISSECT_IMAGE_USR_NO_ROOT         = 1 << 15, /* If no root fs is in the image, but /usr is, then allow this (so that we can mount the rootfs as tmpfs or so */
+        DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 16, /* Don't accept disks without root partition (or at least /usr partition if DISSECT_IMAGE_USR_NO_ROOT is set) */
 } DissectImageFlags;
 
 struct DissectedImage {
