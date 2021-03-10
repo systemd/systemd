@@ -1078,8 +1078,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        print_info(stdout, j, false);
-        fputs("\n", stdout);
+        if (!arg_quiet) {
+                print_info(stdout, j, false);
+                fputs("\n", stdout);
+        }
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
         if (r < 0)
