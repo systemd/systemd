@@ -190,6 +190,18 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         free(b);
 }
 
+void cgroup_context_free_socket_bind(CGroupSocketBindItem **head) {
+        CGroupSocketBindItem *h;
+
+        assert(head);
+
+        while (*head) {
+                h = *head;
+                LIST_REMOVE(socket_bind_items, *head, h);
+                free(h);
+        }
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -210,6 +222,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_deny);
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
@@ -362,6 +378,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
         CGroupContext *c;
+        CGroupSocketBindItem *bi;
         IPAddressAccessItem *iaai;
         char **path;
         char q[FORMAT_TIMESPAN_MAX];
@@ -544,6 +561,34 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+        LIST_FOREACH(socket_bind_items, bi, c->socket_bind_allow)
+                cgroup_context_dump_socket_bind_item(bi, f, prefix, "SocketBindAllow", ": ");
+
+        LIST_FOREACH(socket_bind_items, bi, c->socket_bind_deny)
+                cgroup_context_dump_socket_bind_item(bi, f, prefix, "SocketBindDeny", ": ");
+}
+
+void cgroup_context_dump_socket_bind_item(
+                const CGroupSocketBindItem *item,
+                FILE *f, const char *prefix, const char *name, const char *delim) {
+        const char *family = "";
+
+        assert(item);
+        assert(prefix);
+        assert(name);
+
+        if (IN_SET(item->address_family, AF_INET, AF_INET6))
+                family = item->address_family == AF_INET ? "IPv4:" : "IPv6:";
+
+        if (item->nr_ports == 0)
+                fprintf(f, "%s%s%s%sany\n", prefix, name, delim, family);
+        else if (item->nr_ports == 1)
+                fprintf(f, "%s%s%s%s%" PRIu16 "\n", prefix, name, delim, family, item->port_min);
+        else {
+                uint16_t port_max = item->port_min + item->nr_ports - 1;
+                fprintf(f, "%s%s%s%s%" PRIu16 "-%" PRIu16 "\n", prefix, name, delim, family, item->port_min, port_max);
+        }
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
