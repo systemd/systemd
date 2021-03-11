@@ -631,7 +631,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
 
-                        /* When we copy to stdou we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                        /* When we copy to stdout we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
                         return 0;
                 }
 
