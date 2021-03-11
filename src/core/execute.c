@@ -2564,6 +2564,7 @@ static int acquire_credentials(
                 ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
                 _cleanup_(erase_and_freep) char *data = NULL;
                 _cleanup_free_ char *j = NULL, *bindname = NULL;
+                bool missing_ok = true;
                 const char *source;
                 size_t size, add;
 
@@ -2577,6 +2578,8 @@ static int acquire_credentials(
                         if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, *id) < 0)
                                 return -ENOMEM;
 
+                        missing_ok = false;
+
                 } else if (params->received_credentials) {
                         /* If this is a relative path, take it relative to the credentials we received
                          * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
@@ -2589,16 +2592,23 @@ static int acquire_credentials(
                 } else
                         source = NULL;
 
-
                 if (source)
                         r = read_full_file_full(AT_FDCWD, source, UINT64_MAX, SIZE_MAX, flags, bindname, &data, &size);
                 else
                         r = -ENOENT;
-                if (r == -ENOENT &&
-                    faccessat(dfd, *id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) /* If the source file doesn't exist, but we already acquired the key otherwise, then don't fail */
+                if (r == -ENOENT && (missing_ok || faccessat(dfd, *id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)) {
+                        /* Make a missing inherited credential non-fatal, let's just continue. After all apps
+                         * will get clear errors if we don't pass such a missing credential on as they
+                         * themselves will get ENOENT when trying to read them, which should not be much
+                         * worse than when we handle the error here and make it fatal.
+                         *
+                         * Also, if the source file doesn't exist, but we already acquired the key otherwise,
+                         * then don't fail either. */
+                        log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", *fn);
                         continue;
+                }
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read credential '%s': %m", *fn);
 
                 add = strlen(*id) + size;
                 if (add > left)
