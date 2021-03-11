@@ -179,7 +179,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         if (!ans)
                 return -ENOMEM;
 
-        (void) str_realloc(&ans);
+        ans = str_realloc(ans);
         *line = TAKE_PTR(ans);
         return 0;
 }
