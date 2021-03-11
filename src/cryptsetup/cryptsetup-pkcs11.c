@@ -70,6 +70,7 @@ static int pkcs11_callback(
                         data->friendly_name,
                         "drive-harddisk",
                         "pkcs11-pin",
+                        "cryptsetup.pkcs11-pin",
                         data->until,
                         NULL);
         if (r < 0)

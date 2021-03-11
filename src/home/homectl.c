@@ -221,7 +221,7 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
                      user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question, "user-home", NULL, "home-password", USEC_INFINITY, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &password);
+        r = ask_password_auto(question, "user-home", NULL, "home-password", "home.password", USEC_INFINITY, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &password);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -257,7 +257,7 @@ static int acquire_token_pin(const char *user_name, UserRecord *hr) {
                 return log_oom();
 
         /* We never cache or use cached PINs, since usually there are only very few attempts allowed before the PIN is blocked */
-        r = ask_password_auto(question, "user-home", NULL, "token-pin", USEC_INFINITY, 0, &pin);
+        r = ask_password_auto(question, "user-home", NULL, "token-pin", "home.token-pin", USEC_INFINITY, 0, &pin);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire security token PIN: %m");
 
@@ -1010,7 +1010,7 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s:", user_name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(question, "user-home", NULL, "home-password", USEC_INFINITY, 0, &first);
+                r = ask_password_auto(question, "user-home", NULL, "home-password", "home.new-password", USEC_INFINITY, 0, &first);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -1018,7 +1018,7 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s (repeat):", user_name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(question, "user-home", NULL, "home-password", USEC_INFINITY, 0, &second);
+                r = ask_password_auto(question, "user-home", NULL, "home-password", "home.new-password", USEC_INFINITY, 0, &second);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 

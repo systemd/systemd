@@ -545,7 +545,7 @@ static int get_password(
 
         id = strjoina("cryptsetup:", disk_path);
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
+        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
                               ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
                               &passwords);
         if (r < 0)
@@ -561,7 +561,7 @@ static int get_password(
 
                 id = strjoina("cryptsetup-verification:", disk_path);
 
-                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
+                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 

@@ -12,10 +12,12 @@
 #include "main-func.h"
 #include "pretty-print.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static const char *arg_icon = NULL;
-static const char *arg_id = NULL;
-static const char *arg_keyname = NULL;
+static const char *arg_id = NULL;               /* identifier for 'ask-password' protocol */
+static const char *arg_key_name = NULL;         /* name in kernel keyring */
+static const char *arg_credential_name = NULL;  /* name in $CREDENTIALS_DIRECTORY directory */
 static char *arg_message = NULL;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_multiple = false;
@@ -32,21 +34,26 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] MESSAGE\n\n"
-               "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
+        printf("%1$s [OPTIONS...] MESSAGE\n\n"
+               "%3$sQuery the user for a system passphrase, via the TTY or an UI agent.%4$s\n\n"
                "  -h --help           Show this help\n"
                "     --icon=NAME      Icon name\n"
                "     --id=ID          Query identifier (e.g. \"cryptsetup:/dev/sda5\")\n"
                "     --keyname=NAME   Kernel key name for caching passwords (e.g. \"cryptsetup\")\n"
+               "     --credential=NAME\n"
+               "                      Credential name for LoadCredential=/SetCredential=\n"
+               "                      credentials\n"
                "     --timeout=SEC    Timeout in seconds\n"
                "     --echo           Do not mask input (useful for usernames)\n"
                "     --no-tty         Ask question via agent even on TTY\n"
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
                "     --no-output      Do not print password to standard output\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               link);
+               link,
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -64,6 +71,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEYNAME,
                 ARG_NO_OUTPUT,
                 ARG_VERSION,
+                ARG_CREDENTIAL,
         };
 
         static const struct option options[] = {
@@ -78,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "id",            required_argument, NULL, ARG_ID            },
                 { "keyname",       required_argument, NULL, ARG_KEYNAME       },
                 { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
+                { "credential",    required_argument, NULL, ARG_CREDENTIAL    },
                 {}
         };
 
@@ -128,11 +137,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KEYNAME:
-                        arg_keyname = optarg;
+                        arg_key_name = optarg;
                         break;
 
                 case ARG_NO_OUTPUT:
                         arg_no_output = true;
+                        break;
+
+                case ARG_CREDENTIAL:
+                        arg_credential_name = optarg;
                         break;
 
                 case '?':
@@ -170,7 +183,7 @@ static int run(int argc, char *argv[]) {
         else
                 timeout = 0;
 
-        r = ask_password_auto(arg_message, arg_icon, arg_id, arg_keyname, timeout, arg_flags, &l);
+        r = ask_password_auto(arg_message, arg_icon, arg_id, arg_key_name, arg_credential_name ?: "password", timeout, arg_flags, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 

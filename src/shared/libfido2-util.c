@@ -566,7 +566,7 @@ int fido2_generate_hmac_hash(
                         if (!has_client_pin)
                                 log_warning("Weird, device asked for client PIN, but does not advertise it as feature. Ignoring.");
 
-                        r = ask_password_auto("Please enter security token PIN:", askpw_icon_name, NULL, "fido2-pin", USEC_INFINITY, 0, &pin);
+                        r = ask_password_auto("Please enter security token PIN:", askpw_icon_name, NULL, "fido2-pin", "fido2-pin", USEC_INFINITY, 0, &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire user PIN: %m");
 

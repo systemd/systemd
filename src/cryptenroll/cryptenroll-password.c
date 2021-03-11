@@ -57,7 +57,7 @@ int enroll_password(
                         if (!question)
                                 return log_oom();
 
-                        r = ask_password_auto(question, "drive-harddisk", id, "cryptenroll", USEC_INFINITY, 0, &passwords);
+                        r = ask_password_auto(question, "drive-harddisk", id, "cryptenroll", "cryptenroll.new-passphrase", USEC_INFINITY, 0, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -68,7 +68,7 @@ int enroll_password(
                         if (!question)
                                 return log_oom();
 
-                        r = ask_password_auto(question, "drive-harddisk", id, "cryptenroll", USEC_INFINITY, 0, &passwords2);
+                        r = ask_password_auto(question, "drive-harddisk", id, "cryptenroll", "cryptenroll.new-passphrase", USEC_INFINITY, 0, &passwords2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query password: %m");
 
