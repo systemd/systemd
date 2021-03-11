@@ -13,7 +13,8 @@
 Description={{RC_LOCAL_PATH}} Compatibility
 Documentation=man:systemd-rc-local-generator(8)
 ConditionFileIsExecutable={{RC_LOCAL_PATH}}
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=forking
