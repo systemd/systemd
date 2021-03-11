@@ -18,8 +18,6 @@ int fstab_filter_options(
                 char ***ret_values,
                 char **ret_filtered);
 
-int fstab_extract_values(const char *opts, const char *name, char ***values);
-
 static inline bool fstab_test_option(const char *opts, const char *names) {
         return !!fstab_filter_options(opts, names, NULL, NULL, NULL, NULL);
 }

@@ -241,7 +241,7 @@ static int write_dependency(
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, filter, &names);
+        r = fstab_filter_options(opts, filter, NULL, NULL, &names, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -274,17 +274,17 @@ static int write_dependency(
 
 static int write_after(FILE *f, const char *opts) {
         return write_dependency(f, opts,
-                                "x-systemd.after", "After=%1$s\n");
+                                "x-systemd.after\0", "After=%1$s\n");
 }
 
 static int write_requires_after(FILE *f, const char *opts) {
         return write_dependency(f, opts,
-                                "x-systemd.requires", "After=%1$s\nRequires=%1$s\n");
+                                "x-systemd.requires\0", "After=%1$s\nRequires=%1$s\n");
 }
 
 static int write_before(FILE *f, const char *opts) {
         return write_dependency(f, opts,
-                                "x-systemd.before", "Before=%1$s\n");
+                                "x-systemd.before\0", "Before=%1$s\n");
 }
 
 static int write_requires_mounts_for(FILE *f, const char *opts) {
@@ -295,7 +295,7 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, "x-systemd.requires-mounts-for", &paths);
+        r = fstab_filter_options(opts, "x-systemd.requires-mounts-for\0", NULL, NULL, &paths, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -376,11 +376,11 @@ static int add_mount(
             mount_point_ignore(where))
                 return 0;
 
-        r = fstab_extract_values(opts, "x-systemd.wanted-by", &wanted_by);
+        r = fstab_filter_options(opts, "x-systemd.wanted-by\0", NULL, NULL, &wanted_by, NULL);
         if (r < 0)
                 return r;
 
-        r = fstab_extract_values(opts, "x-systemd.required-by", &required_by);
+        r = fstab_filter_options(opts, "x-systemd.required-by\0", NULL, NULL, &required_by, NULL);
         if (r < 0)
                 return r;
 
