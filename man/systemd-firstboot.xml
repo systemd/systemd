@@ -283,7 +283,69 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-firstboot</command> supports the service credentials logic as implemented by
+    <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>passwd.hashed-password.root</literal></term>
+        <term><literal>passwd.plaintext-password.root</literal></term>
+
+        <listitem><para>A hashed or plaintext version of the root password to use, in place of prompting the
+        user. These credentials are equivalent to the same ones defined for the
+        <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>passwd.shell.root</literal></term>
+
+        <listitem><para>Specifies the shell binary to use for the the specified account when creating
+        it. Equivalent to the credential of the same name defined for the
+        <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>firstboot.locale</literal></term>
+        <term><literal>firstboot.locale-messages</literal></term>
+
+        <listitem><para>These credentials specify the locale settings to set during first boot, in place of
+        prompting the user.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>firstboot.keymap</literal></term>
+
+        <listitem><para>This credential specifies the keyboard setting to set during first boot, in place of
+        prompting the user.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>firstboot.timezone</literal></term>
+
+        <listitem><para>This credential specifies the system timezone setting to set during first boot, in
+        place of prompting the user.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-firstboot.service</filename> unit file is set up to
+    inherit the listed credentials
+    from the service manager. Thus, when invoking a container with an unpopulated <filename>/etc/</filename>
+    for the first time it is possible to configure the root user's password to be <literal>systemd</literal>
+    like this:</para>
+
+    <para><programlisting># systemd-nspawn --image=… --set-credential=firstboot.locale:de_DE.UTF-8 …</programlisting></para>
+
+    <para>Note that these credentials are only read and applied during the first boot process. Once they are
+    applied they remain applied for subsequent boots, and the credentials are not considered anymore.</para>
   </refsect1>
 
   <refsect1>
