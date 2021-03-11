@@ -407,6 +407,13 @@ static inline int missing_epoll_pwait2(
                 const sigset_t *sigset) {
 
 #  if defined(__NR_epoll_pwait2) && HAVE_LINUX_TIME_TYPES_H
+#    if __SIZEOF_LONG__ == 4
+// Someone with an interest in 32bit systems, please have a look at this, and figure out why this hangs on 32bit systems.
+// My educated guess: might be because of issues with the __kernel_timespec translation or because of incorrectly sized sigset_t array.
+#      pragma message "epoll_pwait2() appears to be broken on 32bit archs, someone please have a look!"
+        errno = ENOSYS;
+        return -1;
+#    else
         if (timeout) {
                 /* Convert from userspace timespec to kernel timespec */
                 struct __kernel_timespec ts = {
@@ -417,6 +424,7 @@ static inline int missing_epoll_pwait2(
                 return syscall(__NR_epoll_pwait2, fd, events, maxevents, &ts, sigset, sigset ? KERNEL_NSIG_BYTES : 0);
         } else
                 return syscall(__NR_epoll_pwait2, fd, events, maxevents, NULL, sigset, sigset ? KERNEL_NSIG_BYTES : 0);
+#    endif
 #  else
         errno = ENOSYS;
         return -1;
