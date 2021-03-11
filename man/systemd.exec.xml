@@ -173,50 +173,11 @@
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para>
 
-        <para>Valid partition names follow the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
-        Partitions Specification</ulink>.</para>
-
-        <table>
-          <title>Accepted partition names</title>
-
-          <tgroup cols='1'>
-            <colspec colname='partition' />
-            <thead>
-              <row>
-                <entry>Partition Name</entry>
-              </row>
-            </thead>
-            <tbody>
-              <row>
-                <entry>root</entry>
-              </row>
-              <row>
-                <entry>root-secondary</entry>
-              </row>
-              <row>
-                <entry>home</entry>
-              </row>
-              <row>
-                <entry>srv</entry>
-              </row>
-              <row>
-                <entry>esp</entry>
-              </row>
-              <row>
-                <entry>xbootldr</entry>
-              </row>
-              <row>
-                <entry>tmp</entry>
-              </row>
-              <row>
-                <entry>var</entry>
-              </row>
-              <row>
-                <entry>usr</entry>
-              </row>
-            </tbody>
-          </tgroup>
-        </table>
+        <para>Valid partition names follow the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>:
+        <constant>root</constant>, <constant>usr</constant>, <constant>home</constant>, <constant>srv</constant>,
+        <constant>esp</constant>, <constant>xbootldr</constant>, <constant>tmp</constant>,
+        <constant>var</constant>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
