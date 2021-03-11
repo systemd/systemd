@@ -196,8 +196,7 @@ char *utf8_escape_invalid(const char *str) {
         }
 
         *s = '\0';
-        (void) str_realloc(&p);
-        return p;
+        return str_realloc(p);
 }
 
 static int utf8_char_console_width(const char *str) {
@@ -282,8 +281,7 @@ char *utf8_escape_non_printable_full(const char *str, size_t console_width) {
 
  finish:
         *s = '\0';
-        (void) str_realloc(&p);
-        return p;
+        return str_realloc(p);
 }
 
 char *ascii_is_valid(const char *str) {

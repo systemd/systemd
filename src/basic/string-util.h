@@ -217,17 +217,13 @@ static inline void *memory_startswith_no_case(const void *p, size_t sz, const ch
         return (uint8_t*) p + n;
 }
 
-static inline char* str_realloc(char **p) {
-        /* Reallocate *p to actual size */
+static inline char* str_realloc(char *p) {
+        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
 
-        if (!*p)
+        if (!p)
                 return NULL;
 
-        char *t = realloc(*p, strlen(*p) + 1);
-        if (!t)
-                return NULL;
-
-        return (*p = t);
+        return realloc(p, strlen(p) + 1) ?: p;
 }
 
 char* string_erase(char *x);
