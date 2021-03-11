@@ -181,7 +181,8 @@ int pkcs11_token_login(
                 const CK_TOKEN_INFO *token_info,
                 const char *friendly_name,
                 const char *icon_name,
-                const char *keyname,
+                const char *key_name,
+                const char *credential_name,
                 usec_t until,
                 char **ret_used_pin) {
 
@@ -269,7 +270,7 @@ int pkcs11_token_login(
                                 return log_oom();
 
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
-                        r = ask_password_auto(text, icon_name, id, keyname, until, 0, &passwords);
+                        r = ask_password_auto(text, icon_name, id, key_name, credential_name, until, 0, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query PIN for security token '%s': %m", token_label);
                 }
@@ -959,7 +960,7 @@ static int pkcs11_acquire_certificate_callback(
 
         /* Called for every token matching our URI */
 
-        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", UINT64_MAX, &pin_used);
+        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", "pkcs11-pin", UINT64_MAX, &pin_used);
         if (r < 0)
                 return r;
 
