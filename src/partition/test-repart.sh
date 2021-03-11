@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ex
 
-[[ -f /dev/loop-control ]] || exit 77
+[[ -e /dev/loop-control ]] || exit 77
 
 repart=$1
 test -x $repart
