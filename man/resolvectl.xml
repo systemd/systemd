@@ -204,7 +204,7 @@
         <listitem><para>Specifies the network interface to execute the query on. This may either be specified as numeric
         interface index or as network interface string (e.g. <literal>en0</literal>). Note that this option has no
         effect if system-wide DNS configuration (as configured in <filename>/etc/resolv.conf</filename> or
-        <filename>/etc/systemd/resolve.conf</filename>) in place of per-link configuration is used.</para></listitem>
+        <filename>/etc/systemd/resolved.conf</filename>) in place of per-link configuration is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
