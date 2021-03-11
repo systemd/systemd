@@ -1344,12 +1344,10 @@ static int mount_partition(
         }
 
         if (directory) {
-                if (!FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY)) {
-                        /* Automatically create missing mount points inside the image, if necessary. */
-                        r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
-                        if (r < 0)
-                                return r;
-                }
+                /* Automatically create missing mount points inside the image, if necessary. */
+                r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
+                if (r < 0 && r != -EROFS)
+                        return r;
 
                 r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                 if (r < 0)
