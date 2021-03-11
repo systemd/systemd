@@ -417,7 +417,7 @@ static int prepare_luks(
                                                        "Too many attempts, giving up:");
 
                         r = ask_password_auto(
-                                        question, "drive-harddisk", id, "cryptenroll", USEC_INFINITY,
+                                        question, "drive-harddisk", id, "cryptenroll", "cryptenroll.passphrase", USEC_INFINITY,
                                         ask_password_flags,
                                         &passwords);
                         if (r < 0)
