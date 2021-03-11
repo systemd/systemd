@@ -61,6 +61,7 @@ struct sd_dhcp_server {
         OrderedSet *extra_options;
         OrderedSet *vendor_options;
 
+        bool bind_to_interface;
         bool emit_router;
 
         Hashmap *leases_by_client_id;
