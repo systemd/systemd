@@ -934,8 +934,7 @@ static int event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        if (sd_device_get_devnum(dev, NULL) >= 0)
-                (void) udev_watch_end(inotify_fd, dev);
+        (void) udev_watch_end(inotify_fd, dev);
 
         r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
@@ -1006,9 +1005,8 @@ int udev_event_execute_rules(
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
 
-        if (sd_device_get_devnum(dev, NULL) >= 0)
-                /* Disable watch during event processing. */
-                (void) udev_watch_end(inotify_fd, event->dev_db_clone);
+        /* Disable watch during event processing. */
+        (void) udev_watch_end(inotify_fd, event->dev_db_clone);
 
         if (action == SD_DEVICE_MOVE) {
                 r = udev_event_on_move(event->dev);
@@ -1095,9 +1093,6 @@ int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
         assert(dev);
 
         if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return 0;
-
-        if (sd_device_get_devname(dev, NULL) < 0)
                 return 0;
 
         if (!event->inotify_watch) {
