@@ -282,9 +282,10 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                 .msg_namelen = sizeof(dest.in),
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
+                .msg_control = NULL,
+                .msg_controllen = 0,
         };
+
         struct cmsghdr *cmsg;
         struct in_pktinfo *pktinfo;
 
@@ -293,26 +294,27 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         assert(message);
         assert(len > sizeof(DHCPMessage));
 
-        cmsg = CMSG_FIRSTHDR(&msg);
-        assert(cmsg);
+        if (server->bind_to_interface) {
+                msg.msg_control = &control;
+                msg.msg_controllen = sizeof(control);
 
-        cmsg->cmsg_level = IPPROTO_IP;
-        cmsg->cmsg_type = IP_PKTINFO;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+                cmsg = CMSG_FIRSTHDR(&msg);
+                assert(cmsg);
 
-        /* we attach source interface and address info to the message
-           rather than binding the socket. This will be mostly useful
-           when we gain support for arbitrary number of server addresses
-         */
-        pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
-        assert(pktinfo);
+                cmsg->cmsg_level = IPPROTO_IP;
+                cmsg->cmsg_type = IP_PKTINFO;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
-        if (server->bind_to_interface || server->address == INADDR_ANY)
+                /* we attach source interface and address info to the message
+                   rather than binding the socket. This will be mostly useful
+                   when we gain support for arbitrary number of server addresses
+                 */
+                pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                assert(pktinfo);
+
                 pktinfo->ipi_ifindex = server->ifindex;
-        else
-                pktinfo->ipi_ifindex = 0;
-
-        pktinfo->ipi_spec_dst.s_addr = server->address;
+                pktinfo->ipi_spec_dst.s_addr = server->address;
+        }
 
         if (sendmsg(server->fd, &msg, 0) < 0)
                 return -errno;
