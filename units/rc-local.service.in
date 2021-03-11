@@ -13,7 +13,8 @@
 Description=@RC_LOCAL_SCRIPT_PATH_START@ Compatibility
 Documentation=man:systemd-rc-local-generator(8)
 ConditionFileIsExecutable=@RC_LOCAL_SCRIPT_PATH_START@
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=forking
