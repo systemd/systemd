@@ -307,7 +307,11 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
         assert(pktinfo);
 
-        pktinfo->ipi_ifindex = server->ifindex;
+        if (server->bind_to_interface || server->address == INADDR_ANY)
+                pktinfo->ipi_ifindex = server->ifindex;
+        else
+                pktinfo->ipi_ifindex = 0;
+
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
         if (sendmsg(server->fd, &msg, 0) < 0)
@@ -997,7 +1001,12 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        if (server->bind_to_interface) {
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        } else {
+                r = dhcp_network_bind_udp_socket(0, server->address, DHCP_PORT_SERVER, -1);
+        }
+
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;
@@ -1046,6 +1055,17 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         }
 
         return r;
+}
+
+int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled) {
+        assert_return(server, -EINVAL);
+
+        if (enabled == server->bind_to_interface)
+                return 0;
+
+        server->bind_to_interface = enabled;
+
+        return 1;
 }
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
