@@ -345,6 +345,12 @@ static void test_strjoina(void) {
 
         actual = strjoina("foo", NULL, "bar");
         assert_se(streq(actual, "foo"));
+
+        actual = strjoina("/sys/fs/cgroup/", "dn", "/a/b/c", "/cgroup.procs");
+        assert_se(streq(actual, "/sys/fs/cgroup/dn/a/b/c/cgroup.procs"));
+
+        actual = strjoina("/sys/fs/cgroup/", "dn", NULL, NULL);
+        assert_se(streq(actual, "/sys/fs/cgroup/dn"));
 }
 
 static void test_strjoin(void) {
