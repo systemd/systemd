@@ -1487,7 +1487,31 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <para>In order to embed binary data into the credential data for <option>--set-credential=</option>
         use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
         embed a <constant>NUL</constant> byte. Note that the invoking shell might already apply unescaping
-        once, hence this might require double escaping!).</para></listitem>
+        once, hence this might require double escaping!).</para>
+
+        <para>The
+        <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        services read credentials configured this way for the purpose of configuring the container's root
+        user's password and shell, as well as system locale, keymap and timezone during the first boot
+        process of the container. This is particularly useful in combination with
+        <option>--volatile=yes</option> where every single boot appears as first boot, since configuration
+        applied to <filename>/etc/</filename> is lost on container reboot cycles. See the respective man
+        pages for details. Example:</para>
+
+        <programlisting># systemd-nspawn -i image.raw \
+        --volatile=yes \
+        --set-credential=firstboot.locale:de_DE.UTF-8 \
+        --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' \
+        -b</programlisting>
+
+        <para>The above command line will invoke the specified image file <filename>image.raw</filename> in
+        volatile mode, i.e with an empty <filename>/etc/</filename> and <filename>/var/</filename>, so that
+        the container's payload recognizes this as first boot condition, and will invoke
+        <filename>systemd-firstboot.service</filename>, which then read the two passed credentials to
+        configure the system's initial locale and root password.</para>
+        </listitem>
         </varlistentry>
 
     </variablelist>
