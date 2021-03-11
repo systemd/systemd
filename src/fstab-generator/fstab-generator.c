@@ -200,7 +200,7 @@ static int write_timeout(
         usec_t u;
         int r;
 
-        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL);
+        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)

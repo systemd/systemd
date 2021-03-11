@@ -215,7 +215,7 @@ int generator_write_timeouts(
 
         r = fstab_filter_options(opts, "comment=systemd.device-timeout\0"
                                        "x-systemd.device-timeout\0",
-                                 NULL, &timeout, filtered);
+                                 NULL, &timeout, NULL, filtered);
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse fstab options, ignoring: %m");
                 return 0;
