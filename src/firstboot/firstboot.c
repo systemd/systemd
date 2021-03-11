@@ -43,8 +43,8 @@
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static char *arg_locale = NULL;  /* $LANG */
-static char *arg_keymap = NULL;
 static char *arg_locale_messages = NULL; /* $LC_MESSAGES */
+static char *arg_keymap = NULL;
 static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
 static sd_id128_t arg_machine_id = {};
