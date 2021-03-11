@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 
-[[ -f /dev/loop-control ]] || exit 77
+[[ -e /dev/loop-control ]] || exit 77
 
 repart=$1
 test -x $repart
