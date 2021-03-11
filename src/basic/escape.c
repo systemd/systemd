@@ -462,88 +462,74 @@ char* octescape(const char *s, size_t len) {
 
 }
 
-static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad, bool escape_tab_nl) {
+static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
 
-        for (; *s; s++) {
-                if (escape_tab_nl && IN_SET(*s, '\n', '\t')) {
-                        *(t++) = '\\';
-                        *(t++) = *s == '\n' ? 'n' : 't';
-                        continue;
+        for (; *s; s++)
+                if (char_is_cc(*s))
+                        t += cescape_char(*s, t);
+                else {
+                        if (*s == '\\' || strchr(bad, *s))
+                                *(t++) = '\\';
+                        *(t++) = *s;
                 }
-
-                if (*s == '\\' || strchr(bad, *s))
-                        *(t++) = '\\';
-
-                *(t++) = *s;
-        }
 
         return t;
 }
 
 char* shell_escape(const char *s, const char *bad) {
-        char *r, *t;
+        char *buf, *t;
 
-        r = new(char, strlen(s)*2+1);
-        if (!r)
+        buf = new(char, strlen(s)*4+1);
+        if (!buf)
                 return NULL;
 
-        t = strcpy_backslash_escaped(r, s, bad, false);
+        t = strcpy_backslash_escaped(buf, s, bad);
         *t = 0;
 
-        return r;
+        return buf;
 }
 
-char* shell_maybe_quote(const char *s, EscapeStyle style) {
+char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         const char *p;
-        char *r, *t;
+        char *buf, *t;
 
         assert(s);
 
-        /* Encloses a string in quotes if necessary to make it OK as a shell
-         * string. Note that we treat benign UTF-8 characters as needing
-         * escaping too, but that should be OK. */
+        /* Encloses a string in quotes if necessary to make it OK as a shell string. */
+
+        if (FLAGS_SET(flags, SHELL_ESCAPE_EMPTY) && isempty(s))
+                return strdup("''");
 
         for (p = s; *p; p++)
-                if (*p <= ' ' ||
-                    *p >= 127 ||
-                    strchr(SHELL_NEED_QUOTES, *p))
+                if (char_is_cc(*p) ||
+                    strchr(WHITESPACE SHELL_NEED_QUOTES, *p))
                         break;
 
         if (!*p)
                 return strdup(s);
 
-        r = new(char, (style == ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
-        if (!r)
+        buf = new(char, FLAGS_SET(flags, SHELL_ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
+        if (!buf)
                 return NULL;
 
-        t = r;
-        switch (style) {
-        case ESCAPE_BACKSLASH:
-        case ESCAPE_BACKSLASH_ONELINE:
-                *(t++) = '"';
-                break;
-        case ESCAPE_POSIX:
+        t = buf;
+        if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX)) {
                 *(t++) = '$';
                 *(t++) = '\'';
-                break;
-        default:
-                assert_not_reached("Bad EscapeStyle");
-        }
+        } else
+                *(t++) = '"';
 
         t = mempcpy(t, s, p - s);
 
-        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE,
-                                             style == ESCAPE_BACKSLASH_ONELINE);
-        else
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE_POSIX, true);
+        t = strcpy_backslash_escaped(t, p,
+                                     FLAGS_SET(flags, SHELL_ESCAPE_POSIX) ? SHELL_NEED_ESCAPE_POSIX : SHELL_NEED_ESCAPE);
 
-        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
-                *(t++) = '"';
-        else
+        if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX))
                 *(t++) = '\'';
+        else
+                *(t++) = '"';
         *t = 0;
 
-        return r;
+        return buf;
 }
