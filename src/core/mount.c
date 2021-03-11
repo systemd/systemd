@@ -1019,7 +1019,7 @@ static void mount_enter_mounting(Mount *m) {
         if (p) {
                 _cleanup_free_ char *opts = NULL;
 
-                r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, &opts);
+                r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
                 if (r < 0)
                         goto fail;
 

@@ -200,7 +200,7 @@ static int write_timeout(
         usec_t u;
         int r;
 
-        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL);
+        r = fstab_filter_options(opts, filter, NULL, &timeout, NULL, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -241,7 +241,7 @@ static int write_dependency(
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, filter, &names);
+        r = fstab_filter_options(opts, filter, NULL, NULL, &names, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -274,17 +274,17 @@ static int write_dependency(
 
 static int write_after(FILE *f, const char *opts) {
         return write_dependency(f, opts,
-                                "x-systemd.after", "After=%1$s\n");
+                                "x-systemd.after\0", "After=%1$s\n");
 }
 
 static int write_requires_after(FILE *f, const char *opts) {
         return write_dependency(f, opts,
-                                "x-systemd.requires", "After=%1$s\nRequires=%1$s\n");
+                                "x-systemd.requires\0", "After=%1$s\nRequires=%1$s\n");
 }
 
 static int write_before(FILE *f, const char *opts) {
         return write_dependency(f, opts,
-                                "x-systemd.before", "Before=%1$s\n");
+                                "x-systemd.before\0", "Before=%1$s\n");
 }
 
 static int write_requires_mounts_for(FILE *f, const char *opts) {
@@ -295,7 +295,7 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, "x-systemd.requires-mounts-for", &paths);
+        r = fstab_filter_options(opts, "x-systemd.requires-mounts-for\0", NULL, NULL, &paths, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -376,11 +376,11 @@ static int add_mount(
             mount_point_ignore(where))
                 return 0;
 
-        r = fstab_extract_values(opts, "x-systemd.wanted-by", &wanted_by);
+        r = fstab_filter_options(opts, "x-systemd.wanted-by\0", NULL, NULL, &wanted_by, NULL);
         if (r < 0)
                 return r;
 
-        r = fstab_extract_values(opts, "x-systemd.required-by", &required_by);
+        r = fstab_filter_options(opts, "x-systemd.required-by\0", NULL, NULL, &required_by, NULL);
         if (r < 0)
                 return r;
 
@@ -611,11 +611,11 @@ static int parse_fstab(bool initrd) {
                          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
                          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
                          * target is the final directory. */
-                        r = chase_symlinks(where, initrd ? "/sysroot" : NULL,
+                        k = chase_symlinks(where, initrd ? "/sysroot" : NULL,
                                            CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
                                            &canonical_where, NULL);
-                        if (r < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
-                                log_debug_errno(r, "Failed to read symlink target for %s, ignoring: %m", where);
+                        if (k < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
+                                log_debug_errno(k, "Failed to read symlink target for %s, ignoring: %m", where);
                         else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
                                 canonical_where = mfree(canonical_where);
                         else
