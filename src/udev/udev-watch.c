@@ -112,6 +112,9 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
         if (inotify_fd < 0)
                 return 0;
 
+        if (sd_device_get_devname(dev, NULL) < 0)
+                return 0;
+
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
                 return 0;
