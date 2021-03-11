@@ -911,8 +911,9 @@ static int update_devnode(UdevEvent *event) {
         return udev_node_add(dev, apply_mac, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
-static void event_execute_rules_on_remove(
+static int event_execute_rules_on_remove(
                 UdevEvent *event,
+                int inotify_fd,
                 usec_t timeout_usec,
                 int timeout_signal,
                 Hashmap *properties_list,
@@ -933,13 +934,14 @@ static void event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        if (sd_device_get_devnum(dev, NULL) >= 0)
-                (void) udev_watch_end(dev);
+        (void) udev_watch_end(inotify_fd, dev);
 
-        (void) udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
+        r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
+
+        return r;
 }
 
 static int udev_event_on_move(sd_device *dev) {
@@ -971,12 +973,14 @@ static int copy_all_tags(sd_device *d, sd_device *s) {
         return 0;
 }
 
-int udev_event_execute_rules(UdevEvent *event,
-                             usec_t timeout_usec,
-                             int timeout_signal,
-                             Hashmap *properties_list,
-                             UdevRules *rules) {
-        const char *subsystem;
+int udev_event_execute_rules(
+                UdevEvent *event,
+                int inotify_fd, /* This may be negative */
+                usec_t timeout_usec,
+                int timeout_signal,
+                Hashmap *properties_list,
+                UdevRules *rules) {
+
         sd_device_action_t action;
         sd_device *dev;
         int r;
@@ -986,18 +990,15 @@ int udev_event_execute_rules(UdevEvent *event,
 
         dev = event->dev;
 
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get subsystem: %m");
-
         r = sd_device_get_action(dev, &action);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
-        if (action == SD_DEVICE_REMOVE) {
-                event_execute_rules_on_remove(event, timeout_usec, timeout_signal, properties_list, rules);
-                return 0;
-        }
+        if (action == SD_DEVICE_REMOVE)
+                return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
+
+        /* Disable watch during event processing. */
+        (void) udev_watch_end(inotify_fd, event->dev);
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
@@ -1006,10 +1007,6 @@ int udev_event_execute_rules(UdevEvent *event,
         r = copy_all_tags(dev, event->dev_db_clone);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
-
-        if (sd_device_get_devnum(dev, NULL) >= 0)
-                /* Disable watch during event processing. */
-                (void) udev_watch_end(event->dev_db_clone);
 
         if (action == SD_DEVICE_MOVE) {
                 r = udev_event_on_move(event->dev);
@@ -1048,11 +1045,7 @@ int udev_event_execute_rules(UdevEvent *event,
         /* Yes, we run update_devnode() twice, because in the first invocation, that is before update of udev database,
          * it could happen that two contenders are replacing each other's symlink. Hence we run it again to make sure
          * symlinks point to devices that claim them with the highest priority. */
-        r = update_devnode(event);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return update_devnode(event);
 }
 
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal) {
@@ -1086,4 +1079,25 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
                                 log_device_debug(event->dev, "Command \"%s\" returned %d (error), ignoring.", command, r);
                 }
         }
+}
+
+int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
+        sd_device *dev;
+
+        assert(event);
+        assert(inotify_fd >= 0);
+
+        dev = event->dev;
+
+        assert(dev);
+
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                return 0;
+
+        if (event->inotify_watch)
+                (void) udev_watch_begin(inotify_fd, dev);
+        else
+                (void) udev_watch_end(inotify_fd, dev);
+
+        return 0;
 }
