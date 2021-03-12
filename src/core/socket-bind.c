@@ -122,7 +122,7 @@ int socket_bind_supported(void) {
         return can_link_bpf_program(obj->progs.socket_bind_v6);
 }
 
-int socket_bind_install(Unit *u) {
+static int socket_bind_install_impl(Unit *u) {
         _cleanup_(bpf_link_freep) struct bpf_link *ipv4 = NULL, *ipv6 = NULL;
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
@@ -167,6 +167,16 @@ int socket_bind_install(Unit *u) {
 
         return 0;
 }
+
+int socket_bind_install(Unit *u) {
+        int r = socket_bind_install_impl(u);
+        if (r == -ENOMEM)
+                return r;
+
+        fdset_close(u->socket_bind_restored_fds);
+        return r;
+}
+
 #else /* ! BPF_FRAMEWORK */
 int socket_bind_supported(void) {
         return 0;
@@ -178,3 +188,20 @@ int socket_bind_install(Unit *u) {
 }
 
 #endif
+int socket_bind_restore(Unit *u, int fd) {
+        int r;
+
+        assert(u);
+
+        if (!u->socket_bind_restored_fds) {
+                u->socket_bind_restored_fds = fdset_new();
+                if (!u->socket_bind_restored_fds)
+                        return log_oom();
+        }
+
+        r = fdset_put(u->socket_bind_restored_fds, fd);
+        if (r < 0)
+                return log_unit_debug(u, "Failed to put socket-bind BPF link fd %d to restored fdset", fd);
+
+        return 0;
+}
