@@ -15,30 +15,13 @@
 #include "local-addresses.h"
 #include "log.h"
 #include "main-func.h"
+#include "nss-test-util.h"
 #include "nss-util.h"
 #include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-
-static const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_len) {
-        switch (status) {
-        case NSS_STATUS_TRYAGAIN:
-                return "NSS_STATUS_TRYAGAIN";
-        case NSS_STATUS_UNAVAIL:
-                return "NSS_STATUS_UNAVAIL";
-        case NSS_STATUS_NOTFOUND:
-                return "NSS_STATUS_NOTFOUND";
-        case NSS_STATUS_SUCCESS:
-                return "NSS_STATUS_SUCCESS";
-        case NSS_STATUS_RETURN:
-                return "NSS_STATUS_RETURN";
-        default:
-                snprintf(buf, buf_len, "%i", status);
-                return buf;
-        }
-};
 
 static const char* af_to_string(int family, char *buf, size_t buf_len) {
         const char *name;
@@ -52,22 +35,6 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
 
         snprintf(buf, buf_len, "%i", family);
         return buf;
-}
-
-static void* open_handle(const char *dir, const char *module, int flags) {
-        const char *path = NULL;
-        void *handle;
-
-        if (dir)
-                path = strjoina(dir, "/libnss_", module, ".so.2");
-        if (!path || access(path, F_OK) < 0)
-                path = strjoina("libnss_", module, ".so.2");
-
-        log_debug("Using %s", path);
-        handle = dlopen(path, flags);
-        if (!handle)
-                log_error("Failed to load module %s: %s", module, dlerror());
-        return handle;
 }
 
 static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
@@ -414,7 +381,7 @@ static int test_one_module(const char *dir,
 
         log_info("======== %s ========", module);
 
-        handle = open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
+        handle = nss_open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
@@ -437,10 +404,10 @@ static int parse_argv(int argc, char **argv,
                       char ***the_names,
                       struct local_address **the_addresses, int *n_addresses) {
 
-        int r, n = 0;
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
         size_t n_allocated = 0;
+        int r, n = 0;
 
         if (argc > 1)
                 modules = strv_new(argv[1]);
@@ -495,12 +462,10 @@ static int parse_argv(int argc, char **argv,
                         return n;
         }
 
-        *the_modules = modules;
-        *the_names = names;
-        modules = names = NULL;
-        *the_addresses = addrs;
+        *the_modules = TAKE_PTR(modules);
+        *the_names = TAKE_PTR(names);
+        *the_addresses = TAKE_PTR(addrs);
         *n_addresses = n;
-        addrs = NULL;
         return 0;
 }
 
