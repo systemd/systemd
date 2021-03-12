@@ -473,10 +473,15 @@ int manager_varlink_init(Manager *m) {
 }
 
 void manager_varlink_done(Manager *m) {
+        Varlink *vl;
         assert(m);
 
-        /* Send the final message if we still have a subscribe request open. */
-        m->managed_oom_varlink_request = varlink_close_unref(m->managed_oom_varlink_request);
+        /* Explicitly close the varlink connection to oomd. Note we first take the varlink connection out of
+         * the manager, and only then disconnect it — in two steps – so that we don't end up accidentally
+         * unreffing it twice. After all, closing the connection might cause the disconnect handler we
+         * installed (vl_disconnect() above) to be called, where we will unref it too. */
+        vl = TAKE_PTR(m->managed_oom_varlink_request);
+        varlink_close_unref(vl);
 
         m->varlink_server = varlink_server_unref(m->varlink_server);
 }
