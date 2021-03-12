@@ -3802,7 +3802,7 @@ static int epoll_wait_usec(
                                  NULL);
                 if (r >= 0)
                         return r;
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno; /* Only fallback to old epoll_wait() if the syscall is masked or not
                                         * supported. */
 
