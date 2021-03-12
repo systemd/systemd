@@ -176,6 +176,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->n_ref = 1;
         server->fd_raw = -1;
         server->fd = -1;
+        server->fd_broadcast = -1;
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
@@ -239,6 +240,9 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
+
+        if (!server->bind_to_interface)
+                server->fd_broadcast = safe_close(server->fd_broadcast);
 
         log_dhcp_server(server, "STOPPED");
 
