@@ -2415,7 +2415,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>BindToInterface=</varname></term>
         <listitem>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
         to its network interface and all socket communication will be restricted to this interface.
-        This option is mostly useful in the networks with DHCP relays. Defaults to <literal>yes</literal>.
+        Defaults to <literal>yes</literal>.
+        Disabling interface binding is mostly useful in the networks with DHCP relays.
         </listitem>
       </varlistentry>
 
