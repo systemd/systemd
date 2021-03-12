@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#define EFI_SHIFT_STATE_VALID           0x80000000
-#define EFI_RIGHT_CONTROL_PRESSED       0x00000004
-#define EFI_LEFT_CONTROL_PRESSED        0x00000008
-#define EFI_RIGHT_ALT_PRESSED           0x00000010
-#define EFI_LEFT_ALT_PRESSED            0x00000020
-
 #define EFI_CONTROL_PRESSED             (EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED)
 #define EFI_ALT_PRESSED                 (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED)
 #define KEYPRESS(keys, scan, uni) ((((UINT64)keys) << 32) | (((UINT64)scan) << 16) | (uni))
