@@ -186,19 +186,20 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                         return r;
         }
 
+        r = setsockopt_int(s, SOL_SOCKET, SO_BROADCAST, true);
+        if (r < 0)
+                return r;
+
         if (address == INADDR_ANY) {
                 r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
                 if (r < 0)
                         return r;
-
-                r = setsockopt_int(s, SOL_SOCKET, SO_BROADCAST, true);
-                if (r < 0)
-                        return r;
-
         } else {
-                r = setsockopt_int(s, IPPROTO_IP, IP_FREEBIND, true);
-                if (r < 0)
-                        return r;
+                if (address != INADDR_BROADCAST) {
+                        r = setsockopt_int(s, IPPROTO_IP, IP_FREEBIND, true);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = bind(s, &src.sa, sizeof(src.in));
