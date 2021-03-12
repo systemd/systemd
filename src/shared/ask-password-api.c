@@ -617,10 +617,10 @@ int ask_password_tty(
                                  * last one begins */
                                 q = 0;
                                 for (;;) {
-                                        size_t z;
+                                        int z;
 
                                         z = utf8_encoded_valid_unichar(passphrase + q, (size_t) -1);
-                                        if (z == 0) {
+                                        if (z <= 0) {
                                                 q = (size_t) -1; /* Invalid UTF8! */
                                                 break;
                                         }
