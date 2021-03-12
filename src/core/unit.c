@@ -666,6 +666,7 @@ Unit* unit_free(Unit *u) {
 
         bpf_link_free(u->ipv4_socket_bind_bpf_link);
         bpf_link_free(u->ipv6_socket_bind_bpf_link);
+        fdset_free(u->socket_bind_restored_fds);
 
         unit_release_cgroup(u);
 
