@@ -24,6 +24,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -190,6 +191,18 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         free(b);
 }
 
+void cgroup_context_free_socket_bind(CGroupSocketBindItem **head) {
+        CGroupSocketBindItem *h;
+
+        assert(head);
+
+        while (*head) {
+                h = *head;
+                LIST_REMOVE(socket_bind_items, *head, h);
+                free(h);
+        }
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -210,6 +223,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_deny);
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
@@ -571,6 +588,57 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 
         LIST_PREPEND(device_allow, c->device_allow, a);
         TAKE_PTR(a);
+
+        return 0;
+}
+
+int cgroup_add_socket_bind_item(const char *l3_protocol, const char *user_port, CGroupSocketBindItem **ret_head) {
+        _cleanup_free_ CGroupSocketBindItem *item = NULL;
+         int r;
+
+        assert(ret_head);
+
+        item = new(CGroupSocketBindItem, 1);
+        if (!item)
+                return log_oom();
+
+        *item = (CGroupSocketBindItem) {
+                .address_family = AF_UNSPEC,
+        };
+
+        if (l3_protocol) {
+                if (!STR_IN_SET(l3_protocol, "IPv4", "IPv6"))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Only IPv4 or IPv6 protocols are supported.");
+
+                if (streq(l3_protocol, "IPv4"))
+                        item->address_family = AF_INET;
+                else
+                        item->address_family = AF_INET6;
+        }
+
+        if (!streq(user_port, "any")) {
+                uint16_t port_min, port_max;
+                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        r = parse_ip_port(user_port, &port_min);
+                        if (r < 0)
+                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Invalid port or port range.");
+
+                        port_max = port_min;
+                }
+                if (port_min == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Minimum port value must be positive.");
+
+                item->nr_ports = port_max - port_min + 1;
+                item->port_min = port_min;
+        }
+
+        LIST_PREPEND(socket_bind_items, *ret_head, TAKE_PTR(item));
 
         return 0;
 }
@@ -1009,6 +1077,12 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+static void cgroup_apply_socket_bind(Unit *u) {
+        assert(u);
+
+        (void) socket_bind_install(u);
+}
+
 static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         const char *path;
@@ -1428,6 +1502,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
+                cgroup_apply_socket_bind(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1458,6 +1535,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_socket_bind(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->socket_bind_allow != NULL || c->socket_bind_deny != NULL;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1510,6 +1598,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_socket_bind(u))
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         return mask;
 }
@@ -2988,6 +3079,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF-based bind{4|6} hooks */
+        r = socket_bind_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         *ret = mask;
         return 0;

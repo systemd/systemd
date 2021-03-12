@@ -711,6 +711,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SocketBindAllow=<replaceable>[IPv{4|6}:]{IP_PORT|IP_PORT_RANGE}</replaceable></varname></term>
+        <term><varname>SocketBindDeny=<replaceable>[IPv{4|6}:]{IP_PORT|IP_PORT_RANGE}</replaceable></varname></term>
+
+        <listitem>
+          <para>Allow or deny binding a socket address only to certain IP ports specified by either a single
+          <replaceable>IP_PORT</replaceable> or <replaceable>IP_PORT_RANGE</replaceable>.</para>
+
+          <para><varname>SocketBindAllow=</varname> is powered by BPF program compiled from source code.</para>
+
+          <para>To allow multiple rules assign<varname>SocketBind{Allow|Deny}=</varname> multiple times.
+          To clear the existing assignments pass an empty <varname>SocketBind{Allow|Deny}=</varname>
+          assignment.</para>
+
+          <para>The feature is implemented with <constant>cgroup/bind{4,6}</constant> cgroup-bpf hooks.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
