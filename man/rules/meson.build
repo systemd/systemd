@@ -931,7 +931,7 @@ manpages = [
   '8',
   ['systemd-random-seed'],
   'ENABLE_RANDOMSEED'],
- ['systemd-rc-local-generator', '8', [], 'HAVE_SYSV_COMPAT'],
+ ['systemd-rc-local-generator', '8', ['rc-local.service'], 'HAVE_SYSV_COMPAT'],
  ['systemd-remount-fs.service', '8', ['systemd-remount-fs'], ''],
  ['systemd-repart', '8', ['systemd-repart.service'], 'ENABLE_REPART'],
  ['systemd-resolved.service', '8', ['systemd-resolved'], 'ENABLE_RESOLVE'],

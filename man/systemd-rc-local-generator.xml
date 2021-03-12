@@ -19,11 +19,13 @@
 
   <refnamediv>
     <refname>systemd-rc-local-generator</refname>
-    <refpurpose>Compatibility generator for starting <filename>&RC_LOCAL_PATH;</filename> during boot</refpurpose>
+    <refname>rc-local.service</refname>
+    <refpurpose>Compatibility generator and service to start <filename>&RC_LOCAL_PATH;</filename> during boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/usr/lib/systemd/system-generators/systemd-rc-local-generator</filename></para>
+    <para><filename>rc-local.service</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
