@@ -17,11 +17,14 @@
 #include "main-func.h"
 #include "nss-test-util.h"
 #include "nss-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+
+static size_t arg_bufsize = 1024;
 
 static const char* af_to_string(int family, char *buf, size_t buf_len) {
         const char *name;
@@ -99,7 +102,7 @@ static void print_struct_hostent(struct hostent *host, const char *canon) {
 static void test_gethostbyname4_r(void *handle, const char *module, const char *name) {
         const char *fname;
         _nss_gethostbyname4_r_t f;
-        char buffer[2000];
+        char buffer[arg_bufsize];
         struct gaih_addrtuple *pat = NULL;
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
         int32_t ttl = INT32_MAX; /* nss-dns wants to return the lowest ttl,
@@ -151,7 +154,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
 static void test_gethostbyname3_r(void *handle, const char *module, const char *name, int af) {
         const char *fname;
         _nss_gethostbyname3_r_t f;
-        char buffer[2000];
+        char buffer[arg_bufsize];
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
         int32_t ttl = INT32_MAX; /* nss-dns wants to return the lowest ttl,
                                     and will access this variable through *ttlp,
@@ -186,7 +189,7 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
 static void test_gethostbyname2_r(void *handle, const char *module, const char *name, int af) {
         const char *fname;
         _nss_gethostbyname2_r_t f;
-        char buffer[2000];
+        char buffer[arg_bufsize];
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
         enum nss_status status;
         char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
@@ -214,7 +217,7 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
 static void test_gethostbyname_r(void *handle, const char *module, const char *name) {
         const char *fname;
         _nss_gethostbyname_r_t f;
-        char buffer[2000];
+        char buffer[arg_bufsize];
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
         enum nss_status status;
         char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
@@ -245,7 +248,7 @@ static void test_gethostbyaddr2_r(void *handle,
 
         const char *fname;
         _nss_gethostbyaddr2_r_t f;
-        char buffer[2000];
+        char buffer[arg_bufsize];
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
         enum nss_status status;
         char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
@@ -283,7 +286,7 @@ static void test_gethostbyaddr_r(void *handle,
 
         const char *fname;
         _nss_gethostbyaddr_r_t f;
-        char buffer[2000];
+        char buffer[arg_bufsize];
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
         enum nss_status status;
         char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
@@ -404,7 +407,15 @@ static int parse_argv(int argc, char **argv,
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
         size_t n_allocated = 0;
+        const char *p;
         int r, n = 0;
+
+        p = getenv("SYSTEMD_TEST_NSS_BUFSIZE");
+        if (p) {
+                r = safe_atozu(p, &arg_bufsize);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $SYSTEMD_TEST_NSS_BUFSIZE");
+        }
 
         if (argc > 1)
                 modules = strv_new(argv[1]);
