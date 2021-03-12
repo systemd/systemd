@@ -1594,7 +1594,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         sockets are typically a better replacement). IPC namespacing also
         has no effect on POSIX shared memory (which is subject to mount
         namespacing) either. See
-        <citerefentry><refentrytitle>ipc_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        <citerefentry project='man-pages'><refentrytitle>ipc_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         the details.</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if IPC namespaces are
