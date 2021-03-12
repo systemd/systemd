@@ -99,7 +99,7 @@
         <term><varname>ExternalSizeMax=</varname></term>
         <term><varname>JournalSizeMax=</varname></term>
 
-        <listitem><para>The maximum (uncompressed) size in bytes of a
+        <listitem><para>The maximum (compressed or uncompressed) size in bytes of a
         core to be saved. Unit suffixes are allowed just as in
         <option>ProcessSizeMax=</option></para></listitem>.
       </varlistentry>
