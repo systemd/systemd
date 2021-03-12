@@ -44,8 +44,10 @@ struct sd_dhcp_server {
         sd_event *event;
         int event_priority;
         sd_event_source *receive_message;
+        sd_event_source *receive_broadcast;
         int fd;
         int fd_raw;
+        int fd_broadcast;
 
         int ifindex;
         be32_t address;

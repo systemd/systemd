@@ -232,6 +232,11 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         server->receive_message =
                 sd_event_source_unref(server->receive_message);
 
+        if (!server->bind_to_interface) {
+                server->receive_broadcast =
+                        sd_event_source_unref(server->receive_broadcast);
+        }
+
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
 
@@ -1029,6 +1034,33 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
                 sd_dhcp_server_stop(server);
                 return r;
         }
+
+
+        if (!server->bind_to_interface) {
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_BROADCAST, DHCP_PORT_SERVER, -1);
+
+                if (r < 0) {
+                        sd_dhcp_server_stop(server);
+                        return r;
+                }
+                server->fd_broadcast = r;
+
+                r = sd_event_add_io(server->event, &server->receive_broadcast,
+                                    server->fd_broadcast, EPOLLIN,
+                                    server_receive_message, server);
+                if (r < 0) {
+                        sd_dhcp_server_stop(server);
+                        return r;
+                }
+
+                r = sd_event_source_set_priority(server->receive_broadcast,
+                                                 server->event_priority);
+                if (r < 0) {
+                        sd_dhcp_server_stop(server);
+                        return r;
+                }
+        }
+
 
         log_dhcp_server(server, "STARTED");
 
