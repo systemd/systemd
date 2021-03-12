@@ -540,7 +540,16 @@ tests += [
         [['src/test/test-gcrypt-util.c'],
          [], [], [], 'HAVE_GCRYPT'],
 
-        [['src/test/test-nss-hosts.c'],
+        [['src/test/test-nss-hosts.c',
+          'src/test/nss-test-util.c',
+          'src/test/nss-test-util.h'],
+         [],
+         [libdl],
+         [], 'ENABLE_NSS', 'manual'],
+
+        [['src/test/test-nss-users.c',
+          'src/test/nss-test-util.c',
+          'src/test/nss-test-util.h'],
          [],
          [libdl],
          [], 'ENABLE_NSS', 'manual'],
