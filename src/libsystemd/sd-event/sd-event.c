@@ -3787,10 +3787,14 @@ static int epoll_wait_usec(
                 int maxevents,
                 usec_t timeout) {
 
-        static bool epoll_pwait2_absent = false;
         int r, msec;
 
-        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not */
+#if 0
+        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not.
+         *
+         * FIXME: this is temporarily disabled until epoll_pwait2() becomes more widely available.
+         *        See https://github.com/systemd/systemd/pull/18973. */
+        static bool epoll_pwait2_absent = false;
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
                 struct timespec ts;
@@ -3802,12 +3806,13 @@ static int epoll_wait_usec(
                                  NULL);
                 if (r >= 0)
                         return r;
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno; /* Only fallback to old epoll_wait() if the syscall is masked or not
                                         * supported. */
 
                 epoll_pwait2_absent = true;
         }
+#endif
 
         if (timeout == USEC_INFINITY)
                 msec = -1;

@@ -88,7 +88,7 @@ int fstab_filter_options(
                 char **ret_filtered) {
 
         const char *name, *namefound = NULL, *x;
-        _cleanup_strv_free_ char **stor = NULL, **values = NULL;
+        _cleanup_strv_free_ char **stor = NULL, **values = NULL; /* Note that 'stor' is used upto 'answer' */
         _cleanup_free_ char *value = NULL, **filtered = NULL;
         int r;
 
@@ -115,7 +115,7 @@ int fstab_filter_options(
                 if (r < 0)
                         return r;
 
-                filtered = memdup(stor, sizeof(char*) * (strv_length(stor) + 1));
+                filtered = newdup(char*, stor, strv_length(stor) + 1);
                 if (!filtered)
                         return -ENOMEM;
 
