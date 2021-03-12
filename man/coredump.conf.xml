@@ -76,7 +76,12 @@
 
         <listitem><para>Controls compression for external
         storage. Takes a boolean argument, which defaults to
-        <literal>yes</literal>.</para>
+        <literal>yes</literal>. If compression is enabled, core
+        files will be written to disk storage with compression
+        on-the-fly. Then afterwards, to keep memory usage to a
+        minimum, they are uncompressed temporarily for analysis
+        and for creating a backtrace, unless
+        <varname>ProcessSizeMax=</varname> is set to 0.</para>
         </listitem>
       </varlistentry>
 
@@ -97,8 +102,8 @@
         <term><varname>ExternalSizeMax=</varname></term>
         <term><varname>JournalSizeMax=</varname></term>
 
-        <listitem><para>The maximum (uncompressed) size in bytes of a
-        core to be saved.</para></listitem>
+        <listitem><para>The maximum (compressed or uncompressed) size
+        in bytes of a core to be saved.</para></listitem>
       </varlistentry>
 
       <varlistentry>
