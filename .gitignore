@@ -39,3 +39,5 @@ __pycache__/
 mkosi.default.d/*
 !mkosi.default.d/10-systemd.conf
 /tags
+mkosi.secure-boot.crt
+mkosi.secure-boot.key
