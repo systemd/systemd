@@ -1210,9 +1210,8 @@ int varlink_close(Varlink *v) {
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
 
-        /* Let's take a reference first, since varlink_detach_server() might drop the final ref from the
-         * disconnect callback, which would invalidate the pointer we are holding before we can call
-         * varlink_clear(). */
+        /* Let's take a reference first, since varlink_detach_server() might drop the final (dangling) ref
+         * which would destroy us before we can call varlink_clear() */
         varlink_ref(v);
         varlink_detach_server(v);
         varlink_clear(v);
@@ -1225,32 +1224,15 @@ Varlink* varlink_close_unref(Varlink *v) {
         if (!v)
                 return NULL;
 
-        /* A reference is given to us to be destroyed. But when calling varlink_close(), a callback might
-         * also drop a reference. We allow this, and will hold a temporary reference to the object to make
-         * sure that the object still exists when control returns to us. If there's just one reference
-         * remaining after varlink_close(), even though there were at least two right before, we'll handle
-         * that gracefully instead of crashing.
-         *
-         * In other words, this call drops the donated reference, but if the internal call to varlink_close()
-         * dropped a reference to, we don't drop the reference afain. This allows the caller to say:
-         *     global_object->varlink = varlink_close_unref(global_object->varlink);
-         * even though there is some callback which has access to global_object and may drop the reference
-         * stored in global_object->varlink. Without this step, the same code would have to be written as:
-         *     Varlink *t = TAKE_PTR(global_object->varlink);
-         *     varlink_close_unref(t);
-         */
-                                   /* n_ref >= 1 */
-        varlink_ref(v);            /* n_ref >= 2 */
-        varlink_close(v);          /* n_ref >= 1 */
-        if (v->n_ref > 1)
-                v->n_ref--;        /* n_ref >= 1 */
+        (void) varlink_close(v);
         return varlink_unref(v);
 }
 
 Varlink* varlink_flush_close_unref(Varlink *v) {
-        if (v)
-                varlink_flush(v);
+        if (!v)
+                return NULL;
 
+        (void) varlink_flush(v);
         return varlink_close_unref(v);
 }
 
