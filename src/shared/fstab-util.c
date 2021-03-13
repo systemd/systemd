@@ -167,7 +167,7 @@ int fstab_filter_options(
                                 assert(*end == '\\');
                                 end ++;                 /* Skip the backslash */
                                 if (*end != '\0')
-                                        end ++;         /* Skip the escaped char, but watch out for a trailing commma */
+                                        end ++;         /* Skip the escaped char, but watch out for a trailing comma */
                         }
 
                         NULSTR_FOREACH(name, names) {
