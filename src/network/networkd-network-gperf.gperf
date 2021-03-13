@@ -199,7 +199,7 @@ DHCPv4.UseNTP,                               config_parse_dhcp_use_ntp,         
 DHCPv4.UseSIP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_sip)
 DHCPv4.UseMTU,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_mtu)
 DHCPv4.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_hostname)
-DHCPv4.UseDomains,                           config_parse_dhcp_use_domains,                            0,                             offsetof(Network, dhcp_use_domains)
+DHCPv4.UseDomains,                           config_parse_dhcp_use_domains,                            0,                             0
 DHCPv4.UseRoutes,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_routes)
 DHCPv4.UseGateway,                           config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_gateway)
 DHCPv4.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET,                       0
@@ -230,6 +230,7 @@ DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_li
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
 DHCPv6.UseDNS,                               config_parse_dhcp_use_dns,                                0,                             0
 DHCPv6.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_hostname)
+DHCPv6.UseDomains,                           config_parse_dhcp_use_domains,                            0,                             0
 DHCPv6.UseNTP,                               config_parse_dhcp_use_ntp,                                0,                             0
 DHCPv6.RapidCommit,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_rapid_commit)
 DHCPv6.MUDURL,                               config_parse_dhcp6_mud_url,                               0,                             0
@@ -466,8 +467,8 @@ DHCP.UseDNS,                                 config_parse_dhcp_use_dns,         
 DHCP.UseNTP,                                 config_parse_dhcp_use_ntp,                                0,                             0
 DHCP.UseMTU,                                 config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_mtu)
 DHCP.UseHostname,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_hostname)
-DHCP.UseDomains,                             config_parse_dhcp_use_domains,                            0,                             offsetof(Network, dhcp_use_domains)
-DHCP.UseDomainName,                          config_parse_dhcp_use_domains,                            0,                             offsetof(Network, dhcp_use_domains)
+DHCP.UseDomains,                             config_parse_dhcp_use_domains,                            0,                             0
+DHCP.UseDomainName,                          config_parse_dhcp_use_domains,                            0,                             0
 DHCP.UseRoutes,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_routes)
 DHCP.Anonymize,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
 DHCP.SendHostname,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_hostname)
@@ -485,7 +486,7 @@ DHCP.IAID,                                   config_parse_iaid,                 
 DHCP.ListenPort,                             config_parse_uint16,                                      0,                             offsetof(Network, dhcp_client_port)
 DHCP.RapidCommit,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp6_rapid_commit)
 DHCP.ForceDHCPv6PDOtherInformation,          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
-DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            0,                             offsetof(Network, dhcp_use_domains)
+DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            0,                             0
 DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
 IPv6AcceptRA.DenyList,                       config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.BlackList,                      config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
