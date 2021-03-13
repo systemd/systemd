@@ -19,7 +19,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-static int ordered_set_put_dns_server(OrderedSet *s, int ifindex, struct in_addr_full *dns) {
+static int ordered_set_put_dns_server(OrderedSet **s, int ifindex, struct in_addr_full *dns) {
         const char *p;
         int r;
 
@@ -40,7 +40,7 @@ static int ordered_set_put_dns_server(OrderedSet *s, int ifindex, struct in_addr
         return r;
 }
 
-static int ordered_set_put_dns_servers(OrderedSet *s, int ifindex, struct in_addr_full **dns, unsigned n) {
+static int ordered_set_put_dns_servers(OrderedSet **s, int ifindex, struct in_addr_full **dns, unsigned n) {
         int r, c = 0;
 
         assert(s);
@@ -57,8 +57,8 @@ static int ordered_set_put_dns_servers(OrderedSet *s, int ifindex, struct in_add
         return c;
 }
 
-static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address) {
-        char *p;
+static int ordered_set_put_in4_addr(OrderedSet **s, const struct in_addr *address) {
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(s);
@@ -68,7 +68,11 @@ static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address
         if (r < 0)
                 return r;
 
-        r = ordered_set_consume(s, p);
+        r = ordered_set_ensure_allocated(s, &string_hash_ops_free);
+        if (r < 0)
+                return r;
+
+        r = ordered_set_consume(*s, TAKE_PTR(p));
         if (r == -EEXIST)
                 return 0;
 
@@ -76,7 +80,7 @@ static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address
 }
 
 static int ordered_set_put_in4_addrv(
-                OrderedSet *s,
+                OrderedSet **s,
                 const struct in_addr *addresses,
                 size_t n,
                 bool (*predicate)(const struct in_addr *addr)) {
@@ -100,7 +104,7 @@ static int ordered_set_put_in4_addrv(
 }
 
 int manager_save(Manager *m) {
-        _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
         const char *operstate_str, *carrier_state_str, *address_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
@@ -113,27 +117,6 @@ int manager_save(Manager *m) {
 
         assert(m);
         assert(m->state_file);
-
-        /* We add all NTP and DNS server to a set, to filter out duplicates */
-        dns = ordered_set_new(&string_hash_ops);
-        if (!dns)
-                return -ENOMEM;
-
-        ntp = ordered_set_new(&string_hash_ops);
-        if (!ntp)
-                return -ENOMEM;
-
-        sip = ordered_set_new(&string_hash_ops);
-        if (!sip)
-                return -ENOMEM;
-
-        search_domains = ordered_set_new(&dns_name_hash_ops);
-        if (!search_domains)
-                return -ENOMEM;
-
-        route_domains = ordered_set_new(&dns_name_hash_ops);
-        if (!route_domains)
-                return -ENOMEM;
 
         HASHMAP_FOREACH(link, m->links) {
                 const struct in_addr *addresses;
@@ -155,21 +138,21 @@ int manager_save(Manager *m) {
 
                 /* First add the static configured entries */
                 if (link->n_dns != UINT_MAX)
-                        r = ordered_set_put_dns_servers(dns, link->ifindex, link->dns, link->n_dns);
+                        r = ordered_set_put_dns_servers(&dns, link->ifindex, link->dns, link->n_dns);
                 else
-                        r = ordered_set_put_dns_servers(dns, link->ifindex, link->network->dns, link->network->n_dns);
+                        r = ordered_set_put_dns_servers(&dns, link->ifindex, link->network->dns, link->network->n_dns);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_strdupv(ntp, link->ntp ?: link->network->ntp);
+                r = ordered_set_put_strdupv(&ntp, link->ntp ?: link->network->ntp);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_string_set(search_domains, link->search_domains ?: link->network->search_domains);
+                r = ordered_set_put_string_set(&search_domains, link->search_domains ?: link->network->search_domains);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_string_set(route_domains, link->route_domains ?: link->network->route_domains);
+                r = ordered_set_put_string_set(&route_domains, link->route_domains ?: link->network->route_domains);
                 if (r < 0)
                         return r;
 
@@ -180,7 +163,7 @@ int manager_save(Manager *m) {
                 if (link->network->dhcp_use_dns) {
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(dns, addresses, r, in4_addr_is_non_local);
+                                r = ordered_set_put_in4_addrv(&dns, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -190,7 +173,7 @@ int manager_save(Manager *m) {
                 if (link->network->dhcp_use_ntp) {
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(ntp, addresses, r, in4_addr_is_non_local);
+                                r = ordered_set_put_in4_addrv(&ntp, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -200,7 +183,7 @@ int manager_save(Manager *m) {
                 if (link->network->dhcp_use_sip) {
                         r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(sip, addresses, r, in4_addr_is_non_local);
+                                r = ordered_set_put_in4_addrv(&sip, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -208,10 +191,11 @@ int manager_save(Manager *m) {
                 }
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
+                        OrderedSet **target_domains;
                         const char *domainname;
                         char **domains = NULL;
 
-                        OrderedSet *target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? search_domains : route_domains;
+                        target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? &search_domains : &route_domains;
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
                                 r = ordered_set_put_strdup(target_domains, domainname);
