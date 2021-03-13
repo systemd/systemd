@@ -178,7 +178,7 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(ordered_set_freep) OrderedSet *search_domains = NULL, *route_domains = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL, *route_domains = NULL;
         Link *l = userdata;
         int r;
 
@@ -218,15 +218,15 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
 
                 domains = route_only ? &route_domains : &search_domains;
-                r = ordered_set_ensure_allocated(domains, &string_hash_ops);
+                r = ordered_set_ensure_allocated(domains, &string_hash_ops_free);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put(*domains, str);
+                r = ordered_set_consume(*domains, TAKE_PTR(str));
+                if (r == -EEXIST)
+                        continue;
                 if (r < 0)
                         return r;
-
-                TAKE_PTR(str);
         }
 
         r = sd_bus_message_exit_container(message);
@@ -242,8 +242,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        ordered_set_free_free(l->search_domains);
-        ordered_set_free_free(l->route_domains);
+        ordered_set_free(l->search_domains);
+        ordered_set_free(l->route_domains);
         l->search_domains = TAKE_PTR(search_domains);
         l->route_domains = TAKE_PTR(route_domains);
 
