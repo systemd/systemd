@@ -1450,9 +1450,7 @@
         <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <listitem>
-            <para>When true (the default), the DNS servers received
-            from the DHCP server will be used and take precedence over
-            any statically configured ones.</para>
+            <para>When true (the default), the DNS servers received from the DHCP server will be used.</para>
 
             <para>This corresponds to the <option>nameserver</option>
             option in <citerefentry
@@ -1471,8 +1469,7 @@
           <term><varname>UseNTP=</varname></term>
           <listitem>
             <para>When true (the default), the NTP servers received from the DHCP server will be used by
-            <filename>systemd-timesyncd.service</filename> and take precedence over any statically configured
-            ones.</para>
+            <filename>systemd-timesyncd.service</filename>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1587,13 +1584,12 @@
           <term><varname>UseGateway=</varname></term>
           <listitem>
             <para>When true, the gateway will be requested from the DHCP server and added to the routing table with a
-            metric of 1024, and a scope of "link".  When unset, the value specified with <option>UseRoutes=</option>
+            metric of 1024, and a scope of "link". When unset, the value specified with <option>UseRoutes=</option>
             is used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseTimezone=</varname></term>
-
           <listitem><para>When true, the timezone received from the
           DHCP server will be set as timezone of the local
           system. Defaults to <literal>no</literal>.</para></listitem>
@@ -1982,8 +1978,7 @@
         <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <listitem>
-            <para>When true (the default), the DNS servers received in the Router Advertisement will be used and take
-            precedence over any statically configured ones.</para>
+            <para>When true (the default), the DNS servers received in the Router Advertisement will be used.</para>
 
             <para>This corresponds to the <option>nameserver</option> option in <citerefentry
             project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
