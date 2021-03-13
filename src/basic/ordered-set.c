@@ -35,30 +35,33 @@ int ordered_set_consume(OrderedSet *s, void *p) {
         return r;
 }
 
-int ordered_set_put_strdup(OrderedSet *s, const char *p) {
+int _ordered_set_put_strdup(OrderedSet **s, const char *p  HASHMAP_DEBUG_PARAMS) {
         char *c;
         int r;
 
         assert(s);
         assert(p);
 
+        r = _ordered_set_ensure_allocated(s, &string_hash_ops_free  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        if (ordered_set_contains(*s, p))
+                return 0;
+
         c = strdup(p);
         if (!c)
                 return -ENOMEM;
 
-        r = ordered_set_consume(s, c);
-        if (r == -EEXIST)
-                return 0;
-
-        return r;
+        return ordered_set_consume(*s, c);
 }
 
-int ordered_set_put_strdupv(OrderedSet *s, char **l) {
+int _ordered_set_put_strdupv(OrderedSet **s, char **l  HASHMAP_DEBUG_PARAMS) {
         int n = 0, r;
         char **i;
 
         STRV_FOREACH(i, l) {
-                r = ordered_set_put_strdup(s, *i);
+                r = _ordered_set_put_strdup(s, *i  HASHMAP_DEBUG_PASS_ARGS);
                 if (r < 0)
                         return r;
 
@@ -68,7 +71,7 @@ int ordered_set_put_strdupv(OrderedSet *s, char **l) {
         return n;
 }
 
-int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
+int ordered_set_put_string_set(OrderedSet **s, OrderedSet *l) {
         int n = 0, r;
         char *p;
 
