@@ -504,14 +504,12 @@ int link_save(Link *link) {
 
                 /************************************************************/
 
-                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
-                        if (link->dhcp_lease) {
-                                (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
-                                (void) sd_dhcp_lease_get_search_domains(link->dhcp_lease, &dhcp_domains);
-                        }
-                        if (link->dhcp6_lease)
-                                (void) sd_dhcp6_lease_get_domains(link->dhcp6_lease, &dhcp6_domains);
+                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO && link->dhcp_lease) {
+                        (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
+                        (void) sd_dhcp_lease_get_search_domains(link->dhcp_lease, &dhcp_domains);
                 }
+                if (link->network->dhcp6_use_domains != DHCP_USE_DOMAINS_NO && link->dhcp6_lease)
+                        (void) sd_dhcp6_lease_get_domains(link->dhcp6_lease, &dhcp6_domains);
 
                 fputs("DOMAINS=", f);
                 space = false;

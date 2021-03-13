@@ -151,6 +151,7 @@ struct Network {
         bool dhcp_send_release;
         bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
+        bool dhcp_use_domains_set;
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
@@ -165,6 +166,8 @@ struct Network {
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
         bool dhcp6_rapid_commit;
+        DHCPUseDomains dhcp6_use_domains;
+        bool dhcp6_use_domains_set;
         uint8_t dhcp6_pd_length;
         uint32_t dhcp6_route_metric;
         bool dhcp6_route_metric_set;
