@@ -311,7 +311,7 @@ int config_parse_dhcp_route_metric(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         uint32_t metric;
         int r;
 
@@ -355,7 +355,7 @@ int config_parse_dhcp_use_dns(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         int r;
 
         assert(filename);
@@ -398,7 +398,7 @@ int config_parse_dhcp_use_ntp(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         int r;
 
         assert(filename);
@@ -441,7 +441,7 @@ int config_parse_section_route_table(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         uint32_t rt;
         int r;
 
@@ -478,7 +478,7 @@ int config_parse_iaid(const char *unit,
                       const char *rvalue,
                       void *data,
                       void *userdata) {
-        Network *network = data;
+        Network *network = userdata;
         uint32_t iaid;
         int r;
 
@@ -807,7 +807,7 @@ int config_parse_dhcp_request_options(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         int r;
 
         assert(filename);
