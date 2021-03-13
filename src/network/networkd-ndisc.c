@@ -1555,8 +1555,10 @@ int config_parse_address_generation_type(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_accept_ra_use_domains, dhcp_use_domains, DHCPUseDomains,
+                         "Failed to parse UseDomains= setting");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_accept_ra_start_dhcp6_client, ipv6_accept_ra_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client,
-                         "Failed to parse DHCPv6Client= setting")
+                         "Failed to parse DHCPv6Client= setting");
 static const char* const ipv6_accept_ra_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
         [IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO]     = "no",
         [IPV6_ACCEPT_RA_START_DHCP6_CLIENT_ALWAYS] = "always",
