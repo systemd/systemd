@@ -36,7 +36,7 @@ fi
 # create the entry directory ($ESP/<machine-id>/<kernel-version>).
 # This is the only function of this plugin.
 MACHINE_ID_DIR="${ENTRY_DIR_ABS%/*}"
-if ! [ -d "$MACHINE_ID_DIR" ]; then
+if [ -d "$MACHINE_ID_DIR" ]; then
     exit 0
 fi
 
