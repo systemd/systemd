@@ -95,8 +95,7 @@ static void test_set_put(void) {
 }
 
 static void test_set_put_string_set(void) {
-        _cleanup_ordered_set_free_free_ OrderedSet *m = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *q = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *m = NULL, *q = NULL;
         _cleanup_free_ char **final = NULL; /* "just free" because the strings are in the set */
         void *t;
 
@@ -119,7 +118,7 @@ static void test_set_put_string_set(void) {
         assert_se(ordered_set_put(q, (void*) "22") == 1);
         assert_se(ordered_set_put(q, (void*) "33") == 1);
 
-        assert_se(ordered_set_put_string_set(m, q) == 2);
+        assert_se(ordered_set_put_string_set(&m, q) == 2);
 
         assert_se(final = ordered_set_get_strv(m));
         assert_se(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
