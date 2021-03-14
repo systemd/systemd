@@ -285,8 +285,11 @@
         Filesystem</ulink>. It is generally recommended to run most system services with this option set to
         <literal>invisible</literal>. This option is implemented via file system namespacing, and thus cannot
         be used with services that shall be able to install mount points in the host file system
-        hierarchy. It also cannot be used for services that need to access metainformation about other users'
-        processes. This option implies <varname>MountAPIVFS=</varname>.</para>
+        hierarchy. Note that the root user is unaffected by this option, so to be effective it has to be used
+        together with <varname>User=</varname> or <varname>DynamicUser=yes</varname>, and also without the
+        <literal>CAP_SYS_PTRACE</literal> capability, which also allows a process to bypass this feature. It
+        thus cannot be used for services that need to access metainformation about other users' processes.
+        This option implies <varname>MountAPIVFS=</varname>.</para>
 
         <para>If the kernel doesn't support per-mount point <option>hidepid=</option> mount options this
         setting remains without effect, and the unit's processes will be able to access and see other process
