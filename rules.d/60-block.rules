@@ -4,6 +4,12 @@
 ACTION=="add", SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_poll_msecs}=="0", \
   ATTR{parameters/events_dfl_poll_msecs}="2000"
 
+# Amazon Kindle 3/4/Paperwhite:
+# Fix disconnect after SYNCHRONIZE CACHE by sending enough TEST_UNIT_READY commands
+ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", \
+  SUBSYSTEMS=="usb", ATTRS{idVendor}=="1949", ATTRS{idProduct}=="0004", \
+  ATTR{events_poll_msecs}="800"
+
 # forward scsi device event to corresponding block device
 ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block", ATTR{block/*/uevent}="change"
 
