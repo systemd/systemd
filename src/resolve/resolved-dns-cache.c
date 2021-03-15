@@ -937,9 +937,18 @@ static int answer_add_clamp_ttl(
         assert(rr);
 
         if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL)) {
+                uint32_t left_ttl;
+
+                /* let's determine how much time is left for this cache entry. Note that we round down, but
+                 * clamp this to be 1s at minimum, since we usually want records to remain cache better to
+                 * short a time than too long a time, but otoh don't want to return 0 ever, since that has
+                 * special semantics in various contexts in particular in mDNS */
+
+                left_ttl = MAX(1U, LESS_BY(until, current) / USEC_PER_SEC);
+
                 patched = dns_resource_record_ref(rr);
 
-                r = dns_resource_record_clamp_ttl(&patched, LESS_BY(until, current) / USEC_PER_SEC);
+                r = dns_resource_record_clamp_ttl(&patched, left_ttl);
                 if (r < 0)
                         return r;
 
@@ -947,7 +956,7 @@ static int answer_add_clamp_ttl(
 
                 if (rrsig) {
                         patched_rrsig = dns_resource_record_ref(rrsig);
-                        r = dns_resource_record_clamp_ttl(&patched_rrsig, LESS_BY(until, current) / USEC_PER_SEC);
+                        r = dns_resource_record_clamp_ttl(&patched_rrsig, left_ttl);
                         if (r < 0)
                                 return r;
 
