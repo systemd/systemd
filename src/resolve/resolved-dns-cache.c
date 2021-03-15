@@ -808,7 +808,7 @@ int dns_cache_put(
         if (cache_mode == DNS_CACHE_MODE_NO_NEGATIVE) {
                 char key_str[DNS_RESOURCE_KEY_STRING_MAX];
                 log_debug("Not caching negative entry for: %s, cache mode set to no-negative",
-                        dns_resource_key_to_string(key, key_str, sizeof key_str));
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
                 return 0;
         }
 
