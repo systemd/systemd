@@ -14,7 +14,7 @@ extern const struct hash_ops oomd_cgroup_ctx_hash_ops;
 typedef struct OomdCGroupContext OomdCGroupContext;
 typedef struct OomdSystemContext OomdSystemContext;
 
-typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *);
+typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *, void *data);
 
 struct OomdCGroupContext {
         char *path;
@@ -30,6 +30,7 @@ struct OomdCGroupContext {
         uint64_t last_pgscan;
         uint64_t pgscan;
 
+        uid_t uid;
         ManagedOOMPreference preference;
 
         /* These are only used by oomd_pressure_above for acting on high memory pressure. */
@@ -66,13 +67,26 @@ bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad)
 
 /* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
  * (after the smallest values). */
-static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2, void *data) {
         int r;
+        ManagedOOMPreference p1, p2;
+        uid_t *uid = data;
 
         assert(c1);
         assert(c2);
 
-        r = CMP((*c1)->preference, (*c2)->preference);
+        /* Sort all cgroups with specific UID to the front */
+        if (uid) {
+                r = CMP((*c1)->uid == *uid, (*c2)->uid == *uid);
+                if (r != 0)
+                        return r;
+        }
+
+        /* Evalute preference, but only if UID is root or selected */
+        p1 = (*c1)->uid == 0 || (uid && (*c1)->uid == *uid) ? (*c1)->preference : MANAGED_OOM_PREFERENCE_NONE;
+        p2 = (*c2)->uid == 0 || (uid && (*c1)->uid == *uid) ? (*c2)->preference : MANAGED_OOM_PREFERENCE_NONE;
+
+        r = CMP(p1, p2);
         if (r != 0)
                 return r;
 
@@ -83,7 +97,7 @@ static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1,
         return CMP((*c2)->current_memory_usage, (*c1)->current_memory_usage);
 }
 
-static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2, void *data) {
         int r;
 
         assert(c1);
@@ -99,7 +113,7 @@ static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupCo
 /* Get an array of OomdCGroupContexts from `h`, qsorted from largest to smallest values according to `compare_func`.
  * If `prefix` is not NULL, only include OomdCGroupContexts whose paths start with prefix. Otherwise all paths are sorted.
  * Returns the number of sorted items; negative on error. */
-int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret);
+int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret, void *data);
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
 int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);

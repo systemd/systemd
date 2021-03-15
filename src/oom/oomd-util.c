@@ -13,6 +13,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "user-util.h"
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 oomd_cgroup_ctx_hash_ops,
@@ -144,7 +145,7 @@ bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad)
         return (ctx->swap_total - ctx->swap_used) < swap_threshold;
 }
 
-int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret) {
+int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret, void *data) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         OomdCGroupContext *item;
         size_t k = 0;
@@ -159,13 +160,14 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 
         HASHMAP_FOREACH(item, h) {
                 /* Skip over cgroups that are not valid candidates or are explicitly marked for omission */
-                if ((item->path && prefix && !path_startswith(item->path, prefix)) || item->preference == MANAGED_OOM_PREFERENCE_OMIT)
+                if ((item->path && prefix && !path_startswith(item->path, prefix)) ||
+                    (item->uid == 0 && item->preference == MANAGED_OOM_PREFERENCE_OMIT))
                         continue;
 
                 sorted[k++] = item;
         }
 
-        typesafe_qsort(sorted, k, compare_func);
+        typesafe_qsort_r(sorted, k, compare_func, data);
 
         *ret = TAKE_PTR(sorted);
 
@@ -210,13 +212,30 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
 
 int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
+        uid_t uid;
         int r;
 
         assert(h);
 
-        r = oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, prefix, &sorted);
+        /* First select a specific user (ignoring the users perference) */
+        r = oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, prefix, &sorted, NULL);
         if (r < 0)
                 return r;
+
+        for (int i = 0; i < r; i++) {
+                /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure. */
+                /* Don't break since there might be "avoid" cgroups at the end. */
+                if (sorted[i]->pgscan == 0 && sorted[i]->current_memory_usage == 0)
+                        continue;
+
+                uid = sorted[i]->uid;
+                r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
+                if (r > 0 || r == -ENOMEM)
+                        break;
+        }
+
+        /* Resort with the user sorted to the front (and their preferences taken into account) */
+        typesafe_qsort_r(sorted, r, compare_pgscan_and_memory_usage, (void*) &uid);
 
         for (int i = 0; i < r; i++) {
                 /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure. */
@@ -238,7 +257,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run) {
 
         assert(h);
 
-        r = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
+        r = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted, NULL);
         if (r < 0)
                 return r;
 
@@ -262,7 +281,6 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *p = NULL, *val = NULL;
         bool is_root;
-        uid_t uid;
         int r;
 
         assert(path);
@@ -283,22 +301,23 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Error parsing memory pressure from %s: %m", p);
 
-        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &uid);
-        if (r < 0)
+        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &ctx->uid);
+        if (r < 0) {
                 log_debug_errno(r, "Failed to get owner/group from %s: %m", path);
-        else if (uid == 0) {
-                /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
-                 * as an optional feature of systemd-oomd (and the system might not even support them). */
-                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_avoid");
-                if (r == -ENOMEM)
-                        return r;
-                ctx->preference = r == 1 ? MANAGED_OOM_PREFERENCE_AVOID : ctx->preference;
-
-                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_omit");
-                if (r == -ENOMEM)
-                        return r;
-                ctx->preference = r == 1 ? MANAGED_OOM_PREFERENCE_OMIT : ctx->preference;
+                ctx->uid = UID_NOBODY;
         }
+
+        /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
+         * as an optional feature of systemd-oomd (and the system might not even support them). */
+        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_avoid");
+        if (r == -ENOMEM)
+                return r;
+        ctx->preference = r == 1 ? MANAGED_OOM_PREFERENCE_AVOID : ctx->preference;
+
+        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_omit");
+        if (r == -ENOMEM)
+                return r;
+        ctx->preference = r == 1 ? MANAGED_OOM_PREFERENCE_OMIT : ctx->preference;
 
         if (is_root) {
                 r = procfs_memory_get_used(&ctx->current_memory_usage);
