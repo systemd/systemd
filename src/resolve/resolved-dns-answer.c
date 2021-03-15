@@ -879,9 +879,8 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
                 }
 
                 fputs(t, f);
-
-                if (item->ifindex != 0 || item->rrsig || item->flags != 0)
-                        fputs("\t;", f);
+                fputs("\t;", f);
+                fprintf(f, " ttl=%" PRIu32, item->rr->ttl);
 
                 if (item->ifindex != 0)
                         fprintf(f, " ifindex=%i", item->ifindex);
