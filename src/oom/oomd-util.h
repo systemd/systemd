@@ -119,6 +119,9 @@ int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *
  * was no prior data to reference. */
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path);
 
+/* Update each OomdCGroupContext in `curr_h` with prior interval information from `old_h`. */
+void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_h);
+
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix);

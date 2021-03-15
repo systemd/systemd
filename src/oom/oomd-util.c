@@ -413,6 +413,23 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         return 0;
 }
 
+void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_h) {
+        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+
+        assert(old_h);
+        assert(curr_h);
+
+        HASHMAP_FOREACH(ctx, curr_h) {
+                OomdCGroupContext *old_ctx;
+                old_ctx = hashmap_get(old_h, ctx->path);
+                if (old_ctx) {
+                        ctx->last_pgscan = old_ctx->pgscan;
+                        ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
+                        ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
+                }
+        }
+}
+
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
         char swap[FORMAT_BYTES_MAX];
 
