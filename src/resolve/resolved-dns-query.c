@@ -1019,7 +1019,9 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         q->question_utf8 = TAKE_PTR(nq_utf8);
 
         dns_query_unref_candidates(q);
-        dns_query_reset_answer(q);
+
+        /* Note that we do *not* reset the answer here, because the answer we previously got might already
+         * include everything we need, let's check that first */
 
         q->state = DNS_TRANSACTION_NULL;
 
@@ -1069,8 +1071,7 @@ int dns_query_process_cname(DnsQuery *q) {
         if (r < 0)
                 return r;
 
-        /* Let's see if the answer can already answer the new
-         * redirected question */
+        /* Let's see if the answer can already answer the new redirected question */
         r = dns_query_process_cname(q);
         if (r != DNS_QUERY_NOMATCH)
                 return r;
