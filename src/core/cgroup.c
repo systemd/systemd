@@ -645,6 +645,8 @@ static void cgroup_xattr_apply(Unit *u) {
 
         assert(u);
 
+        cgroup_oomd_xattr_apply(u, u->cgroup_path);
+
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
@@ -669,8 +671,6 @@ static void cgroup_xattr_apply(Unit *u) {
                 if (r != -ENODATA)
                         log_unit_debug_errno(u, r, "Failed to remove delegate flag on control group %s, ignoring: %m", u->cgroup_path);
         }
-
-        cgroup_oomd_xattr_apply(u, u->cgroup_path);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
