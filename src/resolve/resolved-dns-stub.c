@@ -275,7 +275,7 @@ static int dns_stub_collect_answer_by_section(
                     dns_type_is_dnssec(item->rr->key->type))
                         continue;
 
-                if (((item->flags ^ section) & (DNS_ANSWER_SECTION_ANSWER|DNS_ANSWER_SECTION_AUTHORITY|DNS_ANSWER_SECTION_ADDITIONAL)) != 0)
+                if (((item->flags ^ section) & DNS_ANSWER_MASK_SECTIONS) != 0)
                         continue;
 
                 r = reply_add_with_rrsig(
