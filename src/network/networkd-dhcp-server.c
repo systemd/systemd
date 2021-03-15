@@ -352,6 +352,10 @@ int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set router emission for DHCP server: %m");
 
+        r = sd_dhcp_server_set_relay_target(link->dhcp_server, &link->network->dhcp_server_relay_target);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
+
         if (link->network->dhcp_server_emit_timezone) {
                 _cleanup_free_ char *buffer = NULL;
                 const char *tz;
@@ -396,6 +400,32 @@ int dhcp4_server_configure(Link *link) {
         }
 
         return 0;
+}
+
+int config_parse_dhcp_server_relay_target(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        union in_addr_union a;
+        int r;
+
+        r = in_addr_from_string(AF_INET, rvalue, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s= address '%s', ignoring: %m", lvalue, rvalue);
+                return 0;
+        }
+        network->dhcp_server_relay_target = a.in;
+        return r;
 }
 
 int config_parse_dhcp_server_emit(

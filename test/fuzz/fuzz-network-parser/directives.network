@@ -352,6 +352,7 @@ DNS=
 SendOption=
 SendVendorOption=
 BindToInterface=
+RelayTarget=
 [NextHop]
 Id=
 Gateway=
