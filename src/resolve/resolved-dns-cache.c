@@ -312,13 +312,19 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         return NULL;
 }
 
-static usec_t calculate_until(DnsResourceRecord *rr, uint32_t nsec_ttl, usec_t timestamp, bool use_soa_minimum) {
+static usec_t calculate_until(
+                DnsResourceRecord *rr,
+                uint32_t min_ttl,
+                uint32_t nsec_ttl,
+                usec_t timestamp,
+                bool use_soa_minimum) {
+
         uint32_t ttl;
         usec_t u;
 
         assert(rr);
 
-        ttl = MIN(rr->ttl, nsec_ttl);
+        ttl = MIN(min_ttl, nsec_ttl);
         if (rr->key->type == DNS_TYPE_SOA && use_soa_minimum) {
                 /* If this is a SOA RR, and it is requested, clamp to the SOA's minimum field. This is used
                  * when we do negative caching, to determine the TTL for the negative caching entry. See RFC
@@ -351,6 +357,7 @@ static void dns_cache_item_update_positive(
                 DnsResourceRecord *rr,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
+                uint32_t min_ttl,
                 uint64_t query_flags,
                 bool shared_owner,
                 DnssecResult dnssec_result,
@@ -387,7 +394,7 @@ static void dns_cache_item_update_positive(
         dns_packet_unref(i->full_packet);
         i->full_packet = full_packet;
 
-        i->until = calculate_until(rr, UINT32_MAX, timestamp, false);
+        i->until = calculate_until(rr, min_ttl, UINT32_MAX, timestamp, false);
         i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;
         i->shared_owner = shared_owner;
         i->dnssec_result = dnssec_result;
@@ -414,8 +421,9 @@ static int dns_cache_put_positive(
                 const union in_addr_union *owner_address) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
-        DnsCacheItem *existing;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+        DnsCacheItem *existing;
+        uint32_t min_ttl;
         int r;
 
         assert(c);
@@ -428,8 +436,15 @@ static int dns_cache_put_positive(
         if (dns_type_is_pseudo(rr->key->type))
                 return 0;
 
+        /* Determine the minimal TTL of all RRs in the answer plus the one by the main RR we are supposed to
+         * cache. Since we cache whole answers to questions we should never return answers where only some
+         * RRs are still valid, hence find the lowest here */
+        min_ttl = dns_answer_min_ttl(answer);
+        if (rr)
+                min_ttl = MIN(min_ttl, rr->ttl);
+
         /* New TTL is 0? Delete this specific entry... */
-        if (rr->ttl <= 0) {
+        if (min_ttl <= 0) {
                 r = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
                           r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
@@ -446,6 +461,7 @@ static int dns_cache_put_positive(
                                 rr,
                                 answer,
                                 full_packet,
+                                min_ttl,
                                 query_flags,
                                 shared_owner,
                                 dnssec_result,
@@ -473,7 +489,7 @@ static int dns_cache_put_positive(
                 .rr = dns_resource_record_ref(rr),
                 .answer = dns_answer_ref(answer),
                 .full_packet = dns_packet_ref(full_packet),
-                .until = calculate_until(rr, UINT32_MAX, timestamp, false),
+                .until = calculate_until(rr, min_ttl, UINT32_MAX, timestamp, false),
                 .query_flags = query_flags & CACHEABLE_QUERY_FLAGS,
                 .shared_owner = shared_owner,
                 .dnssec_result = dnssec_result,
@@ -575,9 +591,12 @@ static int dns_cache_put_negative(
                 .full_packet = dns_packet_ref(full_packet),
         };
 
+        /* Determine how long to cache this entry. In case we have some RRs in the answer use the lowest TTL
+         * of any of them. Typically that's the SOA's TTL, which is OK, but could possibly be lower because
+         * of some other RR. Let's better take the lowest option here than a needlessly high one */
         i->until =
                 i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
-                calculate_until(soa, nsec_ttl, timestamp, true);
+                calculate_until(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
@@ -1046,21 +1065,30 @@ int dns_cache_lookup(
                                 DnsAnswerItem *item;
 
                                 DNS_ANSWER_FOREACH_ITEM(item, j->answer) {
-                                        r = answer_add_clamp_ttl(&answer, item->rr, item->ifindex, item->flags, item->rrsig, query_flags, j->until, current);
+                                        r = answer_add_clamp_ttl(
+                                                        &answer,
+                                                        item->rr,
+                                                        item->ifindex,
+                                                        item->flags,
+                                                        item->rrsig,
+                                                        query_flags,
+                                                        j->until,
+                                                        current);
                                         if (r < 0)
                                                 return r;
                                 }
                         }
 
                 } else if (j->rr) {
-                        r = answer_add_clamp_ttl(&answer,
-                                                 j->rr,
-                                                 j->ifindex,
-                                                 FLAGS_SET(j->query_flags, SD_RESOLVED_AUTHENTICATED) ? DNS_ANSWER_AUTHENTICATED : 0,
-                                                 NULL,
-                                                 query_flags,
-                                                 j->until,
-                                                 current);
+                        r = answer_add_clamp_ttl(
+                                        &answer,
+                                        j->rr,
+                                        j->ifindex,
+                                        FLAGS_SET(j->query_flags, SD_RESOLVED_AUTHENTICATED) ? DNS_ANSWER_AUTHENTICATED : 0,
+                                        NULL,
+                                        query_flags,
+                                        j->until,
+                                        current);
                         if (r < 0)
                                 return r;
                 }
