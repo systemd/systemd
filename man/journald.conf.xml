@@ -447,7 +447,7 @@
         bytes. If the value is suffixed with K, M, G or T, the specified size is parsed as Kilobytes, Megabytes,
         Gigabytes, or Terabytes (with the base 1024), respectively. Defaults to 48K, which is relatively large but
         still small enough so that log records likely fit into network datagrams along with extra room for
-        metadata. Note that values below 79 are not accepted and will be bumped to 79.</para></listitem>
+        metadata. Note that values below 90 are not accepted and will be bumped to 90.</para></listitem>
       </varlistentry>
 
     </variablelist>
