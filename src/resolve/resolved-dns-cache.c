@@ -416,7 +416,7 @@ static int dns_cache_put_positive(
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         DnsCacheItem *existing;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
-        int r, k;
+        int r;
 
         assert(c);
         assert(rr);
@@ -430,9 +430,9 @@ static int dns_cache_put_positive(
 
         /* New TTL is 0? Delete this specific entry... */
         if (rr->ttl <= 0) {
-                k = dns_cache_remove_by_rr(c, rr);
+                r = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
-                          k > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
+                          r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
                           dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
                 return 0;
         }
