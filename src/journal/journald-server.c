@@ -2558,12 +2558,12 @@ int config_parse_line_max(
                         return 0;
                 }
 
-                if (v < 79) {
-                        /* Why specify 79 here as minimum line length? Simply, because the most common traditional
-                         * terminal size is 80ch, and it might make sense to break one character before the natural
-                         * line break would occur on that. */
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too small, clamping to 79: %s", rvalue);
-                        *sz = 79;
+                if (v < 90) {
+                        /* Why specify 90 here as minimum line length? We used to specify 79 as minimum line length
+                         * because the most common traditional terminal size is 80ch. But there was a problem with
+                         * this value. See https://github.com/systemd/systemd/issues/18993 for details*/
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too small, clamping to 90: %s", rvalue);
+                        *sz = 90;
                 } else if (v > (uint64_t) (SSIZE_MAX-1)) {
                         /* So, why specify SSIZE_MAX-1 here? Because that's one below the largest size value read()
                          * can return, and we need one extra byte for the trailing NUL byte. Of course IRL such large
