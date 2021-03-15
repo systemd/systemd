@@ -445,3 +445,21 @@ int dns_question_new_service(
 
         return 0;
 }
+
+/*
+ * This function is not used in the code base, but is useful when debugging. Do not delete.
+ */
+void dns_question_dump(DnsQuestion *question, FILE *f) {
+        DnsResourceKey *k;
+
+        if (!f)
+                f = stdout;
+
+        DNS_QUESTION_FOREACH(k, question) {
+                char buf[DNS_RESOURCE_KEY_STRING_MAX];
+
+                fputc('\t', f);
+                fputs(dns_resource_key_to_string(k, buf, sizeof(buf)), f);
+                fputc('\n', f);
+        }
+}
