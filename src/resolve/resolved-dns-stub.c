@@ -761,7 +761,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
          * and keep adding all RRs in the CNAME chain. */
         r = dns_stub_assign_sections(
                         q,
-                        q->request_packet->question,
+                        dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
                         dns_stub_reply_with_edns0_do(q));
         if (r < 0) {
                 log_debug_errno(r, "Failed to assign sections: %m");
