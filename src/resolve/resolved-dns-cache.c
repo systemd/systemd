@@ -320,11 +320,9 @@ static usec_t calculate_until(DnsResourceRecord *rr, uint32_t nsec_ttl, usec_t t
 
         ttl = MIN(rr->ttl, nsec_ttl);
         if (rr->key->type == DNS_TYPE_SOA && use_soa_minimum) {
-                /* If this is a SOA RR, and it is requested, clamp to
-                 * the SOA's minimum field. This is used when we do
-                 * negative caching, to determine the TTL for the
-                 * negative caching entry.  See RFC 2308, Section
-                 * 5. */
+                /* If this is a SOA RR, and it is requested, clamp to the SOA's minimum field. This is used
+                 * when we do negative caching, to determine the TTL for the negative caching entry. See RFC
+                 * 2308, Section 5. */
 
                 if (ttl > rr->soa.minimum)
                         ttl = rr->soa.minimum;
@@ -337,8 +335,7 @@ static usec_t calculate_until(DnsResourceRecord *rr, uint32_t nsec_ttl, usec_t t
         if (rr->expiry != USEC_INFINITY) {
                 usec_t left;
 
-                /* Make use of the DNSSEC RRSIG expiry info, if we
-                 * have it */
+                /* Make use of the DNSSEC RRSIG expiry info, if we have it */
 
                 left = LESS_BY(rr->expiry, now(CLOCK_REALTIME));
                 if (u > left)
@@ -785,9 +782,8 @@ int dns_cache_put(
         if (r > 0)
                 return 0;
 
-        /* But not if it has a matching CNAME/DNAME (the negative
-         * caching will be done on the canonical name, not on the
-         * alias) */
+        /* But not if it has a matching CNAME/DNAME (the negative caching will be done on the canonical name,
+         * not on the alias) */
         r = dns_answer_find_cname_or_dname(answer, key, NULL, NULL);
         if (r < 0)
                 goto fail;
@@ -803,8 +799,7 @@ int dns_cache_put(
         if (r == 0 && !weird_rcode)
                 return 0;
         if (r > 0) {
-                /* Refuse using the SOA data if it is unsigned, but the key is
-                 * signed */
+                /* Refuse using the SOA data if it is unsigned, but the key is signed */
                 if (FLAGS_SET(query_flags, SD_RESOLVED_AUTHENTICATED) &&
                     (flags & DNS_ANSWER_AUTHENTICATED) == 0)
                         return 0;
