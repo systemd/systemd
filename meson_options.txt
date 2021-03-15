@@ -178,6 +178,8 @@ option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for arch-independent pkg-config files')
 option('pkgconfiglibdir', type : 'string', value : '',
        description : 'directory for standard pkg-config files')
+option('xinitrcdir', type : 'string', value : '',
+       description : 'directory for xinitrc files')
 option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
        description : 'directory for rpm macros ["no" disables]')
 option('pamlibdir', type : 'string',
