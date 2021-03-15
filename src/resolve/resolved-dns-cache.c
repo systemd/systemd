@@ -693,7 +693,7 @@ int dns_cache_put(
          * short time.) */
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
-                if (dns_answer_size(answer) <= 0) {
+                if (dns_answer_isempty(answer)) {
                         if (key) {
                                 char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
