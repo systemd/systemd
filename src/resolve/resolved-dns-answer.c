@@ -963,3 +963,22 @@ void dns_answer_randomize(DnsAnswer *a) {
                 SWAP_TWO(a->items[i], a->items[k]);
         }
 }
+
+uint32_t dns_answer_min_ttl(DnsAnswer *a) {
+        uint32_t ttl = UINT32_MAX;
+        DnsResourceRecord *rr;
+
+        /* Return the smallest TTL of all RRs in this answer */
+
+        DNS_ANSWER_FOREACH(rr, a) {
+                /* Don't consider OPT (where the TTL field is used for other purposes than an actual TTL) */
+
+                if (dns_type_is_pseudo(rr->key->type) ||
+                    dns_class_is_pseudo(rr->key->class))
+                        continue;
+
+                ttl = MIN(ttl, rr->ttl);
+        }
+
+        return ttl;
+}
