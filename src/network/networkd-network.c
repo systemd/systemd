@@ -383,6 +383,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_pd_subnet_id = -1,
 
                 .dhcp_server_bind_to_interface = true,
+                .dhcp_server_relay_target.s_addr = 0,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_SIP].emit = true,
