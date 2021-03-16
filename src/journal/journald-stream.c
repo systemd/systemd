@@ -385,10 +385,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
 
         case STDOUT_STREAM_LEVEL_PREFIX:
                 r = parse_boolean(p);
-                if (r < 0) {
-                        log_warning("Failed to parse level prefix line.");
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse level prefix line: %m");
 
                 s->level_prefix = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
@@ -396,10 +394,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
 
         case STDOUT_STREAM_FORWARD_TO_SYSLOG:
                 r = parse_boolean(p);
-                if (r < 0) {
-                        log_warning("Failed to parse forward to syslog line.");
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse forward to syslog line: %m");
 
                 s->forward_to_syslog = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_KMSG;
@@ -407,10 +403,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
 
         case STDOUT_STREAM_FORWARD_TO_KMSG:
                 r = parse_boolean(p);
-                if (r < 0) {
-                        log_warning("Failed to parse copy to kmsg line.");
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse copy to kmsg line: %m");
 
                 s->forward_to_kmsg = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_CONSOLE;
@@ -418,10 +412,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
 
         case STDOUT_STREAM_FORWARD_TO_CONSOLE:
                 r = parse_boolean(p);
-                if (r < 0) {
-                        log_warning("Failed to parse copy to console line.");
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse copy to console line.");
 
                 s->forward_to_console = r;
                 s->state = STDOUT_STREAM_RUNNING;
