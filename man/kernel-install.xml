@@ -231,7 +231,9 @@
           <filename>/usr/lib/os-release</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>.
+            The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>,
+            or "Linux <replaceable>KERNEL-VERSION</replaceable>", if not available.</para>
           </listitem>
       </varlistentry>
     </variablelist>
