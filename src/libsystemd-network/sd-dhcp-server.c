@@ -696,7 +696,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
 
                 if (message->giaddr != server->address) {
                         log_dhcp_server(server, "relay BOOTREPLY giaddr mismatch, discarding");
-                        return 0;
+                        return -EBADMSG;
                 }
 
                 int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
@@ -722,7 +722,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 log_dhcp_server(server, "relay BOOTREQUEST");
 
                 if (message->hops >= 16) {
-                        return 1;
+                        return -ETIME;
                 }
                 message->hops++;
 
@@ -733,7 +733,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
 
                 return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, opt_length + sizeof(DHCPMessage));
         }
-        return 1;
+        return 0;
 }
 
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
@@ -1034,14 +1034,15 @@ static int server_receive_message(sd_event_source *s, int fd,
                 }
         }
 
-        if (in4_addr_is_set(&server->relay_target)) {
-
-                return dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
+        if (in4_addr_is_null(&server->relay_target)) {
+                r = dhcp_server_handle_message(server, message, (size_t) len);
+                if (r < 0)
+                        log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
+        } else {
+                r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
+                if (r < 0)
+                        log_dhcp_server_errno(server, r, "Couldn't relay message: %m");
         }
-
-        r = dhcp_server_handle_message(server, message, (size_t) len);
-        if (r < 0)
-                log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
 
         return 0;
 }
