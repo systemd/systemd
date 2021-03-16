@@ -1037,54 +1037,20 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 } else {
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
-                        bool found_some = false;
-                        int token = 0; /* first token to look at */
+                        tpm2_params params = {
+                                .search_pcr_mask = arg_tpm2_pcr_mask,
+                                .device = arg_tpm2_device
+                        };
 
-                        /* If no key data is specified, look for it in the header. In order to support
-                         * software upgrades we'll iterate through all suitable tokens, maybe one of them
-                         * works. */
-
-                        for (;;) {
-                                uint32_t pcr_mask;
-
-                                r = find_tpm2_auto_data(
-                                                cd,
-                                                arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
-                                                token, /* search for the token with this index, or any later index than this */
-                                                &pcr_mask,
-                                                &blob, &blob_size,
-                                                &policy_hash, &policy_hash_size,
-                                                &keyslot,
-                                                &token);
-                                if (r == -ENXIO)
-                                        /* No further TPM2 tokens found in the LUKS2 header.*/
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                               found_some
-                                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
-                                                               : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
-                                if (r < 0)
-                                        return r;
-
-                                found_some = true;
-
-                                r = acquire_tpm2_key(
-                                                name,
-                                                arg_tpm2_device,
-                                                pcr_mask,
-                                                NULL, 0, 0, /* no key file */
-                                                blob, blob_size,
-                                                policy_hash, policy_hash_size,
-                                                &decrypted_key, &decrypted_key_size);
-                                if (r != -EPERM)
-                                        break;
-
-                                token++; /* try a different token next time */
-                        }
-
-                        if (r >= 0)
-                                break;
+                        r = crypt_activate_by_token_pin(cd, name, "systemd-tpm2", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
+                        if (r > 0) /* returns unlocked keyslot id on success */
+                                r = 0;
+                        if (r == -ENXIO)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                        if (r == -ENOENT)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 }
