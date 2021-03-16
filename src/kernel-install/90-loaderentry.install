@@ -92,12 +92,10 @@ else
     LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
 fi
 
-cp "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" &&
-    chown root:root "$ENTRY_DIR_ABS/linux" &&
-    chmod 0644 "$ENTRY_DIR_ABS/linux" || {
-        echo "Could not copy '$KERNEL_IMAGE to '$ENTRY_DIR_ABS/linux'." >&2
-        exit 1
-    }
+install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
+    echo "Could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
+    exit 1
+}
 
 INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
 
@@ -106,12 +104,10 @@ for initrd in "${INITRD_OPTIONS[@]}"; do
         initrd_basename="$(basename ${initrd})"
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Installing $ENTRY_DIR_ABS/${initrd_basename}"
-        cp "${initrd}" "$ENTRY_DIR_ABS/${initrd_basename}" &&
-            chown root:root "$ENTRY_DIR_ABS/${initrd_basename}" &&
-            chmod 0644 "$ENTRY_DIR_ABS/${initrd_basename}" || {
-                echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
-                exit 1
-            }
+        install -g root -o root -m 0644 "${initrd}" "$ENTRY_DIR_ABS/${initrd_basename}" || {
+            echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
+            exit 1
+        }
     fi
 done
 
