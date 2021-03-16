@@ -90,6 +90,12 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
+if [ -r "/etc/kernel/install.conf" ]; then
+    . /etc/kernel/install.conf
+elif [ -r "/usr/lib/kernel/install.conf" ]; then
+    . /usr/lib/kernel/install.conf
+fi
+
 # Prefer to use an existing machine ID from /etc/machine-info or /etc/machine-id. If we're using the machine
 # ID /etc/machine-id, try to persist it in /etc/machine-info. If no machine ID is found, try to generate
 # a new machine ID in /etc/machine-info. If that fails, use "Default".
@@ -124,6 +130,26 @@ ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
+if [ -z "$layout" ]; then
+    # Administrative decision: if not present, some scripts generate into /boot.
+    if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
+        layout="bls"
+    else
+        layout="other"
+    fi
+fi
+
+
+ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+
+export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
+export KERNEL_INSTALL_LAYOUT="$layout"
+
+[ "$layout" = "bls" ]
+MAKE_ENTRY_DIR_ABS=$?
+
+
 ret=0
 
 readarray -t PLUGINS <<<"$(
@@ -142,6 +168,18 @@ case $COMMAND in
         if [[ ! -f "$KERNEL_IMAGE" ]]; then
             echo "Kernel image argument ${KERNEL_IMAGE} not a file" >&2
             exit 1
+        fi
+
+        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
+            # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
+            # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
+            # to serve as the indication to use or to not use the BLS
+            if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
+                echo "+mkdir -v -p $ENTRY_DIR_ABS"
+                mkdir -v -p "$ENTRY_DIR_ABS"
+            else
+                mkdir -p "$ENTRY_DIR_ABS"
+            fi
         fi
 
         for f in "${PLUGINS[@]}"; do
@@ -172,11 +210,10 @@ case $COMMAND in
             fi
         done
 
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $ENTRY_DIR_ABS"
-
-        rm -rf "$ENTRY_DIR_ABS"
-        ((ret+=$?))
+        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
+            rm -rf "$ENTRY_DIR_ABS"
+        fi
         ;;
 
     *)
