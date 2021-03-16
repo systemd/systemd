@@ -35,6 +35,10 @@ LICENSE:
 REQUIREMENTS:
         Linux kernel >= 3.13
         Linux kernel >= 4.2 for unified cgroup hierarchy support
+        Linux kernel >= 4.10 for cgroup-bpf egress and ingress hooks
+        Linux kernel >= 4.15 for cgroup-bpf device hook
+        Linux kernel >= 4.17 for cgroup-bpf socket address hooks
+        Linux kernel >= 5.3 for bounded-loops in BPF program
         Linux kernel >= 5.4 for signed Verity images support
 
         Kernel Config Options:
@@ -95,8 +99,20 @@ REQUIREMENTS:
         Required for CPUQuota= in resource control unit settings
           CONFIG_CFS_BANDWIDTH
 
-        Required for IPAddressDeny= and IPAddressAllow= in resource control
+        Required for IPAddressDeny=, IPAddressAllow=, IPIngressFilterPath=,
+        IPEgressFilterPath= in resource control unit settings
         unit settings
+          CONFIG_BPF
+          CONFIG_BPF_SYSCALL
+          CONFIG_BPF_JIT
+          CONFIG_HAVE_EBPF_JIT
+          CONFIG_CGROUP_BPF
+
+        Required for SocketBind{Allow|Deny}= in resource control unit settings
+          CONFIG_BPF
+          CONFIG_BPF_SYSCALL
+          CONFIG_BPF_JIT
+          CONFIG_HAVE_EBPF_JIT
           CONFIG_CGROUP_BPF
 
         For UEFI systems:
@@ -154,6 +170,7 @@ REQUIREMENTS:
         libcryptsetup (optional), >= 2.3.0 required for signed Verity images support
         libaudit (optional)
         libacl (optional)
+        libbpf >= 0.2.0 (optional)
         libfdisk >= 2.33 (from util-linux) (optional)
         libselinux (optional)
         liblzma (optional)
@@ -178,6 +195,8 @@ REQUIREMENTS:
         meson >= 0.46 (>= 0.49 is required to build position-independent executables)
         ninja
         gcc, awk, sed, grep, m4, and similar tools
+        clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
+                from source code in C)
 
         During runtime, you need the following additional
         dependencies:
