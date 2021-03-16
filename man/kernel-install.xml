@@ -161,8 +161,12 @@
 
   <refsect1>
     <title>Environment variables</title>
+
     <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be set for
     the plugins. They may output additional logs in this case.</para>
+
+    <para>If <varname>MACHINE_ID=</varname> is set and nonempty, it will be used as <replaceable>MACHINE-ID</replaceable>,
+    overriding any automatic detection attempts.</para>
   </refsect1>
 
   <refsect1>
@@ -213,7 +217,8 @@
           <listitem>
             <para>The content of this file specifies the machine identification
             <replaceable>MACHINE-ID</replaceable>. If it cannot read <filename>/etc/machine-id</filename>,
-            kernel-install will use "Linux" as the machine ID instead.</para>
+            it's on a tmpfs mount-point, or <filename>$BOOT/Default</filename> exists,
+            kernel-install will use "Default" as the machine ID instead.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
