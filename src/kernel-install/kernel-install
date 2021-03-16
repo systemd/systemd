@@ -99,21 +99,24 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
-if [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
+if [[ -d /efi/loader/entries ]] || [[ -d "/efi/$MACHINE_ID" ]]; then
+    BOOT_ROOT="/efi"
+elif [[ -d /boot/loader/entries ]] || [[ -d "/boot/$MACHINE_ID" ]]; then
+    BOOT_ROOT="/boot"
+elif [[ -d /boot/efi/loader/entries ]] || [[ -d "/boot/efi/$MACHINE_ID" ]]; then
+    BOOT_ROOT="/boot/efi"
 elif mountpoint -q /efi; then
-    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
+    BOOT_ROOT="/efi"
 elif mountpoint -q /boot/efi; then
-    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
+    BOOT_ROOT="/boot/efi"
 else
-    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+    BOOT_ROOT="/boot"
 fi
 
-export KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID
+ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+
+export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
 ret=0
 
