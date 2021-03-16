@@ -294,11 +294,12 @@
     returns zero, an error reply is sent back to the caller indicating no matching object for the
     request was found.</para>
 
-    <para>Note that you can return a positive integer from a callback without
+    <para>Note that you can return a positive integer from a <parameter>method</parameter> callback without
     immediately sending a reply. This informs sd-bus this callback will take responsibility for
     replying to the request without forcing the callback to produce a reply immediately. This allows
     a callback to perform any number of asynchronous operations required to construct a reply.
-    However, if producing a reply takes too long, the method call will time out at the caller.</para>
+    However, if producing a reply takes too long, the method call will time out at the caller. This is
+    only available to methods and not properties.</para>
 
     <para>If a callback was invoked to handle a request that expects a reply and the callback
     returns a negative value, the value is interpreted as a negative errno-style error code and sent
