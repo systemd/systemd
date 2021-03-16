@@ -32,14 +32,14 @@ if ! [[ -d "$ENTRY_DIR_ABS" ]]; then
     exit 0
 fi
 
-MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
+MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-BOOT_ROOT=${ENTRY_DIR_ABS%/$MACHINE_ID/$KERNEL_VERSION}
-BOOT_MNT=$(stat -c %m $BOOT_ROOT)
-if [[ $BOOT_MNT == '/' ]]; then
-    ENTRY_DIR=$ENTRY_DIR_ABS
+BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+if [[ "$BOOT_MNT" == '/' ]]; then
+    ENTRY_DIR="$ENTRY_DIR_ABS"
 else
-    ENTRY_DIR=${ENTRY_DIR_ABS#$BOOT_MNT}
+    ENTRY_DIR="${ENTRY_DIR_ABS#$BOOT_MNT}"
 fi
 
 if [[ $COMMAND == remove ]]; then
