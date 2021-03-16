@@ -85,33 +85,31 @@ fi
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
 
-# Reuse directory created without a machine ID present if it exists.
-if [[ -d /efi/Default ]] || [[ -d /boot/Default ]] || [[ -d /boot/efi/Default ]]; then
-    MACHINE_ID="Default"
-elif [[ -f /etc/machine-id ]]; then
-    read MACHINE_ID < /etc/machine-id
-else
-    MACHINE_ID="Default"
-fi
-
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     echo "Not enough arguments" >&2
     exit 1
 fi
 
-if [[ -d /efi/loader/entries ]] || [[ -d "/efi/$MACHINE_ID" ]]; then
-    BOOT_ROOT="/efi"
-elif [[ -d /boot/loader/entries ]] || [[ -d "/boot/$MACHINE_ID" ]]; then
-    BOOT_ROOT="/boot"
-elif [[ -d /boot/efi/loader/entries ]] || [[ -d "/boot/efi/$MACHINE_ID" ]]; then
-    BOOT_ROOT="/boot/efi"
-elif mountpoint -q /efi; then
-    BOOT_ROOT="/efi"
-elif mountpoint -q /boot/efi; then
-    BOOT_ROOT="/boot/efi"
-else
-    BOOT_ROOT="/boot"
+[ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
+[ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
+
+[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "Default" "loader/entries"
+    for pref in "/efi" "/boot/efi" "/boot"; do
+        if [ -d "$pref/$suff" ]; then
+            BOOT_ROOT="$pref"
+            break 2
+        fi
+    done
 fi
+
+[ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
+    if mountpoint -q "$pref"; then
+        BOOT_ROOT="$pref"
+        break
+    fi
+done
+[ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
+
 
 ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 
