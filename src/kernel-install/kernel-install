@@ -142,7 +142,6 @@ case $COMMAND in
                 "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$KERNEL_IMAGE" "${INITRD_OPTIONS[@]}"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
-                    ret=0
                     break
                 fi
                 ((ret+=$x))
@@ -158,7 +157,6 @@ case $COMMAND in
                 "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
-                    ret=0
                     break
                 fi
                 ((ret+=$x))
