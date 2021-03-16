@@ -224,7 +224,9 @@
           <filename>/usr/lib/os-release</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>.
+            If available, <varname>PRETTY_NAME</varname> is read from these files and used as the title of the boot menu entry.
+            Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be used.</para>
           </listitem>
       </varlistentry>
     </variablelist>
