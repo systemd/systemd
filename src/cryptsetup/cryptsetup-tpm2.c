@@ -65,6 +65,7 @@ int acquire_tpm2_key(
         return tpm2_unseal(device, pcr_mask, blob, blob_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
 }
 
+#if ! HAVE_LIBCRYPTSETUP_PLUGINS
 int find_tpm2_auto_data(
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
@@ -166,3 +167,4 @@ int find_tpm2_auto_data(
 
         return 0;
 }
+#endif

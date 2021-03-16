@@ -1037,6 +1037,24 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 } else {
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+                        tpm2_params params = {
+                                .search_pcr_mask = arg_tpm2_pcr_mask,
+                                .device = arg_tpm2_device
+                        };
+
+                        r = crypt_activate_by_token_pin(cd, name, "systemd-tpm2", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
+                        if (r > 0) /* returns unlocked keyslot id on success */
+                                r = 0;
+                        if (r == -ENXIO)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                        if (r == -ENOENT)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                        if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
+                                return r;
+#else
                         _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
                         size_t blob_size, policy_hash_size;
                         bool found_some = false;
@@ -1087,6 +1105,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 break;
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
+#endif
                 }
                 assert(decrypted_key);
 
