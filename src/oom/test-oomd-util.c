@@ -378,27 +378,33 @@ static void test_oomd_sort_cgroups(void) {
         OomdCGroupContext ctx[6] = {
                 { .path = paths[0],
                   .swap_usage = 20,
-                  .pgscan = 60,
+                  .last_pgscan = 1,
+                  .pgscan = UINT64_MAX,
                   .current_memory_usage = 10 },
                 { .path = paths[1],
                   .swap_usage = 60,
-                  .pgscan = 40,
+                  .last_pgscan = UINT64_MAX,
+                  .pgscan = 0,
                   .current_memory_usage = 20 },
                 { .path = paths[2],
                   .swap_usage = 40,
-                  .pgscan = 40,
+                  .last_pgscan = 10,
+                  .pgscan = 50,
                   .current_memory_usage = 40 },
                 { .path = paths[3],
                   .swap_usage = 10,
-                  .pgscan = 80,
+                  .last_pgscan = 0,
+                  .pgscan = UINT64_MAX,
                   .current_memory_usage = 10 },
                 { .path = paths[4],
                   .swap_usage = 90,
-                  .pgscan = 100,
+                  .last_pgscan = 0,
+                  .pgscan = UINT64_MAX,
                   .preference = MANAGED_OOM_PREFERENCE_OMIT },
                 { .path = paths[5],
                   .swap_usage = 99,
-                  .pgscan = 200,
+                  .last_pgscan = 0,
+                  .pgscan = UINT64_MAX,
                   .preference = MANAGED_OOM_PREFERENCE_AVOID },
         };
 
@@ -419,7 +425,7 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[4] == &ctx[5]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, NULL, &sorted_cgroups) == 5);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, NULL, &sorted_cgroups) == 5);
         assert_se(sorted_cgroups[0] == &ctx[3]);
         assert_se(sorted_cgroups[1] == &ctx[0]);
         assert_se(sorted_cgroups[2] == &ctx[2]);
@@ -427,7 +433,7 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[4] == &ctx[5]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
         assert_se(sorted_cgroups[0] == &ctx[2]);
         assert_se(sorted_cgroups[1] == &ctx[1]);
         assert_se(sorted_cgroups[2] == 0);
