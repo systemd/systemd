@@ -488,4 +488,14 @@ static inline size_t size_add(size_t x, size_t y) {
         return y >= SIZE_MAX - x ? SIZE_MAX : x + y;
 }
 
+
+#define TRACE_POINT(name, dev, ...)                                             \
+        do {                                                                    \
+                const char *__s  = NULL;                                        \
+                DeviceAction __a = _DEVICE_ACTION_INVALID;                      \
+                (void) device_get_action(dev, &__a);                            \
+                (void) sd_device_get_sysname(dev, &__s);                        \
+                UDEV_##name(__s, device_action_to_string(__a) __VA_OPT__(,) __VA_ARGS__);     \
+        } while(false);
+
 #include "log.h"
