@@ -357,9 +357,9 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                                 log_notice("Memory pressure for %s is greater than %lu for more than %"PRIu64" seconds and there was reclaim activity",
                                         t->path, LOAD_INT(t->mem_pressure_limit), m->default_mem_pressure_duration_usec / USEC_PER_SEC);
 
-                                r = oomd_kill_by_pgscan(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
+                                r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
                                 if (r == -ENOMEM)
-                                        return log_error_errno(r, "Failed to kill cgroup processes by pgscan");
+                                        return log_error_errno(r, "Failed to kill cgroup processes by pgscan rate: %m");
                                 if (r < 0)
                                         log_info("Failed to kill any cgroup(s) under %s based on pressure", t->path);
                                 else {
