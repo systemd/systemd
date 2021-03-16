@@ -164,6 +164,9 @@
 
     <para>If <varname>MACHINE_ID=</varname> is set and nonempty, it will be used as <replaceable>MACHINE-ID</replaceable>,
     overriding any automatic detection attempts.</para>
+
+    <para><varname>KERNEL_INSTALL_MACHINE_ID=</varname> is set for the plugins to the desired <replaceable>MACHINE-ID</replaceable>.</para>
+    <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the detected EFI system partition mount-point.</para>
   </refsect1>
 
   <refsect1>
