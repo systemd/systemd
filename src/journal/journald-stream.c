@@ -334,6 +334,22 @@ static int stdout_stream_log(
         return 0;
 }
 
+static int syslog_parse_priority_and_facility(const char *s) {
+        int prio, r;
+
+        /* Parses both facility and priority in one value, i.e. is different from log_level_from_string()
+         * which only parses the priority and refuses any facility value */
+
+        r = safe_atoi(s, &prio);
+        if (r < 0)
+                return r;
+
+        if (prio < 0 || prio > 999)
+                return -ERANGE;
+
+        return prio;
+}
+
 static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         char *orig;
         int r;
@@ -373,15 +389,17 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                 s->state = STDOUT_STREAM_PRIORITY;
                 return 0;
 
-        case STDOUT_STREAM_PRIORITY:
-                r = safe_atoi(p, &s->priority);
-                if (r < 0 || s->priority < 0 || s->priority > 999) {
-                        log_warning("Failed to parse log priority line.");
-                        return -EINVAL;
-                }
+        case STDOUT_STREAM_PRIORITY: {
+                int priority;
 
+                priority = syslog_parse_priority_and_facility(p);
+                if (priority < 0)
+                        return log_warning_errno(priority, "Failed to parse log priority line: %m");
+
+                s->priority = priority;
                 s->state = STDOUT_STREAM_LEVEL_PREFIX;
                 return 0;
+        }
 
         case STDOUT_STREAM_LEVEL_PREFIX:
                 r = parse_boolean(p);
@@ -750,7 +768,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
         if (priority) {
                 int p;
 
-                p = log_level_from_string(priority);
+                p = syslog_parse_priority_and_facility(priority);
                 if (p >= 0)
                         stream->priority = p;
         }
