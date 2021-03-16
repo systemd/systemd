@@ -582,3 +582,14 @@ tests += [
          [libudev],
          [threads]],
 ]
+
+if conf.get('BPF_FRAMEWORK') == 1
+tests += [
+         [['src/test/test-socket-bind.c'],
+          [libcore,
+          libshared],
+         [libbpf],
+         core_includes,
+         'HAVE_LIBBPF'],
+]
+endif
