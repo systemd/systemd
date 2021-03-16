@@ -257,9 +257,9 @@ int dhcp6_option_append_pd(uint8_t **buf, size_t *buflen, const DHCP6IA *pd, con
                 len += r;
         }
 
-        if (hint_pd_prefix) {
+        if (hint_pd_prefix && hint_pd_prefix->iapdprefix.prefixlen > 0) {
                 r = option_append_pd_prefix(buf, buflen, hint_pd_prefix);
-                if (r < 0 && r != -EINVAL)
+                if (r < 0)
                         return r;
 
                 len += r;
