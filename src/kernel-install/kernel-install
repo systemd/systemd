@@ -164,12 +164,6 @@ case $COMMAND in
                 ((ret+=$x))
             fi
         done
-
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $ENTRY_DIR_ABS"
-
-        rm -rf "$ENTRY_DIR_ABS"
-        ((ret+=$?))
         ;;
 
     *)
