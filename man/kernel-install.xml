@@ -74,17 +74,14 @@
           <para>Three default plugins execute the following operations in this case:</para>
 
           <itemizedlist>
-            <listitem><para><filename>00-entry-directory.install</filename> creates the directory
-            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-            if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/</filename> already exists.
-            </para></listitem>
-
             <listitem><para><filename>50-depmod.install</filename> runs
             <citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry> for the
             <replaceable>KERNEL-VERSION</replaceable>.</para></listitem>
 
-            <listitem><para><filename>90-loaderentry.install</filename> copies <replaceable>KERNEL-IMAGE</replaceable>
-            to
+            <listitem><para><filename>90-loaderentry.install</filename> creates
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+            if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/</filename> already exists, and exits otherwise.
+            It then copies <replaceable>KERNEL-IMAGE</replaceable> to
             <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
             If an <replaceable>INITRD-FILE</replaceable> is provided, it also copies <replaceable>INITRD-FILE</replaceable>
             to
