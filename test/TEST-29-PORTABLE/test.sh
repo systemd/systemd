@@ -15,6 +15,7 @@ test_append_files() {
         instmods loop =block
         instmods squashfs =squashfs
         instmods dm_verity =md
+        instmods overlay =overlayfs
         install_dmevent
         generate_module_dependencies
         inst_binary losetup
