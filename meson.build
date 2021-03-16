@@ -209,6 +209,11 @@ if pamconfdir == ''
         pamconfdir = join_paths(prefixdir, 'lib/pam.d')
 endif
 
+libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
+if libcryptsetup_plugins_dir == ''
+        libcryptsetup_plugins_dir = join_paths(rootlibdir, 'cryptsetup')
+endif
+
 memory_accounting_default = get_option('memory-accounting-default')
 status_unit_format_default = get_option('status-unit-format-default')
 
@@ -1106,10 +1111,16 @@ endif
 conf.set10('HAVE_MICROHTTPD', have)
 
 want_libcryptsetup = get_option('libcryptsetup')
+want_libcryptsetup_plugins = get_option('libcryptsetup-plugins')
+
+if want_libcryptsetup_plugins == 'true' and want_libcryptsetup == 'false'
+        error('libcryptsetup-plugins can not be requested without libcryptsetup')
+endif
+
 if want_libcryptsetup != 'false' and not skip_deps
         libcryptsetup = dependency('libcryptsetup',
-                                   version : '>= 2.0.1',
-                                   required : want_libcryptsetup == 'true')
+                                   version : want_libcryptsetup_plugins == 'true' ? '>= 2.4.0' : '>= 2.0.1',
+                                   required : want_libcryptsetup == 'true' or want_libcryptsetup_plugins == 'true')
         have = libcryptsetup.found()
 
         conf.set10('HAVE_CRYPT_SET_METADATA_SIZE',
@@ -1123,6 +1134,14 @@ else
         libcryptsetup = []
 endif
 conf.set10('HAVE_LIBCRYPTSETUP', have)
+
+if want_libcryptsetup_plugins != 'false' and not skip_deps
+        have = (cc.has_function('crypt_activate_by_token_pin', dependencies : libcryptsetup) and
+                cc.has_function('crypt_token_external_path', dependencies : libcryptsetup))
+else
+        have = false
+endif
+conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
 
 want_libcurl = get_option('libcurl')
 if want_libcurl != 'false' and not skip_deps
@@ -1676,6 +1695,7 @@ subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/udev')
 subdir('src/libudev')
+subdir('src/cryptsetup/cryptsetup-tokens')
 
 libsystemd = shared_library(
         'systemd',
@@ -1751,6 +1771,22 @@ install_libudev_static = static_library(
         dependencies : libshared_deps + [libmount],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
+
+if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
+        if conf.get('HAVE_TPM2') == 1
+                cryptsetup_token_systemd_tpm2 = shared_library(
+                        'cryptsetup-token-systemd-tpm2',
+                        link_args : ['-shared',
+                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
+                        dependencies : libshared_deps + [libcryptsetup],
+                        link_with : [libshared],
+                        link_whole : [cryptsetup_token_systemd_tpm2_static],
+                        link_depends : cryptsetup_token_sym,
+                        install_rpath : rootlibexecdir,
+                        install : true,
+                        install_dir : libcryptsetup_plugins_dir)
+        endif
+endif
 
 ############################################################
 
@@ -3747,6 +3783,7 @@ status = [
         'SysV rc?.d directories:            @0@'.format(sysvrcnd_path),
         'PAM modules directory:             @0@'.format(pamlibdir),
         'PAM configuration directory:       @0@'.format(pamconfdir),
+        'libcryptsetup plugins directory:   @0@'.format(libcryptsetup_plugins_dir),
         'RPM macros directory:              @0@'.format(rpmmacrosdir),
         'modprobe.d directory:              @0@'.format(modprobedir),
         'D-Bus policy directory:            @0@'.format(dbuspolicydir),
@@ -3831,6 +3868,7 @@ foreach tuple : [
         ['gnutls'],
         ['libbpf'],
         ['libcryptsetup'],
+        ['libcryptsetup-plugins'],
         ['libcurl'],
         ['libfdisk'],
         ['libfido2'],
