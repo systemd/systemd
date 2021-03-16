@@ -45,6 +45,9 @@ else
 fi
 
 if [[ $COMMAND == remove ]]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
+    rm -rf "$ENTRY_DIR_ABS"
+
     rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
     rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
     exit 0
