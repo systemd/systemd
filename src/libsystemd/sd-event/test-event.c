@@ -13,6 +13,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -693,8 +694,29 @@ static void test_ratelimit(void) {
         assert_se(count == 20);
 }
 
+static void test_simple_timeout(void) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        usec_t f, t, some_time;
+
+        some_time = random_u64_range(2 * USEC_PER_SEC);
+
+        assert_se(sd_event_default(&e) >= 0);
+
+        assert_se(sd_event_prepare(e) == 0);
+
+        f = now(CLOCK_MONOTONIC);
+        assert_se(sd_event_wait(e, some_time) >= 0);
+        t = now(CLOCK_MONOTONIC);
+
+        /* The event loop may sleep longer than the specified time (timer accuracy, scheduling latencies, …),
+         * but never shorter. Let's check that. */
+        assert_se(t >= usec_add(f, some_time));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
+
+        test_simple_timeout();
 
         test_basic(true);   /* test with pidfd */
         test_basic(false);  /* test without pidfd */
