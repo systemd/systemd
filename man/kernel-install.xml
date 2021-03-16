@@ -184,13 +184,15 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/usr/lib/kernel/cmdline</filename>
           <filename>/etc/kernel/cmdline</filename>
           <filename>/proc/cmdline</filename>
         </term>
           <listitem>
             <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
             <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.  If that file does not
-            exist, <filename>/proc/cmdline</filename> is used.</para>
+            exist, <filename>/usr/lib/kernel/cmdline</filename> is used.  If that also does not exist,
+            <filename>/proc/cmdline</filename> is used.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
