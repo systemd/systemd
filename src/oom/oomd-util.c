@@ -208,13 +208,13 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         return set_size(pids_killed) != 0;
 }
 
-int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run) {
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int r;
 
         assert(h);
 
-        r = oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, prefix, &sorted);
+        r = oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, prefix, &sorted);
         if (r < 0)
                 return r;
 
@@ -413,6 +413,23 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         return 0;
 }
 
+void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_h) {
+        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+
+        assert(old_h);
+        assert(curr_h);
+
+        HASHMAP_FOREACH(ctx, curr_h) {
+                OomdCGroupContext *old_ctx;
+                old_ctx = hashmap_get(old_h, ctx->path);
+                if (old_ctx) {
+                        ctx->last_pgscan = old_ctx->pgscan;
+                        ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
+                        ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
+                }
+        }
+}
+
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
         char swap[FORMAT_BYTES_MAX];
 
@@ -458,10 +475,12 @@ void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE
                 fprintf(f,
                         "%s\tMemory Min: %s\n"
                         "%s\tMemory Low: %s\n"
-                        "%s\tPgscan: %" PRIu64 "\n",
+                        "%s\tPgscan: %" PRIu64 "\n"
+                        "%s\tLast Pgscan: %" PRIu64 "\n",
                         strempty(prefix), format_bytes_cgroup_protection(mem_min, sizeof(mem_min), ctx->memory_min),
                         strempty(prefix), format_bytes_cgroup_protection(mem_low, sizeof(mem_low), ctx->memory_low),
-                        strempty(prefix), ctx->pgscan);
+                        strempty(prefix), ctx->pgscan,
+                        strempty(prefix), ctx->last_pgscan);
 }
 
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix) {

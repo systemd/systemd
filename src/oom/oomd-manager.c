@@ -232,6 +232,24 @@ static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, 
         return 0;
 }
 
+static int update_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, Hashmap **candidates) {
+        _cleanup_hashmap_free_ Hashmap *new_candidates = NULL;
+        int r;
+
+        assert(monitored_cgroups);
+
+        r = get_monitored_cgroup_contexts_candidates(monitored_cgroups, &new_candidates);
+        if (r == -ENOMEM)
+                return r;
+
+        oomd_update_cgroup_contexts_between_hashmaps(*candidates, new_candidates);
+
+        hashmap_free(*candidates);
+        *candidates = TAKE_PTR(new_candidates);
+
+        return 0;
+}
+
 static int acquire_managed_oom_connect(Manager *m) {
         _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
         int r;
@@ -297,6 +315,11 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
         if (r == -ENOMEM)
                 return log_error_errno(r, "Failed to update monitored memory pressure cgroup contexts");
 
+        r = update_monitored_cgroup_contexts_candidates(
+                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+        if (r == -ENOMEM)
+                return log_error_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts");
+
         r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
         /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM.
          * Allow ENOENT in the event that swap is disabled on the system. */
@@ -326,18 +349,13 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                  * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
                  * to kill something (it won't help anyways). */
                 if ((usec_now - m->last_reclaim_at) <= RECLAIM_DURATION_USEC) {
-                        _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                         OomdCGroupContext *t;
-
-                        r = get_monitored_cgroup_contexts_candidates(m->monitored_mem_pressure_cgroup_contexts, &candidates);
-                        if (r == -ENOMEM)
-                                return log_error_errno(r, "Failed to get monitored memory pressure cgroup candidates");
 
                         SET_FOREACH(t, targets) {
                                 log_notice("Memory pressure for %s is greater than %lu for more than %"PRIu64" seconds and there was reclaim activity",
                                         t->path, LOAD_INT(t->mem_pressure_limit), m->default_mem_pressure_duration_usec / USEC_PER_SEC);
 
-                                r = oomd_kill_by_pgscan(candidates, t->path, m->dry_run);
+                                r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
                                 if (r == -ENOMEM)
                                         return log_error_errno(r, "Failed to kill cgroup processes by pgscan");
                                 if (r < 0)
@@ -412,6 +430,7 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->monitored_swap_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
+        hashmap_free(m->monitored_mem_pressure_cgroup_contexts_candidates);
 
         return mfree(m);
 }
@@ -446,6 +465,10 @@ int manager_new(Manager **ret) {
 
         m->monitored_mem_pressure_cgroup_contexts = hashmap_new(&oomd_cgroup_ctx_hash_ops);
         if (!m->monitored_mem_pressure_cgroup_contexts)
+                return -ENOMEM;
+
+        m->monitored_mem_pressure_cgroup_contexts_candidates = hashmap_new(&oomd_cgroup_ctx_hash_ops);
+        if (!m->monitored_mem_pressure_cgroup_contexts_candidates)
                 return -ENOMEM;
 
         *ret = TAKE_PTR(m);
