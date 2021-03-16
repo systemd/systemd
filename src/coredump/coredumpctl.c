@@ -1078,8 +1078,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        print_info(stdout, j, false);
-        fputs("\n", stdout);
+        if (!arg_quiet) {
+                print_info(stdout, j, false);
+                fputs("\n", stdout);
+        }
 
         r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
         if (r < 0)
@@ -1114,7 +1116,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
 
         fork_name = strjoina("(", debugger_call[0], ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {

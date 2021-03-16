@@ -79,34 +79,95 @@ int fstab_is_mount_point(const char *mount) {
         return false;
 }
 
-int fstab_filter_options(const char *opts, const char *names,
-                         const char **ret_namefound, char **ret_value, char **ret_filtered) {
+int fstab_filter_options(
+                const char *opts,
+                const char *names,
+                const char **ret_namefound,
+                char **ret_value,
+                char ***ret_values,
+                char **ret_filtered) {
+
         const char *name, *namefound = NULL, *x;
-        _cleanup_strv_free_ char **stor = NULL;
-        _cleanup_free_ char *v = NULL, **strv = NULL;
+        _cleanup_strv_free_ char **stor = NULL, **values = NULL;
+        _cleanup_free_ char *value = NULL, **filtered = NULL;
         int r;
 
         assert(names && *names);
+        assert(!(ret_value && ret_values));
 
         if (!opts)
                 goto answer;
 
-        /* If !ret_value and !ret_filtered, this function is not allowed to fail. */
+        /* Finds any options matching 'names', and returns:
+         * - the last matching option name in ret_namefound,
+         * - the last matching value in ret_value,
+         * - any matching values in ret_values,
+         * - the rest of the option string in ret_filtered.
+         *
+         * If !ret_value and !ret_values and !ret_filtered, this function is not allowed to fail.
+         *
+         * Returns negative on error, true if any matching options were found, false otherwise. */
 
-        if (!ret_filtered) {
+        if (ret_filtered || ret_value || ret_values) {
+                /* For backwards compatibility, we need to pass-through escape characters.
+                 * The only ones we "consume" are the ones used as "\," or "\\". */
+                r = strv_split_full(&stor, opts, ",", EXTRACT_UNESCAPE_SEPARATORS | EXTRACT_UNESCAPE_RELAX);
+                if (r < 0)
+                        return r;
+
+                filtered = memdup(stor, sizeof(char*) * (strv_length(stor) + 1));
+                if (!filtered)
+                        return -ENOMEM;
+
+                char **t = filtered;
+                for (char **s = t; *s; s++) {
+                        NULSTR_FOREACH(name, names) {
+                                x = startswith(*s, name);
+                                if (!x)
+                                        continue;
+                                /* Match name, but when ret_values, only when followed by assignment. */
+                                if (*x == '=' || (!ret_values && *x == '\0'))
+                                        goto found;
+                        }
+
+                        *t = *s;
+                        t++;
+                        continue;
+                found:
+                        /* Keep the last occurrence found */
+                        namefound = name;
+
+                        if (ret_value || ret_values) {
+                                assert(IN_SET(*x, '=', '\0'));
+
+                                if (ret_value) {
+                                        r = free_and_strdup(&value, *x == '=' ? x + 1 : NULL);
+                                        if (r < 0)
+                                                return r;
+                                } else if (*x) {
+                                        r = strv_extend(&values, x + 1);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+                }
+                *t = NULL;
+        } else
                 for (const char *word = opts;;) {
                         const char *end = word;
 
-                        /* Look for an *non-escaped* comma separator. Only commas can be escaped, so "\," is
-                         * the only valid escape sequence, so we can do a very simple test here. */
+                        /* Look for a *non-escaped* comma separator. Only commas and backslashes can be
+                         * escaped, so "\," and "\\" are the only valid escape sequences, and we can do a
+                         * very simple test here. */
                         for (;;) {
-                                size_t n = strcspn(end, ",");
+                                end += strcspn(end, ",\\");
 
-                                end += n;
-                                if (n > 0 && end[-1] == '\\')
-                                        end++;
-                                else
+                                if (IN_SET(*end, ',', '\0'))
                                         break;
+                                assert(*end == '\\');
+                                end ++;                 /* Skip the backslash */
+                                if (*end != '\0')
+                                        end ++;         /* Skip the escaped char, but watch out for a trailing comma */
                         }
 
                         NULSTR_FOREACH(name, names) {
@@ -119,17 +180,6 @@ int fstab_filter_options(const char *opts, const char *names,
                                 x = word + strlen(name);
                                 if (IN_SET(*x, '\0', '=', ',')) {
                                         namefound = name;
-                                        if (ret_value) {
-                                                bool eq = *x == '=';
-                                                assert(eq || IN_SET(*x, ',', '\0'));
-
-                                                r = free_and_strndup(&v,
-                                                                     eq ? x + 1 : NULL,
-                                                                     eq ? end - x - 1 : 0);
-                                                if (r < 0)
-                                                        return r;
-                                        }
-
                                         break;
                                 }
                         }
@@ -139,38 +189,6 @@ int fstab_filter_options(const char *opts, const char *names,
                         else
                                 break;
                 }
-        } else {
-                r = strv_split_full(&stor, opts, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
-                if (r < 0)
-                        return r;
-
-                strv = memdup(stor, sizeof(char*) * (strv_length(stor) + 1));
-                if (!strv)
-                        return -ENOMEM;
-
-                char **t = strv;
-                for (char **s = strv; *s; s++) {
-                        NULSTR_FOREACH(name, names) {
-                                x = startswith(*s, name);
-                                if (x && IN_SET(*x, '\0', '='))
-                                        goto found;
-                        }
-
-                        *t = *s;
-                        t++;
-                        continue;
-                found:
-                        /* Keep the last occurrence found */
-                        namefound = name;
-                        if (ret_value) {
-                                assert(IN_SET(*x, '=', '\0'));
-                                r = free_and_strdup(&v, *x == '=' ? x + 1 : NULL);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-                *t = NULL;
-        }
 
 answer:
         if (ret_namefound)
@@ -178,45 +196,18 @@ answer:
         if (ret_filtered) {
                 char *f;
 
-                f = strv_join_full(strv, ",", NULL, true);
+                f = strv_join_full(filtered, ",", NULL, true);
                 if (!f)
                         return -ENOMEM;
 
                 *ret_filtered = f;
         }
         if (ret_value)
-                *ret_value = TAKE_PTR(v);
+                *ret_value = TAKE_PTR(value);
+        if (ret_values)
+                *ret_values = TAKE_PTR(values);
 
         return !!namefound;
-}
-
-int fstab_extract_values(const char *opts, const char *name, char ***values) {
-        _cleanup_strv_free_ char **optsv = NULL, **res = NULL;
-        char **s;
-
-        assert(opts);
-        assert(name);
-        assert(values);
-
-        optsv = strv_split(opts, ",");
-        if (!optsv)
-                return -ENOMEM;
-
-        STRV_FOREACH(s, optsv) {
-                char *arg;
-                int r;
-
-                arg = startswith(*s, name);
-                if (!arg || *arg != '=')
-                        continue;
-                r = strv_extend(&res, arg + 1);
-                if (r < 0)
-                        return r;
-        }
-
-        *values = TAKE_PTR(res);
-
-        return !!*values;
 }
 
 int fstab_find_pri(const char *options, int *ret) {
@@ -225,7 +216,7 @@ int fstab_find_pri(const char *options, int *ret) {
 
         assert(ret);
 
-        r = fstab_filter_options(options, "pri\0", NULL, &opt, NULL);
+        r = fstab_filter_options(options, "pri\0", NULL, &opt, NULL, NULL);
         if (r < 0)
                 return r;
         if (r == 0 || !opt)

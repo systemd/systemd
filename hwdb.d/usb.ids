@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2021.01.29
-# Date:    2021-01-29 20:34:11
+# Version: 2021.02.19
+# Date:    2021-02-19 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -22466,6 +22466,9 @@
 	ffff  Mio DigiWalker Sync
 3344  Leaguer Microelectronics (LME)
 	3744  OEM PC Remote
+3384  System76
+	0000  Thelio Io (thelio-io)
+	0001  Launch Configurable Keyboard (launch_1)
 348f  ISY
 	2322  Wireless Presenter
 3504  Micro Star

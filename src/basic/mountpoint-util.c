@@ -148,7 +148,7 @@ static bool filename_possibly_with_slash_suffix(const char *s) {
         if (!slash)
                 return filename_is_valid(s);
 
-        if (slash - s > FILENAME_MAX) /* We want to allocate on the stack below, hence do a size check first */
+        if (slash - s > PATH_MAX) /* We want to allocate on the stack below, hence do a size check first */
                 return false;
 
         if (slash[strspn(slash, "/")] != 0) /* Check that the suffix consist only of one or more slashes */

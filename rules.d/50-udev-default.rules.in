@@ -10,9 +10,8 @@ SUBSYSTEM=="virtio-ports", KERNEL=="vport*", ATTR{name}=="?*", SYMLINK+="virtio-
 SUBSYSTEM=="rtc", ATTR{hctosys}=="1", SYMLINK+="rtc"
 SUBSYSTEM=="rtc", KERNEL=="rtc0", SYMLINK+="rtc", OPTIONS+="link_priority=-100"
 
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb", GOTO="default_hwdb_imported"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
 ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"
-LABEL="default_hwdb_imported"
 
 ACTION!="add", GOTO="default_end"
 
@@ -39,6 +38,8 @@ SUBSYSTEM=="cec", GROUP="video"
 
 SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
 SUBSYSTEM=="kfd", GROUP="render", MODE="@GROUP_RENDER_MODE@"
+
+SUBSYSTEM=="misc", KERNEL=="sgx_enclave", GROUP="sgx", MODE="0660"
 
 # When using static_node= with non-default permissions, also update
 # tmpfiles.d/static-nodes-permissions.conf.in to keep permissions synchronized.

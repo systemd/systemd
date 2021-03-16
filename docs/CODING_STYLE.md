@@ -587,6 +587,12 @@ layout: default
   time you need that please immediately undefine `basename()`, and add a
   comment about it, so that no code ever ends up using the POSIX version!
 
+- Never use `FILENAME_MAX`. Use `PATH_MAX` instead (for checking maximum size
+  of paths) and `NAME_MAX` (for checking maximum size of filenames).
+  `FILENAME_MAX` is not POSIX, and is a confusingly named alias for `PATH_MAX`
+  on Linux. Note the `NAME_MAX` does not include space for a trailing `NUL`,
+  but `PATH_MAX` does. UNIX FTW!
+
 ## Committing to git
 
 - Commit message subject lines should be prefixed with an appropriate component

@@ -135,34 +135,34 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 }
 
 int readlinkat_malloc(int fd, const char *p, char **ret) {
-        size_t l = FILENAME_MAX+1;
-        int r;
+        size_t l = PATH_MAX;
 
         assert(p);
         assert(ret);
 
         for (;;) {
-                char *c;
+                _cleanup_free_ char *c = NULL;
                 ssize_t n;
 
-                c = new(char, l);
+                c = new(char, l+1);
                 if (!c)
                         return -ENOMEM;
 
-                n = readlinkat(fd, p, c, l-1);
-                if (n < 0) {
-                        r = -errno;
-                        free(c);
-                        return r;
-                }
+                n = readlinkat(fd, p, c, l);
+                if (n < 0)
+                        return -errno;
 
-                if ((size_t) n < l-1) {
+                if ((size_t) n < l) {
                         c[n] = 0;
-                        *ret = c;
+                        *ret = TAKE_PTR(c);
                         return 0;
                 }
 
-                free(c);
+                if (l > (SSIZE_MAX-1)/2) /* readlinkat() returns an ssize_t, and we want an extra byte for a
+                                          * trailing NUL, hence do an overflow check relative to SSIZE_MAX-1
+                                          * here */
+                        return -EFBIG;
+
                 l *= 2;
         }
 }
@@ -428,9 +428,9 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
         if (make_relative) {
                 _cleanup_free_ char *parent = NULL;
 
-                parent = dirname_malloc(to);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(to, &parent);
+                if (r < 0)
+                        return r;
 
                 r = path_make_relative(parent, from, &relpath);
                 if (r < 0)

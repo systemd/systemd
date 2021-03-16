@@ -301,7 +301,9 @@ static int create_disk(
         netdev = fstab_test_option(options, "_netdev\0");
         attach_in_initrd = fstab_test_option(options, "x-initrd.attach\0");
 
-        keyfile_can_timeout = fstab_filter_options(options, "keyfile-timeout\0", NULL, &keyfile_timeout_value, NULL);
+        keyfile_can_timeout = fstab_filter_options(options,
+                                                   "keyfile-timeout\0",
+                                                   NULL, &keyfile_timeout_value, NULL, NULL);
         if (keyfile_can_timeout < 0)
                 return log_error_errno(keyfile_can_timeout, "Failed to parse keyfile-timeout= option value: %m");
 
@@ -310,11 +312,12 @@ static int create_disk(
                 "header\0",
                 NULL,
                 &header_path,
+                NULL,
                 headerdev ? &filtered_header : NULL);
         if (detached_header < 0)
                 return log_error_errno(detached_header, "Failed to parse header= option value: %m");
 
-        tmp = fstab_filter_options(options, "tmp\0", NULL, &tmp_fstype, NULL);
+        tmp = fstab_filter_options(options, "tmp\0", NULL, &tmp_fstype, NULL, NULL);
         if (tmp < 0)
                 return log_error_errno(tmp, "Failed to parse tmp= option value: %m");
 
@@ -602,7 +605,7 @@ static int filter_header_device(const char *options,
         assert(ret_headerdev);
         assert(ret_filtered_headerdev_options);
 
-        r = fstab_filter_options(options, "header\0", NULL, &headerspec, &filtered_headerspec);
+        r = fstab_filter_options(options, "header\0", NULL, &headerspec, NULL, &filtered_headerspec);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse header= option value: %m");
 

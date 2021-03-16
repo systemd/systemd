@@ -1880,10 +1880,6 @@ int unit_pick_cgroup_path(Unit *u) {
         return 0;
 }
 
-static int cg_v1_errno_to_log_level(int r) {
-        return r == -EROFS ? LOG_DEBUG : LOG_WARNING;
-}
-
 static int unit_update_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
@@ -1941,30 +1937,16 @@ static int unit_update_cgroup(
          * We perform migration also with whole slices for cases when users don't care about leave
          * granularity. Since delegated_mask is subset of target mask, we won't trim slice subtree containing
          * delegated units.
-         *
-         * If we're in an nspawn container and using legacy cgroups, the controller hierarchies are mounted
-         * read-only into the container. We skip migration/trim in this scenario since it would fail
-         * regardless with noisy "Read-only filesystem" warnings.
          */
         if (cg_all_unified() == 0) {
                 r = cg_migrate_v1_controllers(u->manager->cgroup_supported, migrate_mask, u->cgroup_path, migrate_callback, u);
                 if (r < 0)
-                        log_unit_full_errno(
-                                u,
-                                cg_v1_errno_to_log_level(r),
-                                r,
-                                "Failed to migrate controller cgroups from %s, ignoring: %m",
-                                u->cgroup_path);
+                        log_unit_warning_errno(u, r, "Failed to migrate controller cgroups from %s, ignoring: %m", u->cgroup_path);
 
                 is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
                 r = cg_trim_v1_controllers(u->manager->cgroup_supported, ~target_mask, u->cgroup_path, !is_root_slice);
                 if (r < 0)
-                        log_unit_full_errno(
-                                u,
-                                cg_v1_errno_to_log_level(r),
-                                r,
-                                "Failed to delete controller cgroups %s, ignoring: %m",
-                                u->cgroup_path);
+                        log_unit_warning_errno(u, r, "Failed to delete controller cgroups %s, ignoring: %m", u->cgroup_path);
         }
 
         /* Set attributes */
@@ -3151,7 +3133,7 @@ int manager_setup_cgroup(Manager *m) {
                 (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
         /* 8. Figure out which controllers are supported */
-        r = cg_mask_supported(&m->cgroup_supported);
+        r = cg_mask_supported_subtree(m->cgroup_root, &m->cgroup_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 

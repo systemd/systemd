@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
@@ -11,8 +11,6 @@ This script is executed at build time to generate udev rules. The
 resulting rules file is installed on the device, the script itself
 is not.
 """
-
-from __future__ import print_function
 
 # List of USB devices (vendorid:productid) for which it is safe to enable
 # autosuspend.

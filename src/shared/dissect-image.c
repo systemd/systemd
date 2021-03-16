@@ -1344,20 +1344,28 @@ static int mount_partition(
         }
 
         if (directory) {
-                if (!FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY)) {
-                        /* Automatically create missing mount points, if necessary. */
-                        r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
-                        if (r < 0)
-                                return r;
-                }
+                /* Automatically create missing mount points inside the image, if necessary. */
+                r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
+                if (r < 0 && r != -EROFS)
+                        return r;
 
                 r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                 if (r < 0)
                         return r;
 
                 p = chased;
-        } else
+        } else {
+                /* Create top-level mount if missing – but only if this is asked for. This won't modify the
+                 * image (as the branch above does) but the host hierarchy, and the created directory might
+                 * survive our mount in the host hierarchy hence. */
+                if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
+                        r = mkdir_p(where, 0755);
+                        if (r < 0)
+                                return r;
+                }
+
                 p = where;
+        }
 
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
@@ -1381,12 +1389,6 @@ static int mount_partition(
         if (!isempty(m->mount_options))
                 if (!strextend_with_separator(&options, ",", m->mount_options))
                         return -ENOMEM;
-
-        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
-                r = mkdir_p(p, 0755);
-                if (r < 0)
-                        return r;
-        }
 
         r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
@@ -1419,10 +1421,6 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 if (r < 0)
                         return r;
         }
-
-        /* Mask DISSECT_IMAGE_MKDIR for all subdirs: the idea is that only the top-level mount point is
-         * created if needed, but the image itself not modified. */
-        flags &= ~DISSECT_IMAGE_MKDIR;
 
         if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
                 /* For us mounting root always means mounting /usr as well */
@@ -2250,8 +2248,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 [META_HOSTNAME]          = "/etc/hostname\0",
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
-                [META_OS_RELEASE]        = ("/etc/os-release\0"
-                                           "/usr/lib/os-release\0"),
+                [META_OS_RELEASE]        = "/etc/os-release\0"
+                                           "/usr/lib/os-release\0",
                 [META_EXTENSION_RELEASE] = NULL,
         };
 
@@ -2272,7 +2270,9 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         /* As per the os-release spec, if the image is an extension it will have a file
          * named after the image name in extension-release.d/ */
         if (m->image_name) {
-                char *ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
+                char *ext;
+
+                ext = strjoina("/usr/lib/extension-release.d/extension-release.", m->image_name, "0");
                 ext[strlen(ext) - 1] = '\0'; /* Extra \0 for NULSTR_FOREACH using placeholder from above */
                 paths[META_EXTENSION_RELEASE] = ext;
         } else
