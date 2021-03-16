@@ -208,13 +208,13 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         return set_size(pids_killed) != 0;
 }
 
-int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run) {
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int r;
 
         assert(h);
 
-        r = oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, prefix, &sorted);
+        r = oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, prefix, &sorted);
         if (r < 0)
                 return r;
 
