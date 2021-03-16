@@ -176,6 +176,53 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         }
 }
 
+static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
+        _cleanup_hashmap_free_ Hashmap *h_old = NULL, *h_new = NULL;
+        OomdCGroupContext *c_old, *c_new;
+        char **paths = STRV_MAKE("/0.slice",
+                                 "/1.slice");
+
+        OomdCGroupContext ctx_old[3] = {
+                { .path = paths[0],
+                  .mem_pressure_limit = 5,
+                  .last_hit_mem_pressure_limit = 777,
+                  .pgscan = 57 },
+                { .path = paths[1],
+                  .mem_pressure_limit = 6,
+                  .last_hit_mem_pressure_limit = 888,
+                  .pgscan = 42 },
+        };
+
+        OomdCGroupContext ctx_new[3] = {
+                { .path = paths[0],
+                  .pgscan = 100 },
+                { .path = paths[1],
+                  .pgscan = 101 },
+        };
+
+        assert_se(h_old = hashmap_new(&string_hash_ops));
+        assert_se(hashmap_put(h_old, paths[0], &ctx_old[0]) >= 0);
+        assert_se(hashmap_put(h_old, paths[1], &ctx_old[1]) >= 0);
+
+        assert_se(h_new = hashmap_new(&string_hash_ops));
+        assert_se(hashmap_put(h_new, paths[0], &ctx_new[0]) >= 0);
+        assert_se(hashmap_put(h_new, paths[1], &ctx_new[1]) >= 0);
+
+        oomd_update_cgroup_contexts_between_hashmaps(h_old, h_new);
+
+        assert_se(c_old = hashmap_get(h_old, "/0.slice"));
+        assert_se(c_new = hashmap_get(h_new, "/0.slice"));
+        assert_se(c_old->pgscan == c_new->last_pgscan);
+        assert_se(c_old->mem_pressure_limit == c_new->mem_pressure_limit);
+        assert_se(c_old->last_hit_mem_pressure_limit == c_new->last_hit_mem_pressure_limit);
+
+        assert_se(c_old = hashmap_get(h_old, "/1.slice"));
+        assert_se(c_new = hashmap_get(h_new, "/1.slice"));
+        assert_se(c_old->pgscan == c_new->last_pgscan);
+        assert_se(c_old->mem_pressure_limit == c_new->mem_pressure_limit);
+        assert_se(c_old->last_hit_mem_pressure_limit == c_new->last_hit_mem_pressure_limit);
+}
+
 static void test_oomd_system_context_acquire(void) {
         _cleanup_(unlink_tempfilep) char path[] = "/oomdgetsysctxtestXXXXXX";
         OomdSystemContext ctx;
@@ -331,27 +378,33 @@ static void test_oomd_sort_cgroups(void) {
         OomdCGroupContext ctx[6] = {
                 { .path = paths[0],
                   .swap_usage = 20,
-                  .pgscan = 60,
+                  .last_pgscan = 1,
+                  .pgscan = UINT64_MAX,
                   .current_memory_usage = 10 },
                 { .path = paths[1],
                   .swap_usage = 60,
-                  .pgscan = 40,
+                  .last_pgscan = UINT64_MAX,
+                  .pgscan = 0,
                   .current_memory_usage = 20 },
                 { .path = paths[2],
                   .swap_usage = 40,
-                  .pgscan = 40,
+                  .last_pgscan = 10,
+                  .pgscan = 50,
                   .current_memory_usage = 40 },
                 { .path = paths[3],
                   .swap_usage = 10,
-                  .pgscan = 80,
+                  .last_pgscan = 0,
+                  .pgscan = UINT64_MAX,
                   .current_memory_usage = 10 },
                 { .path = paths[4],
                   .swap_usage = 90,
-                  .pgscan = 100,
+                  .last_pgscan = 0,
+                  .pgscan = UINT64_MAX,
                   .preference = MANAGED_OOM_PREFERENCE_OMIT },
                 { .path = paths[5],
                   .swap_usage = 99,
-                  .pgscan = 200,
+                  .last_pgscan = 0,
+                  .pgscan = UINT64_MAX,
                   .preference = MANAGED_OOM_PREFERENCE_AVOID },
         };
 
@@ -372,7 +425,7 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[4] == &ctx[5]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, NULL, &sorted_cgroups) == 5);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, NULL, &sorted_cgroups) == 5);
         assert_se(sorted_cgroups[0] == &ctx[3]);
         assert_se(sorted_cgroups[1] == &ctx[0]);
         assert_se(sorted_cgroups[2] == &ctx[2]);
@@ -380,7 +433,7 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[4] == &ctx[5]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
         assert_se(sorted_cgroups[0] == &ctx[2]);
         assert_se(sorted_cgroups[1] == &ctx[1]);
         assert_se(sorted_cgroups[2] == 0);
@@ -395,6 +448,7 @@ int main(void) {
 
         test_setup_logging(LOG_DEBUG);
 
+        test_oomd_update_cgroup_contexts_between_hashmaps();
         test_oomd_system_context_acquire();
         test_oomd_pressure_above();
         test_oomd_memory_reclaim();
