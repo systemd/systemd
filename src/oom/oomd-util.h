@@ -66,7 +66,7 @@ bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad)
 
 /* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
  * (after the smallest values). */
-static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+static inline int compare_pgscan_rate_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
         int r;
 
         assert(c1);
@@ -76,7 +76,12 @@ static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1,
         if (r != 0)
                 return r;
 
-        r = CMP((*c2)->pgscan, (*c1)->pgscan);
+        /* compare possible underflows first */
+        r = CMP((*c2)->pgscan > (*c2)->last_pgscan, (*c1)->pgscan > (*c1)->last_pgscan);
+        if (r != 0)
+                return r;
+
+        r = CMP((*c2)->pgscan - (*c2)->last_pgscan, (*c1)->pgscan - (*c1)->last_pgscan);
         if (r != 0)
                 return r;
 
@@ -107,7 +112,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
  * everything in `h` is a candidate. */
-int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run);
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run);
 int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
