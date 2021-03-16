@@ -93,21 +93,28 @@ fi
 [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
-if [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
-elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]]; then
-    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif mountpoint -q /efi; then
-    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
-elif mountpoint -q /boot/efi; then
-    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
-else
-    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
-fi
+[ -z "$BOOT_ROOT" ] && for suff in "$MACHINE_ID" "Default" "loader/entries"; do
+    for pref in "/efi" "/boot/efi" "/boot"; do
+        if [ -d "$pref/$suff" ]; then
+            BOOT_ROOT="$pref"
+            break 2
+        fi
+    done
+done
+
+[ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
+    if mountpoint -q "$pref"; then
+        BOOT_ROOT="$pref"
+        break
+    fi
+done
+[ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
+
+
+ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
 ret=0
 
