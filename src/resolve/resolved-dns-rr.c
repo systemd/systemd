@@ -965,7 +965,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
-                char *ss;
                 uint16_t key_tag;
 
                 key_tag = dnssec_keytag(rr, true);
@@ -982,24 +981,24 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, r,
+                t = TAKE_PTR(s);
+
+                r = base64_append(&t, r,
                                   rr->dnskey.key, rr->dnskey.key_size,
                                   8, columns());
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&ss, "%s\n"
+                r = asprintf(&s, "%s\n"
                              "        -- Flags:%s%s%s\n"
                              "        -- Key tag: %u",
-                             s,
+                             t,
                              rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
                              key_tag);
                 if (r < 0)
                         return NULL;
-                free(s);
-                s = ss;
 
                 break;
         }
@@ -1043,8 +1042,10 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 r = base64_append(&s, r,
                                   rr->rrsig.signature, rr->rrsig.signature_size,
                                   8, columns());
-                if (r < 0)
+                if (r < 0) {
+                        free(s);
                         return NULL;
+                }
 
                 break;
         }
@@ -1153,8 +1154,11 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 r = base64_append(&s, r,
                                   rr->generic.data, rr->generic.data_size,
                                   8, columns());
-                if (r < 0)
+                if (r < 0) {
+                        free(s);
                         return NULL;
+                }
+
                 break;
         }
 

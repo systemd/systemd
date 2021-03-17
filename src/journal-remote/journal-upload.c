@@ -71,6 +71,9 @@ static void close_fd_input(Uploader *u);
                 }                                                       \
         } while (0)
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
+
 static size_t output_callback(char *buf,
                               size_t size,
                               size_t nmemb,
@@ -180,29 +183,23 @@ int start_upload(Uploader *u,
         assert(input_callback);
 
         if (!u->header) {
-                struct curl_slist *h;
+                _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
 
                 h = curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
                 if (!h)
                         return log_oom();
 
-                h = curl_slist_append(h, "Transfer-Encoding: chunked");
-                if (!h) {
-                        curl_slist_free_all(h);
+                if (!curl_slist_append(h, "Transfer-Encoding: chunked"))
                         return log_oom();
-                }
 
-                h = curl_slist_append(h, "Accept: text/plain");
-                if (!h) {
-                        curl_slist_free_all(h);
+                if (!curl_slist_append(h, "Accept: text/plain"))
                         return log_oom();
-                }
 
-                u->header = h;
+                u->header = TAKE_PTR(h);
         }
 
         if (!u->easy) {
-                CURL *curl;
+                _cleanup_(curl_easy_cleanupp) CURL *curl = NULL;
 
                 curl = curl_easy_init();
                 if (!curl)
@@ -260,7 +257,7 @@ int start_upload(Uploader *u,
                         easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1,
                                     LOG_WARNING, );
 
-                u->easy = curl;
+                u->easy = TAKE_PTR(curl);
         } else {
                 /* truncate the potential old error message */
                 u->error[0] = '\0';
