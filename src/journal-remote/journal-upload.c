@@ -72,6 +72,7 @@ static void close_fd_input(Uploader *u);
         } while (0)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
 
 static size_t output_callback(char *buf,
                               size_t size,
@@ -182,23 +183,19 @@ int start_upload(Uploader *u,
         assert(input_callback);
 
         if (!u->header) {
-                struct curl_slist *h;
+                _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
 
                 h = curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
                 if (!h)
                         return log_oom();
 
-                if (!curl_slist_append(h, "Transfer-Encoding: chunked")) {
-                        curl_slist_free_all(h);
+                if (!curl_slist_append(h, "Transfer-Encoding: chunked"))
                         return log_oom();
-                }
 
-                if (!curl_slist_append(h, "Accept: text/plain")) {
-                        curl_slist_free_all(h);
+                if (!curl_slist_append(h, "Accept: text/plain"))
                         return log_oom();
-                }
 
-                u->header = h;
+                u->header = TAKE_PTR(h);
         }
 
         if (!u->easy) {
