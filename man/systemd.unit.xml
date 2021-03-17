@@ -1173,6 +1173,16 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionFirmware=</varname></term>
+
+          <listitem><para>Check whether the system's firmware is of a certain type. Possible values are:
+          <literal>uefi</literal> (for systems with EFI),
+          <literal>device-tree</literal> (for systems with a device tree) and
+          <literal>device-tree-compatible(xyz)</literal> (for systems with a device tree that is compatible to <literal>xyz</literal>).</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionVirtualization=</varname></term>
 
           <listitem><para>Check whether the system is executed in a virtualized environment and optionally
