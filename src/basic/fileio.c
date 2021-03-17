@@ -404,10 +404,14 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
 
                 /* Be prepared for files from /proc which generally report a file size of 0. */
                 if (st.st_size > 0) {
+                        if (st.st_size > SSIZE_MAX) /* safety check in case off_t is 64bit and size_t 32bit */
+                                return -E2BIG;
+
                         size = st.st_size;
                         n_retries--;
                 } else
-                        size = size * 2;
+                        /* Double the buffer size (saturate in case of overflow) */
+                        size = size > SSIZE_MAX / 2 ? SSIZE_MAX : size * 2;
 
                 if (size > READ_FULL_BYTES_MAX)
                         return -E2BIG;
