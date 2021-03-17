@@ -40,6 +40,7 @@ struct Manager {
          * Used to detect when to take action. */
         Hashmap *monitored_swap_cgroup_contexts;
         Hashmap *monitored_mem_pressure_cgroup_contexts;
+        Hashmap *monitored_mem_pressure_cgroup_contexts_candidates;
 
         OomdSystemContext system_context;
 
