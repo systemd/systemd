@@ -180,6 +180,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
+        server->bind_to_interface = true;
 
         server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
@@ -1011,7 +1012,6 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
                 r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         else
                 r = dhcp_network_bind_udp_socket(0, server->address, DHCP_PORT_SERVER, -1);
-
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;

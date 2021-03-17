@@ -50,6 +50,7 @@ struct sd_dhcp_server {
         int fd_broadcast;
 
         int ifindex;
+        bool bind_to_interface;
         be32_t address;
         be32_t netmask;
         be32_t subnet;
@@ -63,7 +64,6 @@ struct sd_dhcp_server {
         OrderedSet *extra_options;
         OrderedSet *vendor_options;
 
-        bool bind_to_interface;
         bool emit_router;
 
         Hashmap *leases_by_client_id;
