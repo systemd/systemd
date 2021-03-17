@@ -188,14 +188,12 @@ int start_upload(Uploader *u,
                 if (!h)
                         return log_oom();
 
-                h = curl_slist_append(h, "Transfer-Encoding: chunked");
-                if (!h) {
+                if (!curl_slist_append(h, "Transfer-Encoding: chunked")) {
                         curl_slist_free_all(h);
                         return log_oom();
                 }
 
-                h = curl_slist_append(h, "Accept: text/plain");
-                if (!h) {
+                if (!curl_slist_append(h, "Accept: text/plain")) {
                         curl_slist_free_all(h);
                         return log_oom();
                 }
