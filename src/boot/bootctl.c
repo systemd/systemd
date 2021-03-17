@@ -52,6 +52,9 @@ static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_graceful = false;
+static enum { MID_NO, MID_YES, MID_AUTO, } arg_make_mid = MID_AUTO;
+
+static sd_id128_t machine_id;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -110,6 +113,24 @@ static int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid) {
         log_debug("Using XBOOTLDR partition at %s as $BOOT.", arg_xbootldr_path);
 
         return 1;
+}
+
+static int settle_make_mid_dir(void) {
+        struct statfs stf;
+        int r;
+
+        if (arg_make_mid == MID_AUTO)
+                arg_make_mid = statfs("/etc/machine-id", &stf) >= 0 &&
+                                stf.f_type != TMPFS_MAGIC;
+        assert(arg_make_mid == MID_NO || arg_make_mid == MID_YES);
+
+        if (arg_make_mid) {
+                r = sd_id128_get_machine(&machine_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get machine id: %m");
+        }
+
+        return 0;
 }
 
 /* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
@@ -888,6 +909,17 @@ static int remove_subdirs(const char *root, const char *const *subdirs) {
         return r < 0 ? r : q;
 }
 
+static int remove_machine_id_directory(const char *root) {
+        char buf[SD_ID128_STRING_MAX];
+
+        assert(root);
+
+        if (!arg_make_mid)
+                return 0;
+
+        return rmdir_one(root, sd_id128_to_string(machine_id, buf));
+}
+
 static int remove_binaries(const char *esp_path) {
         const char *p;
         int r, q;
@@ -971,6 +1003,7 @@ static int remove_loader_variables(void) {
 }
 
 static int install_loader_config(const char *esp_path) {
+        char machine_string[SD_ID128_STRING_MAX];
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
@@ -991,6 +1024,8 @@ static int install_loader_config(const char *esp_path) {
 
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n");
+        if (arg_make_mid)
+                fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
 
         r = fflush_sync_and_check(f);
         if (r < 0)
@@ -1004,6 +1039,17 @@ static int install_loader_config(const char *esp_path) {
 
         t = mfree(t);
         return 1;
+}
+
+static int install_machine_id_directory(const char *root) {
+        char buf[SD_ID128_STRING_MAX];
+
+        assert(root);
+
+        if (!arg_make_mid)
+                return 0;
+
+        return mkdir_one(root, sd_id128_to_string(machine_id, buf));
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -1043,6 +1089,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
+               "     --make-machine-id-directory[=yes|no|auto] (Don't) create \\$MACHINE_ID\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1062,20 +1109,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
                 ARG_GRACEFUL,
+                ARG_MAKE_MID,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "esp-path",        required_argument, NULL, ARG_ESP_PATH        },
-                { "path",            required_argument, NULL, ARG_ESP_PATH        }, /* Compatibility alias */
-                { "boot-path",       required_argument, NULL, ARG_BOOT_PATH       },
-                { "print-esp-path",  no_argument,       NULL, 'p'                 },
-                { "print-path",      no_argument,       NULL, 'p'                 }, /* Compatibility alias */
-                { "print-boot-path", no_argument,       NULL, 'x'                 },
-                { "no-variables",    no_argument,       NULL, ARG_NO_VARIABLES    },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "graceful",        no_argument,       NULL, ARG_GRACEFUL        },
+                { "help",                      no_argument,       NULL, 'h'                 },
+                { "version",                   no_argument,       NULL, ARG_VERSION         },
+                { "esp-path",                  required_argument, NULL, ARG_ESP_PATH        },
+                { "path",                      required_argument, NULL, ARG_ESP_PATH        }, /* Compatibility alias */
+                { "boot-path",                 required_argument, NULL, ARG_BOOT_PATH       },
+                { "print-esp-path",            no_argument,       NULL, 'p'                 },
+                { "print-path",                no_argument,       NULL, 'p'                 }, /* Compatibility alias */
+                { "print-boot-path",           no_argument,       NULL, 'x'                 },
+                { "no-variables",              no_argument,       NULL, ARG_NO_VARIABLES    },
+                { "no-pager",                  no_argument,       NULL, ARG_NO_PAGER        },
+                { "graceful",                  no_argument,       NULL, ARG_GRACEFUL        },
+                { "make-machine-id-directory", optional_argument, NULL, ARG_MAKE_MID        },
                 {}
         };
 
@@ -1130,6 +1179,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GRACEFUL:
                         arg_graceful = true;
+                        break;
+
+                case ARG_MAKE_MID:
+                        if (!optarg || !strncmp(optarg, "yes", strlen("yes")))
+                                arg_make_mid = MID_YES;
+                        else if (!strncmp(optarg, "no", strlen("no")))
+                                arg_make_mid = MID_NO;
+                        else if (!strncmp(optarg, "auto", strlen("auto")))
+                                arg_make_mid = MID_AUTO;  /* default */
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--make-machine-id-directory takes nothing/yes/no/auto");
                         break;
 
                 case '?':
@@ -1530,6 +1591,10 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = settle_make_mid_dir();
+        if (r < 0)
+                return r;
+
         install = streq(argv[0], "install");
 
         RUN_WITH_UMASK(0002) {
@@ -1552,6 +1617,10 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
                 if (install) {
                         r = install_loader_config(arg_esp_path);
+                        if (r < 0)
+                                return r;
+
+                        r = install_machine_id_directory(arg_dollar_boot_path());
                         if (r < 0)
                                 return r;
 
@@ -1584,6 +1653,10 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = settle_make_mid_dir();
+        if (r < 0)
+                return r;
+
         r = remove_binaries(arg_esp_path);
 
         q = remove_file(arg_esp_path, "/loader/loader.conf");
@@ -1602,9 +1675,17 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (q < 0 && r >= 0)
                 r = q;
 
+        q = remove_machine_id_directory(arg_esp_path);
+        if (q < 0 && r >= 0)
+                r = 1;
+
         if (arg_xbootldr_path) {
                 /* Remove the latter two also in the XBOOTLDR partition if it exists */
                 q = remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs);
+                if (q < 0 && r >= 0)
+                        r = q;
+
+                q = remove_machine_id_directory(arg_xbootldr_path);
                 if (q < 0 && r >= 0)
                         r = q;
         }

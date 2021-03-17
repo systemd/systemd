@@ -161,8 +161,15 @@
 
   <refsect1>
     <title>Environment variables</title>
+
     <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be set for
     the plugins. They may output additional logs in this case.</para>
+
+    <para>If <varname>MACHINE_ID=</varname> is set and nonempty, it will be used as <replaceable>MACHINE-ID</replaceable>,
+    overriding any automatic detection attempts.</para>
+
+    <para><varname>KERNEL_INSTALL_MACHINE_ID=</varname> is set for the plugins to the desired <replaceable>MACHINE-ID</replaceable>.</para>
+    <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the detected EFI system partition mount-point.</para>
   </refsect1>
 
   <refsect1>
@@ -184,6 +191,7 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/usr/lib/kernel/cmdline</filename>
           <filename>/etc/kernel/cmdline</filename>
           <filename>/proc/cmdline</filename>
         </term>
@@ -213,7 +221,8 @@
           <listitem>
             <para>The content of this file specifies the machine identification
             <replaceable>MACHINE-ID</replaceable>. If it cannot read <filename>/etc/machine-id</filename>,
-            kernel-install will use "Linux" as the machine ID instead.</para>
+            it's on a tmpfs mount-point, or <filename>$BOOT/Default</filename> exists,
+            kernel-install will use "Default" as the machine ID instead.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -222,7 +231,9 @@
           <filename>/usr/lib/os-release</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>.
+            The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>,
+            or "Linux <replaceable>KERNEL-VERSION</replaceable>", if not available.</para>
           </listitem>
       </varlistentry>
     </variablelist>
