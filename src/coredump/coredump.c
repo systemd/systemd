@@ -1125,23 +1125,23 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_OPEN_FDS=", t);
 
         p = procfs_file_alloca(pid, "status");
-        if (read_full_file(p, &t, NULL) >= 0)
+        if (read_full_virtual_file(p, &t, NULL) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t);
 
         p = procfs_file_alloca(pid, "maps");
-        if (read_full_file(p, &t, NULL) >= 0)
+        if (read_full_virtual_file(p, &t, NULL) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t);
 
         p = procfs_file_alloca(pid, "limits");
-        if (read_full_file(p, &t, NULL) >= 0)
+        if (read_full_virtual_file(p, &t, NULL) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t);
 
         p = procfs_file_alloca(pid, "cgroup");
-        if (read_full_file(p, &t, NULL) >=0)
+        if (read_full_virtual_file(p, &t, NULL) >=0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t);
 
         p = procfs_file_alloca(pid, "mountinfo");
-        if (read_full_file(p, &t, NULL) >=0)
+        if (read_full_virtual_file(p, &t, NULL) >=0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t);
 
         if (get_process_cwd(pid, &t) >= 0)
