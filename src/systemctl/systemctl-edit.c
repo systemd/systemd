@@ -146,7 +146,6 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 _cleanup_free_ char *new_contents = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
                 char **path;
-                size_t size;
 
                 r = mac_selinux_create_file_prepare(new_path, S_IFREG);
                 if (r < 0)
@@ -161,7 +160,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 if (r < 0)
                         return log_error_errno(errno, "Failed to change mode of \"%s\": %m", t);
 
-                r = read_full_file(new_path, &new_contents, &size);
+                r = read_full_file(new_path, &new_contents, NULL);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to read \"%s\": %m", new_path);
 
@@ -182,7 +181,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                         if (path_equal(*path, new_path))
                                 continue;
 
-                        r = read_full_file(*path, &contents, &size);
+                        r = read_full_file(*path, &contents, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read \"%s\": %m", *path);
 
@@ -468,9 +467,11 @@ static int trim_edit_markers(const char *path) {
         int r;
 
         /* Trim out the lines between the two markers */
-        r = read_full_file(path, &contents, &size);
+        r = read_full_file(path, &contents, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file \"%s\": %m", path);
+
+        size = strlen(contents);
 
         contents_start = strstr(contents, EDIT_MARKER_START);
         if (contents_start)
