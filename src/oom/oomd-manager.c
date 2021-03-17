@@ -117,6 +117,8 @@ static int process_managed_oom_reply(
                         r = ret;
                         goto finish;
                 }
+                if (ret < 0 && ret != -EEXIST)
+                        log_debug_errno(ret, "Failed to insert reply, ignoring: %m");
 
                 /* Always update the limit in case it was changed. For non-memory pressure detection the value is
                  * ignored so always updating it here is not a problem. */
@@ -156,7 +158,11 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                 return r;
         else if (r == 0) { /* No subgroups? We're a leaf node */
                 r = oomd_insert_cgroup_context(NULL, new_h, path);
-                return (r == -ENOMEM) ? r : 0;
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to insert context for %s, ignoring: %m", path);
+                return 0;
         }
 
         do {
@@ -171,8 +177,12 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 
                 r = cg_get_attribute_as_bool("memory", cg_path, "memory.oom.group", &oom_group);
                 /* The cgroup might be gone. Skip it as a candidate since we can't get information on it. */
-                if (r < 0)
-                        return (r == -ENOMEM) ? r : 0;
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read memory.oom.group from %s, ignoring: %m", cg_path);
+                        return 0;
+                }
 
                 if (oom_group)
                         r = oomd_insert_cgroup_context(NULL, new_h, cg_path);
@@ -180,6 +190,8 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                         r = recursively_get_cgroup_context(new_h, cg_path);
                 if (r == -ENOMEM)
                         return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to insert or recursively get from %s, ignoring: %m", cg_path);
         } while ((r = cg_read_subgroup(d, &subpath)) > 0);
 
         return 0;
@@ -201,6 +213,8 @@ static int update_monitored_cgroup_contexts(Hashmap **monitored_cgroups) {
                 r = oomd_insert_cgroup_context(*monitored_cgroups, new_base, ctx->path);
                 if (r == -ENOMEM)
                         return r;
+                if (r < 0 && !IN_SET(r, -EEXIST, -ENOENT))
+                        log_debug_errno(r, "Failed to insert context for %s, ignoring: %m", ctx->path);
         }
 
         hashmap_free(*monitored_cgroups);
@@ -225,6 +239,8 @@ static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, 
                 r = recursively_get_cgroup_context(candidates, ctx->path);
                 if (r == -ENOMEM)
                         return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to recursively get contexts for %s, ignoring: %m", ctx->path);
         }
 
         *ret_candidates = TAKE_PTR(candidates);
@@ -295,38 +311,44 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
         /* Reset timer */
         r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
         if (r < 0)
-                return log_error_errno(r, "Failed to reset event timer");
+                return log_error_errno(r, "Failed to reset event timer: %m");
 
         r = sd_event_source_set_time_relative(s, INTERVAL_USEC);
         if (r < 0)
-                return log_error_errno(r, "Failed to set relative time for timer");
+                return log_error_errno(r, "Failed to set relative time for timer: %m");
 
         /* Reconnect if our connection dropped */
         if (!m->varlink) {
                 r = acquire_managed_oom_connect(m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to acquire varlink connection");
+                        return log_error_errno(r, "Failed to acquire varlink connection: %m");
         }
 
         /* Update the cgroups used for detection/action */
         r = update_monitored_cgroup_contexts(&m->monitored_swap_cgroup_contexts);
         if (r == -ENOMEM)
-                return log_error_errno(r, "Failed to update monitored swap cgroup contexts");
+                return log_error_errno(r, "Failed to update monitored swap cgroup contexts: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to update monitored swap cgroup contexts, ignoring: %m");
 
         r = update_monitored_cgroup_contexts(&m->monitored_mem_pressure_cgroup_contexts);
         if (r == -ENOMEM)
-                return log_error_errno(r, "Failed to update monitored memory pressure cgroup contexts");
+                return log_error_errno(r, "Failed to update monitored memory pressure cgroup contexts: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to update monitored memory pressure cgroup contexts, ignoring: %m");
 
         r = update_monitored_cgroup_contexts_candidates(
                         m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
         if (r == -ENOMEM)
-                return log_error_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts");
+                return log_error_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
 
         r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
         /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM.
          * Allow ENOENT in the event that swap is disabled on the system. */
         if (r == -ENOMEM || (r < 0 && r != -ENOENT && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
-                return log_error_errno(r, "Failed to acquire system context");
+                return log_error_errno(r, "Failed to acquire system context: %m");
         else if (r == -ENOENT)
                 zero(m->system_context);
 
@@ -343,7 +365,9 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
 
         r = oomd_pressure_above(m->monitored_mem_pressure_cgroup_contexts, m->default_mem_pressure_duration_usec, &targets);
         if (r == -ENOMEM)
-                return log_error_errno(r, "Failed to check if memory pressure exceeded limits");
+                return log_error_errno(r, "Failed to check if memory pressure exceeded limits: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if memory pressure exceeded limits, ignoring: %m");
         else if (r == 1) {
                 /* Check if there was reclaim activity in the given interval. The concern is the following case:
                  * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
@@ -361,7 +385,7 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                                 if (r == -ENOMEM)
                                         return log_error_errno(r, "Failed to kill cgroup processes by pgscan rate: %m");
                                 if (r < 0)
-                                        log_info("Failed to kill any cgroup(s) under %s based on pressure", t->path);
+                                        log_info_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
                                 else {
                                         /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
                                         m->post_action_delay_start = usec_now;
@@ -379,13 +403,15 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
 
                 r = get_monitored_cgroup_contexts_candidates(m->monitored_swap_cgroup_contexts, &candidates);
                 if (r == -ENOMEM)
-                        return log_error_errno(r, "Failed to get monitored swap cgroup candidates");
+                        return log_error_errno(r, "Failed to get monitored swap cgroup candidates: %m");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 r = oomd_kill_by_swap_usage(candidates, m->dry_run);
                 if (r == -ENOMEM)
-                        return log_error_errno(r, "Failed to kill cgroup processes by swap usage");
+                        return log_error_errno(r, "Failed to kill cgroup processes by swap usage: %m");
                 if (r < 0)
-                        log_info("Failed to kill any cgroup(s) based on swap");
+                        log_info_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
                 else {
                         m->post_action_delay_start = usec_now;
                         return 0;
