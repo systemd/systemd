@@ -342,7 +342,7 @@ static int list_files(PStoreList *list, const char *sourcepath) {
                 size_t buf_size;
 
                 /* Now read contents of pstore file */
-                r = read_full_file(ifd_path, &buf, &buf_size);
+                r = read_full_virtual_file(ifd_path, &buf, &buf_size);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read file %s, skipping: %m", ifd_path);
                         continue;
