@@ -188,10 +188,12 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
 
                         fprintf(f, "\n\n### %s", *path);
                         if (!isempty(contents)) {
-                                contents = strreplace(strstrip(contents), "\n", "\n# ");
-                                if (!contents)
+                                _cleanup_free_ char *commented_contents = NULL;
+
+                                commented_contents = strreplace(strstrip(contents), "\n", "\n# ");
+                                if (!commented_contents)
                                         return log_oom();
-                                fprintf(f, "\n# %s", contents);
+                                fprintf(f, "\n# %s", commented_contents);
                         }
                 }
 

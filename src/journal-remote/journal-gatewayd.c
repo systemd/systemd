@@ -641,7 +641,7 @@ static int request_handler_redirect(
                 struct MHD_Connection *connection,
                 const char *target) {
 
-        char *page;
+        _cleanup_free_ char *page;
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
 
         assert(connection);
@@ -651,10 +651,9 @@ static int request_handler_redirect(
                 return respond_oom(connection);
 
         response = MHD_create_response_from_buffer(strlen(page), page, MHD_RESPMEM_MUST_FREE);
-        if (!response) {
-                free(page);
+        if (!response)
                 return respond_oom(connection);
-        }
+        TAKE_PTR(page);
 
         if (MHD_add_response_header(response, "Content-Type", "text/html") == MHD_NO ||
             MHD_add_response_header(response, "Location", target) == MHD_NO)
