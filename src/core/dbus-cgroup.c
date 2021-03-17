@@ -347,6 +347,37 @@ static int property_get_ip_address_access(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_bpf_foreign_program(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        CGroupContext *c = userdata;
+        CGroupBPFForeignProgram *p;
+        int r;
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs) {
+                _cleanup_free_ char *s = NULL;
+
+                s = strjoin(bpf_cgroup_attach_type_to_string(p->attach_type), ":", p->bpffs_path);
+                if (!s)
+                        return log_oom();
+
+                r = sd_bus_message_append(reply, "s", s);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -398,6 +429,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("BPFProgram", "as", property_get_bpf_foreign_program, 0, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -567,6 +599,86 @@ static int bus_cgroup_set_transient_property(
                                                  "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
                                         warned = true;
                                 }
+                        }
+                }
+
+                return 1;
+        } else if (streq(name, "BPFProgram")) {
+                size_t n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+                        int attach_type;
+                        const char* s;
+
+                        r = sd_bus_message_read(message, "s", &s);
+                        if (r < 0)
+                                return r;
+
+                        if (r == 0)
+                                break;
+
+                        r = extract_first_word(&s, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+
+                        if (r < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "%s= expects BPF program description in <bpf_attach_type>:<absolute_path> format.", name);
+
+                        attach_type = bpf_cgroup_attach_type_from_string(word);
+                        if (attach_type < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s expects a valid BPF attach type, got '%s'.", name, word);
+
+                        if (!path_is_normalized(s) || !path_is_absolute(s))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects a normalized absolute path.", name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = cgroup_add_bpf_foreign_program(c, (uint32_t) attach_type, s);
+                                if (r < 0)
+                                        return r;
+                        }
+                        n++;
+                }
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupBPFForeignProgram *p;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                while (c->bpf_foreign_programs)
+                                        cgroup_context_free_bpf_foreign_program(c, c->bpf_foreign_programs);
+
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        LIST_FOREACH(programs, p, c->bpf_foreign_programs)
+                                fprintf(f, "%s=%s:%s\n", name,
+                                                bpf_cgroup_attach_type_to_string(p->attach_type), p->bpffs_path);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (!LIST_IS_EMPTY(c->bpf_foreign_programs)) {
+                                r = cg_all_unified();
+                                if (r <= 0)
+                                        return r;
                         }
                 }
 
