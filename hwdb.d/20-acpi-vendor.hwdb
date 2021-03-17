@@ -1530,6 +1530,9 @@ acpi:CNB*:
 acpi:CNC*:
  ID_VENDOR_FROM_DATABASE=Alvedon Computers Ltd
 
+acpi:CND*:
+ ID_VENDOR_FROM_DATABASE=Micro-Star Int'l Co., Ltd.
+
 acpi:CNE*:
  ID_VENDOR_FROM_DATABASE=Cine-tal
 
@@ -1628,6 +1631,9 @@ acpi:CRI*:
 
 acpi:CRL*:
  ID_VENDOR_FROM_DATABASE=Creative Logic
+
+acpi:CRM*:
+ ID_VENDOR_FROM_DATABASE=CORSAIR MEMORY Inc.
 
 acpi:CRN*:
  ID_VENDOR_FROM_DATABASE=Cornerstone Imaging
@@ -4997,6 +5003,9 @@ acpi:NVT*:
 
 acpi:NWC*:
  ID_VENDOR_FROM_DATABASE=NW Computer Engineering
+
+acpi:NWL*:
+ ID_VENDOR_FROM_DATABASE=Newline Interactive Inc.
 
 acpi:NWP*:
  ID_VENDOR_FROM_DATABASE=NovaWeb Technologies Inc
