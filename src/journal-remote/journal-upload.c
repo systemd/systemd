@@ -182,23 +182,25 @@ int start_upload(Uploader *u,
         assert(input_callback);
 
         if (!u->header) {
-                struct curl_slist *h;
+                struct curl_slist *h, *l;
 
                 h = curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
                 if (!h)
                         return log_oom();
 
-                h = curl_slist_append(h, "Transfer-Encoding: chunked");
-                if (!h) {
+                l = curl_slist_append(h, "Transfer-Encoding: chunked");
+                if (!l) {
                         curl_slist_free_all(h);
                         return log_oom();
                 }
+                h = l;
 
-                h = curl_slist_append(h, "Accept: text/plain");
-                if (!h) {
+                l = curl_slist_append(h, "Accept: text/plain");
+                if (!l) {
                         curl_slist_free_all(h);
                         return log_oom();
                 }
+                h = l;
 
                 u->header = h;
         }
