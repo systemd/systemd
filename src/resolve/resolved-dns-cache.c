@@ -439,9 +439,7 @@ static int dns_cache_put_positive(
         /* Determine the minimal TTL of all RRs in the answer plus the one by the main RR we are supposed to
          * cache. Since we cache whole answers to questions we should never return answers where only some
          * RRs are still valid, hence find the lowest here */
-        min_ttl = dns_answer_min_ttl(answer);
-        if (rr)
-                min_ttl = MIN(min_ttl, rr->ttl);
+        min_ttl = MIN(dns_answer_min_ttl(answer), rr->ttl);
 
         /* New TTL is 0? Delete this specific entry... */
         if (min_ttl <= 0) {
