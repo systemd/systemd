@@ -114,7 +114,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
                 xsprintf(path, "/proc/self/fdinfo/%i", subfd);
         }
 
-        r = read_full_file(path, &fdinfo, NULL);
+        r = read_full_virtual_file(path, &fdinfo, NULL);
         if (r == -ENOENT) /* The fdinfo directory is a relatively new addition */
                 return -EOPNOTSUPP;
         if (r < 0)
