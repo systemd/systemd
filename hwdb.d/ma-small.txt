@@ -4967,12 +4967,6 @@ B70000-B70FFF     (base 16)		Torion Plasma Corporation
 				Ellicott City  MD  21043
 				US
 
-70-B3-D5   (hex)		Horizon Co., Ltd
-69B000-69BFFF     (base 16)		Horizon Co., Ltd
-				1600 Aza-Shironoshita Asahi
-				Shin Asahi-cho  Takashima, Shiga  520-1501
-				JP
-
 70-B3-D5   (hex)		Smart Systems LLC
 746000-746FFF     (base 16)		Smart Systems LLC
 				Flat 1, building 7, Izmalkova street
@@ -5104,6 +5098,36 @@ EC0000-EC0FFF     (base 16)		ProtoConvert Pty Ltd
 				Reflexion Medical 25841 Industrial Blvd.
 				Hayward  CA  94545
 				US
+
+70-B3-D5   (hex)		Zumbach Electronic AG
+C19000-C19FFF     (base 16)		Zumbach Electronic AG
+				Hauptstrasse 93
+				Orpund  Bern  2552
+				CH
+
+70-B3-D5   (hex)		Lobaro GmbH
+E05000-E05FFF     (base 16)		Lobaro GmbH
+				Stadtdeich 7
+				Hamburg      20097
+				DE
+
+70-B3-D5   (hex)		LDA Audiotech
+685000-685FFF     (base 16)		LDA Audiotech
+				C/Severo Ochoa, 31
+				Malaga  Malaga  29590
+				ES
+
+70-B3-D5   (hex)		HORIZON.INC
+69B000-69BFFF     (base 16)		HORIZON.INC
+				1600 Aza-Shironoshita Asahi
+				Shin Asahi-cho  Takashima, Shiga  520-1501
+				JP
+
+70-B3-D5   (hex)		aelettronica group srl
+A14000-A14FFF     (base 16)		aelettronica group srl
+				via matteotti,22
+				gaggiano  milano  20083
+				IT
 
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
@@ -10175,6 +10199,18 @@ F74000-F74FFF     (base 16)		TESSA AGRITECH SRL
 				Trento  Trento  38123
 				IT
 
+70-B3-D5   (hex)		CAR-connect GmbH
+81F000-81FFFF     (base 16)		CAR-connect GmbH
+				Am Egelingsberg 8
+				Leiferde  Niedersachsen  38542
+				DE
+
+70-B3-D5   (hex)		MBJ
+E03000-E03FFF     (base 16)		MBJ
+				Jochim-Klindt-Straße 7
+				Ahrensburg  Schleswig Holstein  22926
+				DE
+
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
 				7034 Commerce Circle Suite A
@@ -15175,6 +15211,24 @@ ED6000-ED6FFF     (base 16)		Metrasens Limited
 				501-5B01,Xintianxia phase 2 building,Wankecheng community,Bantian township,Longgang district
 				Shenzhen City  Guangdong  518129
 				CN
+
+70-B3-D5   (hex)		DesignA Electronics Limited
+A63000-A63FFF     (base 16)		DesignA Electronics Limited
+				Unit 6
+				Christchurch  New Zealand  8011
+				NZ
+
+70-B3-D5   (hex)		Grayshift
+71F000-71FFFF     (base 16)		Grayshift
+				931 Monroe Dr NE, Suite A102-340
+				Atlanta  GA  30308
+				US
+
+70-B3-D5   (hex)		dongsheng
+AFD000-AFDFFF     (base 16)		dongsheng
+				No. 2, Sec. 2, Beiyi Rd., Xindian Dist.,
+				New Taipei City    231067
+				TW
 
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -20369,6 +20423,27 @@ B33000-B33FFF     (base 16)		Aplex Technology Inc.
 				Shenzhen City  Guangdong  518129
 				CN
 
+70-B3-D5   (hex)		FARHO DOMOTICA SL
+ACE000-ACEFFF     (base 16)		FARHO DOMOTICA SL
+				POLIGONO DE TABAZA II, NAVES 9-13
+				TABAZA  ASTURIAS  33439
+				ES
+
+70-B3-D5   (hex)		The Engineerix Group
+C71000-C71FFF     (base 16)		The Engineerix Group
+				1418 Beech Ave 119A
+				McAllen  TX  78501
+				US
+
+70-B3-D5   (hex)		Flextronics International Kft
+1BC000-1BCFFF     (base 16)		Flextronics International Kft
+				38. Zrinyi Str.
+				Zalaegerszeg  Zala  8900
+				HU
+
+70-B3-D5   (hex)		Private
+315000-315FFF     (base 16)		Private
+
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
 				Pol ind cotes
@@ -25319,12 +25394,6 @@ DEF000-DEFFFF     (base 16)		ISG Nordic AB
 				Seattle  WA  98104
 				US
 
-70-B3-D5   (hex)		PARAGON ID
-036000-036FFF     (base 16)		PARAGON ID
-				Les Aubépins
-				ARGENT SUR SAULDRE  CHER  18410
-				FR
-
 70-B3-D5   (hex)		Deep Secure Limited
 DD0000-DD0FFF     (base 16)		Deep Secure Limited
 				1 Nimrod House, Sandys Road
@@ -25361,8 +25430,32 @@ EAA000-EAAFFF     (base 16)		Druck Ltd.
 				Neuilly sur Marne  Ile-de-France  93330
 				FR
 
+70-B3-D5   (hex)		Codewerk GmbH
+4D0000-4D0FFF     (base 16)		Codewerk GmbH
+				Siemensallee 75
+				Karlsruhe    76187 
+				DE
+
+70-B3-D5   (hex)		Orlaco Products B.V.
+333000-333FFF     (base 16)		Orlaco Products B.V.
+				Albert Plesmanstraat 42
+				Barneveld    3772MN
+				NL
+
 70-B3-D5   (hex)		ScopeSensor Oy
 DF7000-DF7FFF     (base 16)		ScopeSensor Oy
 				Teollisuustie 1
 				Haukipudas    90830
 				FI
+
+70-B3-D5   (hex)		KBPR LLC
+11E000-11EFFF     (base 16)		KBPR LLC
+				Raketny bulvar street 16
+				Moscow  Select State  129164
+				RU
+
+70-B3-D5   (hex)		Anello Photonics
+96A000-96AFFF     (base 16)		Anello Photonics
+				3964 Rivermark Plaza, Suite 144
+				Santa Clara  CA  95054
+				US
