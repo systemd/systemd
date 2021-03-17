@@ -513,7 +513,7 @@ int device_read_uevent_file(sd_device *device) {
 
         path = strjoina(syspath, "/uevent");
 
-        r = read_full_file(path, &uevent, &uevent_len);
+        r = read_full_virtual_file(path, &uevent, &uevent_len);
         if (r == -EACCES) {
                 /* empty uevent files may be write-only */
                 device->uevent_loaded = true;

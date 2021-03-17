@@ -100,7 +100,7 @@ int cg_read_event(
         if (r < 0)
                 return r;
 
-        r = read_full_file(events, &content, NULL);
+        r = read_full_virtual_file(events, &content, NULL);
         if (r < 0)
                 return r;
 

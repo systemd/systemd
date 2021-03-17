@@ -1548,7 +1548,7 @@ int pidfd_get_pid(int fd, pid_t *ret) {
 
         xsprintf(path, "/proc/self/fdinfo/%i", fd);
 
-        r = read_full_file(path, &fdinfo, NULL);
+        r = read_full_virtual_file(path, &fdinfo, NULL);
         if (r == -ENOENT) /* if fdinfo doesn't exist we assume the process does not exist */
                 return -ESRCH;
         if (r < 0)
