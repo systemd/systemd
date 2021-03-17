@@ -22,6 +22,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* move logind udev rules to top-level rule.d/ directory
+
+* move multiseat vid/pid matches from logind udev rule to hwdb
+
 * nspawn: default to 1:1 userns
 
 * Provide a reasonably bespoke solution for mounting host $HOME directories
