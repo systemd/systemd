@@ -14,7 +14,7 @@ project('systemd', 'c',
        )
 
 libsystemd_version = '0.31.0'
-libudev_version = '1.7.0'
+libudev_version = '1.7.1'
 
 # We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
