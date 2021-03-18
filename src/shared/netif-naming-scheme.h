@@ -32,6 +32,7 @@ typedef enum NamingSchemeFlags {
         NAMING_LABEL_NOPREFIX      = 1 << 7, /* Don't prepend ID_NET_LABEL_ONBOARD with interface type prefix */
         NAMING_NSPAWN_LONG_HASH    = 1 << 8, /* Shorten nspawn interfaces by including 24bit hash, instead of simple truncation  */
         NAMING_BRIDGE_NO_SLOT      = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
+        NAMING_SLOT_FUNCTION_ID    = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -41,6 +42,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V243 = NAMING_V241 | NAMING_NETDEVSIM | NAMING_LABEL_NOPREFIX,
         NAMING_V245 = NAMING_V243 | NAMING_NSPAWN_LONG_HASH,
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
+        NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID,
 
         _NAMING_SCHEME_FLAGS_INVALID = -EINVAL,
 } NamingSchemeFlags;

@@ -345,6 +345,32 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                 if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
                         continue;
 
+                /*  The <sysname>/function_id attribute is unique to the s390 PCI driver.
+                    If present, we know that the slot's directory name for this device is
+                    /sys/bus/pci/XXXXXXXX/ where XXXXXXXX is the fixed length 8 hexadecimal
+                    character string representation of function_id.
+                    Therefore we can short cut here and just check for the existence of
+                    the slot directory. As this directory has to exist, we're emitting a
+                    debug message for the unlikely case it's not found.
+                    Note that the domain part of doesn't belong to the slot name here
+                    because there's a 1-to-1 relationship between PCI function and its hotplug
+                    slot.
+                 */
+                if (naming_scheme_has(NAMING_SLOT_FUNCTION_ID) &&
+                    sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &attr) >= 0) {
+                        int function_id;
+                        _cleanup_free_ char *str;
+
+                        if (safe_atoi(attr, &function_id) >= 0 &&
+                            asprintf(&str, "%s/%08x/", slots, function_id) >= 0 &&
+                            access(str, R_OK) == 0) {
+                                hotplug_slot = function_id;
+                                domain = 0;
+                        } else
+                                log_debug("No matching slot for function_id (%s).", attr);
+                        break;
+                }
+
                 FOREACH_DIRENT_ALL(dent, dir, break) {
                         int i;
                         char str[PATH_MAX];
