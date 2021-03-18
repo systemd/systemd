@@ -121,7 +121,7 @@ static void settle_make_machine_id_directory(void) {
 
         r = path_is_temporary_fs("/etc/machine-id");
         if (r < 0)
-                log_debug_errno(r, "Couldn't determine whether /etc/machine-id exists on a temporary file system, assuming so.");
+                log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system, assuming so.");
 
         arg_make_machine_id_directory = r == 0;
 }
