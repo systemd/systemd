@@ -194,6 +194,12 @@ if have_gnu_efi
                 efi_format = ['--target=efi-app-@0@'.format(gnu_efi_arch)]
         endif
 
+        if efi_ld.to_lower().contains('lld')
+# LLVM/LLD does not support PE/COFF relocations
+# https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
+                error('LLVM/lld does not support PE/COFF relocations. Use different linker for EFI image.')
+        endif
+
         systemd_boot_objects = []
         stub_objects = []
         foreach file : fundamental_source_paths + common_sources + systemd_boot_sources + stub_sources
