@@ -11,6 +11,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-setup.h"
@@ -722,6 +723,8 @@ Unit* unit_free(Unit *u) {
         set_free(u->ip_bpf_custom_egress);
         set_free(u->ip_bpf_custom_ingress_installed);
         set_free(u->ip_bpf_custom_egress_installed);
+
+        hashmap_free(u->bpf_foreign_by_key);
 
         bpf_program_unref(u->bpf_device_control_installed);
 
