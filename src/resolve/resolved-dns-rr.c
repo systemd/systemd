@@ -1136,7 +1136,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
                 break;
 
-        case DNS_TYPE_OPENPGPKEY: {
+        case DNS_TYPE_OPENPGPKEY:
                 r = asprintf(&s, "%s", k);
                 if (r < 0)
                         return NULL;
@@ -1147,7 +1147,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
                 break;
-        }
 
         default:
                 t = hexmem(rr->generic.data, rr->generic.data_size);
