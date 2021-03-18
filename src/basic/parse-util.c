@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/oom.h>
@@ -778,4 +779,20 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
                 return r;
 
         return store_loadavg_fixed_point(i, f, ret);
+}
+
+int parse_slot(const char *s, int *ret) {
+        size_t i;
+
+        assert(s);
+        assert(ret);
+
+        if (s[0] == '0')
+                return -EINVAL;
+
+        for (i=0; i < strlen(s); i++)
+                if (!isdigit(s[i]))
+                        return -EINVAL;
+
+        return safe_atoi(s, ret);
 }
