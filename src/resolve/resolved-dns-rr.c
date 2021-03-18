@@ -820,8 +820,8 @@ static char *format_txt(DnsTxtItem *first) {
 }
 
 const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
-        _cleanup_free_ char *t = NULL;
-        char *s, k[DNS_RESOURCE_KEY_STRING_MAX];
+        _cleanup_free_ char *s = NULL, *t = NULL;
+        char k[DNS_RESOURCE_KEY_STRING_MAX];
         int r;
 
         assert(rr);
@@ -871,18 +871,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
                 break;
 
-        case DNS_TYPE_A: {
-                _cleanup_free_ char *x = NULL;
-
-                r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &x);
+        case DNS_TYPE_A:
+                r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &t);
                 if (r < 0)
                         return NULL;
 
-                s = strjoin(k, " ", x);
+                s = strjoin(k, " ", t);
                 if (!s)
                         return NULL;
                 break;
-        }
 
         case DNS_TYPE_AAAA:
                 r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &t);
@@ -965,7 +962,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
-                char *ss;
                 uint16_t key_tag;
 
                 key_tag = dnssec_keytag(rr, true);
@@ -974,7 +970,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %s",
+                r = asprintf(&t, "%s %u %u %s",
                              k,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
@@ -982,24 +978,22 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, r,
+                r = base64_append(&t, r,
                                   rr->dnskey.key, rr->dnskey.key_size,
                                   8, columns());
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&ss, "%s\n"
+                r = asprintf(&s, "%s\n"
                              "        -- Flags:%s%s%s\n"
                              "        -- Key tag: %u",
-                             s,
+                             t,
                              rr->dnskey.flags & DNSKEY_FLAG_SEP ? " SEP" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_REVOKE ? " REVOKE" : "",
                              rr->dnskey.flags & DNSKEY_FLAG_ZONE_KEY ? " ZONE_KEY" : "",
                              key_tag);
                 if (r < 0)
                         return NULL;
-                free(s);
-                s = ss;
 
                 break;
         }
@@ -1123,18 +1117,16 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
-        case DNS_TYPE_CAA: {
-                _cleanup_free_ char *value;
-
-                value = octescape(rr->caa.value, rr->caa.value_size);
-                if (!value)
+        case DNS_TYPE_CAA:
+                t = octescape(rr->caa.value, rr->caa.value_size);
+                if (!t)
                         return NULL;
 
                 r = asprintf(&s, "%s %u %s \"%s\"%s%s%s%.0u",
                              k,
                              rr->caa.flags,
                              rr->caa.tag,
-                             value,
+                             t,
                              rr->caa.flags ? "\n        -- Flags:" : "",
                              rr->caa.flags & CAA_FLAG_CRITICAL ? " critical" : "",
                              rr->caa.flags & ~CAA_FLAG_CRITICAL ? " " : "",
@@ -1143,9 +1135,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 break;
-        }
 
-        case DNS_TYPE_OPENPGPKEY: {
+        case DNS_TYPE_OPENPGPKEY:
                 r = asprintf(&s, "%s", k);
                 if (r < 0)
                         return NULL;
@@ -1156,7 +1147,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
                 break;
-        }
 
         default:
                 t = hexmem(rr->generic.data, rr->generic.data_size);
@@ -1171,7 +1161,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         }
 
         rr->to_string = s;
-        return s;
+        return TAKE_PTR(s);
 }
 
 ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
