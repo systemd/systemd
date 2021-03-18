@@ -444,8 +444,6 @@ static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config 
 
 static int link_config_generate_new_name(const link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name) {
         unsigned name_type = NET_NAME_UNKNOWN;
-        const char *new_name = NULL;
-        NamePolicy policy;
         int r;
 
         assert(ctx);
@@ -463,7 +461,8 @@ static int link_config_generate_new_name(const link_config_ctx *ctx, const link_
 
         if (ctx->enable_name_policy && config->name_policy)
                 for (NamePolicy *p = config->name_policy; *p != _NAMEPOLICY_INVALID; p++) {
-                        policy = *p;
+                        const char *new_name = NULL;
+                        NamePolicy policy = *p;
 
                         switch (policy) {
                         case NAMEPOLICY_KERNEL:
@@ -499,15 +498,12 @@ static int link_config_generate_new_name(const link_config_ctx *ctx, const link_
                         default:
                                 assert_not_reached("invalid policy");
                         }
-                        if (ifname_valid(new_name))
-                                break;
+                        if (ifname_valid(new_name)) {
+                                log_device_debug(device, "Policy *%s* yields \"%s\".", name_policy_to_string(policy), new_name);
+                                *ret_name = new_name;
+                                return 0;
+                        }
                 }
-
-        if (new_name) {
-                log_device_debug(device, "Policy *%s* yields \"%s\".", name_policy_to_string(policy), new_name);
-                *ret_name = new_name;
-                return 0;
-        }
 
         if (config->name) {
                 log_device_debug(device, "Policies didn't yield a name, using specified Name=%s.", config->name);
