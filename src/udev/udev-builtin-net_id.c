@@ -342,8 +342,25 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
+                int function_id;
+
                 if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
                         continue;
+
+                /* match slot address to function_id, if available */
+                if (naming_scheme_has(NAMING_SLOT_FUNCTION_ID) &&
+                    sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &attr) >= 0 &&
+                    safe_atoi(attr, &function_id) >= 0) {
+                        char str[PATH_MAX];
+
+                        if (snprintf_ok(str, sizeof str, "%s/%08x", slots, function_id) &&
+                            access(str, R_OK | X_OK) == 0) {
+                                hotplug_slot = function_id;
+                                domain = 0;
+                        }
+
+                        break;
+                }
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
                         int i;
