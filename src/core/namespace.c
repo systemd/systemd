@@ -2051,13 +2051,12 @@ int setup_namespace(
                         };
                 }
 
-                if (ns_info->private_ipc) {
+                if (ns_info->private_ipc)
                         *(m++) = (MountEntry) {
                                 .path_const = "/dev/mqueue",
                                 .mode = MQUEUEFS,
                                 .flags = MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RELATIME,
                         };
-                }
 
                 if (creds_path) {
                         /* If our service has a credentials store configured, then bind that one in, but hide
@@ -2150,11 +2149,10 @@ int setup_namespace(
         if (setup_propagate)
                 (void) mkdir_p(propagate_dir, 0600);
 
-        if (n_extension_images > 0) {
+        if (n_extension_images > 0)
                 /* ExtensionImages mountpoint directories will be created
                  * while parsing the mounts to create, so have the parent ready */
                 (void) mkdir_p(extension_dir, 0600);
-        }
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */

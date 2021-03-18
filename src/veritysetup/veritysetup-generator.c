@@ -86,7 +86,7 @@ static int create_device(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        options_escaped = specifier_escape(arg_options ?: "");
+        options_escaped = specifier_escape(strempty(arg_options));
         if (!options_escaped)
                 return log_oom();
 
