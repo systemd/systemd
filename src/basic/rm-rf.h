@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 
 typedef enum RemoveFlags {
@@ -25,8 +26,7 @@ static inline char *rm_rf_physical_and_free(char *p) {
                 return NULL;
 
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK|REMOVE_CHMOD);
-        free(p);
-        return NULL;
+        return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
 
@@ -38,7 +38,6 @@ static inline char *rm_rf_subvolume_and_free(char *p) {
                 return NULL;
 
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
-        free(p);
-        return NULL;
+        return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_subvolume_and_free);
