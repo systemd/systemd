@@ -2504,8 +2504,8 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
-                        return log_error_errno(r, "Failed to %s interface %s: %m",
-                                               argv[1], format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        return log_error_errno(r, "Failed to bring %s interface %s: %m",
+                                               argv[0], format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
                 }
         }
 
