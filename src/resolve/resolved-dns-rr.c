@@ -820,8 +820,8 @@ static char *format_txt(DnsTxtItem *first) {
 }
 
 const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
-        _cleanup_free_ char *t = NULL;
-        char *s, k[DNS_RESOURCE_KEY_STRING_MAX];
+        _cleanup_free_ char *s = NULL, *t = NULL;
+        char k[DNS_RESOURCE_KEY_STRING_MAX];
         int r;
 
         assert(rr);
@@ -1171,7 +1171,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         }
 
         rr->to_string = s;
-        return s;
+        return TAKE_PTR(s);
 }
 
 ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
