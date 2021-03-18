@@ -1092,6 +1092,11 @@ int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled) {
         if (!!enabled == server->bind_to_interface)
                 return 0;
 
+        if (sd_dhcp_server_is_running(server)) {
+                log_dhcp_server(server, "Refusing to change BindToInterface setting on a running DHCP Server. Restart is needed");
+                return 0;
+        }
+
         server->bind_to_interface = enabled;
 
         return 1;
