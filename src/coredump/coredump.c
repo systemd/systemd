@@ -757,7 +757,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else
-                coredump_make_stack_trace(coredump_fd, context->meta[META_EXE], &stacktrace);
+                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace);
 #endif
 
 log:
