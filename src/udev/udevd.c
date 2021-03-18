@@ -898,6 +898,9 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
 
         assert(manager);
 
+        if (!LIST_IS_EMPTY(manager->events))
+                return 1;
+
         log_debug("Cleanup idle workers");
         manager_kill_workers(manager);
 
