@@ -7,6 +7,7 @@ EXCLUDED_PATHS=(
     "src/basic/linux/*"
     # Symlinked to test-bus-vtable-cc.cc, which causes issues with the IN_SET macro
     "src/libsystemd/sd-bus/test-bus-vtable.c"
+    "src/libsystemd/sd-journal/lookup3.c"
 )
 
 top="$(git rev-parse --show-toplevel)"
