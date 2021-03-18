@@ -871,18 +871,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
                 break;
 
-        case DNS_TYPE_A: {
-                _cleanup_free_ char *x = NULL;
-
-                r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &x);
+        case DNS_TYPE_A:
+                r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &t);
                 if (r < 0)
                         return NULL;
 
-                s = strjoin(k, " ", x);
+                s = strjoin(k, " ", t);
                 if (!s)
                         return NULL;
                 break;
-        }
 
         case DNS_TYPE_AAAA:
                 r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &t);
@@ -1120,18 +1117,16 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
-        case DNS_TYPE_CAA: {
-                _cleanup_free_ char *value;
-
-                value = octescape(rr->caa.value, rr->caa.value_size);
-                if (!value)
+        case DNS_TYPE_CAA:
+                t = octescape(rr->caa.value, rr->caa.value_size);
+                if (!t)
                         return NULL;
 
                 r = asprintf(&s, "%s %u %s \"%s\"%s%s%s%.0u",
                              k,
                              rr->caa.flags,
                              rr->caa.tag,
-                             value,
+                             t,
                              rr->caa.flags ? "\n        -- Flags:" : "",
                              rr->caa.flags & CAA_FLAG_CRITICAL ? " critical" : "",
                              rr->caa.flags & ~CAA_FLAG_CRITICAL ? " " : "",
@@ -1140,7 +1135,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
 
                 break;
-        }
 
         case DNS_TYPE_OPENPGPKEY: {
                 r = asprintf(&s, "%s", k);
