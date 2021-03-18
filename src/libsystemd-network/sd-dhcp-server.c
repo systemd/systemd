@@ -290,7 +290,6 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
         };
-
         struct cmsghdr *cmsg;
         struct in_pktinfo *pktinfo;
 
