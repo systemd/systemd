@@ -352,7 +352,7 @@ void log_forget_fds(void) {
 }
 
 void log_set_max_level(int level) {
-        assert((level & LOG_PRIMASK) == level);
+        assert(FLAGS_SET(LOG_PRIMASK, level));
 
         log_max_level = level;
 }
