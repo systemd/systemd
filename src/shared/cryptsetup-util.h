@@ -61,4 +61,12 @@ int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *v
 int cryptsetup_get_keyslot_from_token(JsonVariant *v);
 int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v);
 
+#else
+
+/* If libcryptsetup is not available, let's at least define the basic type and NOP destructors for it, to
+ * make a little bit less #ifdeferry necessary in main programs. */
+struct crypt_device;
+static inline void sym_crypt_free(struct crypt_device* cd) {}
+static inline void sym_crypt_freep(struct crypt_device** cd) {}
+
 #endif
