@@ -345,6 +345,23 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                 if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
                         continue;
 
+                /* match slot address to function_id, if available */
+                if (naming_scheme_has(NAMING_SLOT_FUNCTION_ID) &&
+                    sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &attr) >= 0) {
+                        int function_id;
+                        char str[PATH_MAX];
+
+                        if (safe_atoi(attr, &function_id) >= 0 &&
+                            snprintf_ok(str, sizeof str, "%s/%08x", slots, function_id) &&
+                            access(str, R_OK | X_OK) == 0) {
+                                hotplug_slot = function_id;
+                                domain = 0;
+                        } else {
+                                log_debug("No matching slot for function_id (%s).", attr);
+                        }
+                        break;
+                }
+
                 FOREACH_DIRENT_ALL(dent, dir, break) {
                         int i;
                         char str[PATH_MAX];
