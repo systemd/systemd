@@ -114,17 +114,16 @@ static int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid) {
 }
 
 static void settle_make_machine_id_directory(void) {
-        struct statfs stf;
+        int r;
 
-        if (arg_make_machine_id_directory != -1)
+        if (arg_make_machine_id_directory >= 0)
                 return;
 
-        arg_make_machine_id_directory = false;
+        r = path_is_temporary_fs("/etc/machine-id");
+        if (r < 0)
+                log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system, assuming so.");
 
-        if (statfs("/etc/machine-id", &stf) < 0)
-                return;
-
-        arg_make_machine_id_directory = !is_temporary_fs(&stf);
+        arg_make_machine_id_directory = r == 0;
 }
 
 /* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
@@ -914,7 +913,7 @@ static int remove_machine_id_directory(const char *root) {
                 return 0;
 
         r = sd_id128_get_machine(&machine_id);
-        if (r != 0)
+        if (r < 0)
                 return log_error_errno(r, "Failed to get machine id: %m");
 
         return rmdir_one(root, sd_id128_to_string(machine_id, buf));
@@ -1027,7 +1026,7 @@ static int install_loader_config(const char *esp_path) {
                    "#console-mode keep\n");
         if (arg_make_machine_id_directory) {
                 r = sd_id128_get_machine(&machine_id);
-                if (r != 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to get machine id: %m");
 
                 fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
@@ -1058,7 +1057,7 @@ static int install_machine_id_directory(const char *root) {
                 return 0;
 
         r = sd_id128_get_machine(&machine_id);
-        if (r != 0)
+        if (r < 0)
                 return log_error_errno(r, "Failed to get machine id: %m");
 
         return mkdir_one(root, sd_id128_to_string(machine_id, buf));
@@ -1137,7 +1136,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-variables",              no_argument,       NULL, ARG_NO_VARIABLES              },
                 { "no-pager",                  no_argument,       NULL, ARG_NO_PAGER                  },
                 { "graceful",                  no_argument,       NULL, ARG_GRACEFUL                  },
-                { "make-machine-id-directory", optional_argument, NULL, ARG_MAKE_MACHINE_ID_DIRECTORY },
+                { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_MACHINE_ID_DIRECTORY },
                 {}
         };
 
@@ -1195,9 +1194,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MAKE_MACHINE_ID_DIRECTORY:
-                        if (!optarg)
-                                arg_make_machine_id_directory = true;
-                        else if (streq(optarg, "auto"))
+                        if (streq(optarg, "auto"))
                                 arg_make_machine_id_directory = -1;  /* default */
                         else {
                                 r = parse_boolean(optarg);
