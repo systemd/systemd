@@ -76,12 +76,6 @@
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
-#if !HAVE_LIBCRYPTSETUP
-struct crypt_device;
-static inline void sym_crypt_free(struct crypt_device* cd) {}
-static inline void sym_crypt_freep(struct crypt_device** cd) {}
-#endif
-
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
