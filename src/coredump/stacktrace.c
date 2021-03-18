@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dwarf.h>
+#include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -9,6 +10,7 @@
 #include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hexdecoct.h"
 #include "macro.h"
 #include "stacktrace.h"
 #include "string-util.h"
@@ -111,10 +113,51 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         return DWARF_CB_OK;
 }
 
-static int make_stack_trace(int fd, const char *executable, char **ret) {
+static int module_callback (Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg)
+{
+        _cleanup_free_ char *id_hex = NULL;
+        struct stack_context *c = arg;
+        size_t n_program_headers;
+        GElf_Addr id_vaddr, bias;
+        const unsigned char *id;
+        int id_len, r;
+        Elf *elf;
+
+        assert(mod);
+        assert(c);
+
+        if (!name)
+                name = "(unnamed)"; /* For logging purposes */
+
+        fprintf(c->f, "Found module %s", name);
+
+        /* We are iterating on each "module", which is what dwfl calls ELF objects contained in the
+         * core file, and extracting the build-id first and then the package metadata.
+         * We proceed in a best-effort fashion - not all ELF objects might contain both or either.
+         * The build-id is easy, as libdwfl parses it during the dwfl_core_file_report() call and
+         * stores it separately in an internal library struct. */
+        id_len = dwfl_module_build_id(mod, &id, &id_vaddr);
+        if (id_len == 0) {
+                fprintf(c->f, " without build-id\n");
+                return DWARF_CB_OK;
+        }
+
+        id_hex = hexmem(id, id_len);
+        if (!id_hex) {
+                fprintf(c->f, "\n");
+                return DWARF_CB_ABORT;
+        }
+
+        fprintf(c->f, " with build-id: %s\n", id_hex);
+
+        return DWARF_CB_OK;
+}
+
+static int parse_core(int fd, const char *executable, char **ret) {
 
         static const Dwfl_Callbacks callbacks = {
                 .find_elf = dwfl_build_id_find_elf,
+                .section_address = dwfl_offline_section_address,
                 .find_debuginfo = dwfl_standard_find_debuginfo,
         };
 
@@ -157,6 +200,11 @@ static int make_stack_trace(int fd, const char *executable, char **ret) {
                 goto finish;
         }
 
+        if (dwfl_getmodules(c.dwfl, &module_callback, &c, 0) < 0) {
+                r = -EINVAL;
+                goto finish;
+        }
+
         if (dwfl_core_file_attach(c.dwfl, c.elf) < 0) {
                 r = -EINVAL;
                 goto finish;
@@ -187,10 +235,10 @@ finish:
         return r;
 }
 
-void coredump_make_stack_trace(int fd, const char *executable, char **ret) {
+void coredump_parse_core(int fd, const char *executable, char **ret) {
         int r;
 
-        r = make_stack_trace(fd, executable, ret);
+        r = parse_core(fd, executable, ret);
         if (r == -EINVAL)
                 log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
         else if (r < 0)
