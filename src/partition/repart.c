@@ -4171,8 +4171,6 @@ static int determine_auto_size(Context *c) {
         Partition *p;
 
         assert_se(c);
-        assert_se(arg_size == UINT64_MAX);
-        assert_se(arg_size_auto);
 
         LIST_FOREACH(partitions, p, c->partitions) {
                 uint64_t m;
@@ -4356,9 +4354,13 @@ static int run(int argc, char *argv[]) {
                 if (context_allocate_partitions(context))
                         break; /* Success! */
 
-                if (!context_drop_one_priority(context))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                if (!context_drop_one_priority(context)) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                                "Can't fit requested partitions into free space, refusing.");
+
+                        determine_auto_size(context);
+                        return r;
+                }
         }
 
         /* Now assign free space according to the weight logic */
