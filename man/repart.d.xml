@@ -486,7 +486,11 @@
         <para>The copy operation is executed before the file system is registered in the partition table,
         thus ensuring that a file system populated this way only ever exists fully initialized.</para>
 
-        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para></listitem>
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
+
+        <para>When <command>systemd-repart</command> is invoked with the <option>--image=</option> or
+        <option>--root=</option> command line switches the source paths specified are taken relative to the
+        specified root directory or disk image root.</para></listitem>
       </varlistentry>
 
       <varlistentry>

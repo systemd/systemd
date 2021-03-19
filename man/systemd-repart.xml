@@ -40,16 +40,17 @@
     <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>If invoked with no arguments, it operates on the block device backing the root file system partition
-    of the OS, thus growing and adding partitions of the booted OS image itself. When called in the initial
-    RAM disk it operates on the block device backing <filename>/sysroot/</filename> instead, i.e. on the
-    block device the system will soon transition into. The <filename>systemd-repart.service</filename>
-    service is generally run at boot in the initial RAM disk, in order to augment the partition table of the
-    OS before its partitions are mounted. <command>systemd-repart</command> (mostly) operates in a purely
-    incremental mode: it only grows existing and adds new partitions; it does not shrink, delete or move
-    existing partitions. The service is intended to be run on every boot, but when it detects that the
-    partition table already matches the installed <filename>repart.d/*.conf</filename> configuration
-    files, it executes no operation.</para>
+    <para>If invoked with no arguments, it operates on the block device backing the root file system
+    partition of the running OS, thus growing and adding partitions of the booted OS image itself. If
+    <varname>--image=</varname> is used it will operate on the specified image file. When called in the
+    <literal>initrd</literal> it operates on the block device backing <filename>/sysroot/</filename> instead,
+    i.e. on the block device the system will soon transition into. The
+    <filename>systemd-repart.service</filename> service is generally run at boot in the initial RAM disk, in
+    order to augment the partition table of the OS before its partitions are
+    mounted. <command>systemd-repart</command> (mostly) operates in a purely incremental mode: it only grows
+    existing and adds new partitions; it does not shrink, delete or move existing partitions. The service is
+    intended to be run on every boot, but when it detects that the partition table already matches the
+    installed <filename>repart.d/*.conf</filename> configuration files, it executes no operation.</para>
 
     <para><command>systemd-repart</command> is intended to be used when deploying OS images, to automatically
     adjust them to the system they are running on, during first boot. This way the deployed image can be
@@ -251,11 +252,19 @@
         <term><option>--root=</option></term>
 
         <listitem><para>Takes a path to a directory to use as root file system when searching for
-        <filename>repart.d/*.conf</filename> files and for the machine ID file to use as seed. By default
-        when invoked on the regular system this defaults to the host's root file system
+        <filename>repart.d/*.conf</filename> files, for the machine ID file to use as seed and for the
+        <varname>CopyFiles=</varname> and <varname>CopyBlocks=</varname> source files an directories. By
+        default when invoked on the regular system this defaults to the host's root file system
         <filename>/</filename>. If invoked from the initial RAM disk this defaults to
         <filename>/sysroot/</filename>, so that the tool operates on the configuration and machine ID stored
         in the root file system later transitioned into itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=</option></term>
+
+        <listitem><para>Takes a path to a disk image file or device to mount and use in a similar fashion to
+        <option>--root=</option>, see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
