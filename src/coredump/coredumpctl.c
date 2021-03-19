@@ -1120,9 +1120,13 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 goto finish;
         if (r == 0) {
+                int saved_errno;
+
                 execvp(debugger_call[0], debugger_call);
+
+                saved_errno = errno;
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", debugger_call[0]);
+                log_error_errno(saved_errno, "Failed to invoke %s: %m", debugger_call[0]);
                 _exit(EXIT_FAILURE);
         }
 
