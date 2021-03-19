@@ -92,6 +92,7 @@ static enum {
 static bool arg_dry_run = true;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static char *arg_definitions = NULL;
 static bool arg_discard = true;
 static bool arg_can_factory_reset = false;
@@ -110,6 +111,7 @@ static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -3483,6 +3485,7 @@ static int help(void) {
                "                          them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
                "     --root=PATH          Operate relative to root path\n"
+               "     --image=PATH         Operate relative to image file\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
@@ -3513,6 +3516,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FACTORY_RESET,
                 ARG_CAN_FACTORY_RESET,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_SEED,
                 ARG_PRETTY,
                 ARG_DEFINITIONS,
@@ -3534,6 +3538,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "factory-reset",     required_argument, NULL, ARG_FACTORY_RESET     },
                 { "can-factory-reset", no_argument,       NULL, ARG_CAN_FACTORY_RESET },
                 { "root",              required_argument, NULL, ARG_ROOT              },
+                { "image",             required_argument, NULL, ARG_IMAGE             },
                 { "seed",              required_argument, NULL, ARG_SEED              },
                 { "pretty",            required_argument, NULL, ARG_PRETTY            },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
@@ -3613,7 +3618,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -3763,9 +3774,18 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "If --empty=create is specified, --size= must be specified, too.");
 
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+        else if (!arg_image && !arg_root && in_initrd()) {
+                /* Default to operation on /sysroot when invoked in the initrd! */
+                arg_root = strdup("/sysroot");
+                if (!arg_root)
+                        return log_oom();
+        }
+
         arg_node = argc > optind ? argv[optind] : NULL;
 
-        if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node)
+        if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to a device node or loopback file must be specified when --empty=force, --empty=require or --empty=create are used.");
 
@@ -3838,39 +3858,44 @@ static int remove_efi_variable_factory_reset(void) {
         return 0;
 }
 
-static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) {
+static int acquire_root_devno(
+                const char *p,
+                const char *root,
+                int mode,
+                char **ret,
+                int *ret_fd) {
+
+        _cleanup_free_ char *found_path = NULL;
+        dev_t devno, fd_devno = MODE_INVALID;
         _cleanup_close_ int fd = -1;
         struct stat st;
-        dev_t devno, fd_devno = MODE_INVALID;
         int r;
 
         assert(p);
         assert(ret);
         assert(ret_fd);
 
-        fd = open(p, mode);
+        fd = chase_symlinks_and_open(p, root, CHASE_PREFIX_ROOT, mode, &found_path);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (S_ISREG(st.st_mode)) {
-                char *s;
-
-                s = strdup(p);
-                if (!s)
-                        return log_oom();
-
-                *ret = s;
+                *ret = TAKE_PTR(found_path);
                 *ret_fd = TAKE_FD(fd);
-
                 return 0;
         }
 
-        if (S_ISBLK(st.st_mode))
+        if (S_ISBLK(st.st_mode)) {
+                /* Refuse referencing explicit block devices if a root dir is specified, after all we should
+                 * be able to leave the image the root path constraints us to. */
+                if (root)
+                        return -EPERM;
+
                 fd_devno = devno = st.st_rdev;
-        else if (S_ISDIR(st.st_mode)) {
+        } else if (S_ISDIR(st.st_mode)) {
 
                 devno = st.st_dev;
                 if (major(devno) == 0) {
@@ -3930,7 +3955,9 @@ static int find_root(char **ret, int *ret_fd) {
                         return 0;
                 }
 
-                r = acquire_root_devno(arg_node, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                /* Note that we don't specify a root argument here: if the user explicitly configured a node
+                 * we'll take it relative to the host, not the image */
+                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, arg_node);
                 if (r < 0)
@@ -3958,7 +3985,7 @@ static int find_root(char **ret, int *ret_fd) {
                 } else
                         p = t;
 
-                r = acquire_root_devno(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
+                r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
                 if (r < 0) {
                         if (r == -EUCLEAN)
                                 return btrfs_log_dev_root(LOG_ERR, r, p);
@@ -4005,9 +4032,15 @@ static int resize_pt(int fd) {
         return 1;
 }
 
-static int resize_backing_fd(const char *node, int *fd) {
+static int resize_backing_fd(
+                const char *node,           /* The primary way we access the disk image to operate on */
+                int *fd,                    /* An O_RDONLY fd referring to that inode */
+                const char *backing_file,   /* If the above refers to a loopback device, the backing regular file for that, which we can grow */
+                LoopDevice *loop_device) {
+
         char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
         _cleanup_close_ int writable_fd = -1;
+        uint64_t current_size;
         struct stat st;
         int r;
 
@@ -4028,25 +4061,64 @@ static int resize_backing_fd(const char *node, int *fd) {
         if (fstat(*fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", node);
 
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return log_error_errno(r, "Specified path '%s' is not a regular file, cannot resize: %m", node);
+        if (S_ISBLK(st.st_mode)) {
+                if (!backing_file)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Cannot resize block device '%s'.", node);
 
-        assert_se(format_bytes(buf1, sizeof(buf1), st.st_size));
+                assert(loop_device);
+
+                if (ioctl(*fd, BLKGETSIZE64, &current_size) < 0)
+                        return log_error_errno(errno, "Failed to determine size of block device %s: %m", node);
+        } else {
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Specified path '%s' is not a regular file or loopback block device, cannot resize: %m", node);
+
+                assert(!backing_file);
+                assert(!loop_device);
+                current_size = st.st_size;
+        }
+
+        assert_se(format_bytes(buf1, sizeof(buf1), current_size));
         assert_se(format_bytes(buf2, sizeof(buf2), arg_size));
 
-        if ((uint64_t) st.st_size >= arg_size) {
+        if (current_size >= arg_size) {
                 log_info("File '%s' already is of requested size or larger, not growing. (%s >= %s)", node, buf1, buf2);
                 return 0;
         }
 
-        /* The file descriptor is read-only. In order to grow the file we need to have a writable fd. We
-         * reopen the file for that temporarily. We keep the writable fd only open for this operation though,
-         * as fdisk can't accept it anyway. */
+        if (S_ISBLK(st.st_mode)) {
+                assert(backing_file);
 
-        writable_fd = fd_reopen(*fd, O_WRONLY|O_CLOEXEC);
-        if (writable_fd < 0)
-                return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
+                /* This is a loopback device. We can't really grow those directly, but we can grow the
+                 * backing file, hence let's do that. */
+
+                writable_fd = open(backing_file, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+                if (writable_fd < 0)
+                        return log_error_errno(errno, "Failed to open backing file '%s': %m", backing_file);
+
+                if (fstat(writable_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat() backing file '%s': %m", backing_file);
+
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Backing file '%s' of block device is not a regular file: %m", backing_file);
+
+                if ((uint64_t) st.st_size != current_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Size of backing file '%s' of loopback block device '%s' don't match, refusing.", node, backing_file);
+        } else {
+                assert(S_ISREG(st.st_mode));
+                assert(!backing_file);
+
+                /* The file descriptor is read-only. In order to grow the file we need to have a writable fd. We
+                 * reopen the file for that temporarily. We keep the writable fd only open for this operation though,
+                 * as fdisk can't accept it anyway. */
+
+                writable_fd = fd_reopen(*fd, O_WRONLY|O_CLOEXEC);
+                if (writable_fd < 0)
+                        return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
+        }
 
         if (!arg_discard) {
                 if (fallocate(writable_fd, 0, 0, arg_size) < 0) {
@@ -4057,16 +4129,12 @@ static int resize_backing_fd(const char *node, int *fd) {
                         /* Fallback to truncation, if fallocate() is not supported. */
                         log_debug("Backing file system does not support fallocate(), falling back to ftruncate().");
                 } else {
-                        r = resize_pt(writable_fd);
-                        if (r < 0)
-                                return r;
-
-                        if (st.st_size == 0) /* Likely regular file just created by us */
+                        if (current_size == 0) /* Likely regular file just created by us */
                                 log_info("Allocated %s for '%s'.", buf2, node);
                         else
                                 log_info("File '%s' grown from %s to %s by allocation.", node, buf1, buf2);
 
-                        return 1;
+                        goto done;
                 }
         }
 
@@ -4074,14 +4142,21 @@ static int resize_backing_fd(const char *node, int *fd) {
                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by truncation: %m",
                                        node, buf1, buf2);
 
+        if (current_size == 0) /* Likely regular file just created by us */
+                log_info("Sized '%s' to %s.", node, buf2);
+        else
+                log_info("File '%s' grown from %s to %s by truncation.", node, buf1, buf2);
+
+done:
         r = resize_pt(writable_fd);
         if (r < 0)
                 return r;
 
-        if (st.st_size == 0) /* Likely regular file just created by us */
-                log_info("Sized '%s' to %s.", node, buf2);
-        else
-                log_info("File '%s' grown from %s to %s by truncation.", node, buf1, buf2);
+        if (loop_device) {
+                r = loop_device_refresh_size(loop_device, UINT64_MAX, arg_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update loop device size: %m");
+        }
 
         return 1;
 }
@@ -4116,22 +4191,18 @@ static int determine_auto_size(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *node = NULL;
         _cleanup_close_ int backing_fd = -1;
-        bool from_scratch;
+        bool from_scratch, node_is_our_loop = false;
         int r;
 
         log_show_color(true);
         log_parse_environment();
         log_open();
-
-        if (in_initrd()) {
-                /* Default to operation on /sysroot when invoked in the initrd! */
-                arg_root = strdup("/sysroot");
-                if (!arg_root)
-                        return log_oom();
-        }
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -4144,6 +4215,40 @@ static int run(int argc, char *argv[]) {
         r = parse_efi_variable_factory_reset();
         if (r < 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                /* Mount this strictly read-only: we shall modify the partition table, not the file
+                 * systems */
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_MOUNT_READ_ONLY |
+                                (arg_node ? DISSECT_IMAGE_DEVICE_READ_ONLY : 0) | /* If a different node to make changes to is specified let's open the device in read-only mode) */
+                                DISSECT_IMAGE_GPT_ONLY |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_USR_NO_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT,
+                                &mounted_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+
+                if (!arg_node) {
+                        arg_node = strdup(loop_device->node);
+                        if (!arg_node)
+                                return log_oom();
+
+                        /* Remember that the the device we are about to manipulate is actually the one we
+                         * allocated here, and thus to increase its backing file we know what to do */
+                        node_is_our_loop = true;
+                }
+        }
 
         context = context_new(arg_seed);
         if (!context)
@@ -4163,7 +4268,11 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_size != UINT64_MAX) {
-                r = resize_backing_fd(node, &backing_fd);
+                r = resize_backing_fd(
+                                node,
+                                &backing_fd,
+                                node_is_our_loop ? arg_image : NULL,
+                                node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
         }
@@ -4225,7 +4334,11 @@ static int run(int argc, char *argv[]) {
                 context_unload_partition_table(context);
 
                 assert_se(arg_size != UINT64_MAX);
-                r = resize_backing_fd(node, &backing_fd);
+                r = resize_backing_fd(
+                                node,
+                                &backing_fd,
+                                node_is_our_loop ? arg_image : NULL,
+                                node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
 
