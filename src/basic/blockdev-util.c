@@ -94,7 +94,8 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *t = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
-        struct dirent *de, *found = NULL;
+        _cleanup_free_ char *found = NULL;
+        struct dirent *de;
         const char *q;
         dev_t devt;
         int r;
@@ -128,7 +129,7 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                         if (!u)
                                 return -ENOMEM;
 
-                        v = path_join(p, found->d_name, "../dev");
+                        v = path_join(p, found, "../dev");
                         if (!v)
                                 return -ENOMEM;
 
@@ -144,15 +145,17 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                          * different physical devices, and we don't support that. */
                         if (!streq(a, b))
                                 return -ENOTUNIQ;
+                } else {
+                        found = strdup(de->d_name);
+                        if (!found)
+                                return -ENOMEM;
                 }
-
-                found = de;
         }
 
         if (!found)
                 return -ENOENT;
 
-        q = strjoina(p, "/", found->d_name, "/dev");
+        q = strjoina(p, "/", found, "/dev");
 
         r = read_one_line_file(q, &t);
         if (r < 0)
