@@ -23,13 +23,25 @@ __systemctl() {
     }
 
 _arguments \
+    {-G,--collect}'[Unload the transient unit after it completed]' \
+    '--description=[Description for unit]:description' \
+    '--gid=[Run as system group]:group:_groups' \
     {-h,--help}'[Show help message]' \
-    '--version[Show package version]' \
-    '--user[Run as user unit]' \
     {-H+,--host=}'[Operate on remote host]:[user@]host:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
-    '--scope[Run this as scope rather than service]' \
-    '--unit=[Run under the specified unit name]:unit name' \
+    '--nice=[Nice level]:nice level' \
+    '--no-ask-password[Do not query the user for authentication]' \
+    '--no-block[Do not synchronously wait for the unit start operation to finish]' \
+    '--on-active=[Run after SEC seconds]:SEC' \
+    '--on-boot=[Run SEC seconds after machine was booted up]:SEC' \
+    '--on-calendar=[Realtime timer]:SPEC' \
+    '--on-clock-change[Defines a trigger based on system clock jumps]' \
+    '--on-startup=[Run SEC seconds after systemd was first started]:SEC' \
+    '--on-timezone-change[Defines a trigger based on system timezone changes]' \
+    '--on-unit-active=[Run SEC seconds after the last activation]:SEC' \
+    '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
+    '--path-property=[Set path unit property]:NAME=VALUE' \
+    {-P,--pipe}'[Inherit standard input, output, and error]' \
     {-p+,--property=}'[Set unit property]:NAME=VALUE:(( \
                 CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= \
                 SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group= \
@@ -45,21 +57,24 @@ _arguments \
                 ReadOnlyPaths= InaccessiblePaths= EnvironmentFile= \
                 ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment= \
                 ))' \
-    '--description=[Description for unit]:description' \
-    '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
+    {-t,--pty}'[The service connects to the terminal]' \
+    {-q,--quiet}'[Suppresses additional informational output]' \
     {-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
+    {-d,--same-dir}'[Run on the current working directory]' \
+    '--scope[Run this as scope rather than service]' \
     '--send-sighup[Send SIGHUP when terminating]' \
     '--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \
-    '--uid=[Run as system user]:user:_users' \
-    '--gid=[Run as system group]:group:_groups' \
-    '--nice=[Nice level]:nice level' \
-    '--setenv=[Set environment]:NAME=VALUE' \
-    '--on-active=[Run after SEC seconds]:SEC' \
-    '--on-boot=[Run SEC seconds after machine was booted up]:SEC' \
-    '--on-startup=[Run SEC seconds after systemd was first started]:SEC' \
-    '--on-unit-active=[Run SEC seconds after the last activation]:SEC' \
-    '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
-    '--on-calendar=[Realtime timer]:SPEC' \
+    {-E+,--setenv=}'[Set environment]:NAME=VALUE' \
+    {-S,--shell}'[requests an interactive shell in the current working directory]' \
+    '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
+    '--slice-inherit[Run in the inherited slice]' \
+    '--socket-property=[Set socket unit property]:NAME=VALUE' \
+    '--system[Run as system unit]' \
     '--timer-property=[Set timer unit property]:NAME=VALUE' \
+    '--uid=[Run as system user]:user:_users' \
+    {-u+,--unit=}'[Run under the specified unit name]:unit name' \
+    '--user[Run as user unit]' \
+    '--version[Show package version]' \
     '--wait=[Wait until service stopped again]' \
+    '--working-directory=[Run with the specified working directory]' \
     '*::command:_command'
