@@ -1305,12 +1305,13 @@ void session_leave_vt(Session *s) {
          * process the real switch only after we are notified via sysfs, so the
          * legacy session might have already started using the devices. If we
          * don't pause the devices before the switch, we might confuse the
-         * session we switch to. */
+         * session we switch to. We pause the devices by leaving the session
+         * before we get switched to the new VT. */
 
         if (s->vtfd < 0)
                 return;
 
-        session_device_pause_all(s);
+        seat_set_active(s->seat, NULL);
         r = vt_release(s->vtfd, false);
         if (r < 0)
                 log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);
