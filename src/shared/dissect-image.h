@@ -87,7 +87,7 @@ static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
 }
 
 typedef enum DissectImageFlags {
-        DISSECT_IMAGE_READ_ONLY           = 1 << 0,
+        DISSECT_IMAGE_DEVICE_READ_ONLY    = 1 << 0,  /* Make device read-only */
         DISSECT_IMAGE_DISCARD_ON_LOOP     = 1 << 1,  /* Turn on "discard" if on a loop device and file system supports it */
         DISSECT_IMAGE_DISCARD             = 1 << 2,  /* Turn on "discard" if file system supports it, on all block devices */
         DISSECT_IMAGE_DISCARD_ON_CRYPTO   = 1 << 3,  /* Turn on "discard" also on crypto devices */
@@ -107,6 +107,9 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_MKDIR               = 1 << 14, /* Make top-level directory to mount right before mounting, if missing */
         DISSECT_IMAGE_USR_NO_ROOT         = 1 << 15, /* If no root fs is in the image, but /usr is, then allow this (so that we can mount the rootfs as tmpfs or so */
         DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 16, /* Don't accept disks without root partition (or at least /usr partition if DISSECT_IMAGE_USR_NO_ROOT is set) */
+        DISSECT_IMAGE_MOUNT_READ_ONLY     = 1 << 17, /* Make mounts read-only */
+        DISSECT_IMAGE_READ_ONLY = DISSECT_IMAGE_DEVICE_READ_ONLY |
+                                  DISSECT_IMAGE_MOUNT_READ_ONLY,
 } DissectImageFlags;
 
 struct DissectedImage {
