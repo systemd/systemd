@@ -967,6 +967,9 @@ static int config_parse_label(
         assert(rvalue);
         assert(label);
 
+        /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
+         * assigning the empty string to reset to default here, but really accept it as label to set. */
+
         r = specifier_printf(rvalue, specifier_table, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -1881,7 +1884,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type_uuid, uuid_buffer),
-                                TABLE_STRING, label ?: "-", TABLE_SET_COLOR, label ? NULL : ansi_grey(),
+                                TABLE_STRING, empty_to_null(label) ?: "-", TABLE_SET_COLOR, empty_to_null(label) ? NULL : ansi_grey(),
                                 TABLE_UUID, sd_id128_is_null(p->new_uuid) ? p->current_uuid : p->new_uuid,
                                 TABLE_STRING, p->definition_path ? basename(p->definition_path) : "-", TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
                                 TABLE_STRING, partname ?: "-", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
@@ -2449,7 +2452,7 @@ static int partition_encrypt(
                          volume_key,
                          volume_key_size,
                          &(struct crypt_params_luks2) {
-                                 .label = p->new_label,
+                                 .label = strempty(p->new_label),
                                  .sector_size = 512U,
                          });
         if (r < 0)
@@ -2839,7 +2842,7 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, p->new_label, fs_uuid, arg_discard);
+                r = make_filesystem(fsdev, p->format, strempty(p->new_label), fs_uuid, arg_discard);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -3026,7 +3029,7 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
                         if (p->current_label) {
                                 free(p->new_label);
-                                p->new_label = strdup(p->current_label);
+                                p->new_label = strdup(strempty(p->current_label));
                                 if (!p->new_label)
                                         return log_oom();
                         }
@@ -3109,9 +3112,7 @@ static int context_mangle_partitions(Context *context) {
                         }
 
                         if (!streq_ptr(p->new_label, p->current_label)) {
-                                assert(!isempty(p->new_label));
-
-                                r = fdisk_partition_set_name(p->current_partition, p->new_label);
+                                r = fdisk_partition_set_name(p->current_partition, strempty(p->new_label));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition label: %m");
 
@@ -3135,7 +3136,7 @@ static int context_mangle_partitions(Context *context) {
                         assert(p->offset % 512 == 0);
                         assert(p->new_size % 512 == 0);
                         assert(!sd_id128_is_null(p->new_uuid));
-                        assert(!isempty(p->new_label));
+                        assert(p->new_label);
 
                         t = fdisk_new_parttype();
                         if (!t)
@@ -3173,7 +3174,7 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition UUID: %m");
 
-                        r = fdisk_partition_set_name(q, p->new_label);
+                        r = fdisk_partition_set_name(q, strempty(p->new_label));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
 
