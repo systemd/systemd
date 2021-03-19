@@ -2227,6 +2227,9 @@ static int context_discard_range(
 
                 range[0] = round_up_size(offset, 512);
 
+                if (offset > UINT64_MAX - size)
+                        return -ERANGE;
+
                 end = offset + size;
                 if (end <= range[0])
                         return 0;
