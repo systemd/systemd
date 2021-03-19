@@ -134,6 +134,7 @@ enum worker_state {
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
+        WORKER_KILLING,
 };
 
 struct worker {
@@ -737,6 +738,11 @@ static void manager_kill_workers(Manager *manager) {
                 if (worker->state == WORKER_KILLED)
                         continue;
 
+                if (worker->state == WORKER_RUNNING) {
+                        worker->state = WORKER_KILLING;
+                        continue;
+                }
+
                 worker->state = WORKER_KILLED;
                 (void) kill(worker->pid, SIGTERM);
         }
@@ -1014,7 +1020,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                if (worker->state != WORKER_KILLED)
+                if (worker->state == WORKER_KILLING) {
+                        worker->state = WORKER_KILLED;
+                        (void) kill(worker->pid, SIGTERM);
+                } if (worker->state != WORKER_KILLED)
                         worker->state = WORKER_IDLE;
 
                 /* worker returned */
