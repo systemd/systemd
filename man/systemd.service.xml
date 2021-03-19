@@ -752,14 +752,19 @@
         If set to <option>no</option> (the default), the service will
         not be restarted. If set to <option>on-success</option>, it
         will be restarted only when the service process exits cleanly.
-        In this context, a clean exit means an exit code of 0, or one
-        of the signals
-        <constant>SIGHUP</constant>,
-        <constant>SIGINT</constant>,
-        <constant>SIGTERM</constant> or
-        <constant>SIGPIPE</constant>, and
-        additionally, exit statuses and signals specified in
-        <varname>SuccessExitStatus=</varname>. If set to
+        In this context, a clean exit means any of the following:
+        <itemizedlist>
+            <listitem><simpara>exit code of 0;</simpara></listitem>
+            <listitem><simpara>for types other than
+            <varname>Type=oneshot</varname>, one of the signals
+                <constant>SIGHUP</constant>,
+                <constant>SIGINT</constant>,
+                <constant>SIGTERM</constant>, or
+                <constant>SIGPIPE</constant>;</simpara></listitem>
+            <listitem><simpara>exit statuses and signals specified in
+                <varname>SuccessExitStatus=</varname>.</simpara></listitem>
+        </itemizedlist>
+        If set to
         <option>on-failure</option>, the service will be restarted
         when the process exits with a non-zero exit code, is
         terminated by a signal (including on core dump, but excluding
@@ -881,7 +886,7 @@
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
         process, will be considered successful termination, in addition to the normal successful exit status
-        0 and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+        0 and, except for <varname>Type=oneshot</varname>, the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
         <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status definitions can be
         numeric termination statuses, termination status names, or termination signal names, separated by
         spaces. See the Process Exit Codes section in
