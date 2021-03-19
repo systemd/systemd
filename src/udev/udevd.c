@@ -134,6 +134,7 @@ enum worker_state {
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
+        WORKER_KILLING,
 };
 
 struct worker {
@@ -728,7 +729,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         return 0;
 }
 
-static void manager_kill_workers(Manager *manager) {
+static void manager_kill_workers(Manager *manager, bool force) {
         struct worker *worker;
 
         assert(manager);
@@ -736,6 +737,11 @@ static void manager_kill_workers(Manager *manager) {
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state == WORKER_KILLED)
                         continue;
+
+                if (worker->state == WORKER_RUNNING && !force) {
+                        worker->state = WORKER_KILLING;
+                        continue;
+                }
 
                 worker->state = WORKER_KILLED;
                 (void) kill(worker->pid, SIGTERM);
@@ -872,7 +878,7 @@ static void manager_exit(Manager *manager) {
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
-        manager_kill_workers(manager);
+        manager_kill_workers(manager, true);
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
@@ -884,7 +890,7 @@ static void manager_reload(Manager *manager) {
                   "RELOADING=1\n"
                   "STATUS=Flushing configuration...");
 
-        manager_kill_workers(manager);
+        manager_kill_workers(manager, false);
         manager->rules = udev_rules_free(manager->rules);
         udev_builtin_exit();
 
@@ -899,7 +905,7 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         assert(manager);
 
         log_debug("Cleanup idle workers");
-        manager_kill_workers(manager);
+        manager_kill_workers(manager, false);
 
         return 1;
 }
@@ -1014,7 +1020,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                if (worker->state != WORKER_KILLED)
+                if (worker->state == WORKER_KILLING) {
+                        worker->state = WORKER_KILLED;
+                        (void) kill(worker->pid, SIGTERM);
+                } else if (worker->state != WORKER_KILLED)
                         worker->state = WORKER_IDLE;
 
                 /* worker returned */
@@ -1060,7 +1069,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
                 log_set_max_level(value->intval);
                 manager->log_level = value->intval;
-                manager_kill_workers(manager);
+                manager_kill_workers(manager, false);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
@@ -1125,7 +1134,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
                 }
 
                 key = val = NULL;
-                manager_kill_workers(manager);
+                manager_kill_workers(manager, false);
                 break;
         }
         case UDEV_CTRL_SET_CHILDREN_MAX:
