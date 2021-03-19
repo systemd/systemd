@@ -173,9 +173,13 @@ static int found_override(const char *top, const char *bottom) {
         if (r < 0)
                 return r;
         if (r == 0) {
+                int saved_errno;
+
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
+
+                saved_errno = errno;
                 log_open();
-                log_error_errno(errno, "Failed to execute diff: %m");
+                log_error_errno(saved_errno, "Failed to execute diff: %m");
                 _exit(EXIT_FAILURE);
         }
 
