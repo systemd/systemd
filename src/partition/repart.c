@@ -2274,6 +2274,11 @@ static int context_discard_partition(Context *context, Partition *p) {
                 log_info("Storage does not support discard, not discarding data in future partition %" PRIu64 ".", p->partno);
                 return 0;
         }
+        if (r == -EBUSY) {
+                /* Let's handle this gracefully: https://bugzilla.kernel.org/show_bug.cgi?id=211167 */
+                log_info("Block device is busy, not discarding partition %" PRIu64 " because it probably is mounted.", p->partno);
+                return 0;
+        }
         if (r == 0) {
                 log_info("Partition %" PRIu64 " too short for discard, skipping.", p->partno);
                 return 0;
