@@ -2785,7 +2785,7 @@ int unit_check_oomd_kill(Unit *u) {
         if (!increased)
                 return 0;
 
-        if (n > 0)
+        if (n > 0 && !unit_filters_log_level(u, LOG_NOTICE))
                 log_struct(LOG_NOTICE,
                            "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
                            LOG_UNIT_ID(u),
@@ -2818,11 +2818,12 @@ int unit_check_oom(Unit *u) {
         if (!increased)
                 return 0;
 
-        log_struct(LOG_NOTICE,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
+        if (!unit_filters_log_level(u, LOG_NOTICE))
+                log_struct(LOG_NOTICE,
+                           "MESSAGE_ID=" SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR,
+                           LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
+                           LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
 
         if (UNIT_VTABLE(u)->notify_cgroup_oom)
                 UNIT_VTABLE(u)->notify_cgroup_oom(u);
