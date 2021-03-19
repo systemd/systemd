@@ -31,20 +31,20 @@ __get_machines() {
 
 _systemd_run() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-    local OPTS='-h --help --version --user --system --scope --unit --description --slice
-                -r --remain-after-exit --send-sighup -H --host -M --machine --service-type
-                --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive
-                --on-calendar --timer-property --path-property --socket-property -t --pty
-                -q --quiet --no-block --uid --gid --nice -E --setenv -p --property
-                --no-ask-password --wait -P --pipe -G --collect --working-directory
-                -d --same-dir -S --shell'
+    local OPTS='--no-ask-password --scope -u --unit -p --property --description --slice --slice-inherit
+                -r --remain-after-exit --send-sighup --service-type --uid --gid --nice
+                --working-directory -d --same-dir -E --setenv -t --pty -P --pipe -S --shell -q --quiet
+                --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar
+                --on-clock-change --on-timezone-change --path-property --socket-property
+                --timer-property --no-block --wait -G --collect --user --system -H --host -M --machine
+                -h --help --version'
 
     local mode=--system
     local i
     local opts_with_values=(
-        --unit --description --slice --service-type -H --host -M --machine -p --property --on-active
-        --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar --timer-property
-        --path-property --socket-property --uid --gid --nice -E --setenv --working-directory
+        --unit -p --property --slice --description --service-type --uid --gid --nice --working-directory
+        -E --setenv --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar
+        --path-property --socket-property --timer-property -H --host -M --machine
     )
     for (( i=1; i <= COMP_CWORD; i++ )); do
         if [[ ${COMP_WORDS[i]} != -* ]]; then
