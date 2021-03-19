@@ -1408,7 +1408,7 @@ static int mount_partition(
         if (streq(fstype, "crypto_LUKS"))
                 return -EUNATCH;
 
-        rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
+        rw = m->rw && !(flags & DISSECT_IMAGE_MOUNT_READ_ONLY);
 
         if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw) {
                 r = run_fsck(node, fstype);
@@ -1756,7 +1756,7 @@ static int decrypt_partition(
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
         r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
                                              ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
@@ -2674,7 +2674,7 @@ int mount_image_privately_interactively(
 
         r = loop_device_make_by_path(
                         image,
-                        FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         &d);
         if (r < 0)
