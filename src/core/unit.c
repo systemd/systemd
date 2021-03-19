@@ -1449,6 +1449,9 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
         va_list ap;
         int r;
 
+        if (u && unit_filters_log_level(u, level))
+                return -ERRNO_VALUE(error);
+
         va_start(ap, format);
         if (u)
                 r = log_object_internalv(level, error, file, line, func,
@@ -2206,7 +2209,8 @@ static int unit_log_resources(Unit *u) {
         t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
         iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
 
-        log_struct_iovec(log_level, iovec, n_iovec + 4);
+        if (!unit_filters_log_level(u, log_level))
+                log_struct_iovec(log_level, iovec, n_iovec + 4);
         r = 0;
 
 finish:
@@ -4478,6 +4482,9 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         assert(u);
         assert(where);
 
+        if (unit_filters_log_level(u, LOG_NOTICE))
+                return;
+
         r = dir_is_empty(where);
         if (r > 0 || r == -ENOTDIR)
                 return;
@@ -4512,12 +4519,13 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
                 return 0;
 
         /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
-        log_struct(LOG_ERR,
-                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
-                   "WHERE=%s", where);
+        if (!unit_filters_log_level(u, LOG_ERR))
+                log_struct(LOG_ERR,
+                           "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
+                           LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
+                           LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
+                           "WHERE=%s", where);
 
         return -ELOOP;
 }
@@ -5296,6 +5304,9 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
 void unit_log_success(Unit *u) {
         assert(u);
 
+        if (unit_filters_log_level(u, LOG_INFO))
+                return;
+
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
                    LOG_UNIT_ID(u),
@@ -5306,6 +5317,9 @@ void unit_log_success(Unit *u) {
 void unit_log_failure(Unit *u, const char *result) {
         assert(u);
         assert(result);
+
+        if (unit_filters_log_level(u, LOG_WARNING))
+                return;
 
         log_struct(LOG_WARNING,
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILURE_RESULT_STR,
@@ -5318,6 +5332,9 @@ void unit_log_failure(Unit *u, const char *result) {
 void unit_log_skip(Unit *u, const char *result) {
         assert(u);
         assert(result);
+
+        if (unit_filters_log_level(u, LOG_INFO))
+                return;
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
@@ -5350,6 +5367,9 @@ void unit_log_process_exit(
                 level = LOG_NOTICE;
         else
                 level = LOG_WARNING;
+
+        if (unit_filters_log_level(u, level))
+                return;
 
         log_struct(level,
                    "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
