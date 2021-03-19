@@ -3027,10 +3027,9 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                         p->new_uuid = p->current_uuid;
 
                         if (p->current_label) {
-                                free(p->new_label);
-                                p->new_label = strdup(strempty(p->current_label));
-                                if (!p->new_label)
-                                        return log_oom();
+                                r = free_and_strdup_warn(&p->new_label, strempty(p->current_label));
+                                if (r < 0)
+                                        return r;
                         }
 
                         continue;
@@ -3046,10 +3045,10 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                 }
 
                 if (!isempty(p->current_label)) {
-                        free(p->new_label);
-                        p->new_label = strdup(p->current_label); /* never change initialized labels */
-                        if (!p->new_label)
-                                return log_oom();
+                        /* never change initialized labels */
+                        r = free_and_strdup_warn(&p->new_label, p->current_label);
+                        if (r < 0)
+                                return r;
                 } else if (!p->new_label) {
                         /* Not explicitly set by user! */
 
