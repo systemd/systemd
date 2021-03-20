@@ -133,22 +133,29 @@ static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
         return false;
 }
 
-static bool dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
+static void dns_cache_remove_by_key_full(DnsCache *c, DnsResourceKey *key, bool only_negative) {
         DnsCacheItem *first, *i, *n;
 
         assert(c);
         assert(key);
 
-        first = hashmap_remove(c->by_key, key);
+        first = hashmap_get(c->by_key, key);
         if (!first)
-                return false;
+                return;
+
+        if (only_negative && first->type == DNS_CACHE_POSITIVE)
+                return;
+
+        assert_se(hashmap_remove(c->by_key, key) == first);
 
         LIST_FOREACH_SAFE(by_key, i, n, first) {
                 prioq_remove(c->by_expiry, i, &i->prioq_idx);
                 dns_cache_item_free(i);
         }
+}
 
-        return true;
+static void dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
+        dns_cache_remove_by_key_full(c, key, false);
 }
 
 void dns_cache_flush(DnsCache *c) {
@@ -386,9 +393,7 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        dns_answer_ref(answer);
-        dns_answer_unref(i->answer);
-        i->answer = answer;
+        dns_answer_extend(&i->answer, answer);
 
         dns_packet_ref(full_packet);
         dns_packet_unref(i->full_packet);
@@ -636,15 +641,14 @@ static void dns_cache_remove_previous(
 
         assert(c);
 
-        /* First, if we were passed a key (i.e. on LLMNR/DNS, but
-         * not on mDNS), delete all matching old RRs, so that we only
-         * keep complete by_key in place. */
+        /* First, if we were passed a key (i.e. on LLMNR/DNS, but not on mDNS), delete all matching old
+         * RRs, so that we only keep complete by_key in place. */
         if (key)
                 dns_cache_remove_by_key(c, key);
 
-        /* Second, flush all entries matching the answer, unless this
-         * is an RR that is explicitly marked to be "shared" between
-         * peers (i.e. mDNS RRs without the flush-cache bit set). */
+        /* Second, flush all negative cache entries matching the answer, unless this is an RR that is
+         * explicitly marked to be "shared" between peers (i.e. mDNS RRs without the flush-cache bit
+         * set). */
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0)
                         continue;
@@ -652,7 +656,7 @@ static void dns_cache_remove_previous(
                 if (flags & DNS_ANSWER_SHARED_OWNER)
                         continue;
 
-                dns_cache_remove_by_key(c, rr->key);
+                dns_cache_remove_by_key_full(c, rr->key, true);
         }
 }
 
