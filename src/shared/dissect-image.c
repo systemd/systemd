@@ -1286,8 +1286,13 @@ static int run_fsck(const char *node, const char *fstype) {
                 return log_debug_errno(r, "Failed to fork off fsck: %m");
         if (r == 0) {
                 /* Child */
+                int saved_errno;
+
                 execl("/sbin/fsck", "/sbin/fsck", "-aT", node, NULL);
-                log_debug_errno(errno, "Failed to execl() fsck: %m");
+
+                saved_errno = errno;
+                log_open();
+                log_debug_errno(saved_errno, "Failed to execl() fsck: %m");
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 
