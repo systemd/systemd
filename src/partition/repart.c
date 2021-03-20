@@ -2994,8 +2994,6 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
                         break;
 
                 label = mfree(label);
-
-
                 if (asprintf(&label, "%s-%u", prefix, ++k) < 0)
                         return log_oom();
         }
