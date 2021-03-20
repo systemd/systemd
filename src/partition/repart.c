@@ -162,6 +162,7 @@ struct Partition {
 
         char *format;
         char **copy_files;
+        char **make_directories;
         EncryptMode encrypt;
 
         LIST_FIELDS(Partition, partitions);
@@ -258,6 +259,7 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         strv_free(p->copy_files);
+        strv_free(p->make_directories);
 
         return mfree(p);
 }
@@ -1164,6 +1166,45 @@ static int config_parse_copy_files(
         return 0;
 }
 
+static int config_parse_make_dirs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *d = NULL;
+        Partition *partition = data;
+        int r;
+
+        assert(rvalue);
+        assert(partition);
+
+        r = specifier_printf(rvalue, specifier_table, NULL, &d);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in MakeDirectories= source, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!path_is_absolute(d) || !path_is_normalized(d)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid path name in MakeDirectories= path, ignoring: %s", d);
+                return 0;
+        }
+
+        r = strv_consume(&partition->make_directories, TAKE_PTR(d));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
 
 static int partition_read_definition(Partition *p, const char *path) {
@@ -1183,6 +1224,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "CopyBlocks",      config_parse_path,       0, &p->copy_blocks_path },
                 { "Partition", "Format",          config_parse_fstype,     0, &p->format           },
                 { "Partition", "CopyFiles",       config_parse_copy_files, 0, p                    },
+                { "Partition", "MakeDirectories", config_parse_make_dirs,  0, p                    },
                 { "Partition", "Encrypt",         config_parse_encrypt,    0, &p->encrypt          },
                 {}
         };
@@ -1209,15 +1251,15 @@ static int partition_read_definition(Partition *p, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
-        if (p->copy_blocks_path && (p->format || !strv_isempty(p->copy_files)))
+        if (p->copy_blocks_path && (p->format || !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format= and CopyBlocks= cannot be combined, refusing.");
 
-        if (!strv_isempty(p->copy_files) && streq_ptr(p->format, "swap"))
+        if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
-        if (!p->format && (!strv_isempty(p->copy_files) || (p->encrypt != ENCRYPT_OFF && !p->copy_blocks_path))) {
+        if (!p->format && (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !p->copy_blocks_path))) {
                 /* Pick "ext4" as file system if we are configured to copy files or encrypt the device */
                 p->format = strdup("ext4");
                 if (!p->format)
@@ -2736,13 +2778,30 @@ static int do_copy_files(Partition *p, const char *fs) {
         return 0;
 }
 
-static int partition_copy_files(Partition *p, const char *node) {
+static int do_make_directories(Partition *p, const char *fs) {
+        char **d;
+        int r;
+
+        assert(p);
+        assert(fs);
+
+        STRV_FOREACH(d, p->make_directories) {
+
+                r = mkdir_p_root(fs, *d, UID_INVALID, GID_INVALID, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
+        }
+
+        return 0;
+}
+
+static int partition_populate(Partition *p, const char *node) {
         int r;
 
         assert(p);
         assert(node);
 
-        if (strv_isempty(p->copy_files))
+        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
 
         log_info("Populating partition %" PRIu64 " with files.", p->partno);
@@ -2768,6 +2827,9 @@ static int partition_copy_files(Partition *p, const char *node) {
                         _exit(EXIT_FAILURE);
 
                 if (do_copy_files(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_make_directories(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -2859,7 +2921,7 @@ static int context_mkfs(Context *context) {
                         if (flock(encrypted_dev_fd, LOCK_UN) < 0)
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
-                r = partition_copy_files(p, fsdev);
+                r = partition_populate(p, fsdev);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
