@@ -488,7 +488,7 @@ int dns_query_new(
                         log_debug("Looking up bypass packet for %s.",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));
         } else {
-                /* First dump UTF8  question */
+                /* First dump UTF8 question */
                 DNS_QUESTION_FOREACH(key, question_utf8)
                         log_debug("Looking up RR for %s.",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));

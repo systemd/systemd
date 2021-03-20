@@ -43,7 +43,7 @@ struct DnsCacheItem {
         int rcode;
 
         usec_t until;
-        bool shared_owner:1;
+        bool shared_owner;
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
@@ -386,9 +386,7 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        dns_answer_ref(answer);
-        dns_answer_unref(i->answer);
-        i->answer = answer;
+        dns_answer_extend(&i->answer, answer);
 
         dns_packet_ref(full_packet);
         dns_packet_unref(i->full_packet);
@@ -626,36 +624,6 @@ static int dns_cache_put_negative(
         return 0;
 }
 
-static void dns_cache_remove_previous(
-                DnsCache *c,
-                DnsResourceKey *key,
-                DnsAnswer *answer) {
-
-        DnsResourceRecord *rr;
-        DnsAnswerFlags flags;
-
-        assert(c);
-
-        /* First, if we were passed a key (i.e. on LLMNR/DNS, but
-         * not on mDNS), delete all matching old RRs, so that we only
-         * keep complete by_key in place. */
-        if (key)
-                dns_cache_remove_by_key(c, key);
-
-        /* Second, flush all entries matching the answer, unless this
-         * is an RR that is explicitly marked to be "shared" between
-         * peers (i.e. mDNS RRs without the flush-cache bit set). */
-        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
-                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
-                        continue;
-
-                if (flags & DNS_ANSWER_SHARED_OWNER)
-                        continue;
-
-                dns_cache_remove_by_key(c, rr->key);
-        }
-}
-
 static bool rr_eligible(DnsResourceRecord *rr) {
         assert(rr);
 
@@ -702,7 +670,10 @@ int dns_cache_put(
         assert(c);
         assert(owner_address);
 
-        dns_cache_remove_previous(c, key, answer);
+        /* If we were passed a key (i.e. on LLMNR/DNS, but not on mDNS), delete all matching old RRs,
+         * so that we only keep complete by_key in place. */
+        if (key)
+                dns_cache_remove_by_key(c, key);
 
         /* We only care for positive replies and NXDOMAINs, on all other replies we will simply flush the respective
          * entries, and that's it. (Well, with one further exception: since some DNS zones (akamai!) return SERVFAIL
