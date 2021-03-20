@@ -1287,6 +1287,7 @@ static int run_fsck(const char *node, const char *fstype) {
         if (r == 0) {
                 /* Child */
                 execl("/sbin/fsck", "/sbin/fsck", "-aT", node, NULL);
+                log_open();
                 log_debug_errno(errno, "Failed to execl() fsck: %m");
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
