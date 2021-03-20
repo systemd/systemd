@@ -1467,7 +1467,11 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
 
         /* Spawns a temporary TTY agent, making sure it goes away when we go away */
 
-        r = safe_fork_full(name, except, n_except, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, ret_pid);
+        r = safe_fork_full(name,
+                           except,
+                           n_except,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                           ret_pid);
         if (r < 0)
                 return r;
         if (r > 0)
