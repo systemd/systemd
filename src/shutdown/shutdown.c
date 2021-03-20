@@ -487,7 +487,7 @@ int main(int argc, char *argv[]) {
                         /* There are things we cannot get rid of. Loop one more time
                          * with LOG_ERR to inform the user. Note that we don't need
                          * to do this if there is a initrd to switch to, because that
-                         * one is likely to get rid of the remounting mounts. If not,
+                         * one is likely to get rid of the remaining mounts. If not,
                          * it will log about them. */
                         umount_log_level = LOG_ERR;
                         continue;

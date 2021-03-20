@@ -33,6 +33,8 @@ int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
 
 int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, DnsQuestion **ret);
 
+void dns_question_dump(DnsQuestion *q, FILE *f);
+
 const char *dns_question_first_name(DnsQuestion *q);
 
 static inline size_t dns_question_size(DnsQuestion *q) {

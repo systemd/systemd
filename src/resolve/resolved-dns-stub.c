@@ -275,7 +275,7 @@ static int dns_stub_collect_answer_by_section(
                     dns_type_is_dnssec(item->rr->key->type))
                         continue;
 
-                if (((item->flags ^ section) & (DNS_ANSWER_SECTION_ANSWER|DNS_ANSWER_SECTION_AUTHORITY|DNS_ANSWER_SECTION_ADDITIONAL)) != 0)
+                if (((item->flags ^ section) & DNS_ANSWER_MASK_SECTIONS) != 0)
                         continue;
 
                 r = reply_add_with_rrsig(
@@ -761,7 +761,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
          * and keep adding all RRs in the CNAME chain. */
         r = dns_stub_assign_sections(
                         q,
-                        q->request_packet->question,
+                        dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
                         dns_stub_reply_with_edns0_do(q));
         if (r < 0) {
                 log_debug_errno(r, "Failed to assign sections: %m");
