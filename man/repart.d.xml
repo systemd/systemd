@@ -494,6 +494,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MakeDirectories=</varname></term>
+
+        <listitem><para>akes one or more absolute paths, separated by whitespace, each declaring a directory
+        to create within the new file system. Behaviour is similar to <varname>CopyFiles=</varname>, but
+        instead of copying in a set of files this just creates the specified directories with the default
+        mode of 0755 owned by the root user and group, plus all their parent directories (with the same
+        ownership and access mode). To configure directories with different ownership or access mode, use
+        <varname>CopyFiles=</varname> and specify a source tree to copy containing appropriately
+        owned/configured directories. This option may be used more than once to create multiple
+        directories. When <varname>CopyFiles=</varname> and <varname>MakeDirectories=</varname> are used
+        together the former is applied first. If a directory listed already exists no operation is executed
+        (in particular, the ownership/access mode of the directories is left as is).</para>
+
+        <para>The primary usecase for this option is to create a minimal set of directories that may be
+        mounted over by other partitions contained in the same disk image. For example, a disk image where
+        the root file system is formatted at first boot might want to automatically pre-create
+        <filename>/usr/</filename> in it this way, so that the <literal>usr</literal> partition may
+        over-mount it.</para>
+
+        <para>Consider using
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        with its <option>--image=</option> option to pre-create other, more complex directory hierarchies (as
+        well as other inodes) with fine-grained control of ownership, access modes and other file
+        attributes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,
