@@ -19,6 +19,7 @@ static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static Hashmap *arg_interfaces = NULL;
 static char **arg_ignore = NULL;
 static LinkOperationalStateRange arg_required_operstate = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
+static AddressFamily arg_required_family = ADDRESS_FAMILY_NO;
 static bool arg_any = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_free_free_freep);
@@ -111,6 +112,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "interface",         required_argument, NULL, 'i'         },
                 { "ignore",            required_argument, NULL, ARG_IGNORE  },
                 { "operational-state", required_argument, NULL, 'o'         },
+                { "ipv4",              no_argument,       NULL, '4'         },
+                { "ipv6",              no_argument,       NULL, '6'         },
                 { "any",               no_argument,       NULL, ARG_ANY     },
                 { "timeout",           required_argument, NULL, ARG_TIMEOUT },
                 {}
@@ -159,6 +162,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case '4':
+                        arg_required_family |= ADDRESS_FAMILY_IPV4;
+                        break;
+
+                case '6':
+                        arg_required_family |= ADDRESS_FAMILY_IPV6;
+                        break;
+
                 case ARG_ANY:
                         arg_any = true;
                         break;
@@ -197,7 +209,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_any, arg_timeout);
+        r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_required_family, arg_any, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 
