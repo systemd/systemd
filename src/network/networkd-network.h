@@ -104,6 +104,7 @@ struct Network {
         bool unmanaged;
         bool required_for_online; /* Is this network required to be considered online? */
         LinkOperationalStateRange required_operstate_for_online;
+        AddressFamily required_family_for_online;
         ActivationPolicy activation_policy;
 
         /* misc settings */
@@ -344,6 +345,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
+CONFIG_PARSER_PROTOTYPE(config_parse_required_family_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
