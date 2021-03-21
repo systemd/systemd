@@ -277,7 +277,7 @@ int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags
         return found;
 }
 
-int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
+bool dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
         DnsResourceRecord *i;
 
         DNS_ANSWER_FOREACH(i, a)
@@ -314,7 +314,7 @@ int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone) {
         return false;
 }
 
-int dns_answer_contains(DnsAnswer *answer, DnsResourceRecord *rr) {
+bool dns_answer_contains(DnsAnswer *answer, DnsResourceRecord *rr) {
         DnsResourceRecord *i;
 
         DNS_ANSWER_FOREACH(i, answer)

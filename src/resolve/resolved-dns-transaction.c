@@ -2222,13 +2222,7 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
          * question. If so, let's see if there are any NSEC/NSEC3 RRs
          * included. If not, the answer is unsigned. */
 
-        r = dns_answer_contains_nsec_or_nsec3(t->answer);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return false;
-
-        return true;
+        return !dns_answer_contains_nsec_or_nsec3(t->answer);
 }
 
 static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRecord *rr) {
