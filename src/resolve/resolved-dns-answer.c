@@ -277,6 +277,19 @@ int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags
         return found;
 }
 
+bool dns_answer_match_key_class_and_type(DnsAnswer *a, const DnsResourceKey *key) {
+        DnsResourceRecord *i;
+
+        assert(key);
+
+        DNS_ANSWER_FOREACH(i, a)
+                if (i->key->type == key->type &&
+                    i->key->class == key->class)
+                        return true;
+
+        return false;
+}
+
 bool dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
         DnsResourceRecord *i;
 

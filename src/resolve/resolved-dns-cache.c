@@ -1163,6 +1163,18 @@ int dns_cache_lookup(
                 return 0;
         }
 
+        if (n > 0 && !dns_answer_match_key_class_and_type(answer, key)) {
+                char first_key_str[DNS_RESOURCE_KEY_STRING_MAX];
+
+                /* This happens when e.g. request is AAAA, but found cached entry is CNAME, and only A
+                 * record for the redirect is cached. */
+
+                log_debug("Found cache entry '%s' does not contain requested key '%s'",
+                          dns_resource_key_to_string(first->key, first_key_str, sizeof first_key_str),
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                goto miss;
+        }
+
         log_debug("%s cache hit for %s",
                   n > 0    ? "Positive" :
                   nxdomain ? "NXDOMAIN" : "NODATA",
