@@ -61,7 +61,9 @@ int make_filesystem(
                         return log_oom();
         }
 
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
+        r = safe_fork("(mkfs)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                      NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
