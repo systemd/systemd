@@ -56,6 +56,15 @@ static const char* const link_carrier_state_table[_LINK_CARRIER_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(link_carrier_state, LinkCarrierState);
 
+static const char* const link_address_family_table[_ADDRESS_FAMILY_MAX] = {
+        [ADDRESS_FAMILY_NO]   = "any",
+        [ADDRESS_FAMILY_IPV4] = "ipv4",
+        [ADDRESS_FAMILY_IPV6] = "ipv6",
+        [ADDRESS_FAMILY_YES]  = "both",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_address_family, AddressFamily);
+
 static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
         [LINK_ADDRESS_STATE_OFF]      = "off",
         [LINK_ADDRESS_STATE_DEGRADED] = "degraded",
