@@ -321,9 +321,13 @@ static int run(int argc, char *argv[]) {
                         return r;
                 if (r == 0) {
                         /* Child */
+                        int saved_errno;
+
                         execvp(arguments[0], arguments);
+
+                        saved_errno = errno;
                         log_open();
-                        log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
+                        log_error_errno(saved_errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
                 }
 
