@@ -160,12 +160,40 @@ _public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "OPER_STATE", state);
 }
 
+_public_ int sd_network_link_get_required_family_for_online(int ifindex, char **state) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(state, -EINVAL);
+
+        r = network_link_get_string(ifindex, "REQUIRED_FAMILY_FOR_ONLINE", &s);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        return r;
+
+                s = strdup("any");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *state = TAKE_PTR(s);
+        return 0;
+}
+
 _public_ int sd_network_link_get_carrier_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "CARRIER_STATE", state);
 }
 
 _public_ int sd_network_link_get_address_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_link_get_ipv4_address_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "IPV4_ADDRESS_STATE", state);
+}
+
+_public_ int sd_network_link_get_ipv6_address_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "IPV6_ADDRESS_STATE", state);
 }
 
 _public_ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid) {
