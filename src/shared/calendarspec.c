@@ -1101,7 +1101,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         return 0;
 }
 
-static int find_end_of_month(struct tm *tm, bool utc, int day) {
+static int find_end_of_month(const struct tm *tm, bool utc, int day) {
         struct tm t = *tm;
 
         t.tm_mon++;
@@ -1114,28 +1114,39 @@ static int find_end_of_month(struct tm *tm, bool utc, int day) {
         return t.tm_mday;
 }
 
-static int find_matching_component(const CalendarSpec *spec, const CalendarComponent *c,
-                                   struct tm *tm, int *val) {
-        const CalendarComponent *p = c;
-        int start, stop, d = -1;
+static int find_matching_component(
+                const CalendarSpec *spec,
+                const CalendarComponent *c,
+                const struct tm *tm,           /* tm is only used for end-of-month calculations */
+                int *val) {
+
+        int d = -1, r;
         bool d_set = false;
-        int r;
 
         assert(val);
+
+        /* Finds the *earliest* matching time specified by one of the CalendarCompoment items in chain c.
+         * If no matches can be found, returns -ENOENT.
+         * Otherwise, updates *val to the matching time. 1 is returned if *val was changed, 0 otherwise.
+         */
 
         if (!c)
                 return 0;
 
-        while (c) {
-                start = c->start;
-                stop = c->stop;
+        bool end_of_month = spec->end_of_month && c == spec->day;
 
-                if (spec->end_of_month && p == spec->day) {
-                        start = find_end_of_month(tm, spec->utc, start);
-                        stop = find_end_of_month(tm, spec->utc, stop);
+        while (c) {
+                int start, stop;
+
+                if (end_of_month) {
+                        start = find_end_of_month(tm, spec->utc, c->start);
+                        stop = find_end_of_month(tm, spec->utc, c->stop);
 
                         if (stop > 0)
                                 SWAP_TWO(start, stop);
+                } else {
+                        start = c->start;
+                        stop = c->stop;
                 }
 
                 if (start >= *val) {
@@ -1184,15 +1195,18 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
                 return negative_errno();
 
         /* Did any normalization take place? If so, it was out of bounds before */
-        bool good = t.tm_year == tm->tm_year &&
-                    t.tm_mon  == tm->tm_mon  &&
-                    t.tm_mday == tm->tm_mday &&
-                    t.tm_hour == tm->tm_hour &&
-                    t.tm_min  == tm->tm_min  &&
-                    t.tm_sec  == tm->tm_sec;
-        if (!good)
+        int cmp = CMP(t.tm_year, tm->tm_year) ?:
+                  CMP(t.tm_mon, tm->tm_mon) ?:
+                  CMP(t.tm_mday, tm->tm_mday) ?:
+                  CMP(t.tm_hour, tm->tm_hour) ?:
+                  CMP(t.tm_min, tm->tm_min) ?:
+                  CMP(t.tm_sec, tm->tm_sec);
+
+        if (cmp < 0)
+                return -EDEADLK; /* Refuse to go backward */
+        if (cmp > 0)
                 *tm = t;
-        return good;
+        return cmp == 0;
 }
 
 static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
@@ -1210,6 +1224,10 @@ static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
         return (weekdays_bits & (1 << k));
 }
 
+/* A safety valve: if we get stuck in the calculation, return an error.
+ * C.f. https://bugzilla.redhat.com/show_bug.cgi?id=1941335. */
+#define MAX_CALENDAR_ITERATIONS 1000
+
 static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         struct tm c;
         int tm_usec;
@@ -1223,7 +1241,7 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
         c = *tm;
         tm_usec = *usec;
 
-        for (;;) {
+        for (unsigned iteration = 0; iteration < MAX_CALENDAR_ITERATIONS; iteration++) {
                 /* Normalize the current date */
                 (void) mktime_or_timegm(&c, spec->utc);
                 c.tm_isdst = spec->dst;
@@ -1320,6 +1338,14 @@ static int find_next(const CalendarSpec *spec, struct tm *tm, usec_t *usec) {
                 *usec = tm_usec;
                 return 0;
         }
+
+        /* It seems we entered an infinite loop. Let's gracefully return an error instead of hanging or
+         * aborting. This code is also exercised when timers.target is brought up during early boot, so
+         * aborting here is problematic and hard to diagnose for users. */
+        _cleanup_free_ char *s = NULL;
+        (void) calendar_spec_to_string(spec, &s);
+        return log_warning_errno(SYNTHETIC_ERRNO(EDEADLK),
+                                 "Infinite loop in calendar calculation: %s", strna(s));
 }
 
 static int calendar_spec_next_usec_impl(const CalendarSpec *spec, usec_t usec, usec_t *ret_next) {
