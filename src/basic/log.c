@@ -250,6 +250,8 @@ static bool stderr_is_journal(void) {
 int log_open(void) {
         int r;
 
+        PROTECT_ERRNO;
+
         /* Do not call from library code. */
 
         /* If we don't use the console we close it here, to not get
