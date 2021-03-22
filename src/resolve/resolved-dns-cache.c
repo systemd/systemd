@@ -43,7 +43,7 @@ struct DnsCacheItem {
         int rcode;
 
         usec_t until;
-        bool shared_owner:1;
+        bool shared_owner;
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
