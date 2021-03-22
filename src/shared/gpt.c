@@ -106,3 +106,43 @@ int gpt_partition_label_valid(const char *s) {
 
         return char16_strlen(recoded) <= 36;
 }
+
+bool gpt_partition_type_is_root(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_ROOT_X86) ||
+                sd_id128_equal(id, GPT_ROOT_X86_64) ||
+                sd_id128_equal(id, GPT_ROOT_ARM) ||
+                sd_id128_equal(id, GPT_ROOT_ARM_64) ||
+                sd_id128_equal(id, GPT_ROOT_IA64) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV32) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV64);
+}
+
+bool gpt_partition_type_is_root_verity(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_ROOT_X86_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_X86_64_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_ARM_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_ARM_64_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_IA64_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV32_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV64_VERITY);
+}
+
+bool gpt_partition_type_is_usr(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_USR_X86) ||
+                sd_id128_equal(id, GPT_USR_X86_64) ||
+                sd_id128_equal(id, GPT_USR_ARM) ||
+                sd_id128_equal(id, GPT_USR_ARM_64) ||
+                sd_id128_equal(id, GPT_USR_IA64) ||
+                sd_id128_equal(id, GPT_USR_RISCV32) ||
+                sd_id128_equal(id, GPT_USR_RISCV64);
+}
+
+bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_USR_X86_VERITY) ||
+                sd_id128_equal(id, GPT_USR_X86_64_VERITY) ||
+                sd_id128_equal(id, GPT_USR_ARM_VERITY) ||
+                sd_id128_equal(id, GPT_USR_ARM_64_VERITY) ||
+                sd_id128_equal(id, GPT_USR_IA64_VERITY) ||
+                sd_id128_equal(id, GPT_USR_RISCV32_VERITY) ||
+                sd_id128_equal(id, GPT_USR_RISCV64_VERITY);
+}
