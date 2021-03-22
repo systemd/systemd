@@ -353,6 +353,7 @@ int loop_device_make(
                                 .nr = nr,
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
+                                .devno = st.st_rdev,
                         };
 
                         *ret = d;
@@ -425,6 +426,10 @@ int loop_device_make(
                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
+        if (fstat(loop_with_fd, &st) < 0)
+                return -errno;
+        assert(S_ISBLK(st.st_mode));
+
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
@@ -432,6 +437,7 @@ int loop_device_make(
                 .fd = TAKE_FD(loop_with_fd),
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
+                .devno = st.st_rdev,
         };
 
         *ret = d;
