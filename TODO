@@ -22,6 +22,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-repart: add a switch to factory reset the partition table without
+  immediately applying the new configuration again. i.e. --factory-reset=leave
+  or so. (this is useful to factory reset an image, then putting it into
+  another machine, ensuring that luks key is generated on new machine, not old)
+
 * move logind udev rules to top-level rule.d/ directory
 
 * move multiseat vid/pid matches from logind udev rule to hwdb
