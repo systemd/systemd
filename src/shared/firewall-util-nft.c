@@ -1006,9 +1006,11 @@ again:
 
         assert(tsize < NFT_DNAT_MSGS);
         if (add)
-                nft_add_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_add_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
         else
-                nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+        if (r < 0)
+                goto out_unref;
 
         tsize++;
         assert(tsize < NFT_DNAT_MSGS);
