@@ -1121,6 +1121,7 @@ install_zoneinfo() {
     inst_any /usr/share/zoneinfo/Asia/Vladivostok
     inst_any /usr/share/zoneinfo/Australia/Sydney
     inst_any /usr/share/zoneinfo/Europe/Berlin
+    inst_any /usr/share/zoneinfo/Europe/Dublin
     inst_any /usr/share/zoneinfo/Europe/Kiev
     inst_any /usr/share/zoneinfo/Pacific/Auckland
     inst_any /usr/share/zoneinfo/Pacific/Honolulu

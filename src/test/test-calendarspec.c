@@ -218,6 +218,9 @@ int main(int argc, char* argv[]) {
         // Confirm that timezones in the Spec work regardless of current timezone
         test_next("2017-09-09 20:42:00 Pacific/Auckland", "", 12345, 1504946520000000);
         test_next("2017-09-09 20:42:00 Pacific/Auckland", "EET", 12345, 1504946520000000);
+        /* Check that we don't start looping if mktime() moves us backwards */
+        test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
+        test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
 
         assert_se(calendar_spec_from_string("test", &c) < 0);
         assert_se(calendar_spec_from_string(" utc", &c) < 0);
