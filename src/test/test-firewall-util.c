@@ -22,8 +22,10 @@ static void test_v6(FirewallContext *ctx) {
         assert_se(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 128) >= 0);
         assert_se(fw_add_masquerade(&ctx, true, AF_INET6, &u1, 64) >= 0);
         assert_se(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 64) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u1, 815, NULL) >= 0);
-
+        int r = fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u1, 815, NULL);
+        if (r < 0)
+                log_error_errno(r, "Failed to set dnat: %m");
+        assert(r >= 0);
         assert_se(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1) >= 0);
         assert_se(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL) >= 0);
 
