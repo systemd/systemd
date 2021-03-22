@@ -9,19 +9,19 @@
 typedef struct FirewallContext FirewallContext;
 
 int fw_ctx_new(FirewallContext **ret);
-FirewallContext *fw_ctx_free(FirewallContext *fw_ctx);
+FirewallContext *fw_ctx_free(FirewallContext *ctx);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FirewallContext *, fw_ctx_free);
 
 int fw_add_masquerade(
-                FirewallContext **fw_ctx,
+                FirewallContext **ctx,
                 bool add,
                 int af,
                 const union in_addr_union *source,
                 unsigned source_prefixlen);
 
 int fw_add_local_dnat(
-                FirewallContext **fw_ctx,
+                FirewallContext **ctx,
                 bool add,
                 int af,
                 int protocol,
