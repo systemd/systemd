@@ -252,18 +252,14 @@ int log_open(void) {
 
         /* Do not call from library code. */
 
-        /* This function is often called in preparation for being able
-         * to log. Let's make sure we don't clobber errno, so that a call
-         * to a logging function immediately following a log_open() call
-         * can still easily reference an error that happened immediately
-         * before the log_open() call. */
+        /* This function is often called in preparation for logging. Let's make sure we don't clobber errno,
+         * so that a call to a logging function immediately following a log_open() call can still easily
+         * reference an error that happened immediately before the log_open() call. */
         PROTECT_ERRNO;
 
-        /* If we don't use the console we close it here, to not get
-         * killed by SAK. If we don't use syslog we close it here so
-         * that we are not confused by somebody deleting the socket in
-         * the fs, and to make sure we don't use it if prohibit_ipc is
-         * set. If we don't use /dev/kmsg we still keep it open,
+        /* If we don't use the console, we close it here to not get killed by SAK. If we don't use syslog, we
+         * close it here too, so that we are not confused by somebody deleting the socket in the fs, and to
+         * make sure we don't use it if prohibit_ipc is set. If we don't use /dev/kmsg we still keep it open,
          * because there is no reason to close it. */
 
         if (log_target == LOG_TARGET_NULL) {
