@@ -26,11 +26,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file whose name ends in
-    <literal>.device</literal> encodes information about a device unit
-    as exposed in the
-    sysfs/<citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    device tree.</para>
+    <para>A unit configuration file whose name ends in <literal>.device</literal> encodes information about a
+    device unit as exposed in the
+    sysfs/<citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> device
+    tree. This may be used to define dependencies between devices and other units.</para>
 
     <para>This unit type has no specific options. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -40,14 +39,10 @@
     sections. A separate [Device] section does not
     exist, since no device-specific options may be configured.</para>
 
-    <para>systemd will dynamically create device units for all kernel
-    devices that are marked with the "systemd" udev tag (by default
-    all block and network devices, and a few others). This may be used
-    to define dependencies between devices and other units. To tag a
-    udev device, use <literal>TAG+="systemd"</literal> in the udev
-    rules file, see
-    <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for details.</para>
+    <para>systemd will dynamically create device units for all kernel devices that are marked with the
+    <literal>systemd</literal> udev tag (by default all block and network devices, and a few others). Note
+    that <emphasis>if <filename>systemd-udev.service</filename> is not running, no device units will be
+    available (for example in a typical container)</emphasis>.</para>
 
     <para>Device units are named after the <filename>/sys/</filename>
     and <filename>/dev/</filename> paths they control. Example: the
@@ -56,6 +51,10 @@
     the escaping logic used to convert a file system path to a unit
     name see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>To tag a udev device, use <literal>TAG+="systemd"</literal> in the udev rules file, see
+    <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details.
+    </para>
 
     <para>Device units will be reloaded by systemd whenever the
     corresponding device generates a <literal>changed</literal> event.
