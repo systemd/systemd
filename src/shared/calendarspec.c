@@ -1195,15 +1195,18 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
                 return negative_errno();
 
         /* Did any normalization take place? If so, it was out of bounds before */
-        bool good = t.tm_year == tm->tm_year &&
-                    t.tm_mon  == tm->tm_mon  &&
-                    t.tm_mday == tm->tm_mday &&
-                    t.tm_hour == tm->tm_hour &&
-                    t.tm_min  == tm->tm_min  &&
-                    t.tm_sec  == tm->tm_sec;
-        if (!good)
+        int cmp = CMP(t.tm_year, tm->tm_year) ?:
+                  CMP(t.tm_mon, tm->tm_mon) ?:
+                  CMP(t.tm_mday, tm->tm_mday) ?:
+                  CMP(t.tm_hour, tm->tm_hour) ?:
+                  CMP(t.tm_min, tm->tm_min) ?:
+                  CMP(t.tm_sec, tm->tm_sec);
+
+        if (cmp < 0)
+                return -EDEADLK; /* Refuse to go backward */
+        if (cmp > 0)
                 *tm = t;
-        return good;
+        return cmp == 0;
 }
 
 static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
