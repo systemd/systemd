@@ -353,7 +353,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atoi(dent->d_name, &i);
+                        r = parse_slot(dent->d_name, &i);
                         if (r < 0 || i <= 0)
                                 continue;
 
