@@ -1015,6 +1015,13 @@ static int fw_nftables_add_local_dnat_internal(
         tsize++;
         assert(tsize <= NFT_DNAT_MSGS);
         r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
+        if (r == -EOVERFLOW) {
+                /* FIXME: the current implementation of DNAT in systemd requires kernel's
+                 * fdb9c405e35bdc6e305b9b4e20ebc141ed14fc81 (v5.8), and the older kernel returns
+                 * -EOVERFLOW. Let's treat the error as -EOPNOTSUPP. */
+                log_debug_errno(r, "The current implementation of DNAT in systemd requires kernel 5.8 or newer, ignoring: %m");
+                r = -EOPNOTSUPP;
+        }
 
 out_unref:
         while (tsize > 0)
