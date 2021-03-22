@@ -22,6 +22,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
+
+* introduce /dev/disk/root/* symlinks that allow referencing partitions on the
+  disk the rootfs is on in a reasonably secure way.
+
 * systemd-repart: add a switch to factory reset the partition table without
   immediately applying the new configuration again. i.e. --factory-reset=leave
   or so. (this is useful to factory reset an image, then putting it into
