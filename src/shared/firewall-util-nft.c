@@ -810,40 +810,6 @@ static int nft_message_add_setelem_iprange(sd_netlink_message *m,
         return 0;
 }
 
-/* When someone runs 'nft flush ruleset' in the same net namespace
- * this will also tear down the systemd nat table.
- *
- * Unlike iptables -t nat -F (which will remove all rules added by the
- * systemd iptables backend, iptables has builtin chains that cannot be
- * deleted -- the next add operation will 'just work'.
- *
- * In the nftables case, everything gets removed. The next add operation
- * will yield -ENOENT.
- *
- * If we see -ENOENT on add, replay the initial table setup.
- * If that works, re-do the add operation.
- *
- * Note that this doesn't protect against external sabotage such as a
- * 'while true; nft flush ruleset;done'. There is nothing that could be
- * done about that short of extending the kernel to allow tables to be
- * owned by stystemd-networkd and making them non-deleteable except by
- * the 'owning process'.
- */
-static int fw_nftables_recreate_table(sd_netlink *nfnl, int af, sd_netlink_message **old, size_t size) {
-        int r = fw_nftables_init_family(nfnl, af);
-
-        if (r != 0)
-                return r;
-
-        while (size > 0) {
-               size_t i = --size;
-
-               old[i] = sd_netlink_message_unref(old[i]);
-        }
-
-        return 0;
-}
-
 static int nft_message_add_setelem_ip6range(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
@@ -877,14 +843,14 @@ static int nft_message_add_setelem_ip6range(
 
 #define NFT_MASQ_MSGS   3
 
-int fw_nftables_add_masquerade(
+static int fw_nftables_add_masquerade_internal(
                 FirewallContext *ctx,
                 bool add,
                 int af,
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
+
         sd_netlink_message *transaction[NFT_MASQ_MSGS] = {};
-        bool retry = true;
         size_t tsize;
         int r;
 
@@ -893,7 +859,7 @@ int fw_nftables_add_masquerade(
 
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
-again:
+
         r = sd_nfnl_message_batch_begin(ctx->nfnl, &transaction[0]);
         if (r < 0)
                 return r;
@@ -902,7 +868,6 @@ again:
                 r = sd_nfnl_nft_message_new_setelems_begin(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
         else
                 r = sd_nfnl_nft_message_del_setelems_begin(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
-
         if (r < 0)
                 goto out_unref;
 
@@ -910,7 +875,6 @@ again:
                  r = nft_message_add_setelem_iprange(transaction[tsize], source, source_prefixlen);
         else
                  r = nft_message_add_setelem_ip6range(transaction[tsize], source, source_prefixlen);
-
         if (r < 0)
                 goto out_unref;
 
@@ -919,16 +883,9 @@ again:
         r = sd_nfnl_message_batch_end(ctx->nfnl, &transaction[tsize]);
         if (r < 0)
                 return r;
+
         ++tsize;
         r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
-
-        if (retry && r == -ENOENT) {
-                int tmp = fw_nftables_recreate_table(ctx->nfnl, af, transaction, tsize);
-                if (tmp == 0) {
-                        retry = false;
-                        goto again;
-                }
-        }
 
 out_unref:
         while (tsize > 0)
@@ -936,9 +893,46 @@ out_unref:
         return r < 0 ? r : 0;
 }
 
+int fw_nftables_add_masquerade(
+                FirewallContext *ctx,
+                bool add,
+                int af,
+                const union in_addr_union *source,
+                unsigned int source_prefixlen) {
+
+        int r;
+
+        r = fw_nftables_add_masquerade_internal(ctx, add, af, source, source_prefixlen);
+        if (r != -ENOENT)
+                return r;
+
+        /* When someone runs 'nft flush ruleset' in the same net namespace this will also tear down the
+         * systemd nat table.
+         *
+         * Unlike iptables -t nat -F (which will remove all rules added by the systemd iptables
+         * backend, iptables has builtin chains that cannot be deleted -- the next add operation will
+         * 'just work'.
+         *
+         * In the nftables case, everything gets removed. The next add operation will yield -ENOENT.
+         *
+         * If we see -ENOENT on add, replay the initial table setup. If that works, re-do the add
+         * operation.
+         *
+         * Note that this doesn't protect against external sabotage such as a
+         * 'while true; nft flush ruleset; done'. There is nothing that could be done about that short
+         * of extending the kernel to allow tables to be owned by stystemd-networkd and making them
+         * non-deleteable except by the 'owning process'. */
+
+        r = fw_nftables_init_family(ctx->nfnl, af);
+        if (r < 0)
+                return r;
+
+        return fw_nftables_add_masquerade_internal(ctx, add, af, source, source_prefixlen);
+}
+
 #define NFT_DNAT_MSGS   4
 
-int fw_nftables_add_local_dnat(
+static int fw_nftables_add_local_dnat_internal(
                 FirewallContext *ctx,
                 bool add,
                 int af,
@@ -947,13 +941,17 @@ int fw_nftables_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
-        uint32_t data[5], key[2], dlen;
+
         sd_netlink_message *transaction[NFT_DNAT_MSGS] = {};
-        bool retry = true;
+        static bool ipv6_supported = true;
+        uint32_t data[5], key[2], dlen;
         size_t tsize;
         int r;
 
         assert(add || !previous_remote);
+
+        if (!ipv6_supported && af == AF_INET6)
+                return -EOPNOTSUPP;
 
         if (!IN_SET(protocol, IPPROTO_TCP, IPPROTO_UDP))
                 return -EPROTONOSUPPORT;
@@ -961,7 +959,6 @@ int fw_nftables_add_local_dnat(
         if (local_port <= 0)
                 return -EINVAL;
 
-again:
         key[0] = protocol;
         key[1] = htobe16(local_port);
 
@@ -1006,9 +1003,11 @@ again:
 
         assert(tsize < NFT_DNAT_MSGS);
         if (add)
-                nft_add_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_add_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
         else
-                nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+        if (r < 0)
+                goto out_unref;
 
         tsize++;
         assert(tsize < NFT_DNAT_MSGS);
@@ -1019,21 +1018,45 @@ again:
 
         tsize++;
         assert(tsize <= NFT_DNAT_MSGS);
+
         r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
-
-        if (retry && r == -ENOENT) {
-                int tmp = fw_nftables_recreate_table(ctx->nfnl, af, transaction, tsize);
-
-                if (tmp == 0) {
-                        /* table created anew; previous address already gone */
-                        previous_remote = NULL;
-                        retry = false;
-                        goto again;
-                }
+        if (r == -EOVERFLOW && af == AF_INET6) {
+                /* The current implementation of DNAT in systemd requires kernel's
+                 * fdb9c405e35bdc6e305b9b4e20ebc141ed14fc81 (v5.8), and the older kernel returns
+                 * -EOVERFLOW. Let's treat the error as -EOPNOTSUPP. */
+                log_debug_errno(r, "The current implementation of IPv6 DNAT in systemd requires kernel 5.8 or newer, ignoring: %m");
+                ipv6_supported = false;
+                r = -EOPNOTSUPP;
         }
 
 out_unref:
         while (tsize > 0)
                 sd_netlink_message_unref(transaction[--tsize]);
+
         return r < 0 ? r : 0;
+}
+
+int fw_nftables_add_local_dnat(
+                FirewallContext *ctx,
+                bool add,
+                int af,
+                int protocol,
+                uint16_t local_port,
+                const union in_addr_union *remote,
+                uint16_t remote_port,
+                const union in_addr_union *previous_remote) {
+
+        int r;
+
+        r = fw_nftables_add_local_dnat_internal(ctx, add, af, protocol, local_port, remote, remote_port, previous_remote);
+        if (r != -ENOENT)
+                return r;
+
+        /* See comment in fw_nftables_add_masquerade(). */
+        r = fw_nftables_init_family(ctx->nfnl, af);
+        if (r < 0)
+                return r;
+
+        /* table created anew; previous address already gone */
+        return fw_nftables_add_local_dnat_internal(ctx, add, af, protocol, local_port, remote, remote_port, NULL);
 }
