@@ -1101,7 +1101,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         return 0;
 }
 
-static int find_end_of_month(struct tm *tm, bool utc, int day) {
+static int find_end_of_month(const struct tm *tm, bool utc, int day) {
         struct tm t = *tm;
 
         t.tm_mon++;
@@ -1114,28 +1114,39 @@ static int find_end_of_month(struct tm *tm, bool utc, int day) {
         return t.tm_mday;
 }
 
-static int find_matching_component(const CalendarSpec *spec, const CalendarComponent *c,
-                                   struct tm *tm, int *val) {
-        const CalendarComponent *p = c;
-        int start, stop, d = -1;
+static int find_matching_component(
+                const CalendarSpec *spec,
+                const CalendarComponent *c,
+                const struct tm *tm,           /* tm is only used for end-of-month calculations */
+                int *val) {
+
+        int d = -1, r;
         bool d_set = false;
-        int r;
 
         assert(val);
+
+        /* Finds the *earliest* matching time specified by one of the CalendarCompoment items in chain c.
+         * If no matches can be found, returns -ENOENT.
+         * Otherwise, updates *val to the matching time. 1 is returned if *val was changed, 0 otherwise.
+         */
 
         if (!c)
                 return 0;
 
-        while (c) {
-                start = c->start;
-                stop = c->stop;
+        bool end_of_month = spec->end_of_month && c == spec->day;
 
-                if (spec->end_of_month && p == spec->day) {
-                        start = find_end_of_month(tm, spec->utc, start);
-                        stop = find_end_of_month(tm, spec->utc, stop);
+        while (c) {
+                int start, stop;
+
+                if (end_of_month) {
+                        start = find_end_of_month(tm, spec->utc, c->start);
+                        stop = find_end_of_month(tm, spec->utc, c->stop);
 
                         if (stop > 0)
                                 SWAP_TWO(start, stop);
+                } else {
+                        start = c->start;
+                        stop = c->stop;
                 }
 
                 if (start >= *val) {
