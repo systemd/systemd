@@ -943,11 +943,15 @@ static int fw_nftables_add_local_dnat_internal(
                 const union in_addr_union *previous_remote) {
 
         sd_netlink_message *transaction[NFT_DNAT_MSGS] = {};
+        static bool ipv6_supported = true;
         uint32_t data[5], key[2], dlen;
         size_t tsize;
         int r;
 
         assert(add || !previous_remote);
+
+        if (!ipv6_supported && af == AF_INET6)
+                return -EOPNOTSUPP;
 
         if (!IN_SET(protocol, IPPROTO_TCP, IPPROTO_UDP))
                 return -EPROTONOSUPPORT;
@@ -1014,7 +1018,16 @@ static int fw_nftables_add_local_dnat_internal(
 
         tsize++;
         assert(tsize <= NFT_DNAT_MSGS);
+
         r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
+        if (r == -EOVERFLOW && af == AF_INET6) {
+                /* The current implementation of DNAT in systemd requires kernel's
+                 * fdb9c405e35bdc6e305b9b4e20ebc141ed14fc81 (v5.8), and the older kernel returns
+                 * -EOVERFLOW. Let's treat the error as -EOPNOTSUPP. */
+                log_debug_errno(r, "The current implementation of IPv6 DNAT in systemd requires kernel 5.8 or newer, ignoring: %m");
+                ipv6_supported = false;
+                r = -EOPNOTSUPP;
+        }
 
 out_unref:
         while (tsize > 0)
