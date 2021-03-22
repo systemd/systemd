@@ -892,12 +892,12 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         r = dns_question_cname_redirect(q->question_idna, cname, &nq_idna);
         if (r < 0)
                 return r;
-        else if (r > 0)
+        if (r > 0)
                 log_debug("Following CNAME/DNAME %s → %s.", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
         if (k < 0)
-                return r;
+                return k;
         if (k > 0) {
                 /* Same question? Shortcut new question generation */
                 nq_utf8 = dns_question_ref(nq_idna);
@@ -906,7 +906,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 k = dns_question_cname_redirect(q->question_utf8, cname, &nq_utf8);
                 if (k < 0)
                         return k;
-                else if (k > 0)
+                if (k > 0)
                         log_debug("Following UTF8 CNAME/DNAME %s → %s.", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
         }
 
