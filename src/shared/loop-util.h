@@ -10,6 +10,7 @@ typedef struct LoopDevice LoopDevice;
 struct LoopDevice {
         int fd;
         int nr;
+        dev_t devno;
         char *node;
         bool relinquished;
 };
