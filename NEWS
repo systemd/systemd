@@ -251,7 +251,7 @@ CHANGES WITH 248:
           be restored for individual services with NoExecPaths=/dev (or by allow-
           listing and excluding /dev from ExecPaths=).
 
-        * Permissions for /dev/vsock are now set to 0666, and /dev/vhost-vsock
+        * Permissions for /dev/vsock are now set to 0o666, and /dev/vhost-vsock
           and /dev/vhost-net are owned by the kvm group.
 
         * The hardware database has been extended with a list of fingerprint
