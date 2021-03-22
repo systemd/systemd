@@ -45,14 +45,12 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         if efi_cc.length() == 0
                 efi_cc = cc.cmd_array()
         endif
-        efi_ld = get_option('efi-ld').to_lower()
-        if efi_ld == ''
-                efi_ld = find_program('ld', required: true)
-        endif
 
-        if efi_ld == 'lld' or efi_ld == 'ld.lld'
-# LLVM/LLD does not support PE/COFF relocations
-# https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
+        efi_ld = find_program(get_option('efi-ld'), required: true)
+        efi_ld_name = efi_ld.path().split('/')[-1]
+        if efi_ld_name == 'lld' or efi_ld_name == 'ld.lld'
+                # LLVM/LLD does not support PE/COFF relocations
+                # https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
                 error('LLVM/lld does not support PE/COFF relocations. Use different linker for EFI image.')
         endif
 
