@@ -433,6 +433,14 @@ int dns_query_new(
         } else {
                 bool good = false;
 
+                /* This (primarily) checks two things:
+                 *
+                 * 1. That the question is not empty
+                 * 2. That all RR keys in the question objects are for the same domain
+                 *
+                 * Or in other words, a single DnsQuery object may be used to look up A+AAAA combination for
+                 * the same domain name, or SRV+TXT (for DNS-SD services), but not for unrelated lookups. */
+
                 if (dns_question_size(question_utf8) > 0) {
                         r = dns_question_is_valid_for_query(question_utf8);
                         if (r < 0)
@@ -1032,6 +1040,8 @@ int dns_query_process_cname(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
+        bool full_match = true;
+        DnsResourceKey *k;
         int r;
 
         assert(q);
@@ -1041,13 +1051,44 @@ int dns_query_process_cname(DnsQuery *q) {
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
-        DNS_ANSWER_FOREACH(rr, q->answer) {
-                r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return DNS_QUERY_MATCH; /* The answer matches directly, no need to follow cnames */
+        /* Small reminder: our question will consist of one or more RR keys that match in name, but not in
+         * record type. Specifically, when we do an address lookup the question will typically consist of one
+         * A and one AAAA key lookup for the same domain name. When we get a response from a server we need
+         * to check if the answer answers all our questions to use it. Note that a response of CNAME/DNAME
+         * can answer both an A and the AAAA question for us, but an A/AAAA response only the relevant
+         * type.
+         *
+         * Hence we first check of the answers we collected are sufficient to answer all our questions
+         * directly. If one question wasn't answered we go on, waiting for more replies. However, if there's
+         * a CNAME/DNAME response we use it, and redirect to it, regardless if it was a response to the A or
+         * the AAAA query.*/
 
+        DNS_QUESTION_FOREACH(k, question) {
+                bool match = false;
+
+                DNS_ANSWER_FOREACH(rr, q->answer) {
+                        r = dns_resource_key_match_rr(k, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                match = true; /* Yay, we found an RR that matches the key we are looking for */
+                                break;
+                        }
+                }
+
+                if (!match) {
+                        /* Hmm. :-( there's no response for this key. This doesn't match. */
+                        full_match = false;
+                        break;
+                }
+        }
+
+        if (full_match)
+                return DNS_QUERY_MATCH; /* The answer can answer our question in full, no need to follow CNAMEs/DNAMEs */
+
+        /* Let's see if there is a CNAME/DNAME to match. This case is simpler: we accept the CNAME/DNAME that
+         * matches any of our questions. */
+        DNS_ANSWER_FOREACH(rr, q->answer) {
                 r = dns_question_matches_cname_or_dname(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
                         return r;
@@ -1056,7 +1097,7 @@ int dns_query_process_cname(DnsQuery *q) {
         }
 
         if (!cname)
-                return DNS_QUERY_NOMATCH; /* No match and no cname to follow */
+                return DNS_QUERY_NOMATCH; /* No match and no CNAME/DNAME to follow */
 
         if (q->flags & SD_RESOLVED_NO_CNAME)
                 return -ELOOP;
