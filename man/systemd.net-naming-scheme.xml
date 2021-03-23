@@ -369,6 +369,16 @@
           property.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><constant>v248</constant></term>
+
+          <listitem><para>PCI hotplug slot names on s390 consist of 8 hexadecimal digits, left-padded with
+          zeros. This can lead to inconsistencies, as the <varname>ID_NET_NAME_SLOT</varname> property will
+          be built only for interfaces with slot names coincidentally consisting of decimal digits.
+          To avoid this, PCI slot names starting with a zero will be ignored like any other non-decimal
+          slot name formats.</para></listitem>
+        </varlistentry>
+
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
