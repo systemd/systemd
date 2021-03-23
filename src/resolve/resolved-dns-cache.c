@@ -35,15 +35,15 @@ enum DnsCacheItemType {
 };
 
 struct DnsCacheItem {
-        DnsCacheItemType type;
         DnsResourceKey *key;     /* The key for this item, i.e. the lookup key */
         DnsResourceRecord *rr;   /* The RR for this item, i.e. the lookup value for positive queries */
         DnsAnswer *answer;       /* The full validated answer, if this is an RRset acquired via a "primary" lookup */
         DnsPacket *full_packet;  /* The full packet this information was acquired with */
+        DnsCacheItemType type;
         int rcode;
 
         usec_t until;
-        bool shared_owner:1;
+        bool shared_owner;
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
@@ -133,22 +133,29 @@ static bool dns_cache_remove_by_rr(DnsCache *c, DnsResourceRecord *rr) {
         return false;
 }
 
-static bool dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
+static void dns_cache_remove_by_key_full(DnsCache *c, DnsResourceKey *key, bool only_negative) {
         DnsCacheItem *first, *i, *n;
 
         assert(c);
         assert(key);
 
-        first = hashmap_remove(c->by_key, key);
+        first = hashmap_get(c->by_key, key);
         if (!first)
-                return false;
+                return;
+
+        if (only_negative && first->type == DNS_CACHE_POSITIVE)
+                return;
+
+        assert_se(hashmap_remove(c->by_key, key) == first);
 
         LIST_FOREACH_SAFE(by_key, i, n, first) {
                 prioq_remove(c->by_expiry, i, &i->prioq_idx);
                 dns_cache_item_free(i);
         }
+}
 
-        return true;
+static void dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
+        dns_cache_remove_by_key_full(c, key, false);
 }
 
 void dns_cache_flush(DnsCache *c) {
@@ -386,9 +393,7 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        dns_answer_ref(answer);
-        dns_answer_unref(i->answer);
-        i->answer = answer;
+        dns_answer_extend(&i->answer, answer);
 
         dns_packet_ref(full_packet);
         dns_packet_unref(i->full_packet);
@@ -636,15 +641,14 @@ static void dns_cache_remove_previous(
 
         assert(c);
 
-        /* First, if we were passed a key (i.e. on LLMNR/DNS, but
-         * not on mDNS), delete all matching old RRs, so that we only
-         * keep complete by_key in place. */
+        /* First, if we were passed a key (i.e. on LLMNR/DNS, but not on mDNS), delete all matching old
+         * RRs, so that we only keep complete by_key in place. */
         if (key)
                 dns_cache_remove_by_key(c, key);
 
-        /* Second, flush all entries matching the answer, unless this
-         * is an RR that is explicitly marked to be "shared" between
-         * peers (i.e. mDNS RRs without the flush-cache bit set). */
+        /* Second, flush all negative cache entries matching the answer, unless this is an RR that is
+         * explicitly marked to be "shared" between peers (i.e. mDNS RRs without the flush-cache bit
+         * set). */
         DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0)
                         continue;
@@ -652,7 +656,7 @@ static void dns_cache_remove_previous(
                 if (flags & DNS_ANSWER_SHARED_OWNER)
                         continue;
 
-                dns_cache_remove_by_key(c, rr->key);
+                dns_cache_remove_by_key_full(c, rr->key, true);
         }
 }
 
@@ -1157,6 +1161,18 @@ int dns_cache_lookup(
 
                 c->n_miss++;
                 return 0;
+        }
+
+        if (n > 0 && !dns_answer_match_key_class_and_type(answer, key)) {
+                char first_key_str[DNS_RESOURCE_KEY_STRING_MAX];
+
+                /* This happens when e.g. request is AAAA, but found cached entry is CNAME, and only A
+                 * record for the redirect is cached. */
+
+                log_debug("Found cache entry '%s' does not contain requested key '%s'",
+                          dns_resource_key_to_string(first->key, first_key_str, sizeof first_key_str),
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                goto miss;
         }
 
         log_debug("%s cache hit for %s",
