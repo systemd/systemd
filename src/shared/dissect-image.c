@@ -2538,6 +2538,7 @@ int mount_image_privately_interactively(
                 LoopDevice **ret_loop_device,
                 DecryptedImage **ret_decrypted_image) {
 
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
@@ -2554,6 +2555,10 @@ int mount_image_privately_interactively(
         assert(ret_loop_device);
         assert(ret_decrypted_image);
 
+        r = verity_settings_load(&verity, image, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load root hash data: %m");
+
         r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate temporary mount directory: %m");
@@ -2566,11 +2571,11 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
-        r = dissect_image_and_warn(d->fd, image, NULL, NULL, flags, &dissected_image);
+        r = dissect_image_and_warn(d->fd, image, &verity, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, NULL, flags, &decrypted_image);
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags, &decrypted_image);
         if (r < 0)
                 return r;
 
