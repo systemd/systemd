@@ -711,9 +711,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 bool l2_broadcast = requested_broadcast(message) || message_type == DHCP_NAK;
                 return dhcp_server_send(server, destination, DHCP_PORT_CLIENT,
                             packet, opt_length, l2_broadcast);
-        }
-
-        if (message->op == BOOTREQUEST) {
+        } else if (message->op == BOOTREQUEST) {
                 log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
                 if (message->hops >= 16)
                         return -ETIME;
@@ -724,8 +722,9 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                         message->giaddr = server->address;
 
                 return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, opt_length + sizeof(DHCPMessage));
+        } else {
+                return -EBADMSG;
         }
-        return 0;
 }
 
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
