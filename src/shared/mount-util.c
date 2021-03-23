@@ -84,9 +84,8 @@ int umount_recursive(const char *prefix, int flags) {
         int n = 0, r;
         bool again;
 
-        /* Try to umount everything recursively below a
-         * directory. Also, take care of stacked mounts, and keep
-         * unmounting them until they are gone. */
+        /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
+         * keep unmounting them until they are gone. */
 
         do {
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
