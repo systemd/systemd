@@ -756,9 +756,11 @@ int fw_nftables_init(FirewallContext *ctx) {
         if (r < 0)
                 return r;
 
-        r = fw_nftables_init_family(nfnl, AF_INET6);
-        if (r < 0)
-                log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+        if (socket_ipv6_is_supported()) {
+                r = fw_nftables_init_family(nfnl, AF_INET6);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+        }
 
         ctx->nfnl = TAKE_PTR(nfnl);
         return 0;
@@ -901,6 +903,9 @@ int fw_nftables_add_masquerade(
                 unsigned int source_prefixlen) {
 
         int r;
+
+        if (!socket_ipv6_is_supported() && af == AF_INET6)
+                return -EOPNOTSUPP;
 
         r = fw_nftables_add_masquerade_internal(ctx, add, af, source, source_prefixlen);
         if (r != -ENOENT)
@@ -1047,6 +1052,9 @@ int fw_nftables_add_local_dnat(
                 const union in_addr_union *previous_remote) {
 
         int r;
+
+        if (!socket_ipv6_is_supported() && af == AF_INET6)
+                return -EOPNOTSUPP;
 
         r = fw_nftables_add_local_dnat_internal(ctx, add, af, protocol, local_port, remote, remote_port, previous_remote);
         if (r != -ENOENT)
