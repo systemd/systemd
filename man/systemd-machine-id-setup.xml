@@ -82,11 +82,17 @@
     <variablelist>
 
       <varlistentry>
-        <term><option>--root=<replaceable>root</replaceable></option></term>
-        <listitem><para>Takes a directory path as argument. All paths
-        operated will be prefixed with the given alternate
-        <replaceable>root</replaceable> path, including the path for
+        <term><option>--root=<replaceable>path</replaceable></option></term>
+        <listitem><para>Takes a directory path as argument. All paths operated on will be prefixed with the
+        given alternate <replaceable>root</replaceable> path, including the path for
         <filename>/etc/machine-id</filename> itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>path</replaceable></option></term>
+        <listitem><para>Takes a path to a device node or refular file as argument. This is similar to
+        <option>--root=</option> as described above, but operates on a disk image instead of a directory
+        tree.</para></listitem>
       </varlistentry>
 
       <varlistentry>
