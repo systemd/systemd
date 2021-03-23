@@ -234,6 +234,14 @@ int specifier_os_variant_id(char specifier, const void *data, const void *userda
         return specifier_os_release_common("VARIANT_ID", ret);
 }
 
+int specifier_os_image_id(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("IMAGE_ID", ret);
+}
+
+int specifier_os_image_version(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("IMAGE_VERSION", ret);
+}
+
 int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret) {
         char *t;
 
