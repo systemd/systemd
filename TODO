@@ -22,6 +22,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* maybe add a tool that displays most recent journal logs as QR code to scan
+  off screen and run it automatically on boot failures, emergency logs and
+  such. Use DRM APIs directly, see
+  https://github.com/dvdhrm/docs/blob/master/drm-howto/modeset.c for an example
+  for doing that.
+
+* pass systemd-detect-virt result to generators as env var. Modifying behaviour
+  based on whether we are virtualized or not is a pretty common thing, hence
+  maybe just pass that info along for free in an env var. We cache the result
+  anyway, so it's basically free.
+
 * systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
 
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
