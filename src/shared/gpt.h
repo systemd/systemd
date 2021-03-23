@@ -133,3 +133,5 @@ bool gpt_partition_type_is_root(sd_id128_t id);
 bool gpt_partition_type_is_root_verity(sd_id128_t id);
 bool gpt_partition_type_is_usr(sd_id128_t id);
 bool gpt_partition_type_is_usr_verity(sd_id128_t id);
+
+bool gpt_partition_type_knows_read_only(sd_id128_t id);
