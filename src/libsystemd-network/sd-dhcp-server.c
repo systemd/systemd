@@ -683,22 +683,18 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 
 static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t opt_length) {
-
         _cleanup_free_ DHCPPacket *packet = NULL;
 
         assert(server);
         assert(message);
         assert(in4_addr_is_set(&server->relay_target));
 
-
         if (message->op == BOOTREPLY) {
                 log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
-
                 if (message->giaddr != server->address) {
                         log_dhcp_server(server, "(relay agent)  BOOTREPLY giaddr mismatch, discarding");
                         return -EBADMSG;
                 }
-
 
                 int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
                 if (message_type < 0 )
@@ -720,10 +716,8 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
 
         if (message->op == BOOTREQUEST) {
                 log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
-
                 if (message->hops >= 16)
                         return -ETIME;
-
                 message->hops++;
 
                 /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
@@ -1249,7 +1243,6 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
 }
 
 int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address) {
-
         assert_return(server, -EINVAL);
 
         if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
@@ -1259,8 +1252,6 @@ int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr
                 log_dhcp_server(server, "Refusing to change RelayTarget setting on a running DHCP Server. Restart is needed");
                 return 0;
         }
-
         server->relay_target = *address;
-
         return 1;
 }

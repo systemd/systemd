@@ -424,7 +424,6 @@ int config_parse_dhcp_server_relay_target(
         return r;
 }
 
-
 int config_parse_dhcp_server_emit(
                 const char *unit,
                 const char *filename,
