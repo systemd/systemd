@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dlfcn.h>
 #include <net/if.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "errno-list.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -359,8 +359,7 @@ static int make_addresses(struct local_address **addresses) {
                 log_info_errno(n, "Failed to query local addresses: %m");
 
         n_alloc = n; /* we _can_ do that */
-        if (!GREEDY_REALLOC(addrs, n_alloc, n + 3))
-                return log_oom();
+        assert_se(GREEDY_REALLOC(addrs, n_alloc, n + 3));
 
         addrs[n++] = (struct local_address) { .family = AF_INET,
                                               .address.in = { htobe32(0x7F000001) } };
@@ -376,15 +375,14 @@ static int test_one_module(const char *dir,
                            char **names,
                            struct local_address *addresses,
                            int n_addresses) {
-        void *handle;
-        char **name;
 
         log_info("======== %s ========", module);
 
-        handle = nss_open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
+        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
+        char **name;
         STRV_FOREACH(name, names)
                 test_byname(handle, module, *name);
 
@@ -395,7 +393,6 @@ static int test_one_module(const char *dir,
                             addresses[i].family);
 
         log_info(" ");
-        dlclose(handle);
         return 0;
 }
 
@@ -423,8 +420,7 @@ static int parse_argv(int argc, char **argv,
                                 "mymachines",
 #endif
                                 "dns");
-        if (!modules)
-                return -ENOMEM;
+        assert_se(modules);
 
         if (argc > 2) {
                 char **name;
@@ -439,8 +435,7 @@ static int parse_argv(int argc, char **argv,
                                 if (r < 0)
                                         return r;
                         } else {
-                                if (!GREEDY_REALLOC0(addrs, n_allocated, n + 1))
-                                        return -ENOMEM;
+                                assert_se(GREEDY_REALLOC0(addrs, n_allocated, n + 1));
 
                                 addrs[n++] = (struct local_address) { .family = family,
                                                                       .address = address };
@@ -448,18 +443,12 @@ static int parse_argv(int argc, char **argv,
                 }
         } else {
                 _cleanup_free_ char *hostname;
+                assert_se(hostname = gethostname_malloc());
 
-                hostname = gethostname_malloc();
-                if (!hostname)
-                        return -ENOMEM;
-
-                names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname);
-                if (!names)
-                        return -ENOMEM;
+                assert_se(names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname));
 
                 n = make_addresses(&addrs);
-                if (n < 0)
-                        return n;
+                assert_se(n >= 0);
         }
 
         *the_modules = TAKE_PTR(modules);
@@ -480,14 +469,10 @@ static int run(int argc, char **argv) {
         test_setup_logging(LOG_INFO);
 
         r = parse_argv(argc, argv, &modules, &names, &addresses, &n_addresses);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse arguments: %m");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse arguments: %m");
 
-        dir = dirname_malloc(argv[0]);
-        if (!dir)
-                return log_oom();
+        assert_se(path_extract_directory(argv[0], &dir) >= 0);
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);
