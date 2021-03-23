@@ -236,6 +236,11 @@ static void test_get_process_cmdline_harder(void) {
                 return;
         }
 
+        /* Set RLIMIT_STACK to infinity to test we don't try to allocate unncessarily large values to read
+         * the cmdline. */
+        if (setrlimit(RLIMIT_STACK, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
+                log_warning("Testing without RLIMIT_STACK=infinity");
+
         assert_se(unlink(path) >= 0);
 
         assert_se(prctl(PR_SET_NAME, "testa") >= 0);
