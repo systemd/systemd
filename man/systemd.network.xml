@@ -2284,7 +2284,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
     <variablelist class='network-directives'>
 
       <varlistentry>
-        <term><varname>DHCPRelayTarget=</varname></term>
+        <term><varname>RelayTarget=</varname></term>
         <listitem>
           <para>Takes an IPv4 address, which must be in the format
           described in

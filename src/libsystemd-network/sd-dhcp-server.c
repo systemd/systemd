@@ -682,7 +682,7 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 
 
 static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message,
-                               size_t opt_length, int buflen) {
+                               size_t opt_length) {
 
         _cleanup_free_ DHCPPacket *packet = NULL;
 
@@ -692,12 +692,13 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
 
 
         if (message->op == BOOTREPLY) {
-                log_dhcp_server(server, "relay BOOTREPLY");
+                log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
 
                 if (message->giaddr != server->address) {
-                        log_dhcp_server(server, "relay BOOTREPLY giaddr mismatch, discarding");
+                        log_dhcp_server(server, "(relay agent)  BOOTREPLY giaddr mismatch, discarding");
                         return -EBADMSG;
                 }
+
 
                 int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
                 if (message_type < 0 ) {
@@ -719,7 +720,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
         }
 
         if (message->op == BOOTREQUEST) {
-                log_dhcp_server(server, "relay BOOTREQUEST");
+                log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
 
                 if (message->hops >= 16) {
                         return -ETIME;
@@ -1039,7 +1040,7 @@ static int server_receive_message(sd_event_source *s, int fd,
                 if (r < 0)
                         log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
         } else {
-                r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
+                r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage));
                 if (r < 0)
                         log_dhcp_server_errno(server, r, "Couldn't relay message: %m");
         }
@@ -1255,6 +1256,11 @@ int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr
 
         if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
                 return 0;
+
+        if (sd_dhcp_server_is_running(server)) {
+                log_dhcp_server(server, "Refusing to change RelayTarget setting on a running DHCP Server. Restart is needed");
+                return 0;
+        }
 
         server->relay_target = *address;
 
