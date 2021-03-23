@@ -146,3 +146,14 @@ bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
                 sd_id128_equal(id, GPT_USR_RISCV32_VERITY) ||
                 sd_id128_equal(id, GPT_USR_RISCV64_VERITY);
 }
+
+bool gpt_partition_type_knows_read_only(sd_id128_t id) {
+        return gpt_partition_type_is_root(id) ||
+                gpt_partition_type_is_usr(id) ||
+                sd_id128_equal(id, GPT_HOME) ||
+                sd_id128_equal(id, GPT_SRV) ||
+                sd_id128_equal(id, GPT_VAR) ||
+                sd_id128_equal(id, GPT_TMP) ||
+                gpt_partition_type_is_root_verity(id) || /* pretty much implied, but let's set the bit to make things really clear */
+                gpt_partition_type_is_usr_verity(id);    /* ditto */
+}
