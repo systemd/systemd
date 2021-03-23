@@ -168,6 +168,9 @@ struct Partition {
         char **make_directories;
         EncryptMode encrypt;
 
+        uint64_t gpt_flags;
+        int read_only;
+
         LIST_FIELDS(Partition, partitions);
 };
 
@@ -239,6 +242,7 @@ static Partition *partition_new(void) {
                 .offset = UINT64_MAX,
                 .copy_blocks_fd = -1,
                 .copy_blocks_size = UINT64_MAX,
+                .read_only = -1,
         };
 
         return p;
@@ -1259,6 +1263,34 @@ static int config_parse_make_dirs(
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
 
+static int config_parse_gpt_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *gpt_flags = data;
+        int r;
+
+        assert(rvalue);
+        assert(gpt_flags);
+
+        r = safe_atou64(rvalue, gpt_flags);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Flags= value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 static int partition_read_definition(Partition *p, const char *path) {
 
         ConfigTableItem table[] = {
@@ -1278,6 +1310,8 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                    },
                 { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                    },
                 { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt          },
+                { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags        },
+                { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only        },
                 {}
         };
         int r;
@@ -1318,6 +1352,12 @@ static int partition_read_definition(Partition *p, const char *path) {
                 if (!p->format)
                         return log_oom();
         }
+
+        /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
+        if ((gpt_partition_type_is_root_verity(p->type_uuid) ||
+             gpt_partition_type_is_usr_verity(p->type_uuid)) &&
+            p->read_only < 0)
+                p->read_only = true;
 
         return 0;
 }
@@ -3180,6 +3220,24 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         return 0;
 }
 
+static int set_gpt_flags(struct fdisk_partition *q, uint64_t flags) {
+        _cleanup_free_ char *a = NULL;
+
+        for (unsigned i = 0; i < sizeof(flags) * 8; i++) {
+                uint64_t bit = UINT64_C(1) << i;
+                char buf[DECIMAL_STR_MAX(unsigned)+1];
+
+                if (!FLAGS_SET(flags, bit))
+                        continue;
+
+                xsprintf(buf, "%u", i);
+                if (!strextend_with_separator(&a, ",", buf))
+                        return -ENOMEM;
+        }
+
+        return fdisk_partition_set_attrs(q, a);
+}
+
 static int context_mangle_partitions(Context *context) {
         Partition *p;
         int r;
@@ -3248,6 +3306,7 @@ static int context_mangle_partitions(Context *context) {
                         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
                         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
                         char ids[ID128_UUID_STRING_MAX];
+                        uint64_t f;
 
                         assert(!p->new_partition);
                         assert(p->offset % 512 == 0);
@@ -3294,6 +3353,22 @@ static int context_mangle_partitions(Context *context) {
                         r = fdisk_partition_set_name(q, strempty(p->new_label));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
+
+                        /* Merge the read only setting with the literal flags */
+                        f = p->gpt_flags;
+                        if (p->read_only >= 0) {
+                                if (gpt_partition_type_knows_read_only(p->type_uuid))
+                                        SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
+                                else {
+                                        char buffer[ID128_UUID_STRING_MAX];
+                                        log_warning("Configured ReadOnly=yes for partition type '%s' that doesn't support it, ignoring.",
+                                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                                }
+                        }
+
+                        r = set_gpt_flags(q, f);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set GPT partition flags: %m");
 
                         log_info("Adding new partition %" PRIu64 " to partition table.", p->partno);
 

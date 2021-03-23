@@ -565,6 +565,29 @@
         factory reset operation. This functionality is useful to implement schemes where images can be reset
         into their original state by removing partitions and creating them anew. Defaults to off.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Flags=</varname></term>
+
+        <listitem><para>Configures the 64bit GPT partition flags to set for the partition when creating
+        it. This option has no effect if the partition already exists. If not specified the flags values is
+        set to all zeroes, except if the partition type (as configured with <varname>Type=</varname> above)
+        refers to a Verity partition, in wich case bit 60 is set (i.e. the read-only bit). This bit may also
+        be configured separately via <varname>ReadOnly=</varname>, see below. Specify the flags value in
+        hexadecimal (by prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or
+        decimal (no prefix).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadOnly=</varname></term>
+
+        <listitem><para>Configures the Read-Only partition flags (bit 60) of the partition table entry. This
+        option is a friendly way to set bit 60 of the partition flags value without setting any of the other
+        bits, and may be set via <varname>Flags=</varname> too, see above.</para>
+
+        <para>If both <varname>Flags=</varname> and <varname>ReadOnly=</varname> are set the latter controls
+        the value of the flag.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
