@@ -422,12 +422,22 @@
       <varlistentry>
         <term><varname>CopyBlocks=</varname></term>
 
-        <listitem><para>Takes a path to a regular file, block device node or directory. If specified and the
-        partition is newly created the data from the specified path is written to the newly created
-        partition, on the block level. If a directory is specified the backing block device of the file
-        system the directory is on is determined and the data read directly from that. This option is useful
-        to efficiently replicate existing file systems on the block level on a new partition, for example to
-        build a simple OS installer or OS image builder.</para>
+        <listitem><para>Takes a path to a regular file, block device node or directory, or the special value
+        <literal>auto</literal>. If specified and the partition is newly created the data from the specified
+        path is written to the newly created partition, on the block level. If a directory is specified the
+        backing block device of the file system the directory is on is determined and the data read directly
+        from that. This option is useful to efficiently replicate existing file systems on the block level on
+        a new partition, for example to build a simple OS installer or OS image builder.</para>
+
+        <para>If the special value <literal>auto</literal> is specified the source to copy from is
+        automatically derived from the running system or the image specified with
+        <option>--image=</option>. A partition is searched that matches the configured partition type (as
+        configured with <varname>Type=</varname> above), and matches the currently mounted directory of the
+        matching partition type. For example, if the partition type is set to <literal>root</literal> (as
+        defined in the table above) the partition backing the root directory is used, and if the type is
+        <literal>usr</literal> the partition backing <filename>/usr/</filename> is used. The logic will find
+        the backing partitions for encrypted and Verity-enabled devices (for the latter the match by
+        partition type ensures to pick the right hash or data partition as source to copy from).</para>
 
         <para>The file specified here must have a size that is a multiple of the basic block size 512 and not
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
