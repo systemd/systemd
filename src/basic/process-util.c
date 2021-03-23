@@ -169,7 +169,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                         if (t[i] == '\0')
                                 t[i] = ' ';
 
-                t[k] = '\0'; /* Normally, t[k] is already NUL, so this is just a guard in case of short read */
+                t[k - 1] = '\0'; /* Normally, t[k - 1] is already NUL, so this is just a guard in case of short read */
         } else {
                 /* We only treat getting nothing as an error. We *could* also get an error after reading some
                  * data, but we ignore that case, as such an error is rather unlikely and we prefer to get

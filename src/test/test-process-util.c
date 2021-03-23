@@ -294,9 +294,10 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(streq(line, "foo bar"));
         line = mfree(line);
 
-        assert_se(write(fd, "quux", 4) == 4);
+        assert_se(write(fd, "quuxx", 5) == 5);
         assert_se(get_process_cmdline(getpid_cached(), SIZE_MAX, 0, &line) >= 0);
         log_info("'%s'", line);
+        /* check for writing NUL at the end of the string if fd doesn't include one */
         assert_se(streq(line, "foo bar quux"));
         line = mfree(line);
 
