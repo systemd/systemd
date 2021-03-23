@@ -68,7 +68,7 @@ int get_block_device(const char *path, dev_t *ret) {
         /* Gets the block device directly backing a file system. If the block device is encrypted, returns
          * the device mapper block device. */
 
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC);
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
