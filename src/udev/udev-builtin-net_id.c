@@ -262,6 +262,24 @@ static bool is_pci_bridge(sd_device *dev) {
         return strneq(p + 2, "04", 2);
 }
 
+static int parse_slot(const char *s, int *ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (naming_scheme_has(NAMING_SLOT_NONZERO) && s[0] == '0')
+                return -EINVAL;
+
+        r = safe_atoi(s, ret);
+        if (r < 0)
+                return r;
+        if (*ret <= 0)
+                return -ERANGE;
+
+        return 0;
+}
+
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         unsigned long dev_port = 0;
         unsigned domain, bus, slot, func;
@@ -353,8 +371,8 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atoi(dent->d_name, &i);
-                        if (r < 0 || i <= 0)
+                        r = parse_slot(dent->d_name, &i);
+                        if (r < 0)
                                 continue;
 
                         /* match slot address with device by stripping the function */
