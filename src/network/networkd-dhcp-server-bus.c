@@ -31,6 +31,9 @@ static int property_get_leases(
         if (!s)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has no DHCP server.", l->ifname);
 
+        if (!in4_addr_is_set(&s->relay_target))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has DHCP relay agent active.", l->ifname);
+
         r = sd_bus_message_open_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
                 return r;
