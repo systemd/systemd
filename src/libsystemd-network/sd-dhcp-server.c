@@ -701,9 +701,8 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
 
 
                 int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
-                if (message_type < 0 ) {
+                if (message_type < 0 )
                         return message_type;
-                }
 
                 be32_t destination = INADDR_ANY;
                 if (message->ciaddr && message_type != DHCP_NAK)
@@ -722,15 +721,14 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
         if (message->op == BOOTREQUEST) {
                 log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
 
-                if (message->hops >= 16) {
+                if (message->hops >= 16)
                         return -ETIME;
-                }
+
                 message->hops++;
 
                 /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
-                if (message->giaddr == 0) {
+                if (message->giaddr == 0)
                         message->giaddr = server->address;
-                }
 
                 return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, opt_length + sizeof(DHCPMessage));
         }
