@@ -35,15 +35,15 @@ enum DnsCacheItemType {
 };
 
 struct DnsCacheItem {
-        DnsCacheItemType type;
         DnsResourceKey *key;     /* The key for this item, i.e. the lookup key */
         DnsResourceRecord *rr;   /* The RR for this item, i.e. the lookup value for positive queries */
         DnsAnswer *answer;       /* The full validated answer, if this is an RRset acquired via a "primary" lookup */
         DnsPacket *full_packet;  /* The full packet this information was acquired with */
+        DnsCacheItemType type;
         int rcode;
 
         usec_t until;
-        bool shared_owner:1;
+        bool shared_owner;
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
