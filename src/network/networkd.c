@@ -93,10 +93,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = fw_ctx_new(&m->fw_ctx);
-        if (r < 0)
-                log_warning_errno(r, "Could not initialize firewall, IPMasquerade= option not available: %m");
-
         r = manager_start(m);
         if (r < 0)
                 return log_error_errno(r, "Could not start manager: %m");
