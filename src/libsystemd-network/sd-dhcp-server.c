@@ -318,7 +318,6 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
 
 static bool requested_broadcast(DHCPMessage *message) {
         assert(message);
-
         return message->flags & htobe16(0x8000);
 }
 
