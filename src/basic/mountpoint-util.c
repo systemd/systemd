@@ -233,16 +233,13 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         } else if (r < 0)
                 return r;
 
-        /* The parent can do name_to_handle_at() but the
-         * directory we are interested in can't? If so, it
-         * must be a mount point. */
+        /* The parent can do name_to_handle_at() but the directory we are interested in can't? If so, it must
+         * be a mount point. */
         if (nosupp)
                 return 1;
 
-        /* If the file handle for the directory we are
-         * interested in and its parent are identical, we
-         * assume this is the root directory, which is a mount
-         * point. */
+        /* If the file handle for the directory we are interested in and its parent are identical, we assume
+         * this is the root directory, which is a mount point. */
 
         if (h->handle_bytes == h_parent->handle_bytes &&
             h->handle_type == h_parent->handle_type &&
@@ -265,17 +262,14 @@ fallback_fdinfo:
         if (mount_id != mount_id_parent)
                 return 1;
 
-        /* Hmm, so, the mount ids are the same. This leaves one
-         * special case though for the root file system. For that,
-         * let's see if the parent directory has the same inode as we
-         * are interested in. Hence, let's also do fstat() checks now,
-         * too, but avoid the st_dev comparisons, since they aren't
-         * that useful on unionfs mounts. */
+        /* Hmm, so, the mount ids are the same. This leaves one special case though for the root file
+         * system. For that, let's see if the parent directory has the same inode as we are interested
+         * in. Hence, let's also do fstat() checks now, too, but avoid the st_dev comparisons, since they
+         * aren't that useful on unionfs mounts. */
         check_st_dev = false;
 
 fallback_fstat:
-        /* yay for fstatat() taking a different set of flags than the other
-         * _at() above */
+        /* yay for fstatat() taking a different set of flags than the other _at() above */
         if (flags & AT_SYMLINK_FOLLOW)
                 flags &= ~AT_SYMLINK_FOLLOW;
         else
