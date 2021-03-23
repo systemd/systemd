@@ -196,13 +196,15 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         if (statx(fd, filename, (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
                                 (flags & AT_EMPTY_PATH) |
-                                AT_NO_AUTOMOUNT, 0, &sx) < 0) {
+                                AT_NO_AUTOMOUNT, STATX_TYPE, &sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
                 /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
         } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
                 return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        else if (FLAGS_SET(sx.stx_mask, STATX_TYPE) && S_ISLNK(sx.stx_mode))
+                return false; /* symlinks are never mount points */
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
         if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL))
@@ -280,6 +282,8 @@ fallback_fstat:
                 flags |= AT_SYMLINK_NOFOLLOW;
         if (fstatat(fd, filename, &a, flags) < 0)
                 return -errno;
+        if (S_ISLNK(a.st_mode)) /* Symlinks are never mount points */
+                return false;
 
         if (fstatat(fd, "", &b, AT_EMPTY_PATH) < 0)
                 return -errno;
