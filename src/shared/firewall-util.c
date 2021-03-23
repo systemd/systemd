@@ -48,17 +48,11 @@ int fw_ctx_new(FirewallContext **ret) {
         if (!ctx)
                 return -ENOMEM;
 
-        /* could probe here.  However, this means that we will load
-         * iptable_nat or nf_tables, both will enable connection tracking.
-         *
-         * Alternative would be to probe here but only call
-         * fw_ctx_new when nspawn/networkd know they will call
-         * fw_add_masquerade/local_dnat later anyway.
-         */
-
         *ctx = (FirewallContext) {
                 .backend = _FW_BACKEND_INVALID,
         };
+
+        firewall_backend_probe(ctx);
 
         *ret = TAKE_PTR(ctx);
         return 0;
@@ -89,8 +83,6 @@ int fw_add_masquerade(
                 if (r < 0)
                         return r;
         }
-
-        firewall_backend_probe(*ctx);
 
         switch ((*ctx)->backend) {
 #if HAVE_LIBIPTC
@@ -123,8 +115,6 @@ int fw_add_local_dnat(
                 if (r < 0)
                         return r;
         }
-
-        firewall_backend_probe(*ctx);
 
         switch ((*ctx)->backend) {
 #if HAVE_LIBIPTC
