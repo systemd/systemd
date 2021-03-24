@@ -203,7 +203,6 @@ int bind_remount_recursive_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         _cleanup_set_free_free_ Set *done = NULL;
-        _cleanup_free_ char *simplified = NULL;
         unsigned n_tries = 0;
         int r;
 
@@ -221,12 +220,6 @@ int bind_remount_recursive_with_mountinfo(
          *
          * If the "deny_list" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the deny list for the top-level path. */
-
-        simplified = strdup(prefix);
-        if (!simplified)
-                return -ENOMEM;
-
-        path_simplify(simplified, false);
 
         done = set_new(&path_hash_ops);
         if (!done)
@@ -268,26 +261,26 @@ int bind_remount_recursive_with_mountinfo(
                         if (!path || !type)
                                 continue;
 
-                        if (!path_startswith(path, simplified))
+                        if (!path_startswith(path, prefix))
                                 continue;
 
                         /* Ignore this mount if it is deny-listed, but only if it isn't the top-level mount
                          * we shall operate on. */
-                        if (!path_equal(path, simplified)) {
+                        if (!path_equal(path, prefix)) {
                                 bool deny_listed = false;
                                 char **i;
 
                                 STRV_FOREACH(i, deny_list) {
-                                        if (path_equal(*i, simplified))
+                                        if (path_equal(*i, prefix))
                                                 continue;
 
-                                        if (!path_startswith(*i, simplified))
+                                        if (!path_startswith(*i, prefix))
                                                 continue;
 
                                         if (path_startswith(path, *i)) {
                                                 deny_listed = true;
                                                 log_debug("Not remounting %s deny-listed by %s, called for %s",
-                                                          path, *i, simplified);
+                                                          path, *i, prefix);
                                                 break;
                                         }
                                 }
@@ -302,7 +295,7 @@ int bind_remount_recursive_with_mountinfo(
                          * already triggered, then we will find
                          * another entry for this. */
                         if (streq(type, "autofs")) {
-                                top_autofs = top_autofs || path_equal(path, simplified);
+                                top_autofs = top_autofs || path_equal(path, prefix);
                                 continue;
                         }
 
@@ -317,26 +310,26 @@ int bind_remount_recursive_with_mountinfo(
                  * the root is either already done, or an autofs, we
                  * are done */
                 if (set_isempty(todo) &&
-                    (top_autofs || set_contains(done, simplified)))
+                    (top_autofs || set_contains(done, prefix)))
                         return 0;
 
-                if (!set_contains(done, simplified) &&
-                    !set_contains(todo, simplified)) {
+                if (!set_contains(done, prefix) &&
+                    !set_contains(todo, prefix)) {
                         /* The prefix directory itself is not yet a mount, make it one. */
-                        r = mount_nofollow(simplified, simplified, NULL, MS_BIND|MS_REC, NULL);
+                        r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
                         if (r < 0)
                                 return r;
 
                         orig_flags = 0;
-                        (void) get_mount_flags(table, simplified, &orig_flags);
+                        (void) get_mount_flags(table, prefix, &orig_flags);
 
-                        r = mount_nofollow(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
+                        r = mount_nofollow(NULL, prefix, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
                         if (r < 0)
                                 return r;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
-                        r = set_put_strdup(&done, simplified);
+                        r = set_put_strdup(&done, prefix);
                         if (r < 0)
                                 return r;
                 }
