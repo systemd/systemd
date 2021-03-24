@@ -161,89 +161,40 @@ static int dns_stub_collect_answer_by_question(
                 DnsQuestion *question,
                 bool with_rrsig) { /* Add RRSIG RR matching each RR */
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *redirected_key = NULL;
-        unsigned n_cname_redirects = 0;
         DnsAnswerItem *item;
         int r;
 
         assert(reply);
 
-        /* Copies all RRs from 'answer' into 'reply', if they match 'question'. There might be direct and
-         * indirect matches (i.e. via CNAME/DNAME). If they have an indirect one, remember where we need to
-         * go, and restart the loop */
+        /* Copies all RRs from 'answer' into 'reply', if they match 'question'. */
 
-        for (;;) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *next_redirected_key = NULL;
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
 
-                DNS_ANSWER_FOREACH_ITEM(item, answer) {
-                        DnsResourceKey *k = NULL;
-
-                        if (redirected_key) {
-                                /* There was a redirect in this packet, let's collect all matching RRs for the redirect */
-                                r = dns_resource_key_match_rr(redirected_key, item->rr, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                k = redirected_key;
-                        } else if (question) {
-                                /* We have a question, let's see if this RR matches it */
-                                r = dns_question_matches_rr(question, item->rr, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                k = question->keys[0];
-                        } else
-                                r = 1; /* No question, everything matches */
-
-                        if (r == 0) {
-                                _cleanup_free_ char *target = NULL;
-
-                                /* OK, so the RR doesn't directly match. Let's see if the RR is a matching
-                                 * CNAME or DNAME */
-
-                                assert(k);
-
-                                r = dns_resource_record_get_cname_target(k, item->rr, &target);
-                                if (r == -EUNATCH)
-                                        continue; /* Not a CNAME/DNAME or doesn't match */
-                                if (r < 0)
-                                        return r;
-
-                                /* Oh, wow, this is a redirect. Let's remember where this points, and store
-                                 * it in 'next_redirected_key'. Once we finished iterating through the rest
-                                 * of the RR's we'll start again, with the redirected RR key. */
-
-                                n_cname_redirects++;
-                                if (n_cname_redirects > CNAME_REDIRECT_MAX) /* don't loop forever */
-                                        return -ELOOP;
-
-                                dns_resource_key_unref(next_redirected_key);
-
-                                /* There can only be one CNAME per name, hence no point in storing more than one here */
-                                next_redirected_key = dns_resource_key_new(k->class, k->type, target);
-                                if (!next_redirected_key)
-                                        return -ENOMEM;
-                        }
-
-                        /* Mask the section info, we want the primary answers to always go without section info, so
-                         * that it is added to the answer section when we synthesize a reply. */
-
-                        r = reply_add_with_rrsig(
-                                        reply,
-                                        item->rr,
-                                        item->ifindex,
-                                        item->flags & ~DNS_ANSWER_MASK_SECTIONS,
-                                        item->rrsig,
-                                        with_rrsig);
+                /* We have a question, let's see if this RR matches it */
+                r = dns_question_matches_rr(question, item->rr, NULL);
+                if (r < 0)
+                        return r;
+                if (!r) {
+                        /* Maybe there's a CNAME/DNAME in here? If so, that's an answer too */
+                        r = dns_question_matches_cname_or_dname(question, item->rr, NULL);
                         if (r < 0)
                                 return r;
+                        if (!r)
+                                continue;
                 }
 
-                if (!next_redirected_key)
-                        break;
+                /* Mask the section info, we want the primary answers to always go without section
+                 * info, so that it is added to the answer section when we synthesize a reply. */
 
-                dns_resource_key_unref(redirected_key);
-                redirected_key = TAKE_PTR(next_redirected_key);
+                r = reply_add_with_rrsig(
+                                reply,
+                                item->rr,
+                                item->ifindex,
+                                item->flags & ~DNS_ANSWER_MASK_SECTIONS,
+                                item->rrsig,
+                                with_rrsig);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -771,21 +722,63 @@ static void dns_stub_query_complete(DnsQuery *q) {
 
         switch (q->state) {
 
-        case DNS_TRANSACTION_SUCCESS:
-                r = dns_query_process_cname_many(q);
-                if (r == -ELOOP) { /* CNAME loop, let's send what we already have */
-                        log_debug_errno(r, "Detected CNAME loop, returning what we already have.");
-                        (void) dns_stub_send_reply(q, q->answer_rcode);
-                        break;
+        case DNS_TRANSACTION_SUCCESS: {
+                bool first = true;
+
+                for (;;) {
+                        int cname_result;
+
+                        cname_result = dns_query_process_cname_one(q);
+                        if (cname_result == -ELOOP) { /* CNAME loop, let's send what we already have */
+                                log_debug_errno(r, "Detected CNAME loop, returning what we already have.");
+                                (void) dns_stub_send_reply(q, q->answer_rcode);
+                                break;
+                        }
+                        if (cname_result < 0) {
+                                log_debug_errno(cname_result, "Failed to process CNAME: %m");
+                                break;
+                        }
+
+                        if (cname_result == DNS_QUERY_NOMATCH) {
+                                /* This answer doesn't contain any RR that would answer our question
+                                 * positively, i.e. neither directly nor via CNAME. */
+
+                                if (first) /* We never followed a CNAME and the answer doesn't match our
+                                            * question at all? Then this is final, the empty answer is the
+                                            * answer. */
+                                        break;
+
+                                /* Otherwise, we already followed a CNAME once within this packet, and the
+                                 * packet doesn't answer our question. In that case let's restart the query,
+                                 * now with the redirected question. We'll */
+                                r = dns_query_go(q);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to restart query: %m");
+
+                                return;
+                        }
+
+                        r = dns_stub_assign_sections(
+                                        q,
+                                        dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS),
+                                        dns_stub_reply_with_edns0_do(q));
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to assign sections: %m");
+                                dns_query_free(q);
+                                return;
+                        }
+
+                        if (cname_result == DNS_QUERY_MATCH) /* A match? Then we are done, let's return what we got */
+                                break;
+
+                        /* We followed a CNAME. and collected the RRs that answer the redirected question
+                         * successfully. Let's not try to do this again. */
+                        assert(cname_result == DNS_QUERY_CNAME);
+                        first = false;
                 }
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to process CNAME: %m");
-                        break;
-                }
-                if (r == DNS_QUERY_CNAME)
-                        return;
 
                 _fallthrough_;
+        }
 
         case DNS_TRANSACTION_RCODE_FAILURE:
                 (void) dns_stub_send_reply(q, q->answer_rcode);
