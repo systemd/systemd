@@ -216,7 +216,9 @@ int bind_remount_recursive_with_mountinfo(
          * access, too. When mounts are stacked on the same mount point we only care for each individual
          * "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We do
          * not have any effect on future submounts that might get propagated, they might be writable
-         * etc. This includes future submounts that have been triggered via autofs.
+         * etc. This includes future submounts that have been triggered via autofs. Also note that we can't
+         * operate atomically here. Mounts established while we process the tree might or might not get
+         * noticed and thus might or might not be covered.
          *
          * If the "deny_list" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the deny list for the top-level path. */
