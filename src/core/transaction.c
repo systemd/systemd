@@ -408,7 +408,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    j->unit->id,
                                    unit_id == array ? "ordering cycle" : "dependency",
                                    *unit_id, *job_type,
-                                   unit_ids);
+                                   "%s", unit_ids);
 
                 if (delete) {
                         const char *status;
@@ -417,7 +417,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    "MESSAGE=%s: Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                    j->unit->id, delete->unit->id, job_type_to_string(delete->type),
                                    j->unit->id, job_type_to_string(j->type),
-                                   unit_ids);
+                                   "%s", unit_ids);
 
                         if (log_get_show_color())
                                 status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
@@ -435,7 +435,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 log_struct(LOG_ERR,
                            "MESSAGE=%s: Unable to break cycle starting with %s/%s",
                            j->unit->id, j->unit->id, job_type_to_string(j->type),
-                           unit_ids);
+                           "%s", unit_ids);
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          "Transaction order is cyclic. See system logs for details.");
