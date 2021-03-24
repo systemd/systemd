@@ -1962,11 +1962,13 @@ int dns_transaction_go(DnsTransaction *t) {
                         assert_not_reached("bad protocol");
                 }
 
-                r = sd_event_add_time(
+                assert(!t->timeout_event_source);
+
+                r = sd_event_add_time_relative(
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                ts + jitter, accuracy,
+                                jitter, accuracy,
                                 on_transaction_timeout, t);
                 if (r < 0)
                         return r;
