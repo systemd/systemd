@@ -1510,7 +1510,10 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
+        if (t->initial_jitter_scheduled && !t->initial_jitter_elapsed) {
+                log_debug("Initial jitter phase for transaction %" PRIu16 " elapsed.", t->id);
+                t->initial_jitter_elapsed = true;
+        } else {
                 /* Timeout reached? Increase the timeout for the server used */
                 switch (t->scope->protocol) {
 
@@ -1528,14 +1531,12 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
                         assert_not_reached("Invalid DNS protocol.");
                 }
 
-                if (t->initial_jitter_scheduled)
-                        t->initial_jitter_elapsed = true;
+                log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
         }
 
-        log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
-
-        dns_transaction_retry(t, true); /* try a different server, but given this means packet loss, let's do
-                                         * so even if we already tried a bunch */
+        dns_transaction_retry(t, /* next_server= */ true); /* try a different server, but given this means
+                                                            * packet loss, let's do so even if we already
+                                                            * tried a bunch */
         return 0;
 }
 
@@ -1928,8 +1929,8 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r <= 0)
                 return r;
 
-        log_debug("%s transaction %" PRIu16 " for <%s> scope %s on %s/%s (validate=%s).",
-                  t->bypass ? "Bypass" : "Regular",
+        log_debug("Firing %s transaction %" PRIu16 " for <%s> scope %s on %s/%s (validate=%s).",
+                  t->bypass ? "bypass" : "regular",
                   t->id,
                   dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
