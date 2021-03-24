@@ -2271,7 +2271,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 bool cache_flush = false;
                 size_t start;
 
-                if (p->rindex == p->size) {
+                if (p->rindex == p->size && p->opt) {
                         /* If we reached the end of the packet already, but there are still more RRs
                          * declared, then that's a corrupt packet. Let's accept the packet anyway, since it's
                          * apparently a common bug in routers. Let's however suppress OPT support in this
