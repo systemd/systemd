@@ -307,33 +307,24 @@ int bind_remount_recursive_with_mountinfo(
                                 return r;
                 }
 
-                /* If we have no submounts to process anymore and if
-                 * the root is either already done, or an autofs, we
-                 * are done */
-                if (set_isempty(todo) &&
-                    (top_autofs || set_contains(done, prefix)))
-                        return 0;
-
+                /* Check if the top-level directory was among what we have seen so far. For that check both
+                 * 'done' and 'todo'. Also check 'top_autofs' because if the top-level dir is an autofs we'll
+                 * not include it in either set but will set this bool. */
                 if (!set_contains(done, prefix) &&
-                    !set_contains(todo, prefix)) {
+                    !(top_autofs || set_contains(todo, prefix))) {
+
                         /* The prefix directory itself is not yet a mount, make it one. */
                         r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
                         if (r < 0)
                                 return r;
 
-                        orig_flags = 0;
-                        (void) get_mount_flags(table, prefix, &orig_flags);
-
-                        r = mount_nofollow(NULL, prefix, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("Made top-level directory %s a mount point.", prefix);
-
-                        r = set_put_strdup(&done, prefix);
-                        if (r < 0)
-                                return r;
+                        /* Immediately rescan, so that we pick up the new mount's flags */
+                        continue;
                 }
+
+                /* If we have no submounts to process anymore, we are done */
+                if (set_isempty(todo))
+                        return 0;
 
                 while ((x = set_steal_first(todo))) {
 
