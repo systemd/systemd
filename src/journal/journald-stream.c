@@ -39,6 +39,12 @@
 
 #define STDOUT_STREAMS_MAX 4096
 
+/* During the "setup" protocol phase of the stream logic let's define a different maximum line length than
+ * during the actual operational phase. We want to allow users to specify very short line lengths after all,
+ * but the unit name we embed in the setup protocol might be longer than that. Hence, during the setup phase
+ * let's enforce a line length matching the maximum unit name length (255) */
+#define STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX (UNIT_NAME_MAX-1U)
+
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,
         STDOUT_STREAM_UNIT_ID,
@@ -47,7 +53,7 @@ typedef enum StdoutStreamState {
         STDOUT_STREAM_FORWARD_TO_SYSLOG,
         STDOUT_STREAM_FORWARD_TO_KMSG,
         STDOUT_STREAM_FORWARD_TO_CONSOLE,
-        STDOUT_STREAM_RUNNING
+        STDOUT_STREAM_RUNNING,
 } StdoutStreamState;
 
 /* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
@@ -476,6 +482,18 @@ static int stdout_stream_found(
         return r;
 }
 
+static size_t stdout_stream_line_max(StdoutStream *s) {
+        assert(s);
+
+        /* During the "setup" phase of our protocol, let's ensure we use a line length where a full unit name
+         * can fit in */
+        if (s->state != STDOUT_STREAM_RUNNING)
+                return STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX;
+
+        /* After the protocol's "setup" phase is complete, let's use whatever the user configured */
+        return s->server->line_max;
+}
+
 static int stdout_stream_scan(
                 StdoutStream *s,
                 char *p,
@@ -483,19 +501,22 @@ static int stdout_stream_scan(
                 LineBreak force_flush,
                 size_t *ret_consumed) {
 
-        size_t consumed = 0;
+        size_t consumed = 0, line_max;
         int r;
 
         assert(s);
         assert(p);
 
+        line_max = stdout_stream_line_max(s);
+
         for (;;) {
                 LineBreak line_break;
                 size_t skip, found;
                 char *end1, *end2;
+                size_t tmp_remaining = MIN(remaining, line_max);
 
-                end1 = memchr(p, '\n', remaining);
-                end2 = memchr(p, 0, end1 ? (size_t) (end1 - p) : remaining);
+                end1 = memchr(p, '\n', tmp_remaining);
+                end2 = memchr(p, 0, end1 ? (size_t) (end1 - p) : tmp_remaining);
 
                 if (end2) {
                         /* We found a NUL terminator */
@@ -507,9 +528,9 @@ static int stdout_stream_scan(
                         found = end1 - p;
                         skip = found + 1;
                         line_break = LINE_BREAK_NEWLINE;
-                } else if (remaining >= s->server->line_max) {
+                } else if (remaining >= line_max) {
                         /* Force a line break after the maximum line length */
-                        found = skip = s->server->line_max;
+                        found = skip = line_max;
                         line_break = LINE_BREAK_LINE_MAX;
                 } else
                         break;
@@ -571,7 +592,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
          * always leave room for a terminating NUL we might need to add. */
-        limit = MIN(s->allocated - 1, s->server->line_max);
+        limit = MIN(s->allocated - 1, MAX(s->server->line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
         assert(s->length <= limit);
         iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
 
