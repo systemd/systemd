@@ -251,17 +251,31 @@ int bind_remount_recursive_with_mountinfo(
                         const char *path, *type;
 
                         r = mnt_table_next_fs(table, iter, &fs);
-                        if (r == 1)
+                        if (r == 1) /* EOF */
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
                         path = mnt_fs_get_target(fs);
-                        type = mnt_fs_get_fstype(fs);
-                        if (!path || !type)
+                        if (!path)
                                 continue;
 
                         if (!path_startswith(path, prefix))
+                                continue;
+
+                        type = mnt_fs_get_fstype(fs);
+                        if (!type)
+                                continue;
+
+                        /* Let's ignore autofs mounts. If they aren't triggered yet, we want to avoid
+                         * triggering them, as we don't make any guarantees for future submounts anyway. If
+                         * they are already triggered, then we will find another entry for this. */
+                        if (streq(type, "autofs")) {
+                                top_autofs = top_autofs || path_equal(path, prefix);
+                                continue;
+                        }
+
+                        if (set_contains(done, path))
                                 continue;
 
                         /* Ignore this mount if it is deny-listed, but only if it isn't the top-level mount
@@ -279,31 +293,18 @@ int bind_remount_recursive_with_mountinfo(
 
                                         if (path_startswith(path, *i)) {
                                                 deny_listed = true;
-                                                log_debug("Not remounting %s deny-listed by %s, called for %s",
-                                                          path, *i, prefix);
+                                                log_debug("Not remounting %s deny-listed by %s, called for %s", path, *i, prefix);
                                                 break;
                                         }
                                 }
+
                                 if (deny_listed)
                                         continue;
                         }
 
-                        /* Let's ignore autofs mounts.  If they aren't
-                         * triggered yet, we want to avoid triggering
-                         * them, as we don't make any guarantees for
-                         * future submounts anyway.  If they are
-                         * already triggered, then we will find
-                         * another entry for this. */
-                        if (streq(type, "autofs")) {
-                                top_autofs = top_autofs || path_equal(path, prefix);
-                                continue;
-                        }
-
-                        if (!set_contains(done, path)) {
-                                r = set_put_strdup(&todo, path);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = set_put_strdup(&todo, path);
+                        if (r < 0)
+                                return r;
                 }
 
                 /* If we have no submounts to process anymore and if
