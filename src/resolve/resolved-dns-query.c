@@ -1036,7 +1036,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         return 0;
 }
 
-int dns_query_process_cname(DnsQuery *q) {
+int dns_query_process_cname_one(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
@@ -1112,17 +1112,41 @@ int dns_query_process_cname(DnsQuery *q) {
         if (r < 0)
                 return r;
 
-        /* Let's see if the answer can already answer the new redirected question */
-        r = dns_query_process_cname(q);
-        if (r != DNS_QUERY_NOMATCH)
-                return r;
+        return DNS_QUERY_CNAME; /* Tell caller that we did a single CNAME/DNAME redirection step */
+}
 
-        /* OK, it cannot, let's begin with the new query */
-        r = dns_query_go(q);
-        if (r < 0)
-                return r;
+int dns_query_process_cname_many(DnsQuery *q) {
+        int r;
 
-        return DNS_QUERY_RESTARTED; /* We restarted the query for a new cname */
+        assert(q);
+
+        /* Follows CNAMEs through the current packet: as long as the current packet can fulfill our
+         * redirected CNAME queries we keep going, and restart the query once the current packet isn't good
+         * enough anymore. */
+
+        r = dns_query_process_cname_one(q);
+        if (r != DNS_QUERY_CNAME)
+                return r; /* The first redirect is special: if it doesn't answer the question that's no
+                           * reason to restart the query, we just accept this as a NODATA answer. */
+
+        for (;;) {
+                r = dns_query_process_cname_one(q);
+                if (r < 0 || r == DNS_QUERY_MATCH)
+                        return r;
+                if (r == DNS_QUERY_NOMATCH) {
+                        /* OK, so we followed one or more CNAME/DNAME RR but the existing packet can't answer
+                         * this. Let's restart the query hence, with the new question. */
+                        r = dns_query_go(q);
+                        if (r < 0)
+                                return r;
+
+                        return DNS_QUERY_CNAME;
+                }
+
+                /* So we found a CNAME that the existing packet already answers, again via a CNAME, let's
+                 * continue going then. */
+                assert(r == DNS_QUERY_CNAME);
+        }
 }
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
