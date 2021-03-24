@@ -112,7 +112,7 @@ struct DnsQuery {
 enum {
         DNS_QUERY_MATCH,
         DNS_QUERY_NOMATCH,
-        DNS_QUERY_RESTARTED,
+        DNS_QUERY_CNAME,
 };
 
 DnsQueryCandidate* dns_query_candidate_ref(DnsQueryCandidate*);
@@ -129,7 +129,8 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
 int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
-int dns_query_process_cname(DnsQuery *q);
+int dns_query_process_cname_one(DnsQuery *q);
+int dns_query_process_cname_many(DnsQuery *q);
 
 void dns_query_complete(DnsQuery *q, DnsTransactionState state);
 
