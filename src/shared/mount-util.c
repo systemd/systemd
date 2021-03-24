@@ -387,8 +387,16 @@ int bind_remount_one_with_mountinfo(
         }
 
         r = mount_nofollow(NULL, path, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (((flags ^ new_flags) & flags_mask & ~MS_RELATIME) != 0) /* Ignore MS_RELATIME again,
+                                                                             * since kernel adds it in
+                                                                             * everywhere, because it's the
+                                                                             * default. */
+                        return r;
+
+                /* Let's handle redundant remounts gracefully */
+                log_debug_errno(r, "Failed to remount '%s' but flags already match what we want, ignoring: %m", path);
+        }
 
         return 0;
 }
