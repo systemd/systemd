@@ -510,7 +510,7 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
 
         /* Retries the transaction as it is, possibly on a different server */
 
-        if (next_server)
+        if (next_server && t->scope->protocol == DNS_PROTOCOL_DNS)
                 log_debug("Retrying transaction %" PRIu16 ", after switching servers.", t->id);
         else
                 log_debug("Retrying transaction %" PRIu16 ".", t->id);
