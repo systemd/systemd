@@ -204,6 +204,7 @@ int bind_remount_recursive_with_mountinfo(
 
         _cleanup_set_free_free_ Set *done = NULL;
         _cleanup_free_ char *simplified = NULL;
+        unsigned n_tries = 0;
         int r;
 
         assert(prefix);
@@ -238,6 +239,9 @@ int bind_remount_recursive_with_mountinfo(
                 bool top_autofs = false;
                 char *x;
                 unsigned long orig_flags;
+
+                if (n_tries++ >= 32) /* Let's not retry this loop forever */
+                        return -EBUSY;
 
                 todo = set_new(&path_hash_ops);
                 if (!todo)
