@@ -61,7 +61,7 @@ struct DnsCacheItem {
  * immediate RR data for the specified RR key, but nothing else. */
 #define DNS_CACHE_ITEM_IS_PRIMARY(item) (!!(item)->answer)
 
-static const char *dns_cache_item_type_to_string(DnsCacheItem *item) {
+static const char *dns_cache_item_type_to_string(const DnsCacheItem *item) {
         assert(item);
 
         switch (item->type) {
