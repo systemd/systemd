@@ -323,16 +323,8 @@ static int dns_stub_assign_sections(
         if (r < 0)
                 return r;
 
-        /* Include all RRs that originate from the answer or authority sections, and aren't listed in the
+        /* Include all RRs that originate from the authority sections, and aren't already listed in the
          * answer section, in the authority section */
-        r = dns_stub_collect_answer_by_section(
-                        &q->reply_authoritative,
-                        q->answer,
-                        DNS_ANSWER_SECTION_ANSWER,
-                        q->reply_answer, NULL,
-                        edns0_do);
-        if (r < 0)
-                return r;
         r = dns_stub_collect_answer_by_section(
                         &q->reply_authoritative,
                         q->answer,
@@ -342,8 +334,16 @@ static int dns_stub_assign_sections(
         if (r < 0)
                 return r;
 
-        /* Include all RRs that originate from the additional sections in the additional section (except if
-         * already listed in the other two sections). Also add all RRs with no section marking. */
+        /* Include all RRs that originate from the answer or additional sections in the additional section
+         * (except if already listed in the other two sections). Also add all RRs with no section marking. */
+        r = dns_stub_collect_answer_by_section(
+                        &q->reply_additional,
+                        q->answer,
+                        DNS_ANSWER_SECTION_ANSWER,
+                        q->reply_answer, q->reply_authoritative,
+                        edns0_do);
+        if (r < 0)
+                return r;
         r = dns_stub_collect_answer_by_section(
                         &q->reply_additional,
                         q->answer,
