@@ -1396,9 +1396,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
                 if (z->rr->key->type == DNS_TYPE_PTR &&
                     !dns_zone_contains_name(&scope->zone, z->rr->ptr.name)) {
-                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
-
-                        log_debug("Skip PTR RR <%s> since its counterparts seem to be withdrawn", dns_resource_key_to_string(z->rr->key, key_str, sizeof key_str));
+                        log_debug("Skip PTR RR <%s> since its counterparts seem to be withdrawn", dns_resource_key_to_string(z->rr->key));
                         z->state = DNS_ZONE_ITEM_WITHDRAWN;
                         continue;
                 }

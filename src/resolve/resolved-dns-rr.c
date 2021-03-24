@@ -112,7 +112,6 @@ DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char
 }
 
 DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
-
         if (!k)
                 return NULL;
 
@@ -135,6 +134,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
 
         if (k->n_ref == 1) {
                 free(k->_name);
+                free(k->to_string);
                 free(k);
         } else
                 k->n_ref--;
@@ -312,22 +312,27 @@ static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResou
 
 DEFINE_HASH_OPS(dns_resource_key_hash_ops, DnsResourceKey, dns_resource_key_hash_func, dns_resource_key_compare_func);
 
-char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size) {
+const char* dns_resource_key_to_string(DnsResourceKey *key) {
         const char *c, *t;
-        char *ans = buf;
 
         /* If we cannot convert the CLASS/TYPE into a known string,
-           use the format recommended by RFC 3597, Section 5. */
+         * use the format recommended by RFC 3597, Section 5. */
+
+        assert(key);
+        assert(key->n_ref != UINT_MAX);
+
+        if (key->to_string)
+                return key->to_string;
 
         c = dns_class_to_string(key->class);
         t = dns_type_to_string(key->type);
 
-        snprintf(buf, buf_size, "%s %s%s%.0u %s%s%.0u",
-                 dns_resource_key_name(key),
-                 strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
-                 strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
+        (void) asprintf(&key->to_string, "%s %s%s%.0u %s%s%.0u",
+                        dns_resource_key_name(key),
+                        strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
+                        strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
 
-        return ans;
+        return key->to_string;
 }
 
 bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
@@ -821,7 +826,7 @@ static char *format_txt(DnsTxtItem *first) {
 
 const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         _cleanup_free_ char *s = NULL, *t = NULL;
-        char k[DNS_RESOURCE_KEY_STRING_MAX];
+        const char *k;
         int r;
 
         assert(rr);
@@ -829,7 +834,9 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         if (rr->to_string)
                 return rr->to_string;
 
-        dns_resource_key_to_string(rr->key, k, sizeof(k));
+        k = dns_resource_key_to_string(rr->key);
+        if (!k)
+                return NULL;
 
         switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
 
