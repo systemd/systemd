@@ -419,7 +419,6 @@ int dns_query_new(
                 uint64_t flags) {
 
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsResourceKey *key;
         int r;
 
@@ -494,12 +493,12 @@ int dns_query_new(
         if (question_bypass) {
                 DNS_QUESTION_FOREACH(key, question_bypass->question)
                         log_debug("Looking up bypass packet for %s.",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                  dns_resource_key_to_string(key));
         } else {
                 /* First dump UTF8  question */
                 DNS_QUESTION_FOREACH(key, question_utf8)
                         log_debug("Looking up RR for %s.",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                  dns_resource_key_to_string(key));
 
                 /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
                 DNS_QUESTION_FOREACH(key, question_idna) {
@@ -510,7 +509,7 @@ int dns_query_new(
                                 continue;
 
                         log_debug("Looking up IDNA RR for %s.",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                  dns_resource_key_to_string(key));
                 }
         }
 

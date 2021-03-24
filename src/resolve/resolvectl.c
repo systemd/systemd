@@ -14,6 +14,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "copy.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "format-table.h"
@@ -1141,6 +1142,24 @@ static int flush_caches(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Failed to flush caches: %s", bus_error_message(&error, r));
 
         return 0;
+}
+
+static int dump_caches(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        sd_bus *bus = userdata;
+        int fd, r;
+
+        r = bus_call_method(bus, bus_resolve_mgr, "DumpCaches", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump caches: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        fflush(stdout);
+        return copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
 }
 
 static int reset_server_features(int argc, char **argv, void *userdata) {
@@ -2643,6 +2662,7 @@ static int native_help(void) {
                "  statistics                   Show resolver statistics\n"
                "  reset-statistics             Reset resolver statistics\n"
                "  flush-caches                 Flush all local DNS caches\n"
+               "  dump-caches                  Dump all local DNS caches\n"
                "  reset-server-features        Forget learnt DNS server feature levels\n"
                "  dns [LINK [SERVER...]]       Get/set per-interface DNS server address\n"
                "  domain [LINK [DOMAIN...]]    Get/set per-interface search domain\n"
@@ -3260,6 +3280,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "statistics",            VERB_ANY, 1,        0,            show_statistics       },
                 { "reset-statistics",      VERB_ANY, 1,        0,            reset_statistics      },
                 { "flush-caches",          VERB_ANY, 1,        0,            flush_caches          },
+                { "dump-caches",           VERB_ANY, 1,        0,            dump_caches           },
                 { "reset-server-features", VERB_ANY, 1,        0,            reset_server_features },
                 { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns              },
                 { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },

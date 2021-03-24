@@ -456,10 +456,16 @@ void dns_question_dump(DnsQuestion *question, FILE *f) {
                 f = stdout;
 
         DNS_QUESTION_FOREACH(k, question) {
-                char buf[DNS_RESOURCE_KEY_STRING_MAX];
+                const char *t;
+
+                t = dns_resource_key_to_string(k);
+                if (!t) {
+                        log_oom();
+                        continue;
+                }
 
                 fputc('\t', f);
-                fputs(dns_resource_key_to_string(k, buf, sizeof(buf)), f);
+                fputs(t, f);
                 fputc('\n', f);
         }
 }

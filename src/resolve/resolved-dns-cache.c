@@ -9,6 +9,7 @@
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
+#include "sort-util.h"
 #include "string-util.h"
 
 /* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
@@ -61,7 +62,7 @@ struct DnsCacheItem {
  * immediate RR data for the specified RR key, but nothing else. */
 #define DNS_CACHE_ITEM_IS_PRIMARY(item) (!!(item)->answer)
 
-static const char *dns_cache_item_type_to_string(DnsCacheItem *item) {
+static const char *dns_cache_item_type_to_string(const DnsCacheItem *item) {
         assert(item);
 
         switch (item->type) {
@@ -206,7 +207,6 @@ void dns_cache_prune(DnsCache *c) {
 
         for (;;) {
                 DnsCacheItem *i;
-                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
                 i = prioq_peek(c->by_expiry);
                 if (!i)
@@ -222,7 +222,7 @@ void dns_cache_prune(DnsCache *c) {
                  * either remove only this one RR or the whole RRset */
                 log_debug("Removing %scache entry for %s (expired "USEC_FMT"s ago)",
                           i->shared_owner ? "shared " : "",
-                          dns_resource_key_to_string(i->key, key_str, sizeof key_str),
+                          dns_resource_key_to_string(i->key),
                           (t - i->until) / USEC_PER_SEC);
 
                 if (i->shared_owner)
@@ -421,7 +421,6 @@ static int dns_cache_put_positive(
                 const union in_addr_union *owner_address) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsCacheItem *existing;
         uint32_t min_ttl;
         int r;
@@ -446,7 +445,7 @@ static int dns_cache_put_positive(
                 r = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
                           r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
-                          dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
+                          dns_resource_key_to_string(rr->key));
                 return 0;
         }
 
@@ -511,7 +510,7 @@ static int dns_cache_put_positive(
                           FLAGS_SET(i->query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unauthenticated",
                           FLAGS_SET(i->query_flags, SD_RESOLVED_CONFIDENTIAL) ? "confidential" : "non-confidential",
                           i->shared_owner ? " shared" : "",
-                          dns_resource_key_to_string(i->key, key_str, sizeof key_str),
+                          dns_resource_key_to_string(i->key),
                           (i->until - timestamp) / USEC_PER_SEC,
                           i->ifindex == 0 ? "*" : strna(format_ifname(i->ifindex, ifname)),
                           af_to_name_short(i->owner_family),
@@ -537,7 +536,6 @@ static int dns_cache_put_negative(
                 const union in_addr_union *owner_address) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         int r;
 
         assert(c);
@@ -559,7 +557,7 @@ static int dns_cache_put_negative(
                 /* For negative replies, check if we have a TTL of a SOA */
                 if (nsec_ttl <= 0 || soa->soa.minimum <= 0 || soa->ttl <= 0) {
                         log_debug("Not caching negative entry with zero SOA/NSEC/NSEC3 TTL: %s",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                  dns_resource_key_to_string(key));
                         return 0;
                 }
         } else if (rcode != DNS_RCODE_SERVFAIL)
@@ -619,7 +617,7 @@ static int dns_cache_put_negative(
 
         log_debug("Added %s cache entry for %s "USEC_FMT"s",
                   dns_cache_item_type_to_string(i),
-                  dns_resource_key_to_string(i->key, key_str, sizeof key_str),
+                  dns_resource_key_to_string(i->key),
                   (i->until - timestamp) / USEC_PER_SEC);
 
         i = NULL;
@@ -711,12 +709,9 @@ int dns_cache_put(
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
                 if (dns_answer_isempty(answer)) {
-                        if (key) {
-                                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
-
+                        if (key)
                                 log_debug("Not caching negative entry without a SOA record: %s",
-                                          dns_resource_key_to_string(key, key_str, sizeof key_str));
-                        }
+                                          dns_resource_key_to_string(key));
 
                         return 0;
                 }
@@ -823,9 +818,8 @@ int dns_cache_put(
         }
 
         if (cache_mode == DNS_CACHE_MODE_NO_NEGATIVE) {
-                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
                 log_debug("Not caching negative entry for: %s, cache mode set to no-negative",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                          dns_resource_key_to_string(key));
                 return 0;
         }
 
@@ -981,7 +975,6 @@ int dns_cache_lookup(
 
         _cleanup_(dns_packet_unrefp) DnsPacket *full_packet = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         unsigned n = 0;
         int r;
         bool nxdomain = false;
@@ -999,8 +992,7 @@ int dns_cache_lookup(
                 /* If we have ANY lookups we don't use the cache, so that the caller refreshes via the
                  * network. */
 
-                log_debug("Ignoring cache for ANY lookup: %s",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                log_debug("Ignoring cache for ANY lookup: %s", dns_resource_key_to_string(key));
                 goto miss;
         }
 
@@ -1008,8 +1000,7 @@ int dns_cache_lookup(
         if (!first) {
                 /* If one question cannot be answered we need to refresh */
 
-                log_debug("Cache miss for %s",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                log_debug("Cache miss for %s", dns_resource_key_to_string(key));
                 goto miss;
         }
 
@@ -1022,7 +1013,7 @@ int dns_cache_lookup(
                 if (FLAGS_SET(query_flags, SD_RESOLVED_REQUIRE_PRIMARY) &&
                     !DNS_CACHE_ITEM_IS_PRIMARY(j)) {
                         log_debug("Primary answer was requested for cache lookup for %s, which we don't have.",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                  dns_resource_key_to_string(key));
 
                         goto miss;
                 }
@@ -1110,7 +1101,7 @@ int dns_cache_lookup(
         if (found_rcode >= 0) {
                 log_debug("RCODE %s cache hit for %s",
                           dns_rcode_to_string(found_rcode),
-                          dns_resource_key_to_string(key, key_str, sizeof(key_str)));
+                          dns_resource_key_to_string(key));
 
                 if (ret_rcode)
                         *ret_rcode = found_rcode;
@@ -1132,7 +1123,7 @@ int dns_cache_lookup(
                  * RRs from the lower-zone of a zone cut, but the DS RRs are on the upper zone. */
 
                 log_debug("NSEC NODATA cache hit for %s",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                          dns_resource_key_to_string(key));
 
                 /* We only found an NSEC record that matches our name.  If it says the type doesn't exist
                  * report NODATA. Otherwise report a cache miss. */
@@ -1162,7 +1153,7 @@ int dns_cache_lookup(
         log_debug("%s cache hit for %s",
                   n > 0    ? "Positive" :
                   nxdomain ? "NXDOMAIN" : "NODATA",
-                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                  dns_resource_key_to_string(key));
 
         if (n <= 0) {
                 c->n_hit++;
@@ -1300,7 +1291,45 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
         return 0;
 }
 
-void dns_cache_dump(DnsCache *cache, FILE *f) {
+static int dns_cache_item_compare(DnsCacheItem * const *a, DnsCacheItem * const *b) {
+        const DnsCacheItem *x, *y;
+        const char *x_str, *y_str;
+        int r;
+
+        assert(a);
+        assert(*a);
+        assert(b);
+        assert(*b);
+
+        x = *a;
+        y = *b;
+        x_str = dns_resource_key_to_string(x->rr ? x->rr->key : x->key);
+        y_str = dns_resource_key_to_string(y->rr ? y->rr->key : y->key);
+
+        r = strcmp_ptr(x_str, y_str);
+        if (r != 0)
+                return r;
+
+        r = CMP(!!x->rr, !!y->rr);
+        if (r != 0)
+                return r;
+
+        if (x->rr) {
+                assert(y->rr);
+
+                x_str = dns_resource_record_to_string(x->rr);
+                y_str = dns_resource_record_to_string(y->rr);
+        } else {
+                x_str = dns_cache_item_type_to_string(x);
+                y_str = dns_cache_item_type_to_string(y);
+        }
+
+        return strcmp_ptr(x_str, y_str);
+}
+
+void dns_cache_dump(DnsCache *cache, FILE *f, bool indent) {
+        _cleanup_free_ DnsCacheItem **list = NULL;
+        size_t n = 0, allocated = 0;
         DnsCacheItem *i;
 
         if (!cache)
@@ -1313,28 +1342,43 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
+                        if (!GREEDY_REALLOC(list, allocated, n + 1)) {
+                                log_oom();
+                                return;
+                        }
 
+                        list[n++] = j;
+                }
+        }
+
+        typesafe_qsort(list, n, dns_cache_item_compare);
+
+        for (size_t k = 0; k < n; k++) {
+                const char *t;
+
+                if (indent)
                         fputc('\t', f);
 
-                        if (j->rr) {
-                                const char *t;
-                                t = dns_resource_record_to_string(j->rr);
-                                if (!t) {
-                                        log_oom();
-                                        continue;
-                                }
-
-                                fputs(t, f);
-                                fputc('\n', f);
-                        } else {
-                                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
-
-                                fputs(dns_resource_key_to_string(j->key, key_str, sizeof key_str), f);
-                                fputs(" -- ", f);
-                                fputs(dns_cache_item_type_to_string(j), f);
-                                fputc('\n', f);
+                if (list[k]->rr) {
+                        t = dns_resource_record_to_string(list[k]->rr);
+                        if (!t) {
+                                log_oom();
+                                continue;
                         }
+
+                        fputs(t, f);
+                } else {
+                        t = dns_resource_key_to_string(list[k]->key);
+                        if (!t) {
+                                log_oom();
+                                continue;
+                        }
+
+                        fputs(t, f);
+                        fputs(" -- ", f);
+                        fputs(dns_cache_item_type_to_string(list[k]), f);
                 }
+                fputc('\n', f);
         }
 }
 

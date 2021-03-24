@@ -47,6 +47,7 @@
         dnssec:"Configure per-interface dnssec enabled status"
         domain:"Configure per-interface search and route-only domains"
         flush-caches:"Flushes all DNS resource record caches the service maintains locally"
+        dump-caches:"Dump all DNS resource record caches the service maintains locally"
         llmnr:"Configure per-interface llmnr enabled status"
         mdns:"Configure per-interface mdns enabled status"
         nta:"Configure per-interface nta domains"

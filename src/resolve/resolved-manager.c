@@ -1515,18 +1515,14 @@ DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m) {
         return DNS_OVER_TLS_NO;
 }
 
-void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {
+void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, DnsResourceKey *key) {
 
         assert(verdict >= 0);
         assert(verdict < _DNSSEC_VERDICT_MAX);
 
-        if (DEBUG_LOGGING) {
-                char s[DNS_RESOURCE_KEY_STRING_MAX];
-
-                log_debug("Found verdict for lookup %s: %s",
-                          dns_resource_key_to_string(key, s, sizeof s),
-                          dnssec_verdict_to_string(verdict));
-        }
+        log_debug("Found verdict for lookup %s: %s",
+                  dns_resource_key_to_string(key),
+                  dnssec_verdict_to_string(verdict));
 
         m->n_dnssec_verdict[verdict]++;
 }
