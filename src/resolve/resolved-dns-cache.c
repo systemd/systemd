@@ -9,6 +9,7 @@
 #include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-packet.h"
+#include "sort-util.h"
 #include "string-util.h"
 
 /* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
@@ -1290,7 +1291,45 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
         return 0;
 }
 
+static int dns_cache_item_compare(DnsCacheItem * const *a, DnsCacheItem * const *b) {
+        const DnsCacheItem *x, *y;
+        const char *x_str, *y_str;
+        int r;
+
+        assert(a);
+        assert(*a);
+        assert(b);
+        assert(*b);
+
+        x = *a;
+        y = *b;
+        x_str = dns_resource_key_to_string(x->rr ? x->rr->key : x->key);
+        y_str = dns_resource_key_to_string(y->rr ? y->rr->key : y->key);
+
+        r = strcmp_ptr(x_str, y_str);
+        if (r != 0)
+                return r;
+
+        r = CMP(!!x->rr, !!y->rr);
+        if (r != 0)
+                return r;
+
+        if (x->rr) {
+                assert(y->rr);
+
+                x_str = dns_resource_record_to_string(x->rr);
+                y_str = dns_resource_record_to_string(y->rr);
+        } else {
+                x_str = dns_cache_item_type_to_string(x);
+                y_str = dns_cache_item_type_to_string(y);
+        }
+
+        return strcmp_ptr(x_str, y_str);
+}
+
 void dns_cache_dump(DnsCache *cache, FILE *f) {
+        _cleanup_free_ DnsCacheItem **list = NULL;
+        size_t n = 0, allocated = 0;
         DnsCacheItem *i;
 
         if (!cache)
@@ -1303,35 +1342,41 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
-
-                        fputc('\t', f);
-
-                        if (j->rr) {
-                                const char *t;
-
-                                t = dns_resource_record_to_string(j->rr);
-                                if (!t) {
-                                        log_oom();
-                                        continue;
-                                }
-
-                                fputs(t, f);
-                                fputc('\n', f);
-                        } else {
-                                const char *t;
-
-                                t = dns_resource_key_to_string(j->key);
-                                if (!t) {
-                                        log_oom();
-                                        continue;
-                                }
-
-                                fputs(t, f);
-                                fputs(" -- ", f);
-                                fputs(dns_cache_item_type_to_string(j), f);
-                                fputc('\n', f);
+                        if (!GREEDY_REALLOC(list, allocated, n + 1)) {
+                                log_oom();
+                                return;
                         }
+
+                        list[n++] = j;
                 }
+        }
+
+        typesafe_qsort(list, n, dns_cache_item_compare);
+
+        for (size_t k = 0; k < n; k++) {
+                const char *t;
+
+                fputc('\t', f);
+                if (list[k]->rr) {
+                        t = dns_resource_record_to_string(list[k]->rr);
+                        if (!t) {
+                                log_oom();
+                                continue;
+                        }
+
+                        fputs(t, f);
+                } else {
+                        t = dns_resource_key_to_string(list[k]->key);
+                        if (!t) {
+                                log_oom();
+                                continue;
+                        }
+
+                        fputs(t, f);
+                        fputs(" -- ", f);
+                        fputs(dns_cache_item_type_to_string(list[k]), f);
+                }
+                fputc('\n', f);
         }
 }
 
