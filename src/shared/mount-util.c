@@ -131,68 +131,6 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
-static int get_mount_flags(
-                struct libmnt_table *table,
-                const char *path,
-                unsigned long *ret) {
-
-        _cleanup_close_ int fd = -1;
-        struct libmnt_fs *fs;
-        struct statvfs buf;
-        const char *opts;
-        int r;
-
-        /* Get the mount flags for the mountpoint at "path" from "table". We have a fallback using statvfs()
-         * in place (which provides us with mostly the same info), but it's just a fallback, since using it
-         * means triggering autofs or NFS mounts, which we'd rather avoid needlessly.
-         *
-         * This generally doesn't follow symlinks. */
-
-        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
-        if (!fs) {
-                log_debug("Could not find '%s' in mount table, ignoring.", path);
-                goto fallback;
-        }
-
-        opts = mnt_fs_get_vfs_options(fs);
-        if (!opts) {
-                *ret = 0;
-                return 0;
-        }
-
-        r = mnt_optstr_get_flags(opts, ret, mnt_get_builtin_optmap(MNT_LINUX_MAP));
-        if (r != 0) {
-                log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
-                goto fallback;
-        }
-
-        /* MS_RELATIME is default and trying to set it in an unprivileged container causes EPERM */
-        *ret &= ~MS_RELATIME;
-        return 0;
-
-fallback:
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
-                return -errno;
-
-        if (fstatvfs(fd, &buf) < 0)
-                return -errno;
-
-        /* The statvfs() flags and the mount flags mostly have the same values, but for some cases do
-         * not. Hence map the flags manually. (Strictly speaking, ST_RELATIME/MS_RELATIME is the most
-         * prominent one that doesn't match, but that's the one we mask away anyway, see above.) */
-
-        *ret =
-                FLAGS_SET(buf.f_flag, ST_RDONLY) * MS_RDONLY |
-                FLAGS_SET(buf.f_flag, ST_NODEV) * MS_NODEV |
-                FLAGS_SET(buf.f_flag, ST_NOEXEC) * MS_NOEXEC |
-                FLAGS_SET(buf.f_flag, ST_NOSUID) * MS_NOSUID |
-                FLAGS_SET(buf.f_flag, ST_NOATIME) * MS_NOATIME |
-                FLAGS_SET(buf.f_flag, ST_NODIRATIME) * MS_NODIRATIME;
-
-        return 0;
-}
-
 /* Use this function only if you do not have direct access to /proc/self/mountinfo but the caller can open it
  * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
 int bind_remount_recursive_with_mountinfo(
@@ -419,7 +357,9 @@ int bind_remount_one_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        unsigned long orig_flags = 0;
+        unsigned long flags = 0;
+        struct libmnt_fs *fs;
+        const char *opts;
         int r;
 
         assert(path);
@@ -435,10 +375,18 @@ int bind_remount_one_with_mountinfo(
         if (r < 0)
                 return r;
 
-        /* Try to reuse the original flag set */
-        (void) get_mount_flags(table, path, &orig_flags);
+        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        if (!fs)
+                return -EINVAL; /* Not a mount point we recognize */
 
-        r = mount_nofollow(NULL, path, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
+        opts = mnt_fs_get_vfs_options(fs);
+        if (opts) {
+                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                if (r < 0)
+                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
+        }
+
+        r = mount_nofollow(NULL, path, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
         if (r < 0)
                 return r;
 
