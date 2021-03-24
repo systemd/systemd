@@ -724,10 +724,11 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         if (m->current_dns_server == s)
                 return s;
 
+        /* Let's log about the server switch, at debug level. Except if we switch from a non-fallback server
+         * to a fallback server or back, since that is noteworthy and possibly a configuration issue */
         if (s)
-                log_debug("Switching to %s DNS server %s.",
-                          dns_server_type_to_string(s->type),
-                          strna(dns_server_string_full(s)));
+                log_full((s->type == DNS_SERVER_FALLBACK) != (m->current_dns_server && m->current_dns_server->type == DNS_SERVER_FALLBACK) ? LOG_NOTICE : LOG_DEBUG,
+                         "Switching to %s DNS server %s.", dns_server_type_to_string(s->type), strna(dns_server_string_full(s)));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
