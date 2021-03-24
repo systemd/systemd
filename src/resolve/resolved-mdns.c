@@ -265,6 +265,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
+                DnsTransaction *t;
 
                 log_debug("Got mDNS reply packet");
 
@@ -286,8 +287,9 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                 dns_scope_check_conflicts(scope, p);
 
                 DNS_ANSWER_FOREACH(rr, p->answer) {
-                        const char *name = dns_resource_key_name(rr->key);
-                        DnsTransaction *t;
+                        const char *name;
+
+                        name = dns_resource_key_name(rr->key);
 
                         /* If the received reply packet contains ANY record that is not .local
                          * or .in-addr.arpa or .ip6.arpa, we assume someone's playing tricks on
@@ -302,22 +304,13 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
                         }
+                }
 
-                        t = dns_scope_find_transaction(scope, rr->key, SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
-                        if (t)
-                                dns_transaction_process_reply(t, p, false);
-
-                        /* Also look for the various types of ANY transactions */
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
-                        if (t)
-                                dns_transaction_process_reply(t, p, false);
-
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
-                        if (t)
-                                dns_transaction_process_reply(t, p, false);
-
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
-                        if (t)
+                LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
+                        r = dns_answer_match_key(p->answer, t->key, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to match resource key, ignoring: %m");
+                        else if (r > 0) /* This packet matches the transaction, let's pass it on as reply */
                                 dns_transaction_process_reply(t, p, false);
                 }
 
