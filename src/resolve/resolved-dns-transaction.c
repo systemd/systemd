@@ -1941,23 +1941,20 @@ int dns_transaction_go(DnsTransaction *t) {
             IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
                 usec_t jitter, accuracy;
 
-                /* RFC 4795 Section 2.7 suggests all queries should be
-                 * delayed by a random time from 0 to JITTER_INTERVAL. */
+                /* RFC 4795 Section 2.7 suggests all queries should be delayed by a random time from 0 to
+                 * JITTER_INTERVAL. */
 
                 t->initial_jitter_scheduled = true;
-
-                random_bytes(&jitter, sizeof(jitter));
 
                 switch (t->scope->protocol) {
 
                 case DNS_PROTOCOL_LLMNR:
-                        jitter %= LLMNR_JITTER_INTERVAL_USEC;
+                        jitter = random_u64_range(LLMNR_JITTER_INTERVAL_USEC);
                         accuracy = LLMNR_JITTER_INTERVAL_USEC;
                         break;
 
                 case DNS_PROTOCOL_MDNS:
-                        jitter %= MDNS_JITTER_RANGE_USEC;
-                        jitter += MDNS_JITTER_MIN_USEC;
+                        jitter = usec_add(random_u64_range(MDNS_JITTER_RANGE_USEC), MDNS_JITTER_MIN_USEC);
                         accuracy = MDNS_JITTER_RANGE_USEC;
                         break;
                 default:
