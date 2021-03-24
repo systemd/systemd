@@ -134,6 +134,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>dump-caches</command></term>
+
+        <listitem><para>Dump all DNS resource record caches the service maintains locally.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>reset-server-features</command></term>
 
         <listitem><para>Flushes all feature level information the resolver learnt about specific servers, and ensures
