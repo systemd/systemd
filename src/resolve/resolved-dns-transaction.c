@@ -1976,7 +1976,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 t->next_attempt_after = ts;
                 t->state = DNS_TRANSACTION_PENDING;
 
-                log_debug("Delaying %s transaction for " USEC_FMT "us.", dns_protocol_to_string(t->scope->protocol), jitter);
+                log_debug("Delaying %s transaction %" PRIu16 " for " USEC_FMT "us.",
+                          dns_protocol_to_string(t->scope->protocol),
+                          t->id,
+                          jitter);
                 return 1;
         }
 
