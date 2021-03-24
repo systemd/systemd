@@ -202,7 +202,7 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
-        _cleanup_set_free_free_ Set *done = NULL;
+        _cleanup_set_free_ Set *done = NULL;
         unsigned n_tries = 0;
         int r;
 
@@ -223,24 +223,14 @@ int bind_remount_recursive_with_mountinfo(
          * If the "deny_list" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the deny list for the top-level path. */
 
-        done = set_new(&path_hash_ops);
-        if (!done)
-                return -ENOMEM;
-
         for (;;) {
-                _cleanup_set_free_free_ Set *todo = NULL;
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                _cleanup_hashmap_free_ Hashmap *todo = NULL;
                 bool top_autofs = false;
-                char *x;
-                unsigned long orig_flags;
 
                 if (n_tries++ >= 32) /* Let's not retry this loop forever */
                         return -EBUSY;
-
-                todo = set_new(&path_hash_ops);
-                if (!todo)
-                        return -ENOMEM;
 
                 rewind(proc_self_mountinfo);
 
@@ -249,8 +239,10 @@ int bind_remount_recursive_with_mountinfo(
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
                 for (;;) {
+                        _cleanup_free_ char *d = NULL;
+                        const char *path, *type, *opts;
+                        unsigned long flags = 0;
                         struct libmnt_fs *fs;
-                        const char *path, *type;
 
                         r = mnt_table_next_fs(table, iter, &fs);
                         if (r == 1) /* EOF */
@@ -304,16 +296,31 @@ int bind_remount_recursive_with_mountinfo(
                                         continue;
                         }
 
-                        r = set_put_strdup(&todo, path);
+                        opts = mnt_fs_get_vfs_options(fs);
+                        if (opts) {
+                                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                if (r < 0)
+                                        log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
+                        }
+
+                        d = strdup(path);
+                        if (!d)
+                                return -ENOMEM;
+
+                        r = hashmap_ensure_put(&todo, &path_hash_ops_free, d, ULONG_TO_PTR(flags));
+                        if (r == -EEXIST)
+                                continue;
                         if (r < 0)
                                 return r;
+                        if (r > 0)
+                                TAKE_PTR(d);
                 }
 
                 /* Check if the top-level directory was among what we have seen so far. For that check both
                  * 'done' and 'todo'. Also check 'top_autofs' because if the top-level dir is an autofs we'll
                  * not include it in either set but will set this bool. */
                 if (!set_contains(done, prefix) &&
-                    !(top_autofs || set_contains(todo, prefix))) {
+                    !(top_autofs || hashmap_contains(todo, prefix))) {
 
                         /* The prefix directory itself is not yet a mount, make it one. */
                         r = mount_nofollow(prefix, prefix, NULL, MS_BIND|MS_REC, NULL);
@@ -325,46 +332,66 @@ int bind_remount_recursive_with_mountinfo(
                 }
 
                 /* If we have no submounts to process anymore, we are done */
-                if (set_isempty(todo))
+                if (hashmap_isempty(todo))
                         return 0;
 
-                while ((x = set_steal_first(todo))) {
+                for (;;) {
+                        unsigned long flags;
+                        char *x = NULL;
 
-                        r = set_consume(done, x);
+                        /* Take the first mount from our list of mounts to still process */
+                        flags = PTR_TO_ULONG(hashmap_steal_first_key_and_value(todo, (void**) &x));
+                        if (!x)
+                                break;
+
+                        r = set_ensure_consume(&done, &path_hash_ops_free, x);
                         if (IN_SET(r, 0, -EEXIST))
-                                continue;
+                                continue; /* Already done */
                         if (r < 0)
                                 return r;
 
-                        /* Deal with mount points that are obstructed by a later mount */
-                        r = path_is_mount_point(x, NULL, 0);
-                        if (IN_SET(r, 0, -ENOENT))
-                                continue;
+                        /* Now, remount this with the new flags set, but exclude MS_RELATIME from it. (It's
+                         * the default anyway, thus redundant, and in userns we'll get an error if we try to
+                         * explicitly enable it) */
+                        r = mount_nofollow(NULL, x, NULL, ((flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags) & ~MS_RELATIME, NULL);
                         if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r))
+                                int q;
+
+                                /* OK, so the remount of this entry failed. We'll ultimately ignore this in
+                                 * almost all cases (there are simply so many reasons why this can fail,
+                                 * think autofs, NFS, FUSE, …), but let's generate useful debug messages at
+                                 * the very least. */
+
+                                q = path_is_mount_point(x, NULL, 0);
+                                if (IN_SET(q, 0, -ENOENT)) {
+                                        /* Hmm, whaaaa? The mount point is not actually a mount point? Then
+                                         * it is either obstructed by a later mount or somebody has been
+                                         * racing against us and removed it. Either way the mount point
+                                         * doesn't matter to us, let's ignore it hence. */
+                                        log_debug_errno(r, "Mount point '%s' to remount is not a mount point anymore, ignoring remount failure: %m", x);
+                                        continue;
+                                }
+                                if (q < 0) /* Any other error on this? Just log and continue */
+                                        log_debug_errno(q, "Failed to determine whether '%s' is a mount point or not, ignoring: %m", x);
+
+                                if (((flags ^ new_flags) & flags_mask & ~MS_RELATIME) == 0) { /* ignore MS_RELATIME while comparing */
+                                        log_debug_errno(r, "Couldn't remount '%s', but the flags already match what we want, hence ignoring: %m", x);
+                                        continue;
+                                }
+
+                                /* Make this fatal if this is the top-level mount */
+                                if (path_equal(x, prefix))
                                         return r;
 
-                                /* Even if root user invoke this, submounts under private FUSE or NFS mount points
-                                 * may not be acceessed. E.g.,
-                                 *
-                                 * $ bindfs --no-allow-other ~/mnt/mnt ~/mnt/mnt
-                                 * $ bindfs --no-allow-other ~/mnt ~/mnt
-                                 *
-                                 * Then, root user cannot access the mount point ~/mnt/mnt.
-                                 * In such cases, the submounts are ignored, as we have no way to manage them. */
-                                log_debug_errno(r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
+                                /* If this is not the top-level mount, then handle this gracefully: log but
+                                 * otherwise ignore. With NFS, FUSE, autofs there are just too many reasons
+                                 * this might fail without a chance for us to do anything about it, let's
+                                 * hence be strict on the top-level mount and lenient on the inner ones. */
+                                log_debug_errno(r, "Couldn't remount submount '%s' for unexpected reason, ignoring: %m", x);
                                 continue;
                         }
 
-                        /* Try to reuse the original flag set */
-                        orig_flags = 0;
-                        (void) get_mount_flags(table, x, &orig_flags);
-
-                        r = mount_nofollow(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("Remounted %s read-only.", x);
+                        log_debug("Remounted %s.", x);
                 }
         }
 }
