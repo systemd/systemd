@@ -376,8 +376,12 @@ int bind_remount_one_with_mountinfo(
                 return r;
 
         fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
-        if (!fs)
+        if (!fs) {
+                if (laccess(path, F_OK) < 0) /* Hmm, it's not in the mount table, but does it exist at all? */
+                        return -errno;
+
                 return -EINVAL; /* Not a mount point we recognize */
+        }
 
         opts = mnt_fs_get_vfs_options(fs);
         if (opts) {
