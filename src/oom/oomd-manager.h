@@ -7,7 +7,9 @@
 #include "varlink.h"
 
 /* Polling interval for monitoring stats */
-#define INTERVAL_USEC (1 * USEC_PER_SEC)
+#define SWAP_INTERVAL_USEC 150000 /* 0.15 seconds */
+/* Pressure counters are lagging (~2 seconds) compared to swap so polling too frequently just wastes CPU */
+#define MEM_PRESSURE_INTERVAL_USEC (1 * USEC_PER_SEC)
 
 /* Used to weight the averages */
 #define AVERAGE_SIZE_DECAY 4
@@ -45,9 +47,10 @@ struct Manager {
         OomdSystemContext system_context;
 
         usec_t last_reclaim_at;
-        usec_t post_action_delay_start;
+        usec_t mem_pressure_post_action_delay_start;
 
-        sd_event_source *cgroup_context_event_source;
+        sd_event_source *swap_context_event_source;
+        sd_event_source *mem_pressure_context_event_source;
 
         Varlink *varlink;
 };
