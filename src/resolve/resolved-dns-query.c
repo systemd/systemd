@@ -1036,7 +1036,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         return 0;
 }
 
-int dns_query_process_cname(DnsQuery *q) {
+int dns_query_process_cname_one(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
@@ -1045,6 +1045,22 @@ int dns_query_process_cname(DnsQuery *q) {
         int r;
 
         assert(q);
+
+        /* Processes a CNAME redirect if there's one. Returns one of three values:
+         *
+         * CNAME_QUERY_MATCH   → direct RR match, caller should just use the RRs in this answer (and not
+         *                       bother with any CNAME/DNAME stuff)
+         *
+         * CNAME_QUERY_NOMATCH → no match at all, neither direct nor CNAME/DNAME, caller might decide to
+         *                       restart query or take things as NODATA reply.
+         *
+         * CNAME_QUERY_CNAME   → no direct RR match, but a CNAME/DNAME match that we now followed for one step.
+         *
+         * The function might also return a failure, in particular -ELOOP if we encountered too many
+         * CNAMEs/DNAMEs in a chain or if following CNAMEs/DNAMEs was turned off.
+         *
+         * Note that this function doesn't actually restart the query. The caller can decide to do that in
+         * case of CNAME_QUERY_CNAME, though. */
 
         if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                 return DNS_QUERY_NOMATCH;
@@ -1112,17 +1128,63 @@ int dns_query_process_cname(DnsQuery *q) {
         if (r < 0)
                 return r;
 
-        /* Let's see if the answer can already answer the new redirected question */
-        r = dns_query_process_cname(q);
-        if (r != DNS_QUERY_NOMATCH)
-                return r;
+        return DNS_QUERY_CNAME; /* Tell caller that we did a single CNAME/DNAME redirection step */
+}
 
-        /* OK, it cannot, let's begin with the new query */
-        r = dns_query_go(q);
-        if (r < 0)
-                return r;
+int dns_query_process_cname_many(DnsQuery *q) {
+        int r;
 
-        return DNS_QUERY_RESTARTED; /* We restarted the query for a new cname */
+        assert(q);
+
+        /* Follows CNAMEs through the current packet: as long as the current packet can fulfill our
+         * redirected CNAME queries we keep going, and restart the query once the current packet isn't good
+         * enough anymore. It's a wrapper around dns_query_process_cname_one() and returns the same values,
+         * but with extended semantics. Specifically:
+         *
+         * DNS_QUERY_MATCH   → as above
+         *
+         * DNS_QUERY_CNAME   → we ran into a CNAME/DNAME redirect that we could not answer from the current
+         *                     message, and thus restarted the query to resolve it.
+         *
+         * DNS_QUERY_NOMATCH → we reached the end of CNAME/DNAME chain, and there are no direct matches nor a
+         *                     CNAME/DNAME match. i.e. this is a NODATA case.
+         *
+         * Note that this function will restart the query for the caller if needed, and that's the case
+         * DNS_QUERY_CNAME is returned.
+         */
+
+        r = dns_query_process_cname_one(q);
+        if (r != DNS_QUERY_CNAME)
+                return r; /* The first redirect is special: if it doesn't answer the question that's no
+                           * reason to restart the query, we just accept this as a NODATA answer. */
+
+        for (;;) {
+                r = dns_query_process_cname_one(q);
+                if (r < 0 || r == DNS_QUERY_MATCH)
+                        return r;
+                if (r == DNS_QUERY_NOMATCH) {
+                        /* OK, so we followed one or more CNAME/DNAME RR but the existing packet can't answer
+                         * this. Let's restart the query hence, with the new question. Why the different
+                         * handling than the first chain element? Because if the server answers a direct
+                         * question with an empty answer then this is a NODATA response. But if it responds
+                         * with a CNAME chain that ultimately is incomplete (i.e. a non-empty but truncated
+                         * CNAME chain) then we better follow up ourselves and ask for the rest of the
+                         * chain. This is particular relevant since our cache will store CNAME/DNAME
+                         * redirects that we learnt about for lookups of certain DNS types, but later on we
+                         * can reuse this data even for other DNS types, but in that case need to follow up
+                         * with the final lookup of the chain ourselves with the RR type we ourselves are
+                         * interested in. */
+                        r = dns_query_go(q);
+                        if (r < 0)
+                                return r;
+
+                        return DNS_QUERY_CNAME;
+                }
+
+                /* So we found a CNAME that the existing packet already answers, again via a CNAME, let's
+                 * continue going then. */
+                assert(r == DNS_QUERY_CNAME);
+        }
 }
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
