@@ -30,8 +30,6 @@ int main(int argc, char *argv[]) {
         const char *key, *value;
         int r;
 
-        unsetenv("SYSTEMD_MEMPOOL");
-
         r = sd_device_new_from_syspath(&loopback, "/sys/class/net/lo");
         if (r < 0)
                 return handle_error_errno(r, "Failed to create loopback device object");

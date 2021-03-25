@@ -28,8 +28,6 @@ int main(int argc, char *argv[]) {
         pthread_t t;
         int r;
 
-        unsetenv("SYSTEMD_MEMPOOL");
-
         loopback = udev_device_new_from_syspath(NULL, "/sys/class/net/lo");
         if (!loopback)
                 return handle_error_errno(errno, "Failed to create loopback device object");
