@@ -14,6 +14,8 @@ static void test_v6(FirewallContext *ctx) {
         uint8_t prefixlen;
         int r;
 
+        assert_se(ctx);
+
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
         if (!socket_ipv6_is_supported())
@@ -46,6 +48,7 @@ static void test_v6(FirewallContext *ctx) {
 
 static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) {
         assert(str);
+        assert(u);
         assert_se(in_addr_from_string(AF_INET, str, u) >= 0);
         return u;
 }
@@ -53,6 +56,8 @@ static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) 
 static bool test_v4(FirewallContext *ctx) {
         union in_addr_union u, v;
         int r;
+
+        assert_se(ctx);
 
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
@@ -92,6 +97,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("not root");
 
         assert_se(fw_ctx_new(&ctx) >= 0);
+        assert_se(ctx);
 
         if (ctx->backend == FW_BACKEND_NONE)
                 return EXIT_TEST_SKIP;
