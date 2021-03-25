@@ -1938,11 +1938,15 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *unit_name = SPECIAL_REBOOT_TARGET;
         Manager *m = userdata;
+
+        if (kexec_loaded())
+                unit_name = SPECIAL_KEXEC_TARGET;
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        SPECIAL_REBOOT_TARGET,
+                        unit_name,
                         INHIBIT_SHUTDOWN,
                         "org.freedesktop.login1.reboot",
                         "org.freedesktop.login1.reboot-multiple-sessions",
