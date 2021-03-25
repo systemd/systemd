@@ -403,18 +403,20 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                         return -EBADF;
 
                 /* Be prepared for files from /proc which generally report a file size of 0. */
+                assert_cc(READ_FULL_BYTES_MAX < SSIZE_MAX);
                 if (st.st_size > 0) {
-                        if (st.st_size > SSIZE_MAX) /* safety check in case off_t is 64bit and size_t 32bit */
+                        if (st.st_size > READ_FULL_BYTES_MAX)
                                 return -E2BIG;
 
                         size = st.st_size;
                         n_retries--;
-                } else
-                        /* Double the buffer size (saturate in case of overflow) */
-                        size = size > SSIZE_MAX / 2 ? SSIZE_MAX : size * 2;
+                } else {
+                        /* Double the buffer size */
+                        if (size > READ_FULL_BYTES_MAX / 2)
+                                return -E2BIG;
 
-                if (size > READ_FULL_BYTES_MAX)
-                        return -E2BIG;
+                        size *= 2;
+                }
 
                 buf = malloc(size + 1);
                 if (!buf)
