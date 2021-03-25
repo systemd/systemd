@@ -426,6 +426,7 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 buf = malloc(size + 1);
                 if (!buf)
                         return -ENOMEM;
+                size = malloc_usable_size(buf) - 1; /* Use a bigger allocation if we got it anyway */
 
                 for (;;) {
                         ssize_t k;
