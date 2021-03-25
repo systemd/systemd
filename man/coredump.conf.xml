@@ -35,7 +35,7 @@
     <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     a handler for core dumps invoked by the kernel. Whether <command>systemd-coredump</command> is used
     is determined by the kernel's
-    <varname>kernel.core_pattern</varname> <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <varname>kernel.core_pattern</varname> <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     setting. See
     <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     and
@@ -86,7 +86,9 @@
         <listitem><para>The maximum size in bytes of a core
         which will be processed. Core dumps exceeding this size
         may be stored, but the backtrace will not be generated.
-        </para>
+        Like other sizes in this same config file, the usual
+        suffixes to the base of 1024 are allowed (B, K, M, 
+        G, T, P, and E.)</para>
 
         <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
         disables all coredump handling except for a log entry.</para>
@@ -98,15 +100,18 @@
         <term><varname>JournalSizeMax=</varname></term>
 
         <listitem><para>The maximum (uncompressed) size in bytes of a
-        core to be saved.</para></listitem>
+        core to be saved. Unit suffixes are allowed just as in 
+        <option>ProcessSizeMax=</option></para></listitem>.
       </varlistentry>
 
       <varlistentry>
         <term><varname>MaxUse=</varname></term>
         <term><varname>KeepFree=</varname></term>
 
-        <listitem><para>Enforce limits on the disk space taken up by
-        externally stored core dumps. <option>MaxUse=</option> makes
+        <listitem><para>Enforce limits on the disk space, specified
+        in bytes, taken up by externally stored core dumps.
+        Unit suffixes are allowed just as in <option>ProcessSizeMax=</option>.
+        <option>MaxUse=</option> makes
         sure that old core dumps are removed as soon as the total disk
         space taken up by core dumps grows beyond this limit (defaults
         to 10% of the total disk size). <option>KeepFree=</option>
