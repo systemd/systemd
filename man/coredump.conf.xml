@@ -86,6 +86,18 @@
         <listitem><para>The maximum size in bytes of a core
         which will be processed. Core dumps exceeding this size
         may be stored, but the backtrace will not be generated.
+        Like other sizes in this same config file, SI suffixes
+        are allowed (B, K, M, G, T, P, and E.) For example, 
+        1G may be used in place of 1073741824 bytes. Decimals
+        are allowed.
+
+        A series of SI numbers may be followed by a number in 
+        bytes with the suffix "B" to allow complete precision.
+        The numbers in the series will be added but they must
+        appear in decreasing SI size order.
+
+        For example "3.5G 4B" = 3*1024*1024*1024 + 512*1024*1024 + 4 =
+        3758096388 bytes.
         </para>
 
         <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
@@ -98,7 +110,8 @@
         <term><varname>JournalSizeMax=</varname></term>
 
         <listitem><para>The maximum (uncompressed) size in bytes of a
-        core to be saved.</para></listitem>
+        core to be saved. SI units are allowed just as in 
+        <option>ProcessSizeMax=</option></para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -107,6 +120,7 @@
 
         <listitem><para>Enforce limits on the disk space, specified
         in bytes, taken up by externally stored core dumps.
+        SI units are allowed just as in <option>ProcessSizeMax=</option>
         <option>MaxUse=</option> makes
         sure that old core dumps are removed as soon as the total disk
         space taken up by core dumps grows beyond this limit (defaults
