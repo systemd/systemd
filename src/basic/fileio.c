@@ -27,7 +27,8 @@
 #include "string-util.h"
 #include "tmpfile-util.h"
 
-#define READ_FULL_BYTES_MAX (4U*1024U*1024U)
+/* The maximum size of the file we'll read in one go. */
+#define READ_FULL_BYTES_MAX (4U*1024U*1024U - 1)
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret) {
         assert(ret);
@@ -386,8 +387,10 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
 
         /* Start size for files in /proc/ which usually report a file size of 0. (Files in /sys/ report a
          * file size of 4K, which is probably OK for sizing our initial buffer, and sysfs attributes can't be
-         * larger anyway.) */
-        size = LINE_MAX / 2;
+         * larger anyway.)
+         *
+         * It's one less than 4k, so that the malloc() below allocates exactly 4k. */
+        size = 4095;
 
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
         n_retries = 3;
@@ -414,10 +417,10 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                         /* Double the buffer size */
                         if (size >= READ_FULL_BYTES_MAX)
                                 return -E2BIG;
-                        if (size > READ_FULL_BYTES_MAX / 2)
+                        if (size > READ_FULL_BYTES_MAX / 2 - 1)
                                 size = READ_FULL_BYTES_MAX; /* clamp to max */
                         else
-                                size *= 2;
+                                size = size * 2 + 1; /* Stay always one less than page size, so we malloc evenly */
                 }
 
                 buf = malloc(size + 1);
@@ -466,16 +469,13 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 buf = TAKE_PTR(p);
         }
 
-        if (!ret_size) {
-                /* Safety check: if the caller doesn't want to know the size of what we
-                 * just read it will rely on the trailing NUL byte. But if there's an
-                 * embedded NUL byte, then we should refuse operation as otherwise
-                 * there'd be ambiguity about what we just read. */
-
-                if (memchr(buf, 0, n))
-                        return -EBADMSG;
-        } else
+        if (ret_size)
                 *ret_size = n;
+        else if (memchr(buf, 0, n))
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will
+                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
+                 * operation as otherwise there'd be ambiguity about what we just read. */
+                return -EBADMSG;
 
         buf[n] = 0;
         *ret_contents = TAKE_PTR(buf);
