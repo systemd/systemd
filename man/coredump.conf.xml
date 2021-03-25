@@ -105,8 +105,9 @@
         <term><varname>MaxUse=</varname></term>
         <term><varname>KeepFree=</varname></term>
 
-        <listitem><para>Enforce limits on the disk space taken up by
-        externally stored core dumps. <option>MaxUse=</option> makes
+        <listitem><para>Enforce limits on the disk space, specified
+        in bytes, taken up by externally stored core dumps.
+        <option>MaxUse=</option> makes
         sure that old core dumps are removed as soon as the total disk
         space taken up by core dumps grows beyond this limit (defaults
         to 10% of the total disk size). <option>KeepFree=</option>
