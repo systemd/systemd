@@ -158,14 +158,14 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
@@ -395,14 +395,14 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);

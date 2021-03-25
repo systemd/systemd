@@ -195,14 +195,14 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_query_string(q));
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         r = sd_bus_message_new_method_return(q->bus_request, &reply);
@@ -486,14 +486,14 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_query_string(q));
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         r = sd_bus_message_new_method_return(q->bus_request, &reply);
@@ -660,14 +660,14 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_query_string(q));
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         r = sd_bus_message_new_method_return(q->bus_request, &reply);
@@ -1107,8 +1107,8 @@ static void resolve_service_hostname_complete(DnsQuery *q) {
                 return;
         }
 
-        r = dns_query_process_cname(q);
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        r = dns_query_process_cname_many(q);
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         /* This auxiliary lookup is finished or failed, let's see if all are finished now. */
@@ -1180,14 +1180,14 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        r = dns_query_process_cname(q);
+        r = dns_query_process_cname_many(q);
         if (r == -ELOOP) {
                 r = sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_CNAME_LOOP, "CNAME loop detected, or CNAME resolving disabled on '%s'", dns_query_string(q));
                 goto finish;
         }
         if (r < 0)
                 goto finish;
-        if (r == DNS_QUERY_RESTARTED) /* This was a cname, and the query was restarted. */
+        if (r == DNS_QUERY_CNAME) /* This was a cname, and the query was restarted. */
                 return;
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);

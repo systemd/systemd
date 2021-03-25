@@ -772,7 +772,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
         switch (q->state) {
 
         case DNS_TRANSACTION_SUCCESS:
-                r = dns_query_process_cname(q);
+                r = dns_query_process_cname_many(q);
                 if (r == -ELOOP) { /* CNAME loop, let's send what we already have */
                         log_debug_errno(r, "Detected CNAME loop, returning what we already have.");
                         (void) dns_stub_send_reply(q, q->answer_rcode);
@@ -782,7 +782,7 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         log_debug_errno(r, "Failed to process CNAME: %m");
                         break;
                 }
-                if (r == DNS_QUERY_RESTARTED)
+                if (r == DNS_QUERY_CNAME)
                         return;
 
                 _fallthrough_;
