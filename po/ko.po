@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-03-16 07:01+0000\n"
+"PO-Revision-Date: 2021-03-25 03:01+0000\n"
 "Last-Translator: simmon <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -168,11 +168,11 @@ msgstr "가상 머신 또는 컨테이너의 이미지를 내보내려면 인증
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
-msgstr "가상머신 또는 컨테이너 이미지 다운로드"
+msgstr "가상머신 또는 컨테이너 이미지 내려받기"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr "가상머신 또는 컨테이너 이미지를 다운로드하려면 인증이 필요합니다"
+msgstr "가상머신 또는 컨테이너 이미지를 내려받기하려면 인증이 필요합니다"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
