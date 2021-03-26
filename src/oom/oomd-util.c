@@ -134,6 +134,23 @@ bool oomd_memory_reclaim(Hashmap *h) {
         return pgscan_of > last_pgscan_of;
 }
 
+uint64_t oomd_pgscan_rate(const OomdCGroupContext *c) {
+        uint64_t last_pgscan;
+
+        assert(c);
+
+        /* If last_pgscan > pgscan, assume the cgroup was recreated and reset last_pgscan to zero.
+         * pgscan is monotonic and in practice should not decrease (except in the recreation case). */
+        last_pgscan = c->last_pgscan;
+        if (c->last_pgscan > c->pgscan) {
+                log_debug("Last pgscan %"PRIu64" greater than current pgscan %"PRIu64" for %s. Using last pgscan of zero.",
+                                c->last_pgscan, c->pgscan, c->path);
+                last_pgscan = 0;
+        }
+
+        return c->pgscan - last_pgscan;
+}
+
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
         uint64_t swap_threshold;
 
