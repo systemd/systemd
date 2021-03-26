@@ -23,3 +23,22 @@ ieee1394:ven0000A07Emo00000001sp000000AAver00000001
 ieee1394:ven0000A07Emo00000002sp000000ABver00000001
   ID_VENDOR_FROM_DATABASE=Digidesign
   ID_MODEL_FROM_DATABASE=Digi 003 Rack
+
+# The content of configuration ROM in TASCAM FireWire series has neither descriptor entry for
+# vendor name under root directory nor entries for model ID and model name under unit directory.
+# The unit directory includes dependent information directory which includes the names.
+ieee1394:ven0000022Esp0000022Ever00800000
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FW-1884
+
+ieee1394:ven0000022Esp0000022Ever00800001
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FE-8
+
+ieee1394:ven0000022Esp0000022Ever00800003
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FW-1082
+
+ieee1394:ven0000022Esp0000022Ever00800004
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FW-1804
