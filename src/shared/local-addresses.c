@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
+
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "local-addresses.h"
 #include "macro.h"
 #include "netlink-util.h"
@@ -312,4 +315,152 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
         }
 
         return (int) n_list;
+}
+
+int local_outbound(sd_netlink *context, int ifindex, int af, struct local_address **ret) {
+        _cleanup_free_ struct local_address *a = NULL, *b = NULL;
+        int r, done_af = AF_UNSPEC, n, found = 0;
+
+        /* Determines our default outbound addresses, i.e. the local address we use to talk to the default
+         * route. This is still an address of the local host (i.e. this doesn't resolve NAT or so), but it's
+         * the one the local IP stack most likely uses to talk to other hosts.
+         *
+         * This works by connect()ing a SOCK_DGRAM socket to the local gateway, and then reading the IP
+         * address off the socket that was chosen for the routing decision.
+         *
+         * This will generate exactly 0, 1 or 2 addresses depending if AF_INET, AF_INET6 is
+         * requested + configured. */
+
+        n = local_gateways(context, ifindex, af, &a);
+        if (n < 0)
+                return r;
+        if (n == 0) {
+                /* No gateways? Then we have no outbound addresses either. */
+                if (ret)
+                        *ret = NULL;
+
+                return 0;
+        }
+
+        for (int i = 0; i < n; i++) {
+                _cleanup_close_ int fd = -1;
+                union sockaddr_union sa;
+                socklen_t salen;
+
+                /* Generate exactly one entry per protocol */
+                if (done_af != AF_UNSPEC && af == done_af)
+                        continue;
+
+                fd = socket(a[i].family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                if (fd < 0)
+                        return -errno;
+
+                switch (a[i].family) {
+
+                case AF_INET:
+                        sa.in = (struct sockaddr_in) {
+                                .sin_family = AF_INET,
+                                .sin_addr = a[i].address.in,
+                                .sin_port = htobe16(53), /* doesn't really matter wich port we pick — we just care about the routing decision */
+                        };
+
+                        break;
+
+                case AF_INET6:
+                        sa.in6 = (struct sockaddr_in6) {
+                                .sin6_family = AF_INET6,
+                                .sin6_addr = a[i].address.in6,
+                                .sin6_port = htobe16(53),
+                                .sin6_scope_id = a[i].ifindex,
+                        };
+
+                        break;
+
+                default:
+                        assert_not_reached("Unexpected protocol");
+                }
+
+                /* So ideally we'd just use IP_UNICAST_IF here to pass the ifindex info to the kernel before
+                 * connect()ing, sot that it influences the routing decision. However, on current kernels
+                 * IP_UNICAST_IF doesn't actually influence the routing decision for UDP — which I think
+                 * should probably just be considered a bug. Once that bug is fixed this is the best API to
+                 * use, since it is the most lightweight. */
+                r = socket_set_unicast_if(fd, a[i].family, a[i].ifindex);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set unicast interface index %i, ignoring: %m", a[i].ifindex);
+
+                /* We'll also use SO_BINDTOINDEX. This requires CAP_NET_RAW on old kernels, hence there's a
+                 * good chance this fails. Since 5.7 this restriction was dropped and the first
+                 * SO_BINDTOINDEX on a socket may be done without privileges. This one has the benefit of
+                 * really influencing the routing decision, i.e. this one works for us.*/
+                r = socket_bind_to_ifindex(fd, a[i].ifindex);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to bind socket to interface %i, ignoring: %m", a[i].ifindex);
+
+                if (connect(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0)
+                        log_debug_errno(r, "Failed to connect SOCK_DGRAM socket to gateway, ignoring: %m");
+
+                /* Let's now read the socket address of the socket. A routing decision should have been
+                 * made. Let's verify that and use the data. */
+                salen = SOCKADDR_LEN(sa);
+                if (getsockname(fd, &sa.sa, &salen) < 0)
+                        return -errno;
+                assert(sa.sa.sa_family == a[i].family);
+                assert(salen == SOCKADDR_LEN(sa));
+
+                if (!b) {
+                        /* Allocate space for two addresses, since that's how much we need at max. Yes, this
+                         * might mean we allocate a bit too much in many cases, but it's not too bad. */
+                        b = new(struct local_address, 2);
+                        if (!b)
+                                return -ENOMEM;
+                }
+
+                assert(found <= 1);
+
+                switch (a[i].family) {
+
+                case AF_INET:
+                        if (in4_addr_is_null(&sa.in.sin_addr))
+                                continue;
+
+                        b[found++] = (struct local_address) {
+                                .family = a[i].family,
+                                .ifindex = a[i].ifindex,
+                                .address.in = sa.in.sin_addr,
+                        };
+
+                        break;
+
+                case AF_INET6:
+                        if (in6_addr_is_null(&sa.in6.sin6_addr))
+                                continue;
+
+                        b[found++] = (struct local_address) {
+                                .family = a[i].family,
+                                .ifindex = a[i].ifindex,
+                                .address.in6 = sa.in6.sin6_addr,
+                        };
+                        break;
+
+                default:
+                        assert_not_reached("Unexpected protocol");
+                }
+
+                assert(found <= 2);
+
+                if (found == 2)
+                        break;
+
+                /* We covered this address family now, let's remember that */
+                assert(done_af == AF_UNSPEC);
+                done_af = a[i].family;
+        }
+
+        if (ret) {
+                typesafe_qsort(b, found, address_compare);
+                *ret = TAKE_PTR(b);
+        }
+
+        return found;
 }
