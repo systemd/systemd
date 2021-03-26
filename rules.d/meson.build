@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+install_data(
+        'README',
+        install_dir : udevrulesdir)
+
 rules = files('''
         60-autosuspend.rules
         60-block.rules
