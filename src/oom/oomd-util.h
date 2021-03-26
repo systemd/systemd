@@ -32,10 +32,11 @@ struct OomdCGroupContext {
 
         ManagedOOMPreference preference;
 
-        /* These are only used by oomd_pressure_above for acting on high memory pressure. */
+        /* These are only used for acting on high memory pressure. */
         loadavg_t mem_pressure_limit;
         usec_t mem_pressure_duration_usec;
         usec_t last_hit_mem_pressure_limit;
+        usec_t last_had_mem_reclaim;
 };
 
 struct OomdSystemContext {
@@ -56,10 +57,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
  * Returns 0 and sets `ret` to an empty set if no entries exceeded limits for `duration`.
  * Returns -ENOMEM for allocation errors. */
 int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret);
-
-/* Sum up current OomdCGroupContexts' pgscan values and last interval's pgscan values in `h`. Returns true if the
- * current sum is higher than the last interval's sum (there was some reclaim activity). */
-bool oomd_memory_reclaim(Hashmap *h);
 
 /* Returns true if the amount of swap free is below the permyriad of swap specified by `threshold_permyriad`. */
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad);
