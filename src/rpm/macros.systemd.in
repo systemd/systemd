@@ -47,8 +47,8 @@ OrderWithRequires(postun): systemd \
 %systemd_post() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_post}} \
 if [ $1 -eq 1 ] && [ -x @bindir@/systemctl ]; then \
-        # Initial installation \
-        @bindir@/systemctl --no-reload preset %{?*} || : \
+    # Initial installation \
+    @bindir@/systemctl --no-reload preset %{?*} || : \
 fi \
 %{nil}
 
@@ -57,16 +57,20 @@ fi \
 %systemd_preun() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_preun}} \
 if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ]; then \
-        # Package removal, not upgrade \
-        @bindir@/systemctl --no-reload disable --now %{?*} || : \
+    # Package removal, not upgrade \
+    if [ -d /run/systemd/system ]; then \
+          @bindir@/systemctl --no-reload disable --now %{?*} || : \
+    else \
+          @bindir@/systemctl --no-reload disable %{?*} || : \
+    fi \
 fi \
 %{nil}
 
 %systemd_user_preun() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_preun}} \
 if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ]; then \
-        # Package removal, not upgrade \
-        @bindir@/systemctl --global disable %{?*} || : \
+    # Package removal, not upgrade \
+    @bindir@/systemctl --global disable %{?*} || : \
 fi \
 %{nil}
 
@@ -81,10 +85,10 @@ fi \
 %systemd_postun_with_restart() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun_with_restart}} \
 if [ $1 -ge 1 ] && [ -x @bindir@/systemctl ]; then \
-        # Package upgrade, not uninstall \
-        for unit in %{?*}; do \
-                @bindir@/systemctl set-property $unit Markers=+needs-restart || : \
-        done \
+    # Package upgrade, not uninstall \
+    for unit in %{?*}; do \
+         @bindir@/systemctl set-property $unit Markers=+needs-restart || : \
+    done \
 fi \
 %{nil}
 
