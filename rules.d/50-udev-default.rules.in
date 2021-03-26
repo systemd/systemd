@@ -54,6 +54,11 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
+# Drivers in ALSA firewire stack expects userspace application to control target device.
+SUBSYSTEM=="firewire", ATTR{vendor}=="0x001486", ATTR{units}=="0x00a02d:0x010000", GROUP="audio"
+SUBSYSTEM=="firewire", ATTR{vendor}=="0x000ff2", ATTR{units}=="0x00a02d:0x010000", GROUP="audio"
+SUBSYSTEM=="firewire", ATTR{vendor}=="0x00075b", ATTR{units}=="0x00a02d:0x010000", GROUP="audio"
+
 KERNEL=="parport[0-9]*", GROUP="lp"
 SUBSYSTEM=="printer", KERNEL=="lp*", GROUP="lp"
 SUBSYSTEM=="ppdev", GROUP="lp"
