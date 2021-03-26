@@ -19,6 +19,9 @@
 #define DEFAULT_MEM_PRESSURE_LIMIT_PERCENT 60
 #define DEFAULT_SWAP_USED_LIMIT_PERCENT 90
 
+/* Only tackle candidates with large swap usage. */
+#define THRESHOLD_SWAP_USED_PERCENT 5
+
 #define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
 #define POST_ACTION_DELAY_USEC (15 * USEC_PER_SEC)
 
