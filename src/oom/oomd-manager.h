@@ -46,7 +46,6 @@ struct Manager {
 
         OomdSystemContext system_context;
 
-        usec_t last_reclaim_at;
         usec_t mem_pressure_post_action_delay_start;
 
         sd_event_source *swap_context_event_source;
