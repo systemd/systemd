@@ -345,6 +345,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                 _cleanup_free_ char *selected = NULL;
+                uint64_t threshold;
 
                 log_debug("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
                           m->system_context.swap_used, m->system_context.swap_total,
@@ -356,7 +357,8 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r < 0)
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
-                r = oomd_kill_by_swap_usage(candidates, m->dry_run, &selected);
+                threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
+                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
