@@ -3,6 +3,7 @@
 #include <dwarf.h>
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
+#include <libelf.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -149,6 +150,62 @@ static int module_callback (Dwfl_Module *mod, void **userdata, const char *name,
         }
 
         fprintf(c->f, " with build-id: %s\n", id_hex);
+
+        /* The .note.package metadata is more difficult. From the module, we need to get a reference
+         * to the ELF object first. */
+        elf = dwfl_module_getelf(mod, &bias);
+        if (!elf) {
+                log_warning("Could not parse package metadata for module %s from core file: %s",
+                            name,
+                            elf_errmsg(-1));
+                return DWARF_CB_OK;
+        }
+
+        r = elf_getphdrnum(elf, &n_program_headers);
+        if (r < 0) {
+                log_warning("Could not parse number of program headers for module %s in core file: %s",
+                            name,
+                            elf_errmsg(-1));
+                return DWARF_CB_OK;
+        }
+
+        /* Then, iterate over all program headers in that ELF object. These will have been copied by
+         * the kernel verbatim when the core file is generated.
+         * But we cannot get a reference to those, in reality - we are actually looking at the ELF
+         * executable on the filesystem, which must be accessible for this to work. */
+        for (size_t i = 0; i < n_program_headers; ++i) {
+                size_t note_offset = 0, name_offset, desc_offset;
+                GElf_Phdr mem, *program_header;
+                GElf_Nhdr note_header;
+                Elf_Data *data;
+
+                /* Package metadata is in PT_NOTE headers */
+                program_header = gelf_getphdr (elf, i, &mem);
+                if (program_header == NULL || program_header->p_type != PT_NOTE)
+                        continue;
+
+                /* Fortunately there is an iterator we can use to walk over the
+                 * elements of a PT_NOTE program header. We are interested in the
+                 * note with type*/
+                data = elf_getdata_rawchunk(elf,
+                                            program_header->p_offset,
+                                            program_header->p_filesz,
+                                            program_header->p_align == 8 ? ELF_T_NHDR8 : ELF_T_NHDR);
+
+                while (note_offset < data->d_size &&
+                       (note_offset = gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0) {
+                        const char *note_name = (const char *)data->d_buf + name_offset;
+                        const char *payload = (const char *)data->d_buf + desc_offset;
+
+                        if (note_header.n_namesz == 0 || note_header.n_descsz == 0)
+                                continue;
+                        /* Package metadata might have different owners, but the
+                         * magic ID is always the same. */
+                        if (note_header.n_type == 0x7add3300)
+                                fprintf(c->f, "Metadata for module %s owned by %s found: %s\n",
+                                        name, note_name, payload);
+                }
+        }
 
         return DWARF_CB_OK;
 }
