@@ -455,8 +455,7 @@ static int parse_argv(int argc, char **argv,
         } else {
                 _cleanup_free_ char *hostname;
                 assert_se(hostname = gethostname_malloc());
-
-                assert_se(names = strv_new("localhost", "_gateway", "foo_no_such_host", hostname));
+                assert_se(names = strv_new("localhost", "_gateway", "_outbound", "foo_no_such_host", hostname));
 
                 n = make_addresses(&addrs);
                 assert_se(n >= 0);
