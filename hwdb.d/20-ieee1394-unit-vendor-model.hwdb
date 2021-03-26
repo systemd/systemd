@@ -1,0 +1,5 @@
+# This file is part of systemd.
+
+# Each node on IEEE 1394 bus has configuration ROM with information for identification. Although the
+# typical content of configuration ROM is defined by 1394 Trading Association, many nodes have own
+# quirks. This database includes supplemental information to unit in the node.
