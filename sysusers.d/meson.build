@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if enable_sysusers
+        install_data('README', install_dir : sysusersdir)
+endif
+
 in_files = ['basic.conf']
 
 foreach file : in_files

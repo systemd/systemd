@@ -1,0 +1,7 @@
+Files in this directory contain configuration for modprobe, a program to load
+kernel modules.
+
+See man:modprobe.d(5) for explanation of the configuration file format, and
+man:modprobe(8) for a description of the program itself.
+
+Use 'systemd-analyze cat-config modprobe.d' to display the effective config.
