@@ -456,14 +456,14 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
         log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
 
         if (dns_name_is_single_label(name))
-                log_notice("(Note that search domains are not appended when resolving raw record types. "
-                           "Please specify fully qualified domain names when resolving raw records, or remove --type= switch from invocation in order to request regular hostname resolution.)");
+                log_notice("(Note that search domains are not appended when --type= is specified. "
+                           "Please specify fully qualified domain names, or remove --type= switch from invocation in order to request regular hostname resolution.)");
 
         r = idna_candidate(name, &idnafied);
         if (r < 0)
                 return r;
         if (r > 0)
-                log_notice("(Note that IDNA translation is not applied when resolving raw record types. "
+                log_notice("(Note that IDNA translation is not applied when --type= is specified. "
                            "Please specify translated domain names — i.e. '%s' — when resolving raw records, or remove --type= switch from invocation in order to request regular hostname resolution.",
                            idnafied);
 
