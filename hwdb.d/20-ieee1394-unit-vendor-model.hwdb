@@ -3,3 +3,23 @@
 # Each node on IEEE 1394 bus has configuration ROM with information for identification. Although the
 # typical content of configuration ROM is defined by 1394 Trading Association, many nodes have own
 # quirks. This database includes supplemental information to unit in the node.
+
+# The content of configuration ROM in Digidesign Digi 00x series has descriptor entry for vendor
+# name under root directory. The entry has 0x0050f2 in its specifier_id field and the way to parse
+# it is unclear. Although the content has descriptor entry for model name under unit directory,
+# it is not enough friendly.
+ieee1394:ven0000A07Emo00000001sp000000A3ver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 002
+
+ieee1394:ven0000A07Emo00000002sp000000A4ver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 002 Rack
+
+ieee1394:ven0000A07Emo00000001sp000000AAver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 003
+
+ieee1394:ven0000A07Emo00000002sp000000ABver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 003 Rack
