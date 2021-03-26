@@ -254,7 +254,7 @@ int log_emergency_level(void);
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
 #define log_emergency_errno(error, ...) log_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
-#ifdef LOG_TRACE
+#if LOG_TRACE
 #  define log_trace(...) log_debug(__VA_ARGS__)
 #else
 #  define log_trace(...) do {} while (0)
