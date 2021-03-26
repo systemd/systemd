@@ -64,10 +64,13 @@ bool oomd_memory_reclaim(Hashmap *h);
 /* Returns true if the amount of swap free is below the permyriad of swap specified by `threshold_permyriad`. */
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad);
 
+/* Returns pgscan - last_pgscan, accounting for corner cases. */
+uint64_t oomd_pgscan_rate(const OomdCGroupContext *c);
+
 /* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
  * (after the smallest values). */
 static inline int compare_pgscan_rate_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
-        uint64_t last1, last2;
+        uint64_t diff1, diff2;
         int r;
 
         assert(c1);
@@ -77,22 +80,9 @@ static inline int compare_pgscan_rate_and_memory_usage(OomdCGroupContext * const
         if (r != 0)
                 return r;
 
-        /* If last_pgscan > pgscan, assume the cgroup was recreated and reset last_pgscan to zero. */
-        last2 = (*c2)->last_pgscan;
-        if ((*c2)->last_pgscan > (*c2)->pgscan) {
-                log_info("Last pgscan %" PRIu64 "greater than current pgscan %" PRIu64 "for %s. Using last pgscan of zero.",
-                                (*c2)->last_pgscan, (*c2)->pgscan, (*c2)->path);
-                last2 = 0;
-        }
-
-        last1 = (*c1)->last_pgscan;
-        if ((*c1)->last_pgscan > (*c1)->pgscan) {
-                log_info("Last pgscan %" PRIu64 "greater than current pgscan %" PRIu64 "for %s. Using last pgscan of zero.",
-                                (*c1)->last_pgscan, (*c1)->pgscan, (*c1)->path);
-                last1 = 0;
-        }
-
-        r = CMP((*c2)->pgscan - last2, (*c1)->pgscan - last1);
+        diff1 = oomd_pgscan_rate(*c1);
+        diff2 = oomd_pgscan_rate(*c2);
+        r = CMP(diff2, diff1);
         if (r != 0)
                 return r;
 
