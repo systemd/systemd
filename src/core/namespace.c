@@ -1802,7 +1802,6 @@ int setup_namespace(
                 const char *propagate_dir,
                 const char *incoming_dir,
                 const char *notify_socket,
-                DissectImageFlags dissect_image_flags,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -1813,6 +1812,13 @@ int setup_namespace(
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
         const char *root, *extension_dir = "/run/systemd/unit-extensions";
+        DissectImageFlags dissect_image_flags =
+                DISSECT_IMAGE_GENERIC_ROOT |
+                DISSECT_IMAGE_REQUIRE_ROOT |
+                DISSECT_IMAGE_DISCARD_ON_LOOP |
+                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                DISSECT_IMAGE_FSCK |
+                DISSECT_IMAGE_USR_NO_ROOT;
         size_t n_mounts;
         int r;
 
@@ -1825,8 +1831,6 @@ int setup_namespace(
                 mount_flags = MS_SHARED;
 
         if (root_image) {
-                dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
-
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
                                    ns_info->protect_system) &&
@@ -1849,7 +1853,7 @@ int setup_namespace(
 
                 r = loop_device_make_by_path(
                                 root_image,
-                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                                 &loop_device);
                 if (r < 0)

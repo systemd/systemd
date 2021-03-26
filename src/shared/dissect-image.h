@@ -23,6 +23,7 @@ struct DissectedPartition {
         sd_id128_t uuid;   /* Partition entry UUID as reported by the GPT */
         char *fstype;
         char *node;
+        char *label;
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;
@@ -48,6 +49,23 @@ typedef enum PartitionDesignator {
         _PARTITION_DESIGNATOR_INVALID = -EINVAL,
 } PartitionDesignator;
 
+static inline bool PARTITION_DESIGNATOR_VERSIONED(PartitionDesignator d) {
+        /* Returns true for all designators where we want to support a concept of "versioning", i.e. which
+         * likely contain software binaries (or hashes thereof) that make sense to be versioned as a
+         * whole. We use this check to automatically pick the newest version of these partitions, by version
+         * comparing the partition labels. */
+
+        return IN_SET(d,
+                      PARTITION_ROOT,
+                      PARTITION_ROOT_SECONDARY,
+                      PARTITION_USR,
+                      PARTITION_USR_SECONDARY,
+                      PARTITION_ROOT_VERITY,
+                      PARTITION_ROOT_SECONDARY_VERITY,
+                      PARTITION_USR_VERITY,
+                      PARTITION_USR_SECONDARY_VERITY);
+}
+
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
         switch (p) {
 
@@ -69,7 +87,7 @@ static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
 }
 
 typedef enum DissectImageFlags {
-        DISSECT_IMAGE_READ_ONLY           = 1 << 0,
+        DISSECT_IMAGE_DEVICE_READ_ONLY    = 1 << 0,  /* Make device read-only */
         DISSECT_IMAGE_DISCARD_ON_LOOP     = 1 << 1,  /* Turn on "discard" if on a loop device and file system supports it */
         DISSECT_IMAGE_DISCARD             = 1 << 2,  /* Turn on "discard" if file system supports it, on all block devices */
         DISSECT_IMAGE_DISCARD_ON_CRYPTO   = 1 << 3,  /* Turn on "discard" also on crypto devices */
@@ -77,7 +95,7 @@ typedef enum DissectImageFlags {
                                     DISSECT_IMAGE_DISCARD |
                                     DISSECT_IMAGE_DISCARD_ON_CRYPTO,
         DISSECT_IMAGE_GPT_ONLY            = 1 << 4,  /* Only recognize images with GPT partition tables */
-        DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 5,  /* Don't accept disks without root partition (and if no partition table or only single generic partition, assume it's root) */
+        DISSECT_IMAGE_GENERIC_ROOT        = 1 << 5,  /* If no partition table or only single generic partition, assume it's the root fs */
         DISSECT_IMAGE_MOUNT_ROOT_ONLY     = 1 << 6,  /* Mount only the root and /usr partitions */
         DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY = 1 << 7,  /* Mount only the non-root and non-/usr partitions */
         DISSECT_IMAGE_VALIDATE_OS         = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
@@ -87,6 +105,11 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_NO_PARTITION_TABLE  = 1 << 12, /* Only recognize single file system images */
         DISSECT_IMAGE_VERITY_SHARE        = 1 << 13, /* When activating a verity device, reuse existing one if already open */
         DISSECT_IMAGE_MKDIR               = 1 << 14, /* Make top-level directory to mount right before mounting, if missing */
+        DISSECT_IMAGE_USR_NO_ROOT         = 1 << 15, /* If no root fs is in the image, but /usr is, then allow this (so that we can mount the rootfs as tmpfs or so */
+        DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 16, /* Don't accept disks without root partition (or at least /usr partition if DISSECT_IMAGE_USR_NO_ROOT is set) */
+        DISSECT_IMAGE_MOUNT_READ_ONLY     = 1 << 17, /* Make mounts read-only */
+        DISSECT_IMAGE_READ_ONLY = DISSECT_IMAGE_DEVICE_READ_ONLY |
+                                  DISSECT_IMAGE_MOUNT_READ_ONLY,
 } DissectImageFlags;
 
 struct DissectedImage {
