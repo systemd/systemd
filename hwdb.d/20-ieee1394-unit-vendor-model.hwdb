@@ -106,3 +106,27 @@ ieee1394:ven000001F2sp000001F2ver00000035
 ieee1394:ven000001F2sp000001F2ver00000045
   ID_VENDOR_FROM_DATABASE=MOTU
   ID_MODEL_FROM_DATABASE=4pre
+
+# RME Fireface series has two generations. The content of configuration ROM in former generation
+# has neither descriptor entry for vendor name under root directory nor descriptor entry for model
+# name under unit directory. The content of configuration ROM in latter generation has descriptor
+# entry for vendor name suffixed by exclamation mark.
+ieee1394:ven00000A35mo00101800sp00000A35ver00000001
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface 800
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000002
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface 400
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000003
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface UFX
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000004
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface UCX
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000005
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface 802
