@@ -366,8 +366,17 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         return 0;
 }
 
+static void clear_candidate_hashmap(Manager **m) {
+        if (m && *m && (*m)->monitored_mem_pressure_cgroup_contexts_candidates)
+                hashmap_clear((*m)->monitored_mem_pressure_cgroup_contexts_candidates);
+}
+
 static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        /* Don't want to use stale candidate data. Setting this will clear the candidate hashmap on return unless we
+         * update the candidate data (in which case clear_candidates will be NULL). */
+        _cleanup_(clear_candidate_hashmap) Manager *clear_candidates = userdata;
         _cleanup_set_free_ Set *targets = NULL;
+        bool in_post_action_delay = false;
         Manager *m = userdata;
         usec_t usec_now;
         int r;
@@ -392,10 +401,8 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         }
 
         /* Return early if nothing is requesting memory pressure monitoring */
-        if (hashmap_isempty(m->monitored_mem_pressure_cgroup_contexts)) {
-                hashmap_clear(m->monitored_mem_pressure_cgroup_contexts_candidates);
+        if (hashmap_isempty(m->monitored_mem_pressure_cgroup_contexts))
                 return 0;
-        }
 
         /* Update the cgroups used for detection/action */
         r = update_monitored_cgroup_contexts(&m->monitored_mem_pressure_cgroup_contexts);
@@ -404,18 +411,11 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         if (r < 0)
                 log_debug_errno(r, "Failed to update monitored memory pressure cgroup contexts, ignoring: %m");
 
-        r = update_monitored_cgroup_contexts_candidates(
-                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
-
         /* Since pressure counters are lagging, we need to wait a bit after a kill to ensure we don't read stale
          * values and go on a kill storm. */
         if (m->mem_pressure_post_action_delay_start > 0) {
                 if (m->mem_pressure_post_action_delay_start + POST_ACTION_DELAY_USEC > usec_now)
-                        return 0;
+                        in_post_action_delay = true;
                 else
                         m->mem_pressure_post_action_delay_start = 0;
         }
@@ -425,7 +425,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                 return log_oom();
         if (r < 0)
                 log_debug_errno(r, "Failed to check if memory pressure exceeded limits, ignoring: %m");
-        else if (r == 1) {
+        else if (r == 1 && !in_post_action_delay) {
                 OomdCGroupContext *t;
                 SET_FOREACH(t, targets) {
                         /* Check if there was reclaim activity in the given interval. The concern is the following case:
@@ -439,6 +439,15 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         log_notice("Memory pressure for %s is greater than %lu for more than %"PRIu64" seconds and there was reclaim activity",
                                 t->path, LOAD_INT(t->mem_pressure_limit), m->default_mem_pressure_duration_usec / USEC_PER_SEC);
 
+                        r = update_monitored_cgroup_contexts_candidates(
+                                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
+                        else
+                                clear_candidates = NULL;
+
                         r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
                         if (r == -ENOMEM)
                                 return log_oom();
@@ -448,6 +457,27 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
                                 m->mem_pressure_post_action_delay_start = usec_now;
                                 return 0;
+                        }
+                }
+        } else {
+                /* If any monitored cgroup is over their pressure limit, start getting kill candidates. This saves CPU
+                 * cycles from doing it every interval by only doing it when it kill might happen.
+                 * Candidate cgroup data will continue to get updated during the post-action delay period in case
+                 * pressure continues to be high after a kill. */
+                OomdCGroupContext *c;
+                HASHMAP_FOREACH(c, m->monitored_mem_pressure_cgroup_contexts) {
+                        if (c->mem_pressure_limit_hit_start == 0)
+                                continue;
+
+                        r = update_monitored_cgroup_contexts_candidates(
+                                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
+                        else {
+                                clear_candidates = NULL;
+                                break;
                         }
                 }
         }
