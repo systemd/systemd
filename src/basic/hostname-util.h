@@ -28,3 +28,8 @@ static inline bool is_gateway_hostname(const char *hostname) {
         /* This tries to identify the valid syntaxes for the our synthetic "gateway" host. */
         return STRCASE_IN_SET(hostname, "_gateway", "_gateway.");
 }
+
+static inline bool is_outbound_hostname(const char *hostname) {
+        /* This tries to identify the valid syntaxes for the our synthetic "outbound" host. */
+        return STRCASE_IN_SET(hostname, "_outbound", "_outbound.");
+}
