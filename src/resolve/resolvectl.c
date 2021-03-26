@@ -476,7 +476,7 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
 
         log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
 
-        if (single_label_nonsynthetic(name))
+        if (dns_name_dot_suffixed(name) > 0 && single_label_nonsynthetic(name))
                 log_notice("(Note that search domains are not appended when --type= is specified. "
                            "Please specify fully qualified domain names, or remove --type= switch from invocation in order to request regular hostname resolution.)");
 
