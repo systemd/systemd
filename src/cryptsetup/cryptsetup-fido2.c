@@ -88,7 +88,7 @@ int acquire_fido2_key(
 
                 pins = strv_free_erase(pins);
 
-                r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", until, flags, &pins);
+                r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user password: %m");
 

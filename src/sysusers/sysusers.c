@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "creds-util.h"
 #include "def.h"
 #include "dissect-image.h"
 #include "fd-util.h"
@@ -13,7 +14,9 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "libcrypt-util.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mount-util.h"
 #include "nscd-flush.h"
 #include "pager.h"
@@ -429,6 +432,8 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
+                _cleanup_free_ char *creds_shell = NULL, *cn = NULL;
+
                 struct passwd n = {
                         .pw_name = i->name,
                         .pw_uid = i->uid,
@@ -445,6 +450,17 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                          * for root we patch in something special */
                         .pw_shell = i->shell ?: (char*) default_shell(i->uid),
                 };
+
+                /* Try to pick up the shell for this account via the credentials logic */
+                cn = strjoin("passwd.shell.", i->name);
+                if (!cn)
+                        return -ENOMEM;
+
+                r = read_credential(cn, (void**) &creds_shell, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                else
+                        n.pw_shell = creds_shell;
 
                 r = putpwent_sane(&n, passwd);
                 if (r < 0)
@@ -530,6 +546,9 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
+                _cleanup_(erase_and_freep) char *creds_password = NULL;
+                _cleanup_free_ char *cn = NULL;
+
                 struct spwd n = {
                         .sp_namp = i->name,
                         .sp_pwdp = (char*) "!*", /* lock this password, and make it invalid */
@@ -541,6 +560,34 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         .sp_expire = -1,
                         .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
+
+                /* Try to pick up the password for this account via the credentials logic */
+                cn = strjoin("passwd.hashed-password.", i->name);
+                if (!cn)
+                        return -ENOMEM;
+
+                r = read_credential(cn, (void**) &creds_password, NULL);
+                if (r == -ENOENT) {
+                        _cleanup_(erase_and_freep) char *plaintext_password = NULL;
+
+                        free(cn);
+                        cn = strjoin("passwd.plaintext-password.", i->name);
+                        if (!cn)
+                                return -ENOMEM;
+
+                        r = read_credential(cn, (void**) &plaintext_password, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                        else {
+                                r = hash_password(plaintext_password, &creds_password);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to hash password: %m");
+                        }
+                } else if (r < 0)
+                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+
+                if (creds_password)
+                        n.sp_pwdp = creds_password;
 
                 r = putspent_sane(&n, shadow);
                 if (r < 0)
