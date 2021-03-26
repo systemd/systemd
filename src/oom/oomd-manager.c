@@ -369,6 +369,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
 
 static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_set_free_ Set *targets = NULL;
+        bool got_candidates = false;
         Manager *m = userdata;
         usec_t usec_now;
         int r;
@@ -393,10 +394,8 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         }
 
         /* Return early if nothing is requesting memory pressure monitoring */
-        if (hashmap_isempty(m->monitored_mem_pressure_cgroup_contexts)) {
-                hashmap_clear(m->monitored_mem_pressure_cgroup_contexts_candidates);
-                return 0;
-        }
+        if (hashmap_isempty(m->monitored_mem_pressure_cgroup_contexts))
+                goto candidate_cleanup;
 
         /* Update the cgroups used for detection/action */
         r = update_monitored_cgroup_contexts(&m->monitored_mem_pressure_cgroup_contexts);
@@ -404,13 +403,6 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                 return log_oom();
         if (r < 0)
                 log_debug_errno(r, "Failed to update monitored memory pressure cgroup contexts, ignoring: %m");
-
-        r = update_monitored_cgroup_contexts_candidates(
-                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
 
         /* Since pressure counters are lagging, we need to wait a bit after a kill to ensure we don't read stale
          * values and go on a kill storm. */
@@ -443,6 +435,15 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                    LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
                                    m->default_mem_pressure_duration_usec / USEC_PER_SEC);
 
+                        r = update_monitored_cgroup_contexts_candidates(
+                                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
+                        else
+                                got_candidates = true;
+
                         r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
                         if (r == -ENOMEM)
                                 return log_oom();
@@ -454,7 +455,29 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 return 0;
                         }
                 }
+        } else {
+                /* If any monitored cgroup is within MEM_PRESSURE_INTERVAL_USEC + 1s second of hitting their pressure
+                 * limit, start getting kill candidates. This saves CPU cycles from doing it every interval. */
+                OomdCGroupContext *c;
+                HASHMAP_FOREACH(c, m->monitored_mem_pressure_cgroup_contexts) {
+                        if ((now(CLOCK_MONOTONIC) - c->last_hit_mem_pressure_limit) > (MEM_PRESSURE_INTERVAL_USEC + 1 * USEC_PER_SEC))
+                                continue;
+
+                        r = update_monitored_cgroup_contexts_candidates(
+                                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
+                        else
+                                got_candidates = true;
+                }
         }
+
+
+candidate_cleanup:
+        if (!got_candidates)
+                hashmap_clear(m->monitored_mem_pressure_cgroup_contexts_candidates);
 
         return 0;
 }
