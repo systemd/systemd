@@ -40,5 +40,12 @@ int main(int argc, char *argv[]) {
         print_local_addresses(a, (unsigned) n);
         free(a);
 
+        n = local_outbounds(NULL, 0, AF_UNSPEC, &a);
+        assert_se(n >= 0);
+
+        printf("Local Outbounds:\n");
+        print_local_addresses(a, (unsigned) n);
+        free(a);
+
         return 0;
 }
