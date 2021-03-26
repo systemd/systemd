@@ -7,11 +7,10 @@
 
 static void test_genuine_random_bytes(RandomFlags flags) {
         uint8_t buf[16] = {};
-        unsigned i;
 
         log_info("/* %s */", __func__);
 
-        for (i = 1; i < sizeof buf; i++) {
+        for (size_t i = 1; i < sizeof buf; i++) {
                 assert_se(genuine_random_bytes(buf, i, flags) == 0);
                 if (i + 1 < sizeof buf)
                         assert_se(buf[i] == 0);
@@ -22,11 +21,10 @@ static void test_genuine_random_bytes(RandomFlags flags) {
 
 static void test_pseudo_random_bytes(void) {
         uint8_t buf[16] = {};
-        unsigned i;
 
         log_info("/* %s */", __func__);
 
-        for (i = 1; i < sizeof buf; i++) {
+        for (size_t i = 1; i < sizeof buf; i++) {
                 pseudo_random_bytes(buf, i);
                 if (i + 1 < sizeof buf)
                         assert_se(buf[i] == 0);
@@ -36,10 +34,11 @@ static void test_pseudo_random_bytes(void) {
 }
 
 static void test_rdrand(void) {
-        int r, i;
+        log_info("/* %s */", __func__);
 
-        for (i = 0; i < 10; i++) {
+        for (unsigned i = 0; i < 10; i++) {
                 unsigned long x = 0;
+                int r;
 
                 r = rdrand(&x);
                 if (r < 0) {
