@@ -467,6 +467,7 @@ static int test_advertise_option(sd_event *e) {
 
                 case SD_DHCP6_OPTION_SERVERID:
                         assert_se(optlen == 14);
+                        assert_se(optval == &msg_advertise[179]);
                         assert_se(!memcmp(optval, &msg_advertise[179], optlen));
 
                         assert_se(dhcp6_lease_set_serverid(lease, optval,
