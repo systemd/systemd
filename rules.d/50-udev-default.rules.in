@@ -69,6 +69,7 @@ SUBSYSTEM=="firewire", ATTR{vendor}=="0x0001f2", ATTR{units}=="0x0001f2:0x0000??
 SUBSYSTEM=="firewire", ATTR{vendor}=="0x000a35", ATTR{units}=="0x000a35:0x00000[1-5]", GROUP="audio"
 SUBSYSTEM=="firewire", ATTR{vendor}=="0x00a0de", ATTR{units}=="0x00a0de:0xffffff", GROUP="audio"
 SUBSYSTEM=="firewire", ATTR{vendor}=="0x000a92", ATTR{units}=="0x00a0de:0xffffff", GROUP="audio"
+SUBSYSTEM=="firewire", ATTR{vendor}=="0x00a0de", ATTR{units}=="0x00a02d:0x000300", GROUP="audio"
 
 KERNEL=="parport[0-9]*", GROUP="lp"
 SUBSYSTEM=="printer", KERNEL=="lp*", GROUP="lp"
