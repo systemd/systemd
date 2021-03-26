@@ -703,6 +703,7 @@ static int submit_coredump(
                 struct iovec_wrapper *iovw,
                 int input_fd) {
 
+        _cleanup_(json_variant_hashmap_freep) Hashmap *package_metadata = NULL;
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
@@ -757,7 +758,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else
-                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace);
+                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &package_metadata);
 #endif
 
 log:
@@ -780,6 +781,41 @@ log:
 
         if (truncated)
                 (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+
+        if (!hashmap_isempty(package_metadata)) {
+                JsonVariant *v;
+                char *name;
+
+                HASHMAP_FOREACH_KEY(v, name, package_metadata) {
+                        _cleanup_free_ char *name_upper = NULL;
+                        JsonVariant *w;
+                        const char *k;
+
+                        /* Journal metadata field names need to be upper case */
+                        name_upper = strdup(name);
+                        if (!name_upper)
+                                return log_oom();
+                        name_upper = ascii_strupper(name_upper);
+
+                        JSON_VARIANT_OBJECT_FOREACH(k, w, v) {
+                                _cleanup_free_ char *metadata_id = NULL, *key_upper = NULL;
+
+                                if (!json_variant_is_string(w))
+                                        continue;
+
+                                key_upper = strdup(k);
+                                if (!key_upper)
+                                        return log_oom();
+                                key_upper = ascii_strupper(key_upper);
+
+                                metadata_id = strjoin("COREDUMP_PKGMETA_", name_upper, "_", key_upper, "=");
+                                if (!metadata_id)
+                                        return log_oom();
+
+                                (void) iovw_put_string_field(iovw, metadata_id, json_variant_string(w));
+                        }
+                }
+        }
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
