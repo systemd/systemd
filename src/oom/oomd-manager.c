@@ -346,9 +346,11 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
 
         if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                _cleanup_free_ char *selected = NULL;
 
-                log_notice("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                           m->system_context.swap_used, m->system_context.swap_total, PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+                log_debug("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                          m->system_context.swap_used, m->system_context.swap_total,
+                          PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
 
                 r = get_monitored_cgroup_contexts_candidates(m->monitored_swap_cgroup_contexts, &candidates);
                 if (r == -ENOMEM)
@@ -356,13 +358,19 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r < 0)
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
-                r = oomd_kill_by_swap_usage(candidates, m->dry_run);
+                r = oomd_kill_by_swap_usage(candidates, m->dry_run, &selected);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
-                else
+                else {
+                        if (selected != NULL)
+                                log_notice("Killed %s due to swap used (%"PRIu64") / total (%"PRIu64") being more than "
+                                           PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                                           selected, m->system_context.swap_used, m->system_context.swap_total,
+                                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
                         return 0;
+                }
         }
 
         return 0;
@@ -422,6 +430,8 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         else if (r == 1) {
                 OomdCGroupContext *t;
                 SET_FOREACH(t, targets) {
+                        _cleanup_free_ char *selected = NULL;
+
                         /* Check if there was reclaim activity in the given interval. The concern is the following case:
                          * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
                          * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
@@ -430,7 +440,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         if ((now(CLOCK_MONOTONIC) - t->last_had_mem_reclaim) > RECLAIM_DURATION_USEC)
                                 continue;
 
-                        log_notice("Memory pressure for %s is %lu.%02lu%% which is greater than "
+                        log_debug("Memory pressure for %s is %lu.%02lu%% which is greater than "
                                    "%lu.%02lu%% for more than %"PRIu64" seconds and there was reclaim activity",
                                    t->path, LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
                                    LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
@@ -445,7 +455,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         else
                                 got_candidates = true;
 
-                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
+                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run, &selected);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
@@ -453,6 +463,13 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         else {
                                 /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
                                 m->mem_pressure_post_action_delay_start = usec_now;
+                                if (selected != NULL)
+                                        log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% which is greater "
+                                                   "than %lu.%02lu%% for more than %"PRIu64" seconds and reclaim activity",
+                                                   selected, t->path,
+                                                   LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
+                                                   LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
+                                                   m->default_mem_pressure_duration_usec / USEC_PER_SEC);
                                 return 0;
                         }
                 }
