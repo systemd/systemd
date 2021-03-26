@@ -419,9 +419,6 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         if (r < 0)
                 log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
 
-        if (oomd_memory_reclaim(m->monitored_mem_pressure_cgroup_contexts))
-                m->last_reclaim_at = usec_now;
-
         /* Since pressure counters are lagging, we need to wait a bit after a kill to ensure we don't read stale
          * values and go on a kill storm. */
         if (m->mem_pressure_post_action_delay_start > 0) {
@@ -437,45 +434,45 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         if (r < 0)
                 log_debug_errno(r, "Failed to check if memory pressure exceeded limits, ignoring: %m");
         else if (r == 1) {
-                /* Check if there was reclaim activity in the given interval. The concern is the following case:
-                 * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
-                 * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
-                 * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
-                 * to kill something (it won't help anyways). */
-                if ((usec_now - m->last_reclaim_at) <= RECLAIM_DURATION_USEC) {
-                        OomdCGroupContext *t;
+                OomdCGroupContext *t;
+                SET_FOREACH(t, targets) {
+                        _cleanup_free_ char *selected = NULL;
+                        char ts[FORMAT_TIMESPAN_MAX];
 
-                        SET_FOREACH(t, targets) {
-                                _cleanup_free_ char *selected = NULL;
-                                char ts[FORMAT_TIMESPAN_MAX];
+                        /* Check if there was reclaim activity in the given interval. The concern is the following case:
+                         * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
+                         * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
+                         * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
+                         * to kill something (it won't help anyways). */
+                        if ((now(CLOCK_MONOTONIC) - t->last_had_mem_reclaim) > RECLAIM_DURATION_USEC)
+                                continue;
 
-                                log_debug("Memory pressure for %s is %lu.%02lu%% > %lu.%02lu%% for > %s with reclaim activity",
-                                          t->path,
-                                          LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
-                                          LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
-                                          format_timespan(ts, sizeof ts,
-                                                          m->default_mem_pressure_duration_usec,
-                                                          USEC_PER_SEC));
+                        log_debug("Memory pressure for %s is %lu.%02lu%% > %lu.%02lu%% for > %s with reclaim activity",
+                                  t->path,
+                                  LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
+                                  LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
+                                  format_timespan(ts, sizeof ts,
+                                                  m->default_mem_pressure_duration_usec,
+                                                  USEC_PER_SEC));
 
-                                r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run, &selected);
-                                if (r == -ENOMEM)
-                                        return log_oom();
-                                if (r < 0)
-                                        log_notice_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
-                                else {
-                                        /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
-                                        m->mem_pressure_post_action_delay_start = usec_now;
-                                        if (selected)
-                                                log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
-                                                           " for > %s with reclaim activity",
-                                                           selected, t->path,
-                                                           LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
-                                                           LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
-                                                           format_timespan(ts, sizeof ts,
-                                                                           m->default_mem_pressure_duration_usec,
-                                                                           USEC_PER_SEC));
-                                        return 0;
-                                }
+                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run, &selected);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
+                        else {
+                                /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
+                                m->mem_pressure_post_action_delay_start = usec_now;
+                                if (selected)
+                                        log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
+                                                   " for > %s with reclaim activity",
+                                                   selected, t->path,
+                                                   LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
+                                                   LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
+                                                   format_timespan(ts, sizeof ts,
+                                                                   m->default_mem_pressure_duration_usec,
+                                                                   USEC_PER_SEC));
+                                return 0;
                         }
                 }
         }
