@@ -744,6 +744,10 @@ static int add_sysroot_mount(void) {
 static int add_sysroot_usr_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts;
+        int r;
+
+        /* Returns 0 if we didn't do anything, > 0 if we either generated a unit for the /usr/ mount, or we
+         * know for sure something else did */
 
         if (!arg_usr_what && !arg_usr_fstype && !arg_usr_options)
                 return 0;
@@ -767,8 +771,23 @@ static int add_sysroot_usr_mount(void) {
                         return log_oom();
         }
 
-        if (!arg_usr_what)
+        if (isempty(arg_usr_what)) {
+                log_debug("Could not find a usr= entry on the kernel command line.");
                 return 0;
+        }
+
+        if (streq(arg_usr_what, "gpt-auto")) {
+                /* This is handled by the gpt-auto generator */
+                log_debug("Skipping /usr/ directory handling, as gpt-auto was requested.");
+                return 1; /* systemd-gpt-auto-generator will generate a unit for this, hence report that a
+                           * unit file is being created for the host /usr/ mount. */
+        }
+
+        if (path_equal(arg_usr_what, "/dev/nfs")) {
+                /* This is handled by the initrd (if at all supported, that is) */
+                log_debug("Skipping /usr/ directory handling, as /dev/nfs was requested.");
+                return 1; /* As above, report that NFS code will create the unit */
+        }
 
         what = fstab_node_to_udev_node(arg_usr_what);
         if (!what)
@@ -781,17 +800,62 @@ static int add_sysroot_usr_mount(void) {
         else
                 opts = arg_usr_options;
 
-        log_debug("Found entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
-        return add_mount(arg_dest,
-                         what,
-                         "/sysroot/usr",
-                         NULL,
-                         arg_usr_fstype,
-                         opts,
-                         is_device_path(what) ? 1 : 0, /* passno */
-                         0,
-                         SPECIAL_INITRD_FS_TARGET,
-                         "/proc/cmdline");
+        /* When mounting /usr from the initrd, we add an extra level of indirection: we first mount the /usr/
+         * partition to /sysusr/usr/, and then afterwards bind mount that to /sysroot/usr/. We do this so
+         * that we can cover for systems that initially only have a /usr/ around and where the root fs needs
+         * to be synthesized, based on configuration included in /usr/, e.g. systemd-repart. Software like
+         * this should order itself after initrd-usr-fs.target and before initrd-fs.target; and it should
+         * look into both /sysusr/ and /sysroot/ for the configuration data to apply. */
+
+        log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(opts));
+
+        r = add_mount(arg_dest,
+                      what,
+                      "/sysusr/usr",
+                      NULL,
+                      arg_usr_fstype,
+                      opts,
+                      is_device_path(what) ? 1 : 0, /* passno */
+                      0,
+                      SPECIAL_INITRD_USR_FS_TARGET,
+                      "/proc/cmdline");
+        if (r < 0)
+                return r;
+
+        log_debug("Synthesizing entry what=/sysusr/usr where=/sysrootr/usr opts=bind");
+
+        r = add_mount(arg_dest,
+                      "/sysusr/usr",
+                      "/sysroot/usr",
+                      NULL,
+                      NULL,
+                      "bind",
+                      0,
+                      0,
+                      SPECIAL_INITRD_FS_TARGET,
+                      "/proc/cmdline");
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int add_sysroot_usr_mount_or_fallback(void) {
+        int r;
+
+        r = add_sysroot_usr_mount();
+        if (r != 0)
+                return r;
+
+        /* OK, so we didn't write anything out for /sysusr/usr/ nor /sysroot/usr/. In this case, let's make
+         * sure that initrd-usr-fs.target is at least ordered after sysroot.mount so that services that order
+         * themselves get the guarantee that /usr/ is definitely mounted somewhere. */
+
+        return generator_add_symlink(
+                        arg_dest,
+                        SPECIAL_INITRD_USR_FS_TARGET,
+                        "requires",
+                        "sysroot.mount");
 }
 
 static int add_volatile_root(void) {
@@ -953,7 +1017,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (in_initrd()) {
                 r = add_sysroot_mount();
 
-                r2 = add_sysroot_usr_mount();
+                r2 = add_sysroot_usr_mount_or_fallback();
 
                 r3 = add_volatile_root();
         } else
