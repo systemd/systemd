@@ -81,7 +81,7 @@
         <listitem><para>Sets the amount of time a unit's control group needs to have exceeded memory pressure
         limits before <command>systemd-oomd</command> will take action. Memory pressure limits are defined by
         <varname>DefaultMemoryPressureLimit=</varname> and <varname>ManagedOOMMemoryPressureLimit=</varname>.
-        Defaults to 30 seconds when this property is unset or set to 0.</para></listitem>
+        Must be set to 0, or at least 1 second. Defaults to 30 seconds when unset or 0.</para></listitem>
       </varlistentry>
 
     </variablelist>
