@@ -30,9 +30,6 @@ SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", TAG+="uaccess
 SUBSYSTEM=="sound", TAG+="uaccess", \
   OPTIONS+="static_node=snd/timer", OPTIONS+="static_node=snd/seq"
 
-# ffado is an userspace driver for firewire sound cards
-SUBSYSTEM=="firewire", ENV{ID_FFADO}=="1", TAG+="uaccess"
-
 # Webcams, frame grabber, TV cards
 SUBSYSTEM=="video4linux", TAG+="uaccess"
 SUBSYSTEM=="dvb", TAG+="uaccess"
@@ -43,6 +40,9 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*",  TAG+="uaccess"
 # AV/C devices: camcorders, set-top boxes, TV sets, audio devices, and more
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", TAG+="uaccess"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="uaccess"
+
+# Drivers in ALSA firewire stack expects userspace application to control target device.
+SUBSYSTEM=="firewire", ENV{FW_AUDIO_AND_MUSIC}=="1", TAG+="uaccess"
 
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"

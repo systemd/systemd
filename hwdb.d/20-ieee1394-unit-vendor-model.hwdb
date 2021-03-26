@@ -1,0 +1,132 @@
+# This file is part of systemd.
+
+# Each node on IEEE 1394 bus has configuration ROM with information for identification. Although the
+# typical content of configuration ROM is defined by 1394 Trading Association, many nodes have own
+# quirks. This database includes supplemental information to unit in the node.
+
+# The content of configuration ROM in Digidesign Digi 00x series has descriptor entry for vendor
+# name under root directory. The entry has 0x0050f2 in its specifier_id field and the way to parse
+# it is unclear. Although the content has descriptor entry for model name under unit directory,
+# it is not enough friendly.
+ieee1394:ven0000A07Emo00000001sp000000A3ver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 002
+
+ieee1394:ven0000A07Emo00000002sp000000A4ver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 002 Rack
+
+ieee1394:ven0000A07Emo00000001sp000000AAver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 003
+
+ieee1394:ven0000A07Emo00000002sp000000ABver00000001
+  ID_VENDOR_FROM_DATABASE=Digidesign
+  ID_MODEL_FROM_DATABASE=Digi 003 Rack
+
+# The content of configuration ROM in TASCAM FireWire series has neither descriptor entry for
+# vendor name under root directory nor entries for model ID and model name under unit directory.
+# The unit directory includes dependent information directory which includes the names.
+ieee1394:ven0000022Esp0000022Ever00800000
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FW-1884
+
+ieee1394:ven0000022Esp0000022Ever00800001
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FE-8
+
+ieee1394:ven0000022Esp0000022Ever00800003
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FW-1082
+
+ieee1394:ven0000022Esp0000022Ever00800004
+  ID_VENDOR_FROM_DATABASE=TASCAM
+  ID_MODEL_FROM_DATABASE=FW-1804
+
+# The content of configuration ROM in MOTU FireWire series has neither descriptor entry for vendor
+# name under root directory nor entry for model name under unit directory. The value of model ID is
+# firmware version and the value of version is effective model ID, thus mo field is omit from below
+# module alias.
+ieee1394:ven000001F2sp000001F2ver00000001
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=828
+
+ieee1394:ven000001F2sp000001F2ver00000002
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=896
+
+ieee1394:ven000001F2sp000001F2ver00000003
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=828 mkII
+
+ieee1394:ven000001F2sp000001F2ver00000005
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=896 HD
+
+ieee1394:ven000001F2sp000001F2ver00000009
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=Traveler
+
+ieee1394:ven000001F2sp000001F2ver0000000D
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=UltraLite
+
+ieee1394:ven000001F2sp000001F2ver0000000F
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=8pre
+
+ieee1394:ven000001F2sp000001F2ver00000015
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=828 mk3 FW
+
+ieee1394:ven000001F2sp000001F2ver00000017
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=896 mk3 FW
+
+ieee1394:ven000001F2sp000001F2ver00000019
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=Ultralite mk3 FW
+
+ieee1394:ven000001F2sp000001F2ver0000001b
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=Traveler mk3
+
+ieee1394:ven000001F2sp000001F2ver00000030
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=UltraLite mk3 Hybrid
+
+ieee1394:ven000001F2sp000001F2ver00000033
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=Audio Express
+
+ieee1394:ven000001F2sp000001F2ver00000035
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=828 mk3 Hybrid
+
+ieee1394:ven000001F2sp000001F2ver00000045
+  ID_VENDOR_FROM_DATABASE=MOTU
+  ID_MODEL_FROM_DATABASE=4pre
+
+# RME Fireface series has two generations. The content of configuration ROM in former generation
+# has neither descriptor entry for vendor name under root directory nor descriptor entry for model
+# name under unit directory. The content of configuration ROM in latter generation has descriptor
+# entry for vendor name suffixed by exclamation mark.
+ieee1394:ven00000A35mo00101800sp00000A35ver00000001
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface 800
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000002
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface 400
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000003
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface UFX
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000004
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface UCX
+
+ieee1394:ven00000A35mo00101800sp00000A35ver00000005
+  ID_VENDOR_FROM_DATABASE=RME
+  ID_MODEL_FROM_DATABASE=Fireface 802
