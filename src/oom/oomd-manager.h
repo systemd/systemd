@@ -11,9 +11,6 @@
 /* Pressure counters are lagging (~2 seconds) compared to swap so polling too frequently just wastes CPU */
 #define MEM_PRESSURE_INTERVAL_USEC (1 * USEC_PER_SEC)
 
-/* Used to weight the averages */
-#define AVERAGE_SIZE_DECAY 4
-
 /* Take action if 10s of memory pressure > 60 for more than 30s. We use the "full" value from PSI so this is the
  * percentage of time all tasks were delayed (i.e. unproductive).
  * Generally 60 or higher might be acceptable for something like system.slice with no memory.high set; processes in
