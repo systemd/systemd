@@ -226,7 +226,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         return r;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run, char **ret_selected) {
+int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int r;
 
@@ -237,12 +237,12 @@ int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run, char **ret_selected) {
         if (r < 0)
                 return r;
 
-        /* Try to kill cgroups with non-zero swap usage until we either succeed in
-         * killing or we get to a cgroup with no swap usage. */
+        /* Try to kill cgroups with non-zero swap usage until we either succeed in killing or we get to a cgroup with
+         * no swap usage. Threshold killing only cgroups with more than threshold swap usage. */
         for (int i = 0; i < r; i++) {
-                /* Skip over cgroups with no resource usage. Don't break since there might be "avoid"
+                /* Skip over cgroups with not enough swap usage. Don't break since there might be "avoid"
                  * cgroups at the end. */
-                if (sorted[i]->swap_usage == 0)
+                if (sorted[i]->swap_usage == 0 || sorted[i]->swap_usage < threshold_usage)
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
