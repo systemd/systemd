@@ -17,6 +17,7 @@ hwdb_files_notest = files('''
         20-OUI.hwdb
         20-net-ifname.hwdb
         20-vmbus-class.hwdb
+        20-ieee1394-unit-vendor-model.hwdb
 '''.split())
 
 hwdb_files_test = files('''
