@@ -54,8 +54,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         assert(h_errnop);
 
         if (is_localhost(name)) {
-                /* We respond to 'localhost', so that /etc/hosts
-                 * is optional */
+                /* We respond to 'localhost', so that /etc/hosts is optional */
 
                 canonical = "localhost";
                 local_address_ipv4 = htobe32(INADDR_LOOPBACK);
@@ -67,6 +66,14 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         goto not_found;
 
                 canonical = "_gateway";
+
+        } else if (is_outbound_hostname(name)) {
+
+                n_addresses = local_outbounds(NULL, 0, AF_UNSPEC, &addresses);
+                if (n_addresses <= 0)
+                        goto not_found;
+
+                canonical = "_outbound";
 
         } else {
                 hn = gethostname_malloc();
@@ -342,6 +349,14 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         goto not_found;
 
                 canonical = "_gateway";
+
+        } else if (is_outbound_hostname(name)) {
+
+                n_addresses = local_outbounds(NULL, 0, af, &addresses);
+                if (n_addresses <= 0)
+                        goto not_found;
+
+                canonical = "_outbound";
 
         } else {
                 hn = gethostname_malloc();
