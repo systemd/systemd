@@ -439,8 +439,11 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         OomdCGroupContext *t;
 
                         SET_FOREACH(t, targets) {
-                                log_notice("Memory pressure for %s is greater than %lu for more than %"PRIu64" seconds and there was reclaim activity",
-                                        t->path, LOAD_INT(t->mem_pressure_limit), m->default_mem_pressure_duration_usec / USEC_PER_SEC);
+                                log_notice("Memory pressure for %s is %lu.%02lu%% which is greater than "
+                                           "%lu.%02lu%% for more than %"PRIu64" seconds and there was reclaim activity",
+                                           t->path, LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
+                                           LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
+                                           m->default_mem_pressure_duration_usec / USEC_PER_SEC);
 
                                 r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run);
                                 if (r == -ENOMEM)
