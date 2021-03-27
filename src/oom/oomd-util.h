@@ -35,7 +35,7 @@ struct OomdCGroupContext {
         /* These are only used for acting on high memory pressure. */
         loadavg_t mem_pressure_limit;
         usec_t mem_pressure_duration_usec;
-        usec_t last_hit_mem_pressure_limit;
+        usec_t mem_pressure_limit_hit_start;
         usec_t last_had_mem_reclaim;
 };
 
@@ -52,7 +52,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
 
 /* Scans all the OomdCGroupContexts in `h` and returns 1 and a set of pointers to those OomdCGroupContexts in `ret`
  * if any of them have exceeded their supplied memory pressure limits for the `duration` length of time.
- * `last_hit_mem_pressure_limit` is updated accordingly for each entry when the limit is exceeded, and when it returns
+ * `mem_pressure_limit_hit_start` is updated accordingly for the first time the limit is exceeded, and when it returns
  * below the limit.
  * Returns 0 and sets `ret` to an empty set if no entries exceeded limits for `duration`.
  * Returns -ENOMEM for allocation errors. */
