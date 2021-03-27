@@ -65,6 +65,8 @@ int journal_file_append_tag(JournalFile *f) {
 
 int journal_file_hmac_start(JournalFile *f) {
         uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
+        gcry_error_t err;
+
         assert(f);
 
         if (!f->seal)
@@ -76,7 +78,11 @@ int journal_file_hmac_start(JournalFile *f) {
         /* Prepare HMAC for next cycle */
         gcry_md_reset(f->hmac);
         FSPRG_GetKey(f->fsprg_state, key, sizeof(key), 0);
-        gcry_md_setkey(f->hmac, key, sizeof(key));
+        err = gcry_md_setkey(f->hmac, key, sizeof(key));
+        if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "gcry_md_setkey() failed with error code: %d",
+                                       gcry_err_code(err));
 
         f->hmac_running = true;
 

@@ -1089,6 +1089,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
+        gcry_error_t err;
         size_t hash_size;
         int md_algorithm, r;
         void *result;
@@ -1130,8 +1131,8 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (r < 0)
                 return r;
 
-        gcry_md_open(&md, md_algorithm, 0);
-        if (!md)
+        err = gcry_md_open(&md, md_algorithm, 0);
+        if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
         gcry_md_write(md, wire_format, r);
@@ -1205,6 +1206,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
+        gcry_error_t err;
         size_t hash_size;
         int algorithm;
         void *result;
@@ -1239,8 +1241,8 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (r < 0)
                 return r;
 
-        gcry_md_open(&md, algorithm, 0);
-        if (!md)
+        err = gcry_md_open(&md, algorithm, 0);
+        if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
         gcry_md_write(md, wire_format, r);
