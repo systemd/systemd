@@ -721,7 +721,7 @@ static int add_sysroot_mount(void) {
         else
                 opts = arg_root_options;
 
-        log_debug("Found entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
+        log_debug("Found entry what=%s where=/sysroot type=%s opts=%s", what, strna(arg_root_fstype), strempty(opts));
 
         if (is_device_path(what)) {
                 r = generator_write_initrd_root_device_deps(arg_dest, what);
