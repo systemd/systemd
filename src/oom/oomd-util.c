@@ -82,17 +82,17 @@ int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret) {
                 if (ctx->memory_pressure.avg10 > ctx->mem_pressure_limit) {
                         usec_t diff;
 
-                        if (ctx->last_hit_mem_pressure_limit == 0)
-                                ctx->last_hit_mem_pressure_limit = now(CLOCK_MONOTONIC);
+                        if (ctx->mem_pressure_limit_hit_start == 0)
+                                ctx->mem_pressure_limit_hit_start = now(CLOCK_MONOTONIC);
 
-                        diff = now(CLOCK_MONOTONIC) - ctx->last_hit_mem_pressure_limit;
+                        diff = now(CLOCK_MONOTONIC) - ctx->mem_pressure_limit_hit_start;
                         if (diff >= duration) {
                                 r = set_put(targets, ctx);
                                 if (r < 0)
                                         return -ENOMEM;
                         }
                 } else
-                        ctx->last_hit_mem_pressure_limit = 0;
+                        ctx->mem_pressure_limit_hit_start = 0;
         }
 
         if (!set_isempty(targets)) {
@@ -417,7 +417,7 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         if (old_ctx) {
                 curr_ctx->last_pgscan = old_ctx->pgscan;
                 curr_ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
-                curr_ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
+                curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 curr_ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
         }
 
@@ -447,7 +447,7 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
 
                 ctx->last_pgscan = old_ctx->pgscan;
                 ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
-                ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
+                ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
 
                 if (oomd_pgscan_rate(ctx) > 0)
