@@ -860,6 +860,7 @@ have = false
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
         have = true
+        substs.set('SERVICE_LOCALEGEN_WRITABLE', ' /usr/lib/locale')
 endif
 conf.set10('HAVE_LOCALEGEN', have)
 
