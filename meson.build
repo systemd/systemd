@@ -860,6 +860,8 @@ have = false
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
         have = true
+        locale_path_writeable = ' ' + libdir + '/locale'
+        substs.set('SERVICE_LOCALE_PATH_WRITABLE', locale_path_writeable)
 endif
 conf.set10('HAVE_LOCALEGEN', have)
 
