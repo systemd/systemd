@@ -295,7 +295,7 @@ If a file is opened for writing the **state** field should be set to
 STATE_ONLINE. If a file is closed after writing the **state** field should be
 set to STATE_OFFLINE. After a file has been rotated it should be set to
 STATE_ARCHIVED. If a writer is asked to write to a file that is not in
-STATE_ONLINE it should immediately rotate the file and start a new one,
+STATE_OFFLINE it should immediately rotate the file and start a new one,
 without changing the file.
 
 After and before the state field is changed `fdatasync()` should be executed on
