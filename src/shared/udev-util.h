@@ -46,3 +46,13 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
 
 int udev_queue_is_empty(void);
 int udev_queue_init(void);
+
+#define DEVICE_TRACE_POINT(name, dev, ...)                                     \
+        do {                                                                   \
+                const char *_s  = NULL;                                        \
+                sd_device *_d = dev;                                           \
+                sd_device_action_t _a = _SD_DEVICE_ACTION_INVALID;             \
+                (void) sd_device_get_action(_d, &_a);                          \
+                (void) sd_device_get_sysname(_d, &_s);                         \
+                UDEV_##name(_s, device_action_to_string(_a) __VA_OPT__(,) __VA_ARGS__);     \
+        } while(false);
