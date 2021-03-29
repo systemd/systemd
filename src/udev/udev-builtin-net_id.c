@@ -262,6 +262,16 @@ static bool is_pci_bridge(sd_device *dev) {
         return strneq(p + 2, "04", 2);
 }
 
+static int slot_base(sd_device *dev) {
+#if defined(__s390x__) || defined(__s390__)
+        /* s390 PCI slots are in un-prefixed base 16 format */
+        return 16;
+#else
+        /* base autodetection by optional prefix */
+        return 0;
+#endif
+}
+
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         unsigned long dev_port = 0;
         unsigned domain, bus, slot, func;
@@ -346,22 +356,37 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                         continue;
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
-                        int i;
+                        unsigned slot_idx, fid_idx;
                         char str[PATH_MAX];
                         _cleanup_free_ char *address = NULL;
+                        const char *function_id;
 
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atoi(dent->d_name, &i);
-                        if (r < 0 || i <= 0)
+                        r = safe_atou_full(dent->d_name, slot_base(hotplug_slot_dev), &slot_idx);
+                        if (r < 0)
                                 continue;
+
+                        /* on s390 match slot identifier with device's function_id
+                         * e.g. slot 00000010 matches function_id 0x10 which results
+                         * in ens16[...]
+                         */
+                        r = sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &function_id);
+                        if (r >= 0 &&
+                            safe_atou(function_id, &fid_idx) >= 0 &&
+                            fid_idx == slot_idx) {
+                                hotplug_slot = slot_idx;
+                                /* The slot index identifies the function uniquely on s390 */
+                                domain = 0;
+                                break;
+                        }
 
                         /* match slot address with device by stripping the function */
                         if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
                             read_one_line_file(str, &address) >= 0 &&
                             startswith(sysname, address)) {
-                                hotplug_slot = i;
+                                hotplug_slot = slot_idx;
 
                                 /* We found the match between PCI device and slot. However, we won't use the
                                  * slot index if the device is a PCI bridge, because it can have other child
