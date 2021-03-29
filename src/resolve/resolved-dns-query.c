@@ -183,7 +183,7 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         if (c->error_code != 0)
                 return DNS_TRANSACTION_ERRNO;
 
-        SET_FOREACH(t, c->transactions) {
+        SET_FOREACH(t, c->transactions)
 
                 switch (t->state) {
 
@@ -213,7 +213,6 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
 
                         break;
                 }
-        }
 
         return state;
 }
