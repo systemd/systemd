@@ -368,6 +368,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
         _cleanup_close_ int fd = -1;
         size_t n, size;
         int n_retries;
+        bool truncated = false;
 
         assert(ret_contents);
 
@@ -381,7 +382,8 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
          *
          * max_size specifies a limit on the bytes read. If max_size is SIZE_MAX, the full file is read. If
          * the the full file is too large to read, an error is returned. For other values of max_size,
-         * *partial contents* may be returned. (Though the read is still done using one syscall.) */
+         * *partial contents* may be returned. (Though the read is still done using one syscall.)
+         * Returns 0 on partial success, 1 if untruncated contents were read. */
 
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
@@ -454,6 +456,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
 
                         /* Accept a short read, but truncate it appropropriately. */
                         n = MIN(n, max_size);
+                        truncated = true;
                         break;
                 }
 
@@ -484,7 +487,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
         buf[n] = 0;
         *ret_contents = TAKE_PTR(buf);
 
-        return 0;
+        return !truncated;
 }
 
 int read_full_stream_full(
