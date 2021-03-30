@@ -48,6 +48,7 @@ def test_invalids(*, user):
     test_line('f++ /too/many/plusses', user=user)
     test_line('f+!+ /too/many/plusses', user=user)
     test_line('f!+! /too/many/bangs', user=user)
+    test_line('f== /too/many/equals', user=user)
     test_line('w /unresolved/argument - - - - "%Y"', user=user)
     test_line('w /unresolved/argument/sandwich - - - - "%v%Y%v"', user=user)
     test_line('w /unresolved/filename/%Y - - - - "whatever"', user=user)
@@ -73,9 +74,11 @@ def test_uninitialized_t():
     test_line('w /foo - - - - "specifier for --user %t"',
               user=True, returncode=0, extra={'env':{}})
 
-def test_content(line, expected, *, user, extra={}):
+def test_content(line, expected, *, user, extra={}, subpath='/arg', path_cb=None):
     d = tempfile.TemporaryDirectory(prefix='test-systemd-tmpfiles.')
-    arg = d.name + '/arg'
+    if path_cb is not None:
+        path_cb(d.name, subpath)
+    arg = d.name + subpath
     spec = line.format(arg)
     test_line(spec, user=user, returncode=0, extra=extra)
     content = open(arg).read()
@@ -134,6 +137,57 @@ def test_valid_specifiers(*, user):
 
     test_content('f {} - - - - %%', '%', user=user)
 
+def mkfifo(parent, subpath):
+    os.makedirs(parent, mode=0o755, exist_ok=True)
+    first_component = subpath.split('/')[1]
+    path = parent + '/' + first_component
+    print('path: {}'.format(path))
+    os.mkfifo(path)
+
+def mkdir(parent, subpath):
+    first_component = subpath.split('/')[1]
+    path = parent + '/' + first_component
+    os.makedirs(path, mode=0o755, exist_ok=True)
+    os.symlink(path, path + '/self', target_is_directory=True)
+
+def symlink(parent, subpath):
+    link_path = parent + '/link-target'
+    os.makedirs(parent, mode=0o755, exist_ok=True)
+    with open(link_path, 'wb') as f:
+        f.write(b'target')
+    first_component = subpath.split('/')[1]
+    path = parent + '/' + first_component
+    os.symlink(link_path, path, target_is_directory=True)
+
+def file(parent, subpath):
+    content = 'file-' + subpath.split('/')[1]
+    path = parent + subpath
+    os.makedirs(os.path.dirname(path), mode=0o755, exist_ok=True)
+    with open(path, 'wb') as f:
+        f.write(content.encode())
+
+def valid_symlink(parent, subpath):
+    target = 'link-target'
+    link_path = parent + target
+    os.makedirs(link_path, mode=0o755, exist_ok=True)
+    first_component = subpath.split('/')[1]
+    path = parent + '/' + first_component
+    os.symlink(target, path, target_is_directory=True)
+
+def test_hard_cleanup(*, user):
+    type_cbs = [None, file, mkdir, symlink]
+    if 'mkfifo' in dir(os):
+        type_cbs.append(mkfifo)
+
+    for type_cb in type_cbs:
+        for subpath in ['/shallow', '/deep/1/2']:
+            label = '{}-{}'.format('None' if type_cb is None else type_cb.__name__, subpath.split('/')[1])
+            test_content('f= {} - - - - ' + label, label, user=user, subpath=subpath, path_cb=type_cb)
+
+    # Test the case that a valid symlink is in the path.
+    label = 'valid_symlink-deep'
+    test_content('f= {} - - - - ' + label, label, user=user, subpath='/deep/1/2', path_cb=valid_symlink)
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -141,3 +195,6 @@ if __name__ == '__main__':
 
     test_valid_specifiers(user=False)
     test_valid_specifiers(user=True)
+
+    test_hard_cleanup(user=False)
+    test_hard_cleanup(user=True)

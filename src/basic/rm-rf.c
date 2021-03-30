@@ -48,11 +48,7 @@ static int patch_dirfd_mode(
         return 0;
 }
 
-static int unlinkat_harder(
-                int dfd,
-                const char *filename,
-                int unlink_flags,
-                RemoveFlags remove_flags) {
+int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags remove_flags) {
 
         mode_t old_mode;
         int r;
@@ -77,13 +73,15 @@ static int unlinkat_harder(
                 return r;
         }
 
-        /* If this worked, we won't reset the old mode, since we'll need it for other entries too, and we
-         * should destroy the whole thing */
+        if (FLAGS_SET(remove_flags, REMOVE_CHMOD_RESTORE) && fchmod(dfd, old_mode) < 0)
+                return -errno;
+
+        /* If this worked, we won't reset the old mode by default, since we'll need it for other entries too,
+         * and we should destroy the whole thing */
         return 0;
 }
 
-static int fstatat_harder(
-                int dfd,
+int fstatat_harder(int dfd,
                 const char *filename,
                 struct stat *ret,
                 int fstatat_flags,
@@ -108,6 +106,9 @@ static int fstatat_harder(
                 (void) fchmod(dfd, old_mode);
                 return r;
         }
+
+        if (FLAGS_SET(remove_flags, REMOVE_CHMOD_RESTORE) && fchmod(dfd, old_mode) < 0)
+                return -errno;
 
         return 0;
 }

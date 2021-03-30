@@ -733,7 +733,7 @@ int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask) {
         return wd;
 }
 
-static bool unsafe_transition(const struct stat *a, const struct stat *b) {
+bool unsafe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
          * making us believe we read something safe even though it isn't safe in the specific context we open it in. */

@@ -94,6 +94,8 @@ enum {
         CHASE_WARN        = 1 << 7, /* Emit an appropriate warning when an error is encountered */
 };
 
+bool unsafe_transition(const struct stat *a, const struct stat *b);
+
 /* How many iterations to execute before returning -ELOOP */
 #define CHASE_SYMLINKS_MAX 32
 
