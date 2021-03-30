@@ -332,13 +332,13 @@ static inline int json_dispatch_level(JsonDispatchFlags flags) {
         return LOG_ERR;
 }
 
-int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const char *format, ...)  _printf_(7, 8);
+int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const elf_build_id *build_id, const char *format, ...)  _printf_(8, 9);
 
 #define json_log(variant, flags, error, ...)                            \
         ({                                                              \
                 int _level = json_dispatch_level(flags), _e = (error);  \
                 (log_get_max_level() >= LOG_PRI(_level))                \
-                        ? json_log_internal(variant, _level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        ? json_log_internal(variant, _level, _e, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__), __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
         })
 

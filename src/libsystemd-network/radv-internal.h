@@ -124,6 +124,6 @@ struct sd_radv_route_prefix {
         LIST_FIELDS(struct sd_radv_route_prefix, prefix);
 };
 
-#define log_radv_full(level, error, fmt, ...) log_internal(level, error, PROJECT_FILE, __LINE__, __func__, "RADV: " fmt, ##__VA_ARGS__)
+#define log_radv_full(level, error, fmt, ...) log_internal(level, error, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__), "RADV: " fmt, ##__VA_ARGS__)
 #define log_radv_errno(error, fmt, ...) log_radv_full(LOG_DEBUG, error, fmt, ##__VA_ARGS__)
 #define log_radv(fmt, ...) log_radv_errno(0, fmt, ##__VA_ARGS__)

@@ -897,14 +897,14 @@ bool condition_test_list(
 
                 if (logger) {
                         if (r < 0)
-                                logger(userdata, LOG_WARNING, r, PROJECT_FILE, __LINE__, __func__,
+                                logger(userdata, LOG_WARNING, r, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__),
                                        "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
                                        c->parameter);
                         else
-                                logger(userdata, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__,
+                                logger(userdata, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__),
                                        "%s=%s%s%s %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
