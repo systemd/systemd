@@ -3980,7 +3980,8 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         }
 
         for (int64_t threshold = INT64_MAX; ; threshold--) {
-                int64_t epoll_min_priority, child_min_priority;
+                int64_t child_min_priority = 0;
+                int64_t epoll_min_priority;
 
                 /* There may be a possibility that new epoll (especially IO) and child events are
                  * triggered just after process_epoll() call but before process_child(), and the new IO
