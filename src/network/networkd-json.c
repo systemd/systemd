@@ -59,6 +59,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
                                         JSON_BUILD_PAIR("OperationalState", JSON_BUILD_STRING(link_operstate_to_string(link->operstate))),
                                         JSON_BUILD_PAIR("CarrierState", JSON_BUILD_STRING(link_carrier_state_to_string(link->carrier_state))),
                                         JSON_BUILD_PAIR("AddressState", JSON_BUILD_STRING(link_address_state_to_string(link->address_state))),
+                                        JSON_BUILD_PAIR("OnlineState", JSON_BUILD_STRING(link_online_state_to_string(link->online_state))),
                                         JSON_BUILD_PAIR("IPv4AddressState", JSON_BUILD_STRING(link_address_state_to_string(link->ipv4_address_state))),
                                         JSON_BUILD_PAIR("IPv6AddressState", JSON_BUILD_STRING(link_address_state_to_string(link->ipv6_address_state)))));
         if (r < 0)
