@@ -203,7 +203,7 @@ static int run(int argc, char* argv[]) {
                 return r;
 
         if (arg_booted)
-                return sd_booted() <= 0;
+                return -(sd_booted() <= 0);
 
         if (arg_ready)
                 our_env[i++] = (char*) "READY=1";
