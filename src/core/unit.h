@@ -919,8 +919,8 @@ int unit_thaw_vtable_common(Unit *u);
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 (log_get_max_level() < LOG_PRI(level)) ? -ERRNO_VALUE(error) : \
-                        _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                                log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                        _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__), _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                                log_internal(level, error, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__), ##__VA_ARGS__); \
         })
 
 #define log_unit_full(unit, level, ...) (void) log_unit_full_errno(unit, level, 0, __VA_ARGS__)
