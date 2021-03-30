@@ -334,6 +334,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .required_family_for_online = ADDRESS_FAMILY_NO,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .arp = -1,
                 .multicast = -1,
@@ -1195,6 +1196,40 @@ int config_parse_required_for_online(
         network->required_for_online = required;
         network->required_operstate_for_online = range;
 
+        return 0;
+}
+
+int config_parse_required_family_for_online(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamily *required_family_for_online;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        required_family_for_online = data;
+
+        r = link_address_family_from_string(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s= setting, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *required_family_for_online = r;
         return 0;
 }
 

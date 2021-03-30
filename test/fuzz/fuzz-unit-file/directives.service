@@ -545,6 +545,7 @@ RemoteChecksumTx=
 ReorderHeader=
 RequestBroadcast=
 RequiredForOnline=
+RequiredFamilyForOnline=
 ResendIGMP=
 RootDistanceMaxSec=
 RouteMetric=

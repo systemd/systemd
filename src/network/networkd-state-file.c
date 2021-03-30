@@ -101,10 +101,12 @@ static int ordered_set_put_in4_addrv(
 
 int manager_save(Manager *m) {
         _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
-        const char *operstate_str, *carrier_state_str, *address_state_str;
+        const char *operstate_str, *carrier_state_str, *address_state_str, *ipv4_address_state_str, *ipv6_address_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
+        LinkAddressState ipv4_address_state = LINK_ADDRESS_STATE_OFF;
+        LinkAddressState ipv6_address_state = LINK_ADDRESS_STATE_OFF;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -149,6 +151,12 @@ int manager_save(Manager *m) {
 
                 if (link->address_state > address_state)
                         address_state = link->address_state;
+
+                if (link->ipv4_address_state > ipv4_address_state)
+                        ipv4_address_state = link->ipv4_address_state;
+
+                if (link->ipv6_address_state > ipv6_address_state)
+                        ipv6_address_state = link->ipv6_address_state;
 
                 if (!link->network)
                         continue;
@@ -242,6 +250,12 @@ int manager_save(Manager *m) {
         address_state_str = link_address_state_to_string(address_state);
         assert(address_state_str);
 
+        ipv4_address_state_str = link_address_state_to_string(ipv4_address_state);
+        assert(ipv4_address_state_str);
+
+        ipv6_address_state_str = link_address_state_to_string(ipv6_address_state);
+        assert(ipv6_address_state_str);
+
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
                 return r;
@@ -252,8 +266,10 @@ int manager_save(Manager *m) {
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n"
                 "CARRIER_STATE=%s\n"
-                "ADDRESS_STATE=%s\n",
-                operstate_str, carrier_state_str, address_state_str);
+                "ADDRESS_STATE=%s\n"
+                "IPV4_ADDRESS_STATE=%s\n"
+                "IPV6_ADDRESS_STATE=%s\n",
+                operstate_str, carrier_state_str, address_state_str, ipv4_address_state_str, ipv6_address_state_str);
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
@@ -286,6 +302,18 @@ int manager_save(Manager *m) {
         if (m->address_state != address_state) {
                 m->address_state = address_state;
                 if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (m->ipv4_address_state != ipv4_address_state) {
+                m->ipv4_address_state = ipv4_address_state;
+                if (strv_extend(&p, "IPv4AddressState") < 0)
+                        log_oom();
+        }
+
+        if (m->ipv6_address_state != ipv6_address_state) {
+                m->ipv6_address_state = ipv6_address_state;
+                if (strv_extend(&p, "IPv6AddressState") < 0)
                         log_oom();
         }
 
@@ -392,7 +420,7 @@ static void serialize_addresses(
 }
 
 int link_save(Link *link) {
-        const char *admin_state, *oper_state, *carrier_state, *address_state;
+        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -419,6 +447,12 @@ int link_save(Link *link) {
         address_state = link_address_state_to_string(link->address_state);
         assert(address_state);
 
+        ipv4_address_state = link_address_state_to_string(link->ipv4_address_state);
+        assert(ipv4_address_state);
+
+        ipv6_address_state = link_address_state_to_string(link->ipv6_address_state);
+        assert(ipv6_address_state);
+
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
                 return r;
@@ -430,8 +464,10 @@ int link_save(Link *link) {
                 "ADMIN_STATE=%s\n"
                 "OPER_STATE=%s\n"
                 "CARRIER_STATE=%s\n"
-                "ADDRESS_STATE=%s\n",
-                admin_state, oper_state, carrier_state, address_state);
+                "ADDRESS_STATE=%s\n"
+                "IPV4_ADDRESS_STATE=%s\n"
+                "IPV6_ADDRESS_STATE=%s\n",
+                admin_state, oper_state, carrier_state, address_state, ipv4_address_state, ipv6_address_state);
 
         if (link->network) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;
@@ -446,6 +482,9 @@ int link_save(Link *link) {
                         strempty(link_operstate_to_string(st.min)),
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
+
+                fprintf(f, "REQUIRED_FAMILY_FOR_ONLINE=%s\n",
+                        link_address_family_to_string(link->network->required_family_for_online));
 
                 fprintf(f, "ACTIVATION_POLICY=%s\n",
                         activation_policy_to_string(link->network->activation_policy));
