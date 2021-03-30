@@ -142,6 +142,8 @@ typedef struct Item {
 
         bool allow_failure:1;
 
+        bool try_replace:1;
+
         OperationMask done;
 } Item;
 
@@ -2004,6 +2006,64 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
         return r;
 }
 
+static int rm_if_wrong_type(mode_t mode, const char *path, bool follow) {
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert((mode & ~S_IFMT) == 0);
+        log_debug("Checking type of %s", path);
+
+        if (follow)
+                r = stat(path, &st);
+        else
+                r = lstat(path, &st);
+        if (r < 0) {
+                if (errno != ENOENT) {
+                        log_error_errno(r, "stat(%s): %m", path);
+                }
+                return -errno;
+        }
+
+        if ((st.st_mode & S_IFMT) == mode)
+                return 0;
+
+        log_warning("wrong file type 0x%x; rm -rf \"%s\"", st.st_mode & S_IFMT, path);
+        r = rm_rf(path, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
+        if (r < 0) {
+                if (errno != ENOENT) {
+                        log_error_errno(r, "rm_rf(%s): %m", path);
+                }
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int rm_nondir_parents(const char *path) {
+        char *p, *e;
+        int r = -ENOENT;
+
+        assert(path);
+
+        // Walk up the path components until one is found with the expected type or there are no more.
+        p = strdupa(path);
+        // If the path doesn't exist, check the next path component.
+        while (r == -ENOENT || r == -ENOTDIR) {
+                e = strrchr(p, '/');
+                if (!e)
+                        return 0;
+
+                *e = 0;
+                r = rm_if_wrong_type(S_IFDIR, p, true);
+                // Remove dangling symlinks.
+                if (r == -ENOENT) {
+                        r = rm_if_wrong_type(S_IFDIR, p, false);
+                }
+        }
+        return r;
+}
+
 static int create_item(Item *i) {
         CreationMode creation;
         int r = 0;
@@ -2022,8 +2082,20 @@ static int create_item(Item *i) {
 
         case TRUNCATE_FILE:
         case CREATE_FILE:
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+
+                if (i->try_replace) {
+                        r = rm_if_wrong_type(S_IFREG, i->path, false);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 if ((i->type == CREATE_FILE && i->append_or_force) || i->type == TRUNCATE_FILE)
                         r = truncate_file(i, i->path);
@@ -2035,6 +2107,12 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES:
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
@@ -2052,8 +2130,20 @@ static int create_item(Item *i) {
 
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+
+                if (i->try_replace) {
+                        r = rm_if_wrong_type(S_IFDIR, i->path, false);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 r = create_directory(i, i->path);
                 if (r < 0)
@@ -2063,8 +2153,20 @@ static int create_item(Item *i) {
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+
+                if (i->try_replace) {
+                        r = rm_if_wrong_type(S_IFDIR, i->path, false);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 r = create_subvolume(i, i->path);
                 if (r < 0)
@@ -2078,8 +2180,20 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_FIFO:
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+
+                if (i->try_replace) {
+                        r = rm_if_wrong_type(S_IFIFO, i->path, false);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 r = create_fifo(i, i->path);
                 if (r < 0)
@@ -2087,8 +2201,20 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_SYMLINK: {
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+
+                if (i->try_replace) {
+                        r = rm_if_wrong_type(S_IFLNK, i->path, false);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
@@ -2144,8 +2270,20 @@ static int create_item(Item *i) {
                         return 0;
                 }
 
+                if (i->try_replace) {
+                        r = rm_nondir_parents(i->path);
+                        if (r < 0)
+                                return r;
+                }
+
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
+
+                if (i->try_replace) {
+                        r = rm_if_wrong_type(i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR, i->path, false);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 r = create_device(i, i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
                 if (r < 0)
@@ -2645,7 +2783,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false;
 
         assert(fname);
         assert(line >= 1);
@@ -2690,6 +2828,8 @@ static int parse_line(
                         append_or_force = true;
                 else if (action[pos] == '-' && !allow_failure)
                         allow_failure = true;
+                else if (action[pos] == '=' && !try_replace)
+                        try_replace = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
@@ -2704,6 +2844,7 @@ static int parse_line(
         i.type = action[0];
         i.append_or_force = append_or_force;
         i.allow_failure = allow_failure;
+        i.try_replace = try_replace;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
         if (r == -ENXIO)
