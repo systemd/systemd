@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2021.03.16
-#	Date:    2021-03-16 03:15:02
+#	Version: 2021.03.22
+#	Date:    2021-03-22 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -874,6 +874,14 @@
 		1d49 060e  ThinkSystem RAID 940-32i 8GB Flash PCIe Gen4 12Gb Adapter
 		1d49 060f  ThinkSystem RAID 940-8e 4GB Flash PCIe Gen4 12Gb Adapter
 	10e2  MegaRAID 12GSAS/PCIe Secure SAS39xx
+# 9560 16 internal port RAID controller
+		1000 4000  MegaRAID 9560-16i
+# 9560 8 internal port RAID controller
+		1000 4010  MegaRAID 9560-8i
+# 9580 8 internal & 8 external port RAID controller
+		1000 4020  MegaRAID 9580-8i8e
+# MegaRAID 9562-16i 9562 16 internal port RAID controller
+		1000 40b0  MegaRAID 9562-16i
 		1028 1ae0  PERC H755 Adapter
 		1028 1ae1  PERC H755 Front
 		1028 1ae2  PERC H755N Front
@@ -1906,7 +1914,7 @@
 	5e6d  RV410 [Radeon X700] (Secondary)
 		148c 2117  Bravo X700 (Secondary)
 	5f57  R423 [Radeon X800 XT]
-	6600  Mars [Radeon HD 8670A/8670M/8750M]
+	6600  Mars [Radeon HD 8670A/8670M/8750M / R7 M370]
 		103c 1952  ProBook 455 G1
 	6601  Mars [Radeon HD 8730M]
 		103c 2100  FirePro M4100
@@ -2244,7 +2252,7 @@
 		174b 7670  Radeon HD 7670
 		174b e181  Radeon HD 6670
 		1787 2309  Radeon HD 6670
-	6759  Turks PRO [Radeon HD 6570/7570/8550]
+	6759  Turks PRO [Radeon HD 6570/7570/8550 / R5 230]
 		103c 3130  Radeon HD 6570
 		1043 0403  Radeon HD 6570
 		1462 2500  Radeon HD 6570
@@ -2253,9 +2261,15 @@
 		1642 3a67  Radeon HD 6570
 		1682 3280  Radeon HD 7570
 		1682 3530  Radeon HD 8550
+		1682 5230  Radeon R5 230 series
+		1682 6450  Radeon HD 6450 series
 		174b 7570  Radeon HD 7570
+		174b 8550  Radeon HD8550 OEM
+		174b 8570  Radeon HD8550 OEM
 		174b e142  Radeon HD 6570
 		174b e181  Radeon HD 6570
+		1787 a230  Radeon R5 230 series
+		1787 a450  Radeon HD 6450 series
 		1b0a 908f  Radeon HD 6570
 		1b0a 9090  Radeon HD 6570
 		1b0a 9091  Radeon HD 6570
@@ -3626,6 +3640,7 @@
 		174b e329  Radeon R9 FURY
 	7310  Navi 10 [Radeon Pro W5700X]
 	7312  Navi 10 [Radeon Pro W5700]
+	7314  Navi 10 USB
 	731f  Navi 10 [Radeon RX 5600 OEM/5600 XT / 5700/5700 XT]
 		1458 2313  Radeon RX 5700 XT Gaming OC
 		1682 5701  RX 5700 XT RAW II
@@ -3639,12 +3654,16 @@
 	7388  Arcturus GL-XL
 	738c  Arcturus GL-XL [AMD Instinct MI100]
 	738e  Arcturus GL-XL
+	73a4  Navi 21 USB
+	73af  Navi 21 [Radeon RX 6900 XT]
 	73bf  Navi 21 [Radeon RX 6800/6800 XT / 6900 XT]
 		1eae 6701  XFX Speedster MERC 319 AMD Radeon RX 6800 XT Black
 	73c3  Navi 22
-	73df  Navi 22 [Radeon RX 6700/6700 XT]
+	73c4  Navi 22 USB
+	73df  Navi 22 [Radeon RX 6700/6700 XT / 6800M]
 	73e0  Navi 23
 	73e1  Navi 23
+	73e4  Navi 23 USB
 	73ff  Navi 23 [Radeon RX 6600/6600 XT]
 	7833  RS350 Host Bridge
 	7834  RS350 [Radeon 9100 PRO/XT IGP]
@@ -14181,7 +14200,7 @@
 	0002  Dual PCI to RapidIO Bridge
 	000b  POET Serial RapidIO Bridge
 	000d  POET PSDMS Device
-1135  Fuji Xerox Co Ltd
+1135  FUJIFILM Business Innovation Corp.
 	0001  Printer controller
 1136  Momentum Data Systems
 	0002  PCI-JTAG
@@ -17636,6 +17655,8 @@
 1414  Microsoft Corporation
 	0001  MN-120 (ADMtek Centaur-C based)
 	0002  MN-130 (ADMtek Centaur-P based)
+# Virtual Video Card Device for Windows Remote Desktop (RDP)
+	008c  Basic Render Driver
 	5353  Hyper-V virtual VGA
 	5801  XMA Decoder (Xenon)
 	5802  SATA Controller - CdRom (Xenon)
@@ -23670,6 +23691,8 @@
 	0206  ACE-NIC200 Programmable Network Accelerator
 		1df3 0000  Maintenance Mode
 		1df3 0001  ENA2200F
+	0207  ACE-NIC50RN Programmable Network Accelerator
+	0208  ACE-NIC100RN Programmable Network Accelerator
 1df7  opencpi.org
 	0001  ml605
 	0002  alst4
@@ -26771,6 +26794,7 @@
 		8086 000b  Ethernet 100G 2P E810-C Adapter
 		8086 000c  Ethernet 100G 2P E810-C OCP
 		8086 000d  Ethernet Network Adapter E810-L-Q2 for OCP 3.0
+		8086 000e  Ethernet Network Adapter E810-2C-Q2
 	1593  Ethernet Controller E810-C for SFP
 		1137 02c3  E810XXVDA4 4x25/10 GbE SFP28 PCIe NIC
 		8086 0002  Ethernet Network Adapter E810-L-2
@@ -28338,6 +28362,7 @@
 		1cb8 0002  Omni-Path HFI Adapter 100 Series, 1 Port, PCIe x16, TC6600 Fixed Port
 		1cb8 0003  Omni-Path HFI Adapter 100 Series, 2 Port, 2 PCIe x16, Earth Simulation QSFP28
 		1cb8 0004  Omni-Path HFI Adapter 100 Series, 1 Port, PCIe x16, TC4600E QSFP28
+		434e 0001  Omni-Path HFI 100 Series, 1 Port, OCP 3.0 Adapter
 		8086 2628  Omni-Path HFI Adapter 100 Series, 1 Port, PCIe x16
 		8086 2629  Omni-Path HFI Adapter 100 Series, 1 Port, PCIe x8
 		8086 262a  Omni-Path HFI Adapter 100 Series, 2 Ports, Split PCIe x16
@@ -33631,6 +33656,7 @@ f1d0  AJA Video
 	eb23  Kona 1
 	eb24  Kona HDMI
 	eb25  Corvid 44 12g
+	eb26  T-Tap Pro
 	efac  Xena SD-MM/SD-22-MM
 	facd  Xena HD-MM
 f5f5  F5 Networks, Inc.
