@@ -147,7 +147,7 @@ usb:v06CBp00F9*
 usb:v06CBp00FC*
 usb:v06CBp00C2*
 usb:v06CBp00C9*
-usb:v06CBp00E7*
+usb:v06CBp0100*
  ID_AUTOSUSPEND=1
 
 # Supported by libfprint driver upeksonly
