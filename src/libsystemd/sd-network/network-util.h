@@ -54,6 +54,14 @@ typedef enum LinkAddressState {
         _LINK_ADDRESS_STATE_INVALID = -EINVAL,
 } LinkAddressState;
 
+typedef enum LinkOnlineState {
+        LINK_ONLINE_STATE_OFFLINE,
+        LINK_ONLINE_STATE_PARTIAL,
+        LINK_ONLINE_STATE_ONLINE,
+        _LINK_ONLINE_STATE_MAX,
+        _LINK_ONLINE_STATE_INVALID = -EINVAL,
+} LinkOnlineState;
+
 const char* link_operstate_to_string(LinkOperationalState s) _const_;
 LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
@@ -65,6 +73,9 @@ AddressFamily link_required_address_family_from_string(const char *s) _pure_;
 
 const char* link_address_state_to_string(LinkAddressState s) _const_;
 LinkAddressState link_address_state_from_string(const char *s) _pure_;
+
+const char* link_online_state_to_string(LinkOnlineState s) _const_;
+LinkOnlineState link_online_state_from_string(const char *s) _pure_;
 
 typedef struct LinkOperationalStateRange {
         LinkOperationalState min;

@@ -73,6 +73,14 @@ static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
 
+static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
+        [LINK_ONLINE_STATE_OFFLINE] = "offline",
+        [LINK_ONLINE_STATE_PARTIAL] = "partial",
+        [LINK_ONLINE_STATE_ONLINE]  = "online",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
+
 int parse_operational_state_range(const char *str, LinkOperationalStateRange *out) {
         LinkOperationalStateRange range = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
         _cleanup_free_ const char *min = NULL;

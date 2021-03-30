@@ -202,6 +202,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
         LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
+        LinkOnlineState online_state;
         _cleanup_strv_free_ char **p = NULL;
         uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE;
         bool changed = false;
@@ -277,6 +278,38 @@ void link_update_operstate(Link *link, bool also_update_master) {
         else
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
+        /* Only determine online state for managed links with RequiredForOnline=yes */
+        if (!link->network || !link->network->required_for_online)
+                online_state = _LINK_ONLINE_STATE_INVALID;
+        else if (operstate < link->network->required_operstate_for_online.min ||
+                 operstate > link->network->required_operstate_for_online.max)
+                online_state = LINK_ONLINE_STATE_OFFLINE;
+        else {
+                AddressFamily required_family = link->network->required_family_for_online;
+                bool needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
+                bool needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
+
+                /* The operational state is within the range required for online.
+                 * If a particular address family is also required, we might revert
+                 * to offline in the blocks below.
+                 */
+                online_state = LINK_ONLINE_STATE_ONLINE;
+
+                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_DEGRADED) {
+                        if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                        if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                }
+
+                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_ROUTABLE) {
+                        if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                        if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
+                                online_state = LINK_ONLINE_STATE_OFFLINE;
+                }
+        }
+
         if (link->carrier_state != carrier_state) {
                 link->carrier_state = carrier_state;
                 changed = true;
@@ -309,6 +342,13 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 link->operstate = operstate;
                 changed = true;
                 if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
+        }
+
+        if (link->online_state != online_state) {
+                link->online_state = online_state;
+                changed = true;
+                if (strv_extend(&p, "OnlineState") < 0)
                         log_oom();
         }
 
@@ -2330,6 +2370,7 @@ static int link_initialized_and_synced(Link *link) {
                 }
 
                 link->network = network_ref(network);
+                link_update_operstate(link, false);
                 link_dirty(link);
         }
 
@@ -2466,6 +2507,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         *link = (Link) {
                 .n_ref = 1,
                 .state = LINK_STATE_PENDING,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
                 .ifindex = ifindex,
                 .iftype = iftype,
                 .ifname = TAKE_PTR(ifname),

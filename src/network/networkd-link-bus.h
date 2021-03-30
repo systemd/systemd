@@ -18,6 +18,7 @@ int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 int property_get_operational_state(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int property_get_carrier_state(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int property_get_address_state(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int property_get_online_state(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
 int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
