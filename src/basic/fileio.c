@@ -385,20 +385,10 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
         if (fd < 0)
                 return -errno;
 
-        /* Start size for files in /proc/ which usually report a file size of 0. (Files in /sys/ report a
-         * file size of 4K, which is probably OK for sizing our initial buffer, and sysfs attributes can't be
-         * larger anyway.)
-         *
-         * It's one less than 4k, so that the malloc() below allocates exactly 4k. */
-        size = 4095;
-
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
         n_retries = 3;
 
         for (;;) {
-                if (n_retries <= 0)
-                        return -EIO;
-
                 if (fstat(fd, &st) < 0)
                         return -errno;
 
@@ -409,24 +399,20 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 assert_cc(READ_FULL_BYTES_MAX < SSIZE_MAX);
                 if (st.st_size > 0) {
                         if (st.st_size > READ_FULL_BYTES_MAX)
-                                return -E2BIG;
+                                return -EFBIG;
 
                         size = st.st_size;
                         n_retries--;
                 } else {
-                        /* Double the buffer size */
-                        if (size >= READ_FULL_BYTES_MAX)
-                                return -E2BIG;
-                        if (size > READ_FULL_BYTES_MAX / 2 - 1)
-                                size = READ_FULL_BYTES_MAX; /* clamp to max */
-                        else
-                                size = size * 2 + 1; /* Stay always one less than page size, so we malloc evenly */
+                        size = READ_FULL_BYTES_MAX;
+                        n_retries = 0;
                 }
 
                 buf = malloc(size + 1);
                 if (!buf)
                         return -ENOMEM;
-                size = malloc_usable_size(buf) - 1; /* Use a bigger allocation if we got it anyway */
+                /* Use a bigger allocation if we got it anyway, but not more than the limit. */
+                size = MIN(malloc_usable_size(buf) - 1, READ_FULL_BYTES_MAX);
 
                 for (;;) {
                         ssize_t k;
@@ -453,6 +439,9 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                  * processing, let's try again either with a bigger guessed size or the new
                  * file size. */
 
+                if (n_retries <= 0)
+                        return st.st_size > 0 ? -EIO : -EFBIG;
+
                 if (lseek(fd, 0, SEEK_SET) < 0)
                         return -errno;
 
@@ -466,8 +455,7 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 p = realloc(buf, n + 1);
                 if (!p)
                         return -ENOMEM;
-
-                buf = TAKE_PTR(p);
+                buf = p;
         }
 
         if (ret_size)
