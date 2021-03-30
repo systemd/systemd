@@ -9,6 +9,7 @@
 #include "ctype.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -964,6 +965,24 @@ static void test_read_full_file_offset_size(void) {
         rbuf = mfree(rbuf);
 }
 
+static void test_read_full_virtual_file(void) {
+        const char *filename;
+        int r;
+
+        FOREACH_STRING(filename,
+                       "/proc/1/cmdline",
+                       "/etc/nsswitch.conf",
+                       "/sys/kernel/uevent_seqnum") {
+
+                _cleanup_free_ char *buf = NULL;
+                size_t size = 0;
+
+                r = read_full_virtual_file(filename, &buf, &size);
+                log_info_errno(r, "read_full_virtual_file(\"%s\"): %m (%zu bytes)", filename, size);
+                assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -991,6 +1010,7 @@ int main(int argc, char *argv[]) {
         test_read_nul_string();
         test_read_full_file_socket();
         test_read_full_file_offset_size();
+        test_read_full_virtual_file();
 
         return 0;
 }
