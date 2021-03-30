@@ -123,64 +123,133 @@ int get_process_comm(pid_t pid, char **ret) {
         return 0;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line) {
-        _cleanup_free_ char *t = NULL, *ans = NULL;
+static int get_process_cmdline_nulstr(
+                pid_t pid,
+                size_t max_size,
+                ProcessCmdlineFlags flags,
+                char **ret,
+                size_t *ret_size) {
+
         const char *p;
+        char *t;
         size_t k;
         int r;
 
-        assert(line);
-        assert(pid >= 0);
-
-        /* Retrieves a process' command line. Replaces non-utf8 bytes by replacement character (�). If
-         * max_columns is != -1 will return a string of the specified console width at most, abbreviated with
-         * an ellipsis. If PROCESS_CMDLINE_COMM_FALLBACK is specified in flags and the process has no command
-         * line set (the case for kernel threads), or has a command line that resolves to the empty string
-         * will return the "comm" name of the process instead. This will use at most _SC_ARG_MAX bytes of
-         * input data.
+        /* Retrieves a process' command line as a "sized nulstr", i.e. possibly without the last NUL, but
+         * with a specified size.
          *
-         * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
-         * comm_fallback is false). Returns 0 and sets *line otherwise. */
+         * If PROCESS_CMDLINE_COMM_FALLBACK is specified in flags and the process has no command line set
+         * (the case for kernel threads), or has a command line that resolves to the empty string, will
+         * return the "comm" name of the process instead. This will use at most _SC_ARG_MAX bytes of input
+         * data.
+         *
+         * Returns an error, 0 if output was read but is truncated, 1 otherwise.
+         */
 
         p = procfs_file_alloca(pid, "cmdline");
-        r = read_full_virtual_file(p, &t, &k);
+        r = read_virtual_file(p, max_size, &t, &k); /* Let's assume that each input byte results in >= 1
+                                                     * columns of output. We ignore zero-width codepoints. */
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
                 return r;
 
-        if (k > 0) {
-                /* Arguments are separated by NULs. Let's replace those with spaces. */
-                for (size_t i = 0; i < k - 1; i++)
-                        if (t[i] == '\0')
-                                t[i] = ' ';
-        } else {
+        if (k == 0) {
+                t = mfree(t);
+
                 if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
                         return -ENOENT;
 
                 /* Kernel threads have no argv[] */
-                _cleanup_free_ char *t2 = NULL;
+                _cleanup_free_ char *comm = NULL;
 
-                r = get_process_comm(pid, &t2);
+                r = get_process_comm(pid, &comm);
                 if (r < 0)
                         return r;
 
-                free(t);
-                t = strjoin("[", t2, "]");
+                t = strjoin("[", comm, "]");
                 if (!t)
                         return -ENOMEM;
+
+                k = strlen(t);
+                r = k <= max_size;
+                if (r == 0) /* truncation */
+                        t[max_size] = '\0';
         }
 
-        delete_trailing_chars(t, WHITESPACE);
+        *ret = t;
+        *ret_size = k;
+        return r;
+}
 
-        bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
+int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line) {
+        _cleanup_free_ char *t = NULL;
+        size_t k;
+        char *ans;
 
-        ans = escape_non_printable_full(t, max_columns, eight_bit * XESCAPE_8_BIT);
-        if (!ans)
-                return -ENOMEM;
+        assert(line);
+        assert(pid >= 0);
 
-        ans = str_realloc(ans);
-        *line = TAKE_PTR(ans);
+        /* Retrieve adn format a commandline. See above for discussion of retrieval options.
+         *
+         * There are two main formatting modes:
+         *
+         * - when PROCESS_CMDLINE_QUOTE is specified, output is quoted in C/Python style. If no shell special
+         *   characters are present, this output can be copy-pasted into the terminal to execute. UTF-8
+         *   output is assumed.
+         *
+         * - otherwise, a compact non-roundtrippable form is returned. Non-UTF8 bytes are replaced by �. The
+         *   returned string is of the specified console width at most, abbreviated with an ellipsis.
+         *
+         * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
+         * PROCESS_CMDLINE_COMM_FALLBACK is not specified). Returns 0 and sets *line otherwise. */
+
+        int full = get_process_cmdline_nulstr(pid, max_columns, flags, &t, &k);
+        if (full < 0)
+                return full;
+
+        if (flags & PROCESS_CMDLINE_QUOTE) {
+                assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
+
+                _cleanup_strv_free_ char **args = NULL;
+
+                args = strv_parse_nulstr(t, k);
+                if (!args)
+                        return -ENOMEM;
+
+                for (size_t i = 0; args[i]; i++) {
+                        char *e;
+
+                        e = shell_maybe_quote(args[i], SHELL_ESCAPE_EMPTY);
+                        if (!e)
+                                return -ENOMEM;
+
+                        free_and_replace(args[i], e);
+                }
+
+                ans = strv_join(args, " ");
+                if (!ans)
+                        return -ENOMEM;
+
+        } else {
+                /* Arguments are separated by NULs. Let's replace those with spaces. */
+                for (size_t i = 0; i < k - 1; i++)
+                        if (t[i] == '\0')
+                                t[i] = ' ';
+
+                delete_trailing_chars(t, WHITESPACE);
+
+                bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
+
+                ans = escape_non_printable_full(t, max_columns,
+                                                eight_bit * XESCAPE_8_BIT | !full * XESCAPE_FORCE_ELLIPSIS);
+                if (!ans)
+                        return -ENOMEM;
+
+                ans = str_realloc(ans);
+        }
+
+        *line = ans;
         return 0;
 }
 
