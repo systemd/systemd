@@ -96,6 +96,9 @@ acpi:ESSX*:
 acpi:EXAR*:
  ID_VENDOR_FROM_DATABASE=Exar Corporation
 
+acpi:FRMW*:
+ ID_VENDOR_FROM_DATABASE=Framework Computer LLC
+
 acpi:FRSC*:
  ID_VENDOR_FROM_DATABASE=Freescale, Inc
 
@@ -171,6 +174,9 @@ acpi:IP3T*:
 acpi:IPHI*:
  ID_VENDOR_FROM_DATABASE=Inphi Corporation
 
+acpi:JSYS*:
+ ID_VENDOR_FROM_DATABASE=Juniper Systems, Inc.
+
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
@@ -230,6 +236,9 @@ acpi:PHYT*:
 
 acpi:PIXA*:
  ID_VENDOR_FROM_DATABASE=PixArt imaging inc.
+
+acpi:PNSO*:
+ ID_VENDOR_FROM_DATABASE=Pensando Systems, Inc.
 
 acpi:QCOM*:
  ID_VENDOR_FROM_DATABASE=Qualcomm Inc
@@ -598,7 +607,7 @@ acpi:ALO*:
  ID_VENDOR_FROM_DATABASE=Algolith Inc.
 
 acpi:ALP*:
- ID_VENDOR_FROM_DATABASE=Alps Electric Company Ltd
+ ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
 
 acpi:ALR*:
  ID_VENDOR_FROM_DATABASE=Advanced Logic
@@ -724,7 +733,7 @@ acpi:APD*:
  ID_VENDOR_FROM_DATABASE=AppliAdata
 
 acpi:APE*:
- ID_VENDOR_FROM_DATABASE=Alpine Electronics, Inc.
+ ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
 
 acpi:APG*:
  ID_VENDOR_FROM_DATABASE=Horner Electric Inc
@@ -889,7 +898,7 @@ acpi:AUG*:
  ID_VENDOR_FROM_DATABASE=August Home, Inc.
 
 acpi:AUI*:
- ID_VENDOR_FROM_DATABASE=Alps Electric Inc
+ ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
 
 acpi:AUO*:
  ID_VENDOR_FROM_DATABASE=AU Optronics
