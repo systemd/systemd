@@ -208,11 +208,13 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         return set_size(pids_killed) != 0;
 }
 
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run) {
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
+        _cleanup_free_ char *selected = NULL;
         int r;
 
         assert(h);
+        assert(ret_selected);
 
         r = oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, prefix, &sorted);
         if (r < 0)
@@ -225,18 +227,28 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run) {
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r > 0 || r == -ENOMEM)
+                if (r > 0) {
+                        selected = strdup(sorted[i]->path);
+                        if (!selected)
+                                return -ENOMEM;
+                        break;
+                }
+                if (r == -ENOMEM)
                         break;
         }
 
+        if (selected)
+                *ret_selected = TAKE_PTR(selected);
         return r;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run) {
+int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
+        _cleanup_free_ char *selected = NULL;
         int r;
 
         assert(h);
+        assert(ret_selected);
 
         r = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
         if (r < 0)
@@ -251,10 +263,18 @@ int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run) {
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r > 0 || r == -ENOMEM)
+                if (r > 0) {
+                        selected = strdup(sorted[i]->path);
+                        if (!selected)
+                                return -ENOMEM;
+                        break;
+                }
+                if (r == -ENOMEM)
                         break;
         }
 
+        if (selected)
+                *ret_selected = TAKE_PTR(selected);
         return r;
 }
 
