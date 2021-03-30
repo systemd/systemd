@@ -555,10 +555,13 @@ node /org/freedesktop/login1 {
       extendability, defined as follows:</para>
       <programlisting>
 #define SD_LOGIND_ROOT_CHECK_INHIBITORS  (UINT64_C(1) &lt;&lt; 0)
+#define SD_LOGIND_KEXEC_REBOOT           (UINT64_C(1) &lt;&lt; 1)
       </programlisting>
       <para> When the <varname>flags</varname> is 0 then these methods behave just like the versions
       without flags. When <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is set, active
-      inhibitors are honoured for privileged users too.</para>
+      inhibitors are honoured for privileged users too. When <constant>SD_LOGIND_KEXEC_REBOOT</constant>
+      (0x02) is set, then <function>RebootWithFlags()</function> perform kexec reboot if kexec
+      kernel is loaded.</para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in
