@@ -2135,6 +2135,8 @@ static int manager_scheduled_shutdown_handler(
                 target = SPECIAL_POWEROFF_TARGET;
         else if (streq(m->scheduled_shutdown_type, "reboot"))
                 target = SPECIAL_REBOOT_TARGET;
+        else if (streq(m->scheduled_shutdown_type, "kexec"))
+                target = SPECIAL_KEXEC_TARGET;
         else if (streq(m->scheduled_shutdown_type, "halt"))
                 target = SPECIAL_HALT_TARGET;
         else
@@ -2201,6 +2203,10 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
         } else if (streq(type, "reboot")) {
+                action = "org.freedesktop.login1.reboot";
+                action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
+                action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
+        } else if (streq(type, "kexec")) {
                 action = "org.freedesktop.login1.reboot";
                 action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
