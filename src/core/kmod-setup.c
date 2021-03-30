@@ -24,7 +24,7 @@ static void systemd_kmod_log(
 
         /* library logging is enabled at debug only */
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(LOG_DEBUG, 0, file, line, fn, format, args);
+        log_internalv(LOG_DEBUG, 0, file, line, fn, NULL, format, args);
         REENABLE_WARNING;
 }
 

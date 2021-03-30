@@ -50,7 +50,7 @@ static struct selabel_handle *label_hnd = NULL;
                 int _e = (error);                                       \
                                                                         \
                 int _r = (log_get_max_level() >= LOG_PRI(_level))       \
-                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__), __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
                 _enforcing ? _r : 0;                                    \
         })
