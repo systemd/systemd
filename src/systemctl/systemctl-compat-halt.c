@@ -161,7 +161,7 @@ int halt_main(void) {
 
                 /* Try logind if we are a normal user and no special mode applies. Maybe polkit allows us to
                  * shutdown the machine. */
-                if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT, ACTION_HALT)) {
+                if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT, ACTION_KEXEC, ACTION_HALT)) {
                         r = logind_reboot(arg_action);
                         if (r >= 0)
                                 return r;
