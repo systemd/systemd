@@ -168,6 +168,8 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         (void) avc_netlink_check_nb();
+        if (!label_hnd)
+                return 0;
 
         if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode) < 0) {
                 r = -errno;
@@ -364,6 +366,8 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         (void) avc_netlink_check_nb();
+        if (!label_hnd)
+                return 0;
 
         r = selabel_lookup_raw(label_hnd, &filecon, abspath, mode);
         if (r < 0) {
@@ -385,7 +389,6 @@ int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode)
 #if HAVE_SELINUX
         _cleanup_free_ char *abspath = NULL;
         int r;
-
 
         assert(path);
 
@@ -508,6 +511,8 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         (void) avc_netlink_check_nb();
+        if (!label_hnd)
+                goto skipped;
 
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
