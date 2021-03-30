@@ -26,6 +26,7 @@ _not_installed_headers = '''
         sd-dhcp-option.h
         sd-dhcp6-option.h
         sd-dhcp-server.h
+        sd-dhcp-static-lease.h
         sd-ipv4acd.h
         sd-ipv4ll.h
         sd-lldp.h
