@@ -105,10 +105,12 @@ static int ordered_set_put_in4_addrv(
 
 int manager_save(Manager *m) {
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
-        const char *operstate_str, *carrier_state_str, *address_state_str;
+        const char *operstate_str, *carrier_state_str, *address_state_str, *online_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
+        LinkOnlineState online_state;
+        size_t links_offline = 0, links_online = 0;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -135,6 +137,13 @@ int manager_save(Manager *m) {
 
                 if (!link->network)
                         continue;
+
+                if (link->network->required_for_online) {
+                        if (link->online_state == LINK_ONLINE_STATE_OFFLINE)
+                                links_offline++;
+                        else if (link->online_state == LINK_ONLINE_STATE_ONLINE)
+                                links_online++;
+                }
 
                 /* First add the static configured entries */
                 if (link->n_dns != UINT_MAX)
@@ -217,6 +226,10 @@ int manager_save(Manager *m) {
         if (carrier_state >= LINK_CARRIER_STATE_ENSLAVED)
                 carrier_state = LINK_CARRIER_STATE_CARRIER;
 
+        online_state = links_online > 0 ?
+                (links_offline > 0 ? LINK_ONLINE_STATE_PARTIAL : LINK_ONLINE_STATE_ONLINE) :
+                (links_offline > 0 ? LINK_ONLINE_STATE_OFFLINE : _LINK_ONLINE_STATE_INVALID);
+
         operstate_str = link_operstate_to_string(operstate);
         assert(operstate_str);
 
@@ -238,6 +251,10 @@ int manager_save(Manager *m) {
                 "CARRIER_STATE=%s\n"
                 "ADDRESS_STATE=%s\n",
                 operstate_str, carrier_state_str, address_state_str);
+
+        online_state_str = link_online_state_to_string(online_state);
+        if (online_state_str)
+                fprintf(f, "ONLINE_STATE=%s\n", online_state_str);
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
@@ -270,6 +287,12 @@ int manager_save(Manager *m) {
         if (m->address_state != address_state) {
                 m->address_state = address_state;
                 if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (m->online_state != online_state) {
+                m->online_state = online_state;
+                if (strv_extend(&p, "OnlineState") < 0)
                         log_oom();
         }
 
@@ -419,8 +442,12 @@ int link_save(Link *link) {
 
         if (link->network) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;
-                const char *dhcp_domainname = NULL, *p;
+                const char *dhcp_domainname = NULL, *online_state, *p;
                 bool space;
+
+                online_state = link_online_state_to_string(link->online_state);
+                if (online_state)
+                        fprintf(f, "ONLINE_STATE=%s\n", strempty(online_state));
 
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
