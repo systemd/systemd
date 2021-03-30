@@ -958,3 +958,23 @@ ieee1394:ven0000130Emo00010200sp0000130Ever00000200
   VENDOR_ID_FROM_DATABASE=Focusrite
   MODEL_ID_FROM_DATABASE=Liquid Mix 32
   FW_UNIT_FUNC=audio_and_music
+
+#
+# TC Electronic PowerCore series.
+#
+# Consists of NXP PowerQUICC II Processor with PCI interface (XPC8245, MPC8245), Texus Instruments
+# OHCI 1.1, 1394a link layer controller (TSB43AB23). Xilinx Spartan-II FPGA (XC2S50), and some
+# NXP 24-Bit Audio Digital Signal Processor (DSP56367).
+#
+
+ieee1394:node:ven0x000166mo0x000001units0x00a02d:0x000000
+ieee1394:ven00000166mo00000001sp0000A02Dver00000000
+  VENDOR_ID_FROM_DATABASE=TC Electronic
+  MODEL_ID_FROM_DATABASE=PowerCore FireWire
+  FW_UNIT_FUNC=audio_and_music
+
+ieee1394:node:ven0x000166mo0x000002units0x00a02d:0x014000
+ieee1394:ven00000166mo00000002sp0000A02Dver00014000
+  VENDOR_ID_FROM_DATABASE=TC Electronic
+  MODEL_ID_FROM_DATABASE=PowerCore Compact
+  FW_UNIT_FUNC=audio_and_music
