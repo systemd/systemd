@@ -202,8 +202,15 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_booted)
-                return sd_booted() <= 0;
+        if (arg_booted) {
+                r = sd_booted();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether we are booted with systemd, assuming we aren't: %m");
+                else
+                        log_debug("The system %s booted with systemd.", r ? "was" : "was not");
+
+                return r <= 0;
+        }
 
         if (arg_ready)
                 our_env[i++] = (char*) "READY=1";
@@ -278,4 +285,4 @@ static int run(int argc, char* argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE (run);
