@@ -988,3 +988,66 @@ ieee1394:ven000002F0mo00000000sp0000A02Dver00000100
   VENDOR_ID_FROM_DATABASE=Cool Stream
   MODEL_ID_FROM_DATABASE=iSweet
   FW_UNIT_FUNC=video
+
+#
+# Node with multiple units for several functions.
+#
+# When deciding the type of unit, please cooperate with kernel developers working for driver.
+# Reverse ordered to make the first unit effective as node attribute.
+#
+
+# Apple iSight: unit 3: iris diaphragm function.
+ieee1394:node:ven0x080007mo0x000008units*0x000a27:0x000012*
+ieee1394:ven00080007mo00000008sp00000A27ver00000012
+  VENDOR_ID_FROM_DATABASE=Apple Computer, Inc.
+  MODEL_ID_FROM_DATABASE=iSight
+  FW_UNIT_FUNC=video
+
+# Apple iSight: unit 2: factory function.
+ieee1394:node:ven0x080007mo0x000008units*0x000a27:0x000011*
+ieee1394:ven00080007mo00000008sp00000A27ver00000011
+  VENDOR_ID_FROM_DATABASE=Apple Computer, Inc.
+  MODEL_ID_FROM_DATABASE=iSight
+  FW_UNIT_FUNC=video
+
+# Apple iSight: unit 1: audio function.
+ieee1394:node:ven0x080007mo0x000008units*0x000a27:0x000010*
+ieee1394:ven00080007mo00000008sp00000A27ver00000010
+  VENDOR_ID_FROM_DATABASE=Apple Computer, Inc.
+  MODEL_ID_FROM_DATABASE=iSight
+  FW_UNIT_FUNC=audio_and_music
+
+# Apple iSight: unit 0: IIDC v1.30 function.
+ieee1394:node:ven0x080007mo0x000008units*0x00a02d:0x000102*
+ieee1394:ven00080007mo00000008sp0000A02Dver00000102
+  VENDOR_ID_FROM_DATABASE=Apple Computer, Inc.
+  MODEL_ID_FROM_DATABASE=iSight
+  FW_UNIT_FUNC=video
+
+# MOTU V4HD: unit 3: unknown function.
+ieee1394:node:ven0x0001f2units*0x0001f2:0x000024*
+ieee1394:ven000001F2mo*sp000001F2ver00000024
+  VENDOR_ID_FROM_DATABASE=MOTU
+  MODEL_ID_FROM_DATABASE=MOTU V4HD
+  FW_UNIT_FUNC=video
+
+# MOTU V4HD: unit 2: unknown function.
+ieee1394:node:ven0x0001f2units*0x0001f2:0x000023*
+ieee1394:ven000001F2mo*sp000001F2ver00000023
+  VENDOR_ID_FROM_DATABASE=MOTU
+  MODEL_ID_FROM_DATABASE=MOTU V4HD
+  FW_UNIT_FUNC=video
+
+# MOTU V4HD: unit 1: unknown function.
+ieee1394:node:ven0x0001f2units*0x0001f2:0x000022*
+ieee1394:ven000001F2mo*sp000001F2ver00000022
+  VENDOR_ID_FROM_DATABASE=MOTU
+  MODEL_ID_FROM_DATABASE=MOTU V4HD
+  FW_UNIT_FUNC=video
+
+# MOTU V4HD: unit 0: unknown function.
+ieee1394:node:ven0x0001f2units*0x0001f2:0x000021*
+ieee1394:ven000001F2mo*sp000001F2ver00000021
+  VENDOR_ID_FROM_DATABASE=MOTU
+  MODEL_ID_FROM_DATABASE=MOTU V4HD
+  FW_UNIT_FUNC=video
