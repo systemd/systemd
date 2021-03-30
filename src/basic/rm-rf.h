@@ -12,8 +12,16 @@ typedef enum RemoveFlags {
         REMOVE_PHYSICAL         = 1 << 2, /* If not set, only removes files on tmpfs, never physical file systems */
         REMOVE_SUBVOLUME        = 1 << 3, /* Drop btrfs subvolumes in the tree too */
         REMOVE_MISSING_OK       = 1 << 4, /* If the top-level directory is missing, ignore the ENOENT for it */
-        REMOVE_CHMOD            = 1 << 5, /* chmod() for write access if we cannot delete something */
+        REMOVE_CHMOD            = 1 << 5, /* chmod() for write access if we cannot delete or access something */
+        REMOVE_CHMOD_RESTORE    = 1 << 6, /* Restore the old mode before returning */
 } RemoveFlags;
+
+int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags remove_flags);
+int fstatat_harder(int dfd,
+                const char *filename,
+                struct stat *ret,
+                int fstatat_flags,
+                RemoveFlags remove_flags);
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
 int rm_rf(const char *path, RemoveFlags flags);

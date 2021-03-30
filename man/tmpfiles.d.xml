@@ -161,7 +161,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
       <title>Type</title>
 
       <para>The type consists of a single letter and optionally an exclamation mark (<literal>!</literal>)
-      and/or minus sign (<literal>-</literal>).</para>
+      minus sign (<literal>-</literal>), and/or equals sign (<literal>=</literal>).</para>
 
       <para>The following line types are understood:</para>
 
@@ -481,6 +481,11 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       <para>For example:
       <programlisting># Modify sysfs but don't fail if we are in a container with a read-only /proc
 w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
+
+      <para>If the equals sign (<literal>=</literal>) is used, the file types of existing objects in the specified path
+      are checked, and removed if they do not match. This includes any implicitly created parent directories (which can
+      be either directories or directory symlinks). For example, if there is a FIFO in place of one of the parent path
+      components it will be replaced with a directory.</para>
 
       <para>Note that for all line types that result in creation of any kind of file node
       (i.e. <varname>f</varname>/<varname>F</varname>,
