@@ -395,10 +395,6 @@ possible_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
-        # Disable -Wmaybe-uninitialized, since it's noisy on gcc 8 with
-        # optimizations enabled, producing essentially false positives.
-        '-Wno-maybe-uninitialized',
-
         '-ffast-math',
         '-fno-common',
         '-fdiagnostics-show-option',
