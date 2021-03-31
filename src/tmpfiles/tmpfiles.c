@@ -3186,7 +3186,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
         _cleanup_fclose_ FILE *_f = NULL;
         unsigned v = 0;
         FILE *f;
-        Item *i;
+	ItemArray *ia;
         int r = 0;
 
         assert(fn);
@@ -3239,29 +3239,40 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
         }
 
         /* we have to determine age parameter for each entry of type X */
-        ORDERED_HASHMAP_FOREACH(i, globs) {
-                Item *j, *candidate_item = NULL;
+        ORDERED_HASHMAP_FOREACH(ia, globs) {
+                unsigned ni;
 
-                if (i->type != IGNORE_DIRECTORY_PATH)
-                        continue;
+                for (ni = 0; ni < ia->count; ni++) {
+                        ItemArray *ja;
+                        Item *i = ia->items + ni, *candidate_item = NULL;
 
-                ORDERED_HASHMAP_FOREACH(j, items) {
-                        if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
+                        if (i->type != IGNORE_DIRECTORY_PATH)
                                 continue;
 
-                        if (path_equal(j->path, i->path)) {
-                                candidate_item = j;
-                                break;
+                        ORDERED_HASHMAP_FOREACH(j, items) {
+                                unsigned nj;
+
+                                for (nj = 0; nj < ja->count; nj++) {
+                                        Item *j = ja->items + nj;
+
+                                        if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
+                                                continue;
+
+                                        if (path_equal(j->path, i->path)) {
+                                                candidate_item = j;
+                                                break;
+                                        }
+
+                                        if ((!candidate_item && path_startswith(i->path, j->path)) ||
+                                            (candidate_item && path_startswith(j->path, candidate_item->path) && (fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)))
+                                                candidate_item = j;
+                                }
                         }
 
-                        if ((!candidate_item && path_startswith(i->path, j->path)) ||
-                            (candidate_item && path_startswith(j->path, candidate_item->path) && (fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)))
-                                candidate_item = j;
-                }
-
-                if (candidate_item && candidate_item->age_set) {
-                        i->age = candidate_item->age;
-                        i->age_set = true;
+                        if (candidate_item && candidate_item->age_set) {
+                                i->age = candidate_item->age;
+                                i->age_set = true;
+                        }
                 }
         }
 
