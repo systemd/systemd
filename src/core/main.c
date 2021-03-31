@@ -1367,7 +1367,7 @@ static int status_welcome(void) {
 
 static int write_container_id(void) {
         const char *c;
-        int r;
+        int r = 0; /* silence gcc warning about r being unitialized below */
 
         c = getenv("container");
         if (isempty(c))
