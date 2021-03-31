@@ -3171,7 +3171,7 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
                 zero(s->child.siginfo);
                 if (waitid(P_PID, s->child.pid, &s->child.siginfo,
                            WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options) < 0)
-                        return -errno;
+                        return negative_errno();
 
                 if (s->child.siginfo.si_pid != 0) {
                         bool zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
