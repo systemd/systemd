@@ -29,6 +29,7 @@
 #include "namespace-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "sparse-endian.h"
@@ -206,6 +207,16 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
                 return false;
 
         return true;
+}
+
+static bool shall_print_refuse_nul(const char *p, size_t l, OutputFlags flags) {
+
+        /* Like shall_print() but makes sure the buffer has no embedded NUL byte */
+
+        if (memchr(p, 0, l))
+                return false;
+
+        return shall_print(p, l, flags);
 }
 
 static bool print_multiline(
@@ -424,6 +435,44 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
         return (int) strlen(buf);
 }
 
+static int source_get_base_url(char **ret) {
+        _cleanup_free_ char *u = NULL;
+        const char *e;
+
+        e = secure_getenv("DEBUGINFOD_URLS");
+        if (!e) {
+                u = strdup("https://debuginfod.elfutils.org/");
+                if (!u)
+                        return log_oom();
+
+                *ret = TAKE_PTR(u);
+                return 0;
+        }
+
+        e += strspn(e, WHITESPACE); /* skip leading whitespace */
+
+        u = strndup(e, strcspn(u, WHITESPACE)); /* cut out first URL, according to debuginfod(8) separator is spaces */
+        if (!u)
+                return log_oom();
+
+        if (!http_url_is_valid(u))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "URL provided via $DEBUGINFOD_URLS not valid: %s", u);
+
+        if (!endswith(u, "/")) {
+                char *j;
+
+                /* Ensure URL ends in a slash */
+                j = strjoin(u, "/");
+                if (!j)
+                        return log_oom();
+
+                *ret = j;
+        } else
+                *ret = TAKE_PTR(u);
+
+        return 0;
+}
+
 static int output_short(
                 FILE *f,
                 sd_journal *j,
@@ -438,10 +487,12 @@ static int output_short(
         size_t length, n = 0;
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
                 *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL,
-                *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL;
+                *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL, *build_id = NULL,
+                *code_file = NULL, *code_line = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
                 realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, config_file_len = 0,
-                unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
+                unit_len = 0, user_unit_len = 0, documentation_url_len = 0, build_id_len = 0, code_file_len = 0,
+                code_line_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
@@ -459,6 +510,9 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
                 PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=", &documentation_url, &documentation_url_len),
+                PARSE_FIELD_VEC_ENTRY("BUILD_ID=", &build_id, &build_id_len),
+                PARSE_FIELD_VEC_ENTRY("CODE_FILE=", &code_file, &code_file_len),
+                PARSE_FIELD_VEC_ENTRY("CODE_LINE=", &code_line, &code_line_len),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
@@ -573,6 +627,33 @@ static int output_short(
                         _cleanup_free_ char *urlified = NULL;
 
                         if (terminal_urlify(c, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK), &urlified) >= 0) {
+                                fputs(urlified, f);
+                                fputc(' ', f);
+                        }
+                }
+
+                if (build_id && shall_print_refuse_nul(build_id, build_id_len, flags) &&
+                    code_file && shall_print_refuse_nul(code_file, code_file_len, flags) &&
+                    code_line && shall_print_refuse_nul(code_line, code_line_len, flags)) {
+                        _cleanup_free_ char *source_url = NULL, *base_url = NULL, *urlified = NULL, *normalized = NULL;
+                        const char *z;
+
+                        r = source_get_base_url(&base_url);
+                        if (r < 0)
+                                return r;
+
+                        normalized = strdup(code_file);
+                        if (!normalized)
+                                return log_oom();
+
+                        path_simplify(normalized, true);
+                        z = normalized + strspn(normalized, "/"); /* skip over initial slash */
+
+                        source_url = strjoin(base_url, "buildid/", build_id, "/source/", z, "#line=", code_line);
+                        if (!source_url)
+                                return log_oom();
+
+                        if (terminal_urlify(source_url, "[S]", &urlified) >= 0) {
                                 fputs(urlified, f);
                                 fputc(' ', f);
                         }
