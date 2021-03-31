@@ -300,7 +300,8 @@ int config_parse(
 
                 (void) stat_warn_permissions(filename, &st);
                 mtime = timespec_load(&st.st_mtim);
-        }
+        } else
+                mtime = 0;
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
