@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
+#include "errno-util.h"
 #include "macro.h"
 #include "missing_network.h"
 #include "missing_socket.h"
@@ -264,7 +265,7 @@ static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
         socklen_t sl = sizeof(v);
 
         if (getsockopt(fd, level, optname, &v, &sl) < 0)
-                return -errno;
+                return negative_errno();
         if (sl != sizeof(v))
                 return -EIO;
 

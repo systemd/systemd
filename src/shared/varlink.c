@@ -448,13 +448,16 @@ static int varlink_write(Varlink *v) {
         assert(v->fd >= 0);
 
         /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
-         * with non-socket IO, hence fall back automatically */
-        if (!v->prefer_read_write) {
+         * with non-socket IO, hence fall back automatically.
+         *
+         * Use a local variable to help gcc figure out that we set 'n' in all cases. */
+        bool prefer_write = v->prefer_read_write;
+        if (!prefer_write) {
                 n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
                 if (n < 0 && errno == ENOTSOCK)
-                        v->prefer_read_write = true;
+                        prefer_write = v->prefer_read_write = true;
         }
-        if (v->prefer_read_write)
+        if (prefer_write)
                 n = write(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
         if (n < 0) {
                 if (errno == EAGAIN)
@@ -531,12 +534,13 @@ static int varlink_read(Varlink *v) {
 
         rs = v->input_buffer_allocated - (v->input_buffer_index + v->input_buffer_size);
 
-        if (!v->prefer_read_write) {
+        bool prefer_read = v->prefer_read_write;
+        if (!prefer_read) {
                 n = recv(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs, MSG_DONTWAIT);
                 if (n < 0 && errno == ENOTSOCK)
-                        v->prefer_read_write = true;
+                        prefer_read = v->prefer_read_write = true;
         }
-        if (v->prefer_read_write)
+        if (prefer_read)
                 n = read(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs);
         if (n < 0) {
                 if (errno == EAGAIN)
