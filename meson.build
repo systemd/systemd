@@ -395,10 +395,6 @@ possible_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
-        # Disable -Wmaybe-uninitialized, since it's noisy on gcc 8 with
-        # optimizations enabled, producing essentially false positives.
-        '-Wno-maybe-uninitialized',
-
         '-ffast-math',
         '-fno-common',
         '-fdiagnostics-show-option',
@@ -408,6 +404,13 @@ possible_cc_flags = [
         '-fstack-protector-strong',
         '--param=ssp-buffer-size=4',
 ]
+
+# Disable -Wmaybe-unitialized when compiling with -Os or -O3. Too many false
+# positives with gcc >= 8. See https://github.com/systemd/systemd/pull/19226.
+if cc.get_id() == 'gcc' and ('3s'.contains(get_option('optimization')) or
+                             cc.version().version_compare('<10'))
+        possible_cc_flags += '-Wno-maybe-uninitialized'
+endif
 
 # --as-needed and --no-undefined are provided by meson by default,
 # run mesonconf to see what is enabled
