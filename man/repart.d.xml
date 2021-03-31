@@ -422,12 +422,22 @@
       <varlistentry>
         <term><varname>CopyBlocks=</varname></term>
 
-        <listitem><para>Takes a path to a regular file, block device node or directory. If specified and the
-        partition is newly created the data from the specified path is written to the newly created
-        partition, on the block level. If a directory is specified the backing block device of the file
-        system the directory is on is determined and the data read directly from that. This option is useful
-        to efficiently replicate existing file systems on the block level on a new partition, for example to
-        build a simple OS installer or OS image builder.</para>
+        <listitem><para>Takes a path to a regular file, block device node or directory, or the special value
+        <literal>auto</literal>. If specified and the partition is newly created the data from the specified
+        path is written to the newly created partition, on the block level. If a directory is specified the
+        backing block device of the file system the directory is on is determined and the data read directly
+        from that. This option is useful to efficiently replicate existing file systems on the block level on
+        a new partition, for example to build a simple OS installer or OS image builder.</para>
+
+        <para>If the special value <literal>auto</literal> is specified the source to copy from is
+        automatically derived from the running system or the image specified with
+        <option>--image=</option>. A partition is searched that matches the configured partition type (as
+        configured with <varname>Type=</varname> above), and matches the currently mounted directory of the
+        matching partition type. For example, if the partition type is set to <literal>root</literal> (as
+        defined in the table above) the partition backing the root directory is used, and if the type is
+        <literal>usr</literal> the partition backing <filename>/usr/</filename> is used. The logic will find
+        the backing partitions for encrypted and Verity-enabled devices (for the latter the match by
+        partition type ensures to pick the right hash or data partition as source to copy from).</para>
 
         <para>The file specified here must have a size that is a multiple of the basic block size 512 and not
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
@@ -486,7 +496,27 @@
         <para>The copy operation is executed before the file system is registered in the partition table,
         thus ensuring that a file system populated this way only ever exists fully initialized.</para>
 
-        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para></listitem>
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
+
+        <para>When <command>systemd-repart</command> is invoked with the <option>--image=</option> or
+        <option>--root=</option> command line switches the source paths specified are taken relative to the
+        specified root directory or disk image root.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MakeDirectories=</varname></term>
+
+        <listitem><para>Takes an absolute file system path, declaring a directory to create within the new
+        file system. Behaviour is similar to <varname>CopyFiles=</varname>, but instead of copying in a set
+        of files this just creates the specified directories with the default mode of 0755 owned by the root
+        user and group, plus all their parent directories (with the same ownership and access mode). To
+        configure directories with different ownership or access mode, use <varname>CopyFiles=</varname> and
+        specify a source tree to copy containing appropriately owned/configured directories. This switch is
+        primarily useful to pre-create directory inodes that shall be over-mounted by other file system when
+        the image is used. This option may be used more than once to create multiple directories. When
+        <varname>CopyFiles=</varname> and <varname>MakeDirectories=</varname> are used together the former is
+        applied first. If a directory listed already exists no operation is executed (in particular, the
+        ownership/access mode of the directories is left as is).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -520,6 +550,29 @@
         <listitem><para>Takes a boolean argument. If specified the partition is marked for removal during a
         factory reset operation. This functionality is useful to implement schemes where images can be reset
         into their original state by removing partitions and creating them anew. Defaults to off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Flags=</varname></term>
+
+        <listitem><para>Configures the 64bit GPT partition flags to set for the partition when creating
+        it. This option has no effect if the partition already exists. If not specified the flags values is
+        set to all zeroes, except if the partition type (as configured with <varname>Type=</varname> above)
+        refers to a Verity partition, in wich case bit 60 is set (i.e. the read-only bit). This bit may also
+        be configured separately via <varname>ReadOnly=</varname>, see below. Specify the flags value in
+        hexadecimal (by prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or
+        decimal (no prefix).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadOnly=</varname></term>
+
+        <listitem><para>Configures the Read-Only partition flags (bit 60) of the partition table entry. This
+        option is a friendly way to set bit 60 of the partition flags value without setting any of the other
+        bits, and may be set via <varname>Flags=</varname> too, see above.</para>
+
+        <para>If both <varname>Flags=</varname> and <varname>ReadOnly=</varname> are set the latter controls
+        the value of the flag.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
