@@ -213,3 +213,25 @@ typedef enum nss_status (*_nss_gethostbyaddr_r_t)(
                 struct hostent *host,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop);
+
+typedef enum nss_status (*_nss_getpwnam_r_t)(
+                const char *name,
+                struct passwd *pwd,
+                char *buffer, size_t buflen,
+                int *errnop);
+typedef enum nss_status (*_nss_getpwuid_r_t)(
+                uid_t uid,
+                struct passwd *pwd,
+                char *buffer, size_t buflen,
+                int *errnop);
+
+typedef enum nss_status (*_nss_getgrnam_r_t)(
+                const char *name,
+                struct group *gr,
+                char *buffer, size_t buflen,
+                int *errnop);
+typedef enum nss_status (*_nss_getgrgid_r_t)(
+                gid_t gid,
+                struct group *gr,
+                char *buffer, size_t buflen,
+                int *errnop);

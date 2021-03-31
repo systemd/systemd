@@ -198,11 +198,6 @@ All tools:
   prefixed with `:` in which case the kernel command line option takes
   precedence, if it is specified as well.
 
-installed systemd tests:
-
-* `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if
-  a test executable is moved to an arbitrary location.
-
 `nss-systemd`:
 
 * `$SYSTEMD_NSS_BYPASS_SYNTHETIC=1` — if set, `nss-systemd` won't synthesize
@@ -301,6 +296,14 @@ installed systemd tests:
 
 * `$SYSTEMD_SYSVRCND_PATH` — Controls where `systemd-sysv-generator` looks for
   SysV init script runlevel link farms.
+
+systemd tests:
+
+* `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if
+  a test executable is moved to an arbitrary location.
+
+* `$SYSTEMD_TEST_NSS_BUFSIZE` — size of scratch buffers for "reentrant"
+  functions exported by the nss modules.
 
 fuzzers:
 
