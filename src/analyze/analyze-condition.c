@@ -49,8 +49,17 @@ static int parse_condition(Unit *u, const char *line) {
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
 }
 
-_printf_(7, 8)
-static int log_helper(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
+_printf_(8, 9)
+static int log_helper(
+                void *userdata,
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const elf_build_id *build_id,
+                const char *format, ...) {
+
         Unit *u = userdata;
         va_list ap;
         int r;
@@ -61,7 +70,7 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
         level = MIN(LOG_INFO, level);
 
         va_start(ap, format);
-        r = log_object_internalv(level, error, file, line, func,
+        r = log_object_internalv(level, error, file, line, func, build_id,
                                  NULL,
                                  u->id,
                                  NULL,
