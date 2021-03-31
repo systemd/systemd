@@ -20,6 +20,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", NULL) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/a.service");
         assert_se(write_string_file(p,
@@ -147,6 +148,31 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+        /* Test enabling with unknown dependency target */
+
+        p = strjoina(root, "/usr/lib/systemd/system/f.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "WantedBy=x.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", NULL) >= 0);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("f.service"), &changes, &n_changes) == 1);
+        assert_se(n_changes == 2);
+        assert_se(changes[0].type == UNIT_FILE_SYMLINK);
+        assert_se(streq(changes[0].source, "/usr/lib/systemd/system/f.service"));
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/x.target.wants/f.service");
+        assert_se(streq(changes[0].path, p));
+        assert_se(changes[1].type == UNIT_FILE_DESTINATION_NOT_PRESENT);
+        p = strjoina(root, "/usr/lib/systemd/system/f.service");
+        assert_se(streq(changes[1].source, p));
+        assert_se(streq(changes[1].path, "x.target"));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
 static void test_linked_units(const char *root) {
