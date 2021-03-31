@@ -465,7 +465,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
         if (!e)
                 return -error;
         if (error == 0)
-                return -error;
+                return 0;
 
         assert_return(!bus_error_is_dirty(e), -EINVAL);
 
