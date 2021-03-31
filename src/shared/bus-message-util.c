@@ -98,8 +98,11 @@ static int bus_message_read_dns_one(
         if (r < 0)
                 return r;
 
-        if (!dns_server_address_valid(family, &a))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+        if (!dns_server_address_valid(family, &a)) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                assert(r < 0);
+                return r;
+        }
 
         if (extended) {
                 r = sd_bus_message_read(message, "q", &port);
