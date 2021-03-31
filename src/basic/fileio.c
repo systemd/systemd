@@ -121,7 +121,7 @@ int write_string_stream_ts(
                 const struct timespec *ts) {
 
         bool needs_nl;
-        int r, fd;
+        int r, fd = -1;
 
         assert(f);
         assert(line);
@@ -140,8 +140,8 @@ int write_string_stream_ts(
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
         if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
-                /* If STDIO buffering was disabled, then let's append the newline character to the string itself, so
-                 * that the write goes out in one go, instead of two */
+                /* If STDIO buffering was disabled, then let's append the newline character to the string
+                 * itself, so that the write goes out in one go, instead of two */
 
                 line = strjoina(line, "\n");
                 needs_nl = false;
@@ -164,6 +164,7 @@ int write_string_stream_ts(
         if (ts) {
                 const struct timespec twice[2] = {*ts, *ts};
 
+                assert(fd >= 0);
                 if (futimens(fd, twice) < 0)
                         return -errno;
         }
