@@ -627,7 +627,7 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *k, const DnsAnswer
         if (r < 0)
                 goto fail;
 
-        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH : k->class;
+        class = flags & DNS_ANSWER_CACHE_FLUSH ? k->class | MDNS_RR_CACHE_FLUSH_OR_QU : k->class;
         r = dns_packet_append_uint16(p, class, NULL);
         if (r < 0)
                 goto fail;
@@ -1628,12 +1628,12 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
 int dns_packet_read_key(
                 DnsPacket *p,
                 DnsResourceKey **ret,
-                bool *ret_cache_flush,
+                bool *ret_cache_flush_or_qu,
                 size_t *ret_start) {
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         _cleanup_free_ char *name = NULL;
-        bool cache_flush = false;
+        bool cache_flush_or_qu = false;
         uint16_t class, type;
         int r;
 
@@ -1653,11 +1653,11 @@ int dns_packet_read_key(
                 return r;
 
         if (p->protocol == DNS_PROTOCOL_MDNS) {
-                /* See RFC6762, Section 10.2 */
+                /* See RFC6762, sections 5.4 and 10.2 */
 
-                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH)) {
-                        class &= ~MDNS_RR_CACHE_FLUSH;
-                        cache_flush = true;
+                if (type != DNS_TYPE_OPT && (class & MDNS_RR_CACHE_FLUSH_OR_QU)) {
+                        class &= ~MDNS_RR_CACHE_FLUSH_OR_QU;
+                        cache_flush_or_qu = true;
                 }
         }
 
@@ -1672,8 +1672,8 @@ int dns_packet_read_key(
                 *ret = key;
         }
 
-        if (ret_cache_flush)
-                *ret_cache_flush = cache_flush;
+        if (ret_cache_flush_or_qu)
+                *ret_cache_flush_or_qu = cache_flush_or_qu;
         if (ret_start)
                 *ret_start = rewinder.saved_rindex;
 
@@ -2221,14 +2221,11 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
 
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-                        bool cache_flush;
+                        bool qu;
 
-                        r = dns_packet_read_key(p, &key, &cache_flush, NULL);
+                        r = dns_packet_read_key(p, &key, &qu, NULL);
                         if (r < 0)
                                 return r;
-
-                        if (cache_flush)
-                                return -EBADMSG;
 
                         if (!dns_type_is_valid_query(key->type))
                                 return -EBADMSG;
@@ -2240,7 +2237,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                                 /* Already in the Question, let's skip */
                                 continue;
 
-                        r = dns_question_add_raw(question, key);
+                        r = dns_question_add_raw(question, key, qu ? DNS_QUESTION_WANTS_UNICAST_REPLY : 0);
                         if (r < 0)
                                 return r;
                 }
@@ -2451,7 +2448,7 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
         if (p->question->n_keys != 1)
                 return 0;
 
-        return dns_resource_key_equal(p->question->keys[0], key);
+        return dns_resource_key_equal(dns_question_first_key(p->question), key);
 }
 
 int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
