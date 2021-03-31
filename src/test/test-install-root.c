@@ -25,6 +25,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", NULL) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/a.service");
         assert_se(write_string_file(p,
@@ -168,6 +169,31 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         assert_se(unlink(p) == 0);
+
+        /* Test enabling with unknown dependency target */
+
+        p = strjoina(root, "/usr/lib/systemd/system/f.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "WantedBy=x.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", NULL) >= 0);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_enable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("f.service"), &changes, &n_changes) == 1);
+        assert_se(n_changes == 2);
+        assert_se(changes[0].type_or_errno == UNIT_FILE_SYMLINK);
+        assert_se(streq(changes[0].source, "/usr/lib/systemd/system/f.service"));
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/x.target.wants/f.service");
+        assert_se(streq(changes[0].path, p));
+        assert_se(changes[1].type_or_errno == UNIT_FILE_IS_UNKNOWN_TARGET);
+        p = strjoina(root, "/usr/lib/systemd/system/f.service");
+        assert_se(streq(changes[1].source, p));
+        assert_se(streq(changes[1].path, "x.target"));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
 static void test_linked_units(const char *root) {
@@ -1243,6 +1269,12 @@ int main(int argc, char *argv[]) {
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/");
         assert_se(mkdir_p(p, 0755) >= 0);
+
+        p = strjoina(root, "/usr/lib/systemd/system/multi-user.target");
+        assert_se(write_string_file(p, "", WRITE_STRING_FILE_CREATE) >= 0);
+
+        p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
+        assert_se(write_string_file(p, "", WRITE_STRING_FILE_CREATE) >= 0);
 
         test_basic_mask_and_enable(root);
         test_linked_units(root);
