@@ -16,8 +16,8 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
-#include "alloc-util.h"
 #include "all-units.h"
+#include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -28,6 +28,7 @@
 #include "conf-parser.h"
 #include "core-varlink.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
@@ -4607,14 +4608,23 @@ int config_parse_load_credential(
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", k);
                 return 0;
         }
-        r = unit_full_printf(u, p, &q);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
-                return 0;
-        }
-        if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Credential source \"%s\" not valid, ignoring.", q);
-                return 0;
+
+        if (isempty(p)) {
+                /* If only one field field is specified take it as shortcut for inheriting a credential named
+                 * the same way from our parent */
+                q = strdup(k);
+                if (!q)
+                        return log_oom();
+        } else {
+                r = unit_full_printf(u, p, &q);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
+                        return 0;
+                }
+                if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Credential source \"%s\" not valid, ignoring.", q);
+                        return 0;
+                }
         }
 
         r = strv_consume_pair(&context->load_credentials, TAKE_PTR(k), TAKE_PTR(q));
