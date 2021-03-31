@@ -3186,7 +3186,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
         _cleanup_fclose_ FILE *_f = NULL;
         unsigned v = 0;
         FILE *f;
-	ItemArray *ia;
+        ItemArray *ia;
         int r = 0;
 
         assert(fn);
