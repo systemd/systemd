@@ -540,8 +540,8 @@ static void name_parameters_destroy(NameParameters *p) {
 }
 
 static const JsonDispatch name_parameters_dispatch_table[] = {
-        { "ifindex", JSON_VARIANT_INTEGER,  json_dispatch_ifindex, offsetof(NameParameters, ifindex), 0              },
-        { "name",    JSON_VARIANT_UNSIGNED, json_dispatch_string,  offsetof(NameParameters, name),    JSON_MANDATORY },
+        { "ifindex", JSON_VARIANT_INTEGER, json_dispatch_ifindex, offsetof(NameParameters, ifindex), 0              },
+        { "name",    JSON_VARIANT_STRING,  json_dispatch_string,  offsetof(NameParameters, name),    JSON_MANDATORY },
         {}
 };
 
@@ -555,12 +555,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         _cleanup_(resolve_address_reply_destroy) ResolveAddressReply p = {};
         _cleanup_(json_variant_unrefp) JsonVariant *cparams = NULL;
-        char *r_name, *r_aliases, *r_addr, *r_addr_list;
         _cleanup_(varlink_unrefp) Varlink *link = NULL;
-        JsonVariant *entry, *rparams;
-        const char *n, *error_id;
-        unsigned c = 0, i = 0;
-        size_t ms = 0, idx;
+        JsonVariant *rparams, *entry;
         int r;
 
         PROTECT_ERRNO;
@@ -594,6 +590,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
+        const char* error_id;
         r = varlink_call(link, "io.systemd.Resolve.ResolveAddress", cparams, &rparams, &error_id, NULL);
         if (r < 0)
                 goto fail;
@@ -609,6 +606,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (json_variant_is_blank_object(p.names))
                 goto not_found;
 
+        size_t ms = 0, idx;
+
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
                 _cleanup_(name_parameters_destroy) NameParameters q = {};
 
@@ -619,9 +618,10 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 ms += ALIGN(strlen(q.name) + 1);
         }
 
-        ms += ALIGN(len) +                                           /* the address */
-              2 * sizeof(char*) +                                    /* pointers to the address, plus trailing NULL */
-              json_variant_elements(p.names) * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
+        size_t n_names = json_variant_elements(p.names);
+        ms += ALIGN(len) +                    /* the address */
+              2 * sizeof(char*) +             /* pointer to the address, plus trailing NULL */
+              n_names * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
 
         if (buflen < ms) {
                 UNPROTECT_ERRNO;
@@ -631,44 +631,43 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         }
 
         /* First, place address */
-        r_addr = buffer;
+        char *r_addr = buffer;
         memcpy(r_addr, addr, len);
         idx = ALIGN(len);
 
         /* Second, place address list */
-        r_addr_list = buffer + idx;
+        char *r_addr_list = buffer + idx;
         ((char**) r_addr_list)[0] = r_addr;
         ((char**) r_addr_list)[1] = NULL;
         idx += sizeof(char*) * 2;
 
-        /* Third, reserve space for the aliases array */
-        r_aliases = buffer + idx;
-        idx += sizeof(char*) * c;
+        /* Third, reserve space for the aliases array, plus trailing NULL */
+        char *r_aliases = buffer + idx;
+        idx += sizeof(char*) * n_names;
 
         /* Fourth, place aliases */
-        i = 0;
-        r_name = buffer + idx;
+        char *r_name = buffer + idx;
+
+        size_t i = 0;
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
                 _cleanup_(name_parameters_destroy) NameParameters q = {};
-                size_t l;
-                char *z;
 
                 r = json_dispatch(entry, name_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
-                l = strlen(q.name);
-                z = buffer + idx;
-                memcpy(z, n, l+1);
+                size_t l = strlen(q.name);
+                char *z = buffer + idx;
+                memcpy(z, q.name, l + 1);
 
                 if (i > 0)
-                        ((char**) r_aliases)[i-1] = z;
+                        ((char**) r_aliases)[i - 1] = z;
                 i++;
 
-                idx += ALIGN(l+1);
+                idx += ALIGN(l + 1);
         }
+        ((char**) r_aliases)[n_names - 1] = NULL;
 
-        ((char**) r_aliases)[c-1] = NULL;
         assert(idx == ms);
 
         result->h_name = r_name;
