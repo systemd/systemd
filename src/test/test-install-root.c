@@ -1244,6 +1244,12 @@ int main(int argc, char *argv[]) {
         p = strjoina(root, "/usr/lib/systemd/system-preset/");
         assert_se(mkdir_p(p, 0755) >= 0);
 
+        p = strjoina(root, "/usr/lib/systemd/system/multi-user.target");
+        assert_se(write_string_file(p, "", WRITE_STRING_FILE_CREATE) >= 0);
+
+        p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
+        assert_se(write_string_file(p, "", WRITE_STRING_FILE_CREATE) >= 0);
+
         test_basic_mask_and_enable(root);
         test_linked_units(root);
         test_default(root);
