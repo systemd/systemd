@@ -11,6 +11,16 @@
 
 bool network_is_online(void);
 
+typedef enum AddressFamily {
+        /* This is a bitmask, though it usually doesn't feel that way! */
+        ADDRESS_FAMILY_NO             = 0,
+        ADDRESS_FAMILY_IPV4           = 1 << 0,
+        ADDRESS_FAMILY_IPV6           = 1 << 1,
+        ADDRESS_FAMILY_YES            = ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6,
+        _ADDRESS_FAMILY_MAX,
+        _ADDRESS_FAMILY_INVALID = -EINVAL,
+} AddressFamily;
+
 typedef enum LinkOperationalState {
         LINK_OPERSTATE_MISSING,
         LINK_OPERSTATE_OFF,
@@ -49,6 +59,9 @@ LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 const char* link_carrier_state_to_string(LinkCarrierState s) _const_;
 LinkCarrierState link_carrier_state_from_string(const char *s) _pure_;
+
+const char* link_address_family_to_string(AddressFamily s) _const_;
+AddressFamily link_address_family_from_string(const char *s) _pure_;
 
 const char* link_address_state_to_string(LinkAddressState s) _const_;
 LinkAddressState link_address_state_from_string(const char *s) _pure_;
