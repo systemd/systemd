@@ -660,7 +660,7 @@ int cg_remove_xattr(const char *controller, const char *path, const char *name) 
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
         _cleanup_fclose_ FILE *f = NULL;
-        const char *fs, *controller_str;
+        const char *fs, *controller_str = NULL; /* silence gcc warning about unitialized variable */
         int unified, r;
 
         assert(pid >= 0);
@@ -720,6 +720,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                                 continue;
                         *e = 0;
 
+                        assert(controller_str);
                         r = string_contains_word(l, ",", controller_str);
                         if (r < 0)
                                 return r;
