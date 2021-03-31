@@ -86,8 +86,10 @@ static int bus_error_name_to_errno(const char *name) {
                                 if (m->code == BUS_ERROR_MAP_END_MARKER)
                                         break;
 
-                                if (streq(m->name, name))
+                                if (streq(m->name, name)) {
+                                        assert(m->code > 0);
                                         return m->code;
+                                }
                         }
 
         m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
@@ -103,8 +105,10 @@ static int bus_error_name_to_errno(const char *name) {
                         continue;
                 }
 
-                if (streq(m->name, name))
+                if (streq(m->name, name)) {
+                        assert(m->code > 0);
                         return m->code;
+                }
 
                 m++;
         }
