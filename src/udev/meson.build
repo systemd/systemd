@@ -53,6 +53,28 @@ if conf.get('HAVE_ACL') == 1
         libudevd_core_sources += ['udev-builtin-uaccess.c']
 endif
 
+if conf.get('HAVE_STAP') == 1
+        udev_probes_h = custom_target(
+                'udev-probes.h',
+                input : 'udev-probes.d',
+                output : 'udev-probes.h',
+                command : ['dtrace', '-C', '-h', '-s', '@INPUT@', '-o', '@OUTPUT@'])
+
+        udev_probes_o = custom_target(
+                'udev-probes.o',
+                input : 'udev-probes.d',
+                output : 'udev-probes.o',
+                command : ['dtrace', '-C', '-G', '-s', '@INPUT@', '-o', '@OUTPUT@'])
+
+        udev_probes_a = custom_target(
+                'udev-probes.a',
+                input : udev_probes_o,
+                output : 'udev-probes.a',
+                command : ['ar', 'rcs', '@OUTPUT@', '@INPUT@'])
+
+        libudevd_core_sources += [udev_probes_h]
+        udevadm_sources += [udev_probes_h]
+endif
 ############################################################
 
 generate_keyboard_keys_list = find_program('generate-keyboard-keys-list.sh')
@@ -104,6 +126,10 @@ else
 endif
 
 ############################################################
+
+if conf.get('HAVE_STAP') == 1
+        udev_link_with += udev_probes_a
+endif
 
 udev_includes = [includes, include_directories('net', '.')]
 libudevd_core = static_library(

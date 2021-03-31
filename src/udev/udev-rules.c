@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "list.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -29,8 +30,14 @@
 #include "udev-builtin.h"
 #include "udev-event.h"
 #include "udev-rules.h"
+#include "udev-util.h"
 #include "user-util.h"
 #include "virt.h"
+
+#if HAVE_STAP
+#include <sys/sdt.h>
+#include "udev-probes.h"
+#endif
 
 #define RULES_DIRS (const char* const*) CONF_PATHS_STRV("udev/rules.d")
 
@@ -2247,6 +2254,9 @@ static int udev_rule_apply_line_to_event(
                 return 0;
 
         event->esc = ESCAPE_UNSET;
+
+        DEVICE_TRACE_POINT(RULES_APPLY_LINE, event->dev, line->rule_file->filename, line->line_number);
+
         LIST_FOREACH_SAFE(tokens, token, next_token, line->tokens) {
                 line->current_token = token;
 
