@@ -3249,7 +3249,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                         if (i->type != IGNORE_DIRECTORY_PATH)
                                 continue;
 
-                        ORDERED_HASHMAP_FOREACH(j, items) {
+                        ORDERED_HASHMAP_FOREACH(ja, items) {
                                 unsigned nj;
 
                                 for (nj = 0; nj < ja->count; nj++) {
