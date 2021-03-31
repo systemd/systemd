@@ -3242,7 +3242,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
         ORDERED_HASHMAP_FOREACH(ia, globs) {
                 unsigned ni;
 
-                for (ni = 0; ni < ia->count; ni++) {
+                for (ni = 0; ni < ia->n_items; ni++) {
                         ItemArray *ja;
                         Item *i = ia->items + ni, *candidate_item = NULL;
 
@@ -3252,7 +3252,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                         ORDERED_HASHMAP_FOREACH(ja, items) {
                                 unsigned nj;
 
-                                for (nj = 0; nj < ja->count; nj++) {
+                                for (nj = 0; nj < ja->n_items; nj++) {
                                         Item *j = ja->items + nj;
 
                                         if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
