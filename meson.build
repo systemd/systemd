@@ -857,10 +857,13 @@ conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
 localegen_path = get_option('localegen-path')
 have = false
+writable = ''
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
         have = true
+        writable = ' /usr/lib/locale'
 endif
+substs.set('SERVICE_LOCALEGEN_WRITABLE', writable)
 conf.set10('HAVE_LOCALEGEN', have)
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
@@ -3472,7 +3475,8 @@ if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
                      install_dir : xinitrcdir)
 endif
-install_data('modprobe.d/systemd.conf',
+install_data('README',
+             'modprobe.d/systemd.conf',
              install_dir : modprobedir)
 install_data('LICENSE.GPL2',
              'LICENSE.LGPL2.1',

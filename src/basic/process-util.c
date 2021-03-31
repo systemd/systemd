@@ -124,14 +124,10 @@ int get_process_comm(pid_t pid, char **ret) {
 }
 
 int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **line) {
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *t = NULL, *ans = NULL;
         const char *p;
-        int r;
         size_t k;
-
-        /* This is supposed to be a safety guard against runaway command lines. */
-        size_t max_length = sc_arg_max();
+        int r;
 
         assert(line);
         assert(pid >= 0);
@@ -147,36 +143,18 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
          * comm_fallback is false). Returns 0 and sets *line otherwise. */
 
         p = procfs_file_alloca(pid, "cmdline");
-        r = fopen_unlocked(p, "re", &f);
+        r = read_full_virtual_file(p, &t, &k);
         if (r == -ENOENT)
                 return -ESRCH;
         if (r < 0)
                 return r;
 
-        /* We assume that each four-byte character uses one or two columns. If we ever check for combining
-         * characters, this assumption will need to be adjusted. */
-        if ((size_t) 4 * max_columns + 1 < max_columns)
-                max_length = MIN(max_length, (size_t) 4 * max_columns + 1);
-
-        t = new(char, max_length);
-        if (!t)
-                return -ENOMEM;
-
-        k = fread(t, 1, max_length, f);
         if (k > 0) {
                 /* Arguments are separated by NULs. Let's replace those with spaces. */
                 for (size_t i = 0; i < k - 1; i++)
                         if (t[i] == '\0')
                                 t[i] = ' ';
-
-                t[k] = '\0'; /* Normally, t[k] is already NUL, so this is just a guard in case of short read */
         } else {
-                /* We only treat getting nothing as an error. We *could* also get an error after reading some
-                 * data, but we ignore that case, as such an error is rather unlikely and we prefer to get
-                 * some data rather than none. */
-                if (ferror(f))
-                        return -errno;
-
                 if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
                         return -ENOENT;
 
@@ -187,7 +165,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 if (r < 0)
                         return r;
 
-                mfree(t);
+                free(t);
                 t = strjoin("[", t2, "]");
                 if (!t)
                         return -ENOMEM;

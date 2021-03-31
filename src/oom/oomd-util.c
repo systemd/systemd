@@ -208,54 +208,82 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         return set_size(pids_killed) != 0;
 }
 
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run) {
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
-        int r;
+        int n, r, ret = 0;
 
         assert(h);
+        assert(ret_selected);
 
-        r = oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, prefix, &sorted);
-        if (r < 0)
-                return r;
+        n = oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, prefix, &sorted);
+        if (n < 0)
+                return n;
 
-        for (int i = 0; i < r; i++) {
-                /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure. */
-                /* Don't break since there might be "avoid" cgroups at the end. */
+        for (int i = 0; i < n; i++) {
+                /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure.
+                 * Continue since there might be "avoid" cgroups at the end. */
                 if (sorted[i]->pgscan == 0 && sorted[i]->current_memory_usage == 0)
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r > 0 || r == -ENOMEM)
-                        break;
+                if (r == 0)
+                        continue; /* We didn't find anything to kill */
+                if (r == -ENOMEM)
+                        return r; /* Treat oom as a hard error */
+                if (r < 0) {
+                        if (ret == 0)
+                                ret = r;
+                        continue; /* Try to find something else to kill */
+                }
+
+                char *selected = strdup(sorted[i]->path);
+                if (!selected)
+                        return -ENOMEM;
+                *ret_selected = selected;
+                return 1;
         }
 
-        return r;
+        return ret;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run) {
+int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
-        int r;
+        int n, r, ret = 0;
 
         assert(h);
+        assert(ret_selected);
 
-        r = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
-        if (r < 0)
-                return r;
+        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
+        if (n < 0)
+                return n;
 
         /* Try to kill cgroups with non-zero swap usage until we either succeed in
          * killing or we get to a cgroup with no swap usage. */
-        for (int i = 0; i < r; i++) {
-                /* Skip over cgroups with no resource usage. Don't break since there might be "avoid"
-                 * cgroups at the end. */
+        for (int i = 0; i < n; i++) {
+                /* Skip over cgroups with no resource usage.
+                 * Continue break since there might be "avoid" cgroups at the end. */
                 if (sorted[i]->swap_usage == 0)
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
-                if (r > 0 || r == -ENOMEM)
-                        break;
+                if (r == 0)
+                        continue; /* We didn't find anything to kill */
+                if (r == -ENOMEM)
+                        return r; /* Treat oom as a hard error */
+                if (r < 0) {
+                        if (ret == 0)
+                                ret = r;
+                        continue; /* Try to find something else to kill */
+                }
+
+                char *selected = strdup(sorted[i]->path);
+                if (!selected)
+                        return -ENOMEM;
+                *ret_selected = selected;
+                return 1;
         }
 
-        return r;
+        return ret;
 }
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {

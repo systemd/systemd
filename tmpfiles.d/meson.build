@@ -2,19 +2,20 @@
 
 enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 
-tmpfiles = [['home.conf',            ''],
-            ['journal-nocow.conf',   ''],
-            ['systemd-nologin.conf', 'HAVE_PAM'],
-            ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
-            ['systemd-tmp.conf',     ''],
-            ['portables.conf',       'ENABLE_PORTABLED'],
-            ['systemd-pstore.conf',  'ENABLE_PSTORE'],
-            ['tmp.conf',             ''],
-            ['x11.conf',             ''],
-            ['legacy.conf',          'HAVE_SYSV_COMPAT'],
-           ]
+files = [['README',               ''],
+         ['home.conf',            ''],
+         ['journal-nocow.conf',   ''],
+         ['systemd-nologin.conf', 'HAVE_PAM'],
+         ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
+         ['systemd-tmp.conf',     ''],
+         ['portables.conf',       'ENABLE_PORTABLED'],
+         ['systemd-pstore.conf',  'ENABLE_PSTORE'],
+         ['tmp.conf',             ''],
+         ['x11.conf',             ''],
+         ['legacy.conf',          'HAVE_SYSV_COMPAT'],
+        ]
 
-foreach pair : tmpfiles
+foreach pair : files
         if not enable_tmpfiles
                 # do nothing
         elif pair[1] == '' or conf.get(pair[1]) == 1

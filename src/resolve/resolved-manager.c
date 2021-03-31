@@ -33,6 +33,7 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
+#include "resolved-util.h"
 #include "resolved-varlink.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -362,75 +363,17 @@ static int manager_clock_change_listen(Manager *m) {
         return 0;
 }
 
-static int determine_hostname(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
+static int determine_hostnames(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
-#if HAVE_LIBIDN2
-        _cleanup_free_ char *utf8 = NULL;
-#elif HAVE_LIBIDN
-        int k;
-#endif
-        char label[DNS_LABEL_MAX];
-        const char *p, *decoded;
         int r;
 
         assert(full_hostname);
         assert(llmnr_hostname);
         assert(mdns_hostname);
 
-        /* Extract and normalize the first label of the locally configured hostname, and check it's not "localhost". */
-
-        r = gethostname_strict(&h);
+        r = resolve_system_hostname(&h, &n);
         if (r < 0)
-                return log_debug_errno(r, "Can't determine system hostname: %m");
-
-        p = h;
-        r = dns_label_unescape(&p, label, sizeof label, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unescape hostname: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Couldn't find a single label in hostname.");
-
-#if HAVE_LIBIDN || HAVE_LIBIDN2
-        r = dlopen_idn();
-        if (r < 0) {
-                log_debug_errno(r, "Failed to initialize IDN support, ignoring: %m");
-                decoded = label; /* no decoding */
-        } else
-#endif
-        {
-#if HAVE_LIBIDN2
-                r = sym_idn2_to_unicode_8z8z(label, &utf8, 0);
-                if (r != IDN2_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                               "Failed to undo IDNA: %s", sym_idn2_strerror(r));
-                assert(utf8_is_valid(utf8));
-
-                r = strlen(utf8);
-                decoded = utf8;
-#elif HAVE_LIBIDN
-                k = dns_label_undo_idna(label, r, label, sizeof label);
-                if (k < 0)
-                        return log_error_errno(k, "Failed to undo IDNA: %m");
-                if (k > 0)
-                        r = k;
-
-                if (!utf8_is_valid(label))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "System hostname is not UTF-8 clean.");
-                decoded = label;
-#else
-                decoded = label; /* no decoding */
-#endif
-        }
-
-        r = dns_label_escape_new(decoded, r, &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to escape hostname: %m");
-
-        if (is_localhost(n))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "System hostname is 'localhost', ignoring.");
+                return r;
 
         r = dns_name_concat(n, "local", 0, mdns_hostname);
         if (r < 0)
@@ -501,9 +444,11 @@ static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, voi
 
         assert(m);
 
-        r = determine_hostname(&full_hostname, &llmnr_hostname, &mdns_hostname);
-        if (r < 0)
+        r = determine_hostnames(&full_hostname, &llmnr_hostname, &mdns_hostname);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to determine the local hostname and LLMNR/mDNS names, ignoring: %m");
                 return 0; /* ignore invalid hostnames */
+        }
 
         llmnr_hostname_changed = !streq(llmnr_hostname, m->llmnr_hostname);
         if (streq(full_hostname, m->full_hostname) &&
@@ -546,7 +491,7 @@ static int manager_watch_hostname(Manager *m) {
 
         (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
 
-        r = determine_hostname(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
+        r = determine_hostnames(&m->full_hostname, &m->llmnr_hostname, &m->mdns_hostname);
         if (r < 0) {
                 _cleanup_free_ char *d = NULL;
 

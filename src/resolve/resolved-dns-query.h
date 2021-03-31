@@ -80,6 +80,7 @@ struct DnsQuery {
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
         bool previous_redirect_unauthenticated;
         bool previous_redirect_non_confidential;
+        bool previous_redirect_non_synthetic;
         DnsPacket *answer_full_packet;
 
         /* Bus + Varlink client information */
@@ -112,7 +113,7 @@ struct DnsQuery {
 enum {
         DNS_QUERY_MATCH,
         DNS_QUERY_NOMATCH,
-        DNS_QUERY_RESTARTED,
+        DNS_QUERY_CNAME,
 };
 
 DnsQueryCandidate* dns_query_candidate_ref(DnsQueryCandidate*);
@@ -129,7 +130,8 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
 int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
-int dns_query_process_cname(DnsQuery *q);
+int dns_query_process_cname_one(DnsQuery *q);
+int dns_query_process_cname_many(DnsQuery *q);
 
 void dns_query_complete(DnsQuery *q, DnsTransactionState state);
 
@@ -141,7 +143,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
 
 bool dns_query_fully_authenticated(DnsQuery *q);
 bool dns_query_fully_confidential(DnsQuery *q);
-bool dns_query_fully_synthetic(DnsQuery *q);
+bool dns_query_fully_authoritative(DnsQuery *q);
 
 static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
         assert(q);

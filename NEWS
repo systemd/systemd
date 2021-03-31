@@ -440,41 +440,45 @@ CHANGES WITH 248:
         * Intel SGX enclave device nodes (which expose a security feature of
           newer Intel CPUs) will now be owned by a new system group "sgx".
 
-        Contributions from: Adam Nielsen, Adrian Vovk, AJ Jordan, Alan Perry,
-        Alastair Pharo, Alexander Batischev, Ali Abdallah, Andrew Balmos, Anita
-        Zhang, Annika Wickert, Ansgar Burchardt, Antonius Frie, Ardy, Arian van
-        Putten, Ariel Fermani, Arnaud T, A S Alam, Bastien Nocera, Benjamin
-        Berg, Benjamin Robin, Björn Daase, caoxia, Carlo Wood, Charles Lee,
-        ChopperRob, chri2, Christian Ehrhardt, Christian Hesse, Christopher
-        Obbard, clayton craft, corvusnix, cprn, d032747, Daan De Meyer, Daniele
-        Medri, Daniel Rusek, Dan Sanders, Dan Streetman, Darren Ng, David
-        Edmundson, Deepak Rawat, Devon Pringle, Dmitry Borodaenko, dropsignal,
-        Einsler Lee, Endre Szabo, Evgeny Vereshchagin, Fabian Affolter, Felipe
-        Borges, feliperodriguesfr, Felix Stupp, Florian Hülsmann, Florian
-        Klink, Florian Westphal, Franck Bui, Frantisek Sumsal, Gablegritule,
-        Gaël PORTAY, Gaurav, Giedrius Statkevičius, Greg Depoire--Ferrer,
-        Gustavo Costa, Hans de Goede, Hela Basa, heretoenhance, Iago López
-        Galeiras, igo95862, Ilya Dmitrichenko, Jameer Pathan, Jan Tojnar,
-        Jiehong, Jinyuan Si, Joerg Behrmann, John Slade, Jonathan G. Underwood,
-        Jonathan McDowell, Josh Triplett, Joshua Watt, Julia Cartwright, Julien
-        Humbert, Kairui Song, Karel Zak, Kevin Backhouse, Kevin P. Fleming,
-        Khem Raj, Konomi, krissgjeng, l4gfcm, Lajos Veres, Lennart Poettering,
-        Luca Boccassi, Luca BRUNO, Lucas Werkmeister, Luka Kudra, Luna
-        Jernberg, Marc-André Lureau, Martin Wilck, Matthias Klumpp, Matt
-        Turner, Michael Marley, Michal Fabik, Michał Kopeć, Michal Koutný,
-        Michal Sekletár, Mike Gilbert, milovlad, moson-mo, Nick, nihilix-melix,
-        Oğuz Ersen, Ondrej Mosnacek, pali, Pavel Hrdina, Pavel Sapezhko, Perry
-        Yuan, Peter Hutterer, Pierre Dubouilh, Piotr Drąg, Richard Laager,
-        rnhmjoj, RussianNeuroMancer, Sebastiaan van Stijn, Sergey Bugaev,
-        shenyangyang4, simmon, Simonas Kazlauskas, Slimane Selyan Amiri, Stefan
-        Agner, Steve Ramage, Susant Sahani, Sven Mueller, Tad Fisher, Takashi
-        Iwai, Thomas Haller, Tom Shield, Topi Miettinen, Torsten Hilbrich,
-        Tyler Hicks, ulf-f, Ulrich Ölmann, Vincent Pelletier, Vinnie Magro,
-        Vito Caputo, Vlad, walbit-de, Whired Planck, wouter bolsterlee, Xℹ
-        Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
-        Jędrzejewski-Szmek, Zmicer Turok, Дамјан Георгиевски
+        Contributions from: Adam Nielsen, Adrian Vovk, AJ Jordan, Alan Perry,
+        Alastair Pharo, Alexander Batischev, Ali Abdallah, Andrew Balmos,
+        Anita Zhang, Annika Wickert, Ansgar Burchardt, Antonio Terceiro,
+        Antonius Frie, Ardy, Arian van Putten, Ariel Fermani, Arnaud T,
+        A S Alam, Bastien Nocera, Benjamin Berg, Benjamin Robin, Björn Daase,
+        caoxia, Carlo Wood, Charles Lee, ChopperRob, chri2, Christian Ehrhardt,
+        Christian Hesse, Christopher Obbard, clayton craft, corvusnix, cprn,
+        Daan De Meyer, Daniele Medri, Daniel Rusek, Dan Sanders, Dan Streetman,
+        Darren Ng, David Edmundson, David Tardon, Deepak Rawat, Devon Pringle,
+        Dmitry Borodaenko, dropsignal, Einsler Lee, Endre Szabo,
+        Evgeny Vereshchagin, Fabian Affolter, Fangrui Song, Felipe Borges,
+        feliperodriguesfr, Felix Stupp, Florian Hülsmann, Florian Klink,
+        Florian Westphal, Franck Bui, Frantisek Sumsal, Gablegritule,
+        Gaël PORTAY, Gaurav, Giedrius Statkevičius, Greg Depoire-Ferrer,
+        Gustavo Costa, Hans de Goede, Hela Basa, heretoenhance, hide,
+        Iago López Galeiras, igo95862, Ilya Dmitrichenko, Jameer Pathan,
+        Jan Tojnar, Jiehong, Jinyuan Si, Joerg Behrmann, John Slade,
+        Jonathan G. Underwood, Jonathan McDowell, Josh Triplett, Joshua Watt,
+        Julia Cartwright, Julien Humbert, Kairui Song, Karel Zak,
+        Kevin Backhouse, Kevin P. Fleming, Khem Raj, Konomi, krissgjeng,
+        l4gfcm, Lajos Veres, Lennart Poettering, Lincoln Ramsay, Luca Boccassi,
+        Luca BRUNO, Lucas Werkmeister, Luka Kudra, Luna Jernberg,
+        Marc-André Lureau, Martin Wilck, Matthias Klumpp, Matt Turner,
+        Michael Gisbers, Michael Marley, Michael Trapp, Michal Fabik,
+        Michał Kopeć, Michal Koutný, Michal Sekletár, Michele Guerini Rocco,
+        Mike Gilbert, milovlad, moson-mo, Nick, nihilix-melix, Oğuz Ersen,
+        Ondrej Mosnacek, pali, Pavel Hrdina, Pavel Sapezhko, Perry Yuan,
+        Peter Hutterer, Pierre Dubouilh, Piotr Drąg, Pjotr Vertaalt,
+        Richard Laager, RussianNeuroMancer, Sam Lunt, Sebastiaan van Stijn,
+        Sergey Bugaev, shenyangyang4, simmon, Simonas Kazlauskas,
+        Slimane Selyan Amiri, Stefan Agner, Steve Ramage, Susant Sahani,
+        Sven Mueller, Tad Fisher, Takashi Iwai, Thomas Haller, Tom Shield,
+        Topi Miettinen, Torsten Hilbrich, tpgxyz, Tyler Hicks, ulf-f,
+        Ulrich Ölmann, Vincent Pelletier, Vinnie Magro, Vito Caputo, Vlad,
+        walbit-de, Whired Planck, wouter bolsterlee, Xℹ Ruoyao, Yangyang Shen,
+        Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek,
+        Zmicer Turok, Дамјан Георгиевски
 
-        — Berlin, 2021-03-17
+        — Berlin, 2021-03-30
 
 CHANGES WITH 247:
 
