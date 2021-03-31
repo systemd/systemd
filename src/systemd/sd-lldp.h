@@ -147,6 +147,8 @@ sd_event *sd_lldp_get_event(sd_lldp *lldp);
 
 int sd_lldp_set_callback(sd_lldp *lldp, sd_lldp_callback_t cb, void *userdata);
 int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex);
+int sd_lldp_set_ifname(sd_lldp *lldp, const char *ifname);
+const char *sd_lldp_get_ifname(sd_lldp *lldp);
 
 /* Controls how much and what to store in the neighbors database */
 int sd_lldp_set_neighbors_max(sd_lldp *lldp, uint64_t n);
