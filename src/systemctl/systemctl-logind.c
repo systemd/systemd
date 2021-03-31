@@ -80,7 +80,7 @@ int logind_reboot(enum action a) {
                 return 0;
 
         SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
-        SET_FLAG(flags, SD_LOGIND_KEXEC_REBOOT, a == ACTION_KEXEC);
+        SET_FLAG(flags, SD_LOGIND_REBOOT_VIA_KEXEC, a == ACTION_KEXEC);
 
         method_with_flags = strjoina(actions[a].method, "WithFlags");
 
