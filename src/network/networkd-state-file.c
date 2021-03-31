@@ -105,10 +105,11 @@ static int ordered_set_put_in4_addrv(
 
 int manager_save(Manager *m) {
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
-        const char *operstate_str, *carrier_state_str, *address_state_str;
+        const char *operstate_str, *carrier_state_str, *address_state_str, *online_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState address_state = LINK_ADDRESS_STATE_OFF;
+        LinkOnlineState online_state = LINK_ONLINE_STATE_UNKNOWN;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -135,6 +136,20 @@ int manager_save(Manager *m) {
 
                 if (!link->network)
                         continue;
+
+                if (link->network->required_for_online) {
+                        if (online_state == LINK_ONLINE_STATE_PARTIALLY_ONLINE) {
+                                /* nothing to do - the state cannot change from here */
+                        } else if (online_state == LINK_ONLINE_STATE_ONLINE &&
+                                   link->online_state != LINK_ONLINE_STATE_ONLINE) {
+                                /* not all required links are online - mark as partially online */
+                                online_state = LINK_ONLINE_STATE_PARTIALLY_ONLINE;
+                        }
+                        else if (online_state < link->online_state) {
+                                /* push up the online state */
+                                online_state = link->online_state;
+                        }
+                }
 
                 /* First add the static configured entries */
                 if (link->n_dns != UINT_MAX)
@@ -226,6 +241,9 @@ int manager_save(Manager *m) {
         address_state_str = link_address_state_to_string(address_state);
         assert(address_state_str);
 
+        online_state_str = link_online_state_to_string(online_state);
+        assert(online_state_str);
+
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
                 return r;
@@ -236,8 +254,9 @@ int manager_save(Manager *m) {
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n"
                 "CARRIER_STATE=%s\n"
-                "ADDRESS_STATE=%s\n",
-                operstate_str, carrier_state_str, address_state_str);
+                "ADDRESS_STATE=%s\n"
+                "ONLINE_STATE=%s\n",
+                operstate_str, carrier_state_str, address_state_str, online_state_str);
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
@@ -270,6 +289,12 @@ int manager_save(Manager *m) {
         if (m->address_state != address_state) {
                 m->address_state = address_state;
                 if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (m->online_state != online_state) {
+                m->online_state = online_state;
+                if (strv_extend(&p, "OnlineState") < 0)
                         log_oom();
         }
 
@@ -376,7 +401,7 @@ static void serialize_addresses(
 }
 
 int link_save(Link *link) {
-        const char *admin_state, *oper_state, *carrier_state, *address_state;
+        const char *admin_state, *oper_state, *carrier_state, *address_state, *online_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -403,6 +428,9 @@ int link_save(Link *link) {
         address_state = link_address_state_to_string(link->address_state);
         assert(address_state);
 
+        online_state = link_online_state_to_string(link->online_state);
+        assert(online_state);
+
         r = fopen_temporary(link->state_file, &f, &temp_path);
         if (r < 0)
                 return r;
@@ -414,8 +442,9 @@ int link_save(Link *link) {
                 "ADMIN_STATE=%s\n"
                 "OPER_STATE=%s\n"
                 "CARRIER_STATE=%s\n"
-                "ADDRESS_STATE=%s\n",
-                admin_state, oper_state, carrier_state, address_state);
+                "ADDRESS_STATE=%s\n"
+                "ONLINE_STATE=%s\n",
+                admin_state, oper_state, carrier_state, address_state, online_state);
 
         if (link->network) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;
