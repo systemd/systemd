@@ -2202,11 +2202,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 action = "org.freedesktop.login1.power-off";
                 action_multiple_sessions = "org.freedesktop.login1.power-off-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.power-off-ignore-inhibit";
-        } else if (streq(type, "reboot")) {
-                action = "org.freedesktop.login1.reboot";
-                action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
-                action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
-        } else if (streq(type, "kexec")) {
+        } else if (STR_IN_SET(type, "reboot", "kexec")) {
                 action = "org.freedesktop.login1.reboot";
                 action_multiple_sessions = "org.freedesktop.login1.reboot-multiple-sessions";
                 action_ignore_inhibit = "org.freedesktop.login1.reboot-ignore-inhibit";
