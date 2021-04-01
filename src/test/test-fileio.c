@@ -965,7 +965,7 @@ static void test_read_full_file_offset_size(void) {
         rbuf = mfree(rbuf);
 }
 
-static void test_read_full_virtual_file(void) {
+static void test_read_virtual_file(size_t max_size) {
         const char *filename;
         int r;
 
@@ -977,8 +977,8 @@ static void test_read_full_virtual_file(void) {
                 _cleanup_free_ char *buf = NULL;
                 size_t size = 0;
 
-                r = read_full_virtual_file(filename, &buf, &size);
-                log_info_errno(r, "read_full_virtual_file(\"%s\"): %m (%zu bytes)", filename, size);
+                r = read_virtual_file(filename, max_size, &buf, &size);
+                log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m (%zu bytes)", filename, max_size, size);
                 assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
         }
 }
@@ -1010,7 +1010,9 @@ int main(int argc, char *argv[]) {
         test_read_nul_string();
         test_read_full_file_socket();
         test_read_full_file_offset_size();
-        test_read_full_virtual_file();
+        test_read_virtual_file(20);
+        test_read_virtual_file(4096);
+        test_read_virtual_file(SIZE_MAX);
 
         return 0;
 }
