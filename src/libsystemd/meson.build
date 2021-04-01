@@ -307,6 +307,8 @@ tests += [
 
         [['src/libsystemd/sd-device/test-sd-device.c']],
 
+        [['src/libsystemd/sd-device/test-device-util.c']],
+
         [['src/libsystemd/sd-device/test-sd-device-monitor.c']],
 ]
 
