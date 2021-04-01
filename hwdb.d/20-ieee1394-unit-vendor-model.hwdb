@@ -525,6 +525,19 @@ ieee1394:ven0000130Emo000000DEsp0000130Ever00000001
   MODEL_ID_FROM_DATABASE=Saffire Pro 40
   FW_UNIT_FUNC=audio_and_music
 
+ieee1394:node:ven0x000ff2mo0x000007units0x000ff2:0x000001
+ieee1394:ven00000FF2mo00000007sp00000FF2ver00000001
+  VENDOR_ID_FROM_DATABASE=Loud Technologies
+  MODEL_ID_FROM_DATABASE=Mackie Onyx Blackbird
+  FW_UNIT_FUNC=audio_and_music
+
+# Match to Onyx 1640i, and latter models of Onyx 820i, 1220i, and 1620i.
+ieee1394:node:ven0x000ff2mo0x000006units0x000ff2:0x000001
+ieee1394:ven00000FF2mo00000006sp00000FF2ver00000001
+  VENDOR_ID_FROM_DATABASE=Loud Technologies
+  MODEL_ID_FROM_DATABASE=Mackie Onyx-i series
+  FW_UNIT_FUNC=audio_and_music
+
 ieee1394:node:ven0x000d6cmo0x000011units0x000d6c:0x0100d1
 ieee1394:ven00000D6Cmo00000011sp00000D6Cver000100D1
   VENDOR_ID_FROM_DATABASE=M-Audio
