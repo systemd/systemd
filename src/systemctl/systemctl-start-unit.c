@@ -307,7 +307,9 @@ int start_unit(int argc, char *argv[], void *userdata) {
                                 method = verb_to_method(argv[0]);
                                 job_type = verb_to_job_type(argv[0]);
                                 mode = arg_job_mode;
-                        }
+                        } else
+                                method = job_type = mode = NULL;
+
                         one_name = NULL;
                 }
         } else {

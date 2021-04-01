@@ -3171,7 +3171,7 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
                 zero(s->child.siginfo);
                 if (waitid(P_PID, s->child.pid, &s->child.siginfo,
                            WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options) < 0)
-                        return -errno;
+                        return negative_errno();
 
                 if (s->child.siginfo.si_pid != 0) {
                         bool zombie = IN_SET(s->child.siginfo.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
@@ -3808,10 +3808,15 @@ static int epoll_wait_usec(
                 int maxevents,
                 usec_t timeout) {
 
-        static bool epoll_pwait2_absent = false;
         int r, msec;
+#if 0
+        static bool epoll_pwait2_absent = false;
 
-        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not */
+        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not.
+         *
+         * FIXME: this is temporarily disabled until epoll_pwait2() becomes more widely available.
+         * See https://github.com/systemd/systemd/pull/18973 and
+         * https://github.com/systemd/systemd/issues/19052. */
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
                 struct timespec ts;
@@ -3829,6 +3834,7 @@ static int epoll_wait_usec(
 
                 epoll_pwait2_absent = true;
         }
+#endif
 
         if (timeout == USEC_INFINITY)
                 msec = -1;

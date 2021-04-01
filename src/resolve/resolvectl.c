@@ -19,6 +19,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "gcrypt-util.h"
+#include "hostname-util.h"
 #include "main-func.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -31,6 +32,7 @@
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "resolved-util.h"
 #include "socket-netlink.h"
 #include "sort-util.h"
 #include "stdio-util.h"
@@ -441,6 +443,25 @@ static int idna_candidate(const char *name, char **ret) {
         return false;
 }
 
+static bool single_label_nonsynthetic(const char *name) {
+        _cleanup_free_ char *first_label = NULL;
+        int r;
+
+        if (!dns_name_is_single_label(name))
+                return false;
+
+        if (is_localhost(name) || is_gateway_hostname(name))
+                return false;
+
+        r = resolve_system_hostname(NULL, &first_label);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to determine the hostname: %m");
+                return false;
+        }
+
+        return !streq(name, first_label);
+}
+
 static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_t type, bool warn_missing) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -455,15 +476,15 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
 
         log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
 
-        if (dns_name_is_single_label(name))
-                log_notice("(Note that search domains are not appended when resolving raw record types. "
-                           "Please specify fully qualified domain names when resolving raw records, or remove --type= switch from invocation in order to request regular hostname resolution.)");
+        if (dns_name_dot_suffixed(name) == 0 && single_label_nonsynthetic(name))
+                log_notice("(Note that search domains are not appended when --type= is specified. "
+                           "Please specify fully qualified domain names, or remove --type= switch from invocation in order to request regular hostname resolution.)");
 
         r = idna_candidate(name, &idnafied);
         if (r < 0)
                 return r;
         if (r > 0)
-                log_notice("(Note that IDNA translation is not applied when resolving raw record types. "
+                log_notice("(Note that IDNA translation is not applied when --type= is specified. "
                            "Please specify translated domain names — i.e. '%s' — when resolving raw records, or remove --type= switch from invocation in order to request regular hostname resolution.",
                            idnafied);
 

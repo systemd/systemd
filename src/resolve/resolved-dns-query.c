@@ -183,7 +183,7 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         if (c->error_code != 0)
                 return DNS_TRANSACTION_ERRNO;
 
-        SET_FOREACH(t, c->transactions) {
+        SET_FOREACH(t, c->transactions)
 
                 switch (t->state) {
 
@@ -213,7 +213,6 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
 
                         break;
                 }
-        }
 
         return state;
 }
@@ -433,6 +432,14 @@ int dns_query_new(
         } else {
                 bool good = false;
 
+                /* This (primarily) checks two things:
+                 *
+                 * 1. That the question is not empty
+                 * 2. That all RR keys in the question objects are for the same domain
+                 *
+                 * Or in other words, a single DnsQuery object may be used to look up A+AAAA combination for
+                 * the same domain name, or SRV+TXT (for DNS-SD services), but not for unrelated lookups. */
+
                 if (dns_question_size(question_utf8) > 0) {
                         r = dns_question_is_valid_for_query(question_utf8);
                         if (r < 0)
@@ -488,7 +495,7 @@ int dns_query_new(
                         log_debug("Looking up bypass packet for %s.",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));
         } else {
-                /* First dump UTF8  question */
+                /* First dump UTF8 question */
                 DNS_QUESTION_FOREACH(key, question_utf8)
                         log_debug("Looking up RR for %s.",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));
@@ -982,12 +989,12 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         r = dns_question_cname_redirect(q->question_idna, cname, &nq_idna);
         if (r < 0)
                 return r;
-        else if (r > 0)
+        if (r > 0)
                 log_debug("Following CNAME/DNAME %s → %s.", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
         if (k < 0)
-                return r;
+                return k;
         if (k > 0) {
                 /* Same question? Shortcut new question generation */
                 nq_utf8 = dns_question_ref(nq_idna);
@@ -996,7 +1003,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 k = dns_question_cname_redirect(q->question_utf8, cname, &nq_utf8);
                 if (k < 0)
                         return k;
-                else if (k > 0)
+                if (k > 0)
                         log_debug("Following UTF8 CNAME/DNAME %s → %s.", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
         }
 
@@ -1028,26 +1035,75 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         return 0;
 }
 
-int dns_query_process_cname(DnsQuery *q) {
+int dns_query_process_cname_one(DnsQuery *q) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
+        bool full_match = true;
+        DnsResourceKey *k;
         int r;
 
         assert(q);
+
+        /* Processes a CNAME redirect if there's one. Returns one of three values:
+         *
+         * CNAME_QUERY_MATCH   → direct RR match, caller should just use the RRs in this answer (and not
+         *                       bother with any CNAME/DNAME stuff)
+         *
+         * CNAME_QUERY_NOMATCH → no match at all, neither direct nor CNAME/DNAME, caller might decide to
+         *                       restart query or take things as NODATA reply.
+         *
+         * CNAME_QUERY_CNAME   → no direct RR match, but a CNAME/DNAME match that we now followed for one step.
+         *
+         * The function might also return a failure, in particular -ELOOP if we encountered too many
+         * CNAMEs/DNAMEs in a chain or if following CNAMEs/DNAMEs was turned off.
+         *
+         * Note that this function doesn't actually restart the query. The caller can decide to do that in
+         * case of CNAME_QUERY_CNAME, though. */
 
         if (!IN_SET(q->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_NULL))
                 return DNS_QUERY_NOMATCH;
 
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
-        DNS_ANSWER_FOREACH(rr, q->answer) {
-                r = dns_question_matches_rr(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return DNS_QUERY_MATCH; /* The answer matches directly, no need to follow cnames */
+        /* Small reminder: our question will consist of one or more RR keys that match in name, but not in
+         * record type. Specifically, when we do an address lookup the question will typically consist of one
+         * A and one AAAA key lookup for the same domain name. When we get a response from a server we need
+         * to check if the answer answers all our questions to use it. Note that a response of CNAME/DNAME
+         * can answer both an A and the AAAA question for us, but an A/AAAA response only the relevant
+         * type.
+         *
+         * Hence we first check of the answers we collected are sufficient to answer all our questions
+         * directly. If one question wasn't answered we go on, waiting for more replies. However, if there's
+         * a CNAME/DNAME response we use it, and redirect to it, regardless if it was a response to the A or
+         * the AAAA query.*/
 
+        DNS_QUESTION_FOREACH(k, question) {
+                bool match = false;
+
+                DNS_ANSWER_FOREACH(rr, q->answer) {
+                        r = dns_resource_key_match_rr(k, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                match = true; /* Yay, we found an RR that matches the key we are looking for */
+                                break;
+                        }
+                }
+
+                if (!match) {
+                        /* Hmm. :-( there's no response for this key. This doesn't match. */
+                        full_match = false;
+                        break;
+                }
+        }
+
+        if (full_match)
+                return DNS_QUERY_MATCH; /* The answer can answer our question in full, no need to follow CNAMEs/DNAMEs */
+
+        /* Let's see if there is a CNAME/DNAME to match. This case is simpler: we accept the CNAME/DNAME that
+         * matches any of our questions. */
+        DNS_ANSWER_FOREACH(rr, q->answer) {
                 r = dns_question_matches_cname_or_dname(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
                         return r;
@@ -1056,7 +1112,7 @@ int dns_query_process_cname(DnsQuery *q) {
         }
 
         if (!cname)
-                return DNS_QUERY_NOMATCH; /* No match and no cname to follow */
+                return DNS_QUERY_NOMATCH; /* No match and no CNAME/DNAME to follow */
 
         if (q->flags & SD_RESOLVED_NO_CNAME)
                 return -ELOOP;
@@ -1065,23 +1121,71 @@ int dns_query_process_cname(DnsQuery *q) {
                 q->previous_redirect_unauthenticated = true;
         if (!FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL))
                 q->previous_redirect_non_confidential = true;
+        if (!FLAGS_SET(q->answer_query_flags, SD_RESOLVED_SYNTHETIC))
+                q->previous_redirect_non_synthetic = true;
 
         /* OK, let's actually follow the CNAME */
         r = dns_query_cname_redirect(q, cname);
         if (r < 0)
                 return r;
 
-        /* Let's see if the answer can already answer the new redirected question */
-        r = dns_query_process_cname(q);
-        if (r != DNS_QUERY_NOMATCH)
-                return r;
+        return DNS_QUERY_CNAME; /* Tell caller that we did a single CNAME/DNAME redirection step */
+}
 
-        /* OK, it cannot, let's begin with the new query */
-        r = dns_query_go(q);
-        if (r < 0)
-                return r;
+int dns_query_process_cname_many(DnsQuery *q) {
+        int r;
 
-        return DNS_QUERY_RESTARTED; /* We restarted the query for a new cname */
+        assert(q);
+
+        /* Follows CNAMEs through the current packet: as long as the current packet can fulfill our
+         * redirected CNAME queries we keep going, and restart the query once the current packet isn't good
+         * enough anymore. It's a wrapper around dns_query_process_cname_one() and returns the same values,
+         * but with extended semantics. Specifically:
+         *
+         * DNS_QUERY_MATCH   → as above
+         *
+         * DNS_QUERY_CNAME   → we ran into a CNAME/DNAME redirect that we could not answer from the current
+         *                     message, and thus restarted the query to resolve it.
+         *
+         * DNS_QUERY_NOMATCH → we reached the end of CNAME/DNAME chain, and there are no direct matches nor a
+         *                     CNAME/DNAME match. i.e. this is a NODATA case.
+         *
+         * Note that this function will restart the query for the caller if needed, and that's the case
+         * DNS_QUERY_CNAME is returned.
+         */
+
+        r = dns_query_process_cname_one(q);
+        if (r != DNS_QUERY_CNAME)
+                return r; /* The first redirect is special: if it doesn't answer the question that's no
+                           * reason to restart the query, we just accept this as a NODATA answer. */
+
+        for (;;) {
+                r = dns_query_process_cname_one(q);
+                if (r < 0 || r == DNS_QUERY_MATCH)
+                        return r;
+                if (r == DNS_QUERY_NOMATCH) {
+                        /* OK, so we followed one or more CNAME/DNAME RR but the existing packet can't answer
+                         * this. Let's restart the query hence, with the new question. Why the different
+                         * handling than the first chain element? Because if the server answers a direct
+                         * question with an empty answer then this is a NODATA response. But if it responds
+                         * with a CNAME chain that ultimately is incomplete (i.e. a non-empty but truncated
+                         * CNAME chain) then we better follow up ourselves and ask for the rest of the
+                         * chain. This is particular relevant since our cache will store CNAME/DNAME
+                         * redirects that we learnt about for lookups of certain DNS types, but later on we
+                         * can reuse this data even for other DNS types, but in that case need to follow up
+                         * with the final lookup of the chain ourselves with the RR type we ourselves are
+                         * interested in. */
+                        r = dns_query_go(q);
+                        if (r < 0)
+                                return r;
+
+                        return DNS_QUERY_CNAME;
+                }
+
+                /* So we found a CNAME that the existing packet already answers, again via a CNAME, let's
+                 * continue going then. */
+                assert(r == DNS_QUERY_CNAME);
+        }
 }
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
@@ -1141,9 +1245,17 @@ bool dns_query_fully_confidential(DnsQuery *q) {
         return FLAGS_SET(q->answer_query_flags, SD_RESOLVED_CONFIDENTIAL) && !q->previous_redirect_non_confidential;
 }
 
-bool dns_query_fully_synthetic(DnsQuery *q) {
+bool dns_query_fully_authoritative(DnsQuery *q) {
         assert(q);
 
-        return (q->answer_query_flags & (SD_RESOLVED_SYNTHETIC | SD_RESOLVED_FROM_TRUST_ANCHOR)) &&
-                !(q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~SD_RESOLVED_FROM_TRUST_ANCHOR);
+        /* We are authoritative for everything synthetic (except if a previous CNAME/DNAME) wasn't
+         * synthetic. (Note: SD_RESOLVED_SYNTHETIC is reset on each CNAME/DNAME, hence the explicit check for
+         * previous synthetic DNAME/CNAME redirections.)*/
+        if ((q->answer_query_flags & SD_RESOLVED_SYNTHETIC) && !q->previous_redirect_non_synthetic)
+                return true;
+
+        /* We are also authoritative for everything coming only from the trust anchor and the local
+         * zones. (Note: the SD_RESOLVED_FROM_xyz flags we merge on each redirect, hence no need to
+         * explicitly check previous redirects here.)*/
+        return (q->answer_query_flags & SD_RESOLVED_FROM_MASK & ~(SD_RESOLVED_FROM_TRUST_ANCHOR | SD_RESOLVED_FROM_ZONE)) == 0;
 }

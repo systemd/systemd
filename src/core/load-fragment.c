@@ -16,8 +16,8 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
-#include "alloc-util.h"
 #include "all-units.h"
+#include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -28,6 +28,7 @@
 #include "conf-parser.h"
 #include "core-varlink.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
@@ -130,6 +131,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome, "
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem, "Failed to parse protect system value");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_exit_type, service_exit_type, ServiceExitType, "Failed to parse service exit type");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode, "Failed to parse timeout failure mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
@@ -4606,14 +4608,23 @@ int config_parse_load_credential(
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", k);
                 return 0;
         }
-        r = unit_full_printf(u, p, &q);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
-                return 0;
-        }
-        if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Credential source \"%s\" not valid, ignoring.", q);
-                return 0;
+
+        if (isempty(p)) {
+                /* If only one field field is specified take it as shortcut for inheriting a credential named
+                 * the same way from our parent */
+                q = strdup(k);
+                if (!q)
+                        return log_oom();
+        } else {
+                r = unit_full_printf(u, p, &q);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
+                        return 0;
+                }
+                if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Credential source \"%s\" not valid, ignoring.", q);
+                        return 0;
+                }
         }
 
         r = strv_consume_pair(&context->load_credentials, TAKE_PTR(k), TAKE_PTR(q));
@@ -5748,6 +5759,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_deps,             "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,          "SERVICETYPE" },
+                { config_parse_service_exit_type,     "SERVICEEXITTYPE" },
                 { config_parse_service_restart,       "SERVICERESTART" },
                 { config_parse_service_timeout_failure_mode, "TIMEOUTMODE" },
                 { config_parse_kill_mode,             "KILLMODE" },

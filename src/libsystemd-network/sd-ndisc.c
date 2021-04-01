@@ -16,6 +16,7 @@
 #include "memory-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -34,12 +35,10 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_rou
         assert(ndisc);
         assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 
-        if (!ndisc->callback) {
-                log_ndisc("Received '%s' event.", ndisc_event_to_string(event));
-                return;
-        }
+        if (!ndisc->callback)
+                return (void) log_ndisc(ndisc, "Received '%s' event.", ndisc_event_to_string(event));
 
-        log_ndisc("Invoking callback for '%s' event.", ndisc_event_to_string(event));
+        log_ndisc(ndisc, "Invoking callback for '%s' event.", ndisc_event_to_string(event));
         ndisc->callback(ndisc, event, rt, ndisc->userdata);
 }
 
@@ -63,6 +62,23 @@ _public_ int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
 
         nd->ifindex = ifindex;
         return 0;
+}
+
+int sd_ndisc_set_ifname(sd_ndisc *nd, const char *ifname) {
+        assert_return(nd, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&nd->ifname, ifname);
+}
+
+const char *sd_ndisc_get_ifname(sd_ndisc *nd) {
+        if (!nd)
+                return NULL;
+
+        return get_ifname(nd->ifindex, &nd->ifname);
 }
 
 _public_ int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
@@ -129,6 +145,7 @@ static sd_ndisc *ndisc_free(sd_ndisc *nd) {
 
         ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
+        free(nd->ifname);
         return mfree(nd);
 }
 
@@ -181,7 +198,7 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         assert(nd);
         assert(rt);
 
-        r = ndisc_router_parse(rt);
+        r = ndisc_router_parse(nd, rt);
         if (r == -EBADMSG) /* Bad packet */
                 return 0;
         if (r < 0)
@@ -193,7 +210,7 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         if (rt->hop_limit > 0)
                 nd->hop_limit = rt->hop_limit;
 
-        log_ndisc("Received Router Advertisement: flags %s preference %s lifetime %" PRIu16 " sec",
+        log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %" PRIu16 " sec",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
                   rt->preference == SD_NDISC_PREFERENCE_HIGH ? "high" : rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
                   rt->lifetime);
@@ -214,8 +231,10 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         assert(nd->event);
 
         buflen = next_datagram_size_fd(fd);
-        if (buflen < 0)
-                return log_ndisc_errno(buflen, "Failed to determine datagram size to read: %m");
+        if (buflen < 0) {
+                log_ndisc_errno(nd, buflen, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
 
         rt = ndisc_router_new(buflen);
         if (!rt)
@@ -226,22 +245,22 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                 switch (r) {
                 case -EADDRNOTAVAIL:
                         (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &rt->address, &addr);
-                        log_ndisc("Received RA from non-link-local address %s. Ignoring", addr);
+                        log_ndisc(nd, "Received RA from non-link-local address %s. Ignoring", addr);
                         break;
 
                 case -EMULTIHOP:
-                        log_ndisc("Received RA with invalid hop limit. Ignoring.");
+                        log_ndisc(nd, "Received RA with invalid hop limit. Ignoring.");
                         break;
 
                 case -EPFNOSUPPORT:
-                        log_ndisc("Received invalid source address from ICMPv6 socket. Ignoring.");
+                        log_ndisc(nd, "Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
                 case -EAGAIN: /* ignore spurious wakeups */
                         break;
 
                 default:
-                        log_ndisc_errno(r, "Unexpected error while reading from ICMPv6, ignoring: %m");
+                        log_ndisc_errno(nd, r, "Unexpected error while reading from ICMPv6, ignoring: %m");
                         break;
                 }
 
@@ -290,11 +309,11 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
         if (r < 0) {
-                log_ndisc_errno(r, "Error sending Router Solicitation: %m");
+                log_ndisc_errno(nd, r, "Error sending Router Solicitation: %m");
                 goto fail;
         }
 
-        log_ndisc("Sent Router Solicitation, next solicitation in %s",
+        log_ndisc(nd, "Sent Router Solicitation, next solicitation in %s",
                   format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                                   nd->retransmit_time, USEC_PER_SEC));
 
@@ -311,7 +330,7 @@ static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata
         assert(s);
         assert(nd);
 
-        log_ndisc("No RA received before link confirmation timeout");
+        log_ndisc(nd, "No RA received before link confirmation timeout");
 
         (void) event_source_disable(nd->timeout_no_ra);
         ndisc_callback(nd, SD_NDISC_EVENT_TIMEOUT, NULL);
@@ -326,7 +345,7 @@ _public_ int sd_ndisc_stop(sd_ndisc *nd) {
         if (nd->fd < 0)
                 return 0;
 
-        log_ndisc("Stopping IPv6 Router Solicitation client");
+        log_ndisc(nd, "Stopping IPv6 Router Solicitation client");
 
         ndisc_reset(nd);
         return 1;
@@ -379,7 +398,7 @@ _public_ int sd_ndisc_start(sd_ndisc *nd) {
         if (r < 0)
                 goto fail;
 
-        log_ndisc("Started IPv6 Router Solicitation client");
+        log_ndisc(nd, "Started IPv6 Router Solicitation client");
         return 1;
 
 fail:

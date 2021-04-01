@@ -45,7 +45,14 @@ struct DnsQuery {
          * that even on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names
          * (in contrast to their domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference
          * between these two fields is mostly relevant only for explicit *hostname* lookups as well as the
-         * domain suffixes of service lookups. */
+         * domain suffixes of service lookups.
+         *
+         * Note that questions may consist of multiple RR keys at once, but they must be for the same domain
+         * name. This is used for A+AAAA and TXT+SRV lookups: we'll allocate a single DnsQuery object for
+         * them instead of two separate ones. That allows us minor optimizations with response handling:
+         * CNAME/DNAMEs of the first reply we get can already be used to follow the CNAME/DNAME chain for
+         * both, and we can take benefit of server replies that oftentimes put A responses into AAAA queries
+         * and vice versa (in the additional section). */
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
 
@@ -73,6 +80,7 @@ struct DnsQuery {
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
         bool previous_redirect_unauthenticated;
         bool previous_redirect_non_confidential;
+        bool previous_redirect_non_synthetic;
         DnsPacket *answer_full_packet;
 
         /* Bus + Varlink client information */
@@ -105,7 +113,7 @@ struct DnsQuery {
 enum {
         DNS_QUERY_MATCH,
         DNS_QUERY_NOMATCH,
-        DNS_QUERY_RESTARTED,
+        DNS_QUERY_CNAME,
 };
 
 DnsQueryCandidate* dns_query_candidate_ref(DnsQueryCandidate*);
@@ -122,7 +130,8 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);
 int dns_query_go(DnsQuery *q);
 void dns_query_ready(DnsQuery *q);
 
-int dns_query_process_cname(DnsQuery *q);
+int dns_query_process_cname_one(DnsQuery *q);
+int dns_query_process_cname_many(DnsQuery *q);
 
 void dns_query_complete(DnsQuery *q, DnsTransactionState state);
 
@@ -134,7 +143,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
 
 bool dns_query_fully_authenticated(DnsQuery *q);
 bool dns_query_fully_confidential(DnsQuery *q);
-bool dns_query_fully_synthetic(DnsQuery *q);
+bool dns_query_fully_authoritative(DnsQuery *q);
 
 static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
         assert(q);

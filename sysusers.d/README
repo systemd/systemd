@@ -1,0 +1,8 @@
+Files in this directory contain configuration for systemd-sysusers, a program
+to allocate system users and groups.
+
+See man:sysusers.d(5) for explanation of the configuration file format, and
+man:systemd-sysusers(8) for a description of when and how this configuration is
+applied.
+
+Use 'systemd-analyze cat-config sysusers.d' to display the effective config.

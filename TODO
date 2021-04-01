@@ -22,6 +22,27 @@ Janitorial Clean-ups:
 
 Features:
 
+* maybe add a tool that displays most recent journal logs as QR code to scan
+  off screen and run it automatically on boot failures, emergency logs and
+  such. Use DRM APIs directly, see
+  https://github.com/dvdhrm/docs/blob/master/drm-howto/modeset.c for an example
+  for doing that.
+
+* pass systemd-detect-virt result to generators as env var. Modifying behaviour
+  based on whether we are virtualized or not is a pretty common thing, hence
+  maybe just pass that info along for free in an env var. We cache the result
+  anyway, so it's basically free.
+
+* systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
+
+* introduce /dev/disk/root/* symlinks that allow referencing partitions on the
+  disk the rootfs is on in a reasonably secure way.
+
+* systemd-repart: add a switch to factory reset the partition table without
+  immediately applying the new configuration again. i.e. --factory-reset=leave
+  or so. (this is useful to factory reset an image, then putting it into
+  another machine, ensuring that luks key is generated on new machine, not old)
+
 * move logind udev rules to top-level rule.d/ directory
 
 * move multiseat vid/pid matches from logind udev rule to hwdb
@@ -39,11 +60,6 @@ Features:
   • in nss-systemd pick up user record from there and make available to system
   With all that in place if nspawn host and container payload are up-to-date
   enough we have a very simple way to make host users available in containers.
-
-* systemd-sysusers: pick up passwords from credentials logic, so that users can
-  easily set root user pw. enable cred inheriting for root user from PID 1, so
-  that for containers we can configure the root pw automatically via nspawn's
-  --set-credential= switch. (Also do this for systemd-firstboot)
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -299,12 +315,6 @@ Features:
 
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
-
-* when systemd-nspawn and suchlike dissect an OS image, and there are multiple
-  root partitions, do an strverscmp() on the partition label and boot
-  first. That is inspired how sd-boot figures out which kernel to boot, and
-  thus allows defining OS images which can be A/B updated and we default to the
-  newest version automatically, both in nspawn and in sd-boot
 
 * systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
   creates
@@ -826,9 +836,6 @@ Features:
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
-
-* mount: automatically search for "main" partition of an image has multiple
-  partitions
 
 * in nss-systemd, if we run inside of RootDirectory= with PrivateUsers= set,
   find a way to map the User=/Group= of the service to the right name. This way

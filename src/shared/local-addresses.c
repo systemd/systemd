@@ -204,7 +204,7 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
                 union in_addr_union gateway;
                 uint16_t type;
                 unsigned char dst_len, src_len, table;
-                uint32_t ifi, metric = 0;
+                uint32_t ifi = 0, metric = 0;
                 size_t rta_len;
                 int family;
                 RouteVia via;

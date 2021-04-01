@@ -898,11 +898,9 @@ int config_parse_domains(
                 }
 
                 OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
-                r = ordered_set_ensure_allocated(set, &string_hash_ops_free);
-                if (r < 0)
-                        return log_oom();
-
-                r = ordered_set_put_strdup(*set, domain);
+                r = ordered_set_put_strdup(set, domain);
+                if (r == -EEXIST)
+                        continue;
                 if (r < 0)
                         return log_oom();
         }

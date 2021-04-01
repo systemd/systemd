@@ -259,11 +259,13 @@ r     -        500-900
         </thead>
         <tbody>
           <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
           <xi:include href="standard-specifiers.xml" xpointer="b"/>
           <xi:include href="standard-specifiers.xml" xpointer="B"/>
           <xi:include href="standard-specifiers.xml" xpointer="H"/>
           <xi:include href="standard-specifiers.xml" xpointer="l"/>
           <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
           <xi:include href="standard-specifiers.xml" xpointer="o"/>
           <xi:include href="standard-specifiers.xml" xpointer="T"/>
           <xi:include href="standard-specifiers.xml" xpointer="v"/>

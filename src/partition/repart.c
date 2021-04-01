@@ -2655,11 +2655,15 @@ static int do_copy_files(Partition *p, const char *fs) {
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
-                _cleanup_free_ char *dn = NULL;
+                _cleanup_free_ char *dn = NULL, *fn = NULL;
 
-                dn = dirname_malloc(*target);
-                if (!dn)
-                        return log_oom();
+                r = path_extract_directory(*target, &dn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
+
+                r = path_extract_filename(*target, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
 
                 sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT|CHASE_WARN, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
@@ -2686,7 +2690,7 @@ static int do_copy_files(Partition *p, const char *fs) {
 
                                 r = copy_tree_at(
                                                 sfd, ".",
-                                                pfd, basename(*target),
+                                                pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         } else
@@ -2994,8 +2998,6 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
                         break;
 
                 label = mfree(label);
-
-
                 if (asprintf(&label, "%s-%u", prefix, ++k) < 0)
                         return log_oom();
         }
