@@ -280,7 +280,7 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 int conf_files_cat(const char *root, const char *name) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
-        char **prefixes, **prefix;
+        char **prefix, **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;
         char **t;
@@ -289,6 +289,8 @@ int conf_files_cat(const char *root, const char *name) {
         r = guess_type(&name, &prefixes, &is_collection, &extension);
         if (r < 0)
                 return r;
+        assert(prefixes);
+        assert(extension);
 
         STRV_FOREACH(prefix, prefixes) {
                 assert(endswith(*prefix, "/"));
