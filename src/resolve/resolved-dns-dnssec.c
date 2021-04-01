@@ -1242,8 +1242,10 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 return r;
 
         err = gcry_md_open(&md, algorithm, 0);
-        if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
-                return -EIO;
+        if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md) {
+                r = -EIO;
+                goto finish;
+        }
 
         gcry_md_write(md, wire_format, r);
         gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
