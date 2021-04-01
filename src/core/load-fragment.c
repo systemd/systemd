@@ -4592,7 +4592,7 @@ int config_parse_load_credential(
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
