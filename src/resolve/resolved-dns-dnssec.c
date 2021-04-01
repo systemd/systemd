@@ -1205,7 +1205,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
-        gcry_md_hd_t md = NULL;
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         gcry_error_t err;
         size_t hash_size;
         int algorithm;
@@ -1249,10 +1249,8 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
 
         result = gcry_md_read(md, 0);
-        if (!result) {
-                r = -EIO;
-                goto finish;
-        }
+        if (!result)
+                return -EIO;
 
         for (k = 0; k < nsec3->nsec3.iterations; k++) {
                 uint8_t tmp[hash_size];
@@ -1263,18 +1261,12 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
 
                 result = gcry_md_read(md, 0);
-                if (!result) {
-                        r = -EIO;
-                        goto finish;
-                }
+                if (!result)
+                        return -EIO;
         }
 
         memcpy(ret, result, hash_size);
-        r = (int) hash_size;
-
-finish:
-        gcry_md_close(md);
-        return r;
+        return (int) hash_size;
 }
 
 static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
