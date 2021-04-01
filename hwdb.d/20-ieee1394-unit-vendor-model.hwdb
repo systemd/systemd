@@ -979,6 +979,13 @@ ieee1394:ven00000166mo00000002sp0000A02Dver00014000
   MODEL_ID_FROM_DATABASE=PowerCore Compact
   FW_UNIT_FUNC=audio_and_music
 
+# Match to Adrenaline, Mojo, and V10.
+ieee1394:node:ven0x00a07eunits0x00a02d:0x014001
+ieee1394:ven0000A07Emo00000001sp0000A02Dver00014001
+  VENDOR_ID_FROM_DATABASE=Avid Technology
+  MODEL_ID_FROM_DATABASE=Digital Nonlinear Accelerator
+  FW_UNIT_FUNC=video_and_audio
+
 #
 # Node with single unit for video function.
 #
