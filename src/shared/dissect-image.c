@@ -486,7 +486,8 @@ int dissect_image(
 #ifdef GPT_USR_NATIVE
         sd_id128_t usr_uuid = SD_ID128_NULL, usr_verity_uuid = SD_ID128_NULL;
 #endif
-        bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
+        bool is_gpt, is_mbr, multiple_generic = false,
+                generic_rw = false;  /* initialize to appease gcc */
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
@@ -494,7 +495,7 @@ int dissect_image(
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL, *sysname = NULL;
         blkid_partlist pl;
-        int r, generic_nr, n_partitions;
+        int r, generic_nr = -1, n_partitions;
         struct stat st;
         usec_t deadline;
 
@@ -1202,6 +1203,7 @@ int dissect_image(
                                         return -ENOMEM;
                         }
 
+                        assert(generic_nr >= 0);
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
                                 .rw = generic_rw,
