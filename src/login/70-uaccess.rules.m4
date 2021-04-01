@@ -44,6 +44,10 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*",  TAG+="uaccess"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", TAG+="uaccess"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="uaccess"
 
+SUBSYSTEM=="firewire", TEST=="units", ENV{FW_UNIT_FUNC}=="audio_and_music", TAG+="uaccess"
+SUBSYSTEM=="firewire", TEST=="units", ENV{FW_UNIT_FUNC}=="video_and_audio", TAG+="uaccess"
+SUBSYSTEM=="firewire", TEST=="units", ENV{FW_UNIT_FUNC}=="video", TAG+="uaccess"
+
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
 m4_ifdef(`GROUP_RENDER_UACCESS',``
