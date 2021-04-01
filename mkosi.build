@@ -14,6 +14,18 @@ if ! mountpoint -q "$SRCDIR"; then
         umask 022
 fi
 
+# On Fedora "ld" is (unfortunately — if you ask me) managed via
+# "alternatives". Since we'd like to support building images in environments
+# with only /usr/ around (e.g. mkosi's UsrOnly=1 option), we have the problem
+# that /usr/bin/ld is a symlink that points to a non-existing file in
+# /etc/alternative/ in this mode. Let's work around this for now by manually
+# redirect "ld" to "ld.bfd", i.e. circumventing the /usr/bin/ld symlink.
+if [ ! -x /usr/bin/ld -a -x /usr/bin/ld.bfd ] ; then
+        mkdir -p "$HOME"/bin
+        ln -s /usr/bin/ld.bfd "$HOME"/bin/ld
+        PATH="$HOME/bin:$PATH"
+fi
+
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
 [ -z "$BUILDDIR" ] && BUILDDIR=build
