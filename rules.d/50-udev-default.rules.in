@@ -54,6 +54,16 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
 SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
+SUBSYSTEM=="firewire", TEST=="units", TEST=="model", \
+  IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}mo$attr{model}units$attr{units}'"
+
+SUBSYSTEM=="firewire", TEST=="units", TEST!="model", \
+  IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}units$attr{units}'"
+
+SUBSYSTEM=="firewire", TEST=="units", ENV{FW_UNIT_FUNC}=="audio_and_music", GROUP="audio"
+SUBSYSTEM=="firewire", TEST=="units", ENV{FW_UNIT_FUNC}=="video_and_audio", GROUP="video"
+SUBSYSTEM=="firewire", TEST=="units", ENV{FW_UNIT_FUNC}=="video", GROUP="video"
+
 KERNEL=="parport[0-9]*", GROUP="lp"
 SUBSYSTEM=="printer", KERNEL=="lp*", GROUP="lp"
 SUBSYSTEM=="ppdev", GROUP="lp"
