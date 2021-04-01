@@ -363,32 +363,38 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size) {
+int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size) {
         _cleanup_free_ char *buf = NULL;
         _cleanup_close_ int fd = -1;
-        struct stat st;
         size_t n, size;
         int n_retries;
 
         assert(ret_contents);
 
-        /* Virtual filesystems such as sysfs or procfs use kernfs, and kernfs can work
-         * with two sorts of virtual files. One sort uses "seq_file", and the results of
-         * the first read are buffered for the second read. The other sort uses "raw"
-         * reads which always go direct to the device. In the latter case, the content of
-         * the virtual file must be retrieved with a single read otherwise a second read
-         * might get the new value instead of finding EOF immediately. That's the reason
-         * why the usage of fread(3) is prohibited in this case as it always performs a
-         * second call to read(2) looking for EOF. See issue 13585. */
+        /* Virtual filesystems such as sysfs or procfs use kernfs, and kernfs can work with two sorts of
+         * virtual files. One sort uses "seq_file", and the results of the first read are buffered for the
+         * second read. The other sort uses "raw" reads which always go direct to the device. In the latter
+         * case, the content of the virtual file must be retrieved with a single read otherwise a second read
+         * might get the new value instead of finding EOF immediately. That's the reason why the usage of
+         * fread(3) is prohibited in this case as it always performs a second call to read(2) looking for
+         * EOF. See issue #13585.
+         *
+         * max_size specifies a limit on the bytes read. If max_size is SIZE_MAX, the full file is read. If
+         * the the full file is too large to read, an error is returned. For other values of max_size,
+         * *partial contents* may be returned. (Though the read is still done using one syscall.) */
 
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
+        assert(max_size <= READ_FULL_BYTES_MAX || max_size == SIZE_MAX);
+
         /* Limit the number of attempts to read the number of bytes returned by fstat(). */
         n_retries = 3;
 
         for (;;) {
+                struct stat st;
+
                 if (fstat(fd, &st) < 0)
                         return -errno;
 
@@ -398,13 +404,16 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 /* Be prepared for files from /proc which generally report a file size of 0. */
                 assert_cc(READ_FULL_BYTES_MAX < SSIZE_MAX);
                 if (st.st_size > 0) {
-                        if (st.st_size > READ_FULL_BYTES_MAX)
+                        if (st.st_size > SSIZE_MAX) /* Avoid overflow with 32-bit size_t and 64-bit off_t. */
                                 return -EFBIG;
 
-                        size = st.st_size;
+                        size = MIN((size_t) st.st_size, max_size);
+                        if (size > READ_FULL_BYTES_MAX)
+                                return -EFBIG;
+
                         n_retries--;
                 } else {
-                        size = READ_FULL_BYTES_MAX;
+                        size = MIN(READ_FULL_BYTES_MAX, max_size);
                         n_retries = 0;
                 }
 
@@ -412,7 +421,7 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                 if (!buf)
                         return -ENOMEM;
                 /* Use a bigger allocation if we got it anyway, but not more than the limit. */
-                size = MIN(malloc_usable_size(buf) - 1, READ_FULL_BYTES_MAX);
+                size = MIN3(malloc_usable_size(buf) - 1, max_size, READ_FULL_BYTES_MAX);
 
                 for (;;) {
                         ssize_t k;
@@ -439,8 +448,14 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                  * processing, let's try again either with a bigger guessed size or the new
                  * file size. */
 
-                if (n_retries <= 0)
-                        return st.st_size > 0 ? -EIO : -EFBIG;
+                if (n_retries <= 0) {
+                        if (max_size == SIZE_MAX)
+                                return st.st_size > 0 ? -EIO : -EFBIG;
+
+                        /* Accept a short read, but truncate it appropropriately. */
+                        n = MIN(n, max_size);
+                        break;
+                }
 
                 if (lseek(fd, 0, SEEK_SET) < 0)
                         return -errno;

@@ -64,7 +64,12 @@ int read_full_file_full(int dir_fd, const char *filename, uint64_t offset, size_
 static inline int read_full_file(const char *filename, char **ret_contents, size_t *ret_size) {
         return read_full_file_full(AT_FDCWD, filename, UINT64_MAX, SIZE_MAX, 0, NULL, ret_contents, ret_size);
 }
-int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size);
+
+int read_virtual_file(const char *filename, size_t max_size, char **ret_contents, size_t *ret_size);
+static inline int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size) {
+        return read_virtual_file(filename, SIZE_MAX, ret_contents, ret_size);
+}
+
 int read_full_stream_full(FILE *f, const char *filename, uint64_t offset, size_t size, ReadFullFileFlags flags, char **ret_contents, size_t *ret_size);
 static inline int read_full_stream(FILE *f, char **ret_contents, size_t *ret_size) {
         return read_full_stream_full(f, NULL, UINT64_MAX, SIZE_MAX, 0, ret_contents, ret_size);
