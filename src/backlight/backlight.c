@@ -226,26 +226,20 @@ static int validate_device(sd_device *device) {
 }
 
 static int get_max_brightness(sd_device *device, unsigned *ret) {
-        const char *max_brightness_str;
-        unsigned max_brightness;
+        const char *s;
         int r;
 
         assert(device);
         assert(ret);
 
-        r = sd_device_get_sysattr_value(device, "max_brightness", &max_brightness_str);
+        r = sd_device_get_sysattr_value(device, "max_brightness", &s);
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
 
-        r = safe_atou(max_brightness_str, &max_brightness);
+        r = safe_atou(s, ret);
         if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
+                return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", s);
 
-        if (max_brightness <= 0)
-                return log_device_warning_errno(device, SYNTHETIC_ERRNO(EINVAL), "Maximum brightness is 0, ignoring device.");
-
-        log_device_debug(device, "Maximum brightness is %u", max_brightness);
-        *ret = max_brightness;
         return 0;
 }
 
@@ -408,6 +402,13 @@ static int run(int argc, char *argv[]) {
          * with Asus mainboards that load the eeepc-wmi module. */
         if (get_max_brightness(device, &max_brightness) < 0)
                 return 0;
+
+        if (max_brightness == 0) {
+                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
+                return 0;
+        }
+
+        log_device_debug(device, "Maximum brightness is %u", max_brightness);
 
         escaped_ss = cescape(ss);
         if (!escaped_ss)
