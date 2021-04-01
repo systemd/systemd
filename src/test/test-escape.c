@@ -26,11 +26,11 @@ static void test_xescape_full(bool eight_bits) {
         const unsigned full_fit = !eight_bits ? 55 : 46;
 
         for (unsigned i = 0; i < 60; i++) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t, *q;
 
-                assert_se(t = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, eight_bits));
+                assert_se(t = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, eight_bits, false));
 
-                log_info("%02d: %s", i, t);
+                log_info("%02d: <%s>", i, t);
 
                 if (i >= full_fit)
                         assert_se(streq(t, escaped));
@@ -44,6 +44,14 @@ static void test_xescape_full(bool eight_bits) {
                         assert_se(strlen(t) == i);
                         assert_se(strneq(t, "...", i));
                 }
+
+                assert_se(q = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, eight_bits, true));
+
+                log_info("%02d: <%s>", i, q);
+                if (i > 0)
+                        assert_se(endswith(q, "."));
+                assert(strlen(q) <= i);
+                assert(strlen(q) + 3 >= strlen(t));
         }
 }
 

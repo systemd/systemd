@@ -360,7 +360,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
         return t - r;
 }
 
-char* xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits) {
+char* xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits, bool force_truncated) {
         char *ans, *t, *prev, *prev2;
         const char *f;
 
@@ -368,7 +368,8 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
          * reversed with cunescape(). If eight_bits is true, characters >= 127 are let through unchanged.
          * This corresponds to non-ASCII printable characters in pre-unicode encodings.
          *
-         * If console_width is reached, output is truncated and "..." is appended. */
+         * If console_width is reached, or force_truncated is set, output is truncated and "..." is
+         * appended. */
 
         if (console_width == 0)
                 return strdup("");
@@ -384,13 +385,16 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
                 char *tmp_t = t;
 
                 if (!*f) {
+                        if (force_truncated)
+                                break;
+
                         *t = 0;
                         return ans;
                 }
 
                 if ((unsigned char) *f < ' ' || (!eight_bits && (unsigned char) *f >= 127) ||
                     *f == '\\' || strchr(bad, *f)) {
-                        if ((size_t) (t - ans) + 4 > console_width)
+                        if ((size_t) (t - ans) + 4 + 3 * force_truncated > console_width)
                                 break;
 
                         *(t++) = '\\';
@@ -398,7 +402,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
                 } else {
-                        if ((size_t) (t - ans) + 1 > console_width)
+                        if ((size_t) (t - ans) + 1 + 3 * force_truncated > console_width)
                                 break;
 
                         *(t++) = *f;
@@ -427,11 +431,11 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
         return ans;
 }
 
-char* escape_non_printable_full(const char *str, size_t console_width, bool eight_bit) {
+char* escape_non_printable_full(const char *str, size_t console_width, bool eight_bit, bool force_truncated) {
         if (eight_bit)
-                return xescape_full(str, "", console_width, true);
+                return xescape_full(str, "", console_width, true, force_truncated);
         else
-                return utf8_escape_non_printable_full(str, console_width);
+                return utf8_escape_non_printable_full(str, console_width, force_truncated);
 }
 
 char* octescape(const char *s, size_t len) {
