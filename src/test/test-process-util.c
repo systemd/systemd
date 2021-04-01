@@ -15,6 +15,8 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "errno-util.h"
+#include "errno-list.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -88,6 +90,52 @@ static void test_get_process_comm(pid_t pid) {
 
         (void) getenv_for_pid(pid, "PATH", &i);
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
+}
+
+static void test_get_process_cmdline_one(pid_t pid) {
+        _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL;
+        int r;
+
+        r = get_process_cmdline(pid, SIZE_MAX, 0, &c);
+        log_info("PID "PID_FMT": %s", pid, r >= 0 ? c : errno_to_name(r));
+
+        r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &d);
+        log_info("      %s", r >= 0 ? d : errno_to_name(r));
+
+        r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &e);
+        log_info("      %s", r >= 0 ? e : errno_to_name(r));
+
+        r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE | PROCESS_CMDLINE_COMM_FALLBACK, &f);
+        log_info("      %s", r >= 0 ? f : errno_to_name(r));
+
+        r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &g);
+        log_info("      %s", r >= 0 ? g : errno_to_name(r));
+
+        r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX | PROCESS_CMDLINE_COMM_FALLBACK, &h);
+        log_info("      %s", r >= 0 ? h : errno_to_name(r));
+}
+
+static void test_get_process_cmdline(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(d = opendir("/proc"));
+
+        FOREACH_DIRENT(de, d, return) {
+                pid_t pid;
+
+                dirent_ensure_type(d, de);
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                if (parse_pid(de->d_name, &pid) < 0)
+                        continue;
+
+                test_get_process_cmdline_one(pid);
+        }
 }
 
 static void test_get_process_comm_escape_one(const char *input, const char *output) {
@@ -808,6 +856,7 @@ int main(int argc, char *argv[]) {
         }
 
         test_get_process_comm_escape();
+        test_get_process_cmdline();
         test_pid_is_unwaited();
         test_pid_is_alive();
         test_personality();
