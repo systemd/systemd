@@ -118,7 +118,7 @@ static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id) {
 }
 
 int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret) {
-        uint16_t id;
+        uint16_t id = 0; /* Unnecessary initialization to appease gcc */
         int r;
 
         r = lookup_id(nl, family, &id);

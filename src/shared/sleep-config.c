@@ -324,7 +324,7 @@ static bool location_is_resume_device(const HibernateLocation *location, dev_t s
 int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(hibernate_location_freep) HibernateLocation *hibernate_location = NULL;
-        dev_t sys_resume;
+        dev_t sys_resume = 0; /* Unnecessary initialization to appease gcc */
         uint64_t sys_offset = 0;
         bool resume_match = false;
         int r;
