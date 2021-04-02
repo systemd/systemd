@@ -102,6 +102,14 @@ int main(int argc, char *argv[]) {
         if (ctx->backend == FW_BACKEND_NONE)
                 return EXIT_TEST_SKIP;
 
+#if HAVE_LIBIPTC
+        if (ctx->backend == FW_BACKEND_IPTABLES) {
+                int r = fw_iptables_init_nat(NULL);
+                if (r == -ENOENT)
+                        return EXIT_TEST_SKIP;
+        }
+#endif
+
         if (test_v4(ctx) && ctx->backend == FW_BACKEND_NFTABLES)
                 test_v6(ctx);
 
