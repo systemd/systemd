@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -91,15 +92,15 @@ static void test_utf8_escape_invalid(void) {
         log_info("/* %s */", __func__);
 
         p1 = utf8_escape_invalid("goo goo goo");
-        puts(p1);
+        log_debug("\"%s\"", p1);
         assert_se(utf8_is_valid(p1));
 
         p2 = utf8_escape_invalid("\341\204\341\204");
-        puts(p2);
+        log_debug("\"%s\"", p2);
         assert_se(utf8_is_valid(p2));
 
         p3 = utf8_escape_invalid("\341\204");
-        puts(p3);
+        log_debug("\"%s\"", p3);
         assert_se(utf8_is_valid(p3));
 }
 
@@ -109,27 +110,27 @@ static void test_utf8_escape_non_printable(void) {
         log_info("/* %s */", __func__);
 
         p1 = utf8_escape_non_printable("goo goo goo");
-        puts(p1);
+        log_debug("\"%s\"", p1);
         assert_se(utf8_is_valid(p1));
 
         p2 = utf8_escape_non_printable("\341\204\341\204");
-        puts(p2);
+        log_debug("\"%s\"", p2);
         assert_se(utf8_is_valid(p2));
 
         p3 = utf8_escape_non_printable("\341\204");
-        puts(p3);
+        log_debug("\"%s\"", p3);
         assert_se(utf8_is_valid(p3));
 
         p4 = utf8_escape_non_printable("ąę\n가너도루\n1234\n\341\204\341\204\n\001 \019\20\a");
-        puts(p4);
+        log_debug("\"%s\"", p4);
         assert_se(utf8_is_valid(p4));
 
         p5 = utf8_escape_non_printable("\001 \019\20\a");
-        puts(p5);
+        log_debug("\"%s\"", p5);
         assert_se(utf8_is_valid(p5));
 
         p6 = utf8_escape_non_printable("\xef\xbf\x30\x13");
-        puts(p6);
+        log_debug("\"%s\"", p6);
         assert_se(utf8_is_valid(p6));
 }
 
@@ -232,6 +233,9 @@ static void test_utf8_to_utf16(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_show_color(true);
+        test_setup_logging(LOG_INFO);
+
         test_utf8_n_is_valid();
         test_utf8_is_valid();
         test_utf8_is_printable();
