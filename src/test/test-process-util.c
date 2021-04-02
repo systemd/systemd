@@ -595,27 +595,28 @@ static void test_getpid_cached(void) {
         assert_se(si.si_code == CLD_EXITED);
 }
 
-#define MEASURE_ITERATIONS (10000000LLU)
-
 static void test_getpid_measure(void) {
-        unsigned long long i;
         usec_t t, q;
 
-        log_info("/* %s */", __func__);
+        unsigned long long iterations = slow_tests_enabled() ? 1000000 : 1000;
+
+        log_info("/* %s (%llu iterations) */", __func__, iterations);
 
         t = now(CLOCK_MONOTONIC);
-        for (i = 0; i < MEASURE_ITERATIONS; i++)
+        for (unsigned long long i = 0; i < iterations; i++)
                 (void) getpid();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info(" glibc getpid(): %lf µs each\n", (double) q / MEASURE_ITERATIONS);
+        log_info(" glibc getpid(): %lf µs each\n", (double) q / iterations);
+
+        iterations *= 50; /* _cached() is about 50 times faster, so we need more iterations */
 
         t = now(CLOCK_MONOTONIC);
-        for (i = 0; i < MEASURE_ITERATIONS; i++)
+        for (unsigned long long i = 0; i < iterations; i++)
                 (void) getpid_cached();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info("getpid_cached(): %lf µs each\n", (double) q / MEASURE_ITERATIONS);
+        log_info("getpid_cached(): %lf µs each\n", (double) q / iterations);
 }
 
 static void test_safe_fork(void) {
