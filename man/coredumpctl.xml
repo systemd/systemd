@@ -354,10 +354,40 @@ Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
     </example>
 
     <example>
-      <title>Show information about a process that dumped core,
-      matching by its PID 6654</title>
+      <title>Show information about a core dump matched by PID</title>
 
-      <programlisting>$ coredumpctl info 6654</programlisting>
+      <programlisting>$ coredumpctl info 6654
+           PID: 6654 (bash)
+           UID: 1000 (user)
+           GID: 1000 (user)
+        Signal: 11 (SEGV)
+     Timestamp: Mon 2021-01-01 00:00:01 CET (20s ago)
+  Command Line: bash -c $'kill -SEGV $$'
+    Executable: /usr/bin/bash
+ Control Group: /user.slice/user-1000.slice/…
+          Unit: user@1000.service
+     User Unit: vte-spawn-….scope
+         Slice: user-1000.slice
+     Owner UID: 1000 (user)
+       Boot ID: …
+    Machine ID: …
+      Hostname: …
+       Storage: /var/lib/systemd/coredump/core.bash.1000.….zst (present)
+     Disk Size: 51.7K
+       Message: Process 130414 (bash) of user 1000 dumped core.
+
+                Stack trace of thread 130414:
+                #0  0x00007f398142358b kill (libc.so.6 + 0x3d58b)
+                #1  0x0000558c2c7fda09 kill_builtin (bash + 0xb1a09)
+                #2  0x0000558c2c79dc59 execute_builtin.lto_priv.0 (bash + 0x51c59)
+                #3  0x0000558c2c79709c execute_simple_command (bash + 0x4b09c)
+                #4  0x0000558c2c798408 execute_command_internal (bash + 0x4c408)
+                #5  0x0000558c2c7f6bdc parse_and_execute (bash + 0xaabdc)
+                #6  0x0000558c2c85415c run_one_command.isra.0 (bash + 0x10815c)
+                #7  0x0000558c2c77d040 main (bash + 0x31040)
+                #8  0x00007f398140db75 __libc_start_main (libc.so.6 + 0x27b75)
+                #9  0x0000558c2c77dd1e _start (bash + 0x31d1e)
+</programlisting>
     </example>
 
     <example>
