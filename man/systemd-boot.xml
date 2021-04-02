@@ -51,7 +51,7 @@
 
       <listitem><para>The Microsoft Windows EFI boot manager, if installed</para></listitem>
 
-      <listitem><para>The Apple MacOS X boot manager, if installed</para></listitem>
+      <listitem><para>The Apple macOS boot manager, if installed</para></listitem>
 
       <listitem><para>The EFI Shell binary, if installed</para></listitem>
 
@@ -193,7 +193,7 @@
 
       <varlistentry>
         <term><keycap>a</keycap></term>
-        <listitem><para>OS X</para></listitem>
+        <listitem><para>macOS</para></listitem>
       </varlistentry>
 
       <varlistentry>
