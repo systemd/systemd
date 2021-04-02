@@ -130,7 +130,7 @@ names for them in UIs.
    discovered Windows installation might have the identifier `auto-windows` or
    `auto-windows-10` or so.).
 
-4. Similar, boot menu entries referring to Apple MacOS X installations should
+4. Similar, boot menu entries referring to Apple macOS installations should
    use the identifier `osx` or one that is prefixed with `osx-`. If such an
    entry is automatically discovered by the boot loader use `auto-osx` as
    identifier, or `auto-osx-` as prefix for the identifier, see above.
