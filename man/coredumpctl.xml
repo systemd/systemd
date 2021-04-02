@@ -362,7 +362,7 @@ Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
            GID: 1000 (user)
         Signal: 11 (SEGV)
      Timestamp: Mon 2021-01-01 00:00:01 CET (20s ago)
-  Command Line: bash -c kill -SEGV $$
+  Command Line: bash -c $'kill -SEGV $$'
     Executable: /usr/bin/bash
  Control Group: /user.slice/user-1000.slice/…
           Unit: user@1000.service
