@@ -158,7 +158,9 @@ tests += [
 
         [['src/test/test-fstab-util.c']],
 
-        [['src/test/test-random-util.c']],
+        [['src/test/test-random-util.c'],
+         [],
+         [libm]],
 
         [['src/test/test-format-table.c']],
 
