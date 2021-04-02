@@ -1,5 +1,5 @@
-scope
-[Scope]
+slice
+[Slice]
 AllowedCPUs=
 AllowedMemoryNodes=
 BlockIOAccounting=
@@ -18,7 +18,6 @@ Delegate=
 DeviceAllow=
 DevicePolicy=
 DisableControllers=
-FinalKillSignal=
 IOAccounting=
 IODeviceLatencyTargetSec=
 IODeviceWeight=
@@ -32,8 +31,6 @@ IPAddressAllow=
 IPAddressDeny=
 IPEgressFilterPath=
 IPIngressFilterPath=
-KillMode=
-KillSignal=
 ManagedOOMMemoryPressure=
 ManagedOOMMemoryPressureLimit=
 ManagedOOMPreference=
@@ -46,10 +43,6 @@ MemoryMax=
 MemoryMin=
 MemorySwapMax=
 NetClass=
-RestartKillSignal=
-RuntimeMaxSec=
-SendSIGHUP=
-SendSIGKILL=
 Slice=
 StartupBlockIOWeight=
 StartupCPUShares=
@@ -57,5 +50,3 @@ StartupCPUWeight=
 StartupIOWeight=
 TasksAccounting=
 TasksMax=
-TimeoutStopSec=
-WatchdogSignal=
