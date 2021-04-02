@@ -88,9 +88,10 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *cgroup = NULL;
+        ManagedOOMPreference root_pref;
         OomdCGroupContext *c1, *c2;
         bool test_xattrs;
-        int r;
+        int root_xattrs, r;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
@@ -140,10 +141,16 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         ctx = oomd_cgroup_context_free(ctx);
 
         /* Test the root cgroup */
+        /* Root cgroup is live and not made on demand like the cgroup the test runs in. It can have varying
+         * xattrs set already so let's read in the booleans first to get the final preference value. */
+        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_omit");
+        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_OMIT : MANAGED_OOM_PREFERENCE_NONE;
+        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_avoid");
+        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE;
         assert_se(oomd_cgroup_context_acquire("", &ctx) == 0);
         assert_se(streq(ctx->path, "/"));
         assert_se(ctx->current_memory_usage > 0);
-        assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+        assert_se(ctx->preference == root_pref);
 
         /* Test hashmap inserts */
         assert_se(h1 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
