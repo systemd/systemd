@@ -102,9 +102,9 @@ int fw_iptables_add_masquerade(
         if (!source || source_prefixlen == 0)
                 return -EINVAL;
 
-        h = iptc_init("nat");
-        if (!h)
-                return -errno;
+        r = fw_iptables_init_nat(&h);
+        if (r < 0)
+                return r;
 
         sz = XT_ALIGN(sizeof(struct ipt_entry)) +
              XT_ALIGN(sizeof(struct ipt_entry_target)) +
@@ -192,9 +192,9 @@ int fw_iptables_add_local_dnat(
         if (remote_port <= 0)
                 return -EINVAL;
 
-        h = iptc_init("nat");
-        if (!h)
-                return -errno;
+        r = fw_iptables_init_nat(&h);
+        if (r < 0)
+                return r;
 
         sz = XT_ALIGN(sizeof(struct ipt_entry)) +
              XT_ALIGN(sizeof(struct ipt_entry_match)) +
@@ -345,6 +345,19 @@ int fw_iptables_add_local_dnat(
 
         if (!iptc_commit(h))
                 return -errno;
+
+        return 0;
+}
+
+int fw_iptables_init_nat(struct xtc_handle **ret) {
+        _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
+
+        h = iptc_init("nat");
+        if (!h)
+                return log_debug_errno(errno, "Failed to init \"nat\" table: %s", iptc_strerror(errno));
+
+        if (ret)
+                *ret = TAKE_PTR(h);
 
         return 0;
 }

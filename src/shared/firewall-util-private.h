@@ -46,6 +46,7 @@ int fw_nftables_add_local_dnat(
                 const union in_addr_union *previous_remote);
 
 #if HAVE_LIBIPTC
+struct xtc_handle;
 
 int fw_iptables_add_masquerade(
                 bool add,
@@ -61,4 +62,6 @@ int fw_iptables_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote);
+
+int fw_iptables_init_nat(struct xtc_handle **ret);
 #endif
