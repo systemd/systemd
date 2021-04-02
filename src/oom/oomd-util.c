@@ -82,17 +82,17 @@ int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret) {
                 if (ctx->memory_pressure.avg10 > ctx->mem_pressure_limit) {
                         usec_t diff;
 
-                        if (ctx->last_hit_mem_pressure_limit == 0)
-                                ctx->last_hit_mem_pressure_limit = now(CLOCK_MONOTONIC);
+                        if (ctx->mem_pressure_limit_hit_start == 0)
+                                ctx->mem_pressure_limit_hit_start = now(CLOCK_MONOTONIC);
 
-                        diff = now(CLOCK_MONOTONIC) - ctx->last_hit_mem_pressure_limit;
+                        diff = now(CLOCK_MONOTONIC) - ctx->mem_pressure_limit_hit_start;
                         if (diff >= duration) {
                                 r = set_put(targets, ctx);
                                 if (r < 0)
                                         return -ENOMEM;
                         }
                 } else
-                        ctx->last_hit_mem_pressure_limit = 0;
+                        ctx->mem_pressure_limit_hit_start = 0;
         }
 
         if (!set_isempty(targets)) {
@@ -104,34 +104,21 @@ int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret) {
         return 0;
 }
 
-bool oomd_memory_reclaim(Hashmap *h) {
-        uint64_t pgscan = 0, pgscan_of = 0, last_pgscan = 0, last_pgscan_of = 0;
-        OomdCGroupContext *ctx;
+uint64_t oomd_pgscan_rate(const OomdCGroupContext *c) {
+        uint64_t last_pgscan;
 
-        assert(h);
+        assert(c);
 
-        /* If sum of all the current pgscan values are greater than the sum of all the last_pgscan values,
-         * there was reclaim activity. Used along with pressure checks to decide whether to take action. */
-
-        HASHMAP_FOREACH(ctx, h) {
-                uint64_t sum;
-
-                sum = pgscan + ctx->pgscan;
-                if (sum < pgscan || sum < ctx->pgscan)
-                        pgscan_of++; /* count overflows */
-                pgscan = sum;
-
-                sum = last_pgscan + ctx->last_pgscan;
-                if (sum < last_pgscan || sum < ctx->last_pgscan)
-                        last_pgscan_of++; /* count overflows */
-                last_pgscan = sum;
+        /* If last_pgscan > pgscan, assume the cgroup was recreated and reset last_pgscan to zero.
+         * pgscan is monotonic and in practice should not decrease (except in the recreation case). */
+        last_pgscan = c->last_pgscan;
+        if (c->last_pgscan > c->pgscan) {
+                log_debug("Last pgscan %"PRIu64" greater than current pgscan %"PRIu64" for %s. Using last pgscan of zero.",
+                                c->last_pgscan, c->pgscan, c->path);
+                last_pgscan = 0;
         }
 
-        /* overflow counts are the same, return sums comparison */
-        if (last_pgscan_of == pgscan_of)
-                return pgscan > last_pgscan;
-
-        return pgscan_of > last_pgscan_of;
+        return c->pgscan - last_pgscan;
 }
 
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad) {
@@ -246,7 +233,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         return ret;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run, char **ret_selected) {
+int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int n, r, ret = 0;
 
@@ -257,12 +244,12 @@ int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run, char **ret_selected) {
         if (n < 0)
                 return n;
 
-        /* Try to kill cgroups with non-zero swap usage until we either succeed in
-         * killing or we get to a cgroup with no swap usage. */
+        /* Try to kill cgroups with non-zero swap usage until we either succeed in killing or we get to a cgroup with
+         * no swap usage. Threshold killing only cgroups with more than threshold swap usage. */
         for (int i = 0; i < n; i++) {
-                /* Skip over cgroups with no resource usage.
-                 * Continue break since there might be "avoid" cgroups at the end. */
-                if (sorted[i]->swap_usage == 0)
+                /* Skip over cgroups with not enough swap usage. Don't break since there might be "avoid"
+                 * cgroups at the end. */
+                if (sorted[i]->swap_usage <= threshold_usage)
                         continue;
 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
@@ -430,8 +417,12 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         if (old_ctx) {
                 curr_ctx->last_pgscan = old_ctx->pgscan;
                 curr_ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
-                curr_ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
+                curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
+                curr_ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
         }
+
+        if (oomd_pgscan_rate(curr_ctx) > 0)
+                curr_ctx->last_had_mem_reclaim = now(CLOCK_MONOTONIC);
 
         r = hashmap_put(new_h, curr_ctx->path, curr_ctx);
         if (r < 0)
@@ -456,7 +447,11 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
 
                 ctx->last_pgscan = old_ctx->pgscan;
                 ctx->mem_pressure_limit = old_ctx->mem_pressure_limit;
-                ctx->last_hit_mem_pressure_limit = old_ctx->last_hit_mem_pressure_limit;
+                ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
+                ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
+
+                if (oomd_pgscan_rate(ctx) > 0)
+                        ctx->last_had_mem_reclaim = now(CLOCK_MONOTONIC);
         }
 }
 
