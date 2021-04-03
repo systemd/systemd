@@ -29,7 +29,7 @@ __get_machines() {
 }
 
 _systemd_cgtop() {
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local comps
 
     local -A OPTS=(
