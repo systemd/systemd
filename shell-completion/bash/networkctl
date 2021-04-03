@@ -30,7 +30,7 @@ __get_links() {
 
 _networkctl() {
     local i verb comps
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
         [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats -l --full'
         [ARG]='-n --lines'
