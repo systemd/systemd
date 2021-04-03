@@ -46,7 +46,7 @@ __get_syscall_sets() {
 
 _systemd_analyze() {
     local i verb comps mode
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
