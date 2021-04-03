@@ -26,7 +26,7 @@ __contains_word () {
 
 _systemd_id128() {
     local i verb comps
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
         [STANDALONE]='-h --help --version -p --pretty'
         [ARG]='-a --app-specific'
