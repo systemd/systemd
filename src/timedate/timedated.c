@@ -801,6 +801,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         sd_bus *bus = sd_bus_message_get_bus(m);
+        char buf[FORMAT_TIMESTAMP_MAX];
         int relative, interactive, r;
         Context *c = userdata;
         int64_t utc;
@@ -886,7 +887,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    "REALTIME="USEC_FMT, timespec_load(&ts),
-                   LOG_MESSAGE("Changed local time to %s", ctime(&ts.tv_sec)));
+                   LOG_MESSAGE("Changed local time to %s", strnull(format_timestamp(buf, sizeof(buf), timespec_load(&ts)))));
 
         return sd_bus_reply_method_return(m, NULL);
 }
