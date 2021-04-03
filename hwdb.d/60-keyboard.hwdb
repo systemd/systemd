@@ -1282,13 +1282,17 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*A10SC*:*
 
 # MSI Modern series
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-StarInternational*:pnModern*:*
+ KEYBOARD_KEY_56=backslash                              # secondary backslash key
  KEYBOARD_KEY_f1=f20                                    # Fn+F5 micmute
  KEYBOARD_KEY_76=f21                                    # Fn+F4 touchpad, becomes meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
  KEYBOARD_KEY_f2=prog2                                  # Fn+F12 screen rotation
+ KEYBOARD_KEY_8d=prog3                                  # Fn+a
+ KEYBOARD_KEY_8c=prog4                                  # Fn+z
+ KEYBOARD_KEY_f5=fn_esc                                 # Fn+esc toggle the behaviour of Fn keys
  KEYBOARD_KEY_97=unknown                                # lid close
  KEYBOARD_KEY_98=unknown                                # lid open
-                                                        #Fn+PrntScr sends meta+shif+s
+                                                        # Fn+PrntScr sends meta+shif+s
 
 ###########################################################
 # MSI
