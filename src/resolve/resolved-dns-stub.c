@@ -433,6 +433,7 @@ static int dns_stub_finish_reply_packet(
                 int rcode,
                 bool tc,        /* set the Truncated bit? */
                 bool aa,        /* set the Authoritative Answer bit? */
+                bool rd,        /* set the Recursion Desired bit? */
                 bool add_opt,   /* add an OPT RR to this packet? */
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
                 bool ad,        /* set the DNSSEC authenticated data bit? */
@@ -473,7 +474,7 @@ static int dns_stub_finish_reply_packet(
                                                               0  /* opcode */,
                                                               aa /* aa */,
                                                               tc /* tc */,
-                                                              1  /* rd */,
+                                                              rd /* rd */,
                                                               1  /* ra */,
                                                               ad /* ad */,
                                                               cd /* cd */,
@@ -581,6 +582,7 @@ static int dns_stub_send_reply(
                         rcode,
                         truncated,
                         dns_query_fully_authoritative(q),
+                        DNS_PACKET_RD(q->request_packet),
                         !!q->request_packet->opt,
                         edns0_do,
                         DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
@@ -622,6 +624,7 @@ static int dns_stub_send_failure(
                         rcode,
                         truncated,
                         false,
+                        DNS_PACKET_RD(p),
                         !!p->opt,
                         DNS_PACKET_DO(p),
                         DNS_PACKET_AD(p) && authenticated,
