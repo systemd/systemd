@@ -24,7 +24,7 @@ __contains_word() {
 }
 
 _systemd_detect_virt() {
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local i verb comps
 
     local -A OPTS=(
