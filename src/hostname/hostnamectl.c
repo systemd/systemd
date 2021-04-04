@@ -315,23 +315,51 @@ static int show_all_names(sd_bus *bus) {
         return print_status_info(&info);
 }
 
+static int get_hostname_based_on_flag(sd_bus *bus) {
+        const char *attr;
+
+        if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot query more than one name type at a time");
+
+        attr = arg_pretty ? "PrettyHostname" :
+                arg_static ? "StaticHostname" : "Hostname";
+
+        return get_one_name(bus, attr, NULL);
+}
+
 static int show_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
 
-        if (arg_pretty || arg_static || arg_transient) {
-                const char *attr;
-
-                if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Cannot query more than one name type at a time");
-
-                attr = arg_pretty ? "PrettyHostname" :
-                        arg_static ? "StaticHostname" : "Hostname";
-
-                return get_one_name(bus, attr, NULL);
-        }
+        if (arg_pretty || arg_static || arg_transient)
+                return get_hostname_based_on_flag(bus);
 
         return show_all_names(bus);
+}
+
+static int get_hostname(int argc, char **argv, void *userdata) {
+        sd_bus *bus = userdata;
+
+        if (arg_pretty || arg_static || arg_transient)
+                return get_hostname_based_on_flag(bus);
+
+        return get_one_name(bus, "StaticHostname", NULL);
+}
+
+static int get_icon_name(int argc, char **argv, void *userdata) {
+        return get_one_name(userdata, "IconName", NULL);
+}
+
+static int get_chasis(int argc, char **argv, void *userdata) {
+        return get_one_name(userdata, "Chassis", NULL);
+}
+
+static int get_deployment(int argc, char **argv, void *userdata) {
+        return get_one_name(userdata, "Deployment", NULL);
+}
+
+static int get_location(int argc, char **argv, void *userdata) {
+        return get_one_name(userdata, "Location", NULL);
 }
 
 static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *target, const char *method, const char *value) {
@@ -480,6 +508,11 @@ static int help(void) {
                "  set-chassis NAME       Set chassis type for host\n"
                "  set-deployment NAME    Set deployment environment for host\n"
                "  set-location NAME      Set location for host\n"
+               "  get-hostname           Get system hostname\n"
+               "  get-icon-name          Get icon name for host\n"
+               "  get-chassis            Get chassis type for host\n"
+               "  get-deployment         Get deployment environment for host\n"
+               "  get-location           Get location for host\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -584,6 +617,11 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "set-chassis",    2,        2,        0,            set_chassis    },
                 { "set-deployment", 2,        2,        0,            set_deployment },
                 { "set-location",   2,        2,        0,            set_location   },
+                { "get-hostname",   VERB_ANY, 1,        VERB_DEFAULT, get_hostname   },
+                { "get-icon-name",  VERB_ANY, 1,        VERB_DEFAULT, get_icon_name  },
+                { "get-chassis",    VERB_ANY, 1,        VERB_DEFAULT, get_chasis     },
+                { "get-deployment", VERB_ANY, 1,        VERB_DEFAULT, get_deployment },
+                { "get-location",   VERB_ANY, 1,        VERB_DEFAULT, get_location   },
                 { "help",           VERB_ANY, VERB_ANY, 0,            verb_help      }, /* Not documented, but supported since it is created. */
                 {}
         };
