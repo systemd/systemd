@@ -169,7 +169,7 @@
         <listitem><para>Get the system hostname. By default, this will return
         the static hostname. However, if one of <option>--static</option>,
         <option>--transient</option>, <option>--pretty</option> is used, the
-        hostname of the selected type is returned or nothing if was not set.</para>
+        hostname of the selected type is returned or nothing if it was not set.</para>
         </listitem>
       </varlistentry>
 
