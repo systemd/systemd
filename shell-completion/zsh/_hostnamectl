@@ -57,6 +57,11 @@ _hostnamectl_commands() {
         "set-chassis:Set chassis type for host"
         "set-deployment:Set deployment environment for host"
         "set-location:Set location for host"
+        "get-hostname:Get system hostname"
+        "get-icon-name:Get icon name for host"
+        "get-chassis:Get chassis type for host"
+        "get-deployment:Get deployment environment for host"
+        "get-location:Get location for host"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'hostnamectl commands' _hostnamectl_cmds || compadd "$@"
@@ -64,11 +69,14 @@ _hostnamectl_commands() {
         local curcontext="$curcontext"
         cmd="${${_hostnamectl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd )); then
-            if [[ $cmd == status ]]; then
+            case $cmd in
+              status|get-hostname|get-icon-name|get-chassis|get-deployment|get-location)
                 _message "no options"
-            else
+                ;;
+              *)
                 _hostnamectl_$cmd
-            fi
+                ;;
+            esac
         else
             _message "unknown hostnamectl command: $words[1]"
         fi

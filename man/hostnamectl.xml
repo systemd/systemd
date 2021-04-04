@@ -162,6 +162,40 @@
         value.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>get-hostname</command></term>
+
+        <listitem><para>Get the system hostname. By default, this will return
+        the static hostname. However, if one of <option>--static</option>,
+        <option>--transient</option>, <option>--pretty</option> is used, the
+        hostname of the selected type is returned or nothing if was not set.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-icon-name</command></term>
+
+        <listitem><para>Get the system icon name.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-chassis</command></term>
+
+        <listitem><para>Get chassis type for the host.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-deployment</command></term>
+
+        <listitem><para>Get the deployment environment description.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>get-location</command></term>
+
+        <listitem><para>Get the location string for the system, if it is known.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

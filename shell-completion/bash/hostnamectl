@@ -37,7 +37,7 @@ _hostnamectl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='status'
+        [STANDALONE]='status get-hostname get-icon-name get-chassis get-deployment get-location'
         [ICONS]='set-icon-name'
         [NAME]='set-hostname set-deployment set-location'
         [CHASSIS]='set-chassis'
