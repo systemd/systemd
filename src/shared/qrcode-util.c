@@ -110,7 +110,7 @@ int print_qrcode(FILE *out, const char *header, const char *string) {
         if (r < 0)
                 return r;
 
-        qr = sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 0);
+        qr = sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
         if (!qr)
                 return -ENOMEM;
 
