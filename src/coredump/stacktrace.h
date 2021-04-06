@@ -3,4 +3,4 @@
 
 #include "json.h"
 
-void coredump_parse_core(int fd, const char *executable, char **ret);
+void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata);
