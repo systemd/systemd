@@ -299,8 +299,7 @@ static int acquire_managed_oom_connect(Manager *m) {
         return 0;
 }
 
-static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        _cleanup_set_free_ Set *targets = NULL;
+static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Manager *m = userdata;
         usec_t usec_now;
         int r;
@@ -313,7 +312,7 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
         if (r < 0)
                 return log_error_errno(r, "Failed to reset event timer: %m");
 
-        r = sd_event_source_set_time_relative(s, INTERVAL_USEC);
+        r = sd_event_source_set_time_relative(s, SWAP_INTERVAL_USEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to set relative time for timer: %m");
 
@@ -324,13 +323,98 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                         return log_error_errno(r, "Failed to acquire varlink connection: %m");
         }
 
-        /* Update the cgroups used for detection/action */
-        r = update_monitored_cgroup_contexts(&m->monitored_swap_cgroup_contexts);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0)
-                log_debug_errno(r, "Failed to update monitored swap cgroup contexts, ignoring: %m");
+        /* We still try to acquire swap information for oomctl even if no units want swap monitoring */
+        r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
+        /* If there are no units depending on swap actions, the only error we exit on is ENOMEM.
+         * Allow ENOENT in the event that swap is disabled on the system. */
+        if (r == -ENOENT) {
+                zero(m->system_context);
+                return 0;
+        } else if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
+                return log_error_errno(r, "Failed to acquire system context: %m");
 
+        /* Return early if nothing is requesting swap monitoring */
+        if (hashmap_isempty(m->monitored_swap_cgroup_contexts))
+                return 0;
+
+        /* Note that m->monitored_swap_cgroup_contexts does not need to be updated every interval because only the
+         * system context is used for deciding whether the swap threshold is hit. m->monitored_swap_cgroup_contexts
+         * is only used to decide which cgroups to kill (and even then only the resource usages of its descendent
+         * nodes are the ones that matter). */
+
+        if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
+                _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                _cleanup_free_ char *selected = NULL;
+                uint64_t threshold;
+
+                log_debug("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                          m->system_context.swap_used, m->system_context.swap_total,
+                          PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+
+                r = get_monitored_cgroup_contexts_candidates(m->monitored_swap_cgroup_contexts, &candidates);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
+
+                threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
+                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
+                else {
+                        if (selected)
+                                log_notice("Killed %s due to swap used (%"PRIu64") / total (%"PRIu64") being more than "
+                                           PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                                           selected, m->system_context.swap_used, m->system_context.swap_total,
+                                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+                        return 0;
+                }
+        }
+
+        return 0;
+}
+
+static void clear_candidate_hashmapp(Manager **m) {
+        if (*m)
+                hashmap_clear((*m)->monitored_mem_pressure_cgroup_contexts_candidates);
+}
+
+static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        /* Don't want to use stale candidate data. Setting this will clear the candidate hashmap on return unless we
+         * update the candidate data (in which case clear_candidates will be NULL). */
+        _cleanup_(clear_candidate_hashmapp) Manager *clear_candidates = userdata;
+        _cleanup_set_free_ Set *targets = NULL;
+        bool in_post_action_delay = false;
+        Manager *m = userdata;
+        usec_t usec_now;
+        int r;
+
+        assert(s);
+        assert(userdata);
+
+        /* Reset timer */
+        r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset event timer: %m");
+
+        r = sd_event_source_set_time_relative(s, MEM_PRESSURE_INTERVAL_USEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set relative time for timer: %m");
+
+        /* Reconnect if our connection dropped */
+        if (!m->varlink) {
+                r = acquire_managed_oom_connect(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire varlink connection: %m");
+        }
+
+        /* Return early if nothing is requesting memory pressure monitoring */
+        if (hashmap_isempty(m->monitored_mem_pressure_cgroup_contexts))
+                return 0;
+
+        /* Update the cgroups used for detection/action */
         r = update_monitored_cgroup_contexts(&m->monitored_mem_pressure_cgroup_contexts);
         if (r == -ENOMEM)
                 return log_oom();
@@ -344,23 +428,13 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
         if (r < 0)
                 log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
 
-        r = oomd_system_context_acquire("/proc/swaps", &m->system_context);
-        /* If there aren't units depending on swap actions, the only error we exit on is ENOMEM.
-         * Allow ENOENT in the event that swap is disabled on the system. */
-        if (r == -ENOMEM || (r < 0 && r != -ENOENT && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
-                return log_error_errno(r, "Failed to acquire system context: %m");
-        else if (r == -ENOENT)
-                zero(m->system_context);
-
-        if (oomd_memory_reclaim(m->monitored_mem_pressure_cgroup_contexts))
-                m->last_reclaim_at = usec_now;
-
-        /* If we're still recovering from a kill, don't try to kill again yet */
-        if (m->post_action_delay_start > 0) {
-                if (m->post_action_delay_start + POST_ACTION_DELAY_USEC > usec_now)
-                        return 0;
+        /* Since pressure counters are lagging, we need to wait a bit after a kill to ensure we don't read stale
+         * values and go on a kill storm. */
+        if (m->mem_pressure_post_action_delay_start > 0) {
+                if (m->mem_pressure_post_action_delay_start + POST_ACTION_DELAY_USEC > usec_now)
+                        in_post_action_delay = true;
                 else
-                        m->post_action_delay_start = 0;
+                        m->mem_pressure_post_action_delay_start = 0;
         }
 
         r = oomd_pressure_above(m->monitored_mem_pressure_cgroup_contexts, m->default_mem_pressure_duration_usec, &targets);
@@ -368,91 +442,92 @@ static int monitor_cgroup_contexts_handler(sd_event_source *s, uint64_t usec, vo
                 return log_oom();
         if (r < 0)
                 log_debug_errno(r, "Failed to check if memory pressure exceeded limits, ignoring: %m");
-        else if (r == 1) {
-                /* Check if there was reclaim activity in the given interval. The concern is the following case:
-                 * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
-                 * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
-                 * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
-                 * to kill something (it won't help anyways). */
-                if ((usec_now - m->last_reclaim_at) <= RECLAIM_DURATION_USEC) {
-                        OomdCGroupContext *t;
+        else if (r == 1 && !in_post_action_delay) {
+                OomdCGroupContext *t;
+                SET_FOREACH(t, targets) {
+                        _cleanup_free_ char *selected = NULL;
+                        char ts[FORMAT_TIMESPAN_MAX];
 
-                        SET_FOREACH(t, targets) {
-                                _cleanup_free_ char *selected = NULL;
-                                char ts[FORMAT_TIMESPAN_MAX];
+                        /* Check if there was reclaim activity in the given interval. The concern is the following case:
+                         * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
+                         * cgroup. Even after this, well-behaved processes will fault in recently resident pages and
+                         * this will cause pressure to remain high. Thus if there isn't any reclaim pressure, no need
+                         * to kill something (it won't help anyways). */
+                        if ((now(CLOCK_MONOTONIC) - t->last_had_mem_reclaim) > RECLAIM_DURATION_USEC)
+                                continue;
 
-                                log_debug("Memory pressure for %s is %lu.%02lu%% > %lu.%02lu%% for > %s with reclaim activity",
-                                          t->path,
-                                          LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
-                                          LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
-                                          format_timespan(ts, sizeof ts,
-                                                          m->default_mem_pressure_duration_usec,
-                                                          USEC_PER_SEC));
+                        log_debug("Memory pressure for %s is %lu.%02lu%% > %lu.%02lu%% for > %s with reclaim activity",
+                                  t->path,
+                                  LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
+                                  LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
+                                  format_timespan(ts, sizeof ts,
+                                                  m->default_mem_pressure_duration_usec,
+                                                  USEC_PER_SEC));
 
-                                r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run, &selected);
-                                if (r == -ENOMEM)
-                                        return log_oom();
-                                if (r < 0)
-                                        log_notice_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
-                                else {
-                                        /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
-                                        m->post_action_delay_start = usec_now;
-                                        if (selected)
-                                                log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
-                                                           " for > %s with reclaim activity",
-                                                           selected, t->path,
-                                                           LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
-                                                           LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
-                                                           format_timespan(ts, sizeof ts,
-                                                                           m->default_mem_pressure_duration_usec,
-                                                                           USEC_PER_SEC));
-                                        return 0;
-                                }
+                        r = update_monitored_cgroup_contexts_candidates(
+                                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
+                        else
+                                clear_candidates = NULL;
+
+                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run, &selected);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
+                        else {
+                                /* Don't act on all the high pressure cgroups at once; return as soon as we kill one */
+                                m->mem_pressure_post_action_delay_start = usec_now;
+                                if (selected)
+                                        log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
+                                                   " for > %s with reclaim activity",
+                                                   selected, t->path,
+                                                   LOAD_INT(t->memory_pressure.avg10), LOAD_FRAC(t->memory_pressure.avg10),
+                                                   LOAD_INT(t->mem_pressure_limit), LOAD_FRAC(t->mem_pressure_limit),
+                                                   format_timespan(ts, sizeof ts,
+                                                                   m->default_mem_pressure_duration_usec,
+                                                                   USEC_PER_SEC));
+                                return 0;
                         }
                 }
-        }
+        } else {
+                /* If any monitored cgroup is over their pressure limit, get all the kill candidates for every
+                 * monitored cgroup. This saves CPU cycles from doing it every interval by only doing it when a kill
+                 * might happen.
+                 * Candidate cgroup data will continue to get updated during the post-action delay period in case
+                 * pressure continues to be high after a kill. */
+                OomdCGroupContext *c;
+                HASHMAP_FOREACH(c, m->monitored_mem_pressure_cgroup_contexts) {
+                        if (c->mem_pressure_limit_hit_start == 0)
+                                continue;
 
-        if (oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
-                _cleanup_hashmap_free_ Hashmap *candidates = NULL;
-                _cleanup_free_ char *selected = NULL;
-
-                log_debug("Swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                          m->system_context.swap_used, m->system_context.swap_total,
-                          PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
-
-                r = get_monitored_cgroup_contexts_candidates(m->monitored_swap_cgroup_contexts, &candidates);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
-
-                r = oomd_kill_by_swap_usage(candidates, m->dry_run, &selected);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
-                else {
-                        m->post_action_delay_start = usec_now;
-                        if (selected)
-                                log_notice("Killed %s due to swap used (%"PRIu64") / total (%"PRIu64") being more than "
-                                           PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                                           selected, m->system_context.swap_used, m->system_context.swap_total,
-                                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
-                        return 0;
+                        r = update_monitored_cgroup_contexts_candidates(
+                                        m->monitored_mem_pressure_cgroup_contexts, &m->monitored_mem_pressure_cgroup_contexts_candidates);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to update monitored memory pressure candidate cgroup contexts, ignoring: %m");
+                        else {
+                                clear_candidates = NULL;
+                                break;
+                        }
                 }
         }
 
         return 0;
 }
 
-static int monitor_cgroup_contexts(Manager *m) {
+static int monitor_swap_contexts(Manager *m) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         int r;
 
         assert(m);
         assert(m->event);
 
-        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_cgroup_contexts_handler, m);
+        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_swap_contexts_handler, m);
         if (r < 0)
                 return r;
 
@@ -464,9 +539,34 @@ static int monitor_cgroup_contexts(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(s, "oomd-timer");
+        (void) sd_event_source_set_description(s, "oomd-swap-timer");
 
-        m->cgroup_context_event_source = TAKE_PTR(s);
+        m->swap_context_event_source = TAKE_PTR(s);
+        return 0;
+}
+
+static int monitor_memory_pressure_contexts(Manager *m) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(m);
+        assert(m->event);
+
+        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_memory_pressure_contexts_handler, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_exit_on_failure(s, true);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_ON);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, "oomd-memory-pressure-timer");
+
+        m->mem_pressure_context_event_source = TAKE_PTR(s);
         return 0;
 }
 
@@ -474,7 +574,8 @@ Manager* manager_free(Manager *m) {
         assert(m);
 
         varlink_close_unref(m->varlink);
-        sd_event_source_unref(m->cgroup_context_event_source);
+        sd_event_source_unref(m->swap_context_event_source);
+        sd_event_source_unref(m->mem_pressure_context_event_source);
         sd_event_unref(m->event);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
@@ -596,7 +697,11 @@ int manager_start(
         if (r < 0)
                 return r;
 
-        r = monitor_cgroup_contexts(m);
+        r = monitor_memory_pressure_contexts(m);
+        if (r < 0)
+                return r;
+
+        r = monitor_swap_contexts(m);
         if (r < 0)
                 return r;
 
