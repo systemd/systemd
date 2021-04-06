@@ -47,7 +47,7 @@ static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdli
                 _cleanup_free_ char *word = NULL;
                 const char *c;
 
-                r = extract_first_word(&q, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
+                r = extract_first_word(&q, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
                         return r;
                 if (r == 0)
