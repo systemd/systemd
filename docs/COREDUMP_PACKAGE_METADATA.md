@@ -1,0 +1,127 @@
+---
+title: Package Metadata for Core Files
+category: Interfaces
+layout: default
+---
+
+# Package Metadata for Core Files
+
+*Intended audience: hackers working on userspace subsystems that create ELF binaries
+or parse ELF core files.*
+
+## Motivation
+
+ELF binaries get stamped with a unique, build-time generated hex string identifier called
+`build-id`, which gets embedded as an ELF note called `.note.gnu.build-id`.
+In most cases, this allows to associated a stripped binary with its debugging symbols.
+It is used, for example, to dynamically fetch DWARF symbols from a debuginfo server, or
+to query the local package manager and find out the package metadata or, again, the DWARF
+symbols.
+
+However, there are a number of popular use cases where this is insufficient. Think of the
+use-case of systemd-coredump running on a host and collecting cores from applications
+running inside containers of any sort. Unless the host and the containers are running the
+same distribution, which is increasingly unlikely, the host's configured debuginfo will
+not have a record of the binary. And even if the distribution is the same, the binary
+might not necessarily be from the distribution itself, but might be supplied by the
+owner of the container.
+There are also cases where the host runs isolated or air-gapped, and thus it is (intentionally)
+unable to reach a remote server.
+
+When reaching out is not possible, the packaging system local configuration state will
+hold more information - which package the binary came from, the version, and so on.
+But again in the case of a container this only works if there is a match.
+And even if the host and guest match, this relies on the host actually having a package
+manager local state configured, which is increasingly not the case, for example in case
+of minimalistic read-only images that are built and updated by a distro, but as a
+monolithic image that is updated as a single artifact, without any local packaging state
+to save space and memory.
+
+For all these cases, adding additional metadata to a binary at build time might be
+desirable, so that systemd-coredump and other services analyzing core files are able to
+extract said metadata simply from the core file itself, without having to rely on
+external services or tools which might not be available.
+
+## Implementation
+
+This document will attempt to define a common metadata format specification, so that
+multiple implementers might use it when building packages, or core file analyzers, and
+so on.
+
+The metadata will be embedded in a single, new ELF header section, in a key-value JSON
+format. Implementers working on parsing core files should take care in not assuming
+there will only be an hard-coded short list of keys, but parse anything that is
+included in the section.
+Implementers working on build tools should strive to use the same key names, for
+consistency. The most common will be listed here. When corresponding to the content of
+os-release, the values should match, again for consistency.
+
+* Section header
+
+```
+SECTION: `.note.package`
+node-id: `0xcafe1a7e`
+Owner: `FDO` (FreeDesktop.org)
+Value: a JSON string with the structure described below
+```
+
+* JSON payload
+
+```json
+{
+     "packageType":"rpm",          # this provides a namespace for the package+package-version fields
+     "packageDistro":"fedora",
+     "packageDistroVersion":"33",
+     "package":"coreutils",
+     "packageVersion": "4711.0815.fc13.arm32",
+     "cpe":                        # A CPE name for the operating system, `CPE_NAME` from os-release is a good default
+}
+```
+
+A reference implementations of a [build-time tool is provided](https://github.com/keszybz/rpm-version-note/)
+and can be used to generate a linker script, which can then be used at build time via
+```LDFLAGS="-Wl,-T,/path/to/generated/script"``` to include the note in the binary.
+
+Generator:
+```console
+$ ./generate-package-notes.py --rpm systemd-248~rc2-1.fc34
+SECTIONS
+{
+    .note.package : ALIGN(4) {
+        BYTE(0x04) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Owner including NUL */
+        BYTE(0x73) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Value including NUL */
+        BYTE(0x7e) BYTE(0x1a) BYTE(0xfe) BYTE(0xca) /* Note ID */
+        BYTE(0x46) BYTE(0x44) BYTE(0x4f) BYTE(0x00) /* Owner: 'FDO\x00' */
+        BYTE(0x7b) BYTE(0x22) BYTE(0x70) BYTE(0x61) /* Value: '{"packageType":"rpm","package":"systemd","packageVersion":"248~rc2-1.fc34","cpe":"cpe:/o:fedoraproject:fedora:33"}\x00\x00' */
+        BYTE(0x63) BYTE(0x6b) BYTE(0x61) BYTE(0x67)
+        BYTE(0x65) BYTE(0x54) BYTE(0x79) BYTE(0x70)
+        BYTE(0x65) BYTE(0x22) BYTE(0x3a) BYTE(0x22)
+        BYTE(0x72) BYTE(0x70) BYTE(0x6d) BYTE(0x22)
+        BYTE(0x2c) BYTE(0x22) BYTE(0x70) BYTE(0x61)
+        BYTE(0x63) BYTE(0x6b) BYTE(0x61) BYTE(0x67)
+        BYTE(0x65) BYTE(0x22) BYTE(0x3a) BYTE(0x22)
+        BYTE(0x73) BYTE(0x79) BYTE(0x73) BYTE(0x74)
+        BYTE(0x65) BYTE(0x6d) BYTE(0x64) BYTE(0x22)
+        BYTE(0x2c) BYTE(0x22) BYTE(0x70) BYTE(0x61)
+        BYTE(0x63) BYTE(0x6b) BYTE(0x61) BYTE(0x67)
+        BYTE(0x65) BYTE(0x56) BYTE(0x65) BYTE(0x72)
+        BYTE(0x73) BYTE(0x69) BYTE(0x6f) BYTE(0x6e)
+        BYTE(0x22) BYTE(0x3a) BYTE(0x22) BYTE(0x32)
+        BYTE(0x34) BYTE(0x38) BYTE(0x7e) BYTE(0x72)
+        BYTE(0x63) BYTE(0x32) BYTE(0x2d) BYTE(0x31)
+        BYTE(0x2e) BYTE(0x66) BYTE(0x63) BYTE(0x33)
+        BYTE(0x34) BYTE(0x22) BYTE(0x2c) BYTE(0x22)
+        BYTE(0x63) BYTE(0x70) BYTE(0x65) BYTE(0x22)
+        BYTE(0x3a) BYTE(0x22) BYTE(0x63) BYTE(0x70)
+        BYTE(0x65) BYTE(0x3a) BYTE(0x2f) BYTE(0x6f)
+        BYTE(0x3a) BYTE(0x66) BYTE(0x65) BYTE(0x64)
+        BYTE(0x6f) BYTE(0x72) BYTE(0x61) BYTE(0x70)
+        BYTE(0x72) BYTE(0x6f) BYTE(0x6a) BYTE(0x65)
+        BYTE(0x63) BYTE(0x74) BYTE(0x3a) BYTE(0x66)
+        BYTE(0x65) BYTE(0x64) BYTE(0x6f) BYTE(0x72)
+        BYTE(0x61) BYTE(0x3a) BYTE(0x33) BYTE(0x33)
+        BYTE(0x22) BYTE(0x7d) BYTE(0x00) BYTE(0x00)
+    }
+}
+INSERT AFTER .note.gnu.build-id;
+```
