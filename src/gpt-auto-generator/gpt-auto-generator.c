@@ -105,6 +105,7 @@ static int open_parent_block_device(dev_t devnum, int *ret_fd) {
 }
 
 static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
+#if HAVE_LIBCRYPTSETUP
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -182,6 +183,9 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         }
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Partition is encrypted, but the project was compiled without libcryptsetup support");
+#endif
 }
 
 static int add_mount(
