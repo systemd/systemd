@@ -686,6 +686,10 @@ int tpm2_unseal(
 
         assert(pcr_mask < (UINT32_C(1) << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
 
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_error_errno(r, "TPM2 support is not installed.");
+
         /* So here's what we do here: We connect to the TPM2 chip. As we do when sealing we generate a
          * "primary" key on the TPM2 chip, with the same parameters as well as a PCR-bound policy
          * session. Given we pass the same parameters, this will result in the same "primary" key, and same
