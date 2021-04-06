@@ -703,6 +703,7 @@ static int submit_coredump(
                 struct iovec_wrapper *iovw,
                 int input_fd) {
 
+        _cleanup_(json_variant_hashmap_freep) Hashmap *package_metadata = NULL;
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
@@ -757,7 +758,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else
-                coredump_make_stack_trace(coredump_fd, context->meta[META_EXE], &stacktrace);
+                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &package_metadata);
 #endif
 
 log:
@@ -780,6 +781,45 @@ log:
 
         if (truncated)
                 (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+
+        /* If we managed to parse any ELF metadata (build-id, ELF package meta),
+         * attach it as journal metadata using the 'COREDUMP_PKGMETA_<field>=module:value'
+         * format.*/
+        if (!hashmap_isempty(package_metadata)) {
+                JsonVariant *v;
+                char *name;
+
+                HASHMAP_FOREACH_KEY(v, name, package_metadata) {
+                        JsonVariant *w;
+                        const char *k;
+
+                        JSON_VARIANT_OBJECT_FOREACH(k, w, v) {
+                                _cleanup_free_ char *metadata_id = NULL, *metadata_value = NULL, *key_upper = NULL;
+
+                                if (!json_variant_is_string(w))
+                                        continue;
+
+                                /* Journal metadata field names need to be upper case */
+                                key_upper = strdup(k);
+                                if (!key_upper)
+                                        return log_oom();
+                                key_upper = ascii_strupper(key_upper);
+
+                                metadata_id = strjoin("COREDUMP_PKGMETA_", key_upper, "=");
+                                if (!metadata_id)
+                                        return log_oom();
+
+                                /* Prefix the value with the module name, so that users can tell
+                                 * which applies to what, as the dynamically linked libraries
+                                 * will be parsed too.*/
+                                metadata_value = strjoin(name, ":", json_variant_string(w));
+                                if (!metadata_value)
+                                        return log_oom();
+
+                                (void) iovw_put_string_field(iovw, metadata_id, metadata_value);
+                        }
+                }
+        }
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
