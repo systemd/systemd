@@ -225,6 +225,25 @@ static void setup_state_to_color(const char *state, const char **on, const char 
         }
 }
 
+static void online_state_to_color(const char *state, const char **on, const char **off) {
+        if (streq_ptr(state, "online")) {
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
+        } else if (streq_ptr(state, "partial")) {
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
+}
+
 typedef struct VxLanInfo {
         uint32_t vni;
         uint32_t link;
@@ -1514,9 +1533,9 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
-                *setup_state = NULL, *operational_state = NULL, *lease_file = NULL, *activation_policy = NULL;
+                *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *lease_file = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
-                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
+                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -1528,6 +1547,9 @@ static int link_status_one(
 
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
         operational_state_to_color(info->name, operational_state, &on_color_operational, &off_color_operational);
+
+        (void) sd_network_link_get_online_state(info->ifindex, &online_state);
+        online_state_to_color(online_state, &on_color_online, NULL);
 
         r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
         if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
@@ -1610,6 +1632,14 @@ static int link_status_one(
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
                                    on_color_operational, strna(operational_state), off_color_operational,
                                    on_color_setup, strna(setup_state), off_color_setup);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_many(table,
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Online state:",
+                           TABLE_STRING, online_state ?: "unknown",
+                           TABLE_SET_COLOR, on_color_online);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -2272,9 +2302,9 @@ static int link_status_one(
 }
 
 static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
-        _cleanup_free_ char *operational_state = NULL;
+        _cleanup_free_ char *operational_state = NULL, *online_state = NULL;
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
-        const char *on_color_operational;
+        const char *on_color_operational, *on_color_online;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -2283,6 +2313,9 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         (void) sd_network_get_operational_state(&operational_state);
         operational_state_to_color(NULL, operational_state, &on_color_operational, NULL);
+
+        (void) sd_network_get_online_state(&online_state);
+        online_state_to_color(online_state, &on_color_online, NULL);
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -2305,7 +2338,11 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                            TABLE_SET_COLOR, on_color_operational,
                            TABLE_STRING, "State:",
                            TABLE_STRING, strna(operational_state),
-                           TABLE_SET_COLOR, on_color_operational);
+                           TABLE_SET_COLOR, on_color_operational,
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Online state:",
+                           TABLE_STRING, online_state ?: "unknown",
+                           TABLE_SET_COLOR, on_color_online);
         if (r < 0)
                 return table_log_add_error(r);
 
