@@ -74,6 +74,7 @@ int normalize_recovery_key(const char *password, char **ret) {
 int make_recovery_key(char **ret) {
         _cleanup_(erase_and_freep) char *formatted = NULL;
         _cleanup_(erase_and_freep) uint8_t *key = NULL;
+        size_t j = 0;
         int r;
 
         assert(ret);
@@ -91,7 +92,7 @@ int make_recovery_key(char **ret) {
         if (!formatted)
                 return -ENOMEM;
 
-        for (size_t i = 0, j = 0; i < RECOVERY_KEY_MODHEX_RAW_LENGTH; i++) {
+        for (size_t i = 0; i < RECOVERY_KEY_MODHEX_RAW_LENGTH; i++) {
                 formatted[j++] = modhex_alphabet[key[i] >> 4];
                 formatted[j++] = modhex_alphabet[key[i] & 0xF];
 
@@ -99,7 +100,9 @@ int make_recovery_key(char **ret) {
                         formatted[j++] = '-';
         }
 
-        formatted[RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1] = 0;
+        assert(j == RECOVERY_KEY_MODHEX_FORMATTED_LENGTH);
+        assert(formatted[RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1] == '-');
+        formatted[RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1] = 0; /* replace final dash with a NUL */
 
         *ret = TAKE_PTR(formatted);
         return 0;
