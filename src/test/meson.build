@@ -160,7 +160,8 @@ tests += [
 
         [['src/test/test-random-util.c'],
          [],
-         [libm]],
+         [libm],
+         [], '', 'timeout=120'],
 
         [['src/test/test-format-table.c']],
 
