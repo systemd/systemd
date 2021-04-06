@@ -545,7 +545,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
                 *message = NULL, *timestamp = NULL, *filename = NULL,
-                *truncated = NULL, *coredump = NULL;
+                *truncated = NULL, *coredump = NULL,
+                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL;
         const void *d;
         size_t l;
         bool normal_coredump;
@@ -574,6 +575,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
+                RETRIEVE(d, l, "COREDUMP_PKGMETA_PACKAGE", pkgmeta_name);
+                RETRIEVE(d, l, "COREDUMP_PKGMETA_PACKAGEVERSION", pkgmeta_version);
+                RETRIEVE(d, l, "COREDUMP_PKGMETA_JSON", pkgmeta_json);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
                 RETRIEVE(d, l, "MESSAGE", message);
@@ -715,6 +719,33 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file, "       Storage: journal\n");
         else
                 fprintf(file, "       Storage: none\n");
+
+        if (pkgmeta_name && pkgmeta_version)
+                fprintf(file, "       Package: %s/%s\n", pkgmeta_name, pkgmeta_version);
+
+        if (pkgmeta_json) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_parse(pkgmeta_json, 0, &v, NULL, NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "json_parse on %s failed, ignoring: %m", pkgmeta_json);
+                } else {
+                        JsonVariant *w;
+                        const char *k;
+
+                        JSON_VARIANT_OBJECT_FOREACH(k, w, v) {
+                                if (!json_variant_is_string(w))
+                                        continue;
+
+                                if (!streq(k, "buildid"))
+                                        continue;
+
+                                fprintf(file, "      build-id: %s\n", json_variant_string(w));
+
+                                break;
+                        }
+                }
+        }
 
         if (message) {
                 _cleanup_free_ char *m = NULL;
