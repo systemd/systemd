@@ -104,6 +104,7 @@ static int open_parent_block_device(dev_t devnum, int *ret_fd) {
         return 1;
 }
 
+#if HAVE_LIBCRYPTSETUP
 static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -183,6 +184,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
 
         return 0;
 }
+#endif
 
 static int add_mount(
                 const char *id,
@@ -209,6 +211,7 @@ static int add_mount(
 
         log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
+#if HAVE_LIBCRYPTSETUP
         if (streq_ptr(fstype, "crypto_LUKS")) {
                 r = add_cryptsetup(id, what, rw, true, &crypto_what);
                 if (r < 0)
@@ -217,6 +220,7 @@ static int add_mount(
                 what = crypto_what;
                 fstype = NULL;
         }
+#endif
 
         r = unit_name_from_path(where, ".mount", &unit);
         if (r < 0)
@@ -604,7 +608,11 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
+#if HAVE_LIBCRYPTSETUP
         return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
+#endif
+
+        return 0;
 }
 #endif
 
