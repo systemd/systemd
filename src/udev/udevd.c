@@ -67,6 +67,7 @@
 #include "user-util.h"
 
 #define WORKER_NUM_MAX 2048U
+#define UEVENT_MAX_RETRY_TIMES 3
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
@@ -121,6 +122,8 @@ struct event {
         uint64_t seqnum;
         uint64_t delaying_seqnum;
 
+        int retry;
+
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
 
@@ -148,6 +151,32 @@ struct worker {
 /* passed from worker to main process */
 struct worker_message {
 };
+
+static bool event_retry(struct event *event) {
+        if (!event)
+                return false;
+
+        assert(event->manager);
+
+        if (--event->retry < 0) {
+                log_device_error(event->dev, "Retry to processing SEQNUM=%"PRIu64" failed", event->seqnum);
+                return false;
+        }
+
+        log_device_debug(event->dev, "Retry to processing SEQNUM=%"PRIu64" %d times", event->seqnum, UEVENT_MAX_RETRY_TIMES - event->retry);
+
+        event->timeout_warning_event = sd_event_source_unref(event->timeout_warning_event);
+        event->timeout_event = sd_event_source_unref(event->timeout_event);
+
+        if (event->worker) {
+                event->worker->event = NULL;
+                event->worker = NULL;
+        }
+
+        event->state = EVENT_QUEUED;
+
+        return true;
+}
 
 static void event_free(struct event *event) {
         if (!event)
@@ -714,6 +743,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .dev_kernel = TAKE_PTR(clone),
                 .seqnum = seqnum,
                 .state = EVENT_QUEUED,
+                .retry = UEVENT_MAX_RETRY_TIMES,
         };
 
         if (LIST_IS_EMPTY(manager->events)) {
@@ -1379,11 +1409,13 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_delete_db(worker->event->dev);
                         device_tag_index(worker->event->dev, NULL, false);
 
-                        if (manager->monitor) {
-                                /* forward kernel event without amending it */
-                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                                if (r < 0)
-                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                        if (event_retry(worker->event) == false) {
+                                if (manager->monitor) {
+                                        /* forward kernel event without amending it */
+                                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
+                                        if (r < 0)
+                                                log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                                }
                         }
                 }
 
