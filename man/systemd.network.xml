@@ -215,9 +215,9 @@
           <para>Takes a boolean or a minimum operational state and an optional maximum operational state.
           Please see <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for possible operational states. When <literal>yes</literal>, the network is deemed required when
-          determining whether the system is online when running
-          <command>systemd-networkd-wait-online</command>. When <literal>no</literal>, the network is ignored
-          when checking for online state. When a minimum operational state and an optional maximum operational
+          determining whether the system is online (including when running
+          <command>systemd-networkd-wait-online</command>). When <literal>no</literal>, the network is ignored
+          when determining the online state. When a minimum operational state and an optional maximum operational
           state are set, <literal>yes</literal> is implied, and this controls the minimum and maximum
           operational state required for the network interface to be considered online.
           Defaults to <literal>yes</literal>.</para>
