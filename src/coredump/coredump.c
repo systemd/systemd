@@ -703,14 +703,16 @@ static int submit_coredump(
                 struct iovec_wrapper *iovw,
                 int input_fd) {
 
+        _cleanup_(json_variant_unrefp) JsonVariant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
         char *core_message;
+        const char *module_name;
         uint64_t coredump_size = UINT64_MAX;
         bool truncated = false;
+        JsonVariant *module_json;
         int r;
-
         assert(context);
         assert(iovw);
         assert(input_fd >= 0);
@@ -757,7 +759,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else
-                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace);
+                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
 log:
@@ -780,6 +782,67 @@ log:
 
         if (truncated)
                 (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+
+        /* If we managed to parse any ELF metadata (build-id, ELF package meta),
+         * attach it as journal metadata. */
+        if (json_metadata) {
+                _cleanup_free_ char *formatted_json = NULL;
+
+                r = json_variant_format(json_metadata, 0, &formatted_json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON package metadata: %m");
+
+                (void) iovw_put_string_field(iovw, "COREDUMP_PKGMETA_JSON=", formatted_json);
+        }
+
+        JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
+                _cleanup_free_ char *module_basename = NULL, *exe_basename = NULL;
+                const char *key;
+                JsonVariant *w;
+
+                /* The module name, most likely parsed from the ELF core file,
+                 * sometimes contains the full path and sometimes does not. */
+                r = path_extract_filename(module_name, &module_basename);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse module basename: %m");
+                r = path_extract_filename(context->meta[META_EXE], &exe_basename);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse executable basename: %m");
+
+                /* We only add structured fields for the 'main' ELF module */
+                if (!streq(module_basename, exe_basename))
+                        continue;
+
+                /* Cannot nest two JSON_VARIANT_OBJECT_FOREACH as they define the same
+                 * iterator variable '_state' */
+                for (struct json_variant_foreach_state _state2 = { (module_json), 0 };     \
+                     json_variant_is_object(_state2.variant) &&                  \
+                             _state2.idx < json_variant_elements(_state2.variant) && \
+                             ({ key = json_variant_string(json_variant_by_index(_state2.variant, _state2.idx)); \
+                                       w = json_variant_by_index(_state2.variant, _state2.idx + 1); \
+                                       true; });                                  \
+                     _state2.idx += 2) {
+                        _cleanup_free_ char *metadata_id = NULL, *key_upper = NULL;
+
+                        if (!json_variant_is_string(w))
+                                continue;
+
+                        if (!STR_IN_SET(key, "package", "packageVersion"))
+                                continue;
+
+                        /* Journal metadata field names need to be upper case */
+                        key_upper = strdup(key);
+                        if (!key_upper)
+                                return log_oom();
+                        key_upper = ascii_strupper(key_upper);
+
+                        metadata_id = strjoin("COREDUMP_PKGMETA_", key_upper, "=");
+                        if (!metadata_id)
+                                return log_oom();
+
+                        (void) iovw_put_string_field(iovw, metadata_id, json_variant_string(w));
+                }
+        }
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {

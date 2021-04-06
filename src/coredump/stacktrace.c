@@ -324,7 +324,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         return DWARF_CB_OK;
 }
 
-static int parse_core(int fd, const char *executable, char **ret) {
+static int parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
 
         static const Dwfl_Callbacks callbacks = {
                 .find_elf = dwfl_build_id_find_elf,
@@ -394,6 +394,8 @@ static int parse_core(int fd, const char *executable, char **ret) {
         c.f = safe_fclose(c.f);
 
         *ret = TAKE_PTR(buf);
+        if (ret_package_metadata)
+                *ret_package_metadata = TAKE_PTR(package_metadata);
 
         r = 0;
 
@@ -411,10 +413,10 @@ finish:
         return r;
 }
 
-void coredump_parse_core(int fd, const char *executable, char **ret) {
+void coredump_parse_core(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
         int r;
 
-        r = parse_core(fd, executable, ret);
+        r = parse_core(fd, executable, ret, ret_package_metadata);
         if (r == -EINVAL)
                 log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
         else if (r < 0)
