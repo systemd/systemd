@@ -157,7 +157,8 @@ EOF
 ! systemd-tmpfiles --create - <<EOF
 F     /tmp/F/ro-fs/foo    0644 - - - - This string should not be written
 EOF
-test -f /tmp/F/ro-fs/foo; test ! -s /tmp/F/ro-fs/foo
+test -f /tmp/F/ro-fs/foo
+grep -q 'truncating is not allowed' /tmp/F/ro-fs/foo
 
 # Trying to change the perms should fail.
 >/tmp/F/rw-fs/foo
