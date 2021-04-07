@@ -177,6 +177,11 @@ int generator_write_fsck_deps(
         if (path_equal(where, "/")) {
                 const char *lnk;
 
+                /* We support running the fsck instance for the root fs while it is already mounted, for
+                 * compatibility with non-initrd boots. It's ugly, but it is how it is. Since – unlike for
+                 * regular file systems – this means the ordering is reversed (i.e. mount *before* fsck) we
+                 * have a separate fsck unit for this, independent of systemd-fsck@.service. */
+
                 lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
                 (void) mkdir_parents(lnk, 0755);
