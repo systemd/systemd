@@ -96,21 +96,17 @@ static int print_status_info(const StatusInfo *i) {
         } else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
-        if (have_time)
-                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-
+        n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) : 0;
         r = table_add_many(table,
                            TABLE_STRING, "Local time:",
-                           TABLE_STRING, have_time && n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
-        if (have_time)
-                n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-
+        n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) : 0;
         r = table_add_many(table,
                            TABLE_STRING, "Universal time:",
-                           TABLE_STRING, have_time && n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -119,25 +115,22 @@ static int print_status_info(const StatusInfo *i) {
 
                 rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
-        }
-
+        } else
+                n = 0;
         r = table_add_many(table,
                            TABLE_STRING, "RTC time:",
-                           TABLE_STRING, i->rtc_time > 0 && n > 0 ? a : "n/a");
+                           TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
-
-        if (have_time)
-                n = strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm));
 
         r = table_add_cell(table, NULL, TABLE_STRING, "Time zone:");
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), have_time && n > 0 ? a : "n/a");
+        n = have_time ? strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm)) : 0;
+        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
-
 
         /* Restore the $TZ */
         r = set_unset_env("TZ", old_tz, true);
