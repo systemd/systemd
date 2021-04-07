@@ -263,16 +263,18 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors,
-    missing arguments, …), so some lines had to be ignored, but no other errors occurred,
-    <constant>65</constant> is returned (<constant>EX_DATAERR</constant> from
-    <filename>/usr/include/sysexits.h</filename>). If the configuration was syntactically valid, but
-    could not be executed (lack of permissions, creation of files in missing directories, invalid
-    contents when writing to <filename>/sys/</filename> values, …), <constant>73</constant> is
-    returned (<constant>EX_CANTCREAT</constant> from <filename>/usr/include/sysexits.h</filename>).
-    Otherwise, <constant>1</constant> is returned (<constant>EXIT_FAILURE</constant> from
-    <filename>/usr/include/stdlib.h</filename>).
-    </para>
+    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors, missing
+    arguments, …), so some lines had to be ignored, but no other errors occurred, <constant>65</constant> is
+    returned (<constant>EX_DATAERR</constant> from <filename>/usr/include/sysexits.h</filename>). If the
+    configuration was syntactically valid, but could not be executed (lack of permissions, creation of files
+    in missing directories, invalid contents when writing to <filename>/sys/</filename> values, …),
+    <constant>73</constant> is returned (<constant>EX_CANTCREAT</constant> from
+    <filename>/usr/include/sysexits.h</filename>). Otherwise, <constant>1</constant> is returned
+    (<constant>EXIT_FAILURE</constant> from <filename>/usr/include/stdlib.h</filename>).</para>
+
+    <para>Note: when creating items, if the target already exists, but is of the wrong type or otherwise does
+    not match the requested state, and forced operation has not been requested with <literal>+</literal>,
+    a message is emitted, but the failure is otherwise ignored.</para>
   </refsect1>
 
   <refsect1>
