@@ -575,9 +575,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
-                RETRIEVE(d, l, "COREDUMP_PKGMETA_PACKAGE", pkgmeta_name);
-                RETRIEVE(d, l, "COREDUMP_PKGMETA_PACKAGEVERSION", pkgmeta_version);
-                RETRIEVE(d, l, "COREDUMP_PKGMETA_JSON", pkgmeta_json);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_NAME", pkgmeta_name);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_VERSION", pkgmeta_version);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_JSON", pkgmeta_json);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
                 RETRIEVE(d, l, "MESSAGE", message);
@@ -729,53 +729,22 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                 r = json_parse(pkgmeta_json, 0, &v, NULL, NULL);
-                if (r < 0) {
+                if (r < 0)
                         log_warning_errno(r, "json_parse on %s failed, ignoring: %m", pkgmeta_json);
-                } else {
+                else {
                         const char *module_name;
                         JsonVariant *module_json;
 
-                        /* Cannot nest two JSON_VARIANT_OBJECT_FOREACH as they define the same
-                        * iterator variable '_state' */
-                        for (struct json_variant_foreach_state _state2 = { (v), 0 };     \
-                             json_variant_is_object(_state2.variant) &&                  \
-                                     _state2.idx < json_variant_elements(_state2.variant) && \
-                                     ({ module_name = json_variant_string(json_variant_by_index(_state2.variant, _state2.idx)); \
-                                        module_json = json_variant_by_index(_state2.variant, _state2.idx + 1); \
-                                        true; });                                  \
-                             _state2.idx += 2) {
-                                _cleanup_free_ char *module_basename = NULL, *exe_basename = NULL;
-                                const char *key;
-                                JsonVariant *w;
-
-                                /* The module name, most likely parsed from the ELF core file,
-                                 * sometimes contains the full path and sometimes does not. */
-                                r = path_extract_filename(module_name, &module_basename);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to parse module basename: %m");
-                                        break;
-                                }
-                                r = path_extract_filename(exe, &exe_basename);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to parse executable basename: %m");
-                                        break;
-                                }
+                        JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, v) {
+                                JsonVariant *build_id;
 
                                 /* We only print the build-id for the 'main' ELF module */
-                                if (!streq(module_basename, exe_basename))
+                                if (!path_equal_filename(module_name, exe))
                                         continue;
 
-                                JSON_VARIANT_OBJECT_FOREACH(key, w, module_json) {
-                                        if (!json_variant_is_string(w))
-                                                continue;
-
-                                        if (!streq(key, "buildid"))
-                                                continue;
-
-                                        fprintf(file, "      build-id: %s\n", json_variant_string(w));
-
-                                        break;
-                                }
+                                build_id = json_variant_by_key(module_json, "buildId");
+                                if (build_id)
+                                        fprintf(file, "      build-id: %s\n", json_variant_string(build_id));
 
                                 break;
                         }

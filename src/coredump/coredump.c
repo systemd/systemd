@@ -792,56 +792,23 @@ log:
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON package metadata: %m");
 
-                (void) iovw_put_string_field(iovw, "COREDUMP_PKGMETA_JSON=", formatted_json);
+                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_JSON=", formatted_json);
         }
 
         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
-                _cleanup_free_ char *module_basename = NULL, *exe_basename = NULL;
-                const char *key;
-                JsonVariant *w;
-
-                /* The module name, most likely parsed from the ELF core file,
-                 * sometimes contains the full path and sometimes does not. */
-                r = path_extract_filename(module_name, &module_basename);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse module basename: %m");
-                r = path_extract_filename(context->meta[META_EXE], &exe_basename);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse executable basename: %m");
+                JsonVariant *package_name, *package_version;
 
                 /* We only add structured fields for the 'main' ELF module */
-                if (!streq(module_basename, exe_basename))
+                if (!path_equal_filename(module_name, context->meta[META_EXE]))
                         continue;
 
-                /* Cannot nest two JSON_VARIANT_OBJECT_FOREACH as they define the same
-                 * iterator variable '_state' */
-                for (struct json_variant_foreach_state _state2 = { (module_json), 0 };     \
-                     json_variant_is_object(_state2.variant) &&                  \
-                             _state2.idx < json_variant_elements(_state2.variant) && \
-                             ({ key = json_variant_string(json_variant_by_index(_state2.variant, _state2.idx)); \
-                                       w = json_variant_by_index(_state2.variant, _state2.idx + 1); \
-                                       true; });                                  \
-                     _state2.idx += 2) {
-                        _cleanup_free_ char *metadata_id = NULL, *key_upper = NULL;
+                package_name = json_variant_by_key(module_json, "name");
+                if (package_name)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", json_variant_string(package_name));
 
-                        if (!json_variant_is_string(w))
-                                continue;
-
-                        if (!STR_IN_SET(key, "package", "packageVersion"))
-                                continue;
-
-                        /* Journal metadata field names need to be upper case */
-                        key_upper = strdup(key);
-                        if (!key_upper)
-                                return log_oom();
-                        key_upper = ascii_strupper(key_upper);
-
-                        metadata_id = strjoin("COREDUMP_PKGMETA_", key_upper, "=");
-                        if (!metadata_id)
-                                return log_oom();
-
-                        (void) iovw_put_string_field(iovw, metadata_id, json_variant_string(w));
-                }
+                package_version =  json_variant_by_key(module_json, "version");
+                if (package_version)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", json_variant_string(package_version));
         }
 
         /* Optionally store the entire coredump in the journal */
