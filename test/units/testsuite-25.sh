@@ -34,7 +34,7 @@ cmp /var/tmp/testimage.raw /var/lib/machines/testimage3.raw
 
 # Test removal
 machinectl remove testimage
-! test -f /var/lib/machines/testimage.raw
+test ! -f /var/lib/machines/testimage.raw
 ! machinectl image-status testimage
 
 # Test export of clone
@@ -46,7 +46,7 @@ rm /var/tmp/testimage3.raw
 machinectl rename testimage3 testimage4
 test -f /var/lib/machines/testimage4.raw
 machinectl image-status testimage4
-! test -f /var/lib/machines/testimage3.raw
+test ! -f /var/lib/machines/testimage3.raw
 ! machinectl image-status testimage3
 cmp /var/tmp/testimage.raw /var/lib/machines/testimage4.raw
 
@@ -57,7 +57,7 @@ rm /var/tmp/testimage4.raw
 
 # Test removal
 machinectl remove testimage4
-! test -f /var/lib/machines/testimage4.raw
+test ! -f /var/lib/machines/testimage4.raw
 ! machinectl image-status testimage4
 
 # → And now, let's test directory trees ← #
@@ -90,7 +90,7 @@ diff -r /var/tmp/scratch/ /var/lib/machines/scratch2
 
 # Test removal
 machinectl remove scratch
-! test -f /var/lib/machines/scratch
+test ! -f /var/lib/machines/scratch
 ! machinectl image-status scratch
 
 # Test clone
@@ -103,20 +103,20 @@ diff -r /var/tmp/scratch/ /var/lib/machines/scratch3
 
 # Test removal
 machinectl remove scratch2
-! test -f /var/lib/machines/scratch2
+test ! -f /var/lib/machines/scratch2
 ! machinectl image-status scratch2
 
 # Test rename
 machinectl rename scratch3 scratch4
 test -d /var/lib/machines/scratch4
 machinectl image-status scratch4
-! test -f /var/lib/machines/scratch3
+test ! -f /var/lib/machines/scratch3
 ! machinectl image-status scratch3
 diff -r /var/tmp/scratch/ /var/lib/machines/scratch4
 
 # Test removal
 machinectl remove scratch4
-! test -f /var/lib/machines/scratch4
+test ! -f /var/lib/machines/scratch4
 ! machinectl image-status scratch4
 
 # Test import-tar hyphen/stdin pipe behavior
@@ -135,7 +135,7 @@ rm -rf /var/tmp/scratch
 
 # Test removal
 machinectl remove scratch5
-! test -f /var/lib/machines/scratch5
+test ! -f /var/lib/machines/scratch5
 ! machinectl image-status scratch5
 
 echo OK > /testok

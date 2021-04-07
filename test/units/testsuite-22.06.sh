@@ -18,8 +18,8 @@ test -d /var/tmp/foobar-test-06
 test -d /var/tmp/foobar-test-06/important
 
 test_snippet --remove
-! test -f /var/tmp/foobar-test-06
-! test -f /var/tmp/foobar-test-06/important
+test ! -f /var/tmp/foobar-test-06
+test ! -f /var/tmp/foobar-test-06/important
 
 test_snippet --create
 test -d /var/tmp/foobar-test-06
@@ -35,4 +35,4 @@ test -f /var/tmp/foobar-test-06/something-else
 test_snippet --create --remove
 test -d /var/tmp/foobar-test-06
 test -d /var/tmp/foobar-test-06/important
-! test -f /var/tmp/foobar-test-06/something-else
+test ! -f /var/tmp/foobar-test-06/something-else

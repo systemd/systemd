@@ -63,7 +63,7 @@ e     /tmp/e/1     0755 daemon daemon - -
 e     /tmp/e/2/*   0755 daemon daemon - -
 EOF
 
-! test -d /tmp/e/1
+test ! -d /tmp/e/1
 
 test -d /tmp/e/2
 test $(stat -c %U:%G:%a /tmp/e/2) = "root:root:777"
