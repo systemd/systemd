@@ -182,7 +182,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                                 fputc('\n', c->f);
 
                                 /* Secondly, if we have a build-id, merge it in the same JSON object
-                                 * so that it apperas all nicely together in the logs/metadata. */
+                                 * so that it appears all nicely together in the logs/metadata. */
                                 if (id_json) {
                                         r = json_variant_merge(&v, id_json);
                                         if (r < 0) {
