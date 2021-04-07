@@ -291,6 +291,9 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: %s", attr);
 
+        if (function_id == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid function_id, ignoring.");
+
         if (!snprintf_ok(path, sizeof path, "%s/%08x/", slots, function_id))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG), "PCI slot path is too long, ignoring.");
 
