@@ -23,6 +23,7 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -262,6 +263,43 @@ static bool is_pci_bridge(sd_device *dev) {
         return strneq(p + 2, "04", 2);
 }
 
+static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots, int *ret) {
+        char path[PATH_MAX];
+        const char *attr;
+        int function_id, r;
+
+        /* The <sysname>/function_id attribute is unique to the s390 PCI driver. If present, we know
+         * that the slot's directory name for this device is /sys/bus/pci/XXXXXXXX/ where XXXXXXXX is
+         * the fixed length 8 hexadecimal character string representation of function_id. Therefore we
+         * can short cut here and just check for the existence of the slot directory. As this directory
+         * has to exist, we're emitting a debug message for the unlikely case it's not found. Note that
+         * the domain part doesn't belong to the slot name here because there's a 1-to-1 relationship
+         * between PCI function and its hotplug slot. */
+
+        assert(dev);
+        assert(slots);
+        assert(ret);
+
+        if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID))
+                return 0;
+
+        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0)
+                return 0;
+
+        r = safe_atoi(attr, &function_id);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: %s", attr);
+
+        if (!snprintf_ok(path, sizeof path, "%s/%08x/", slots, function_id))
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG), "PCI slot path is too long, ignoring.");
+
+        if (access(path, F_OK) < 0)
+                return log_device_debug_errno(dev, errno, "Cannot access %s, ignoring: %m", path);
+
+        *ret = function_id;
+        return 1;
+}
+
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         unsigned long dev_port = 0;
         unsigned domain, bus, slot, func;
@@ -342,34 +380,16 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
-                if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
-                        continue;
-
-                /*  The <sysname>/function_id attribute is unique to the s390 PCI driver.
-                    If present, we know that the slot's directory name for this device is
-                    /sys/bus/pci/XXXXXXXX/ where XXXXXXXX is the fixed length 8 hexadecimal
-                    character string representation of function_id.
-                    Therefore we can short cut here and just check for the existence of
-                    the slot directory. As this directory has to exist, we're emitting a
-                    debug message for the unlikely case it's not found.
-                    Note that the domain part of doesn't belong to the slot name here
-                    because there's a 1-to-1 relationship between PCI function and its hotplug
-                    slot.
-                 */
-                if (naming_scheme_has(NAMING_SLOT_FUNCTION_ID) &&
-                    sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &attr) >= 0) {
-                        _cleanup_free_ char *str = NULL;
-                        int function_id;
-
-                        if (safe_atoi(attr, &function_id) >= 0 &&
-                            asprintf(&str, "%s/%08x/", slots, function_id) >= 0 &&
-                            access(str, F_OK) == 0) {
-                                hotplug_slot = function_id;
-                                domain = 0;
-                        } else
-                                log_debug("No matching slot for function_id (%s).", attr);
+                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, slots, &hotplug_slot);
+                if (r < 0)
+                        return 0;
+                if (r > 0) {
+                        domain = 0; /* See comments in parse_hotplug_slot_from_function_id(). */
                         break;
                 }
+
+                if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
+                        continue;
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
                         int i;
