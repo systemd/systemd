@@ -4,6 +4,7 @@ AllowedCPUs=
 AllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
+BPFProgram=
 BindPaths=
 BindReadOnlyPaths=
 BlockIOAccounting=
