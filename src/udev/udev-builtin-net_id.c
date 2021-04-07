@@ -358,8 +358,8 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                  */
                 if (naming_scheme_has(NAMING_SLOT_FUNCTION_ID) &&
                     sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &attr) >= 0) {
+                        _cleanup_free_ char *str = NULL;
                         int function_id;
-                        _cleanup_free_ char *str;
 
                         if (safe_atoi(attr, &function_id) >= 0 &&
                             asprintf(&str, "%s/%08x/", slots, function_id) >= 0 &&
