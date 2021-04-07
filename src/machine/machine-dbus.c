@@ -331,12 +331,12 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r != EXIT_SUCCESS)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 break;
         }
 
         default:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting IP address data is only supported on container machines.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting IP address data is only supported on container machines.");
         }
 
         r = sd_bus_message_close_container(reply);
@@ -415,15 +415,15 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r == EXIT_NOT_FOUND)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
                 if (r != EXIT_SUCCESS)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 break;
         }
 
         default:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
         }
 
         return bus_reply_pair_array(message, l);
@@ -628,7 +628,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         if (!strv_env_is_valid(env))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
         const char *details[] = {
                 "machine", m->name,
@@ -820,19 +820,19 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         assert(m);
 
         if (m->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
 
         r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_file_or_directory);
         if (r < 0)
                 return r;
 
         if (!path_is_absolute(src) || !path_is_normalized(src))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized.");
 
         if (isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -852,7 +852,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         if (uid != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
 
         propagate_directory = strjoina("/run/systemd/nspawn/propagate/", m->name);
         r = bind_mount_in_namespace(m->leader,
@@ -881,22 +881,22 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         assert(m);
 
         if (m->manager->n_operations >= OPERATIONS_MAX)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");
 
         if (m->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Copying files is only supported on container machines.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Copying files is only supported on container machines.");
 
         r = sd_bus_message_read(message, "ss", &src, &dest);
         if (r < 0)
                 return r;
 
         if (!path_is_absolute(src))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
 
         if (isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -1074,7 +1074,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r != EXIT_SUCCESS)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 fd = receive_one_fd(pair[0], MSG_DONTWAIT);
                 if (fd < 0)
@@ -1084,7 +1084,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         }
 
         default:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening the root directory is only supported on container machines.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening the root directory is only supported on container machines.");
         }
 
         return sd_bus_reply_method_return(message, "h", fd);
@@ -1105,7 +1105,7 @@ int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd
                 return sd_bus_reply_method_return(message, "u", UINT32_C(0));
 
         if (m->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "UID/GID shift may only be determined for container machines.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "UID/GID shift may only be determined for container machines.");
 
         r = machine_get_uid_shift(m, &shift);
         if (r == -ENXIO)

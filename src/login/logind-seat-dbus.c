@@ -206,7 +206,7 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (to <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid virtual terminal");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid virtual terminal");
 
         r = check_polkit_chvt(message, s->manager, error);
         if (r < 0)

@@ -183,7 +183,7 @@ static int timer_add_one_calendar_spec(
 
         r = calendar_spec_from_string(str, &c);
         if (r == -EINVAL)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
         if (r < 0)
                 return r;
 

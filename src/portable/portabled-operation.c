@@ -20,14 +20,14 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         o->pid = 0;
 
         if (si->si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
+                r = sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 goto fail;
         }
 
         if (si->si_status == EXIT_SUCCESS)
                 r = 0;
         else if (read(o->errno_fd, &r, sizeof(r)) != sizeof(r)) { /* Try to acquire error code for failed operation */
-                r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child failed.");
+                r = sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Child failed.");
                 goto fail;
         }
 
