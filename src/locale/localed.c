@@ -399,7 +399,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         r = locale_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read locale data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read locale data");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read locale data");
         }
 
         /* Merge with the current settings */
@@ -673,7 +673,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         r = x11_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
         if (streq_ptr(layout, c->x11_layout) &&
@@ -686,7 +686,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
             (model && !string_is_safe(model)) ||
             (variant && !string_is_safe(variant)) ||
             (options && !string_is_safe(options)))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
         r = verify_xkb_rmlvo(model, layout, variant, options);
         if (r < 0) {
@@ -694,7 +694,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                                 strempty(model), strempty(layout), strempty(variant), strempty(options));
 
                 if (r == -EOPNOTSUPP)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
 
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
         }

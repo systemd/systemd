@@ -299,7 +299,7 @@ static int validate_and_mangle_flags(
                        SD_RESOLVED_NO_TRUST_ANCHOR|
                        SD_RESOLVED_NO_NETWORK|
                        ok))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
                 *flags |= SD_RESOLVED_PROTOCOLS_ALL;
@@ -420,7 +420,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
                 return r;
 
         if (ifindex < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
@@ -581,7 +581,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
                 return r;
 
         if (ifindex < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         r = validate_and_mangle_flags(NULL, &flags, 0, error);
         if (r < 0)
@@ -738,7 +738,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
                 return r;
 
         if (ifindex < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         r = dns_name_is_valid(name);
         if (r < 0)
@@ -749,7 +749,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (!dns_type_is_valid_query(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified resource record type %" PRIu16 " may not be used in a query.", type);
         if (dns_type_is_zone_transer(type))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Zone transfers not permitted via this programming interface.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Zone transfers not permitted via this programming interface.");
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
 
@@ -1267,7 +1267,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
                 return r;
 
         if (ifindex < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
@@ -1289,7 +1289,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid domain '%s'", domain);
 
         if (name && !type)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Service name cannot be specified without service type.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Service name cannot be specified without service type.");
 
         r = validate_and_mangle_flags(name, &flags, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS, error);
         if (r < 0)
@@ -1861,7 +1861,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         assert(m);
 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
         service = new0(DnssdService, 1);
         if (!service)
@@ -1928,7 +1928,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                                 return r;
 
                         if (isempty(key))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Keys in DNS-SD TXT RRs can't be empty");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Keys in DNS-SD TXT RRs can't be empty");
 
                         if (!ascii_is_valid(key))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TXT key '%s' contains non-ASCII symbols", key);

@@ -1457,7 +1457,7 @@ int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus
         if (r < 0)
                 return r;
         if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_KEY, "Can't sign without local key.");
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRIVATE_KEY, "Can't sign without local key.");
 
         return user_record_sign(u, m->private_key, ret);
 }
