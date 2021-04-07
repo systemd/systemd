@@ -23,9 +23,9 @@ test -d /tmp/root/test2
 # unprivileged user's directory when it's not part of the prefix, as expected
 # by the unsafe_transition function.
 ! echo 'd /tmp/user/root/test' | systemd-tmpfiles --create -
-! test -e /tmp/user/root/test
+test ! -e /tmp/user/root/test
 ! echo 'd /user/root/test' | systemd-tmpfiles --root=/tmp --create -
-! test -e /tmp/user/root/test
+test ! -e /tmp/user/root/test
 
 # Verify the above works when all user-owned directories are in the prefix.
 echo 'd /test' | systemd-tmpfiles --root=/tmp/user/root --create -
