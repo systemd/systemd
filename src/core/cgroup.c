@@ -305,8 +305,7 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         if (!FLAGS_SET(m, CGROUP_MASK_MEMORY))
                 return -ENODATA;
 
-        c = unit_get_cgroup_context(u);
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         if (streq(property_name, "MemoryLow")) {
                 unit_value = unit_get_ancestor_memory_low(u);
@@ -407,8 +406,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         assert(u);
         assert(f);
 
-        c = unit_get_cgroup_context(u);
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         prefix = strempty(prefix);
 
@@ -1071,8 +1069,7 @@ static bool unit_has_unified_memory_config(Unit *u) {
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         return unit_get_ancestor_memory_min(u) > 0 || unit_get_ancestor_memory_low(u) > 0 ||
                c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX ||
@@ -1597,9 +1594,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         /* Figure out which controllers we need, based on the cgroup context object */
 
