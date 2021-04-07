@@ -19,9 +19,11 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "device-nodes.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "udev-util.h"
 
@@ -91,50 +93,6 @@ static void set_type(const char *from, char *to, size_t len) {
 }
 
 /*
- * get_value:
- *
- * buf points to an '=' followed by a quoted string ("foo") or a string ending
- * with a space or ','.
- *
- * Return a pointer to the NUL terminated string, returns NULL if no
- * matches.
- */
-static char *get_value(char **buffer) {
-        static const char *quote_string = "\"\n";
-        static const char *comma_string = ",\n";
-        char *val;
-        const char *end;
-
-        if (**buffer == '"') {
-                /*
-                 * skip leading quote, terminate when quote seen
-                 */
-                (*buffer)++;
-                end = quote_string;
-        } else
-                end = comma_string;
-        val = strsep(buffer, end);
-        if (val && end == quote_string)
-                /*
-                 * skip trailing quote
-                 */
-                (*buffer)++;
-
-        while (isspace(**buffer))
-                (*buffer)++;
-
-        return val;
-}
-
-static int argc_count(char *opts) {
-        int i = 0;
-        while (*opts != '\0')
-                if (*opts++ == ' ')
-                        i++;
-        return i;
-}
-
-/*
  * get_file_options:
  *
  * If vendor == NULL, find a line in the config file with only "OPTIONS=";
@@ -145,13 +103,12 @@ static int argc_count(char *opts) {
  */
 static int get_file_options(const char *vendor, const char *model,
                             int *argc, char ***newargv) {
-        _cleanup_free_ char *buffer = NULL;
+        _cleanup_free_ char *buffer = NULL,
+                *vendor_in = NULL, *model_in = NULL, *options_in = NULL; /* read in from file */
+        _cleanup_strv_free_ char **options_argv = NULL;
         _cleanup_fclose_ FILE *f;
-        char *buf;
-        char *str1;
-        char *vendor_in, *model_in, *options_in; /* read in from file */
-        int lineno;
-        int c;
+        const char *buf;
+        int lineno, r;
         int retval = 0;
 
         f = fopen(config_file, "re");
@@ -176,6 +133,8 @@ static int get_file_options(const char *vendor, const char *model,
         *newargv = NULL;
         lineno = 0;
         for (;;) {
+                _cleanup_free_ char *key = NULL, *value = NULL;
+
                 vendor_in = model_in = options_in = NULL;
 
                 buf = fgets(buffer, MAX_BUFFER_LEN, f);
@@ -198,35 +157,37 @@ static int get_file_options(const char *vendor, const char *model,
                 if (*buf == '#')
                         continue;
 
-                str1 = strsep(&buf, "=");
-                if (str1 && strcaseeq(str1, "VENDOR")) {
-                        str1 = get_value(&buf);
-                        if (!str1) {
-                                retval = log_oom();
+                r = extract_many_words(&buf, "=\",\n", 0, &key, &value, NULL);
+                if (r < 2) {
+                        log_error("Error parsing config file line %d '%s'", lineno, buffer);
+                        retval = -1;
+                        break;
+                }
+                if (strcaseeq(key, "VENDOR")) {
+                        vendor_in = TAKE_PTR(value);
+
+                        key = mfree(key);
+                        r = extract_many_words(&buf, "=\",\n", 0, &key, &value, NULL);
+                        if (r < 2) {
+                                log_error("Error parsing config file line %d '%s'", lineno, buffer);
+                                retval = -1;
                                 break;
                         }
-                        vendor_in = str1;
+                        if (strcaseeq(key, "MODEL")) {
+                                model_in = TAKE_PTR(value);
 
-                        str1 = strsep(&buf, "=");
-                        if (str1 && strcaseeq(str1, "MODEL")) {
-                                str1 = get_value(&buf);
-                                if (!str1) {
-                                        retval = log_oom();
+                                key = mfree(key);
+                                r = extract_many_words(&buf, "=\",\n", 0, &key, &value, NULL);
+                                if (r < 2) {
+                                        log_error("Error parsing config file line %d '%s'", lineno, buffer);
+                                        retval = -1;
                                         break;
                                 }
-                                model_in = str1;
-                                str1 = strsep(&buf, "=");
                         }
                 }
 
-                if (str1 && strcaseeq(str1, "OPTIONS")) {
-                        str1 = get_value(&buf);
-                        if (!str1) {
-                                retval = log_oom();
-                                break;
-                        }
-                        options_in = str1;
-                }
+                if (strcaseeq(key, "OPTIONS"))
+                        options_in = TAKE_PTR(value);
 
                 /*
                  * Only allow: [vendor=foo[,model=bar]]options=stuff
@@ -253,37 +214,26 @@ static int get_file_options(const char *vendor, const char *model,
                 }
         }
 
-        if (retval == 0) {
-                if (vendor_in != NULL || model_in != NULL ||
-                    options_in != NULL) {
-                        /*
-                         * Something matched. Allocate newargv, and store
-                         * values found in options_in.
-                         */
-                        strcpy(buffer, options_in);
-                        c = argc_count(buffer) + 2;
-                        *newargv = calloc(c, sizeof(**newargv));
-                        if (!*newargv)
-                                retval = log_oom();
-                        else {
-                                *argc = c;
-                                c = 0;
-                                /*
-                                 * argv[0] at 0 is skipped by getopt, but
-                                 * store the buffer address there for
-                                 * later freeing
-                                 */
-                                (*newargv)[c] = buffer;
-                                for (c = 1; c < *argc; c++)
-                                        (*newargv)[c] = strsep(&buffer, " \t");
-                                buffer = NULL;
-                        }
-                } else {
-                        /* No matches  */
-                        retval = 1;
-                }
-        }
-        return retval;
+        if (retval != 0)
+                return retval;
+
+        if (vendor_in == NULL && model_in == NULL && options_in == NULL)
+                return 1; /* No matches  */
+
+        /*
+        * Something matched. Allocate newargv, and store
+        * values found in options_in.
+        */
+        options_argv = strv_split(options_in, " \t");
+        if (!options_argv)
+                return log_oom();
+        r = strv_prepend(&options_argv, ""); /* getopt skips over argv[0] */
+        if (r < 0)
+                return r;
+        *newargv = TAKE_PTR(options_argv);
+        *argc = strv_length(*newargv);
+
+        return 0;
 }
 
 static void help(void) {
@@ -391,9 +341,9 @@ static int set_options(int argc, char **argv,
 }
 
 static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *page_code) {
+        _cleanup_strv_free_ char **newargv = NULL;
         int retval;
         int newargc;
-        char **newargv = NULL;
         int option;
 
         *good_bad = all_good;
@@ -436,10 +386,6 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
                 }
         }
 
-        if (newargv) {
-                free(newargv[0]);
-                free(newargv);
-        }
         return retval;
 }
 
@@ -543,10 +489,10 @@ out:
 }
 
 int main(int argc, char **argv) {
+        _cleanup_strv_free_ char **newargv = NULL;
         int retval = 0;
         char maj_min_dev[MAX_PATH_LEN];
         int newargc;
-        char **newargv = NULL;
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
@@ -585,10 +531,6 @@ int main(int argc, char **argv) {
         retval = scsi_id(maj_min_dev);
 
 exit:
-        if (newargv) {
-                free(newargv[0]);
-                free(newargv);
-        }
         log_close();
         return retval;
 }
