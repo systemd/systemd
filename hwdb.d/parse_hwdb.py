@@ -101,7 +101,7 @@ def hwdb_grammar():
     matchline = (matchline_typed | matchline_general) + EOL
 
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "'))
+                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/'))
                             - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
