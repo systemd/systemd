@@ -4907,6 +4907,7 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data_size = 0;
 
         c->network_namespace_path = mfree(c->network_namespace_path);
+        c->ipc_namespace_path = mfree(c->ipc_namespace_path);
 
         c->log_namespace = mfree(c->log_namespace);
 
