@@ -792,7 +792,7 @@ log:
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON package metadata: %m");
 
-                (void) iovw_put_string_field(iovw, "COREDUMP_PKGMETA_JSON=", formatted_json);
+                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_JSON=", formatted_json);
         }
 
         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
@@ -822,7 +822,6 @@ log:
                                        w = json_variant_by_index(_state2.variant, _state2.idx + 1); \
                                        true; });                                  \
                      _state2.idx += 2) {
-                        _cleanup_free_ char *metadata_id = NULL, *key_upper = NULL;
 
                         if (!json_variant_is_string(w))
                                 continue;
@@ -830,17 +829,9 @@ log:
                         if (!STR_IN_SET(key, "package", "packageVersion"))
                                 continue;
 
-                        /* Journal metadata field names need to be upper case */
-                        key_upper = strdup(key);
-                        if (!key_upper)
-                                return log_oom();
-                        key_upper = ascii_strupper(key_upper);
-
-                        metadata_id = strjoin("COREDUMP_PKGMETA_", key_upper, "=");
-                        if (!metadata_id)
-                                return log_oom();
-
-                        (void) iovw_put_string_field(iovw, metadata_id, json_variant_string(w));
+                        (void) iovw_put_string_field(iovw,
+                                                     streq(key, "package") ? "COREDUMP_PACKAGE_NAME=" : "COREDUMP_PACKAGE_VERSION=",
+                                                     json_variant_string(w));
                 }
         }
 

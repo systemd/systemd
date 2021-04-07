@@ -575,9 +575,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
-                RETRIEVE(d, l, "COREDUMP_PKGMETA_PACKAGE", pkgmeta_name);
-                RETRIEVE(d, l, "COREDUMP_PKGMETA_PACKAGEVERSION", pkgmeta_version);
-                RETRIEVE(d, l, "COREDUMP_PKGMETA_JSON", pkgmeta_json);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_NAME", pkgmeta_name);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_VERSION", pkgmeta_version);
+                RETRIEVE(d, l, "COREDUMP_PACKAGE_JSON", pkgmeta_json);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
                 RETRIEVE(d, l, "MESSAGE", message);
