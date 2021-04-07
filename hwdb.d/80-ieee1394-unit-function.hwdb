@@ -1,0 +1,38 @@
+# This file is part of systemd.
+
+# Description
+#
+# Each node on IEEE 1394 bus has configuration ROM with information for identification. Although the
+# typical content of configuration ROM is defined by 1394 Trading Association, many nodes have own
+# quirks. This database includes supplemental information to unit in the node.
+
+# Convention
+#
+# One entry has two keys. One is customized key to match a node. Another is for kernel alias to
+# match an unit included in the node.
+#
+# The customized key has two formats according to whether the node has model attribute:
+#  - ven0x000000mo0x000000units0x000000:0x000000
+#  - ven0x000000units0x000000:0x000000
+#
+# Even when the node has multiple units, the entry should match to one of the units. In the case,
+# the customized key should have wild pattern for units field:
+#  - ven0x000000mo0x000000units*0x000000:0x000000*
+#  - ven0x000000units*0x000000:0x000000*
+#
+# The hexadecimal digits part of the customized key should be lower-case. Linux FireWire subsystem
+# uses lower-case value for attributes of sysfs node, and systemd-hwdb parses the custom key by
+# case-sensitive way. On the other hand, it parses kernel alias by case-insensitive way.
+#
+# The entry should have some of IEEE1394_UNIT_FUNCTION_XXX environment variables to express function
+# of the unit. The variables are used to decide group owner of special file for character device
+# corresponding to node including the unit. At present, below variables are supported:
+#  - IEEE1394_UNIT_FUNCTION_MIDI
+#    - For any unit to process MIDI messages. For example, the unit includes AV/C music subunit.
+#  - IEEE1394_UNIT_FUNCTION_AUDIO
+#    - For any unit to process audio signal. For example, the unit includes AV/C audio subunit.
+#  - IEEE1394_UNIT_FUNCTION_VIDEO
+#    - For any unit to process video signal.
+#
+# Additionally, ID_VENDOR_FROM_DATABASE and ID_MODEL_FROM_DATABASE environment variables are
+# preferable.
