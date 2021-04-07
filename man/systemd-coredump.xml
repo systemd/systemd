@@ -353,9 +353,9 @@ flags:   ...
       </varlistentry>
 
       <varlistentry>
-        <term><varname>COREDUMP_PKGMETA_PACKAGE=</varname></term>
-        <term><varname>COREDUMP_PKGMETA_PACKAGEVERSION=</varname></term>
-        <term><varname>COREDUMP_PKGMETA_JSON=</varname></term>
+        <term><varname>COREDUMP_PACKAGE_NAME=</varname></term>
+        <term><varname>COREDUMP_PACKAGE_VERSION=</varname></term>
+        <term><varname>COREDUMP_PACKAGE_JSON=</varname></term>
 
         <listitem><para>If the executable contained .package metadata ELF notes, they will be
         parsed and attached. The <varname>package</varname> and <varname>packageVersion</varname>
