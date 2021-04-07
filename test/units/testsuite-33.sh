@@ -32,7 +32,7 @@ test -d /var/lib/testservice
 test -d /var/cache/testservice
 test -d /var/log/testservice
 
-! systemctl clean testservice
+systemctl clean testservice && { echo 'unexpected success'; exit 1; }
 
 systemctl stop testservice
 
@@ -107,7 +107,7 @@ test -L /var/lib/testservice
 test -L /var/cache/testservice
 test -L /var/log/testservice
 
-! systemctl clean testservice
+systemctl clean testservice && { echo 'unexpected success'; exit 1; }
 
 systemctl stop testservice
 
@@ -196,7 +196,7 @@ test -d /var/lib/hoge
 test -d /var/cache/hoge
 test -d /var/log/hoge
 
-! systemctl clean tmp-hoge.mount
+systemctl clean tmp-hoge.mount && { echo 'unexpected success'; exit 1; }
 
 test -d /etc/hoge
 test -d /run/hoge
@@ -272,7 +272,7 @@ test -d /var/lib/testsocket
 test -d /var/cache/testsocket
 test -d /var/log/testsocket
 
-! systemctl clean testservice.socket
+systemctl clean testservice.socket && { echo 'unexpected success'; exit 1; }
 
 systemctl stop testservice.socket
 
