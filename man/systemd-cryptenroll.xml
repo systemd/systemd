@@ -215,7 +215,7 @@
 
               <row>
                 <entry>8</entry>
-                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures the kernel command line in this PCR.</entry>
+                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line in this PCR.</entry>
               </row>
             </tbody>
           </tgroup>
