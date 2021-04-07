@@ -263,17 +263,15 @@ static bool is_pci_bridge(sd_device *dev) {
 }
 
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
-        unsigned long dev_port = 0;
-        unsigned domain, bus, slot, func;
-        int hotplug_slot = -1;
-        size_t l;
-        char *s;
         const char *sysname, *attr, *port_name = NULL, *syspath;
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
-        sd_device *hotplug_slot_dev;
-        char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
+        unsigned domain, bus, slot, func;
+        sd_device *hotplug_slot_dev;
+        unsigned long dev_port = 0;
+        uint32_t hotplug_slot = 0;
+        char slots[PATH_MAX], *s;
+        size_t l;
         int r;
 
         r = sd_device_get_sysname(names->pcidev, &sysname);
@@ -342,6 +340,8 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
+                struct dirent *dent;
+
                 if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
                         continue;
 
@@ -359,9 +359,9 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                 if (naming_scheme_has(NAMING_SLOT_FUNCTION_ID) &&
                     sd_device_get_sysattr_value(hotplug_slot_dev, "function_id", &attr) >= 0) {
                         _cleanup_free_ char *str = NULL;
-                        int function_id;
+                        uint32_t function_id;
 
-                        if (safe_atoi(attr, &function_id) >= 0 &&
+                        if (safe_atou32(attr, &function_id) >= 0 &&
                             asprintf(&str, "%s/%08x/", slots, function_id) >= 0 &&
                             access(str, R_OK) == 0) {
                                 hotplug_slot = function_id;
@@ -372,15 +372,15 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                 }
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
-                        int i;
-                        char str[PATH_MAX];
                         _cleanup_free_ char *address = NULL;
+                        char str[PATH_MAX];
+                        uint32_t i;
 
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atoi(dent->d_name, &i);
-                        if (r < 0 || i <= 0)
+                        r = safe_atou32(dent->d_name, &i);
+                        if (r < 0 || i == 0)
                                 continue;
 
                         /* match slot address with device by stripping the function */
@@ -399,7 +399,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                                 break;
                         }
                 }
-                if (hotplug_slot >= 0)
+                if (hotplug_slot > 0)
                         break;
                 if (sd_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL, &hotplug_slot_dev) < 0)
                         break;
