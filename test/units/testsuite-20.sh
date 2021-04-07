@@ -126,8 +126,18 @@ test -f /run/mainpidsh3/pid
 EOF
 chmod 755 /dev/shm/test20-mainpid3.sh
 
-# This has to fail, as we shouldn't accept the dangerous PID file, and then inotify-wait on it to be corrected which we never do
-! systemd-run --unit=test20-mainpidsh3.service -p StandardOutput=tty -p StandardError=tty -p Type=forking -p RuntimeDirectory=mainpidsh3 -p PIDFile=/run/mainpidsh3/pid -p DynamicUser=1 -p TimeoutStartSec=2s /dev/shm/test20-mainpid3.sh
+# This has to fail, as we shouldn't accept the dangerous PID file, and then
+# inotify-wait on it to be corrected which we never do.
+systemd-run --unit=test20-mainpidsh3.service \
+            -p StandardOutput=tty \
+            -p StandardError=tty \
+            -p Type=forking \
+            -p RuntimeDirectory=mainpidsh3 \
+            -p PIDFile=/run/mainpidsh3/pid \
+            -p DynamicUser=1 \
+            -p TimeoutStartSec=2s \
+            /dev/shm/test20-mainpid3.sh \
+    && { echo 'unexpected success'; exit 1; }
 
 # Test that this failed due to timeout, and not some other error
 test `systemctl show -P Result test20-mainpidsh3.service` = timeout
