@@ -779,7 +779,7 @@ void link_check_ready(Link *link) {
                                 break;
                         }
 
-                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_ipv4ll_enabled(link)) &&
+                if ((link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) || link_ipv4ll_enabled(link)) &&
                     !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
                     !link->ipv4ll_address_configured)
                         /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
