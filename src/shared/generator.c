@@ -138,6 +138,13 @@ int generator_write_fsck_deps(
         assert(what);
         assert(where);
 
+        /* Let's do an early exit if we are invoked for the root and /usr/ trees in the initrd, to avoid
+         * generating confusing log messages */
+        if (in_initrd() && PATH_IN_SET(where, "/", "/usr")) {
+                log_debug("Skipping fsck for %s in initrd.", where);
+                return 0;
+        }
+
         if (!is_device_path(what)) {
                 log_warning("Checking was requested for \"%s\", but it is not a device.", what);
                 return 0;
@@ -180,7 +187,7 @@ int generator_write_fsck_deps(
                          * Requires= from /usr onto a fsck@.service unit and that unit is shut down, then
                          * we'd have to unmount /usr too.  */
 
-                        dep = !in_initrd() && path_equal(where, "/usr") ? "Wants" : "Requires";
+                        dep = path_equal(where, "/usr") ? "Wants" : "Requires";
 
                         r = unit_name_from_path_instance("systemd-fsck", what, ".service", &_fsck);
                         if (r < 0)
