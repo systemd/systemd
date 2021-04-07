@@ -59,7 +59,7 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
 
         r = user_record_load(hr, v, flags);
         if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "JSON data is not a valid identity record");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "JSON data is not a valid identity record");
 
         *ret = TAKE_PTR(hr);
         return 0;

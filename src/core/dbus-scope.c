@@ -133,7 +133,7 @@ static int bus_scope_set_transient_property(
                 /* We can't support direct connections with this, as direct connections know no service or unique name
                  * concept, but the Controller field stores exactly that. */
                 if (sd_bus_message_get_bus(message) != u->manager->api_bus)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Sorry, Controller= logic only supported via the bus.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Sorry, Controller= logic only supported via the bus.");
 
                 r = sd_bus_message_read(message, "s", &controller);
                 if (r < 0)
