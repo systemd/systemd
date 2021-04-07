@@ -796,20 +796,10 @@ log:
         }
 
         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
-                _cleanup_free_ char *module_basename = NULL, *exe_basename = NULL;
                 JsonVariant *package_name, *package_version;
 
-                /* The module name, most likely parsed from the ELF core file,
-                 * sometimes contains the full path and sometimes does not. */
-                r = path_extract_filename(module_name, &module_basename);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse module basename: %m");
-                r = path_extract_filename(context->meta[META_EXE], &exe_basename);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse executable basename: %m");
-
                 /* We only add structured fields for the 'main' ELF module */
-                if (!streq(module_basename, exe_basename))
+                if (!path_equal_filename(module_name, context->meta[META_EXE]))
                         continue;
 
                 package_name = json_variant_by_key(module_json, "package");

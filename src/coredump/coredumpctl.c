@@ -736,24 +736,10 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         JsonVariant *module_json;
 
                         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, v) {
-                                _cleanup_free_ char *module_basename = NULL, *exe_basename = NULL;
                                 JsonVariant *build_id;
 
-                                /* The module name, most likely parsed from the ELF core file,
-                                 * sometimes contains the full path and sometimes does not. */
-                                r = path_extract_filename(module_name, &module_basename);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to parse module basename: %m");
-                                        break;
-                                }
-                                r = path_extract_filename(exe, &exe_basename);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to parse executable basename: %m");
-                                        break;
-                                }
-
                                 /* We only print the build-id for the 'main' ELF module */
-                                if (!streq(module_basename, exe_basename))
+                                if (!path_equal_filename(module_name, exe))
                                         continue;
 
                                 build_id = json_variant_by_key(module_json, "buildId");
