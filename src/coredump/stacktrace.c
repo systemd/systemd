@@ -247,29 +247,20 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                  * without the former, but there's no hard rule. */
                 fprintf(c->f, "Found module %s without build-id.\n", name);
         else {
-                _cleanup_free_ char *id_hex = NULL, *id_hex_prefixed = NULL;
-
-                id_hex = hexmem(id, id_len);
-                if (!id_hex) {
-                        log_oom();
-                        return DWARF_CB_ABORT;
-                }
-
-                fprintf(c->f, "Found module %s with build-id: %s\n", name, id_hex);
+                JsonVariant *build_id;
 
                 /* We will later parse package metadata json and pass it to our caller. Prepare the
                 * build-id in json format too, so that it can be appended and parsed cleanly. It
                 * will then be added as metadata to the journal message with the stack trace. */
-                id_hex_prefixed = strjoin("{\"buildid\":\"", id_hex, "\"}");
-                if (!id_hex_prefixed) {
-                        log_oom();
-                        return DWARF_CB_ABORT;
-                }
-                r = json_parse(id_hex_prefixed, 0, &id_json, NULL, NULL);
+                r = json_build(&id_json, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("buildId", JSON_BUILD_HEX(id, id_len))));
                 if (r < 0) {
-                        log_error_errno(r, "json_parse on %s failed: %m", id_hex_prefixed);
+                        log_error_errno(r, "json_build on build-id failed: %m");
                         return DWARF_CB_ABORT;
                 }
+
+                build_id = json_variant_by_key(id_json, "buildId");
+                assert_se(build_id);
+                fprintf(c->f, "Found module %s with build-id: %s\n", name, json_variant_string(build_id));
         }
 
         /* The .note.package metadata is more difficult. From the module, we need to get a reference

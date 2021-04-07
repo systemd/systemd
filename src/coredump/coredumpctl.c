@@ -769,7 +769,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                                         if (!json_variant_is_string(w))
                                                 continue;
 
-                                        if (!streq(key, "buildid"))
+                                        if (!streq(key, "buildId"))
                                                 continue;
 
                                         fprintf(file, "      build-id: %s\n", json_variant_string(w));
