@@ -13,6 +13,8 @@ basic_dns_sources = files('''
         resolved-dns-answer.h
         resolved-dns-question.c
         resolved-dns-question.h
+        resolved-util.c
+        resolved-util.h
         dns-type.c
         dns-type.h
 '''.split())
@@ -210,9 +212,13 @@ tests += [
           libgpg_error,
           libm]],
 
-        [['src/resolve/test-dnssec-complex.c',
-          'src/resolve/dns-type.c'],
-         [], [], resolve_includes, '', 'manual'],
+        [['src/resolve/test-dnssec-complex.c'],
+         [libsystemd_resolve_core,
+          libshared],
+         [libgcrypt,
+          libgpg_error,
+          libm],
+         [], '', 'manual'],
 ]
 
 fuzzers += [

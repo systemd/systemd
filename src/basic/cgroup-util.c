@@ -100,7 +100,7 @@ int cg_read_event(
         if (r < 0)
                 return r;
 
-        r = read_full_file(events, &content, NULL);
+        r = read_full_virtual_file(events, &content, NULL);
         if (r < 0)
                 return r;
 
@@ -660,7 +660,7 @@ int cg_remove_xattr(const char *controller, const char *path, const char *name) 
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
         _cleanup_fclose_ FILE *f = NULL;
-        const char *fs, *controller_str;
+        const char *fs, *controller_str = NULL; /* silence gcc warning about unitialized variable */
         int unified, r;
 
         assert(pid >= 0);
@@ -720,6 +720,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                                 continue;
                         *e = 0;
 
+                        assert(controller_str);
                         r = string_contains_word(l, ",", controller_str);
                         if (r < 0)
                                 return r;
@@ -2052,8 +2053,14 @@ int cg_unified_cached(bool flush) {
                         unified_cache = CGROUP_UNIFIED_SYSTEMD;
                         unified_systemd_v232 = false;
                 } else {
-                        if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0)
+                        if (statfs("/sys/fs/cgroup/systemd/", &fs) < 0) {
+                                if (errno == ENOENT) {
+                                        /* Some other software may have set up /sys/fs/cgroup in a configuration we do not recognize. */
+                                        log_debug_errno(errno, "Unsupported cgroupsv1 setup detected: name=systemd hierarchy not found.");
+                                        return -ENOMEDIUM;
+                                }
                                 return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/systemd\" failed: %m");
+                        }
 
                         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
                                 log_debug("Found cgroup2 on /sys/fs/cgroup/systemd, unified hierarchy for systemd controller (v232 variant)");

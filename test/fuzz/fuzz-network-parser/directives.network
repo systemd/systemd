@@ -129,6 +129,7 @@ UseAddress=
 UseNTP=
 UseDNS=
 UseHostname=
+UseDomains=
 RapidCommit=
 ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=

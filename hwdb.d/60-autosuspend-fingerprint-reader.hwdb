@@ -147,7 +147,7 @@ usb:v06CBp00F9*
 usb:v06CBp00FC*
 usb:v06CBp00C2*
 usb:v06CBp00C9*
-usb:v06CBp00E7*
+usb:v06CBp0100*
  ID_AUTOSUSPEND=1
 
 # Supported by libfprint driver upeksonly
@@ -199,6 +199,10 @@ usb:v138Ap0017*
 usb:v138Ap0018*
  ID_AUTOSUSPEND=1
 
+# Supported by libfprint driver vfs7552
+usb:v138Ap0091*
+ ID_AUTOSUSPEND=1
+
 # Known unsupported devices
 usb:v04F3p036B*
 usb:v04F3p0C00*
@@ -237,7 +241,6 @@ usb:v138Ap003C*
 usb:v138Ap003D*
 usb:v138Ap003F*
 usb:v138Ap0090*
-usb:v138Ap0091*
 usb:v138Ap0092*
 usb:v138Ap0094*
 usb:v138Ap0097*

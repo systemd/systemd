@@ -116,6 +116,8 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         else
                 hashmap = &enumerator->nomatch_sysattr;
 
+        /* Do not use string_has_ops_free_free or hashmap_put_strdup() here, as this may be called
+         * multiple times with the same sysattr but different value. */
         r = hashmap_put_strdup_full(hashmap, &trivial_hash_ops_free_free, sysattr, value);
         if (r <= 0)
                 return r;
@@ -131,6 +133,8 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         assert_return(enumerator, -EINVAL);
         assert_return(property, -EINVAL);
 
+        /* Do not use string_has_ops_free_free or hashmap_put_strdup() here, as this may be called
+         * multiple times with the same property but different value. */
         r = hashmap_put_strdup_full(&enumerator->match_property, &trivial_hash_ops_free_free, property, value);
         if (r <= 0)
                 return r;
@@ -283,42 +287,6 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
         return 0;
 }
 
-static bool match_sysattr_value(sd_device *device, const char *sysattr, const char *match_value) {
-        const char *value;
-
-        assert(device);
-        assert(sysattr);
-
-        if (sd_device_get_sysattr_value(device, sysattr, &value) < 0)
-                return false;
-
-        if (!match_value)
-                return true;
-
-        if (fnmatch(match_value, value, 0) == 0)
-                return true;
-
-        return false;
-}
-
-static bool match_sysattr(sd_device_enumerator *enumerator, sd_device *device) {
-        const char *sysattr;
-        const char *value;
-
-        assert(enumerator);
-        assert(device);
-
-        HASHMAP_FOREACH_KEY(value, sysattr, enumerator->nomatch_sysattr)
-                if (match_sysattr_value(device, sysattr, value))
-                        return false;
-
-        HASHMAP_FOREACH_KEY(value, sysattr, enumerator->match_sysattr)
-                if (!match_sysattr_value(device, sysattr, value))
-                        return false;
-
-        return true;
-}
-
 static bool match_property(sd_device_enumerator *enumerator, sd_device *device) {
         const char *property;
         const char *value;
@@ -361,24 +329,6 @@ static bool match_tag(sd_device_enumerator *enumerator, sd_device *device) {
                         return false;
 
         return true;
-}
-
-static bool match_parent(sd_device_enumerator *enumerator, sd_device *device) {
-        const char *syspath_parent, *syspath;
-
-        assert(enumerator);
-        assert(device);
-
-        if (set_isempty(enumerator->match_parent))
-                return true;
-
-        assert_se(sd_device_get_syspath(device, &syspath) >= 0);
-
-        SET_FOREACH(syspath_parent, enumerator->match_parent)
-                if (path_startswith(syspath, syspath_parent))
-                        return true;
-
-        return false;
 }
 
 static bool match_sysname(sd_device_enumerator *enumerator, const char *sysname) {
@@ -466,7 +416,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                      sd_device_get_ifindex(device, NULL) >= 0))
                         continue;
 
-                if (!match_parent(enumerator, device))
+                if (!device_match_parent(device, enumerator->match_parent, NULL))
                         continue;
 
                 if (!match_tag(enumerator, device))
@@ -475,7 +425,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                 if (!match_property(enumerator, device))
                         continue;
 
-                if (!match_sysattr(enumerator, device))
+                if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
                         continue;
 
                 k = device_enumerator_add_device(enumerator, device);
@@ -596,13 +546,13 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
                 if (!match_sysname(enumerator, sysname))
                         continue;
 
-                if (!match_parent(enumerator, device))
+                if (!device_match_parent(device, enumerator->match_parent, NULL))
                         continue;
 
                 if (!match_property(enumerator, device))
                         continue;
 
-                if (!match_sysattr(enumerator, device))
+                if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
                         continue;
 
                 k = device_enumerator_add_device(enumerator, device);
@@ -663,7 +613,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
         if (!match_property(enumerator, device))
                 return 0;
 
-        if (!match_sysattr(enumerator, device))
+        if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
                 return 0;
 
         r = device_enumerator_add_device(enumerator, device);

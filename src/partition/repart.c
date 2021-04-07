@@ -2655,11 +2655,15 @@ static int do_copy_files(Partition *p, const char *fs) {
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
-                _cleanup_free_ char *dn = NULL;
+                _cleanup_free_ char *dn = NULL, *fn = NULL;
 
-                dn = dirname_malloc(*target);
-                if (!dn)
-                        return log_oom();
+                r = path_extract_directory(*target, &dn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
+
+                r = path_extract_filename(*target, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
 
                 sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT|CHASE_WARN, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
@@ -2686,7 +2690,7 @@ static int do_copy_files(Partition *p, const char *fs) {
 
                                 r = copy_tree_at(
                                                 sfd, ".",
-                                                pfd, basename(*target),
+                                                pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         } else
@@ -2994,8 +2998,6 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
                         break;
 
                 label = mfree(label);
-
-
                 if (asprintf(&label, "%s-%u", prefix, ++k) < 0)
                         return log_oom();
         }
@@ -3977,6 +3979,40 @@ static int find_root(char **ret, int *ret_fd) {
         return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Failed to discover root block device.");
 }
 
+static int resize_pt(int fd) {
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        int r;
+
+        /* After resizing the backing file we need to resize the partition table itself too, so that it takes
+         * possession of the enlarged backing file. For this it suffices to open the device with libfdisk and
+         * immediately write it again, with no changes. */
+
+        c = fdisk_new_context();
+        if (!c)
+                return log_oom();
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+        r = fdisk_assign_device(c, procfs_path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open device '%s': %m", procfs_path);
+
+        r = fdisk_has_label(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether disk '%s' has a disk label: %m", procfs_path);
+        if (r == 0) {
+                log_debug("Not resizing partition table, as there currently is none.");
+                return 0;
+        }
+
+        r = fdisk_write_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write resized partition table: %m");
+
+        log_info("Resized partition table.");
+        return 1;
+}
+
 static int resize_backing_fd(const char *node, int *fd) {
         char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
         _cleanup_close_ int writable_fd = -1;
@@ -4029,6 +4065,10 @@ static int resize_backing_fd(const char *node, int *fd) {
                         /* Fallback to truncation, if fallocate() is not supported. */
                         log_debug("Backing file system does not support fallocate(), falling back to ftruncate().");
                 } else {
+                        r = resize_pt(writable_fd);
+                        if (r < 0)
+                                return r;
+
                         if (st.st_size == 0) /* Likely regular file just created by us */
                                 log_info("Allocated %s for '%s'.", buf2, node);
                         else
@@ -4041,6 +4081,10 @@ static int resize_backing_fd(const char *node, int *fd) {
         if (ftruncate(writable_fd, arg_size) < 0)
                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by truncation: %m",
                                        node, buf1, buf2);
+
+        r = resize_pt(writable_fd);
+        if (r < 0)
+                return r;
 
         if (st.st_size == 0) /* Likely regular file just created by us */
                 log_info("Sized '%s' to %s.", node, buf2);

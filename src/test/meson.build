@@ -158,7 +158,10 @@ tests += [
 
         [['src/test/test-fstab-util.c']],
 
-        [['src/test/test-random-util.c']],
+        [['src/test/test-random-util.c'],
+         [],
+         [libm],
+         [], '', 'timeout=120'],
 
         [['src/test/test-format-table.c']],
 
@@ -540,7 +543,16 @@ tests += [
         [['src/test/test-gcrypt-util.c'],
          [], [], [], 'HAVE_GCRYPT'],
 
-        [['src/test/test-nss.c'],
+        [['src/test/test-nss-hosts.c',
+          'src/test/nss-test-util.c',
+          'src/test/nss-test-util.h'],
+         [],
+         [libdl],
+         [], 'ENABLE_NSS', 'manual'],
+
+        [['src/test/test-nss-users.c',
+          'src/test/nss-test-util.c',
+          'src/test/nss-test-util.h'],
          [],
          [libdl],
          [], 'ENABLE_NSS', 'manual'],

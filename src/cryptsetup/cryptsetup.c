@@ -545,7 +545,7 @@ static int get_password(
 
         id = strjoina("cryptsetup:", disk_path);
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
+        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
                               ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
                               &passwords);
         if (r < 0)
@@ -561,7 +561,7 @@ static int get_password(
 
                 id = strjoina("cryptsetup-verification:", disk_path);
 
-                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
+                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 
@@ -1008,7 +1008,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        size_t decrypted_key_size;
+        size_t decrypted_key_size = 0; /* Silence gcc warning about unitialized variable */
 
         assert(cd);
         assert(name);
@@ -1058,15 +1058,12 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &policy_hash, &policy_hash_size,
                                                 &keyslot,
                                                 &token);
-                                if (r == -ENXIO) {
+                                if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header.*/
-                                        if (found_some)
-                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                                       "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
-                                        else
-                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                                       "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
-                                }
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               found_some
+                                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
+                                                               : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
                                 if (r < 0)
                                         return r;
 
@@ -1091,6 +1088,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 }
+                assert(decrypted_key);
 
                 if (!monitor) {
                         /* We didn't find the TPM2 device. In this case, watch for it via udev. Let's create

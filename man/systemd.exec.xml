@@ -2821,7 +2821,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     <variablelist class='unit-directives'>
 
       <varlistentry>
-        <term><varname>LoadCredential=</varname><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
+        <term><varname>LoadCredential=</varname><replaceable>ID</replaceable><optional>:<replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Pass a credential to the unit. Credentials are limited-size binary or textual objects
         that may be passed to unit processes. They are primarily used for passing cryptographic keys (both
@@ -2834,19 +2834,21 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         environment variable to the unit's processes.</para>
 
         <para>The <varname>LoadCredential=</varname> setting takes a textual ID to use as name for a
-        credential plus a file system path. The ID must be a short ASCII string suitable as filename in the
-        filesystem, and may be chosen freely by the user. If the specified path is absolute it is opened as
-        regular file and the credential data is read from it. If the absolute path refers to an
-        <constant>AF_UNIX</constant> stream socket in the file system a connection is made to it (only once
-        at unit start-up) and the credential data read from the connection, providing an easy IPC integration
-        point for dynamically providing credentials from other services. If the specified path is not
-        absolute and itself qualifies as valid credential identifier it is understood to refer to a
-        credential that the service manager itself received via the <varname>$CREDENTIALS_DIRECTORY</varname>
-        environment variable, which may be used to propagate credentials from an invoking environment (e.g. a
-        container manager that invoked the service manager) into a service. The contents of the file/socket
-        may be arbitrary binary or textual data, including newline characters and <constant>NUL</constant>
-        bytes. This option may be used multiple times, each time defining an additional credential to pass to
-        the unit.</para>
+        credential plus a file system path, separated by a colon. The ID must be a short ASCII string
+        suitable as filename in the filesystem, and may be chosen freely by the user. If the specified path
+        is absolute it is opened as regular file and the credential data is read from it. If the absolute
+        path refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made
+        to it (only once at unit start-up) and the credential data read from the connection, providing an
+        easy IPC integration point for dynamically providing credentials from other services. If the
+        specified path is not absolute and itself qualifies as valid credential identifier it is understood
+        to refer to a credential that the service manager itself received via the
+        <varname>$CREDENTIALS_DIRECTORY</varname> environment variable, which may be used to propagate
+        credentials from an invoking environment (e.g. a container manager that invoked the service manager)
+        into a service. The contents of the file/socket may be arbitrary binary or textual data, including
+        newline characters and <constant>NUL</constant> bytes. If the file system path is omitted it is
+        chosen identical to the credential name, i.e. this is a terse way do declare credentials to inherit
+        from the service manager into a service. This option may be used multiple times, each time defining
+        an additional credential to pass to the unit.</para>
 
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,

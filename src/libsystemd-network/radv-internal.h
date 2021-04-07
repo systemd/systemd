@@ -7,7 +7,7 @@
 
 #include "sd-radv.h"
 
-#include "log.h"
+#include "log-link.h"
 #include "list.h"
 #include "sparse-endian.h"
 
@@ -41,6 +41,7 @@ struct sd_radv {
         RAdvState state;
 
         int ifindex;
+        char *ifname;
 
         sd_event *event;
         int event_priority;
@@ -124,6 +125,15 @@ struct sd_radv_route_prefix {
         LIST_FIELDS(struct sd_radv_route_prefix, prefix);
 };
 
-#define log_radv_full(level, error, fmt, ...) log_internal(level, error, PROJECT_FILE, __LINE__, __func__, "RADV: " fmt, ##__VA_ARGS__)
-#define log_radv_errno(error, fmt, ...) log_radv_full(LOG_DEBUG, error, fmt, ##__VA_ARGS__)
-#define log_radv(fmt, ...) log_radv_errno(0, fmt, ##__VA_ARGS__)
+#define log_radv_errno(radv, error, fmt, ...)                           \
+        ({                                                              \
+                int _e = (error);                                       \
+                if (DEBUG_LOGGING)                                      \
+                        log_interface_full_errno(                       \
+                                    sd_radv_get_ifname(radv),           \
+                                    LOG_DEBUG, _e, "RADV: " fmt,        \
+                                    ##__VA_ARGS__);                     \
+                -ERRNO_VALUE(_e);                                       \
+        })
+#define log_radv(radv, fmt, ...)                       \
+        log_radv_errno(radv, 0, fmt, ##__VA_ARGS__)

@@ -32,10 +32,10 @@ struct OomdCGroupContext {
 
         ManagedOOMPreference preference;
 
-        /* These are only used by oomd_pressure_above for acting on high memory pressure. */
+        /* These are only used for acting on high memory pressure. */
         loadavg_t mem_pressure_limit;
-        usec_t mem_pressure_duration_usec;
-        usec_t last_hit_mem_pressure_limit;
+        usec_t mem_pressure_limit_hit_start;
+        usec_t last_had_mem_reclaim;
 };
 
 struct OomdSystemContext {
@@ -51,22 +51,22 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
 
 /* Scans all the OomdCGroupContexts in `h` and returns 1 and a set of pointers to those OomdCGroupContexts in `ret`
  * if any of them have exceeded their supplied memory pressure limits for the `duration` length of time.
- * `last_hit_mem_pressure_limit` is updated accordingly for each entry when the limit is exceeded, and when it returns
+ * `mem_pressure_limit_hit_start` is updated accordingly for the first time the limit is exceeded, and when it returns
  * below the limit.
  * Returns 0 and sets `ret` to an empty set if no entries exceeded limits for `duration`.
  * Returns -ENOMEM for allocation errors. */
 int oomd_pressure_above(Hashmap *h, usec_t duration, Set **ret);
 
-/* Sum up current OomdCGroupContexts' pgscan values and last interval's pgscan values in `h`. Returns true if the
- * current sum is higher than the last interval's sum (there was some reclaim activity). */
-bool oomd_memory_reclaim(Hashmap *h);
-
 /* Returns true if the amount of swap free is below the permyriad of swap specified by `threshold_permyriad`. */
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad);
 
+/* Returns pgscan - last_pgscan, accounting for corner cases. */
+uint64_t oomd_pgscan_rate(const OomdCGroupContext *c);
+
 /* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
  * (after the smallest values). */
-static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+static inline int compare_pgscan_rate_and_memory_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+        uint64_t diff1, diff2;
         int r;
 
         assert(c1);
@@ -76,7 +76,9 @@ static inline int compare_pgscan_and_memory_usage(OomdCGroupContext * const *c1,
         if (r != 0)
                 return r;
 
-        r = CMP((*c2)->pgscan, (*c1)->pgscan);
+        diff1 = oomd_pgscan_rate(*c1);
+        diff2 = oomd_pgscan_rate(*c2);
+        r = CMP(diff2, diff1);
         if (r != 0)
                 return r;
 
@@ -106,9 +108,10 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
 
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
- * everything in `h` is a candidate. */
-int oomd_kill_by_pgscan(Hashmap *h, const char *prefix, bool dry_run);
-int oomd_kill_by_swap_usage(Hashmap *h, bool dry_run);
+ * everything in `h` is a candidate.
+ * Returns the killed cgroup in ret_selected. */
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected);
+int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
@@ -118,6 +121,9 @@ int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *
  * `old_h` is used to get data used to calculate prior interval information. `old_h` can be NULL in which case there
  * was no prior data to reference. */
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path);
+
+/* Update each OomdCGroupContext in `curr_h` with prior interval information from `old_h`. */
+void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_h);
 
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);

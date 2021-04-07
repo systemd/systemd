@@ -199,12 +199,15 @@ static int run_fsck(const char *node, const char *fstype) {
                 return 0;
         }
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &fsck_pid);
+        r = safe_fork("(fsck)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      &fsck_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
                 execl("/sbin/fsck", "/sbin/fsck", "-aTl", node, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute fsck: %m");
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
@@ -1867,7 +1870,8 @@ int home_create_luks(
                 UserRecord **ret_home) {
 
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL, *subdir = NULL, *disk_uuid_path = NULL, *temporary_image_path = NULL;
-        uint64_t host_size, encrypted_size, partition_offset, partition_size;
+        uint64_t encrypted_size,
+                host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         bool image_created = false, dm_activated = false, mounted = false;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
@@ -2351,12 +2355,15 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         log_info("Temporary unmounting of file system completed.");
 
         /* resize2fs requires that the file system is force checked first, do so. */
-        r = safe_fork("(e2fsck)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &fsck_pid);
+        r = safe_fork("(e2fsck)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      &fsck_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
                 execlp("e2fsck" ,"e2fsck", "-fp", setup->dm_node, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute e2fsck: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -2380,12 +2387,15 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
                 return log_oom();
 
         /* Resize the thing */
-        r = safe_fork("(e2resize)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, &resize_pid);
+        r = safe_fork("(e2resize)",
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      &resize_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
                 execlp("resize2fs" ,"resize2fs", setup->dm_node, size_str, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute resize2fs: %m");
                 _exit(EXIT_FAILURE);
         }

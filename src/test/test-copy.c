@@ -317,7 +317,7 @@ static void test_copy_proc(void) {
         assert_se(read_one_line_file("/proc/version", &a) >= 0);
         assert_se(read_one_line_file(f, &b) >= 0);
         assert_se(streq(a, b));
-        assert_se(strlen(a) > 0);
+        assert_se(!isempty(a));
 }
 
 int main(int argc, char *argv[]) {

@@ -14,7 +14,7 @@ project('systemd', 'c',
        )
 
 libsystemd_version = '0.31.0'
-libudev_version = '1.7.0'
+libudev_version = '1.7.1'
 
 # We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
@@ -857,10 +857,13 @@ conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
 localegen_path = get_option('localegen-path')
 have = false
+writable = ''
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
         have = true
+        writable = ' /usr/lib/locale'
 endif
+substs.set('SERVICE_LOCALEGEN_WRITABLE', writable)
 conf.set10('HAVE_LOCALEGEN', have)
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
@@ -3472,7 +3475,8 @@ if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
                      install_dir : xinitrcdir)
 endif
-install_data('modprobe.d/systemd.conf',
+install_data('README',
+             'modprobe.d/systemd.conf',
              install_dir : modprobedir)
 install_data('LICENSE.GPL2',
              'LICENSE.LGPL2.1',
@@ -3511,7 +3515,7 @@ check_directives_sh = find_program('tools/check-directives.sh')
 if want_tests != 'false'
         test('check-directives',
              check_directives_sh,
-             args : project_source_root)
+             args : [project_source_root, project_build_root])
 endif
 
 ############################################################

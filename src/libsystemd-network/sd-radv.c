@@ -19,6 +19,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "network-common.h"
 #include "radv-internal.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -122,6 +123,7 @@ static sd_radv *radv_free(sd_radv *ra) {
         sd_radv_detach_event(ra);
 
         ra->fd = safe_close(ra->fd);
+        free(ra->ifname);
 
         return mfree(ra);
 }
@@ -245,22 +247,22 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 switch (r) {
                 case -EADDRNOTAVAIL:
                         (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
-                        log_radv("Received RS from non-link-local address %s. Ignoring", addr);
+                        log_radv(ra, "Received RS from non-link-local address %s. Ignoring", addr);
                         break;
 
                 case -EMULTIHOP:
-                        log_radv("Received RS with invalid hop limit. Ignoring.");
+                        log_radv(ra, "Received RS with invalid hop limit. Ignoring.");
                         break;
 
                 case -EPFNOSUPPORT:
-                        log_radv("Received invalid source address from ICMPv6 socket. Ignoring.");
+                        log_radv(ra, "Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
                 case -EAGAIN: /* ignore spurious wakeups */
                         break;
 
                 default:
-                        log_radv_errno(r, "Unexpected error receiving from ICMPv6 socket: %m");
+                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, Ignoring: %m");
                         break;
                 }
 
@@ -268,7 +270,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         }
 
         if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
-                log_radv("Too short packet received");
+                log_radv(ra, "Too short packet received, ignoring");
                 return 0;
         }
 
@@ -276,9 +278,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         r = radv_send(ra, &src, ra->lifetime);
         if (r < 0)
-                log_radv_errno(r, "Unable to send solicited Router Advertisement to %s: %m", strnull(addr));
+                log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", strnull(addr));
         else
-                log_radv("Sent solicited Router Advertisement to %s", strnull(addr));
+                log_radv(ra, "Sent solicited Router Advertisement to %s", strnull(addr));
 
         return 0;
 }
@@ -311,7 +313,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         r = radv_send(ra, NULL, ra->lifetime);
         if (r < 0)
-                log_radv_errno(r, "Unable to send Router Advertisement: %m");
+                log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
         if (ra->ra_sent < SD_RADV_MAX_INITIAL_RTR_ADVERTISEMENTS) {
@@ -328,7 +330,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         timeout = radv_compute_timeout(min_timeout, max_timeout);
 
-        log_radv("Next Router Advertisement in %s",
+        log_radv(ra, "Next Router Advertisement in %s",
                  format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                                  timeout, USEC_PER_SEC));
 
@@ -359,13 +361,13 @@ _public_ int sd_radv_stop(sd_radv *ra) {
         if (ra->state == SD_RADV_STATE_IDLE)
                 return 0;
 
-        log_radv("Stopping IPv6 Router Advertisement daemon");
+        log_radv(ra, "Stopping IPv6 Router Advertisement daemon");
 
         /* RFC 4861, Section 6.2.5, send at least one Router Advertisement
            with zero lifetime  */
         r = radv_send(ra, NULL, 0);
         if (r < 0)
-                log_radv_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
+                log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
@@ -410,7 +412,7 @@ _public_ int sd_radv_start(sd_radv *ra) {
 
         ra->state = SD_RADV_STATE_ADVERTISING;
 
-        log_radv("Started IPv6 Router Advertisement daemon");
+        log_radv(ra, "Started IPv6 Router Advertisement daemon");
 
         return 0;
 
@@ -430,6 +432,23 @@ _public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         ra->ifindex = ifindex;
 
         return 0;
+}
+
+int sd_radv_set_ifname(sd_radv *ra, const char *ifname) {
+        assert_return(ra, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&ra->ifname, ifname);
+}
+
+const char *sd_radv_get_ifname(sd_radv *ra) {
+        if (!ra)
+                return NULL;
+
+        return get_ifname(ra->ifindex, &ra->ifname);
 }
 
 _public_ int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
@@ -562,10 +581,9 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
                 (void) in_addr_prefix_to_string(AF_INET6,
                                                 (const union in_addr_union*) &cur->opt.in6_addr,
                                                 cur->opt.prefixlen, &addr_cur);
-                log_radv("IPv6 prefix %s already configured, ignoring %s",
-                         strna(addr_cur), strna(addr_p));
-
-                return -EEXIST;
+                return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
+                                      "IPv6 prefix %s already configured, ignoring %s",
+                                      strna(addr_cur), strna(addr_p));
         }
 
         p = sd_radv_prefix_ref(p);
@@ -575,7 +593,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         ra->n_prefixes++;
 
         if (!dynamic) {
-                log_radv("Added prefix %s", strna(addr_p));
+                log_radv(ra, "Added prefix %s", strna(addr_p));
                 return 0;
         }
 
@@ -585,9 +603,9 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         if (ra->ra_sent > 0) {
                 r = radv_send(ra, NULL, ra->lifetime);
                 if (r < 0)
-                        log_radv_errno(r, "Unable to send Router Advertisement for added prefix: %m");
+                        log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix: %m");
                 else
-                        log_radv("Sent Router Advertisement for added prefix");
+                        log_radv(ra, "Sent Router Advertisement for added prefix");
         }
 
  update:
@@ -608,7 +626,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         cur->valid_until = valid_until;
         cur->preferred_until = preferred_until;
 
-        log_radv("Updated prefix %s preferred %s valid %s",
+        log_radv(ra, "Updated prefix %s preferred %s valid %s",
                  strna(addr_p),
                  format_timespan(time_string_preferred, FORMAT_TIMESPAN_MAX,
                                  preferred, USEC_PER_SEC),
@@ -678,10 +696,9 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
                 (void) in_addr_prefix_to_string(AF_INET6,
                                                 (const union in_addr_union*) &cur->opt.in6_addr,
                                                 cur->opt.prefixlen, &addr);
-                log_radv("IPv6 route prefix %s already configured, ignoring %s",
-                         strna(addr), strna(pretty));
-
-                return -EEXIST;
+                return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
+                                      "IPv6 route prefix %s already configured, ignoring %s",
+                                      strna(addr), strna(pretty));
         }
 
         p = sd_radv_route_prefix_ref(p);
@@ -690,7 +707,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         ra->n_route_prefixes++;
 
         if (!dynamic) {
-                log_radv("Added prefix %s", strna(pretty));
+                log_radv(ra, "Added prefix %s", strna(pretty));
                 return 0;
         }
 
@@ -698,9 +715,9 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         if (ra->ra_sent > 0) {
                 r = radv_send(ra, NULL, ra->lifetime);
                 if (r < 0)
-                        log_radv_errno(r, "Unable to send Router Advertisement for added route prefix: %m");
+                        log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix: %m");
                 else
-                        log_radv("Sent Router Advertisement for added route prefix");
+                        log_radv(ra, "Sent Router Advertisement for added route prefix");
         }
 
  update:
@@ -713,7 +730,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         if (valid_until == USEC_INFINITY)
                 return -EOVERFLOW;
 
-        log_radv("Updated route prefix %s valid %s",
+        log_radv(ra, "Updated route prefix %s valid %s",
                  strna(pretty),
                  format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX, valid, USEC_PER_SEC));
 
@@ -842,7 +859,7 @@ _public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr 
 
         if (prefixlen > 64)
                 /* unusual but allowed, log it */
-                log_radv("Unusual prefix length %d greater than 64", prefixlen);
+                log_radv(NULL, "Unusual prefix length %d greater than 64", prefixlen);
 
         p->opt.in6_addr = *in6_addr;
         p->opt.prefixlen = prefixlen;
@@ -932,7 +949,7 @@ _public_ int sd_radv_prefix_set_route_prefix(sd_radv_route_prefix *p, const stru
 
         if (prefixlen > 64)
                 /* unusual but allowed, log it */
-                log_radv("Unusual prefix length %u greater than 64", prefixlen);
+                log_radv(NULL, "Unusual prefix length %u greater than 64", prefixlen);
 
         p->opt.in6_addr = *in6_addr;
         p->opt.prefixlen = prefixlen;

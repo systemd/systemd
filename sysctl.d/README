@@ -1,0 +1,8 @@
+Files in this directory contain configuration for systemd-sysctl.service, a
+service to configure sysctl kernel parameters.
+
+See man:sysctl.d(5) for explanation of the configuration file format, and
+man:sysctl(8) and man:systemd-sysctl.service(8) for a description of when and
+how this configuration is applied.
+
+Use 'systemd-analyze cat-config sysctl.d' to display the effective config.

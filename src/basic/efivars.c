@@ -63,7 +63,7 @@ int efi_get_variable(
         _cleanup_free_ char *p = NULL;
         _cleanup_free_ void *buf = NULL;
         struct stat st;
-        usec_t begin;
+        usec_t begin = 0; /* Unnecessary initialization to appease gcc */
         uint32_t a;
         ssize_t n;
 

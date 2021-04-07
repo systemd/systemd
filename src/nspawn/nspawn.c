@@ -35,6 +35,7 @@
 #include "cgroup-util.h"
 #include "copy.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "dev-setup.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -1592,9 +1593,9 @@ static int parse_argv(int argc, char *argv[]) {
                         else {
                                 const char *e;
 
-                                e = getenv("CREDENTIALS_DIRECTORY");
-                                if (!e)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential not available (no credentials passed at all): %s", word);
+                                r = get_credentials_dir(&e);
+                                if (r < 0)
+                                        return log_error_errno(r, "Credential not available (no credentials passed at all): %s", word);
 
                                 j = path_join(e, p);
                                 if (!j)
@@ -3581,8 +3582,12 @@ static int outer_child(
                  * makes sure ESP partitions and userns are compatible. */
 
                 r = dissected_image_mount_and_warn(
-                                dissected_image, directory, arg_uid_shift,
-                                DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|
+                                dissected_image,
+                                directory,
+                                arg_uid_shift,
+                                DISSECT_IMAGE_MOUNT_ROOT_ONLY|
+                                DISSECT_IMAGE_DISCARD_ON_LOOP|
+                                DISSECT_IMAGE_USR_NO_ROOT|
                                 (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK)|
                                 (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
@@ -3669,8 +3674,14 @@ static int outer_child(
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
-                r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
-                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK));
+                r = dissected_image_mount(
+                                dissected_image,
+                                directory,
+                                arg_uid_shift,
+                                DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
+                                DISSECT_IMAGE_DISCARD_ON_LOOP|
+                                DISSECT_IMAGE_USR_NO_ROOT|
+                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK));
                 if (r == -EUCLEAN)
                         return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
@@ -5378,7 +5389,11 @@ static int run(int argc, char *argv[]) {
                 }
 
         } else {
-                DissectImageFlags dissect_image_flags = DISSECT_IMAGE_REQUIRE_ROOT | DISSECT_IMAGE_RELAX_VAR_CHECK;
+                DissectImageFlags dissect_image_flags =
+                        DISSECT_IMAGE_GENERIC_ROOT |
+                        DISSECT_IMAGE_REQUIRE_ROOT |
+                        DISSECT_IMAGE_RELAX_VAR_CHECK |
+                        DISSECT_IMAGE_USR_NO_ROOT;
                 assert(arg_image);
                 assert(!arg_template);
 

@@ -1880,6 +1880,8 @@ static int method_do_shutdown_or_sleep(
                         return r;
                 if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+                if (!streq(unit_name, SPECIAL_REBOOT_TARGET) && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Reboot via kexec is only applicable with reboot operations");
         } else {
                 /* Old style method: no flags parameter, but interactive bool passed as boolean in
                  * payload. Let's convert this argument to the new-style flags parameter for our internal
@@ -1892,6 +1894,9 @@ static int method_do_shutdown_or_sleep(
 
                 flags = interactive ? SD_LOGIND_INTERACTIVE : 0;
         }
+
+        if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
+                unit_name = SPECIAL_KEXEC_TARGET;
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->action_what > 0)

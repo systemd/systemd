@@ -37,7 +37,7 @@ __get_units_have_cgroup() {
 }
 
 _systemd_cgls() {
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local i verb comps
 
     local -A OPTS=(

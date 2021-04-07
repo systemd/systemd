@@ -478,8 +478,8 @@ void link_dns_settings_clear(Link *link) {
         link->dns = mfree(link->dns);
         link->n_dns = UINT_MAX;
 
-        link->search_domains = ordered_set_free_free(link->search_domains);
-        link->route_domains = ordered_set_free_free(link->route_domains);
+        link->search_domains = ordered_set_free(link->search_domains);
+        link->route_domains = ordered_set_free(link->route_domains);
 
         link->dns_default_route = -1;
         link->llmnr = _RESOLVE_SUPPORT_INVALID;

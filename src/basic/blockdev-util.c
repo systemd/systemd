@@ -68,7 +68,7 @@ int get_block_device(const char *path, dev_t *ret) {
         /* Gets the block device directly backing a file system. If the block device is encrypted, returns
          * the device mapper block device. */
 
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC);
+        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -94,7 +94,8 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *t = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
-        struct dirent *de, *found = NULL;
+        _cleanup_free_ char *first_found = NULL;
+        struct dirent *de;
         const char *q;
         dev_t devt;
         int r;
@@ -115,20 +116,22 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                 if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
                         continue;
 
-                if (found) {
+                if (first_found) {
                         _cleanup_free_ char *u = NULL, *v = NULL, *a = NULL, *b = NULL;
 
-                        /* We found a device backed by multiple other devices. We don't really support automatic
-                         * discovery on such setups, with the exception of dm-verity partitions. In this case there are
-                         * two backing devices: the data partition and the hash partition. We are fine with such
-                         * setups, however, only if both partitions are on the same physical device. Hence, let's
-                         * verify this. */
+                        /* We found a device backed by multiple other devices. We don't really support
+                         * automatic discovery on such setups, with the exception of dm-verity partitions. In
+                         * this case there are two backing devices: the data partition and the hash
+                         * partition. We are fine with such setups, however, only if both partitions are on
+                         * the same physical device.  Hence, let's verify this by iterating over every node
+                         * in the 'slaves/' directory and comparing them with the first that gets returned by
+                         * readdir(), to ensure they all point to the same device. */
 
                         u = path_join(p, de->d_name, "../dev");
                         if (!u)
                                 return -ENOMEM;
 
-                        v = path_join(p, found->d_name, "../dev");
+                        v = path_join(p, first_found, "../dev");
                         if (!v)
                                 return -ENOMEM;
 
@@ -144,15 +147,17 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                          * different physical devices, and we don't support that. */
                         if (!streq(a, b))
                                 return -ENOTUNIQ;
+                } else {
+                        first_found = strdup(de->d_name);
+                        if (!first_found)
+                                return -ENOMEM;
                 }
-
-                found = de;
         }
 
-        if (!found)
+        if (!first_found)
                 return -ENOENT;
 
-        q = strjoina(p, "/", found->d_name, "/dev");
+        q = strjoina(p, "/", first_found, "/dev");
 
         r = read_one_line_file(q, &t);
         if (r < 0)

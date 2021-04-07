@@ -311,7 +311,7 @@ int config_parse_dhcp_route_metric(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         uint32_t metric;
         int r;
 
@@ -355,7 +355,7 @@ int config_parse_dhcp_use_dns(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         int r;
 
         assert(filename);
@@ -386,6 +386,49 @@ int config_parse_dhcp_use_dns(
         return 0;
 }
 
+int config_parse_dhcp_use_domains(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        DHCPUseDomains d;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        d = dhcp_use_domains_from_string(rvalue);
+        if (d < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, d,
+                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        if (streq_ptr(section, "DHCPv4")) {
+                network->dhcp_use_domains = d;
+                network->dhcp_use_domains_set = true;
+        } else if (streq_ptr(section, "DHCPv6")) {
+                network->dhcp6_use_domains = d;
+                network->dhcp6_use_domains_set = true;
+        } else { /* [DHCP] section */
+                if (!network->dhcp_use_domains_set)
+                        network->dhcp_use_domains = d;
+                if (!network->dhcp6_use_domains_set)
+                        network->dhcp6_use_domains = d;
+        }
+
+        return 0;
+}
+
 int config_parse_dhcp_use_ntp(
                 const char* unit,
                 const char *filename,
@@ -398,7 +441,7 @@ int config_parse_dhcp_use_ntp(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         int r;
 
         assert(filename);
@@ -441,7 +484,7 @@ int config_parse_section_route_table(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         uint32_t rt;
         int r;
 
@@ -478,7 +521,7 @@ int config_parse_iaid(const char *unit,
                       const char *rvalue,
                       void *data,
                       void *userdata) {
-        Network *network = data;
+        Network *network = userdata;
         uint32_t iaid;
         int r;
 
@@ -807,7 +850,7 @@ int config_parse_dhcp_request_options(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         int r;
 
         assert(filename);
@@ -860,9 +903,6 @@ int config_parse_dhcp_request_options(
                                    "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
         }
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains,
-                         "Failed to parse DHCP use domains setting");
 
 static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
         [DHCP_USE_DOMAINS_NO] = "no",
