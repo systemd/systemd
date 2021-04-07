@@ -80,7 +80,7 @@ chmod 777 /tmp/e/3/d*
 touch /tmp/e/3/f1
 chmod 644 /tmp/e/3/f1
 
-! systemd-tmpfiles --create - <<EOF
+systemd-tmpfiles --create - <<EOF
 e     /tmp/e/3/*   0755 daemon daemon - -
 EOF
 
@@ -115,7 +115,7 @@ test $(stat -c %U:%G:%a /tmp/C/1/f1) = "daemon:daemon:755"
 test -d /tmp/C/2
 test $(stat -c %U:%G:%a /tmp/C/2/f1) = "daemon:daemon:755"
 
-! systemd-tmpfiles --create - <<EOF
+systemd-tmpfiles --create - <<EOF
 C     /tmp/C/3    0755 daemon daemon - /tmp/C/3-origin
 EOF
 
