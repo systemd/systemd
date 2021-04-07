@@ -6,9 +6,9 @@ set -ex
 
 systemctl start --no-block hello-after-sleep.target
 
-systemctl list-jobs > /root/list-jobs.txt
+systemctl list-jobs >/root/list-jobs.txt
 while ! grep 'sleep\.service.*running' /root/list-jobs.txt; do
-    systemctl list-jobs > /root/list-jobs.txt
+    systemctl list-jobs >/root/list-jobs.txt
 done
 
 grep 'hello\.service.*waiting' /root/list-jobs.txt
@@ -22,7 +22,7 @@ ELAPSED=$(($END_SEC-$START_SEC))
 test "$ELAPSED" -lt 3
 
 # sleep should still be running, hello not.
-systemctl list-jobs > /root/list-jobs.txt
+systemctl list-jobs >/root/list-jobs.txt
 grep 'sleep\.service.*running' /root/list-jobs.txt
 grep 'hello\.service' /root/list-jobs.txt && exit 1
 systemctl stop sleep.service hello-after-sleep.target
@@ -58,13 +58,13 @@ systemctl stop --job-mode=replace-irreversibly unstoppable.service
 systemctl start unstoppable.service
 
 # Test waiting for a started unit(s) to terminate again
-cat <<EOF >  /run/systemd/system/wait2.service
+cat <<EOF >/run/systemd/system/wait2.service
 [Unit]
 Description=Wait for 2 seconds
 [Service]
 ExecStart=/bin/sh -ec 'sleep 2'
 EOF
-cat <<EOF >  /run/systemd/system/wait5fail.service
+cat <<EOF >/run/systemd/system/wait5fail.service
 [Unit]
 Description=Wait for 5 seconds and fail
 [Service]

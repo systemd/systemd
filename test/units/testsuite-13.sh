@@ -51,9 +51,9 @@ function check_norbind {
     local _root="/var/lib/machines/testsuite-13.norbind-path"
     rm -rf "$_root"
     mkdir -p /tmp/binddir/subdir
-    echo -n "outer" > /tmp/binddir/subdir/file
+    echo -n "outer" >/tmp/binddir/subdir/file
     mount -t tmpfs tmpfs /tmp/binddir/subdir
-    echo -n "inner" > /tmp/binddir/subdir/file
+    echo -n "inner" >/tmp/binddir/subdir/file
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
     systemd-nspawn $SUSE_OPTS--register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
 }
@@ -73,7 +73,7 @@ if [ -n "${VERSION_ID:+set}" ] && [ "${VERSION_ID}" != "${container_host_version
 if [ -n "${BUILD_ID:+set}" ] && [ "${BUILD_ID}" != "${container_host_build_id}" ]; then exit 1; fi
 if [ -n "${VARIANT_ID:+set}" ] && [ "${VARIANT_ID}" != "${container_host_variant_id}" ]; then exit 1; fi
 cd /tmp; (cd /run/host; md5sum os-release) | md5sum -c
-if echo test >> /run/host/os-release; then exit 1; fi
+if echo test >>/run/host/os-release; then exit 1; fi
 '
 
     local _os_release_source="/etc/os-release"
@@ -82,7 +82,7 @@ if echo test >> /run/host/os-release; then exit 1; fi
     elif [ -L "${_os_release_source}" ] && rm /etc/os-release; then
         # Ensure that /etc always wins if available
         cp /usr/lib/os-release /etc
-        echo MARKER=1 >> /etc/os-release
+        echo MARKER=1 >>/etc/os-release
     fi
 
     systemd-nspawn $SUSE_OPTS--register=no -D /testsuite-13.nc-container --bind="${_os_release_source}":/tmp/os-release /bin/sh -x -e -c "$_cmd"
@@ -96,7 +96,7 @@ if echo test >> /run/host/os-release; then exit 1; fi
 function check_machinectl_bind {
     local _cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep 0.5; done; exit 1;'
 
-    cat <<EOF > /run/systemd/system/nspawn_machinectl_bind.service
+    cat <<EOF >/run/systemd/system/nspawn_machinectl_bind.service
 [Service]
 Type=notify
 ExecStart=systemd-nspawn $SUSE_OPTS -D /testsuite-13.nc-container --notify-ready=no /bin/sh -x -e -c "$_cmd"

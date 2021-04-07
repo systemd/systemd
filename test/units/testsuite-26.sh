@@ -26,6 +26,6 @@ systemctl show-environment | grep '^FOO=$' && exit 1
 systemctl show-environment | grep '^PATH=.*testaddition$' && exit 1
 systemctl show-environment | grep -q '^PATH='
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

@@ -3,7 +3,7 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -ex
 
-cat > /run/systemd/system/testservice-48.target <<EOF
+cat >/run/systemd/system/testservice-48.target <<EOF
 [Unit]
 Wants=testservice-48.service
 EOF
@@ -23,7 +23,7 @@ systemctl start testservice-48.target
 # May 07 23:12:20 systemd-testsuite testsuite-48.sh[53]: ef53
 sleep 3.1
 
-cat > /run/systemd/system/testservice-48.service <<EOF
+cat >/run/systemd/system/testservice-48.service <<EOF
 [Service]
 ExecStart=/bin/sleep infinity
 EOF
@@ -39,7 +39,7 @@ systemctl daemon-reload
 
 sleep 3.1
 
-cat > /run/systemd/system/testservice-48.service <<EOF
+cat >/run/systemd/system/testservice-48.service <<EOF
 [Service]
 ExecStart=/bin/sleep infinity
 EOF
@@ -61,7 +61,7 @@ systemctl daemon-reload
 
 sleep 3.1
 
-cat > /run/systemd/system/testservice-48.target <<EOF
+cat >/run/systemd/system/testservice-48.target <<EOF
 [Unit]
 Conflicts=shutdown.target
 Wants=testservice-48.service
@@ -71,7 +71,7 @@ systemctl daemon-reload
 
 systemctl start testservice-48.target
 
-cat > /run/systemd/system/testservice-48.service <<EOF
+cat >/run/systemd/system/testservice-48.service <<EOF
 [Service]
 ExecStart=/bin/sleep infinity
 EOF
@@ -80,6 +80,6 @@ systemctl restart testservice-48.target
 
 systemctl is-active testservice-48.service
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

@@ -67,7 +67,7 @@ mkdir /var/tmp/scratch
 mv /var/tmp/testimage.raw /var/tmp/scratch/
 touch /var/tmp/scratch/anotherfile
 mkdir /var/tmp/scratch/adirectory
-echo "piep" > /var/tmp/scratch/adirectory/athirdfile
+echo "piep" >/var/tmp/scratch/adirectory/athirdfile
 
 # Test import-fs
 machinectl import-fs /var/tmp/scratch/
@@ -138,6 +138,6 @@ machinectl remove scratch5
 test ! -f /var/lib/machines/scratch5
 machinectl image-status scratch5 && { echo 'unexpected success'; exit 1; }
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

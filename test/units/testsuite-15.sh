@@ -165,7 +165,7 @@ test_hierarchical_dropins () {
         echo "
 [Service]
 ExecCondition=/bin/echo $dropin
-        " > /usr/lib/systemd/system/$dropin/override.conf
+        " >/usr/lib/systemd/system/$dropin/override.conf
         systemctl daemon-reload
         check_ok a-b-c ExecCondition "/bin/echo $dropin"
     done

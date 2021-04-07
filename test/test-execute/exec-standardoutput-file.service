@@ -2,8 +2,8 @@
 Description=Test for StandardOutput=file:
 
 [Service]
-ExecStartPre=sh -c 'printf "nooo\nhello\n" > /tmp/test-exec-standardoutput-output'
-ExecStartPre=sh -c 'printf "hello\nello\n" > /tmp/test-exec-standardoutput-expected'
+ExecStartPre=sh -c 'printf "nooo\nhello\n" >/tmp/test-exec-standardoutput-output'
+ExecStartPre=sh -c 'printf "hello\nello\n" >/tmp/test-exec-standardoutput-expected'
 StandardInput=data
 StandardInputText=hello
 StandardOutput=file:/tmp/test-exec-standardoutput-output

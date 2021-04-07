@@ -55,7 +55,7 @@ stopJournalctl() {
     # the --sync wait until the synchronization is complete
     echo "Force journald to write all queued messages"
     journalctl --sync
-    journalctl -u $unit --cursor-file="$journalCursorFile" > "$journalLog"
+    journalctl -u $unit --cursor-file="$journalCursorFile" >"$journalLog"
 }
 
 checkNUMA() {
@@ -64,21 +64,21 @@ checkNUMA() {
 }
 
 writePID1NUMAPolicy() {
-    echo [Manager] > $confDir/numa.conf
-    echo NUMAPolicy=$1 >> $confDir/numa.conf
-    echo NUMAMask=$2>> $confDir/numa.conf
+    echo [Manager] >$confDir/numa.conf
+    echo NUMAPolicy=$1 >>$confDir/numa.conf
+    echo NUMAMask=$2 >>$confDir/numa.conf
 }
 
 writeTestUnit() {
     mkdir -p $testUnitFile.d/
-    echo [Service] > $testUnitFile
-    echo ExecStart=/bin/sleep 3600 >> $testUnitFile
+    echo [Service] >$testUnitFile
+    echo ExecStart=/bin/sleep 3600 >>$testUnitFile
 }
 
 writeTestUnitNUMAPolicy() {
-    echo [Service] > $testUnitNUMAConf
-    echo NUMAPolicy=$1 >> $testUnitNUMAConf
-    echo NUMAMask=$2>> $testUnitNUMAConf
+    echo [Service] >$testUnitNUMAConf
+    echo NUMAPolicy=$1 >>$testUnitNUMAConf
+    echo NUMAMask=$2 >>$testUnitNUMAConf
     systemctl daemon-reload
 }
 
@@ -115,13 +115,13 @@ pid1StopUnit() {
 
 systemctlCheckNUMAProperties() {
     local LOGFILE="$(mktemp)"
-    systemctl show -p NUMAPolicy $1 > "$LOGFILE"
+    systemctl show -p NUMAPolicy $1 >"$LOGFILE"
     grep "NUMAPolicy=$2" "$LOGFILE"
 
-    > "$LOGFILE"
+    >"$LOGFILE"
 
     if [ -n "$3" ]; then
-        systemctl show -p NUMAMask $1 > "$LOGFILE"
+        systemctl show -p NUMAMask $1 >"$LOGFILE"
         grep "NUMAMask=$3" "$LOGFILE"
     fi
 }
@@ -281,7 +281,7 @@ else
 
     echo "Unit file CPUAffinity=NUMA support"
     writeTestUnitNUMAPolicy "bind" "0"
-    echo "CPUAffinity=numa" >> $testUnitNUMAConf
+    echo "CPUAffinity=numa" >>$testUnitNUMAConf
     systemctl daemon-reload
     systemctl start $testUnit
     systemctlCheckNUMAProperties $testUnit "bind" "0"
@@ -336,6 +336,6 @@ systemctl daemon-reload
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
