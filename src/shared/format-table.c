@@ -783,19 +783,17 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
 }
 
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
-        TableDataType type;
-        va_list ap;
         TableCell *last_cell = NULL;
+        va_list ap;
         int r;
 
         assert(t);
         assert(first_type >= 0);
         assert(first_type < _TABLE_DATA_TYPE_MAX);
 
-        type = first_type;
-
         va_start(ap, first_type);
-        for (;;) {
+
+        for (TableDataType type = first_type;; type = va_arg(ap, TableDataType)) {
                 const void *data;
                 union {
                         uint64_t size;
@@ -1048,8 +1046,6 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         va_end(ap);
                         return r;
                 }
-
-                type = va_arg(ap, TableDataType);
         }
 }
 
