@@ -93,6 +93,6 @@ umount /tmp/overlay
 umount /tmp/rootdir
 umount /tmp/app1
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

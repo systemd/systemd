@@ -93,6 +93,6 @@ systemd-run --wait --unit=eight -p ExitType=cgroup /tmp/test56-exit-cgroup-uncle
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
