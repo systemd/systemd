@@ -418,7 +418,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                                  * devices that will try to claim the same index and that would create name
                                  * collision. */
                                 if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev))
-                                        hotplug_slot = 0;
+                                        return 0;
 
                                 break;
                         }
