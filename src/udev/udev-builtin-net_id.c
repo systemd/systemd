@@ -395,8 +395,9 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                         break;
                 }
 
-                if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
-                        continue;
+                r = sd_device_get_sysname(hotplug_slot_dev, &sysname);
+                if (r < 0)
+                        return log_device_debug_errno(hotplug_slot_dev, r, "Failed to get sysname: %m");
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
                         _cleanup_free_ char *address = NULL;
