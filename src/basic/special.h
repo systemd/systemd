@@ -37,6 +37,7 @@
 #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
 #define SPECIAL_INITRD_ROOT_DEVICE_TARGET "initrd-root-device.target"
 #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
+#define SPECIAL_INITRD_USR_FS_TARGET "initrd-usr-fs.target"
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
 #define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
 #define SPECIAL_SWAP_TARGET "swap.target"
@@ -79,6 +80,7 @@
 /* Magic early boot services */
 #define SPECIAL_FSCK_SERVICE "systemd-fsck@.service"
 #define SPECIAL_FSCK_ROOT_SERVICE "systemd-fsck-root.service"
+#define SPECIAL_FSCK_USR_SERVICE "systemd-fsck-usr.service"
 #define SPECIAL_QUOTACHECK_SERVICE "systemd-quotacheck.service"
 #define SPECIAL_QUOTAON_SERVICE "quotaon.service"
 #define SPECIAL_REMOUNT_FS_SERVICE "systemd-remount-fs.service"

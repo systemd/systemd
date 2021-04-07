@@ -38,6 +38,7 @@ units = [
         ['initrd-switch-root.service',          'ENABLE_INITRD'],
         ['initrd-switch-root.target',           'ENABLE_INITRD'],
         ['initrd-udevadm-cleanup-db.service',   'ENABLE_INITRD'],
+        ['initrd-usr-fs.target',                'ENABLE_INITRD'],
         ['initrd.target',                       'ENABLE_INITRD'],
         ['kexec.target',                        ''],
         ['ldconfig.service',                    'ENABLE_LDCONFIG',

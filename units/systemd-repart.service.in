@@ -12,13 +12,18 @@ Description=Repartition Root Disk
 Documentation=man:systemd-repart.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=sysroot.mount
+After=initrd-usr-fs.target
 Before=initrd-root-fs.target shutdown.target
 ConditionVirtualization=!container
 ConditionDirectoryNotEmpty=|/usr/lib/repart.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/repart.d
 ConditionDirectoryNotEmpty=|/etc/repart.d
 ConditionDirectoryNotEmpty=|/run/repart.d
+ConditionDirectoryNotEmpty=|/sysroot/usr/lib/repart.d
+ConditionDirectoryNotEmpty=|/sysroot/usr/local/lib/repart.d
+ConditionDirectoryNotEmpty=|/sysroot/etc/repart.d
+ConditionDirectoryNotEmpty=|/sysusr/usr/lib/repart.d
+ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 
 [Service]
 Type=oneshot
