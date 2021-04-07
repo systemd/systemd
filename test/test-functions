@@ -503,13 +503,13 @@ install_verity_minimal() {
         ln -s ../usr/lib/os-release $initdir/etc/os-release
         touch $initdir/etc/machine-id $initdir/etc/resolv.conf
         touch $initdir/opt/some_file
-        echo MARKER=1 >> $initdir/usr/lib/os-release
-        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" > $initdir/usr/lib/systemd/system/app0.service
+        echo MARKER=1 >>$initdir/usr/lib/os-release
+        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >$initdir/usr/lib/systemd/system/app0.service
         cp $initdir/usr/lib/systemd/system/app0.service $initdir/usr/lib/systemd/system/app0-foo.service
 
         mksquashfs $initdir $oldinitdir/usr/share/minimal_0.raw
         veritysetup format $oldinitdir/usr/share/minimal_0.raw $oldinitdir/usr/share/minimal_0.verity | \
-            grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal_0.roothash
+            grep '^Root hash:' | cut -f2 | tr -d '\n' >$oldinitdir/usr/share/minimal_0.roothash
 
         sed -i "s/MARKER=1/MARKER=2/g" $initdir/usr/lib/os-release
         rm $initdir/usr/lib/systemd/system/app0-foo.service
@@ -517,7 +517,7 @@ install_verity_minimal() {
 
         mksquashfs $initdir $oldinitdir/usr/share/minimal_1.raw
         veritysetup format $oldinitdir/usr/share/minimal_1.raw $oldinitdir/usr/share/minimal_1.verity | \
-            grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal_1.roothash
+            grep '^Root hash:' | cut -f2 | tr -d '\n' >$oldinitdir/usr/share/minimal_1.roothash
 
         # Rolling distros like Arch do not set VERSION_ID
         local version_id=""
@@ -527,42 +527,42 @@ install_verity_minimal() {
 
         export initdir=$TESTDIR/app0
         mkdir -p $initdir/usr/lib/extension-release.d $initdir/usr/lib/systemd/system $initdir/opt
-        grep "^ID=" $os_release > $initdir/usr/lib/extension-release.d/extension-release.app0
-        echo "${version_id}" >> $initdir/usr/lib/extension-release.d/extension-release.app0
-        cat <<EOF > $initdir/usr/lib/systemd/system/app0.service
+        grep "^ID=" $os_release >$initdir/usr/lib/extension-release.d/extension-release.app0
+        echo "${version_id}" >>$initdir/usr/lib/extension-release.d/extension-release.app0
+        cat <<EOF >$initdir/usr/lib/systemd/system/app0.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script0.sh
 EOF
-        cat <<EOF > $initdir/opt/script0.sh
+        cat <<EOF >$initdir/opt/script0.sh
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
 cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x $initdir/opt/script0.sh
-        echo MARKER=1 > $initdir/usr/lib/systemd/system/some_file
+        echo MARKER=1 >$initdir/usr/lib/systemd/system/some_file
         mksquashfs $initdir $oldinitdir/usr/share/app0.raw
 
         export initdir=$TESTDIR/app1
         mkdir -p $initdir/usr/lib/extension-release.d $initdir/usr/lib/systemd/system $initdir/opt
-        grep "^ID=" $os_release > $initdir/usr/lib/extension-release.d/extension-release.app1
-        echo "${version_id}" >> $initdir/usr/lib/extension-release.d/extension-release.app1
-        cat <<EOF > $initdir/usr/lib/systemd/system/app1.service
+        grep "^ID=" $os_release >$initdir/usr/lib/extension-release.d/extension-release.app1
+        echo "${version_id}" >>$initdir/usr/lib/extension-release.d/extension-release.app1
+        cat <<EOF >$initdir/usr/lib/systemd/system/app1.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script1.sh
 EOF
-        cat <<EOF > $initdir/opt/script1.sh
+        cat <<EOF >$initdir/opt/script1.sh
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
 cat /usr/lib/extension-release.d/extension-release.app1
 EOF
         chmod +x $initdir/opt/script1.sh
-        echo MARKER=1 > $initdir/usr/lib/systemd/system/other_file
+        echo MARKER=1 >$initdir/usr/lib/systemd/system/other_file
         mksquashfs $initdir $oldinitdir/usr/share/app1.raw
     )
 }
@@ -700,7 +700,7 @@ if [[ "$ASAN_COMPILER" == "clang" ]]; then
   # Let's add the ASan DSO's path to the dynamic linker's cache. This is pretty
   # unnecessary for gcc & libasan, however, for clang this is crucial, as its
   # runtime ASan DSO is in a non-standard (library) path.
-  echo "${ASAN_RT_PATH%/*}" > /etc/ld.so.conf.d/asan-path-override.conf
+  echo "${ASAN_RT_PATH%/*}" >/etc/ld.so.conf.d/asan-path-override.conf
   ldconfig
 fi
 echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
@@ -741,7 +741,7 @@ printf "[Service]\nEnvironment=ASAN_OPTIONS=leak_check_at_exit=false\n" >/etc/sy
 # they're uninstrumented (like dmsetup). Let's add a simple rule which sets
 # LD_PRELOAD to the ASan RT library to fix this.
 mkdir -p /etc/udev/rules.d
-cat > /etc/udev/rules.d/00-set-LD_PRELOAD.rules << INNER_EOF
+cat >/etc/udev/rules.d/00-set-LD_PRELOAD.rules <<INNER_EOF
 SUBSYSTEM=="block", ENV{LD_PRELOAD}="$ASAN_RT_PATH"
 INNER_EOF
 chmod 0644 /etc/udev/rules.d/00-set-LD_PRELOAD.rules
@@ -856,9 +856,9 @@ install_systemd() {
     [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
 
     # enable debug logging in PID1
-    echo LogLevel=debug >> $initdir/etc/systemd/system.conf
+    echo LogLevel=debug >>$initdir/etc/systemd/system.conf
     # store coredumps in journal
-    echo Storage=journal >> $initdir/etc/systemd/coredump.conf
+    echo Storage=journal >>$initdir/etc/systemd/coredump.conf
 }
 
 get_ldpath() {
@@ -1174,12 +1174,12 @@ install_config_files() {
     inst_any /etc/os-release /usr/lib/os-release
     inst /etc/localtime
     # we want an empty environment
-    > $initdir/etc/environment
-    > $initdir/etc/machine-id
-    > $initdir/etc/resolv.conf
+    >$initdir/etc/environment
+    >$initdir/etc/machine-id
+    >$initdir/etc/resolv.conf
 
     # set the hostname
-    echo systemd-testsuite > $initdir/etc/hostname
+    echo systemd-testsuite >$initdir/etc/hostname
 
     # let's set up just one image with the traditional verbose output
     if [ ${IMAGE_NAME} != "basic" ]; then
@@ -1202,9 +1202,9 @@ install_debug_tools() {
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
         local _getty_override="$initdir/etc/systemd/system/serial-getty@.service.d"
         mkdir -p "$_getty_override"
-        echo -e "[Service]\nEnvironment=TERM=linux" > "$_getty_override/default-TERM.conf"
+        echo -e "[Service]\nEnvironment=TERM=linux" >"$_getty_override/default-TERM.conf"
 
-        cat > "$initdir/etc/motd" << EOF
+        cat >"$initdir/etc/motd" <<EOF
 To adjust the terminal size use:
     export COLUMNS=xx
     export LINES=yy
@@ -1246,7 +1246,7 @@ install_dbus() {
 
     # setup policy for Type=dbus test
     mkdir -p $initdir/etc/dbus-1/system.d
-    cat > $initdir/etc/dbus-1/system.d/systemd.test.ExecStopPost.conf <<EOF
+    cat >$initdir/etc/dbus-1/system.d/systemd.test.ExecStopPost.conf <<EOF
 <?xml version="1.0"?>
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
         "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
@@ -1987,7 +1987,7 @@ install_kmod_with_fw() {
     fi
 
     [ -d "$initdir/.kernelmodseen" ] && \
-        > "$initdir/.kernelmodseen/${1##*/}"
+        >"$initdir/.kernelmodseen/${1##*/}"
 
     inst_simple "$1" "/lib/modules/$KERNEL_VER/${1##*/lib/modules/$KERNEL_VER/}" \
         || return $?
@@ -2059,11 +2059,11 @@ filter_kernel_modules_by_path () (
     for _modname in $(eval $_filtercmd); do
         case $_modname in
             *.ko) "$2" "$_modname" && echo "$_modname";;
-            *.ko.gz) gzip -dc "$_modname" > $initdir/$$.ko
+            *.ko.gz) gzip -dc "$_modname" >$initdir/$$.ko
                 $2 $initdir/$$.ko && echo "$_modname"
                 rm -f $initdir/$$.ko
                 ;;
-            *.ko.xz) xz -dc "$_modname" > $initdir/$$.ko
+            *.ko.xz) xz -dc "$_modname" >$initdir/$$.ko
                 $2 $initdir/$$.ko && echo "$_modname"
                 rm -f $initdir/$$.ko
                 ;;
@@ -2276,7 +2276,7 @@ test_setup() {
         fi
 
         local hook_defined=1
-        if declare -f -F test_append_files > /dev/null; then
+        if declare -f -F test_append_files >/dev/null; then
             hook_defined=$?
         fi
 

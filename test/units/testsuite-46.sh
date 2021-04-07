@@ -4,7 +4,7 @@ set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
 if ! test -x /usr/bin/homectl ; then
-        echo OK > /testok
+        echo OK >/testok
         exit 0
 fi
 
@@ -76,6 +76,6 @@ homectl remove test-user
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

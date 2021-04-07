@@ -63,6 +63,6 @@ runas testuser systemd-run --wait --user --unit=test-protect-home-yes \
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

@@ -16,4 +16,4 @@ NSPAWN_TIMEOUT=20
 # only found from the console during the poweroff.
 rm -f /tmp/honorfirstshutdown.log >/dev/null
 
-do_test "$@" 52 > /tmp/honorfirstshutdown.log
+do_test "$@" 52 >/tmp/honorfirstshutdown.log

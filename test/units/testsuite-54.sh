@@ -10,7 +10,7 @@ systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
             --wait \
             --pipe \
-            cat '${CREDENTIALS_DIRECTORY}/passwd' '${CREDENTIALS_DIRECTORY}/shadow' '${CREDENTIALS_DIRECTORY}/dog' > /tmp/ts54-concat
+            cat '${CREDENTIALS_DIRECTORY}/passwd' '${CREDENTIALS_DIRECTORY}/shadow' '${CREDENTIALS_DIRECTORY}/dog' >/tmp/ts54-concat
 ( cat /etc/passwd /etc/shadow && echo -n wuff ) | cmp /tmp/ts54-concat
 rm /tmp/ts54-concat
 
@@ -28,6 +28,6 @@ systemd-run -p LoadCredential=passwd:/etc/passwd \
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

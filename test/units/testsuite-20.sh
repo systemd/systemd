@@ -71,7 +71,7 @@ disown
 sleep infinity &
 disown
 
-echo \$MAINPID > /run/mainpidsh/pid
+echo \$MAINPID >/run/mainpidsh/pid
 EOF
 chmod +x /tmp/test20-mainpid.sh
 
@@ -95,7 +95,7 @@ disown
 sleep infinity &
 disown
 
-echo \$MAINPID > /run/mainpidsh2/pid
+echo \$MAINPID >/run/mainpidsh2/pid
 chown 1001:1001 /run/mainpidsh2/pid
 EOF
 chmod +x /tmp/test20-mainpid2.sh
@@ -140,10 +140,10 @@ systemd-run --unit=test20-mainpidsh3.service \
     && { echo 'unexpected success'; exit 1; }
 
 # Test that this failed due to timeout, and not some other error
-test `systemctl show -P Result test20-mainpidsh3.service` = timeout
+test $(systemctl show -P Result test20-mainpidsh3.service) = timeout
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

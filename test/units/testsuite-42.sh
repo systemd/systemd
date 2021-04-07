@@ -17,7 +17,7 @@ systemd-run --unit=exec2.service --wait -p StandardOutput=tty -p StandardError=t
     && { echo 'unexpected success'; exit 1; }
 test -f /run/exec2
 
-cat > /tmp/forking1.sh <<EOF
+cat >/tmp/forking1.sh <<EOF
 #!/usr/bin/env bash
 
 set -eux
@@ -33,7 +33,7 @@ chmod +x /tmp/forking1.sh
 systemd-run --unit=forking1.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=forking -p NotifyAccess=exec -p ExecStopPost='/bin/touch /run/forking1' /tmp/forking1.sh
 test -f /run/forking1
 
-cat > /tmp/forking2.sh <<EOF
+cat >/tmp/forking2.sh <<EOF
 #!/usr/bin/env bash
 
 set -eux
@@ -65,7 +65,7 @@ test -f /run/dbus1
 systemd-run --unit=dbus2.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=dbus -p BusName=systemd.test.ExecStopPost -p ExecStopPost='/bin/touch /run/dbus2' true
 test -f /run/dbus2
 
-cat > /tmp/notify1.sh <<EOF
+cat >/tmp/notify1.sh <<EOF
 #!/usr/bin/env bash
 
 set -eux
@@ -90,6 +90,6 @@ test -f /run/idle2
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

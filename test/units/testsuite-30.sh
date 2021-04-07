@@ -26,6 +26,6 @@ while test ! -f /tmp/clock-changed ; do sleep .5 ; done
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
