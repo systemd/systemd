@@ -4185,8 +4185,22 @@ static int run(int argc, char *argv[]) {
         log_open();
 
         if (in_initrd()) {
-                /* Default to operation on /sysroot when invoked in the initrd! */
-                arg_root = strdup("/sysroot");
+                /* Default to operation on /sysroot/ or /sysusr/ when invoked in the initrd. */
+
+                r = path_is_mount_point("/sysroot", NULL, 0);
+                if (r <= 0) {
+                        if (r < 0 && r != -ENOENT)
+                                log_debug_errno(r, "Unable to determine whether /sysroot/ is a mount point, assuming it is not: %m");
+
+                        r = path_is_mount_point("/sysusr/usr", NULL, 0);
+                        if (r <= 0)
+                                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOENT),
+                                                       "Unable to find host OS mount point: %m");
+                        else
+                                arg_root = strdup("/sysusr");
+                }  else
+                        arg_root = strdup("/sysroot");
+
                 if (!arg_root)
                         return log_oom();
         }
