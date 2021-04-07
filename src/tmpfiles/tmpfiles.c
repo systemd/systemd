@@ -3251,7 +3251,11 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                                 for (size_t nj = 0; nj < ja->n_items; nj++) {
                                         Item *j = ja->items + nj;
 
-                                        if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
+                                        if (!IN_SET(j->type, CREATE_DIRECTORY,
+                                                             TRUNCATE_DIRECTORY,
+                                                             CREATE_SUBVOLUME,
+                                                             CREATE_SUBVOLUME_INHERIT_QUOTA,
+                                                             CREATE_SUBVOLUME_NEW_QUOTA))
                                                 continue;
 
                                         if (path_equal(j->path, i->path)) {
@@ -3259,8 +3263,9 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                                                 break;
                                         }
 
-                                        if ((!candidate_item && path_startswith(i->path, j->path)) ||
-                                            (candidate_item && path_startswith(j->path, candidate_item->path) && (fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)))
+                                        if (candidate_item
+                                            ? (path_startswith(j->path, candidate_item->path) && fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)
+                                            : path_startswith(i->path, j->path) != NULL)
                                                 candidate_item = j;
                                 }
 
