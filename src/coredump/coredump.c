@@ -802,11 +802,11 @@ log:
                 if (!path_equal_filename(module_name, context->meta[META_EXE]))
                         continue;
 
-                package_name = json_variant_by_key(module_json, "package");
+                package_name = json_variant_by_key(module_json, "name");
                 if (package_name)
                         (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", json_variant_string(package_name));
 
-                package_version = json_variant_by_key(module_json, "packageVersion");
+                package_version = json_variant_by_key(module_json, "version");
                 if (package_version)
                         (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", json_variant_string(package_version));
         }
