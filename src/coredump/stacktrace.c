@@ -166,7 +166,6 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                          * magic ID is always the same. */
                         if (note_header.n_type == ELF_PACKAGE_METADATA_ID) {
                                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
-                                char *name_key = NULL;
 
                                 r = json_parse(payload, 0, &v, NULL, NULL);
                                 if (r < 0) {
@@ -206,14 +205,9 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                                 }
 
                                 /* Finally stash the name, so we avoid double visits. */
-                                name_key = strdup(name);
-                                if (!name_key) {
-                                        log_oom();
-                                        return DWARF_CB_ABORT;
-                                }
-                                r = set_ensure_consume(c->modules, &string_hash_ops, name_key);
+                                r = set_put_strdup(c->modules, name);
                                 if (r < 0) {
-                                        log_error_errno(r, "set_ensure_consume failed: %m");
+                                        log_error_errno(r, "set_put_strdup failed: %m");
                                         return DWARF_CB_ABORT;
                                 }
 
