@@ -51,7 +51,7 @@ bool in4_addr_is_link_local(const struct in_addr *a) {
 bool in6_addr_is_link_local(const struct in6_addr *a) {
         assert(a);
 
-        return IN6_IS_ADDR_LINKLOCAL(a);
+        return IN6_IS_ADDR_LINKLOCAL(a); /* lgtm [cpp/potentially-dangerous-function] */
 }
 
 int in_addr_is_link_local(int family, const union in_addr_union *u) {
@@ -116,7 +116,7 @@ int in_addr_is_localhost(int family, const union in_addr_union *u) {
                 return in4_addr_is_localhost(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_LOOPBACK(&u->in6);
+                return IN6_IS_ADDR_LOOPBACK(&u->in6); /* lgtm [cpp/potentially-dangerous-function] */
 
         return -EAFNOSUPPORT;
 }
