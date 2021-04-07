@@ -4318,8 +4318,18 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
         else if (!arg_image && !arg_root && in_initrd()) {
-                /* Default to operation on /sysroot when invoked in the initrd! */
-                arg_root = strdup("/sysroot");
+
+                /* By default operate on /sysusr/ or /sysroot/ when invoked in the initrd. We prefer the
+                 * former, if it is mounted, so that we have deterministic behaviour on systems where /usr/
+                 * is vendor-supplied but the root fs formatted on first boot. */
+                r = path_is_mount_point("/sysusr/usr", NULL, 0);
+                if (r <= 0) {
+                        if (r < 0 && r != -ENOENT)
+                                log_debug_errno(r, "Unable to determine whether /sysusr/usr is a mount point, assuming it is not: %m");
+
+                        arg_root = strdup("/sysroot");
+                } else
+                        arg_root = strdup("/sysusr");
                 if (!arg_root)
                         return log_oom();
         }
