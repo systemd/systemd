@@ -996,7 +996,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
                 if (names.pci_slot[0] &&
-                    snprintf(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 return 0;
         }
