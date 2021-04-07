@@ -58,8 +58,8 @@ c+    /dev/char-device-to-[re]create           mode user group -           major
 b     /dev/block-device-to-create              mode user group -           major:minor
 b+    /dev/block-device-to-[re]create          mode user group -           major:minor
 C     /target/to/create                        -    -    -     -           /source/to/copy
-x     /path-or-glob/to/ignore                  -    -    -     -           -
-X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
+x     /path-or-glob/to/ignore/recursively      -    -    -     -           -
+X     /path-or-glob/to/ignore                  -    -    -     -           -
 r     /empty/dir/to/remove                     -    -    -     -           -
 R     /dir/to/remove/recursively               -    -    -     -           -
 z     /path-or-glob/to/adjust/mode             mode user group -           -
