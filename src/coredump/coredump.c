@@ -797,8 +797,7 @@ log:
 
         JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
                 _cleanup_free_ char *module_basename = NULL, *exe_basename = NULL;
-                const char *key;
-                JsonVariant *w;
+                JsonVariant *package_name, *package_version;
 
                 /* The module name, most likely parsed from the ELF core file,
                  * sometimes contains the full path and sometimes does not. */
@@ -813,26 +812,13 @@ log:
                 if (!streq(module_basename, exe_basename))
                         continue;
 
-                /* Cannot nest two JSON_VARIANT_OBJECT_FOREACH as they define the same
-                 * iterator variable '_state' */
-                for (struct json_variant_foreach_state _state2 = { (module_json), 0 };     \
-                     json_variant_is_object(_state2.variant) &&                  \
-                             _state2.idx < json_variant_elements(_state2.variant) && \
-                             ({ key = json_variant_string(json_variant_by_index(_state2.variant, _state2.idx)); \
-                                       w = json_variant_by_index(_state2.variant, _state2.idx + 1); \
-                                       true; });                                  \
-                     _state2.idx += 2) {
+                package_name = json_variant_by_key(module_json, "package");
+                if (package_name)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", json_variant_string(package_name));
 
-                        if (!json_variant_is_string(w))
-                                continue;
-
-                        if (!STR_IN_SET(key, "package", "packageVersion"))
-                                continue;
-
-                        (void) iovw_put_string_field(iovw,
-                                                     streq(key, "package") ? "COREDUMP_PACKAGE_NAME=" : "COREDUMP_PACKAGE_VERSION=",
-                                                     json_variant_string(w));
-                }
+                package_version = json_variant_by_key(module_json, "packageVersion");
+                if (package_version)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", json_variant_string(package_version));
         }
 
         /* Optionally store the entire coredump in the journal */
