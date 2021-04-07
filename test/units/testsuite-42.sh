@@ -58,7 +58,7 @@ systemd-run --unit=dbus1.service --wait -p StandardOutput=tty -p StandardError=t
     || :
 test -f /run/dbus1
 
-! systemd-run --unit=dbus2.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=dbus -p BusName=systemd.test.ExecStopPost -p ExecStopPost='/bin/touch /run/dbus2' true
+systemd-run --unit=dbus2.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=dbus -p BusName=systemd.test.ExecStopPost -p ExecStopPost='/bin/touch /run/dbus2' true
 test -f /run/dbus2
 
 cat > /tmp/notify1.sh <<EOF
