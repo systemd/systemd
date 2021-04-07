@@ -267,7 +267,7 @@ test ! -e /var/log/testsocket
 systemctl start testservice.socket
 
 test -d /etc/testsocket
-test ! -d /run/testsocket
+test -d /run/testsocket
 test -d /var/lib/testsocket
 test -d /var/cache/testsocket
 test -d /var/log/testsocket
