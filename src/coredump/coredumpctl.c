@@ -729,9 +729,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                 r = json_parse(pkgmeta_json, 0, &v, NULL, NULL);
-                if (r < 0) {
+                if (r < 0)
                         log_warning_errno(r, "json_parse on %s failed, ignoring: %m", pkgmeta_json);
-                } else {
+                else {
                         const char *module_name;
                         JsonVariant *module_json;
 

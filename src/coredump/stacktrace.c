@@ -241,12 +241,12 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * The build-id is easy, as libdwfl parses it during the dwfl_core_file_report() call and
          * stores it separately in an internal library struct. */
         id_len = dwfl_module_build_id(mod, &id, &id_vaddr);
-        if (id_len <= 0) {
+        if (id_len <= 0)
                 /* If we don't find a build-id, note it in the journal message, and try
                  * anyway to find the package metadata. It's unlikely to have the latter
                  * without the former, but there's no hard rule. */
-                fprintf(c->f, "Found module %s without build-id\n", name);
-        } else {
+                fprintf(c->f, "Found module %s without build-id.\n", name);
+        else {
                 _cleanup_free_ char *id_hex = NULL, *id_hex_prefixed = NULL;
 
                 id_hex = hexmem(id, id_len);
