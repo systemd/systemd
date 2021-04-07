@@ -433,6 +433,11 @@ static int add_mount(
         if (r < 0)
                 return r;
 
+        /* Order the mount unit we generate relative to the post unit, so that DefaultDependencies= on the
+         * target unit won't affect us. */
+        if (post && !FLAGS_SET(flags, AUTOMOUNT) && !FLAGS_SET(flags, NOAUTO))
+                fprintf(f, "Before=%s\n", post);
+
         if (passno != 0) {
                 r = generator_write_fsck_deps(f, dest, what, where, fstype);
                 if (r < 0)
