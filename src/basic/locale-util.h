@@ -39,7 +39,7 @@ void init_gettext(void);
 
 bool is_locale_utf8(void);
 
-typedef enum {
+typedef enum SpecialGlyph {
         SPECIAL_GLYPH_TREE_VERTICAL,
         SPECIAL_GLYPH_TREE_BRANCH,
         SPECIAL_GLYPH_TREE_RIGHT,
@@ -70,6 +70,7 @@ typedef enum {
         SPECIAL_GLYPH_LOCK_AND_KEY,
         SPECIAL_GLYPH_TOUCH,
         _SPECIAL_GLYPH_MAX,
+        _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
 
 const char *special_glyph(SpecialGlyph code) _const_;
