@@ -66,11 +66,15 @@ inspect test-user
 PASSWORD=xEhErW0ndafV4s homectl deactivate test-user
 inspect test-user
 
-! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
+    && { echo 'unexpected success'; exit 1; }
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
-! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
+    && { echo 'unexpected success'; exit 1; }
 
 homectl remove test-user
 
