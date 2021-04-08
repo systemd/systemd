@@ -180,9 +180,11 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 .n_ref = 1,
                 .fd_raw = -1,
                 .fd = -1,
+                .fd_broadcast = -1,
                 .address = htobe32(INADDR_ANY),
                 .netmask = htobe32(INADDR_ANY),
                 .ifindex = ifindex,
+                .bind_to_interface = true,
                 .default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC),
                 .max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC),
         };
@@ -250,11 +252,12 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         if (!server)
                 return 0;
 
-        server->receive_message =
-                sd_event_source_unref(server->receive_message);
+        server->receive_message = sd_event_source_unref(server->receive_message);
+        server->receive_broadcast = sd_event_source_unref(server->receive_broadcast);
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
+        server->fd_broadcast = safe_close(server->fd_broadcast);
 
         log_dhcp_server(server, "STOPPED");
 
@@ -303,8 +306,6 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                 .msg_namelen = sizeof(dest.in),
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
         struct in_pktinfo *pktinfo;
@@ -314,22 +315,27 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         assert(message);
         assert(len > sizeof(DHCPMessage));
 
-        cmsg = CMSG_FIRSTHDR(&msg);
-        assert(cmsg);
+        if (server->bind_to_interface) {
+                msg.msg_control = &control;
+                msg.msg_controllen = sizeof(control);
 
-        cmsg->cmsg_level = IPPROTO_IP;
-        cmsg->cmsg_type = IP_PKTINFO;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+                cmsg = CMSG_FIRSTHDR(&msg);
+                assert(cmsg);
 
-        /* we attach source interface and address info to the message
-           rather than binding the socket. This will be mostly useful
-           when we gain support for arbitrary number of server addresses
-         */
-        pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
-        assert(pktinfo);
+                cmsg->cmsg_level = IPPROTO_IP;
+                cmsg->cmsg_type = IP_PKTINFO;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
-        pktinfo->ipi_ifindex = server->ifindex;
-        pktinfo->ipi_spec_dst.s_addr = server->address;
+                /* we attach source interface and address info to the message
+                   rather than binding the socket. This will be mostly useful
+                   when we gain support for arbitrary number of server addresses
+                 */
+                pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                assert(pktinfo);
+
+                pktinfo->ipi_ifindex = server->ifindex;
+                pktinfo->ipi_spec_dst.s_addr = server->address;
+        }
 
         if (sendmsg(server->fd, &msg, 0) < 0)
                 return -errno;
@@ -1013,36 +1019,56 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         r = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (r < 0) {
                 r = -errno;
-                sd_dhcp_server_stop(server);
-                return r;
+                goto on_error;
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (server->bind_to_interface)
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        else
+                r = dhcp_network_bind_udp_socket(0, server->address, DHCP_PORT_SERVER, -1);
+        if (r < 0)
+                goto on_error;
         server->fd = r;
 
         r = sd_event_add_io(server->event, &server->receive_message,
                             server->fd, EPOLLIN,
                             server_receive_message, server);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (r < 0)
+                goto on_error;
 
         r = sd_event_source_set_priority(server->receive_message,
                                          server->event_priority);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
+        if (r < 0)
+                goto on_error;
+
+
+        if (!server->bind_to_interface) {
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_BROADCAST, DHCP_PORT_SERVER, -1);
+                if (r < 0)
+                        goto on_error;
+
+                server->fd_broadcast = r;
+
+                r = sd_event_add_io(server->event, &server->receive_broadcast,
+                                    server->fd_broadcast, EPOLLIN,
+                                    server_receive_message, server);
+                if (r < 0)
+                        goto on_error;
+
+                r = sd_event_source_set_priority(server->receive_broadcast,
+                                                 server->event_priority);
+                if (r < 0)
+                        goto on_error;
         }
 
         log_dhcp_server(server, "STARTED");
 
         return 0;
+
+on_error:
+    sd_dhcp_server_stop(server);
+    return r;
 }
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
@@ -1067,6 +1093,18 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         }
 
         return r;
+}
+
+int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled) {
+        assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
+
+        if (!!enabled == server->bind_to_interface)
+                return 0;
+
+        server->bind_to_interface = enabled;
+
+        return 1;
 }
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
