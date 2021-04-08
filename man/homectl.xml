@@ -846,6 +846,10 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para>When a command is invoked with <command>with</command>, the exit status of the child is
+    propagated. Effectively, <command>homectl</command> will exit without error if the command is
+    successfully invoked <emphasis>and</emphasis> finishes successfully.</para>
   </refsect1>
 
   <xi:include href="common-variables.xml" />
