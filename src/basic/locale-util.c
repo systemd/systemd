@@ -427,8 +427,10 @@ const char *special_glyph(SpecialGlyph code) {
                 },
         };
 
-        assert(code < _SPECIAL_GLYPH_MAX);
+        if (code < 0)
+                return NULL;
 
+        assert(code < _SPECIAL_GLYPH_MAX);
         return draw_table[code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : is_locale_utf8()][code];
 }
 
