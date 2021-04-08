@@ -252,15 +252,11 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         if (!server)
                 return 0;
 
-        server->receive_message =
-                sd_event_source_unref(server->receive_message);
-
-        server->receive_broadcast =
-                sd_event_source_unref(server->receive_broadcast);
+        server->receive_message = sd_event_source_unref(server->receive_message);
+        server->receive_broadcast = sd_event_source_unref(server->receive_broadcast);
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
-
         server->fd_broadcast = safe_close(server->fd_broadcast);
 
         log_dhcp_server(server, "STOPPED");
@@ -1023,8 +1019,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         r = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (r < 0) {
                 r = -errno;
-                sd_dhcp_server_stop(server);
-                return r;
+                goto on_error;
         }
         server->fd_raw = r;
 
@@ -1032,55 +1027,48 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
                 r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         else
                 r = dhcp_network_bind_udp_socket(0, server->address, DHCP_PORT_SERVER, -1);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (r < 0)
+                goto on_error;
         server->fd = r;
 
         r = sd_event_add_io(server->event, &server->receive_message,
                             server->fd, EPOLLIN,
                             server_receive_message, server);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (r < 0)
+                goto on_error;
 
         r = sd_event_source_set_priority(server->receive_message,
                                          server->event_priority);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (r < 0)
+                goto on_error;
 
 
         if (!server->bind_to_interface) {
                 r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_BROADCAST, DHCP_PORT_SERVER, -1);
-                if (r < 0) {
-                        sd_dhcp_server_stop(server);
-                        return r;
-                }
+                if (r < 0)
+                        goto on_error;
+
                 server->fd_broadcast = r;
 
                 r = sd_event_add_io(server->event, &server->receive_broadcast,
                                     server->fd_broadcast, EPOLLIN,
                                     server_receive_message, server);
-                if (r < 0) {
-                        sd_dhcp_server_stop(server);
-                        return r;
-                }
+                if (r < 0)
+                        goto on_error;
 
                 r = sd_event_source_set_priority(server->receive_broadcast,
                                                  server->event_priority);
-                if (r < 0) {
-                        sd_dhcp_server_stop(server);
-                        return r;
-                }
+                if (r < 0)
+                        goto on_error;
         }
 
         log_dhcp_server(server, "STARTED");
 
         return 0;
+
+on_error:
+    sd_dhcp_server_stop(server);
+    return r;
 }
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
@@ -1109,14 +1097,10 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
 
 int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled) {
         assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
         if (!!enabled == server->bind_to_interface)
                 return 0;
-
-        if (sd_dhcp_server_is_running(server)) {
-                log_dhcp_server(server, "Refusing to change BindToInterface setting on a running DHCP Server. Restart is needed");
-                return 0;
-        }
 
         server->bind_to_interface = enabled;
 
