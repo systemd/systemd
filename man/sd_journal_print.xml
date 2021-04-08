@@ -218,6 +218,9 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
     <function>sd_journal_send()</function>. Using
     <function>syslog()</function> has the benefit of being
     more portable.</para>
+
+    <para>These functions implement a client to the <ulink
+    url="https://systemd.io/JOURNAL_NATIVE_PROTOCOL">Native Journal Protocol</ulink>.</para>
   </refsect1>
 
   <refsect1>
