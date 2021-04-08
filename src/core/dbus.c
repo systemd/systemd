@@ -164,7 +164,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
 
         if (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) ||
             manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)) {
-                r = sd_bus_error_setf(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
+                r = sd_bus_error_set(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
                 goto failed;
         }
 
