@@ -14,12 +14,9 @@ inspect() {
         # outputs to avoid unexpected fails. To see the full outputs of both
         # homectl & userdbctl (for debugging purposes) drop the fields just
         # before the comparison.
-        homectl inspect $1 | tee /tmp/a
-        userdbctl user $1 | tee /tmp/b
-
-        local PATTERN='/^\s*Disk (Size|Free|Floor|Ceiling):/d'
-        diff <(sed -r "$PATTERN" /tmp/a) <(sed -r "$PATTERN" /tmp/b)
-        rm /tmp/a /tmp/b
+        diff -I '/^\s*Disk (Size|Free|Floor|Ceiling):/' \
+             <( homectl inspect $1 | tee /dev/tty ) \
+             <( userdbctl user $1 | tee /dev/tty )
 }
 
 systemd-analyze log-level debug
