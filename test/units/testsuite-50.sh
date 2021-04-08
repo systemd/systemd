@@ -207,7 +207,7 @@ grep -F "squashfs" ${image_dir}/result/c | grep -q -F -v "nosuid"
 
 # Adding a new mounts at runtime works if the unit is in the active state,
 # so use Type=notify to make sure there's no race condition in the test
-cat > /run/systemd/system/testservice-50d.service <<EOF
+cat >/run/systemd/system/testservice-50d.service <<EOF
 [Service]
 RuntimeMaxSec=300
 Type=notify

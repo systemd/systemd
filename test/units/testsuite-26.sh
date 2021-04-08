@@ -22,10 +22,10 @@ systemctl show-environment | grep -q '^FOO=BAR$'
 systemctl unset-environment FOO PATH
 
 # Check that one is gone and the other reverted to the built-in
-! (systemctl show-environment | grep -q '^FOO=$')
-! (systemctl show-environment | grep -q '^PATH=.*testaddition$')
+systemctl show-environment | grep '^FOO=$' && exit 1
+systemctl show-environment | grep '^PATH=.*testaddition$' && exit 1
 systemctl show-environment | grep -q '^PATH='
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
