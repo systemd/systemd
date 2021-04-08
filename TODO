@@ -36,6 +36,8 @@ Features:
 * journald: support RFC3164 fully for the incoming syslog transport, see
   https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
 
+* turn all unit "level" triggers into queue
+
 * nspawn: support uid mapping bind mounts, as defined available in kernel 5.12,
   for all our disk image needs
 
