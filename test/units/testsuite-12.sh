@@ -14,7 +14,7 @@ SocketGroup=adm
 SocketMode=0660
 EOF
 
-cat <<'EOF' > /run/systemd/system/test12@.service
+cat <<'EOF' >/run/systemd/system/test12@.service
 [Unit]
 Description=Test service
 [Service]

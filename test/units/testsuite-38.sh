@@ -245,7 +245,7 @@ test_preserve_state() {
     echo "Test that freezer state is preserved when recursive freezing is initiated from outside (e.g. by manager up the tree):"
 
     echo -n "  - freeze from outside: "
-    echo 1 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 1 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
     # Give kernel some time to freeze the slice
     sleep 1
 
@@ -259,7 +259,7 @@ test_preserve_state() {
     echo "[ OK ]"
 
     echo -n "  - thaw from outside: "
-    echo 0 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 0 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
     sleep 1
 
     check_freezer_state "${unit}" "running"
@@ -271,8 +271,8 @@ test_preserve_state() {
     echo -n "  - thaw from outside while inner service is frozen: "
     systemctl freeze "$unit"
     check_freezer_state "${unit}" "frozen"
-    echo 1 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
-    echo 0 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 1 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 0 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
     check_freezer_state "${slice}" "running"
     check_freezer_state "${unit}" "frozen"
     echo "[ OK ]"
@@ -293,5 +293,5 @@ test -e /sys/fs/cgroup/system.slice/cgroup.freeze && {
     test_preserve_state
 }
 
-echo OK > /testok
+echo OK >/testok
 exit 0

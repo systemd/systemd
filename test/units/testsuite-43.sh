@@ -34,9 +34,10 @@ test -e /home/testuser/works.txt
 runas testuser systemd-run --wait --user --unit=test-protect-home-read-only \
     -p PrivateUsers=yes -p ProtectHome=read-only \
     -P bash -c '
-        test -e /home/testuser/works.txt
-        ! touch /home/testuser/blocked.txt
-    '
+        test -e /home/testuser/works.txt || exit 10
+        touch /home/testuser/blocked.txt && exit 11
+    ' \
+        && { echo 'unexpected success'; exit 1; }
 test ! -e /home/testuser/blocked.txt
 
 # Check that tmpfs hides the whole directory
@@ -57,12 +58,13 @@ runas testuser systemd-run --wait --user --unit=test-protect-home-yes \
 # namespace (no CAP_SETGID in the parent namespace to write the additional
 # mapping of the user supplied group and thus cannot change groups to an
 # unmapped group ID)
-! runas testuser systemd-run --wait --user --unit=test-group-fail \
+runas testuser systemd-run --wait --user --unit=test-group-fail \
     -p PrivateUsers=yes -p Group=daemon \
-    -P true
+    -P true \
+    && { echo 'unexpected success'; exit 1; }
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
