@@ -2349,6 +2349,8 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_ACQUIRE);
 
+        assert(!h->current_operation);
+
         switch (home_get_state(h)) {
 
         case HOME_UNFIXATED:
@@ -2357,8 +2359,9 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                 break;
 
         case HOME_ABSENT:
-                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
-                break;
+                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT,
+                                      "Home %s is currently missing or not plugged in.", h->user_name);
+                goto check;
 
         case HOME_INACTIVE:
         case HOME_DIRTY:
@@ -2382,14 +2385,11 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                 return 0;
         }
 
-        assert(!h->current_operation);
+        r = home_ratelimit(h, &error);
+        if (r >= 0)
+                r = call(h, o->secret, for_state, &error);
 
-        if (call) {
-                r = home_ratelimit(h, &error);
-                if (r >= 0)
-                        r = call(h, o->secret, for_state, &error);
-        }
-
+ check:
         if (r != 0) /* failure or completed */
                 operation_result(o, r, &error);
         else /* ongoing */
