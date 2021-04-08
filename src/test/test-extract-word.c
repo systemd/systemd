@@ -428,6 +428,20 @@ static void test_extract_first_word(void) {
         assert_se(streq(t, "c"));
         free(t);
         assert_se(p == NULL);
+
+        p = original = "foobar=\"waldo\"maldo, baldo";
+        assert_se(extract_first_word(&p, &t, "=\", ", 0) > 0);
+        assert_se(streq(t, "foobar"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, "=\", ", 0) > 0);
+        assert_se(streq(t, "waldo"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, "=\", ", 0) > 0);
+        assert_se(streq(t, "maldo"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, "=\", ", 0) > 0);
+        assert_se(streq(t, "baldo"));
+        free(t);
 }
 
 static void test_extract_first_word_and_warn(void) {
