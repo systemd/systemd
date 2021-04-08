@@ -31,6 +31,8 @@ typedef enum UnitDependencyAtom {
 
         /* Stop our unit if the other unit happens to inactive */
         UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT            = UINT64_C(1) << 7,
+        /* If our unit enters inactive state, add the other unit to the BoundBy= queue */
+        UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE  = UINT64_C(1) << 8,
 
         /* Start this unit whenever we find it inactive and the other unit active */
         UNIT_ATOM_START_STEADILY                      = UINT64_C(1) << 9,

@@ -523,6 +523,22 @@ void unit_submit_to_start_when_upheld_queue(Unit *u) {
         u->in_start_when_upheld_queue = true;
 }
 
+void unit_submit_to_stop_when_bound_queue(Unit *u) {
+        assert(u);
+
+        if (u->in_stop_when_bound_queue)
+                return;
+
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                return;
+
+        if (!unit_has_dependency(u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT, NULL))
+                return;
+
+        LIST_PREPEND(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
+        u->in_stop_when_bound_queue = true;
+}
+
 static void unit_clear_dependencies(Unit *u) {
         assert(u);
 
@@ -737,6 +753,9 @@ Unit* unit_free(Unit *u) {
 
         if (u->in_start_when_upheld_queue)
                 LIST_REMOVE(start_when_upheld_queue, u->manager->start_when_upheld_queue, u);
+
+        if (u->in_stop_when_bound_queue)
+                LIST_REMOVE(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
 
         safe_close(u->ip_accounting_ingress_map_fd);
         safe_close(u->ip_accounting_egress_map_fd);
@@ -2060,6 +2079,38 @@ bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit) {
         return false;
 }
 
+bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit) {
+        Unit *other;
+
+        assert(u);
+
+        /* Checks whether this unit is bound to another unit that is inactive, i.e. whether we should stop
+         * because the other unit is down.*/
+
+        if (unit_active_state(u) != UNIT_ACTIVE || u->job) {
+                /* Don't clean up while the unit is transitioning or is even inactive. */
+                if (ret_culprit)
+                        *ret_culprit = NULL;
+                return false;
+        }
+
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT) {
+                if (other->job)
+                        continue;
+
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+                        if (*ret_culprit)
+                                *ret_culprit = other;
+
+                        return true;
+                }
+        }
+
+        if (ret_culprit)
+                *ret_culprit = NULL;
+        return false;
+}
+
 static void check_unneeded_dependencies(Unit *u) {
         Unit *other;
         assert(u);
@@ -2080,53 +2131,14 @@ static void check_uphold_dependencies(Unit *u) {
                 unit_submit_to_start_when_upheld_queue(other);
 }
 
-static void unit_check_binds_to(Unit *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool stop = false;
+static void check_bound_by_dependencies(Unit *u) {
         Unit *other;
-        int r;
-
         assert(u);
 
-        if (u->job)
-                return;
+        /* Add all units this unit depends on to the queue that processes BindsTo= stop behaviour. */
 
-        if (unit_active_state(u) != UNIT_ACTIVE)
-                return;
-
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT) {
-                if (other->job)
-                        continue;
-
-                if (!other->coldplugged)
-                        /* We might yet create a job for the other unit… */
-                        continue;
-
-                if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
-                        continue;
-
-                stop = true;
-                break;
-        }
-
-        if (!stop)
-                return;
-
-        /* If stopping a unit fails continuously we might enter a stop
-         * loop here, hence stop acting on the service being
-         * unnecessary after a while. */
-        if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
-                log_unit_warning(u, "Unit is bound to inactive unit %s, but not stopping since we tried this too often recently.", other->id);
-                return;
-        }
-
-        assert(other);
-        log_unit_info(u, "Unit is bound to inactive unit %s. Stopping, too.", other->id);
-
-        /* A unit we need to run is gone. Sniff. Let's stop this. */
-        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, NULL, &error, NULL);
-        if (r < 0)
-                log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE)
+                unit_submit_to_stop_when_bound_queue(other);
 }
 
 static void retroactively_start_dependencies(Unit *u) {
@@ -2654,9 +2666,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                                 retroactively_stop_dependencies(u);
                 }
 
-                /* Stop unneeded units regardless if going down was expected or not */
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                /* Stop unneeded units and bound-by units regardless if going down was expected or not */
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                         check_unneeded_dependencies(u);
+                        check_bound_by_dependencies(u);
+                }
 
                 /* Start uphold units regardless if going up was expected or not */
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
@@ -2703,7 +2717,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens when
                  * something BindsTo= to a Type=oneshot unit, as these units go directly from starting to inactive,
                  * without ever entering started.) */
-                unit_check_binds_to(u);
+                unit_submit_to_stop_when_bound_queue(u);
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
