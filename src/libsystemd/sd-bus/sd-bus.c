@@ -1800,7 +1800,9 @@ void bus_enter_closing(sd_bus *bus) {
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus, sd_bus, bus_free);
 
 _public_ int sd_bus_is_open(sd_bus *bus) {
-        assert_return(bus, -EINVAL);
+        if (!bus)
+                return 0;
+
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -1808,7 +1810,9 @@ _public_ int sd_bus_is_open(sd_bus *bus) {
 }
 
 _public_ int sd_bus_is_ready(sd_bus *bus) {
-        assert_return(bus, -EINVAL);
+        if (!bus)
+                return 0;
+
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
