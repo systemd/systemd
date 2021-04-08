@@ -854,7 +854,7 @@ int link_send_changed_strv(Link *link, char **properties) {
         assert(link->manager);
         assert(properties);
 
-        if (!link->manager->bus || sd_bus_is_ready(link->manager->bus) <= 0)
+        if (sd_bus_is_ready(link->manager->bus) <= 0)
                 return 0;
 
         p = link_bus_path(link);
