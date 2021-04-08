@@ -32,13 +32,13 @@ os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os
 
 systemd-dissect --json=short ${image}.raw | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"fstype":"squashfs","architecture":null,"verity":"external"'
 systemd-dissect ${image}.raw | grep -q -F "MARKER=1"
-systemd-dissect ${image}.raw | grep -q -F -f $os_release
+systemd-dissect ${image}.raw | grep -q -F -f <(sed 's/"//g' $os_release)
 
 mv ${image}.verity ${image}.fooverity
 mv ${image}.roothash ${image}.foohash
 systemd-dissect --json=short ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"fstype":"squashfs","architecture":null,"verity":"external"'
 systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "MARKER=1"
-systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F -f $os_release
+systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F -f <(sed 's/"//g' $os_release)
 mv ${image}.fooverity ${image}.verity
 mv ${image}.foohash ${image}.roothash
 
@@ -130,7 +130,7 @@ VERITY_UUID=$(systemd-id128 -u show $(tail -c 32 ${image}.roothash) -u | tail -n
 systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'$ROOT_UUID'","fstype":"squashfs","architecture":"'$architecture'","verity":"yes","node":'
 systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'$VERITY_UUID'","fstype":"DM_verity_hash","architecture":"'$architecture'","verity":null,"node":'
 systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F "MARKER=1"
-systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f $os_release
+systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f <(sed 's/"//g' $os_release)
 
 systemd-dissect --root-hash ${roothash} --mount ${image}.gpt ${image_dir}/mount
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f $os_release
