@@ -167,7 +167,7 @@ int manager_request_product_uuid(Manager *m, Link *link) {
                         return log_oom();
         }
 
-        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+        if (sd_bus_is_ready(m->bus) <= 0) {
                 log_debug("Not connected to system bus, requesting product UUID later.");
                 return 0;
         }

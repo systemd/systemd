@@ -767,8 +767,8 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         if (r < 0)
                 return r;
 
-        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
-                log_debug("Not connected to system bus, setting hostname later.");
+        if (sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, setting system hostname later.");
                 return 0;
         }
 
@@ -784,7 +784,6 @@ int manager_set_hostname(Manager *m, const char *hostname) {
                         "sb",
                         hostname,
                         false);
-
         if (r < 0)
                 return log_error_errno(r, "Could not set transient hostname: %m");
 
@@ -817,8 +816,8 @@ int manager_set_timezone(Manager *m, const char *tz) {
         if (r < 0)
                 return r;
 
-        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
-                log_debug("Not connected to system bus, setting timezone later.");
+        if (sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, setting system timezone later.");
                 return 0;
         }
 
