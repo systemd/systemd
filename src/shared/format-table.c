@@ -783,19 +783,17 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
 }
 
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
-        TableDataType type;
-        va_list ap;
         TableCell *last_cell = NULL;
+        va_list ap;
         int r;
 
         assert(t);
         assert(first_type >= 0);
         assert(first_type < _TABLE_DATA_TYPE_MAX);
 
-        type = first_type;
-
         va_start(ap, first_type);
-        for (;;) {
+
+        for (TableDataType type = first_type;; type = va_arg(ap, TableDataType)) {
                 const void *data;
                 union {
                         uint64_t size;
@@ -968,43 +966,43 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         size_t w = va_arg(ap, size_t);
 
                         r = table_set_minimum_width(t, last_cell, w);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_MAXIMUM_WIDTH: {
                         size_t w = va_arg(ap, size_t);
                         r = table_set_maximum_width(t, last_cell, w);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_WEIGHT: {
                         unsigned w = va_arg(ap, unsigned);
                         r = table_set_weight(t, last_cell, w);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_ALIGN_PERCENT: {
                         unsigned p = va_arg(ap, unsigned);
                         r = table_set_align_percent(t, last_cell, p);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_ELLIPSIZE_PERCENT: {
                         unsigned p = va_arg(ap, unsigned);
                         r = table_set_ellipsize_percent(t, last_cell, p);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_COLOR: {
                         const char *c = va_arg(ap, const char*);
                         r = table_set_color(t, last_cell, c);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_RGAP_COLOR: {
                         const char *c = va_arg(ap, const char*);
                         r = table_set_rgap_color(t, last_cell, c);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_BOTH_COLORS: {
@@ -1017,19 +1015,19 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         }
 
                         r = table_set_rgap_color(t, last_cell, c);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_URL: {
                         const char *u = va_arg(ap, const char*);
                         r = table_set_url(t, last_cell, u);
-                        break;
+                        goto check;
                 }
 
                 case TABLE_SET_UPPERCASE: {
                         int u = va_arg(ap, int);
                         r = table_set_uppercase(t, last_cell, u);
-                        break;
+                        goto check;
                 }
 
                 case _TABLE_DATA_TYPE_MAX:
@@ -1041,15 +1039,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         assert_not_reached("Uh? Unexpected data type.");
                 }
 
-                if (type < _TABLE_DATA_TYPE_MAX)
-                        r = table_add_cell(t, &last_cell, type, data);
-
+                r = table_add_cell(t, &last_cell, type, data);
+        check:
                 if (r < 0) {
                         va_end(ap);
                         return r;
                 }
-
-                type = va_arg(ap, TableDataType);
         }
 }
 
