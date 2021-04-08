@@ -57,6 +57,9 @@
     zero outside of this state, and positive otherwise. Effectively, this function returns positive while regular
     messages can be sent or received on the connection.</para>
 
+    <para>The <parameter>bus</parameter> argument may be <constant>NULL</constant>, zero is also returned in
+    that case.</para>
+
     <para>To be notified when the connection is fully established, use
     <citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     install a match for the <function>Connected()</function> signal on the
@@ -68,8 +71,8 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative errno-style
-    error code.</para>
+    <para>Those functions return 0 if the bus is <emphasis>not</emphasis> in the given state, and a positive
+    integer when it is. On failure, a negative errno-style error code is returned.</para>
 
     <refsect2>
       <title>Errors</title>
