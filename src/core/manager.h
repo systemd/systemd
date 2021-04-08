@@ -190,6 +190,9 @@ struct Manager {
         /* Units which are upheld by another other which we might need to act on */
         LIST_HEAD(Unit, start_when_upheld_queue);
 
+        /* Units that have BindsTo= another unit, and might need to be shutdown because the bound unit is not active. */
+        LIST_HEAD(Unit, stop_when_bound_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in

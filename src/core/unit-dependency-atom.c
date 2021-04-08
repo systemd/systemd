@@ -62,6 +62,7 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
                                         UNIT_ATOM_PROPAGATE_RESTART |
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
+                                        UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE |
                                         UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES,
 
         [UNIT_UPHELD_BY]              = UNIT_ATOM_START_STEADILY |
@@ -172,7 +173,9 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
                 UNIT_ATOM_PROPAGATE_RESTART |
                 UNIT_ATOM_PROPAGATE_START_FAILURE |
                 UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
+                UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE |
                 UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES:
+        case UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE:
                 return UNIT_BOUND_BY;
 
         case UNIT_ATOM_START_STEADILY |
