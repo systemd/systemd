@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
@@ -7,14 +7,17 @@ systemd-analyze log-target console
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
 [[ -e /proc/pressure ]] || echo "no PSI" >>/skipped
-cgroup_type=$(stat -fc %T /sys/fs/cgroup/)
+cgroup_type="$(stat -fc %T /sys/fs/cgroup/)"
 if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
     echo "no cgroup2" >>/skipped
 fi
 if [ ! -f /usr/lib/systemd/systemd-oomd ] && [ ! -f /lib/systemd/systemd-oomd ]; then
     echo "no oomd" >>/skipped
 fi
-[[ -e /skipped ]] && exit 0 || true
+
+if [[ -e /skipped ]]; then
+    exit 0
+fi
 
 rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
 
@@ -30,7 +33,7 @@ oomctl | grep "Default Memory Pressure Duration: 5s"
 
 # systemd-oomd watches for elevated pressure for 5 seconds before acting.
 # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-timeout=$(date -ud "2 minutes" +%s)
+timeout="$(date -ud "2 minutes" +%s)"
 while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl status testsuite-55-testbloat.service; then
         break
@@ -55,8 +58,8 @@ if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
     systemctl start testsuite-55-testmunch.service
     systemctl start testsuite-55-testbloat.service
 
-    timeout=$(date -ud "2 minutes" +%s)
-    while [[ $(date -u +%s) -le $timeout ]]; do
+    timeout="$(date -ud "2 minutes" +%s)"
+    while [[ "$(date -u +%s)" -le "$timeout" ]]; do
         if ! systemctl status testsuite-55-testmunch.service; then
             break
         fi
