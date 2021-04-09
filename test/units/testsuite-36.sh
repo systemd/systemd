@@ -3,11 +3,12 @@ set -eux
 set -o pipefail
 
 at_exit() {
-    if [ $? -ne 0 ]; then
+    # shellcheck disable=SC2181
+    if [[ $? -ne 0 ]]; then
         # We're exiting with a non-zero EC, let's dump test artifacts
         # for easier debugging
-        [ -f "$straceLog" ] && cat "$straceLog"
-        [ -f "$journalLog" ] && cat "$journalLog"
+        [[ -v straceLog && -f "$straceLog" ]] && cat "$straceLog"
+        [[ -v journalLog && -f "$journalLog" ]] && cat "$journalLog"
     fi
 }
 
@@ -26,25 +27,30 @@ testUnitFile="/run/systemd/system/$testUnit"
 testUnitNUMAConf="$testUnitFile.d/numa.conf"
 
 # Sleep constants (we should probably figure out something better but nothing comes to mind)
-journalSleep=5
 sleepAfterStart=1
 
 # Journal cursor for easier navigation
 journalCursorFile="jounalCursorFile"
 
 startStrace() {
-    coproc strace -qq -p 1 -o $straceLog -e set_mempolicy -s 1024 $1
+    coproc strace -qq -p 1 -o "$straceLog" -e set_mempolicy -s 1024 ${1:+"$1"}
     # Wait for strace to properly "initialize"
     sleep $sleepAfterStart
 }
 
 stopStrace() {
-    kill -s TERM $COPROC_PID
+    if [[ ! -v COPROC_PID ]]; then
+        return
+    fi
+
+    local PID=$COPROC_PID
+    kill -s TERM "$PID"
     # Make sure the strace process is indeed dead
-    while kill -0 $COPROC_PID 2>/dev/null; do sleep 0.1; done
+    while kill -0 "$PID" 2>/dev/null; do sleep 0.1; done
 }
 
 startJournalctl() {
+    : >"$journalCursorFile"
     # Save journal's cursor for later navigation
     journalctl --no-pager --cursor-file="$journalCursorFile" -n0 -ocat
 }
@@ -64,21 +70,24 @@ checkNUMA() {
 }
 
 writePID1NUMAPolicy() {
-    echo [Manager] >$confDir/numa.conf
-    echo NUMAPolicy=$1 >>$confDir/numa.conf
-    echo NUMAMask=$2 >>$confDir/numa.conf
+    cat >"$confDir/numa.conf" <<EOF
+[Manager]
+NUMAPolicy=${1:?missing argument: NUMAPolicy}
+NUMAMask=${2:-""}
+EOF
 }
 
 writeTestUnit() {
-    mkdir -p $testUnitFile.d/
-    echo [Service] >$testUnitFile
-    echo ExecStart=/bin/sleep 3600 >>$testUnitFile
+    mkdir -p "$testUnitFile.d/"
+    printf "[Service]\nExecStart=/bin/sleep 3600\n" >"$testUnitFile"
 }
 
 writeTestUnitNUMAPolicy() {
-    echo [Service] >$testUnitNUMAConf
-    echo NUMAPolicy=$1 >>$testUnitNUMAConf
-    echo NUMAMask=$2 >>$testUnitNUMAConf
+    cat >"$testUnitNUMAConf" <<EOF
+[Service]
+NUMAPolicy=${1:?missing argument: NUMAPolicy}
+NUMAMask=${2:-""}
+EOF
     systemctl daemon-reload
 }
 
