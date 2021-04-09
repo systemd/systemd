@@ -28,9 +28,9 @@ struct Manager {
         Hashmap *polkit_registry;
         int ethtool_fd;
 
-        bool enumerating:1;
-        bool dirty:1;
-        bool restarting:1;
+        bool enumerating;
+        bool dirty;
+        bool restarting;
         bool manage_foreign_routes;
 
         Set *dirty_links;
