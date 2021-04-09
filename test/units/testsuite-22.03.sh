@@ -20,9 +20,9 @@ EOF
 
 ### '1' should exist and be empty
 test -f /tmp/f/1; test ! -s /tmp/f/1
-test $(stat -c %U:%G:%a /tmp/f/1) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/f/1)" = "root:root:644"
 
-test $(stat -c %U:%G:%a /tmp/f/2) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/f/2)" = "root:root:644"
 test "$(< /tmp/f/2)" = "This string should be written"
 
 ### The perms are supposed to be updated even if the file already exists.
@@ -32,7 +32,7 @@ EOF
 
 # file should be empty
 test ! -s /tmp/f/1
-test $(stat -c %U:%G:%a /tmp/f/1) = "daemon:daemon:666"
+test "$(stat -c %U:%G:%a /tmp/f/1)" = "daemon:daemon:666"
 
 ### But we shouldn't try to set perms on an existing file which is not a
 ### regular one.
@@ -44,7 +44,7 @@ f     /tmp/f/fifo    0666 daemon daemon - This string should not be written
 EOF
 
 test -p /tmp/f/fifo
-test $(stat -c %U:%G:%a /tmp/f/fifo) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/f/fifo)" = "root:root:644"
 
 ### 'f' should not follow symlinks.
 ln -s missing /tmp/f/dangling
@@ -55,7 +55,7 @@ f     /tmp/f/dangling    0644 daemon daemon - -
 f     /tmp/f/symlink     0644 daemon daemon - -
 EOF
 test ! -e /tmp/f/missing
-test $(stat -c %U:%G:%a /tmp/file-owned-by-root) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/file-owned-by-root)" = "root:root:644"
 
 ### Handle read-only filesystem gracefully: we shouldn't fail if the target
 ### already exists and have the correct perms.
@@ -75,7 +75,7 @@ test -f /tmp/f/ro-fs/foo; test ! -s /tmp/f/ro-fs/foo
 systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
 f     /tmp/f/ro-fs/foo    0666 - - - -
 EOF
-test $(stat -c %U:%G:%a /tmp/f/fifo) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/f/fifo)" = "root:root:644"
 
 systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
 f     /tmp/f/ro-fs/bar    0644 - - - -
@@ -109,9 +109,9 @@ test -f /tmp/F/created; test ! -s /tmp/F/created
 test -f /tmp/F/created-with-content
 test "$(< /tmp/F/created-with-content)" = "new content"
 test -f /tmp/F/truncated; test ! -s /tmp/F/truncated
-test $(stat -c %U:%G:%a /tmp/F/truncated) = "daemon:daemon:666"
+test "$(stat -c %U:%G:%a /tmp/F/truncated)" = "daemon:daemon:666"
 test -s /tmp/F/truncated-with-content
-test $(stat -c %U:%G:%a /tmp/F/truncated-with-content) = "daemon:daemon:666"
+test "$(stat -c %U:%G:%a /tmp/F/truncated-with-content)" = "daemon:daemon:666"
 
 ### We shouldn't try to truncate anything but regular files since the behavior is
 ### unspecified in the other cases.
@@ -132,7 +132,7 @@ f     /tmp/F/dangling    0644 daemon daemon - -
 f     /tmp/F/symlink     0644 daemon daemon - -
 EOF
 test ! -e /tmp/F/missing
-test $(stat -c %U:%G:%a /tmp/file-owned-by-root) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/file-owned-by-root)" = "root:root:644"
 
 ### Handle read-only filesystem gracefully: we shouldn't fail if the target
 ### already exists and is empty.
@@ -165,7 +165,7 @@ grep -q 'truncating is not allowed' /tmp/F/ro-fs/foo
 systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
 F     /tmp/F/ro-fs/foo    0666 - - - -
 EOF
-test $(stat -c %U:%G:%a /tmp/F/ro-fs/foo) = "root:root:644"
+test "$(stat -c %U:%G:%a /tmp/F/ro-fs/foo)" = "root:root:644"
 
 ### Try to create a new file.
 systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }

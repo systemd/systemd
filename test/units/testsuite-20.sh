@@ -140,7 +140,7 @@ systemd-run --unit=test20-mainpidsh3.service \
     && { echo 'unexpected success'; exit 1; }
 
 # Test that this failed due to timeout, and not some other error
-test $(systemctl show -P Result test20-mainpidsh3.service) = timeout
+test "$(systemctl show -P Result test20-mainpidsh3.service)" = timeout
 
 systemd-analyze log-level info
 

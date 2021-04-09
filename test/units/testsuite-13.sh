@@ -112,7 +112,7 @@ EOF
         sleep 0.1
     done
 
-    return $(systemctl show -P ExecMainStatus nspawn_machinectl_bind.service)
+    return "$(systemctl show -P ExecMainStatus nspawn_machinectl_bind.service)"
 }
 
 function run {
