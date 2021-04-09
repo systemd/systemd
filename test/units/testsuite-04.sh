@@ -6,14 +6,14 @@ set -o pipefail
 
 # Skip empty lines
 ID=$(journalctl --new-id128 | sed -n 2p)
->/expected
+: >/expected
 printf $'\n\n\n' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
 ID=$(journalctl --new-id128 | sed -n 2p)
->/expected
+: >/expected
 printf $'<5>\n<6>\n<7>\n' | systemd-cat -t "$ID" --level-prefix true
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
