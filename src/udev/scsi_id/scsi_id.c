@@ -21,6 +21,7 @@
 #include "device-nodes.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strv.h"
@@ -103,11 +104,9 @@ static void set_type(const char *from, char *to, size_t len) {
  */
 static int get_file_options(const char *vendor, const char *model,
                             int *argc, char ***newargv) {
-        _cleanup_free_ char *buffer = NULL,
-                *vendor_in = NULL, *model_in = NULL, *options_in = NULL; /* read in from file */
+        _cleanup_free_ char *vendor_in = NULL, *model_in = NULL, *options_in = NULL; /* read in from file */
         _cleanup_strv_free_ char **options_argv = NULL;
         _cleanup_fclose_ FILE *f;
-        const char *buf;
         int lineno, r;
 
         f = fopen(config_file, "re");
@@ -120,28 +119,21 @@ static int get_file_options(const char *vendor, const char *model,
                 }
         }
 
-        /*
-         * Allocate a buffer rather than put it on the stack so we can
-         * keep it around to parse any options (any allocated newargv
-         * points into this buffer for its strings).
-         */
-        buffer = malloc(MAX_BUFFER_LEN);
-        if (!buffer)
-                return log_oom();
-
         *newargv = NULL;
         lineno = 0;
         for (;;) {
-                _cleanup_free_ char *key = NULL, *value = NULL;
+                _cleanup_free_ char *buffer = NULL, *key = NULL, *value = NULL;
+                const char *buf;
 
                 vendor_in = model_in = options_in = NULL;
 
-                buf = fgets(buffer, MAX_BUFFER_LEN, f);
-                if (!buf)
+                r = read_line(f, MAX_BUFFER_LEN, &buffer);
+                if (r < 0)
+                        return log_error_errno(r, "read_line() on line %d of %s failed: %m", lineno, config_file);
+                if (r == 0)
                         break;
+                buf = buffer;
                 lineno++;
-                if (buf[strlen(buffer) - 1] != '\n')
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Config file line %d too long", lineno);
 
                 while (isspace(*buf))
                         buf++;
