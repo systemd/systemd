@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -ex
+# shellcheck disable=SC2016
+set -eux
 
 systemd-analyze log-level debug
 

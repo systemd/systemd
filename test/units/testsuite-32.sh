@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 # Let's run this test only if the "memory.oom.group" cgroupfs attribute
