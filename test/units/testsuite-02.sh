@@ -4,10 +4,10 @@ set -o pipefail
 
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
-IFS=$'\n' TEST_LIST=($(ls /usr/lib/systemd/tests/test-*))
+mapfile TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "test-*")
 
 # reset state
-rm /failed-tests /skipped-tests /skipped
+rm -fv /failed-tests /skipped-tests /skipped
 
 # Check & report test results
 # Arguments:
