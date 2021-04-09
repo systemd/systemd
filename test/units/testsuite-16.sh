@@ -4,23 +4,21 @@ set -o pipefail
 
 rm -f /test.log
 
-TL=/test.log.XXXXXXXX
+TESTLOG=/test.log.XXXXXXXX
 
 function wait_for()
 {
-    service=${1}
-    result=${2:-success}
-    time=${3:-45}
+    local service="${1:-wait_for: missing service argument}"
+    local result="${2:-success}"
+    local time="${3:-45}"
 
-    while [[ ! -f /${service}.terminated && ! -f /${service}.success && $time -gt 0  ]]
-    do
+    while [[ ! -f /${service}.terminated && ! -f /${service}.success && $time -gt 0 ]]; do
         sleep 1
-        time=$(( $time - 1 ))
+        time=$((time - 1))
     done
 
-    if [[ ! -f /${service}.${result} ]]
-    then
-        journalctl -u ${service/_/-}.service >> "${TL}"
+    if [[ ! -f /${service}.${result} ]]; then
+        journalctl -u "${service/_/-}.service" >>"$TESTLOG"
     fi
 }
 
@@ -45,12 +43,11 @@ wait_for fail_start startfail
 wait_for fail_stop stopfail
 wait_for fail_runtime runtimefail
 
-if [[ -f "${TL}" ]]
-then
+if [[ -f "$TESTLOG" ]]; then
     # no mv
-    cp "${TL}" /test.log
+    cp "$TESTLOG" /test.log
     exit 1
-else
-    touch /testok
-    exit 0
 fi
+
+touch /testok
+exit 0

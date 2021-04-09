@@ -26,48 +26,48 @@ trap cleanup EXIT
 
 cp /usr/share/minimal* "${image_dir}/"
 image="${image_dir}/minimal_0"
-roothash="$(cat ${image}.roothash)"
+roothash="$(cat "${image}.roothash")"
 
-os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
+os_release="$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)"
 
-systemd-dissect --json=short ${image}.raw | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
-systemd-dissect ${image}.raw | grep -q -F "MARKER=1"
-systemd-dissect ${image}.raw | grep -q -F -f <(sed 's/"//g' $os_release)
+systemd-dissect --json=short "${image}.raw" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+systemd-dissect "${image}.raw" | grep -q -F "MARKER=1"
+systemd-dissect "${image}.raw" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
-mv ${image}.verity ${image}.fooverity
-mv ${image}.roothash ${image}.foohash
-systemd-dissect --json=short ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
-systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "MARKER=1"
-systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F -f <(sed 's/"//g' $os_release)
-mv ${image}.fooverity ${image}.verity
-mv ${image}.foohash ${image}.roothash
+mv "${image}.verity" "${image}.fooverity"
+mv "${image}.roothash" "${image}.foohash"
+systemd-dissect --json=short "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+systemd-dissect "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F "MARKER=1"
+systemd-dissect "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F -f <(sed 's/"//g' "$os_release")
+mv "${image}.fooverity" "${image}.verity"
+mv "${image}.foohash" "${image}.roothash"
 
-mkdir -p ${image_dir}/mount ${image_dir}/mount2
-systemd-dissect --mount ${image}.raw ${image_dir}/mount
-cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f $os_release
-cat ${image_dir}/mount/etc/os-release | grep -q -F -f $os_release
-cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
+mkdir -p "${image_dir}/mount" "${image_dir}/mount2"
+systemd-dissect --mount "${image}.raw" "${image_dir}/mount"
+grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
+grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
+grep -q -F "MARKER=1" "${image_dir}/mount/usr/lib/os-release"
 # Verity volume should be shared (opened only once)
-systemd-dissect --mount ${image}.raw ${image_dir}/mount2
-verity_count=$(ls -1 /dev/mapper/ | grep -c verity)
+systemd-dissect --mount "${image}.raw" "${image_dir}/mount2"
+verity_count=$(find /dev/mapper/ -name "*verity*" | wc -l)
 # In theory we should check that count is exactly one. In practice, libdevmapper
 # randomly and unpredictably fails with an unhelpful EINVAL when a device is open
 # (and even mounted and in use), so best-effort is the most we can do for now
-if [ ${verity_count} -lt 1 ]; then
+if [ "${verity_count}" -lt 1 ]; then
     echo "Verity device ${image}.raw not found in /dev/mapper/"
     exit 1
 fi
-umount ${image_dir}/mount
-umount ${image_dir}/mount2
+umount "${image_dir}/mount"
+umount "${image_dir}/mount2"
 
-systemd-run -t -p RootImage=${image}.raw cat /usr/lib/os-release | grep -q -F "MARKER=1"
-mv ${image}.verity ${image}.fooverity
-mv ${image}.roothash ${image}.foohash
-systemd-run -t -p RootImage=${image}.raw -p RootHash=${image}.foohash -p RootVerity=${image}.fooverity cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p RootImage="${image}.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+mv "${image}.verity" "${image}.fooverity"
+mv "${image}.roothash" "${image}.foohash"
+systemd-run -t -p RootImage="${image}.raw" -p RootHash="${image}.foohash" -p RootVerity="${image}.fooverity" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 # Let's use the long option name just here as a test
-systemd-run -t --property RootImage=${image}.raw --property RootHash=${roothash} --property RootVerity=${image}.fooverity cat /usr/lib/os-release | grep -q -F "MARKER=1"
-mv ${image}.fooverity ${image}.verity
-mv ${image}.foohash ${image}.roothash
+systemd-run -t --property RootImage="${image}.raw" --property RootHash="${roothash}" --property RootVerity="${image}.fooverity" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+mv "${image}.fooverity" "${image}.verity"
+mv "${image}.foohash" "${image}.roothash"
 
 # Make a GPT disk on the fly, with the squashfs as partition 1 and the verity hash tree as partition 2
 machine="$(uname -m)"
@@ -100,51 +100,54 @@ else
     exit 1
 fi
 # du rounds up to block size, which is more helpful for partitioning
-root_size="$(du -k ${image}.raw | cut -f1)"
-verity_size="$(du -k ${image}.verity | cut -f1)"
+root_size="$(du -k "${image}.raw" | cut -f1)"
+verity_size="$(du -k "${image}.verity" | cut -f1)"
 # 4MB seems to be the minimum size blkid will accept, below that probing fails
-dd if=/dev/zero of=${image}.gpt bs=512 count=$((8192+${root_size}*2+${verity_size}*2))
+dd if=/dev/zero of="${image}.gpt" bs=512 count=$((8192+root_size*2+verity_size*2))
 # sfdisk seems unhappy if the size overflows into the next unit, eg: 1580KiB will be interpreted as 1MiB
 # so do some basic rounding up if the minimal image is more than 1 MB
-if [ ${root_size} -ge 1024 ]; then
-    root_size="$((${root_size}/1024 + 1))MiB"
+if [ "${root_size}" -ge 1024 ]; then
+    root_size="$((root_size/1024 + 1))MiB"
 else
     root_size="${root_size}KiB"
 fi
-verity_size="$((${verity_size} * 2))KiB"
-uuid="$(head -c 32 ${image}.roothash | cut -c -8)-$(head -c 32 ${image}.roothash | cut -c 9-12)-$(head -c 32 ${image}.roothash | cut -c 13-16)-$(head -c 32 ${image}.roothash | cut -c 17-20)-$(head -c 32 ${image}.roothash | cut -c 21-)"
-echo -e "label: gpt\nsize=${root_size}, type=${root_guid}, uuid=${uuid}" | sfdisk ${image}.gpt
-uuid="$(tail -c 32 ${image}.roothash | cut -c -8)-$(tail -c 32 ${image}.roothash | cut -c 9-12)-$(tail -c 32 ${image}.roothash | cut -c 13-16)-$(tail -c 32 ${image}.roothash | cut -c 17-20)-$(tail -c 32 ${image}.roothash | cut -c 21-)"
-echo -e "size=${verity_size}, type=${verity_guid}, uuid=${uuid}" | sfdisk ${image}.gpt --append
-sfdisk --part-label ${image}.gpt 1 "Root Partition"
-sfdisk --part-label ${image}.gpt 2 "Verity Partition"
-loop="$(losetup --show -P -f ${image}.gpt)"
-dd if=${image}.raw of=${loop}p1
-dd if=${image}.verity of=${loop}p2
-losetup -d ${loop}
+verity_size="$((verity_size * 2))KiB"
+# Construct a UUID from hash
+# input:  11111111222233334444555566667777
+# output: 11111111-2222-3333-4444-555566667777
+uuid="$(head -c 32 "${image}.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
+echo -e "label: gpt\nsize=${root_size}, type=${root_guid}, uuid=${uuid}" | sfdisk "${image}.gpt"
+uuid="$(tail -c 32 "${image}.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
+echo -e "size=${verity_size}, type=${verity_guid}, uuid=${uuid}" | sfdisk "${image}.gpt" --append
+sfdisk --part-label "${image}.gpt" 1 "Root Partition"
+sfdisk --part-label "${image}.gpt" 2 "Verity Partition"
+loop="$(losetup --show -P -f "${image}.gpt")"
+dd if="${image}.raw" of="${loop}p1"
+dd if="${image}.verity" of="${loop}p2"
+losetup -d "${loop}"
 
 # Derive partition UUIDs from root hash, in UUID syntax
-ROOT_UUID=$(systemd-id128 -u show $(head -c 32 ${image}.roothash) -u | tail -n 1 | cut -b 6-)
-VERITY_UUID=$(systemd-id128 -u show $(tail -c 32 ${image}.roothash) -u | tail -n 1 | cut -b 6-)
+ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
+VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
 
-systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'$ROOT_UUID'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'$architecture'","verity":"yes","node":'
-systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'$VERITY_UUID'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'$architecture'","verity":null,"node":'
-systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F "MARKER=1"
-systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f <(sed 's/"//g' $os_release)
+systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$architecture"'","verity":"yes","node":'
+systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$architecture"'","verity":null,"node":'
+systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F "MARKER=1"
+systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
-systemd-dissect --root-hash ${roothash} --mount ${image}.gpt ${image_dir}/mount
-cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f $os_release
-cat ${image_dir}/mount/etc/os-release | grep -q -F -f $os_release
-cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
-umount ${image_dir}/mount
+systemd-dissect --root-hash "${roothash}" --mount "${image}.gpt" "${image_dir}/mount"
+grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
+grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
+grep -q -F "MARKER=1" "${image_dir}/mount/usr/lib/os-release"
+umount "${image_dir}/mount"
 
 # add explicit -p MountAPIVFS=yes once to test the parser
-systemd-run -t -p RootImage=${image}.gpt -p RootHash=${roothash} -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
 
-systemd-run -t -p RootImage=${image}.raw -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t -p RootImage=${image}.gpt -p RootImageOptions="root:ro,noatime root:ro,dev" mount | grep -F "squashfs" | grep -q -F "noatime"
+systemd-run -t -p RootImage="${image}.raw" -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -t -p RootImage="${image}.gpt" -p RootImageOptions="root:ro,noatime root:ro,dev" mount | grep -F "squashfs" | grep -q -F "noatime"
 
-mkdir -p mkdir -p ${image_dir}/result
+mkdir -p "${image_dir}/result"
 cat >/run/systemd/system/testservice-50a.service <<EOF
 [Service]
 Type=oneshot
@@ -156,8 +159,8 @@ RootImageOptions=root:ro,noatime home:ro,dev relatime,dev
 RootImageOptions=nosuid,dev
 EOF
 systemctl start testservice-50a.service
-grep -F "squashfs" ${image_dir}/result/a | grep -q -F "noatime"
-grep -F "squashfs" ${image_dir}/result/a | grep -q -F -v "nosuid"
+grep -F "squashfs" "${image_dir}/result/a" | grep -q -F "noatime"
+grep -F "squashfs" "${image_dir}/result/a" | grep -q -F -v "nosuid"
 
 cat >/run/systemd/system/testservice-50b.service <<EOF
 [Service]
@@ -172,7 +175,7 @@ RootImageOptions=home:ro,dev nosuid,dev,%%foo
 MountAPIVFS=yes
 EOF
 systemctl start testservice-50b.service
-grep -F "squashfs" ${image_dir}/result/b | grep -q -F "noatime"
+grep -F "squashfs" "${image_dir}/result/b" | grep -q -F "noatime"
 
 # Check that specifier escape is applied %%foo → %foo
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
@@ -184,9 +187,9 @@ systemd-run -t -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2:nos
 systemd-run -t -p MountImages="${image}.gpt:/run/img1:root:nosuid ${image}.raw:/run/img2:home:suid" mount | grep -F "squashfs" | grep -q -F "nosuid"
 systemd-run -t -p MountImages="${image}.raw:/run/img2\:3" cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
 systemd-run -t -p MountImages="${image}.raw:/run/img2\:3:nosuid" mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t -p TemporaryFileSystem=/run -p RootImage=${image}.raw -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t -p TemporaryFileSystem=/run -p RootImage=${image}.raw -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t -p TemporaryFileSystem=/run -p RootImage=${image}.gpt -p RootHash=${roothash} -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p TemporaryFileSystem=/run -p RootImage="${image}.raw" -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p TemporaryFileSystem=/run -p RootImage="${image}.raw" -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p TemporaryFileSystem=/run -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50c.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -201,9 +204,9 @@ BindPaths=${image_dir}/result:/run/result
 Type=oneshot
 EOF
 systemctl start testservice-50c.service
-grep -q -F "MARKER=1" ${image_dir}/result/c
-grep -F "squashfs" ${image_dir}/result/c | grep -q -F "noatime"
-grep -F "squashfs" ${image_dir}/result/c | grep -q -F -v "nosuid"
+grep -q -F "MARKER=1" "${image_dir}/result/c"
+grep -F "squashfs" "${image_dir}/result/c" | grep -q -F "noatime"
+grep -F "squashfs" "${image_dir}/result/c" | grep -q -F -v "nosuid"
 
 # Adding a new mounts at runtime works if the unit is in the active state,
 # so use Type=notify to make sure there's no race condition in the test
@@ -218,7 +221,7 @@ ExecStart=/bin/sh -c 'systemd-notify --ready; while ! grep -q -F MARKER /tmp/img
 EOF
 systemctl start testservice-50d.service
 
-systemctl mount-image --mkdir testservice-50d.service ${image}.raw /tmp/img root:nosuid
+systemctl mount-image --mkdir testservice-50d.service "${image}.raw" /tmp/img root:nosuid
 
 while systemctl show -P SubState testservice-50d.service | grep -q running
 do
@@ -228,12 +231,12 @@ done
 systemctl is-active testservice-50d.service
 
 # ExtensionImages will set up an overlay
-systemd-run -t --property ExtensionImages=/usr/share/app0.raw --property RootImage=${image}.raw cat /opt/script0.sh | grep -q -F "extension-release.app0"
-systemd-run -t --property ExtensionImages=/usr/share/app0.raw --property RootImage=${image}.raw cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /opt/script0.sh | grep -q -F "extension-release.app0"
-systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /opt/script1.sh | grep -q -F "extension-release.app1"
-systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+systemd-run -t --property ExtensionImages=/usr/share/app0.raw --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -t --property ExtensionImages=/usr/share/app0.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app1"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
 MountAPIVFS=yes

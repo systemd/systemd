@@ -23,6 +23,7 @@ test_append_files() {
         install_dmevent
         generate_module_dependencies
         inst_binary losetup
+        inst_binary wc
         install_verity_minimal
     )
 }
