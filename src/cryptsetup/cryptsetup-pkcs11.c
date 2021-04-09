@@ -32,6 +32,7 @@ struct pkcs11_callback_data {
         void *decrypted_key;
         size_t decrypted_key_size;
         bool free_encrypted_key;
+        bool headless;
 };
 
 static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
@@ -72,6 +73,7 @@ static int pkcs11_callback(
                         "pkcs11-pin",
                         "cryptsetup.pkcs11-pin",
                         data->until,
+                        data->headless,
                         NULL);
         if (r < 0)
                 return r;
@@ -109,12 +111,14 @@ int decrypt_pkcs11_key(
                 const void *key_data,         /* … or key_data and key_data_size (for literal keys) */
                 size_t key_data_size,
                 usec_t until,
+                bool headless,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                 .friendly_name = friendly_name,
                 .until = until,
+                .headless = headless,
         };
         int r;
 
