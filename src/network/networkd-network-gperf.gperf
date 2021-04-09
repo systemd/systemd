@@ -241,6 +241,9 @@ DHCPv6.SendVendorOption,                     config_parse_dhcp_send_option,     
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0
 DHCPv6.WithoutRA,                            config_parse_dhcp6_client_start_mode,                     0,                             offsetof(Network, dhcp6_without_ra)
+DHCPv6.IAID,                                 config_parse_iaid,                                        0,                             0
+DHCPv6.DUIDType,                             config_parse_duid_type,                                   0,                             offsetof(Network, duid)
+DHCPv6.DUIDRawData,                          config_parse_duid_rawdata,                                0,                             offsetof(Network, duid)
 DHCPv6.SendOption,                           config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_options)
 DHCPv6.RouteMetric,                          config_parse_dhcp_route_metric,                           0,                             0
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
