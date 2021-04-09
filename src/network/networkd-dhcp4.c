@@ -1294,15 +1294,16 @@ int dhcp4_configure(Link *link) {
         if (!link_dhcp4_enabled(link))
                 return 0;
 
-        if (!link->dhcp_client) {
-                r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to allocate DHCP4 client: %m");
+        if (link->dhcp_client)
+                return 0; /* Already configured. */
 
-                r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to attach event to DHCP4 client: %m");
-        }
+        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to allocate DHCP4 client: %m");
+
+        r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to attach event to DHCP4 client: %m");
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    link->hw_addr.addr.bytes,
