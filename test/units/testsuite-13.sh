@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -x
-set -e
-set -u
+# shellcheck disable=SC2016
+set -eux
 set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug

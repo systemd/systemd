@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -x
+set -eux
+set -o pipefail
 
 systemctl start fail-on-restart.service
 active_state=$(systemctl show --value --property ActiveState fail-on-restart.service)

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -eu -o pipefail
+set -eux
+set -o pipefail
 
 PAGE_SIZE=$(getconf PAGE_SIZE)
 BLOAT_ITERATION_TARGET=$(( 100 << 20 )) # 100 MB
