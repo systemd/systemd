@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
->/failed
+: >/failed
 
 for t in "${0%.sh}".*.sh; do
     echo "Running $t"; ./"$t"
