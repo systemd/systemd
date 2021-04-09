@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 # wait this many secs for each test service to succeed in what is being tested
@@ -12,7 +12,7 @@ systemd-analyze log-target console
 systemd-run --unit=one -p Type=oneshot -p Restart=on-failure /bin/bash -c "exit 1" \
     && { echo 'unexpected success'; exit 1; }
 
-for ((secs=0; secs<$MAX_SECS; secs++)); do
+for ((secs = 0; secs < MAX_SECS; secs++)); do
   [[ "$(systemctl show one.service -P NRestarts)" -le 0 ]] || break
   sleep 1
 done
@@ -35,7 +35,7 @@ systemd-run --unit=two \
     && { echo 'unexpected success'; exit 1; }
 
 # wait for at least 3 restarts
-for ((secs=0; secs<$MAX_SECS; secs++)); do
+for ((secs = 0; secs < MAX_SECS; secs++)); do
   [[ $(cat $TMP_FILE) != "aaa" ]] || break
   sleep 1
 done

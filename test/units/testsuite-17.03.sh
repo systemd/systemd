@@ -27,7 +27,7 @@ run_test() {
 
     echo add >/sys/class/net/lo/uevent
 
-    for n in {1..20}; do
+    for _ in {1..20}; do
         sleep 5
         if coredumpctl --since "$since" --no-legend --no-pager | grep /bin/udevadm ; then
             return 0
