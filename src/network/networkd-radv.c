@@ -644,6 +644,9 @@ int radv_configure(Link *link) {
         if (!link_radv_enabled(link))
                 return 0;
 
+        if (link->radv)
+                return -EBUSY;
+
         r = sd_radv_new(&link->radv);
         if (r < 0)
                 return r;

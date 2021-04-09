@@ -151,15 +151,16 @@ int ipv4ll_configure(Link *link) {
         if (!link_ipv4ll_enabled(link))
                 return 0;
 
-        if (!link->ipv4ll) {
-                r = sd_ipv4ll_new(&link->ipv4ll);
-                if (r < 0)
-                        return r;
+        if (link->ipv4ll)
+                return -EBUSY;
 
-                r = sd_ipv4ll_attach_event(link->ipv4ll, link->manager->event, 0);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_ipv4ll_new(&link->ipv4ll);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4ll_attach_event(link->ipv4ll, link->manager->event, 0);
+        if (r < 0)
+                return r;
 
         if (link->sd_device &&
             net_get_unique_predictable_data(link->sd_device, true, &seed) >= 0) {
