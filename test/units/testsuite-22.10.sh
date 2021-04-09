@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
-set -x
+set -eux
 set -o pipefail
 
 systemd-tmpfiles --create - <<EOF
