@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -v -x
+set -eux
+set -o pipefail
 
 rm -f /test.log
 

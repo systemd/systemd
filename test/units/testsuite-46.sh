@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing

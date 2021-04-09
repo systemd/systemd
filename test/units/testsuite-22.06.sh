@@ -1,9 +1,10 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Inspired by https://github.com/systemd/systemd/issues/9508
 #
 
-set -e
+set -eux
+set -o pipefail
 
 test_snippet() {
         systemd-tmpfiles "$@" - <<EOF
