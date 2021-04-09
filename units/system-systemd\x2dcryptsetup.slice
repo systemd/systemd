@@ -9,5 +9,5 @@
 
 [Unit]
 Description=Cryptsetup Units Slice
-Documentation=man:systemd.special(7)
+Documentation=man:systemd-cryptsetup@.service(8)
 DefaultDependencies=no

@@ -17,22 +17,29 @@
 
   <refnamediv>
     <refname>systemd-cryptsetup@.service</refname>
+    <!-- <refname>system-systemd\x2dcryptsetup.slice</refname> — this causes meson to go haywire because it
+         thinks this is a (windows) path. Let's just not create the alias for this name, and only include it
+         in the synopsis. -->
     <refname>systemd-cryptsetup</refname>
     <refpurpose>Full disk decryption logic</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-cryptsetup@.service</filename></para>
+    <para><filename>system-systemd\x2dcryptsetup.slice</filename></para>
     <para><filename>/usr/lib/systemd/systemd-cryptsetup</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-cryptsetup@.service</filename> is a
-    service responsible for setting up encrypted block devices. It is
-    instantiated for each device that requires decryption for
-    access.</para>
+    <para><filename>systemd-cryptsetup@.service</filename> is a service responsible for setting up encrypted
+    block devices. It is instantiated for each device that requires decryption for access.</para>
+
+    <para><filename>systemd-cryptsetup@.service</filename> instances are part of the
+    <filename>system-systemd\x2dcryptsetup.slice</filename> slice, which is destroyed only very late in the
+    shutdown procedure. This allows the encrypted devices to remain up until filesystems have been unmounted.
+    </para>
 
     <para><filename>systemd-cryptsetup@.service</filename> will ask
     for hard disk passwords via the <ulink
