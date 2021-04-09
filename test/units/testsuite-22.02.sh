@@ -1,10 +1,10 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Basic tests for types creating directories
 #
 
-set -e
-set -x
+set -eux
+set -o pipefail
 
 rm -fr /tmp/{C,d,D,e}
 mkdir  /tmp/{C,d,D,e}

@@ -1,10 +1,10 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Basic tests for types creating/writing files
 #
 
-set -e
-set -x
+set -eux
+set -o pipefail
 
 rm -fr /tmp/{f,F,w}
 mkdir  /tmp/{f,F,w}

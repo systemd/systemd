@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-set -eu -o pipefail
+# Don't use set -x here, since it generates a lot of output and slows
+# the script down, causing unexpected test fails.
+set -eu
+set -o pipefail
 
 PAGE_SIZE=$(getconf PAGE_SIZE)
 BLOAT_ITERATION_TARGET=$(( 100 << 20 )) # 100 MB

@@ -1,10 +1,10 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Basic tests for types creating fifos
 #
 
-set -e
-set -x
+set -eux
+set -o pipefail
 
 rm -fr /tmp/p
 mkdir  /tmp/p

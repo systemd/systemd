@@ -1,10 +1,10 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Verifies the issues described by https://github.com/systemd/systemd/issues/10191
 #
 
-set -e
-set -x
+set -eux
+set -o pipefail
 
 rm -rf /tmp/test-prefix
 
