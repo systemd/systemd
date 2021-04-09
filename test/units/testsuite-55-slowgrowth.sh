@@ -5,24 +5,26 @@ set -eu
 set -o pipefail
 
 PAGE_SIZE=$(getconf PAGE_SIZE)
-BLOAT_ITERATION_TARGET=$(( 100 << 20 )) # 100 MB
+BLOAT_ITERATION_TARGET=$((100 << 20)) # 100 MB
 BLOAT_HOLDER=()
 PID="$$"
 
 function bloat {
         local set_size mem_usage target_mem_size
 
-        set_size=$(cut -d " " -f2 "/proc/$PID/statm")
-        mem_usage=$(( "$set_size" * "$PAGE_SIZE" ))
-        target_mem_size=$(( "$mem_usage" + "$1" ))
+        # Following `| cat` weirdness is intentional to generate some reclaim
+        # activity in case there's no swap available.
+        set_size=$(cut -d " " -f2 "/proc/$PID/statm" | cat)
+        mem_usage=$((set_size * PAGE_SIZE))
+        target_mem_size=$((mem_usage + $1))
 
         BLOAT_HOLDER=()
         while [[ "$mem_usage" -lt "$target_mem_size" ]]; do
                 echo "target $target_mem_size"
                 echo "mem usage $mem_usage"
                 BLOAT_HOLDER+=("$(printf "=%0.s" {1..1000000})")
-                set_size=$(cut -d " " -f2 "/proc/$PID/statm")
-                mem_usage=$(("$set_size" * "$PAGE_SIZE"))
+                set_size=$(cut -d " " -f2 "/proc/$PID/statm" | cat)
+                mem_usage=$((set_size * PAGE_SIZE))
         done
 }
 
