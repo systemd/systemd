@@ -515,6 +515,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>no-password=</option></term>
+
+        <listitem><para>Never query interactively for the password. Useful for headless systems.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>verify</option></term>
 
         <listitem><para>If the encryption password is read from console, it has to be entered twice to
