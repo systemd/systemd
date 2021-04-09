@@ -5,6 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "bus-get-properties.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -347,6 +348,33 @@ static int property_get_ip_address_access(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_bpf_foreign_program(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        CGroupContext *c = userdata;
+        CGroupBPFForeignProgram *p;
+        int r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs) {
+                const char *attach_type = bpf_cgroup_attach_type_to_string(p->attach_type);
+
+                r = sd_bus_message_append(reply, "(ss)", attach_type, p->bpffs_path);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -398,6 +426,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -567,6 +596,85 @@ static int bus_cgroup_set_transient_property(
                                                  "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
                                         warned = true;
                                 }
+                        }
+                }
+
+                return 1;
+        } else if (streq(name, "BPFProgram")) {
+                const char *a, *p;
+                size_t n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ss)", &a, &p)) > 0) {
+                        int attach_type = bpf_cgroup_attach_type_from_string(a);
+                        if (attach_type < 0)
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "%s expects a valid BPF attach type, got '%s'.",
+                                                name, a);
+
+                        if (!path_is_normalized(p) || !path_is_absolute(p))
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "%s= expects a normalized absolute path.",
+                                                name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = cgroup_add_bpf_foreign_program(c, attach_type, p);
+                                if (r < 0)
+                                        return r;
+                        }
+                        n++;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupBPFForeignProgram *fp;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                while (c->bpf_foreign_programs)
+                                        cgroup_context_remove_bpf_foreign_program(c, c->bpf_foreign_programs);
+
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        LIST_FOREACH(programs, fp, c->bpf_foreign_programs)
+                                fprintf(f, "%s=%s:%s\n", name,
+                                                bpf_cgroup_attach_type_to_string(fp->attach_type),
+                                                fp->bpffs_path);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (!LIST_IS_EMPTY(c->bpf_foreign_programs)) {
+                                r = bpf_foreign_supported();
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        log_full(LOG_DEBUG,
+                                                 "Transient unit %s configures a BPF program pinned to BPF "
+                                                 "filesystem, but the local system does not support that.\n"
+                                                 "Starting this unit will fail!", u->id);
                         }
                 }
 

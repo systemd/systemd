@@ -11,6 +11,50 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "path-util.h"
+#include "string-table.h"
+
+static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
+        [BPF_CGROUP_INET_INGRESS] =     "ingress",
+        [BPF_CGROUP_INET_EGRESS] =      "egress",
+        [BPF_CGROUP_INET_SOCK_CREATE] = "sock_create",
+        [BPF_CGROUP_SOCK_OPS] =         "sock_ops",
+        [BPF_CGROUP_DEVICE] =           "device",
+        [BPF_CGROUP_INET4_BIND] =       "bind4",
+        [BPF_CGROUP_INET6_BIND] =       "bind6",
+        [BPF_CGROUP_INET4_CONNECT] =    "connect4",
+        [BPF_CGROUP_INET6_CONNECT] =    "connect6",
+        [BPF_CGROUP_INET4_POST_BIND] =  "post_bind4",
+        [BPF_CGROUP_INET6_POST_BIND] =  "post_bind6",
+        [BPF_CGROUP_UDP4_SENDMSG] =     "sendmsg4",
+        [BPF_CGROUP_UDP6_SENDMSG] =     "sendmsg6",
+        [BPF_CGROUP_SYSCTL] =           "sysctl",
+        [BPF_CGROUP_UDP4_RECVMSG] =     "recvmsg4",
+        [BPF_CGROUP_UDP6_RECVMSG] =     "recvmsg6",
+        [BPF_CGROUP_GETSOCKOPT] =       "getsockopt",
+        [BPF_CGROUP_SETSOCKOPT] =       "setsockopt",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
+
+ /* struct bpf_prog_info info must be initialized since its value is both input and output
+  * for BPF_OBJ_GET_INFO_BY_FD syscall. */
+static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, uint32_t info_len) {
+        union bpf_attr attr;
+
+        /* Explicitly memset to zero since some compilers may produce non-zero-initialized padding when
+         * structured initialization is used.
+         * Refer to https://github.com/systemd/systemd/issues/18164
+         */
+        zero(attr);
+        attr.info.bpf_fd = prog_fd;
+        attr.info.info_len = info_len;
+        attr.info.info = PTR_TO_UINT64(info);
+
+        if (bpf(BPF_OBJ_GET_INFO_BY_FD, &attr, sizeof(attr)) < 0)
+                return -errno;
+
+        return 0;
+}
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
@@ -23,6 +67,38 @@ int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         p->prog_type = prog_type;
         p->kernel_fd = -1;
 
+        *ret = TAKE_PTR(p);
+
+        return 0;
+}
+
+int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret) {
+        _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
+        struct bpf_prog_info info = {};
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        p = new(BPFProgram, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (BPFProgram) {
+                .prog_type = BPF_PROG_TYPE_UNSPEC,
+                .n_ref = 1,
+                .kernel_fd = -1,
+        };
+
+        r = bpf_program_load_from_bpf_fs(p, path);
+        if (r < 0)
+                return r;
+
+        r = bpf_program_get_info_by_fd(p->kernel_fd, &info, sizeof(info));
+        if (r < 0)
+                return r;
+
+        p->prog_type = info.type;
         *ret = TAKE_PTR(p);
 
         return 0;
@@ -254,3 +330,31 @@ int bpf_map_lookup_element(int fd, const void *key, void *value) {
 
         return 0;
 }
+
+int bpf_program_pin(int prog_fd, const char *bpffs_path) {
+        union bpf_attr attr;
+
+        zero(attr);
+        attr.pathname = PTR_TO_UINT64((void *) bpffs_path);
+        attr.bpf_fd = prog_fd;
+
+        if (bpf(BPF_OBJ_PIN, &attr, sizeof(attr)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int bpf_program_get_id_by_fd(int prog_fd, uint32_t *ret_id) {
+        struct bpf_prog_info info = {};
+        int r;
+
+        assert(ret_id);
+
+        r = bpf_program_get_info_by_fd(prog_fd, &info, sizeof(info));
+        if (r < 0)
+                return r;
+
+        *ret_id = info.id;
+
+        return 0;
+};
