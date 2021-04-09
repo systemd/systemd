@@ -73,7 +73,8 @@
       <listitem><para>The kernel keyring is then checked for a suitable cached password from previous
       attempts.</para></listitem>
 
-      <listitem><para>Finally, the user is queried for a password, possibly multiple times.</para></listitem>
+      <listitem><para>Finally, the user is queried for a password, possibly multiple times, unless
+      the <varname>headless</varname> option is set.</para></listitem>
     </orderedlist>
 
     <para>If no suitable key may be acquired via any of the mechanisms describes above, volume activation fails.</para>
