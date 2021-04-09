@@ -18,7 +18,9 @@ systemctl daemon-reload
 [[ "$(systemctl show -P LimitNOFILESoft testsuite-05.service)" = "10000" ]]
 [[ "$(systemctl show -P LimitNOFILE testsuite-05.service)" = "16384" ]]
 
+# shellcheck disable=SC2016
 systemd-run --wait -t bash -c '[[ "$(ulimit -n -S)" = "10000" ]]'
+# shellcheck disable=SC2016
 systemd-run --wait -t bash -c '[[ "$(ulimit -n -H)" = "16384" ]]'
 
 touch /testok
