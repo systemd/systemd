@@ -4,6 +4,7 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -163,11 +164,26 @@ static void link_update_master_operstate(Link *link, NetDev *netdev) {
         link_update_operstate(master, true);
 }
 
+static LinkAddressState link_get_address_state(uint8_t scope) {
+        if (scope < RT_SCOPE_SITE)
+                /* universally accessible addresses found */
+                return LINK_ADDRESS_STATE_ROUTABLE;
+
+        if (scope < RT_SCOPE_HOST)
+                /* only link or site local addresses found */
+                return LINK_ADDRESS_STATE_DEGRADED;
+
+        /* no useful addresses found */
+        return LINK_ADDRESS_STATE_OFF;
+}
+
 void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
-        LinkAddressState address_state;
+        LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
         _cleanup_strv_free_ char **p = NULL;
+        uint8_t ipv4_scope = RT_SCOPE_NOWHERE;
+        uint8_t ipv6_scope = RT_SCOPE_NOWHERE;
         uint8_t scope = RT_SCOPE_NOWHERE;
         bool changed = false;
         Address *address;
@@ -201,8 +217,11 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 if (!address_is_ready(address))
                         continue;
 
-                if (address->scope < scope)
-                        scope = address->scope;
+                if (address->family == AF_INET && address->scope < ipv4_scope)
+                        ipv4_scope = address->scope;
+
+                if (address->family == AF_INET6 && address->scope < ipv6_scope)
+                        ipv6_scope = address->scope;
         }
 
         /* for operstate we also take foreign addresses into account */
@@ -210,19 +229,18 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 if (!address_is_ready(address))
                         continue;
 
-                if (address->scope < scope)
-                        scope = address->scope;
+                if (address->family == AF_INET && address->scope < ipv4_scope)
+                        ipv4_scope = address->scope;
+
+                if (address->family == AF_INET6 && address->scope < ipv6_scope)
+                        ipv6_scope = address->scope;
         }
 
-        if (scope < RT_SCOPE_SITE)
-                /* universally accessible addresses found */
-                address_state = LINK_ADDRESS_STATE_ROUTABLE;
-        else if (scope < RT_SCOPE_HOST)
-                /* only link or site local addresses found */
-                address_state = LINK_ADDRESS_STATE_DEGRADED;
-        else
-                /* no useful addresses found */
-                address_state = LINK_ADDRESS_STATE_OFF;
+        ipv4_address_state = link_get_address_state(ipv4_scope);
+        ipv6_address_state = link_get_address_state(ipv6_scope);
+
+        scope = ipv4_scope < ipv6_scope ? ipv4_scope : ipv6_scope;
+        address_state = link_get_address_state(scope);
 
         /* Mapping of address and carrier state vs operational state
          *                                                     carrier state
@@ -253,6 +271,20 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 link->address_state = address_state;
                 changed = true;
                 if (strv_extend(&p, "AddressState") < 0)
+                        log_oom();
+        }
+
+        if (link->ipv4_address_state != ipv4_address_state) {
+                link->ipv4_address_state = ipv4_address_state;
+                changed = true;
+                if (strv_extend(&p, "IPv4AddressState") < 0)
+                        log_oom();
+        }
+
+        if (link->ipv6_address_state != ipv6_address_state) {
+                link->ipv6_address_state = ipv6_address_state;
+                changed = true;
+                if (strv_extend(&p, "IPv6AddressState") < 0)
                         log_oom();
         }
 
