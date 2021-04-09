@@ -161,7 +161,7 @@ test -f /tmp/F/ro-fs/foo
 grep -q 'truncating is not allowed' /tmp/F/ro-fs/foo
 
 # Trying to change the perms should fail.
->/tmp/F/rw-fs/foo
+: >/tmp/F/rw-fs/foo
 systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
 F     /tmp/F/ro-fs/foo    0666 - - - -
 EOF
