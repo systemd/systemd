@@ -1697,6 +1697,8 @@ int config_parse_exec_cpu_affinity(
                 void *userdata) {
 
         ExecContext *c = data;
+        const Unit *u = userdata;
+        char *k;
         int r;
 
         assert(filename);
@@ -1711,7 +1713,15 @@ int config_parse_exec_cpu_affinity(
                 return 0;
         }
 
-        r = parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s'",
+                           rvalue);
+                return -ENOEXEC;
+        }
+
+        r = parse_cpu_set_extend(k, &c->cpu_set, true, unit, filename, line, lvalue);
         if (r >= 0)
                 c->cpu_affinity_from_numa = false;
 
