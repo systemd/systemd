@@ -149,7 +149,7 @@ static int acquire_pkcs11_certificate(
                 X509 **ret_cert,
                 char **ret_pin_used) {
 #if HAVE_P11KIT
-        return pkcs11_acquire_certificate(uri, askpw_friendly_name, askpw_icon_name, ret_cert, ret_pin_used);
+        return pkcs11_acquire_certificate(uri, askpw_friendly_name, askpw_icon_name, false, ret_cert, ret_pin_used);
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "PKCS#11 tokens not supported on this build.");
