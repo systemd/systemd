@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
@@ -14,8 +14,9 @@ inspect() {
     # avoid unexpected fails. To see the full outputs of both homectl &
     # userdbctl (for debugging purposes) drop the fields just before the
     # comparison.
-    homectl inspect $1 | tee /tmp/a
-    userdbctl user $1 | tee /tmp/b
+    local USERNAME="${1:?missing argument}"
+    homectl inspect "$USERNAME" | tee /tmp/a
+    userdbctl user "$USERNAME" | tee /tmp/b
 
     diff -I '/^\s*Disk (Size|Free|Floor|Ceiling):/' /tmp/{a,b}
     rm /tmp/{a,b}
