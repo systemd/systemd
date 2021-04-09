@@ -1656,10 +1656,9 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                         return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
                 if (k < 0)
                         return log_error_errno(k, "Failed to check if %s exists: %m", path);
-                if (!k) {
-                        log_warning("\"%s\" already exists and is not a directory.", path);
-                        return -EEXIST;
-                }
+                if (!k)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                 "\"%s\" already exists and is not a directory.", path);
 
                 *creation = CREATION_EXISTING;
         } else
@@ -1742,10 +1741,10 @@ static int empty_directory(Item *i, const char *path) {
         }
         if (r < 0)
                 return log_error_errno(r, "is_dir() failed on path %s: %m", path);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                       "'%s' already exists and is not a directory.",
-                                       path);
+        if (r == 0) {
+                log_warning("\"%s\" already exists and is not a directory.", path);
+                return 0;
+        }
 
         return path_set_perms(i, path);
 }
@@ -1804,7 +1803,7 @@ static int create_device(Item *i, mode_t file_type) {
                                         return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
                                 creation = CREATION_FORCE;
                         } else {
-                                log_debug("%s is not a device node.", i->path);
+                                log_warning("\"%s\" already exists is not a device node.", i->path);
                                 return 0;
                         }
                 } else
@@ -2575,7 +2574,9 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
          * there's no immediate need for action by the user. However, in the interest of making things less confusing
          * to the user, let's still inform the user that these snippets should really be updated. */
-        log_syntax(NULL, LOG_NOTICE, fname, line, 0, "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", *path, n);
+        log_syntax(NULL, LOG_NOTICE, fname, line, 0,
+                   "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.",
+                   *path, n);
 
         free_and_replace(*path, n);
 

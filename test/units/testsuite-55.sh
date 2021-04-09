@@ -6,19 +6,19 @@ systemd-analyze log-level debug
 systemd-analyze log-target console
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
-[[ -e /proc/pressure ]] || echo "no PSI" >> /skipped
+[[ -e /proc/pressure ]] || echo "no PSI" >>/skipped
 cgroup_type=$(stat -fc %T /sys/fs/cgroup/)
 if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
-    echo "no cgroup2" >> /skipped
+    echo "no cgroup2" >>/skipped
 fi
 if [ ! -f /usr/lib/systemd/systemd-oomd ] && [ ! -f /lib/systemd/systemd-oomd ]; then
-    echo "no oomd" >> /skipped
+    echo "no oomd" >>/skipped
 fi
 [[ -e /skipped ]] && exit 0 || true
 
 rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
 
-echo "DefaultMemoryPressureDurationSec=5s" >> /etc/systemd/oomd.conf
+echo "DefaultMemoryPressureDurationSec=5s" >>/etc/systemd/oomd.conf
 
 systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
@@ -47,8 +47,8 @@ if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
     sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
     mkdir -p /etc/systemd/system/testsuite-55-testbloat.service.d/
-    echo "[Service]" > /etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
-    echo "ManagedOOMPreference=avoid" >> /etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
+    echo "[Service]" >/etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
+    echo "ManagedOOMPreference=avoid" >>/etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
 
     systemctl daemon-reload
     systemctl start testsuite-55-testchill.service
@@ -71,6 +71,6 @@ fi
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
