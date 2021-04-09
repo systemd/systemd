@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -x
-set -e
+set -eux
+set -o pipefail
 
 >/failed
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-set -x
-set -e
+set -eux
 set -o pipefail
 
 P=/run/systemd/system.conf.d
