@@ -61,7 +61,7 @@ Value: a JSON string with the structure described below
 }
 ```
 
-A reference implementations of a [build-time tool is provided](https://github.com/keszybz/rpm-version-note/)
+A reference implementations of a [build-time tool is provided](https://github.com/systemd/package-notes)
 and can be used to generate a linker script, which can then be used at build time via
 ```LDFLAGS="-Wl,-T,/path/to/generated/script"``` to include the note in the binary.
 
