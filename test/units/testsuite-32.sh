@@ -23,12 +23,12 @@ if test -f /sys/fs/cgroup/system.slice/testsuite-32.service/memory.oom.group; th
     echo f >/proc/sysrq-trigger
 
     while : ; do
-        STATE=`systemctl show -P ActiveState oomtest.service`
+        STATE="$(systemctl show -P ActiveState oomtest.service)"
         [ "$STATE" = "failed" ] && break
         sleep .5
     done
 
-    RESULT=`systemctl show -P Result oomtest.service`
+    RESULT="$(systemctl show -P Result oomtest.service)"
     test "$RESULT" = "oom-kill"
 
     systemd-analyze log-level info
