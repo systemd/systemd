@@ -21,6 +21,7 @@
 #include "device-nodes.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strv.h"
@@ -136,12 +137,13 @@ static int get_file_options(const char *vendor, const char *model,
 
                 vendor_in = model_in = options_in = NULL;
 
-                buf = fgets(buffer, MAX_BUFFER_LEN, f);
-                if (!buf)
+                r = read_line(f, MAX_BUFFER_LEN, &buffer);
+                if (r < 0)
+                        return log_error_errno(r, "read_line() on line %d of %s failed: %m", lineno, config_file);
+                if (r == 0)
                         break;
+                buf = buffer;
                 lineno++;
-                if (buf[strlen(buffer) - 1] != '\n')
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Config file line %d too long", lineno);
 
                 while (isspace(*buf))
                         buf++;
