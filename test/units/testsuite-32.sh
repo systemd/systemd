@@ -9,7 +9,6 @@ set -o pipefail
 # kernels where the concept was still new.
 
 if test -f /sys/fs/cgroup/system.slice/testsuite-32.service/memory.oom.group; then
-
     systemd-analyze log-level debug
     systemd-analyze log-target console
 
