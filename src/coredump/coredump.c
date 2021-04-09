@@ -136,8 +136,62 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage, "Failed to parse storage setting");
 
+typedef enum CoredumpCompression {
+        COREDUMP_COMPRESS_DISABLED,
+        COREDUMP_COMPRESS_ENABLED,
+        COREDUMP_COMPRESS_ON_THE_FLY,
+        _COREDUMP_COMPRESS_MAX,
+        _COREDUMP_COMPRESS_INVALID = -EINVAL,
+} CoredumpCompression;
+
+static const char* const coredump_compress_table[_COREDUMP_COMPRESS_MAX] = {
+        [COREDUMP_COMPRESS_DISABLED] = "disabled",
+        [COREDUMP_COMPRESS_ENABLED] = "enabled",
+        [COREDUMP_COMPRESS_ON_THE_FLY] = "on-the-fly",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(coredump_compress, CoredumpCompression);
+
+static int config_parse_compression(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int k;
+        CoredumpCompression *compress = data;
+        bool fatal = ltype;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "on-the-fly")) {
+                *compress = COREDUMP_COMPRESS_ON_THE_FLY;
+                return 0;
+        }
+
+        k = parse_boolean(rvalue);
+        if (k < 0) {
+                log_syntax(unit, fatal ? LOG_ERR : LOG_WARNING, filename, line, k,
+                           "Failed to parse boolean value%s: %s",
+                           fatal ? "" : ", ignoring", rvalue);
+                return fatal ? -ENOEXEC : 0;
+        }
+
+        *compress = k;
+        return 0;
+}
+
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
-static bool arg_compress = true;
+static CoredumpCompression arg_compress = COREDUMP_COMPRESS_ENABLED;
 static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
 static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
@@ -147,7 +201,7 @@ static uint64_t arg_max_use = UINT64_MAX;
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
-                { "Coredump", "Compress",         config_parse_bool,              0, &arg_compress          },
+                { "Coredump", "Compress",         config_parse_compression,       0, &arg_compress          },
                 { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,        0, &arg_process_size_max  },
                 { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64,        0, &arg_external_size_max },
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
@@ -322,6 +376,68 @@ static int make_filename(const Context *context, char **ret) {
         return 0;
 }
 
+static int compress_core(
+                const Context *context,
+                uid_t uid,
+                const char *fn,
+                int input_fd,
+                uint64_t max_size,
+                char **ret_filename,
+                int *ret_node_fd,
+                uint64_t *ret_compressed_size,
+                uint64_t *ret_uncompressed_size) {
+
+#if HAVE_COMPRESSION
+        _cleanup_(unlink_and_freep) char *tmp_compressed = NULL;
+        _cleanup_free_ char *fn_compressed = NULL;
+        _cleanup_close_ int fd_compressed = -1;
+        uint64_t uncompressed_size = 0;
+        struct stat st;
+        int r;
+
+        if (!IN_SET(arg_compress, COREDUMP_COMPRESS_ENABLED, COREDUMP_COMPRESS_ON_THE_FLY))
+                return 0;
+
+        assert(context);
+        assert(fn);
+        assert(ret_filename);
+        assert(ret_node_fd);
+        assert(ret_compressed_size);
+
+        fn_compressed = strjoin(fn, COMPRESSED_EXT);
+        if (!fn_compressed)
+                return log_oom();
+
+        fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR|O_CLOEXEC, &tmp_compressed);
+        if (fd_compressed < 0)
+                return log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
+
+        r = compress_stream(input_fd, fd_compressed, max_size, &uncompressed_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
+
+        r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid);
+        if (r < 0)
+                return r;
+
+        if (fstat(fd_compressed, &st) < 0)
+                return log_error_errno(errno,
+                                       "Failed to fstat core file %s: %m",
+                                       coredump_tmpfile_name(tmp_compressed));
+
+        *ret_filename = TAKE_PTR(fn_compressed);       /* compressed */
+        *ret_node_fd = TAKE_FD(fd_compressed);         /* compressed */
+        *ret_compressed_size = (uint64_t) st.st_size;  /* compressed */
+        if (ret_uncompressed_size)
+                *ret_uncompressed_size = uncompressed_size;    /* uncompressed */
+        tmp_compressed = mfree(tmp_compressed);
+
+        return 1;
+#else
+        return 0;
+#endif
+}
+
 static int save_external_coredump(
                 const Context *context,
                 int input_fd,
@@ -329,11 +445,14 @@ static int save_external_coredump(
                 int *ret_node_fd,
                 int *ret_data_fd,
                 uint64_t *ret_size,
+                uint64_t *ret_compressed_size,
                 bool *ret_truncated) {
 
-        _cleanup_free_ char *fn = NULL, *tmp = NULL;
-        _cleanup_close_ int fd = -1;
-        uint64_t rlimit, process_limit, max_size;
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *fn = NULL, *fn_compressed = NULL;
+        _cleanup_close_ int fd = -1, fd_compressed = -1;
+        uint64_t rlimit, process_limit, max_size, compressed_size = 0;
+        bool truncated;
         struct stat st;
         uid_t uid;
         int r;
@@ -343,6 +462,7 @@ static int save_external_coredump(
         assert(ret_node_fd);
         assert(ret_data_fd);
         assert(ret_size);
+        assert(ret_compressed_size);
 
         r = parse_uid(context->meta[META_ARGV_UID], &uid);
         if (r < 0)
@@ -375,96 +495,111 @@ static int save_external_coredump(
 
         (void) mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
+        /* If compression on-the-fly is enabled compress from STDIN, to keep memory footprint down
+         * at the cost of more CPU usage (compress + decompress). */
+#if HAVE_COMPRESSION
+        if (arg_compress == COREDUMP_COMPRESS_ON_THE_FLY) {
+                uint64_t uncompressed_size = 0;
+
+                r = compress_core(context, uid, fn, input_fd, max_size, &fn_compressed, &fd_compressed, &compressed_size, &uncompressed_size);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        goto uncompressed;
+
+                /* Now decompress it again - why? Because the cores are coming from STDIN, so we cannot seek back
+                 * to the start. We don't want to keep copies mmapped around, as cores might be huge and cause
+                 * large spikes in systemd-coredump's memory footprint. So try to stream-decompress the archive
+                 * if possible, and if not we'll just skip saving the backtrace in the journal.
+                 * We still observe the maximum storage setting, even if the file lives for a very short
+                 * amount of time, since if the storage is on tmpfs it will be charged against coredump's
+                 * memory accounting.
+                 * This is attempted in a best-effort fashion, in case anything goes wrong we log and
+                 * carry on. The uncompressed core is also useful only for journal storage and backtrace
+                 * generation, so only do that if either of these is enabled. */
+                if ((arg_storage == COREDUMP_STORAGE_JOURNAL && uncompressed_size <= arg_journal_size_max) ||
+                    uncompressed_size <= arg_process_size_max) {
+                        fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
+                        if (fd < 0)
+                                log_warning_errno(fd,
+                                                  "Failed to create temporary file for coredump %s, will not extract backtrace: %m",
+                                                  fn);
+                        else {
+                                /* With ZSTD/XZ (but not LZ4) we need to lseek back, otherwise the read will fail. */
+                                if (lseek(fd_compressed, 0, SEEK_SET) == (off_t) -1) {
+                                        log_warning_errno(errno,
+                                                          "Failed to seek on coredump %s, will not extract backtrace: %m",
+                                                          fn_compressed);
+                                        fd = safe_close(fd);
+                                } else {
+                                        r = decompress_stream(fn_compressed, fd_compressed, fd, max_size);
+                                        if (r < 0) {
+                                                log_warning_errno(r,
+                                                                "Failed to decompress coredump %s, will not extract backtrace: %m",
+                                                                fn_compressed);
+                                                fd = safe_close(fd);
+                                        }
+                                }
+                        }
+                }
+
+                *ret_filename = TAKE_PTR(fn_compressed);       /* compressed */
+                *ret_node_fd = TAKE_FD(fd_compressed);         /* compressed */
+                *ret_compressed_size = compressed_size;        /* compressed */
+                *ret_data_fd = TAKE_FD(fd);                    /* uncompressed or closed */
+                *ret_size = uncompressed_size;                 /* uncompressed */
+
+                return 0;
+        }
+
+uncompressed:
+#endif
+
+        /* If compression on-the-fly is disabled, then just stream the core file from STDIN to the
+         * storage directory first. Then, attempt to compress it.
+         * This uses lower CPU, but requires more storage/memory. */
+
         fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
         r = copy_bytes(input_fd, fd, max_size, 0);
-        if (r < 0) {
-                log_error_errno(r, "Cannot store coredump of %s (%s): %m",
+        if (r < 0)
+                return log_error_errno(r, "Cannot store coredump of %s (%s): %m",
                                 context->meta[META_ARGV_PID], context->meta[META_COMM]);
-                goto fail;
-        }
-        *ret_truncated = r == 1;
+        truncated = r == 1;
         if (*ret_truncated)
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
                            "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
-        if (fstat(fd, &st) < 0) {
-                log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
-                goto fail;
-        }
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_error_errno(errno, "Failed to seek on %s: %m", coredump_tmpfile_name(tmp));
-                goto fail;
-        }
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
-#if HAVE_COMPRESSION
-        /* If we will remove the coredump anyway, do not compress. */
-        if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
-
-                _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
-                _cleanup_close_ int fd_compressed = -1;
-
-                fn_compressed = strjoin(fn, COMPRESSED_EXT);
-                if (!fn_compressed) {
-                        log_oom();
-                        goto uncompressed;
-                }
-
-                fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR|O_CLOEXEC, &tmp_compressed);
-                if (fd_compressed < 0) {
-                        log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
-                        goto uncompressed;
-                }
-
-                r = compress_stream(fd, fd_compressed, -1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
-                        goto fail_compressed;
-                }
-
-                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid);
+        r = compress_core(context, uid, fn, fd, max_size, &fn_compressed, &fd_compressed, &compressed_size, NULL);
+        if (r <= 0) {
+                r = fix_permissions(fd, tmp, fn, context, uid);
                 if (r < 0)
-                        goto fail_compressed;
+                        return r;
 
-                /* OK, this worked, we can get rid of the uncompressed version now */
-                if (tmp)
-                        unlink_noerrno(tmp);
-
-                *ret_filename = TAKE_PTR(fn_compressed);  /* compressed */
-                *ret_node_fd = TAKE_FD(fd_compressed);    /* compressed */
-                *ret_data_fd = TAKE_FD(fd);               /* uncompressed */
-                *ret_size = (uint64_t) st.st_size;        /* uncompressed */
-
-                return 0;
-
-        fail_compressed:
-                if (tmp_compressed)
-                        (void) unlink(tmp_compressed);
+                *ret_filename = TAKE_PTR(fn);
+                *ret_node_fd = -1;
+                tmp = mfree(tmp); /* Avoid auto-unlink */
+        } else {
+                *ret_filename = TAKE_PTR(fn_compressed);
+                *ret_node_fd = TAKE_FD(fd_compressed);
+                *ret_compressed_size = compressed_size;
         }
 
-uncompressed:
-#endif
-
-        r = fix_permissions(fd, tmp, fn, context, uid);
-        if (r < 0)
-                goto fail;
-
-        *ret_filename = TAKE_PTR(fn);
         *ret_data_fd = TAKE_FD(fd);
-        *ret_node_fd = -1;
         *ret_size = (uint64_t) st.st_size;
+        *ret_truncated = truncated;
 
         return 0;
-
-fail:
-        if (tmp)
-                (void) unlink(tmp);
-        return r;
 }
 
 static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_size) {
@@ -709,7 +844,7 @@ static int submit_coredump(
         _cleanup_free_ char *stacktrace = NULL;
         char *core_message;
         const char *module_name;
-        uint64_t coredump_size = UINT64_MAX;
+        uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false;
         JsonVariant *module_json;
         int r;
@@ -722,7 +857,8 @@ static int submit_coredump(
 
         /* Always stream the coredump to disk, if that's possible */
         r = save_external_coredump(context, input_fd,
-                                   &filename, &coredump_node_fd, &coredump_fd, &coredump_size, &truncated);
+                                   &filename, &coredump_node_fd, &coredump_fd,
+                                   &coredump_size, &coredump_compressed_size, &truncated);
         if (r < 0)
                 /* Skip whole core dumping part */
                 goto log;
@@ -730,7 +866,7 @@ static int submit_coredump(
         /* If we don't want to keep the coredump on disk, remove it now, as later on we
          * will lack the privileges for it. However, we keep the fd to it, so that we can
          * still process it and log it. */
-        r = maybe_remove_external_coredump(filename, coredump_size);
+        r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -738,7 +874,7 @@ static int submit_coredump(
 
         } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
-                         coredump_size, arg_external_size_max);
+                         coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
 
         /* Vacuum again, but exclude the coredump we just created */
         (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
@@ -758,7 +894,7 @@ static int submit_coredump(
                 log_debug("Not generating stack trace: core size %"PRIu64" is greater "
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
-        } else
+        } else if (coredump_fd >= 0)
                 coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
@@ -812,7 +948,7 @@ log:
         }
 
         /* Optionally store the entire coredump in the journal */
-        if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL && coredump_fd >= 0) {
                 if (coredump_size <= arg_journal_size_max) {
                         size_t sz = 0;
 
@@ -1334,7 +1470,7 @@ static int run(int argc, char *argv[]) {
         (void) parse_config();
 
         log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
-        log_debug("Selected compression %s.", yes_no(arg_compress));
+        log_debug("Selected compression %s.", coredump_compress_to_string(arg_compress));
 
         r = sd_listen_fds(false);
         if (r < 0)
