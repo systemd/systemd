@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <netinet/in.h>
+
 #include "conf-parser.h"
 #include "dhcp-identifier.h"
 #include "time-util.h"
@@ -69,3 +71,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_or_vendor_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_option);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_request_options);
+CONFIG_PARSER_PROTOTYPE(config_parse_duid_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_duid_rawdata);
