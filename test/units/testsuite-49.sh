@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 
 echo "MARKER_FIXED" >/run/testservice-49-fixed
 mkdir -p /run/inaccessible
