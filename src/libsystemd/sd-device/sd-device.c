@@ -1895,9 +1895,10 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 return r;
 
         path = prefix_roota(syspath, sysattr);
-        r = lstat(path, &statbuf);
-        if (r < 0) {
+        if (lstat(path, &statbuf) < 0) {
                 int k;
+
+                r = -errno;
 
                 /* remember that we could not access the sysattr */
                 k = device_cache_sysattr_value(device, sysattr, NULL);
