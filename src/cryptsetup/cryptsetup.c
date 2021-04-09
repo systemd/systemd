@@ -79,6 +79,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static bool arg_headless = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -381,6 +382,17 @@ static int parse_one_option(const char *option) {
 
         } else if (streq(option, "try-empty-password"))
                 arg_try_empty_password = true;
+        else if ((val = startswith(option, "headless="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_headless = r;
+        } else if (streq(option, "headless"))
+                arg_headless = true;
 
         else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
@@ -531,6 +543,9 @@ static int get_password(
         assert(vol);
         assert(src);
         assert(ret);
+
+        if (arg_headless)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Password querying disabled via 'headless' option.");
 
         friendly = friendly_disk_name(src, vol);
         if (!friendly)
@@ -775,6 +790,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                 key_data, key_data_size,
                                 until,
+                                arg_headless,
                                 &decrypted_key, &decrypted_key_size);
                 if (r >= 0)
                         break;
@@ -895,6 +911,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                 key_data, key_data_size,
                                 until,
+                                arg_headless,
                                 &decrypted_key, &decrypted_key_size);
                 if (r >= 0)
                         break;
