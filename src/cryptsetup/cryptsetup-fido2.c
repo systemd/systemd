@@ -23,6 +23,7 @@ int acquire_fido2_key(
                 const void *key_data,
                 size_t key_data_size,
                 usec_t until,
+                bool headless,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -87,6 +88,9 @@ int acquire_fido2_key(
                         return r;
 
                 pins = strv_free_erase(pins);
+
+                if (headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
                 r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
                 if (r < 0)
