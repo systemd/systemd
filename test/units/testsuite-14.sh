@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -e
-set -x
+set -eux
+set -o pipefail
 
 function setup_root {
     local _root="$1"

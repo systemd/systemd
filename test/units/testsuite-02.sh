@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#set -ex
-#set -o pipefail
+set -eux
+set -o pipefail
 
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}

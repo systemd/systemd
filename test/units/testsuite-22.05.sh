@@ -1,7 +1,7 @@
 #! /bin/bash
 
-set -e
-set -x
+set -eux
+set -o pipefail
 
 rm -fr /tmp/{z,Z}
 mkdir  /tmp/{z,Z}

@@ -1,6 +1,6 @@
-#! /bin/bash
-set -e
-set -x
+#!/bin/bash
+set -eux
+set -o pipefail
 
 _clear_service () {
     systemctl stop $1.service 2>/dev/null || :
