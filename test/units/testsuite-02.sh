@@ -54,9 +54,9 @@ for task in "${TEST_LIST[@]}"; do
     # until one of the tasks finishes, so we can replace it.
     while [[ ${#running[@]} -ge $MAX_QUEUE_SIZE ]]; do
         for key in "${!running[@]}"; do
-            if ! kill -0 ${running[$key]} &>/dev/null; then
+            if ! kill -0 "${running[$key]}" &>/dev/null; then
                 # Task has finished, report its result and drop it from the queue
-                wait ${running[$key]}
+                wait "${running[$key]}"
                 ec=$?
                 report_result "$key" $ec
                 unset running["$key"]
