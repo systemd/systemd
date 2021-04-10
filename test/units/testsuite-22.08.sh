@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 #
 # Verify tmpfiles can run in a root directory under a path prefix that contains
 # directories owned by unprivileged users, for example when a root file system
@@ -7,7 +7,8 @@
 # https://github.com/systemd/systemd/pull/11820
 #
 
-set -e
+set -eux
+set -o pipefail
 
 rm -fr /tmp/root /tmp/user
 mkdir -p /tmp/root /tmp/user/root
