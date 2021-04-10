@@ -60,7 +60,7 @@ static inline DUID *link_get_dhcp6_duid(Link *link) {
         return link_get_duid(link, AF_INET6);
 }
 
-int link_configure_duid(Link *link);
+int dhcp_configure_duid(Link *link, DUID *duid);
 int manager_request_product_uuid(Manager *m);
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
