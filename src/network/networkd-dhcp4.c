@@ -1199,17 +1199,17 @@ static int dhcp4_set_client_identifier(Link *link) {
         switch (link->network->dhcp_client_identifier) {
         case DHCP_CLIENT_ID_DUID: {
                 /* If configured, apply user specified DUID and IAID */
-                const DUID *duid = link_get_duid(link);
+                const DUID *duid = link_get_dhcp4_duid(link);
 
                 if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                         r = sd_dhcp_client_set_iaid_duid_llt(link->dhcp_client,
-                                                             link->network->iaid_set,
-                                                             link->network->iaid,
+                                                             link->network->dhcp_iaid_set,
+                                                             link->network->dhcp_iaid,
                                                              duid->llt_time);
                 else
                         r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
-                                                         link->network->iaid_set,
-                                                         link->network->iaid,
+                                                         link->network->dhcp_iaid_set,
+                                                         link->network->dhcp_iaid,
                                                          duid->type,
                                                          duid->raw_data_len > 0 ? duid->raw_data : NULL,
                                                          duid->raw_data_len);
@@ -1219,7 +1219,7 @@ static int dhcp4_set_client_identifier(Link *link) {
         }
         case DHCP_CLIENT_ID_DUID_ONLY: {
                 /* If configured, apply user specified DUID */
-                const DUID *duid = link_get_duid(link);
+                const DUID *duid = link_get_dhcp4_duid(link);
 
                 if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                         r = sd_dhcp_client_set_duid_llt(link->dhcp_client,

@@ -345,7 +345,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 
                 .dhcp = ADDRESS_FAMILY_NO,
-                .duid.type = _DUID_TYPE_INVALID,
+                .dhcp_duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
                 .dhcp_use_sip = true,
@@ -375,6 +375,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_ntp = true,
                 .dhcp6_rapid_commit = true,
                 .dhcp6_route_metric = DHCP_ROUTE_METRIC,
+                .dhcp6_duid.type = _DUID_TYPE_INVALID,
 
                 .dhcp6_pd = -1,
                 .dhcp6_pd_announce = true,
@@ -655,9 +656,10 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
-        if (network->manager &&
-            network->manager->duids_requesting_uuid)
-                set_remove(network->manager->duids_requesting_uuid, &network->duid);
+        if (network->manager) {
+                set_remove(network->manager->duids_requesting_uuid, &network->dhcp_duid);
+                set_remove(network->manager->duids_requesting_uuid, &network->dhcp6_duid);
+        }
 
         free(network->name);
 

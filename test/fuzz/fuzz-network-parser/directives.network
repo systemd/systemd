@@ -140,6 +140,9 @@ UserClass=
 VendorClass=
 SendVendorOption=
 RouteMetric=
+IAID=
+DUIDType=
+DUIDRawData=
 [DHCPv6PrefixDelegation]
 SubnetId=
 Announce=
