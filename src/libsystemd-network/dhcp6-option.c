@@ -602,7 +602,7 @@ int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6I
 
                 case SD_DHCP6_OPTION_IA_PD_PREFIX:
 
-                        if (!IN_SET(ia->type, SD_DHCP6_OPTION_IA_PD))
+                        if (ia->type != SD_DHCP6_OPTION_IA_PD)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                               "IA PD Prefix option not in IA PD option");
 
