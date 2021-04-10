@@ -1179,14 +1179,6 @@ static int link_acquire_ipv6_conf(Link *link) {
 
         assert(link);
 
-        if (link->ndisc) {
-                log_link_debug(link, "Discovering IPv6 routers");
-
-                r = sd_ndisc_start(link->ndisc);
-                if (r < 0 && r != -EBUSY)
-                        return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
-        }
-
         if (link->radv) {
                 assert(link->radv);
                 assert(in6_addr_is_link_local(&link->ipv6ll_address));
@@ -1202,18 +1194,13 @@ static int link_acquire_ipv6_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
         }
 
-        if (link_dhcp6_enabled(link) && IN_SET(link->network->dhcp6_without_ra,
-                                               DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST,
-                                               DHCP6_CLIENT_START_MODE_SOLICIT)) {
-                assert(link->dhcp6_client);
-                assert(in6_addr_is_link_local(&link->ipv6ll_address));
+        r = ndisc_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
 
-                r = dhcp6_request_address(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
-                if (r < 0 && r != -EBUSY)
-                        return log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease: %m");
-                else
-                        log_link_debug(link, "Acquiring DHCPv6 lease");
-        }
+        r = dhcp6_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
 
         r = dhcp6_request_prefix_delegation(link);
         if (r < 0)
@@ -1230,11 +1217,9 @@ static int link_acquire_ipv4_conf(Link *link) {
         assert(link->manager->event);
 
         if (link->dhcp_client) {
-                log_link_debug(link, "Acquiring DHCPv4 lease");
-
-                r = sd_dhcp_client_start(link->dhcp_client);
+                r = dhcp4_start(link);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
+                        return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
 
         } else if (link->ipv4ll) {
                 log_link_debug(link, "Acquiring IPv4 link-local address");
@@ -2254,12 +2239,6 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         link_set_state(link, LINK_STATE_INITIALIZED);
         link->activated = false;
 
-        /* link_configure_duid() returns 0 if it requests product UUID. In that case,
-         * link_configure() is called later asynchronously. */
-        r = link_configure_duid(link);
-        if (r <= 0)
-                return r;
-
         r = link_configure(link);
         if (r < 0)
                 return r;
@@ -2372,12 +2351,6 @@ static int link_initialized_and_synced(Link *link) {
 
         r = link_new_bound_to_list(link);
         if (r < 0)
-                return r;
-
-        /* link_configure_duid() returns 0 if it requests product UUID. In that case,
-         * link_configure() is called later asynchronously. */
-        r = link_configure_duid(link);
-        if (r <= 0)
                 return r;
 
         r = link_configure(link);

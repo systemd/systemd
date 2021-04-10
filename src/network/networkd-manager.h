@@ -58,7 +58,6 @@ struct Manager {
         bool has_product_uuid;
         bool product_uuid_requested;
         Set *links_requesting_uuid;
-        Set *duids_requesting_uuid;
 
         char* dynamic_hostname;
         char* dynamic_timezone;
