@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-set -x
-set -e
+set -eux
 set -o pipefail
 
 echo 1 >/sys/fs/selinux/enforce || {

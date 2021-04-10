@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 export SYSTEMD_PAGER=cat
@@ -120,6 +120,7 @@ test ! -f /var/lib/machines/scratch4
 machinectl image-status scratch4 && { echo 'unexpected success'; exit 1; }
 
 # Test import-tar hyphen/stdin pipe behavior
+# shellcheck disable=SC2002
 cat /var/tmp/scratch.tar.gz | machinectl import-tar - scratch5
 test -d /var/lib/machines/scratch5
 machinectl image-status scratch5
