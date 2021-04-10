@@ -2202,7 +2202,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 return r;
 
         if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
+                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
                         return r;
@@ -2638,7 +2638,7 @@ static int link_carrier_lost(Link *link) {
                 return r;
 
         if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
+                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
                         return r;
