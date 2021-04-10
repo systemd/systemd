@@ -46,7 +46,7 @@ int rsa_pkey_to_suitable_key_size(
                 size_t *ret_suitable_key_size) {
 
         size_t suitable_key_size;
-        RSA *rsa;
+        const RSA *rsa;
         int bits;
 
         assert_se(pkey);
