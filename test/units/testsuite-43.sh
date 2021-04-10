@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
@@ -7,6 +7,7 @@ systemd-analyze log-level debug
 runas() {
     declare userid=$1
     shift
+    # shellcheck disable=SC2016
     su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
 }
 
@@ -46,6 +47,7 @@ runas testuser systemd-run --wait --user --unit=test-protect-home-tmpfs \
     -P test ! -e /home/testuser
 
 # Confirm that home, /root, and /run/user are inaccessible under "yes"
+# shellcheck disable=SC2016
 runas testuser systemd-run --wait --user --unit=test-protect-home-yes \
     -p PrivateUsers=yes -p ProtectHome=yes \
     -P bash -c '
