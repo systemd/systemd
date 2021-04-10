@@ -160,7 +160,10 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 "lan\0"
                 "intranet\0"
                 "internal\0"
-                "private\0";
+                "private\0"
+
+                /* Defined by RFC 8375. The most official choice. */
+                "home.arpa\0";
 
         const char *name;
         int r;
