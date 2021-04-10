@@ -1422,13 +1422,13 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        if (link->network->iaid_set) {
-                r = sd_dhcp6_client_set_iaid(client, link->network->iaid);
+        if (link->network->dhcp6_iaid_set) {
+                r = sd_dhcp6_client_set_iaid(client, link->network->dhcp6_iaid);
                 if (r < 0)
                         return r;
         }
 
-        duid = link_get_duid(link);
+        duid = link_get_dhcp6_duid(link);
         if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                 r = sd_dhcp6_client_set_duid_llt(client, duid->llt_time);
         else
