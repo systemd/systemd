@@ -100,8 +100,8 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
                 (void) manager_set_hostname(m, m->dynamic_hostname);
         if (m->dynamic_timezone)
                 (void) manager_set_timezone(m, m->dynamic_timezone);
-        if (m->links_requesting_uuid)
-                (void) manager_request_product_uuid(m, NULL);
+        if (!set_isempty(m->links_requesting_uuid))
+                (void) manager_request_product_uuid(m);
 
         return 0;
 }
@@ -381,6 +381,8 @@ int manager_new(Manager **ret) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .manage_foreign_routes = true,
                 .ethtool_fd = -1,
+                .dhcp_duid.type = DUID_TYPE_EN,
+                .dhcp6_duid.type = DUID_TYPE_EN,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");
@@ -425,8 +427,6 @@ int manager_new(Manager **ret) {
         r = address_pool_setup_default(m);
         if (r < 0)
                 return r;
-
-        m->duid.type = DUID_TYPE_EN;
 
         *ret = TAKE_PTR(m);
 
