@@ -20,7 +20,7 @@ function bloat {
         while [[ "$mem_usage" -lt "$target_mem_size" ]]; do
                 echo "target $target_mem_size"
                 echo "mem usage $mem_usage"
-                BLOAT_HOLDER+=("$(printf "=%0.s" {1..1000000})")
+                BLOAT_HOLDER+=("$(printf "${RANDOM}%0.s" {1..1000000})")
                 set_size=$(cut -d " " -f2 "/proc/$PID/statm")
                 mem_usage=$(("$set_size" * "$PAGE_SIZE"))
         done
