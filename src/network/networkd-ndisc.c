@@ -1315,15 +1315,16 @@ int ndisc_configure(Link *link) {
         if (!link_ipv6_accept_ra_enabled(link))
                 return 0;
 
-        if (!link->ndisc) {
-                r = sd_ndisc_new(&link->ndisc);
-                if (r < 0)
-                        return r;
+        if (link->ndisc)
+                return 0; /* Already configured. */
 
-                r = sd_ndisc_attach_event(link->ndisc, link->manager->event, 0);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_ndisc_new(&link->ndisc);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_attach_event(link->ndisc, link->manager->event, 0);
+        if (r < 0)
+                return r;
 
         r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
         if (r < 0)
