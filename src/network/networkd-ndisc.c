@@ -1341,6 +1341,17 @@ int ndisc_configure(Link *link) {
         return 0;
 }
 
+int ndisc_start(Link *link) {
+        assert(link);
+
+        if (!link->ndisc || !link->dhcp6_client)
+                return 0;
+
+        log_link_debug(link, "Discovering IPv6 routers");
+
+        return sd_ndisc_start(link->ndisc);
+}
+
 void ndisc_vacuum(Link *link) {
         NDiscRDNSS *r;
         NDiscDNSSL *d;

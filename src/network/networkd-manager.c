@@ -452,7 +452,6 @@ Manager* manager_free(Manager *m) {
         m->links_requesting_uuid = set_free_with_destructor(m->links_requesting_uuid, link_unref);
         m->links = hashmap_free_with_destructor(m->links, link_unref);
 
-        m->duids_requesting_uuid = set_free(m->duids_requesting_uuid);
         m->networks = ordered_hashmap_free_with_destructor(m->networks, network_unref);
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);

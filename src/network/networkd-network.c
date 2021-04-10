@@ -600,11 +600,6 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
-        if (network->manager) {
-                set_remove(network->manager->duids_requesting_uuid, &network->dhcp_duid);
-                set_remove(network->manager->duids_requesting_uuid, &network->dhcp6_duid);
-        }
-
         free(network->name);
 
         free(network->dhcp_server_timezone);
