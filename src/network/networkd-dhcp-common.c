@@ -101,6 +101,42 @@ static int duid_set_uuid(DUID *duid, sd_id128_t uuid) {
         return 1;
 }
 
+static int link_configure_and_start_dhcp_delayed(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        log_link_info(link, "%s", __func__);
+
+        r = dhcp4_configure(link, false);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_configure(link, false);
+        if (r < 0)
+                return r;
+
+        if (!link_has_carrier(link))
+                return 0;
+
+        r = dhcp4_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
+
+        r = ndisc_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
+
+        r = dhcp6_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
+
+        return 0;
+}
+
 static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = userdata;
         const sd_bus_error *e;
@@ -142,7 +178,7 @@ configure:
         while ((link = set_steal_first(manager->links_requesting_uuid))) {
                 link_unref(link);
 
-                r = link_configure(link);
+                r = link_configure_and_start_dhcp_delayed(link);
                 if (r < 0)
                         link_enter_failed(link);
         }
@@ -190,66 +226,21 @@ int manager_request_product_uuid(Manager *m) {
         return 0;
 }
 
-static bool dhcp4_requires_uuid(Link *link) {
-        const DUID *duid;
-
-        assert(link);
-
-        if (!link_dhcp4_enabled(link))
-                return false;
-
-        if (!IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
-                return false;
-
-        duid = link_get_dhcp4_duid(link);
-        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
-                return false;
-
-        return true;
-}
-
-static bool dhcp6_requires_uuid(Link *link) {
-        const DUID *duid;
-
-        assert(link);
-
-        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
-                return false;
-
-        duid = link_get_dhcp6_duid(link);
-        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
-                return false;
-
-        return true;
-}
-
-static bool link_requires_uuid(Link *link) {
-        return dhcp4_requires_uuid(link) || dhcp6_requires_uuid(link);
-}
-
-int link_configure_duid(Link *link) {
+int dhcp_configure_duid(Link *link, DUID *duid) {
         Manager *m;
-        DUID *duid;
         int r;
 
         assert(link);
         assert(link->manager);
-        assert(link->network);
+        assert(duid);
 
         m = link->manager;
 
-        if (!link_requires_uuid(link))
+        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
                 return 1;
 
         if (m->has_product_uuid) {
-                if (dhcp4_requires_uuid(link)) {
-                        duid = link_get_dhcp4_duid(link);
-                        (void) duid_set_uuid(duid, m->product_uuid);
-                }
-                if (dhcp6_requires_uuid(link)) {
-                        duid = link_get_dhcp6_duid(link);
-                        (void) duid_set_uuid(duid, m->product_uuid);
-                }
+                (void) duid_set_uuid(duid, m->product_uuid);
                 return 1;
         }
 
@@ -266,19 +257,9 @@ int link_configure_duid(Link *link) {
         if (r > 0)
                 link_ref(link);
 
-        if (dhcp4_requires_uuid(link)) {
-                duid = link_get_dhcp4_duid(link);
-                r = set_ensure_put(&m->duids_requesting_uuid, NULL, duid);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        if (dhcp6_requires_uuid(link)) {
-                duid = link_get_dhcp6_duid(link);
-                r = set_ensure_put(&m->duids_requesting_uuid, NULL, duid);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = set_ensure_put(&m->duids_requesting_uuid, NULL, duid);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
