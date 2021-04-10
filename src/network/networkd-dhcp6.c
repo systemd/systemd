@@ -1288,6 +1288,31 @@ int dhcp6_request_address(Link *link, int ir) {
         return 0;
 }
 
+int dhcp6_start(Link *link) {
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        if (!link_dhcp6_enabled(link))
+                return 0;
+
+        if (link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_NO)
+                return 0;
+
+        if (!in6_addr_is_link_local(&link->ipv6ll_address)) {
+                log_link_debug(link, "IPv6 link-local address is not set, delaying to start DHCPv6 client.");
+                return 0;
+        }
+
+        if (sd_dhcp6_client_is_running(link->dhcp6_client) > 0)
+                return 0;
+
+        log_link_debug(link, "Acquiring DHCPv6 lease");
+
+        return dhcp6_request_address(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
+}
+
 int dhcp6_request_prefix_delegation(Link *link) {
         Link *l;
 
@@ -1457,6 +1482,10 @@ int dhcp6_configure(Link *link) {
 
         if (link->dhcp6_client)
                 return -EBUSY;
+
+        r = dhcp_configure_duid(link, link_get_dhcp6_duid(link));
+        if (r <= 0)
+                return r;
 
         r = sd_dhcp6_client_new(&client);
         if (r == -ENOMEM)

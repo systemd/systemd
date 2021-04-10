@@ -1283,6 +1283,15 @@ static int dhcp4_set_client_identifier(Link *link) {
         return 0;
 }
 
+static int dhcp4_configure_duid(Link *link) {
+        assert(link);
+
+        if (!IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
+                return 1;
+
+        return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
+}
+
 static int dhcp4_set_request_address(Link *link) {
         Address *a;
 
@@ -1321,6 +1330,10 @@ int dhcp4_configure(Link *link) {
 
         if (link->dhcp_client)
                 return -EBUSY; /* Already configured. */
+
+        r = dhcp4_configure_duid(link);
+        if (r <= 0)
+                return r;
 
         r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
         if (r < 0)
@@ -1502,6 +1515,20 @@ int dhcp4_update_mac(Link *link) {
                 return r;
 
         return 0;
+}
+
+int dhcp4_start(Link *link) {
+        assert(link);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        if (sd_dhcp_client_is_running(link->dhcp_client) > 0)
+                return 0;
+
+        log_link_debug(link, "Acquiring DHCPv4 lease");
+
+        return sd_dhcp_client_start(link->dhcp_client);
 }
 
 int config_parse_dhcp_max_attempts(
