@@ -1972,6 +1972,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>UseNTP=</varname></term>
           <term><varname>UseHostname=</varname></term>
           <term><varname>UseDomains=</varname></term>
+          <term><varname>IAID=</varname></term>
+          <term><varname>DUIDType=</varname></term>
+          <term><varname>DUIDRawData=</varname></term>
           <listitem>
             <para>As in the [DHCPv4] section.</para>
           </listitem>
