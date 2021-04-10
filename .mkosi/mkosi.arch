@@ -42,6 +42,7 @@ BuildPackages=
         python
         python-lxml
         qrencode
+        rsync
         xz
         zstd
 
