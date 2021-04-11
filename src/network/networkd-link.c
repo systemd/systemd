@@ -167,6 +167,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
         LinkAddressState address_state;
+        LinkOnlineState online_state;
         _cleanup_strv_free_ char **p = NULL;
         uint8_t scope = RT_SCOPE_NOWHERE;
         bool changed = false;
@@ -242,6 +243,15 @@ void link_update_operstate(Link *link, bool also_update_master) {
         else
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
+        /* Only determine online state for managed links with RequiredForOnline=yes */
+        if (!link->network || !link->network->required_for_online)
+                online_state = _LINK_ONLINE_STATE_INVALID;
+        else if (operstate >= link->network->required_operstate_for_online.min &&
+                 operstate <= link->network->required_operstate_for_online.max)
+                online_state = LINK_ONLINE_STATE_ONLINE;
+        else
+                online_state = LINK_ONLINE_STATE_OFFLINE;
+
         if (link->carrier_state != carrier_state) {
                 link->carrier_state = carrier_state;
                 changed = true;
@@ -260,6 +270,13 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 link->operstate = operstate;
                 changed = true;
                 if (strv_extend(&p, "OperationalState") < 0)
+                        log_oom();
+        }
+
+        if (link->online_state != online_state) {
+                link->online_state = online_state;
+                changed = true;
+                if (strv_extend(&p, "OnlineState") < 0)
                         log_oom();
         }
 
@@ -400,6 +417,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .n_ref = 1,
                 .manager = manager,
                 .state = LINK_STATE_PENDING,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
                 .ifindex = ifindex,
                 .iftype = iftype,
 
@@ -2337,6 +2355,7 @@ static int link_initialized_and_synced(Link *link) {
                 }
 
                 link->network = network_ref(network);
+                link_update_operstate(link, false);
                 link_dirty(link);
         }
 
