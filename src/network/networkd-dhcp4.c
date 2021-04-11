@@ -266,6 +266,36 @@ static int link_set_dhcp_prefix_route(Link *link) {
         return dhcp_route_configure(route, link);
 }
 
+static int link_set_dhcp_route_to_gateway(Link *link, const struct in_addr *gw) {
+        _cleanup_(route_freep) Route *route = NULL;
+        struct in_addr address;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(gw);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return r;
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->family = AF_INET;
+        route->dst.in = *gw;
+        route->dst_prefixlen = 32;
+        route->prefsrc.in = address;
+        route->scope = RT_SCOPE_LINK;
+        route->protocol = RTPROT_DHCP;
+        route->priority = link->network->dhcp_route_metric;
+        route->table = link_get_dhcp_route_table(link);
+        route->mtu = link->network->dhcp_route_mtu;
+
+        return dhcp_route_configure(route, link);
+}
+
 static int link_set_dhcp_static_routes(Link *link) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         bool classless_route = false, static_route = false;
@@ -349,9 +379,86 @@ static int link_set_dhcp_static_routes(Link *link) {
         return classless_route;
 }
 
+static int link_set_dhcp_gateway(Link *link) {
+        _cleanup_(route_freep) Route *route = NULL;
+        const struct in_addr *router;
+        struct in_addr address;
+        Route *rt;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        if (!link->network->dhcp_use_gateway)
+                return 0;
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+        if (IN_SET(r, 0, -ENODATA)) {
+                log_link_debug(link, "DHCP: No gateway received from DHCP server.");
+                return 0;
+        }
+        if (r < 0)
+                return r;
+        if (in4_addr_is_null(&router[0])) {
+                log_link_debug(link, "DHCP: Received gateway address is null.");
+                return 0;
+        }
+
+        /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
+         * so that we can route no matter the netmask or existing kernel route tables. */
+        r = link_set_dhcp_route_to_gateway(link, &router[0]);
+        if (r < 0)
+                return r;
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        /* Next, add a default gateway. */
+        route->family = AF_INET;
+        route->gw_family = AF_INET;
+        route->gw.in = router[0];
+        route->prefsrc.in = address;
+        route->protocol = RTPROT_DHCP;
+        route->priority = link->network->dhcp_route_metric;
+        route->table = link_get_dhcp_route_table(link);
+        route->mtu = link->network->dhcp_route_mtu;
+
+        r = dhcp_route_configure(route, link);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(rt, link->network->routes_by_section) {
+                if (!rt->gateway_from_dhcp_or_ra)
+                        continue;
+
+                if (rt->gw_family != AF_INET)
+                        continue;
+
+                rt->gw.in = router[0];
+                if (!rt->protocol_set)
+                        rt->protocol = RTPROT_DHCP;
+                if (!rt->priority_set)
+                        rt->priority = link->network->dhcp_route_metric;
+                if (!rt->table_set)
+                        rt->table = link_get_dhcp_route_table(link);
+                if (rt->mtu == 0)
+                        rt->mtu = link->network->dhcp_route_mtu;
+
+                r = dhcp_route_configure(rt, link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int link_set_dhcp_routes(Link *link) {
         struct in_addr address;
-        uint32_t table;
         Route *rt;
         int r;
 
@@ -374,8 +481,6 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "Failed to store old DHCPv4 route: %m");
         }
 
-        table = link_get_dhcp_route_table(link);
-
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
@@ -387,81 +492,12 @@ static int link_set_dhcp_routes(Link *link) {
         r = link_set_dhcp_static_routes(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set static routes: %m");
-        if (r == 0 && link->network->dhcp_use_gateway) {
-                const struct in_addr *router;
-
+        if (r == 0) {
                 /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
                  * a Router option, the DHCP client MUST ignore the Router option. */
-                r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
-                if (IN_SET(r, 0, -ENODATA))
-                        log_link_info(link, "DHCP: No gateway received from DHCP server.");
-                else if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP error: could not get gateway: %m");
-                else if (in4_addr_is_null(&router[0]))
-                        log_link_info(link, "DHCP: Received gateway is null.");
-                else {
-                        _cleanup_(route_freep) Route *route = NULL, *route_gw = NULL;
-
-                        r = route_new(&route_gw);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-                        /* The dhcp netmask may mask out the gateway. Add an explicit
-                         * route for the gw host so that we can route no matter the
-                         * netmask or existing kernel route tables. */
-                        route_gw->family = AF_INET;
-                        route_gw->dst.in = router[0];
-                        route_gw->dst_prefixlen = 32;
-                        route_gw->prefsrc.in = address;
-                        route_gw->scope = RT_SCOPE_LINK;
-                        route_gw->protocol = RTPROT_DHCP;
-                        route_gw->priority = link->network->dhcp_route_metric;
-                        route_gw->table = table;
-                        route_gw->mtu = link->network->dhcp_route_mtu;
-
-                        r = dhcp_route_configure(route_gw, link);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not set host route: %m");
-
-                        r = route_new(&route);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-                        route->family = AF_INET;
-                        route->gw_family = AF_INET;
-                        route->gw.in = router[0];
-                        route->prefsrc.in = address;
-                        route->protocol = RTPROT_DHCP;
-                        route->priority = link->network->dhcp_route_metric;
-                        route->table = table;
-                        route->mtu = link->network->dhcp_route_mtu;
-
-                        r = dhcp_route_configure(route, link);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not set router: %m");
-
-                        HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                                if (!rt->gateway_from_dhcp_or_ra)
-                                        continue;
-
-                                if (rt->gw_family != AF_INET)
-                                        continue;
-
-                                rt->gw.in = router[0];
-                                if (!rt->protocol_set)
-                                        rt->protocol = RTPROT_DHCP;
-                                if (!rt->priority_set)
-                                        rt->priority = link->network->dhcp_route_metric;
-                                if (!rt->table_set)
-                                        rt->table = table;
-                                if (rt->mtu == 0)
-                                        rt->mtu = link->network->dhcp_route_mtu;
-
-                                r = dhcp_route_configure(rt, link);
-                                if (r < 0)
-                                        return log_link_error_errno(link, r, "Could not set gateway: %m");
-                        }
-                }
+                r = link_set_dhcp_gateway(link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP error: Could not set gateway: %m");
         }
 
         return link_set_dns_routes(link, &address);
