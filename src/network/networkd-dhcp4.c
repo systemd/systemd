@@ -215,6 +215,7 @@ static int link_set_dhcp_prefix_route(Link *link) {
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
         route->table = link_get_dhcp_route_table(link);
+        route->mtu = link->network->dhcp_route_mtu;
 
         return dhcp_route_configure(route, link);
 }
@@ -445,6 +446,7 @@ static int link_set_dns_routes(Link *link) {
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp_route_metric;
         route->table = link_get_dhcp_route_table(link);
+        route->mtu = link->network->dhcp_route_mtu;
 
         for (int i = 0; i < n; i ++) {
                 route->dst.in = dns[i];
