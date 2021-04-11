@@ -183,6 +183,9 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
         for (int i = 0; i < n; i ++) {
                 _cleanup_(route_freep) Route *route = NULL;
 
+                if (in4_addr_is_null(&dns[i]))
+                        continue;
+
                 r = route_new(&route);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not allocate route: %m");
