@@ -322,14 +322,16 @@ static int dhcp_route_configure_auto(
         return dhcp_route_configure(route, link);
 }
 
-static int link_set_dhcp_static_routes(Link *link) {
+static int link_set_dhcp_static_routes(Link *link, struct in_addr *ret_default_gw) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         bool classless_route = false, static_route = false;
         _cleanup_(route_freep) Route *route = NULL;
+        struct in_addr default_gw = {};
         int n, r;
 
         assert(link);
         assert(link->dhcp_lease);
+        assert(ret_default_gw);
 
         if (!link->network->dhcp_use_routes)
                 return 0;
@@ -388,15 +390,24 @@ static int link_set_dhcp_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
+                /* When classless static routes are provided, then router option will be ignored. To
+                 * use the default gateway later in other routes, e.g., routes to dns servers, here we
+                 * need to find the default gateway in the classless static routes. */
+                if (classless_route &&
+                    in4_addr_is_null(&route->dst.in) && route->dst_prefixlen == 0 &&
+                    in4_addr_is_null(&default_gw))
+                        default_gw = gw;
+
                 r = dhcp_route_configure_auto(route, link, &gw);
                 if (r < 0)
                         return r;
         }
 
+        *ret_default_gw = default_gw;
         return classless_route;
 }
 
-static int link_set_dhcp_gateway(Link *link) {
+static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
         _cleanup_(route_freep) Route *route = NULL;
         const struct in_addr *router;
         struct in_addr address;
@@ -405,6 +416,7 @@ static int link_set_dhcp_gateway(Link *link) {
 
         assert(link);
         assert(link->dhcp_lease);
+        assert(ret_gw);
 
         if (!link->network->dhcp_use_gateway)
                 return 0;
@@ -471,18 +483,19 @@ static int link_set_dhcp_gateway(Link *link) {
                         return r;
         }
 
+        *ret_gw = router[0];
         return 0;
 }
 
-static int link_set_dns_routes(Link *link) {
+static int link_set_dns_routes(Link *link, const struct in_addr *gw) {
         _cleanup_(route_freep) Route *route = NULL;
         const struct in_addr *dns;
-        struct in_addr address;
         int n, r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(link->network);
+        assert(gw);
 
         if (!link->network->dhcp_use_dns ||
             !link->network->dhcp_routes_to_dns)
@@ -494,18 +507,12 @@ static int link_set_dns_routes(Link *link) {
         if (n < 0)
                 return n;
 
-        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
-        if (r < 0)
-                return r;
-
         r = route_new(&route);
         if (r < 0)
                 return r;
 
         route->family = AF_INET;
         route->dst_prefixlen = 32;
-        route->prefsrc.in = address;
-        route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp_route_metric;
         route->table = link_get_dhcp_route_table(link);
@@ -514,7 +521,7 @@ static int link_set_dns_routes(Link *link) {
         for (int i = 0; i < n; i ++) {
                 route->dst.in = dns[i];
 
-                r = dhcp_route_configure(route, link);
+                r = dhcp_route_configure_auto(route, link, gw);
                 if (r < 0)
                         return r;
         }
@@ -523,6 +530,7 @@ static int link_set_dns_routes(Link *link) {
 }
 
 static int link_set_dhcp_routes(Link *link) {
+        struct in_addr gw = {};
         Route *rt;
         int r;
 
@@ -549,18 +557,18 @@ static int link_set_dhcp_routes(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set prefix route: %m");
 
-        r = link_set_dhcp_static_routes(link);
+        r = link_set_dhcp_static_routes(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set static routes: %m");
         if (r == 0) {
                 /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
                  * a Router option, the DHCP client MUST ignore the Router option. */
-                r = link_set_dhcp_gateway(link);
+                r = link_set_dhcp_gateway(link, &gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP error: Could not set gateway: %m");
         }
 
-        r = link_set_dns_routes(link);
+        r = link_set_dns_routes(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set routes to DNS servers: %m");
 
