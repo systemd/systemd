@@ -216,7 +216,7 @@ static int dhcp_prefix_route_from_lease(
         struct in_addr netmask;
         int r;
 
-        r = sd_dhcp_lease_get_netmask((sd_dhcp_lease*) lease, &netmask);
+        r = sd_dhcp_lease_get_netmask(lease, &netmask);
         if (r < 0)
                 return r;
 
