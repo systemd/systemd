@@ -206,17 +206,18 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
         return 0;
 }
 
-static int dhcp_prefix_route_from_lease(
-                const sd_dhcp_lease *lease,
+static int link_set_dhcp_prefix_route(
+                Link *link,
                 uint32_t table,
-                const struct in_addr *address,
-                Route **ret_route) {
+                const struct in_addr *address) {
 
-        Route *route;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr netmask;
         int r;
 
-        r = sd_dhcp_lease_get_netmask(lease, &netmask);
+        assert(link);
+
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
         if (r < 0)
                 return r;
 
@@ -231,8 +232,8 @@ static int dhcp_prefix_route_from_lease(
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
         route->table = table;
-        *ret_route = route;
-        return 0;
+
+        return dhcp_route_configure(route, link);
 }
 
 static int link_set_dhcp_routes(Link *link) {
@@ -269,13 +270,7 @@ static int link_set_dhcp_routes(Link *link) {
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
         if (!link_prefixroute(link)) {
-                _cleanup_(route_freep) Route *prefix_route = NULL;
-
-                r = dhcp_prefix_route_from_lease(link->dhcp_lease, table, &address, &prefix_route);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not create prefix route: %m");
-
-                r = dhcp_route_configure(prefix_route, link);
+                r = link_set_dhcp_prefix_route(link, table, &address);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set prefix route: %m");
         }
