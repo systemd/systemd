@@ -131,12 +131,6 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
                 return RT_SCOPE_UNIVERSE;
 }
 
-static bool link_prefixroute(Link *link) {
-        return !link->network->dhcp_route_table_set ||
-                link->network->dhcp_route_table == RT_TABLE_MAIN ||
-                link->manager->dhcp4_prefix_root_cannot_set_table;
-}
-
 static int dhcp_route_configure(Route *route, Link *link) {
         Route *ret;
         int r;
@@ -206,17 +200,29 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
         return 0;
 }
 
-static int dhcp_prefix_route_from_lease(
-                const sd_dhcp_lease *lease,
-                uint32_t table,
-                const struct in_addr *address,
-                Route **ret_route) {
+static bool link_prefixroute(Link *link) {
+        return !link->network->dhcp_route_table_set ||
+                link->network->dhcp_route_table == RT_TABLE_MAIN ||
+                link->manager->dhcp4_prefix_root_cannot_set_table;
+}
 
-        Route *route;
-        struct in_addr netmask;
+static int link_set_dhcp_prefix_route(Link *link) {
+        _cleanup_(route_freep) Route *route = NULL;
+        struct in_addr address, netmask;
         int r;
 
-        r = sd_dhcp_lease_get_netmask((sd_dhcp_lease*) lease, &netmask);
+        assert(link);
+        assert(link->dhcp_lease);
+
+        if (link_prefixroute(link))
+                /* When true, the route will be created by kernel. See dhcp4_update_address(). */
+                return 0;
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
         if (r < 0)
                 return r;
 
@@ -225,14 +231,14 @@ static int dhcp_prefix_route_from_lease(
                 return r;
 
         route->family = AF_INET;
-        route->dst.in.s_addr = address->s_addr & netmask.s_addr;
+        route->dst.in.s_addr = address.s_addr & netmask.s_addr;
         route->dst_prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
-        route->prefsrc.in = *address;
+        route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
-        route->table = table;
-        *ret_route = route;
-        return 0;
+        route->table = link_get_dhcp_route_table(link);
+
+        return dhcp_route_configure(route, link);
 }
 
 static int link_set_dhcp_routes(Link *link) {
@@ -268,17 +274,9 @@ static int link_set_dhcp_routes(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
-        if (!link_prefixroute(link)) {
-                _cleanup_(route_freep) Route *prefix_route = NULL;
-
-                r = dhcp_prefix_route_from_lease(link->dhcp_lease, table, &address, &prefix_route);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not create prefix route: %m");
-
-                r = dhcp_route_configure(prefix_route, link);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set prefix route: %m");
-        }
+        r = link_set_dhcp_prefix_route(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not set prefix route: %m");
 
         n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
         if (n == -ENODATA)
