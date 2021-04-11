@@ -159,14 +159,45 @@ static int dhcp_route_configure(Route *route, Link *link) {
         return 0;
 }
 
+static int link_set_dhcp_route_to_gateway(Link *link, const struct in_addr *address, const struct in_addr *gateway) {
+        _cleanup_(route_freep) Route *route = NULL;
+        int r;
+
+        assert(link);
+        assert(address);
+        assert(gateway);
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        /* The dhcp netmask may mask out the gateway. Add an explicit
+         * route for the gw host so that we can route no matter the
+         * netmask or existing kernel route tables. */
+        route->family = AF_INET;
+        route->dst.in = *gateway;
+        route->dst_prefixlen = 32;
+        route->prefsrc.in = *address;
+        route->scope = RT_SCOPE_LINK;
+        route->protocol = RTPROT_DHCP;
+        route->priority = link->network->dhcp_route_metric;
+        route->table = link_get_dhcp_route_table(link);
+        route->mtu = link->network->dhcp_route_mtu;
+
+        return dhcp_route_configure(route, link);
+}
+
 static int link_set_dns_routes(Link *link, const struct in_addr *address) {
-        const struct in_addr *dns;
+        bool route_to_gateway_is_configured = link->network->dhcp_use_gateway;
+        const struct in_addr *dns, *router = NULL;
+        struct in_addr netmask, masked_address, gw = {};
         uint32_t table;
         int n, r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(link->network);
+        assert(address);
 
         if (!link->network->dhcp_use_dns ||
             !link->network->dhcp_routes_to_dns)
@@ -177,6 +208,18 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
                 return 0;
         if (n < 0)
                 return log_link_warning_errno(link, n, "DHCP error: could not get DNS servers: %m");
+
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        if (r < 0)
+                return r;
+
+        masked_address.s_addr = address->s_addr & netmask.s_addr;
+
+        r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        if (r > 0)
+                gw = router[0];
 
         table = link_get_dhcp_route_table(link);
 
@@ -201,6 +244,27 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
                 route->priority = link->network->dhcp_route_metric;
                 route->table = table;
                 route->mtu = link->network->dhcp_route_mtu;
+
+                if ((dns[i].s_addr & netmask.s_addr) != masked_address.s_addr) {
+                        if (in4_addr_is_null(&gw)) {
+                                log_link_debug(link, "DNS server "IPV4_ADDRESS_FMT_STR" is not in the network "IPV4_ADDRESS_FMT_STR
+                                               ", refusing to add a route to the DNS server.",
+                                               IPV4_ADDRESS_FMT_VAL(dns[i]), IPV4_ADDRESS_FMT_VAL(masked_address));
+                                continue;
+                        }
+
+                        route->gw_family = AF_INET;
+                        route->gw.in = gw;
+                        route->scope = RT_SCOPE_UNIVERSE;
+
+                        if (!route_to_gateway_is_configured) {
+                                r = link_set_dhcp_route_to_gateway(link, address, &gw);
+                                if (r < 0)
+                                        return log_link_error_errno(link, r, "Could not set route to gateway: %m");
+
+                                route_to_gateway_is_configured = true;
+                        }
+                }
 
                 r = dhcp_route_configure(route, link);
                 if (r < 0)
@@ -351,28 +415,11 @@ static int link_set_dhcp_routes(Link *link) {
                          * a Router option, the DHCP client MUST ignore the Router option. */
                         log_link_warning(link, "Classless static routes received from DHCP server: ignoring router option");
                 else {
-                        _cleanup_(route_freep) Route *route = NULL, *route_gw = NULL;
+                        _cleanup_(route_freep) Route *route = NULL;
 
-                        r = route_new(&route_gw);
+                        r = link_set_dhcp_route_to_gateway(link, &address, router);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-                        /* The dhcp netmask may mask out the gateway. Add an explicit
-                         * route for the gw host so that we can route no matter the
-                         * netmask or existing kernel route tables. */
-                        route_gw->family = AF_INET;
-                        route_gw->dst.in = router[0];
-                        route_gw->dst_prefixlen = 32;
-                        route_gw->prefsrc.in = address;
-                        route_gw->scope = RT_SCOPE_LINK;
-                        route_gw->protocol = RTPROT_DHCP;
-                        route_gw->priority = link->network->dhcp_route_metric;
-                        route_gw->table = table;
-                        route_gw->mtu = link->network->dhcp_route_mtu;
-
-                        r = dhcp_route_configure(route_gw, link);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not set host route: %m");
+                                return log_link_error_errno(link, r, "Could not set route to gateway: %m");
 
                         r = route_new(&route);
                         if (r < 0)
