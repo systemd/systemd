@@ -211,7 +211,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (r == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
                 if (!route_only && dns_name_is_root(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
 
                 r = dns_name_normalize(name, 0, &str);
                 if (r < 0)
@@ -854,7 +854,7 @@ int link_send_changed_strv(Link *link, char **properties) {
         assert(link->manager);
         assert(properties);
 
-        if (!link->manager->bus)
+        if (sd_bus_is_ready(link->manager->bus) <= 0)
                 return 0;
 
         p = link_bus_path(link);

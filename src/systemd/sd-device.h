@@ -136,6 +136,8 @@ int sd_device_monitor_stop(sd_device_monitor *m);
 
 int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype);
 int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag);
+int sd_device_monitor_filter_add_match_sysattr(sd_device_monitor *m, const char *sysattr, const char *value, int match);
+int sd_device_monitor_filter_add_match_parent(sd_device_monitor *m, sd_device *device, int match);
 int sd_device_monitor_filter_update(sd_device_monitor *m);
 int sd_device_monitor_filter_remove(sd_device_monitor *m);
 

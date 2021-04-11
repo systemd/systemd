@@ -527,6 +527,27 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
+bool path_equal_filename(const char *a, const char *b) {
+        _cleanup_free_ char *a_basename = NULL, *b_basename = NULL;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = path_extract_filename(a, &a_basename);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse basename of %s: %m", a);
+                return false;
+        }
+        r = path_extract_filename(b, &b_basename);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse basename of %s: %m", b);
+                return false;
+        }
+
+        return path_equal(a_basename, b_basename);
+}
+
 char* path_join_internal(const char *first, ...) {
         char *joined, *q;
         const char *p;

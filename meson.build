@@ -395,10 +395,6 @@ possible_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
-        # Disable -Wmaybe-uninitialized, since it's noisy on gcc 8 with
-        # optimizations enabled, producing essentially false positives.
-        '-Wno-maybe-uninitialized',
-
         '-ffast-math',
         '-fno-common',
         '-fdiagnostics-show-option',
@@ -408,6 +404,15 @@ possible_cc_flags = [
         '-fstack-protector-strong',
         '--param=ssp-buffer-size=4',
 ]
+
+# Disable -Wmaybe-unitialized when compiling with -Os/-O1/-O3/etc. There are
+# too many false positives with gcc >= 8. Effectively, we only test with -O0
+# and -O2; this should be enough to catch most important cases without too much
+# busywork. See https://github.com/systemd/systemd/pull/19226.
+if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
+                             cc.version().version_compare('<10'))
+        possible_cc_flags += '-Wno-maybe-uninitialized'
+endif
 
 # --as-needed and --no-undefined are provided by meson by default,
 # run mesonconf to see what is enabled
@@ -3515,7 +3520,7 @@ check_directives_sh = find_program('tools/check-directives.sh')
 if want_tests != 'false'
         test('check-directives',
              check_directives_sh,
-             args : project_source_root)
+             args : [project_source_root, project_build_root])
 endif
 
 ############################################################

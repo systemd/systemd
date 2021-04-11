@@ -684,6 +684,21 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*:*
  KEYBOARD_KEY_73=slash                                  # Slash key
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
+# HP ProBook 455 G5
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*455*G5*:*
+ KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
+# HP mt44 Mobile Thin Client
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
+ KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
+ KEYBOARD_KEY_6d=displaytoggle                          # Display icon
+ KEYBOARD_KEY_66=connect                                # Pickup phone button → connect → XF86Go
+ KEYBOARD_KEY_65=cancel                                 # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
+ KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
 # HP Stream 7
 # The ACPI tables contains a gpio-keys entry for a non connected GPIO
 # causing spurious events, map this to unknown to disable it
@@ -1282,13 +1297,18 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*A10SC*:*
 
 # MSI Modern series
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-StarInternational*:pnModern*:*
+ KEYBOARD_KEY_56=backslash                              # secondary backslash key
  KEYBOARD_KEY_f1=f20                                    # Fn+F5 micmute
  KEYBOARD_KEY_76=f21                                    # Fn+F4 touchpad, becomes meta+ctrl+toggle
  KEYBOARD_KEY_91=prog1                                  # Fn+F7 Creation Center, sometime F7
  KEYBOARD_KEY_f2=prog2                                  # Fn+F12 screen rotation
+ KEYBOARD_KEY_8d=prog3                                  # Fn+a
+ KEYBOARD_KEY_8c=prog4                                  # Fn+z
+ KEYBOARD_KEY_f5=fn_esc                                 # Fn+esc toggle the behaviour of Fn keys
  KEYBOARD_KEY_97=unknown                                # lid close
  KEYBOARD_KEY_98=unknown                                # lid open
-                                                        #Fn+PrntScr sends meta+shif+s
+                                                        # Fn+PrntScr sends meta+shift+s
+
 
 ###########################################################
 # MSI

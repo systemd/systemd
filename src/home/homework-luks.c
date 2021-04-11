@@ -1870,7 +1870,8 @@ int home_create_luks(
                 UserRecord **ret_home) {
 
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL, *subdir = NULL, *disk_uuid_path = NULL, *temporary_image_path = NULL;
-        uint64_t host_size, encrypted_size, partition_offset, partition_size;
+        uint64_t encrypted_size,
+                host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         bool image_created = false, dm_activated = false, mounted = false;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;

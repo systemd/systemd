@@ -25,6 +25,13 @@
 #include "radv-internal.h"
 #include "web-util.h"
 
+bool link_dhcp6_with_address_enabled(Link *link) {
+        if (!link_dhcp6_enabled(link))
+                return false;
+
+        return link->network->dhcp6_use_address;
+}
+
 bool link_dhcp6_pd_is_enabled(Link *link) {
         assert(link);
 

@@ -31,7 +31,7 @@ bool pkcs11_uri_valid(const char *uri) {
         if (isempty(p))
                 return false;
 
-        if (!in_charset(p, ALPHANUMERICAL "-_?;&%="))
+        if (!in_charset(p, ALPHANUMERICAL ".~/-_?;&%="))
                 return false;
 
         return true;

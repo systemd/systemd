@@ -1800,7 +1800,9 @@ void bus_enter_closing(sd_bus *bus) {
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus, sd_bus, bus_free);
 
 _public_ int sd_bus_is_open(sd_bus *bus) {
-        assert_return(bus, -EINVAL);
+        if (!bus)
+                return 0;
+
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -1808,7 +1810,9 @@ _public_ int sd_bus_is_open(sd_bus *bus) {
 }
 
 _public_ int sd_bus_is_ready(sd_bus *bus) {
-        assert_return(bus, -EINVAL);
+        if (!bus)
+                return 0;
+
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2410,7 +2414,7 @@ _public_ int sd_bus_call(
                                                 return 1;
                                         }
 
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
 
                                 } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
                                         return sd_bus_error_copy(error, &incoming->error);

@@ -41,7 +41,7 @@ int bus_image_method_remove(
         assert(image);
 
         if (m->n_operations >= OPERATIONS_MAX)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -146,7 +146,7 @@ int bus_image_method_clone(
         assert(m);
 
         if (m->n_operations >= OPERATIONS_MAX)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
         r = sd_bus_message_read(message, "sb", &new_name, &read_only);
         if (r < 0)
@@ -252,7 +252,7 @@ int bus_image_method_set_limit(
         if (r < 0)
                 return r;
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
                         message,

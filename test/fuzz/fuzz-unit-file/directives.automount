@@ -1,0 +1,5 @@
+automount
+[Automount]
+DirectoryMode=
+TimeoutIdleSec=
+Where=

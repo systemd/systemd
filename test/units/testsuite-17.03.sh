@@ -7,9 +7,9 @@ test_rule="/run/udev/rules.d/49-test.rules"
 setup() {
     mkdir -p "${test_rule%/*}"
     cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bckp
-    echo 'KERNEL=="lo", SUBSYSTEM=="net", PROGRAM=="/bin/sleep 60"' > "${test_rule}"
-    echo "event_timeout=30" >> /etc/udev/udev.conf
-    echo "timeout_signal=SIGABRT" >> /etc/udev/udev.conf
+    echo 'KERNEL=="lo", SUBSYSTEM=="net", PROGRAM=="/bin/sleep 60"' >"${test_rule}"
+    echo "event_timeout=30" >>/etc/udev/udev.conf
+    echo "timeout_signal=SIGABRT" >>/etc/udev/udev.conf
 
     systemctl restart systemd-udevd.service
 }
@@ -25,7 +25,7 @@ teardown() {
 run_test() {
     since="$(date +%T)"
 
-    echo add > /sys/class/net/lo/uevent
+    echo add >/sys/class/net/lo/uevent
 
     for n in {1..20}; do
         sleep 5

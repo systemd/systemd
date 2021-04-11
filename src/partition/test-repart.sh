@@ -200,10 +200,11 @@ EOF
     cryptsetup open --type=luks2 --key-file=$D/empty-password ${LOOP}p7 $VOLUME
     mkdir $D/mount
     mount -t ext4 /dev/mapper/$VOLUME $D/mount
+    # Use deferred closing on the mapper and autoclear on the loop, so they are cleaned up on umount
+    cryptsetup close --deferred $VOLUME
+    losetup -d $LOOP
     diff -r $D/mount/def $D/definitions > /dev/null
     umount $D/mount
-    cryptsetup close $VOLUME
-    losetup -d $LOOP
 else
     echo "### Skipping Format=/Encrypt=/CopyFiles= test, lacking privileges or missing cryptsetup/diff/losetup"
 fi

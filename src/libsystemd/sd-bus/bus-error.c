@@ -212,27 +212,29 @@ _public_ void sd_bus_error_free(sd_bus_error *e) {
 }
 
 _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
+        int r;
 
         if (!name)
                 return 0;
-        if (!e)
-                goto finish;
 
-        assert_return(!bus_error_is_dirty(e), -EINVAL);
+        if (e) {
+                assert_return(!bus_error_is_dirty(e), -EINVAL);
 
-        e->name = strdup(name);
-        if (!e->name) {
-                *e = BUS_ERROR_OOM;
-                return -ENOMEM;
+                e->name = strdup(name);
+                if (!e->name) {
+                        *e = BUS_ERROR_OOM;
+                        return -ENOMEM;
+                }
+
+                if (message)
+                        e->message = strdup(message);
+
+                e->_need_free = 1;
         }
 
-        if (message)
-                e->message = strdup(message);
-
-        e->_need_free = 1;
-
-finish:
-        return -bus_error_name_to_errno(name);
+        r = bus_error_name_to_errno(name);
+        assert(r > 0);
+        return -r;
 }
 
 int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {

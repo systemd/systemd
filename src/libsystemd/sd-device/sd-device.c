@@ -491,7 +491,6 @@ int device_read_uevent_file(sd_device *device) {
         const char *syspath, *key = NULL, *value = NULL, *major = NULL, *minor = NULL;
         char *path;
         size_t uevent_len;
-        unsigned i;
         int r;
 
         enum {
@@ -527,7 +526,7 @@ int device_read_uevent_file(sd_device *device) {
 
         device->uevent_loaded = true;
 
-        for (i = 0; i < uevent_len; i++)
+        for (size_t i = 0; i < uevent_len; i++)
                 switch (state) {
                 case PRE_KEY:
                         if (!strchr(NEWLINE, uevent[i])) {
@@ -706,7 +705,7 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
 
                 pos = strrchr(subdir, '/');
                 if (!pos || pos < subdir + 2)
-                        break;
+                        return -ENODEV;
 
                 *pos = '\0';
 
@@ -716,8 +715,6 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
 
                 return 0;
         }
-
-        return -ENODEV;
 }
 
 _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
@@ -1321,7 +1318,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
 int device_read_db_internal_filename(sd_device *device, const char *filename) {
         _cleanup_free_ char *db = NULL;
         const char *value;
-        size_t db_len, i;
+        size_t db_len;
         char key;
         int r;
 
@@ -1349,7 +1346,7 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
 
         device->db_loaded = true;
 
-        for (i = 0; i < db_len; i++) {
+        for (size_t i = 0; i < db_len; i++) {
                 switch (state) {
                 case PRE_KEY:
                         if (!strchr(NEWLINE, db[i])) {
@@ -1387,7 +1384,8 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
                                 db[i] = '\0';
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
-                                        log_device_debug_errno(device, r, "sd-device: Failed to handle db entry '%c:%s', ignoring: %m", key, value);
+                                        log_device_debug_errno(device, r, "sd-device: Failed to handle db entry '%c:%s', ignoring: %m",
+                                                               key, value);
 
                                 state = PRE_KEY;
                         }
@@ -1895,9 +1893,10 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 return r;
 
         path = prefix_roota(syspath, sysattr);
-        r = lstat(path, &statbuf);
-        if (r < 0) {
+        if (lstat(path, &statbuf) < 0) {
                 int k;
+
+                r = -errno;
 
                 /* remember that we could not access the sysattr */
                 k = device_cache_sysattr_value(device, sysattr, NULL);

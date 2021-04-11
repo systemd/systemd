@@ -107,11 +107,9 @@ static void bubbleinsert(struct strbuf_node *node,
 /* add string, return the index/offset into the buffer */
 ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         uint8_t c;
-        struct strbuf_node *node;
-        size_t depth;
         char *buf_new;
         struct strbuf_child_entry *child;
-        struct strbuf_node *node_child;
+        struct strbuf_node *node;
         ssize_t off;
 
         if (!str->root)
@@ -127,7 +125,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         str->in_len += len;
 
         node = str->root;
-        for (depth = 0; depth <= len; depth++) {
+        for (size_t depth = 0; depth <= len; depth++) {
                 struct strbuf_child_entry search;
 
                 /* match against current node */
@@ -159,6 +157,8 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         str->buf[str->len++] = '\0';
 
         /* new node */
+        _cleanup_free_ struct strbuf_node *node_child = NULL;
+
         node_child = new(struct strbuf_node, 1);
         if (!node_child)
                 return -ENOMEM;
@@ -169,15 +169,13 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
 
         /* extend array, add new entry, sort for bisection */
         child = reallocarray(node->children, node->children_count + 1, sizeof(struct strbuf_child_entry));
-        if (!child) {
-                free(node_child);
+        if (!child)
                 return -ENOMEM;
-        }
 
         str->nodes_count++;
 
         node->children = child;
-        bubbleinsert(node, c, node_child);
+        bubbleinsert(node, c, TAKE_PTR(node_child));
 
         return off;
 }

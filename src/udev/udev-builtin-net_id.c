@@ -23,6 +23,7 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -262,18 +263,60 @@ static bool is_pci_bridge(sd_device *dev) {
         return strneq(p + 2, "04", 2);
 }
 
+static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots, uint32_t *ret) {
+        uint64_t function_id;
+        char path[PATH_MAX];
+        const char *attr;
+        int r;
+
+        /* The <sysname>/function_id attribute is unique to the s390 PCI driver. If present, we know
+         * that the slot's directory name for this device is /sys/bus/pci/XXXXXXXX/ where XXXXXXXX is
+         * the fixed length 8 hexadecimal character string representation of function_id. Therefore we
+         * can short cut here and just check for the existence of the slot directory. As this directory
+         * has to exist, we're emitting a debug message for the unlikely case it's not found. Note that
+         * the domain part doesn't belong to the slot name here because there's a 1-to-1 relationship
+         * between PCI function and its hotplug slot. */
+
+        assert(dev);
+        assert(slots);
+        assert(ret);
+
+        if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID))
+                return 0;
+
+        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0)
+                return 0;
+
+        r = safe_atou64(attr, &function_id);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to parse function_id, ignoring: %s", attr);
+
+        if (function_id <= 0 || function_id > UINT32_MAX)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Invalid function id (0x%"PRIx64"), ignoring.",
+                                              function_id);
+
+        if (!snprintf_ok(path, sizeof path, "%s/%08"PRIx64, slots, function_id))
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
+                                              "PCI slot path is too long, ignoring.");
+
+        if (access(path, F_OK) < 0)
+                return log_device_debug_errno(dev, errno, "Cannot access %s, ignoring: %m", path);
+
+        *ret = (uint32_t) function_id;
+        return 1;
+}
+
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
-        unsigned long dev_port = 0;
-        unsigned domain, bus, slot, func;
-        int hotplug_slot = -1;
-        size_t l;
-        char *s;
         const char *sysname, *attr, *port_name = NULL, *syspath;
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
-        sd_device *hotplug_slot_dev;
-        char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
+        unsigned domain, bus, slot, func;
+        sd_device *hotplug_slot_dev;
+        unsigned long dev_port = 0;
+        uint32_t hotplug_slot = 0;
+        char slots[PATH_MAX], *s;
+        size_t l;
         int r;
 
         r = sd_device_get_sysname(names->pcidev, &sysname);
@@ -342,18 +385,29 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
-                if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
-                        continue;
+                struct dirent *dent;
+
+                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, slots, &hotplug_slot);
+                if (r < 0)
+                        return 0;
+                if (r > 0) {
+                        domain = 0; /* See comments in parse_hotplug_slot_from_function_id(). */
+                        break;
+                }
+
+                r = sd_device_get_sysname(hotplug_slot_dev, &sysname);
+                if (r < 0)
+                        return log_device_debug_errno(hotplug_slot_dev, r, "Failed to get sysname: %m");
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
-                        int i;
-                        char str[PATH_MAX];
                         _cleanup_free_ char *address = NULL;
+                        char str[PATH_MAX];
+                        uint32_t i;
 
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atoi(dent->d_name, &i);
+                        r = safe_atou32(dent->d_name, &i);
                         if (r < 0 || i <= 0)
                                 continue;
 
@@ -368,12 +422,12 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                                  * devices that will try to claim the same index and that would create name
                                  * collision. */
                                 if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev))
-                                        hotplug_slot = 0;
+                                        return 0;
 
                                 break;
                         }
                 }
-                if (hotplug_slot >= 0)
+                if (hotplug_slot > 0)
                         break;
                 if (sd_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL, &hotplug_slot_dev) < 0)
                         break;
@@ -385,7 +439,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                 l = sizeof(names->pci_slot);
                 if (domain > 0)
                         l = strpcpyf(&s, l, "P%d", domain);
-                l = strpcpyf(&s, l, "s%d", hotplug_slot);
+                l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
                         l = strpcpyf(&s, l, "f%d", func);
                 if (port_name)
@@ -945,7 +999,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
                 if (names.pci_slot[0] &&
-                    snprintf(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 return 0;
         }

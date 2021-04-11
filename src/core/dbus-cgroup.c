@@ -422,7 +422,7 @@ static int bus_cgroup_set_transient_property(
                 int b;
 
                 if (!UNIT_VTABLE(u)->can_delegate)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_read(message, "b", &b);
                 if (r < 0)
@@ -441,7 +441,7 @@ static int bus_cgroup_set_transient_property(
                 CGroupMask mask = 0;
 
                 if (streq(name, "DelegateControllers") && !UNIT_VTABLE(u)->can_delegate)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
                 if (r < 0)
@@ -944,7 +944,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (u64 <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "CPUQuotaPerSecUSec= value out of range");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "CPUQuotaPerSecUSec= value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_per_sec_usec = u64;
@@ -1122,7 +1122,7 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!CGROUP_WEIGHT_IS_OK(weight) || weight == CGROUP_WEIGHT_INVALID)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupIODeviceWeight *a = NULL, *b;
@@ -1380,7 +1380,7 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight) || weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupBlockIODeviceWeight *a = NULL, *b;
@@ -1476,12 +1476,12 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
                         if (!valid_device_allow_pattern(path) || strpbrk(path, WHITESPACE))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
 
                         if (isempty(rwm))
                                 rwm = "rwm";
                         else if (!in_charset(rwm, "rwm"))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupDeviceAllow *a = NULL, *b;

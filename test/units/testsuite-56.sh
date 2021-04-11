@@ -29,11 +29,13 @@ systemd-run --wait --unit=one -p ExitType=cgroup /tmp/test56-exit-cgroup.sh
 systemd-run --wait --unit=two -p ExitType=cgroup -p ExecCondition=true /tmp/test56-exit-cgroup.sh
 
 # false exec condition: systemd-run should exit immediately with status code: 1
-! systemd-run --wait --unit=three -p ExitType=cgroup -p ExecCondition=false /tmp/test56-exit-cgroup.sh
+systemd-run --wait --unit=three -p ExitType=cgroup -p ExecCondition=false /tmp/test56-exit-cgroup.sh \
+    && { echo 'unexpected success'; exit 1; }
 
 # service should exit uncleanly
 (sleep 1; systemctl kill --signal 9 four) &
-! systemd-run --wait --unit=four -p ExitType=cgroup /tmp/test56-exit-cgroup.sh
+systemd-run --wait --unit=four -p ExitType=cgroup /tmp/test56-exit-cgroup.sh \
+    && { echo 'unexpected success'; exit 1; }
 
 
 # Multiple level process tree, parent process exits quickly
@@ -55,7 +57,8 @@ systemd-run --wait --unit=five -p ExitType=cgroup /tmp/test56-exit-cgroup-parent
 
 # service should exit uncleanly
 (sleep 1; systemctl kill --signal 9 six) &
-! systemd-run --wait --unit=six -p ExitType=cgroup /tmp/test56-exit-cgroup-parentless.sh
+systemd-run --wait --unit=six -p ExitType=cgroup /tmp/test56-exit-cgroup-parentless.sh \
+    && { echo 'unexpected success'; exit 1; }
 
 
 # Multiple level process tree, parent process exits uncleanly but last process exits cleanly
@@ -85,10 +88,11 @@ EOF
 chmod +x /tmp/test56-exit-cgroup-unclean.sh
 
 # service should exit uncleanly after 1 second
-! systemd-run --wait --unit=eight -p ExitType=cgroup /tmp/test56-exit-cgroup-unclean.sh
+systemd-run --wait --unit=eight -p ExitType=cgroup /tmp/test56-exit-cgroup-unclean.sh \
+    && { echo 'unexpected success'; exit 1; }
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

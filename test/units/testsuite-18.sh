@@ -3,13 +3,13 @@ set -ex
 set -o pipefail
 
 systemd-run --wait -p FailureAction=poweroff true
-! systemd-run --wait -p SuccessAction=poweroff false
+systemd-run --wait -p SuccessAction=poweroff false && { echo 'unexpected success'; exit 1; }
 
 if ! test -f /firstphase ; then
-    echo OK > /firstphase
+    echo OK >/firstphase
     systemd-run --wait -p SuccessAction=reboot true
 else
-    echo OK > /testok
+    echo OK >/testok
     systemd-run --wait -p FailureAction=poweroff false
 fi
 

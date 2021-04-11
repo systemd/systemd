@@ -1080,7 +1080,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
         if (id <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid transfer id");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid transfer id");
 
         t = hashmap_get(m->transfers, UINT32_TO_PTR(id));
         if (!t)

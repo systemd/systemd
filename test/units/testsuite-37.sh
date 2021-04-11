@@ -12,8 +12,8 @@ touch /tmp/aaa/bbb
 systemctl restart tmp-aaa.mount
 
 test -e /run/hoge/foo
-! test -e /tmp/aaa/bbb
+test ! -e /tmp/aaa/bbb
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

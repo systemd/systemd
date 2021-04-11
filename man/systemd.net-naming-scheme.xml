@@ -369,6 +369,16 @@
           property.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><constant>v249</constant></term>
+
+          <listitem><para>PCI hotplug slot names for the s390 PCI driver are a hexadecimal representation
+          of the <filename>function_id</filename> device attribute. This attribute is now used to build the
+          <varname>ID_NET_NAME_SLOT</varname>. Before that, all slot names were parsed as decimal
+          numbers, which could either result in an incorrect value of the <varname>ID_NET_NAME_SLOT</varname>
+          property or none at all.</para></listitem>
+        </varlistentry>
+
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this

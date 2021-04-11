@@ -779,7 +779,7 @@ void link_check_ready(Link *link) {
                                 break;
                         }
 
-                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_ipv4ll_enabled(link)) &&
+                if ((link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) || link_ipv4ll_enabled(link)) &&
                     !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
                     !link->ipv4ll_address_configured)
                         /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
@@ -2202,7 +2202,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 return r;
 
         if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
+                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
                         return r;
@@ -2638,7 +2638,7 @@ static int link_carrier_lost(Link *link) {
                 return r;
 
         if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
-                log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
+                log_link_debug(link, "State is %s, dropping foreign config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
                         return r;

@@ -53,9 +53,10 @@
       project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       call</para></listitem>
 
-      <listitem><para>Structured system log messages via the native
-      Journal API, see
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Structured system log messages via the native Journal API, see
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      and <ulink url="https://systemd.io/JOURNAL_NATIVE_PROTOCOL">Native Journal
+      Protocol</ulink></para></listitem>
 
       <listitem><para>Standard output and standard error of service units. For further details see
       below.</para></listitem>

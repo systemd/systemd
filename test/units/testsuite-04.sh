@@ -59,19 +59,19 @@ journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MES
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
-! grep -q '^FOO=' /output
-! grep -q '^SYSLOG_FACILITY=' /output
+grep '^FOO=' /output && { echo 'unexpected success'; exit 1; }
+grep '^SYSLOG_FACILITY=' /output && { echo 'unexpected success'; exit 1; }
 
 # `-b all` negates earlier use of -b (-b and -m are otherwise exclusive)
-journalctl -b -1 -b all -m > /dev/null
+journalctl -b -1 -b all -m >/dev/null
 
 # -b always behaves like -b0
-journalctl -q -b-1 -b0 | head -1 > /expected
-journalctl -q -b-1 -b  | head -1 > /output
+journalctl -q -b-1 -b0 | head -1 >/expected
+journalctl -q -b-1 -b  | head -1 >/output
 cmp /expected /output
 # ... even when another option follows (both of these should fail due to -m)
-{ journalctl -ball -b0 -m 2>&1 || :; } | head -1 > /expected
-{ journalctl -ball -b  -m 2>&1 || :; } | head -1 > /output
+{ journalctl -ball -b0 -m 2>&1 || :; } | head -1 >/expected
+{ journalctl -ball -b  -m 2>&1 || :; } | head -1 >/output
 cmp /expected /output
 
 # https://github.com/systemd/systemd/issues/13708

@@ -339,7 +339,7 @@ int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
         assert(properties);
 
-        if (!manager->bus)
+        if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;
 
         return sd_bus_emit_properties_changed_strv(

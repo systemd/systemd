@@ -22,6 +22,36 @@ Janitorial Clean-ups:
 
 Features:
 
+* nspawn: support uid mapping bind mounts, as defined available in kernel 5.12,
+  for all our disk image needs
+
+* homed: if kernel 5.12 uid mapping mounts exist, use that instead of recursive
+  chowns.
+
+* cryptsetup: tweak tpm2-device=auto logic, abort quickly if firmware tells us
+  there isn't any TPM2 device anyway. that way, we'll wait for the TPM2 device
+  to show up only if registered in LUKS header + the firmware suggests there is
+  a device worth waiting for.
+
+* systemd-sysext: optionally, run it in initrd already, before transitioning
+  into host, to open up possibility for services shipped like that.
+
+* add a flag to the GPT spec that says "grow my fs to partition size", and make
+  it settable via systemd-repart. Add in growfs jobs in
+  systemd-gpt-auto-generator when it is set, and issue the ioctls while
+  mounting in systemd-npsawn --image=. That way systemd-repart suffices to
+  enlarge an image.
+
+* add a new switch --auto-definitions=yes/no or so to systemd-repart. If
+  specified, synthesize a definition automatically if we can: enlarge last
+  partition on disk, but only if it is marked for growing and not read-only.
+
+* add a switch to homectl (maybe called --first-boot) where it will check if
+  any non-system users exist, and if not prompts interactively for basic user
+  info, mimicing systemd-firstboot. Then, place this in a service that runs
+  after systemd-homed, but before gdm and friends, as a simple, barebones
+  fallback logic to get a regular user created on uninitialized systems.
+
 * maybe add a tool that displays most recent journal logs as QR code to scan
   off screen and run it automatically on boot failures, emergency logs and
   such. Use DRM APIs directly, see
@@ -36,7 +66,9 @@ Features:
 * systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
 
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
-  disk the rootfs is on in a reasonably secure way.
+  disk the rootfs is on in a reasonably secure way. (or maybe: add
+  /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
+  already have it.
 
 * systemd-repart: add a switch to factory reset the partition table without
   immediately applying the new configuration again. i.e. --factory-reset=leave
@@ -179,16 +211,12 @@ Features:
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
 
-* export action of device object on sd-device, so that monitor becomes useful
-
-* add root=tmpfs that mounts a tmpfs to /sysroot (to be used in combination
-  with usr=…, for a similar effect as systemd.volatile=yes but without the
-  "hide-out" effect). Also, add root=gpt-auto-late support or so, that is like
-  root=gpt-auto but initially mounts a tmpfs to /sysroot, and then revisits
-  later after systemd-repart ran. Usecase: let's ship images with only /usr
-  partition, then on first boot create the root partition. In this case we want
-  to read the repart data from /usr before the root partition exists. Add
-  usr=gpt-auto that automatically finds a /usr partition.
+* Add root=gpt-auto-late support or so, that is like root=gpt-auto but
+  initially mounts a tmpfs to /sysroot, and then revisits later after
+  systemd-repart ran. Usecase: let's ship images with only /usr partition, then
+  on first boot create the root partition. In this case we want to read the
+  repart data from /usr before the root partition exists. Add usr=gpt-auto that
+  automatically finds a /usr partition.
 
 * change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
   documented in the pivot_root(2) man page, so that we can drop the /oldroot

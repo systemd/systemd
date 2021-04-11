@@ -127,7 +127,15 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
         r = sd_device_enumerator_add_match_parent(e, d);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "partition", NULL, true);
         if (r < 0)
                 return r;
 
@@ -135,25 +143,42 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         return 0;
 }
 
-static int device_is_partition(sd_device *d, blkid_partition pp) {
+static int device_is_partition(sd_device *d, sd_device *expected_parent, blkid_partition pp) {
+        const char *v, *parent_syspath, *expected_parent_syspath;
         blkid_loff_t bsize, bstart;
         uint64_t size, start;
         int partno, bpartno, r;
-        const char *ss, *v;
+        sd_device *parent;
 
         assert(d);
+        assert(expected_parent);
         assert(pp);
 
-        r = sd_device_get_subsystem(d, &ss);
+        r = sd_device_get_subsystem(d, &v);
         if (r < 0)
                 return r;
-        if (!streq(ss, "block"))
+        if (!streq(v, "block"))
                 return false;
 
-        r = sd_device_get_sysattr_value(d, "partition", &v);
-        if (r == -ENOENT ||        /* Not a partition device */
-            ERRNO_IS_PRIVILEGE(r)) /* Not ready to access? */
+        if (sd_device_get_devtype(d, &v) < 0 || !streq(v, "partition"))
                 return false;
+
+        r = sd_device_get_parent(d, &parent);
+        if (r < 0)
+                return false; /* Doesn't have a parent? No relevant to us */
+
+        r = sd_device_get_syspath(parent, &parent_syspath); /* Check parent of device of this action */
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(expected_parent, &expected_parent_syspath); /* Check parent of device we are looking for */
+        if (r < 0)
+                return r;
+
+        if (!path_equal(parent_syspath, expected_parent_syspath))
+                return false; /* Has a different parent than what we need, not interesting to us */
+
+        r = sd_device_get_sysattr_value(d, "partition", &v);
         if (r < 0)
                 return r;
         r = safe_atoi(v, &partno);
@@ -219,7 +244,7 @@ static int find_partition(
                 return r;
 
         FOREACH_DEVICE(e, q) {
-                r = device_is_partition(q, pp);
+                r = device_is_partition(q, parent, pp);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -242,9 +267,7 @@ static inline void wait_data_done(struct wait_data *d) {
 }
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        const char *parent1_path, *parent2_path;
         struct wait_data *w = userdata;
-        sd_device *pp;
         int r;
 
         assert(w);
@@ -252,22 +275,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
 
-        r = sd_device_get_parent(device, &pp);
-        if (r < 0)
-                return 0; /* Doesn't have a parent? No relevant to us */
-
-        r = sd_device_get_syspath(pp, &parent1_path); /* Check parent of device of this action */
-        if (r < 0)
-                goto finish;
-
-        r = sd_device_get_syspath(w->parent_device, &parent2_path); /* Check parent of device we are looking for */
-        if (r < 0)
-                goto finish;
-
-        if (!path_equal(parent1_path, parent2_path))
-                return 0; /* Has a different parent than what we need, not interesting to us */
-
-        r = device_is_partition(device, w->blkidp);
+        r = device_is_partition(device, w->parent_device, w->blkidp);
         if (r < 0)
                 goto finish;
         if (r == 0) /* Not the one we need */
@@ -310,6 +318,14 @@ static int wait_for_partition_device(
                 return r;
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, "block", "partition");
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_filter_add_match_parent(monitor, parent, true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_monitor_filter_add_match_sysattr(monitor, "partition", NULL, true);
         if (r < 0)
                 return r;
 
@@ -486,7 +502,8 @@ int dissect_image(
 #ifdef GPT_USR_NATIVE
         sd_id128_t usr_uuid = SD_ID128_NULL, usr_verity_uuid = SD_ID128_NULL;
 #endif
-        bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
+        bool is_gpt, is_mbr, multiple_generic = false,
+                generic_rw = false;  /* initialize to appease gcc */
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
@@ -494,7 +511,7 @@ int dissect_image(
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL, *sysname = NULL;
         blkid_partlist pl;
-        int r, generic_nr, n_partitions;
+        int r, generic_nr = -1, n_partitions;
         struct stat st;
         usec_t deadline;
 
@@ -1202,6 +1219,7 @@ int dissect_image(
                                         return -ENOMEM;
                         }
 
+                        assert(generic_nr >= 0);
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
                                 .rw = generic_rw,
