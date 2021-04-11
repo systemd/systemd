@@ -60,6 +60,9 @@ LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 const char* link_carrier_state_to_string(LinkCarrierState s) _const_;
 LinkCarrierState link_carrier_state_from_string(const char *s) _pure_;
 
+const char* link_required_address_family_to_string(AddressFamily s) _const_;
+AddressFamily link_required_address_family_from_string(const char *s) _pure_;
+
 const char* link_address_state_to_string(LinkAddressState s) _const_;
 LinkAddressState link_address_state_from_string(const char *s) _pure_;
 
