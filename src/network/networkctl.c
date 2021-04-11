@@ -77,35 +77,47 @@ static bool arg_full = false;
 static unsigned arg_lines = 10;
 
 static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
-        assert(on);
-        assert(off);
-
         if (STRPTR_IN_SET(state, "routable", "enslaved") ||
             (streq_ptr(name, "lo") && streq_ptr(state, "carrier"))) {
-                *on = ansi_highlight_green();
-                *off = ansi_normal();
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
         } else if (streq_ptr(state, "degraded")) {
-                *on = ansi_highlight_yellow();
-                *off = ansi_normal();
-        } else
-                *on = *off = "";
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
 }
 
 static void setup_state_to_color(const char *state, const char **on, const char **off) {
-        assert(on);
-        assert(off);
-
         if (streq_ptr(state, "configured")) {
-                *on = ansi_highlight_green();
-                *off = ansi_normal();
+                if (on)
+                        *on = ansi_highlight_green();
+                if (off)
+                        *off = ansi_normal();
         } else if (streq_ptr(state, "configuring")) {
-                *on = ansi_highlight_yellow();
-                *off = ansi_normal();
+                if (on)
+                        *on = ansi_highlight_yellow();
+                if (off)
+                        *off = ansi_normal();
         } else if (STRPTR_IN_SET(state, "failed", "linger")) {
-                *on = ansi_highlight_red();
-                *off = ansi_normal();
-        } else
-                *on = *off = "";
+                if (on)
+                        *on = ansi_highlight_red();
+                if (off)
+                        *off = ansi_normal();
+        } else {
+                if (on)
+                        *on = "";
+                if (off)
+                        *off = "";
+        }
 }
 
 typedef struct VxLanInfo {
@@ -692,17 +704,16 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         for (int i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                const char *on_color_operational, *off_color_operational,
-                           *on_color_setup, *off_color_setup;
+                const char *on_color_operational, *on_color_setup;
                 _cleanup_free_ char *t = NULL;
 
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
-                operational_state_to_color(links[i].name, operational_state, &on_color_operational, &off_color_operational);
+                operational_state_to_color(links[i].name, operational_state, &on_color_operational, NULL);
 
                 r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
                         setup_state = strdup("unmanaged");
-                setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
+                setup_state_to_color(setup_state, &on_color_setup, NULL);
 
                 t = link_get_type_string(links[i].sd_device, links[i].iftype);
 
@@ -2145,7 +2156,7 @@ static int link_status_one(
 static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         _cleanup_free_ char *operational_state = NULL;
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
-        const char *on_color_operational, *off_color_operational;
+        const char *on_color_operational;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -2153,7 +2164,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         assert(rtnl);
 
         (void) sd_network_get_operational_state(&operational_state);
-        operational_state_to_color(NULL, operational_state, &on_color_operational, &off_color_operational);
+        operational_state_to_color(NULL, operational_state, &on_color_operational, NULL);
 
         table = table_new("dot", "key", "value");
         if (!table)
