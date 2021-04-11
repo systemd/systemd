@@ -260,10 +260,10 @@ static int link_set_dhcp_gateway(Link *link) {
         return 0;
 }
 
-static int link_set_dns_routes(Link *link) {
+static int link_set_dns_routes(Link *link, bool classless_static_route_configured) {
+        struct in_addr address, netmask, prefix, gw = {};
         _cleanup_(route_freep) Route *route = NULL;
         const struct in_addr *dns;
-        struct in_addr address;
         int n, r;
 
         assert(link);
@@ -284,6 +284,22 @@ static int link_set_dns_routes(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        if (r < 0)
+                return r;
+
+        prefix.s_addr = address.s_addr & netmask.s_addr;
+
+        if (!classless_static_route_configured && link->network->dhcp_use_gateway) {
+                const struct in_addr *router;
+
+                r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+                if (r > 0)
+                        gw = router[0];
+        }
+
         r = route_new(&route);
         if (r < 0)
                 return r;
@@ -291,7 +307,6 @@ static int link_set_dns_routes(Link *link) {
         route->family = AF_INET;
         route->dst_prefixlen = 32;
         route->prefsrc.in = address;
-        route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
         route->priority = link->network->dhcp_route_metric;
         route->table = link_get_dhcp_route_table(link);
@@ -300,6 +315,23 @@ static int link_set_dns_routes(Link *link) {
         for (int i = 0; i < n; i ++) {
                 if (in4_addr_is_null(&dns[i]))
                         continue;
+
+                if ((dns[i].s_addr & netmask.s_addr) != prefix.s_addr) {
+                        if (in4_addr_is_null(&gw)) {
+                                log_link_debug(link, "DNS server "IPV4_ADDRESS_FMT_STR" is not in the network "IPV4_ADDRESS_FMT_STR
+                                               ", refusing to add a route to the DNS server.",
+                                               IPV4_ADDRESS_FMT_VAL(dns[i]), IPV4_ADDRESS_FMT_VAL(prefix));
+                                continue;
+                        }
+
+                        route->gw_family = AF_INET;
+                        route->gw.in = gw;
+                        route->scope = RT_SCOPE_UNIVERSE;
+                } else {
+                        route->gw_family = AF_UNSPEC;
+                        route->gw = IN_ADDR_NULL;
+                        route->scope = RT_SCOPE_LINK;
+                }
 
                 route->dst.in = dns[i];
 
@@ -434,6 +466,7 @@ static int link_set_dhcp_static_routes(Link *link) {
 }
 
 static int link_set_dhcp_routes(Link *link) {
+        bool has_classless_routes;
         Route *rt;
         int r;
 
@@ -463,7 +496,9 @@ static int link_set_dhcp_routes(Link *link) {
         r = link_set_dhcp_static_routes(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set static routes: %m");
-        if (r == 0) {
+        has_classless_routes = r;
+
+        if (!has_classless_routes) {
                 /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
                  * a Router option, the DHCP client MUST ignore the Router option. */
                 r = link_set_dhcp_gateway(link);
@@ -471,7 +506,7 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "DHCP error: Could not set gateway: %m");
         }
 
-        r = link_set_dns_routes(link);
+        r = link_set_dns_routes(link, has_classless_routes);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set routes to DNS servers: %m");
 
