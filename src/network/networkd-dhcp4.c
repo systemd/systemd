@@ -153,53 +153,6 @@ static int dhcp_route_configure(Route *route, Link *link) {
         return 0;
 }
 
-static int link_set_dns_routes(Link *link, const struct in_addr *address) {
-        const struct in_addr *dns;
-        uint32_t table;
-        int n, r;
-
-        assert(link);
-        assert(link->dhcp_lease);
-        assert(link->network);
-
-        if (!link->network->dhcp_use_dns ||
-            !link->network->dhcp_routes_to_dns)
-                return 0;
-
-        n = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
-        if (IN_SET(n, 0, -ENODATA))
-                return 0;
-        if (n < 0)
-                return log_link_warning_errno(link, n, "DHCP error: could not get DNS servers: %m");
-
-        table = link_get_dhcp_route_table(link);
-
-        for (int i = 0; i < n; i ++) {
-                _cleanup_(route_freep) Route *route = NULL;
-
-                r = route_new(&route);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-                /* Set routes to DNS servers. */
-
-                route->family = AF_INET;
-                route->dst.in = dns[i];
-                route->dst_prefixlen = 32;
-                route->prefsrc.in = *address;
-                route->scope = RT_SCOPE_LINK;
-                route->protocol = RTPROT_DHCP;
-                route->priority = link->network->dhcp_route_metric;
-                route->table = table;
-
-                r = dhcp_route_configure(route, link);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set route to DNS server: %m");
-        }
-
-        return 0;
-}
-
 static bool link_prefixroute(Link *link) {
         return !link->network->dhcp_route_table_set ||
                 link->network->dhcp_route_table == RT_TABLE_MAIN ||
@@ -432,8 +385,54 @@ static int link_set_dhcp_gateway(Link *link) {
         return 0;
 }
 
-static int link_set_dhcp_routes(Link *link) {
+static int link_set_dns_routes(Link *link) {
+        _cleanup_(route_freep) Route *route = NULL;
+        const struct in_addr *dns;
         struct in_addr address;
+        int n, r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+
+        if (!link->network->dhcp_use_dns ||
+            !link->network->dhcp_routes_to_dns)
+                return 0;
+
+        n = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
+        if (IN_SET(n, 0, -ENODATA))
+                return 0;
+        if (n < 0)
+                return n;
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return r;
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->family = AF_INET;
+        route->dst_prefixlen = 32;
+        route->prefsrc.in = address;
+        route->scope = RT_SCOPE_LINK;
+        route->protocol = RTPROT_DHCP;
+        route->priority = link->network->dhcp_route_metric;
+        route->table = link_get_dhcp_route_table(link);
+
+        for (int i = 0; i < n; i ++) {
+                route->dst.in = dns[i];
+
+                r = dhcp_route_configure(route, link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int link_set_dhcp_routes(Link *link) {
         Route *rt;
         int r;
 
@@ -456,10 +455,6 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "Failed to store old DHCPv4 route: %m");
         }
 
-        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
-
         r = link_set_dhcp_prefix_route(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set prefix route: %m");
@@ -475,7 +470,11 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "DHCP error: Could not set gateway: %m");
         }
 
-        return link_set_dns_routes(link, &address);
+        r = link_set_dns_routes(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not set routes to DNS servers: %m");
+
+        return 0;
 }
 
 static int dhcp_reset_mtu(Link *link) {
