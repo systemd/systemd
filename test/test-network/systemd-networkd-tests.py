@@ -4368,7 +4368,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1 --dhcp-option=option6:dns-server,[2600::1]')
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1,192.168.5.2,8.8.8.8,1.1.1.1 --dhcp-option=option6:dns-server,[2600::1]')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
@@ -4378,8 +4378,18 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         time.sleep(3)
         output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
         print(output)
-        self.assertRegex(output, '192.168.5.1')
-        self.assertRegex(output, '2600::1')
+        self.assertIn('192.168.5.1', output)
+        self.assertIn('192.168.5.2', output)
+        self.assertIn('8.8.8.8', output)
+        self.assertIn('1.1.1.1', output)
+        self.assertIn('2600::1', output)
+
+        output = check_output('ip -4 route show dev veth99')
+        print(output)
+        self.assertIn('192.168.5.1 proto dhcp scope link src 192.168.5.181 metric 1024', output)
+        self.assertIn('192.168.5.2 proto dhcp scope link src 192.168.5.181 metric 1024', output)
+        self.assertIn('8.8.8.8 via 192.168.5.1 proto dhcp src 192.168.5.181 metric 1024', output)
+        self.assertIn('1.1.1.1 via 192.168.5.1 proto dhcp src 192.168.5.181 metric 1024', output)
 
     def test_dhcp_client_use_dns_no(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-no.network')
