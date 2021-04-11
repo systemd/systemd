@@ -2052,6 +2052,12 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         return client_initialize_time_events(client);
 }
 
+int sd_dhcp_client_is_running(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+
+        return client->state != DHCP_STATE_INIT;
+}
+
 int sd_dhcp_client_start(sd_dhcp_client *client) {
         int r;
 
