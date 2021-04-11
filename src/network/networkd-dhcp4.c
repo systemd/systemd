@@ -241,13 +241,92 @@ static int link_set_dhcp_prefix_route(Link *link) {
         return dhcp_route_configure(route, link);
 }
 
-static int link_set_dhcp_routes(Link *link) {
+static int link_set_dhcp_static_routes(Link *link) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         bool classless_route = false, static_route = false;
+        _cleanup_(route_freep) Route *route = NULL;
+        struct in_addr address;
+        int n, r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        if (!link->network->dhcp_use_routes)
+                return 0;
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return r;
+
+        n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
+        if (IN_SET(n, 0, -ENODATA)) {
+                log_link_debug(link, "DHCP: No static routes received from DHCP server.");
+                return 0;
+        }
+        if (n < 0)
+                return n;
+
+        for (int i = 0; i < n; i++) {
+                switch (sd_dhcp_route_get_option(static_routes[i])) {
+                case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
+                        classless_route = true;
+                        break;
+                case SD_DHCP_OPTION_STATIC_ROUTE:
+                        static_route = true;
+                        break;
+                }
+        }
+
+        /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
+         * the DHCP client MUST ignore the Static Routes option. */
+        if (classless_route && static_route)
+                log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option");
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->family = AF_INET;
+        route->gw_family = AF_INET;
+        route->protocol = RTPROT_DHCP;
+        route->priority = link->network->dhcp_route_metric;
+        route->table = link_get_dhcp_route_table(link);
+        route->mtu = link->network->dhcp_route_mtu;
+        route->scope = route_scope_from_address(route, &address);
+        if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
+                route->prefsrc.in = address;
+
+        for (int i = 0; i < n; i++) {
+                if (sd_dhcp_route_get_option(static_routes[i]) !=
+                    (classless_route ? SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE : SD_DHCP_OPTION_STATIC_ROUTE))
+                        continue;
+
+                r = sd_dhcp_route_get_gateway(static_routes[i], &route->gw.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_route_get_destination(static_routes[i], &route->dst.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen);
+                if (r < 0)
+                        return r;
+
+                r = dhcp_route_configure(route, link);
+                if (r < 0)
+                        return r;
+        }
+
+        return classless_route;
+}
+
+static int link_set_dhcp_routes(Link *link) {
+        bool has_classless_route;
         struct in_addr address;
         uint32_t table;
         Route *rt;
-        int r, n;
+        int r;
 
         assert(link);
 
@@ -272,67 +351,16 @@ static int link_set_dhcp_routes(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set prefix route: %m");
 
+        r = link_set_dhcp_static_routes(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not set static routes: %m");
+        has_classless_route = r;
+
         table = link_get_dhcp_route_table(link);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
-
-        n = sd_dhcp_lease_get_routes(link->dhcp_lease, &static_routes);
-        if (n == -ENODATA)
-                log_link_debug_errno(link, n, "DHCP: No routes received from DHCP server: %m");
-        else if (n < 0)
-                return log_link_error_errno(link, n, "DHCP: could not get routes: %m");
-
-        for (int i = 0; i < n; i++) {
-                switch (sd_dhcp_route_get_option(static_routes[i])) {
-                case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
-                        classless_route = true;
-                        break;
-                case SD_DHCP_OPTION_STATIC_ROUTE:
-                        static_route = true;
-                        break;
-                }
-        }
-
-        if (link->network->dhcp_use_routes) {
-                /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
-                 * the DHCP client MUST ignore the Static Routes option. */
-                if (classless_route && static_route)
-                        log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option");
-
-                for (int i = 0; i < n; i++) {
-                        _cleanup_(route_freep) Route *route = NULL;
-
-                        if (classless_route &&
-                            sd_dhcp_route_get_option(static_routes[i]) != SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
-                                continue;
-
-                        r = route_new(&route);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-                        route->family = AF_INET;
-                        route->protocol = RTPROT_DHCP;
-                        route->gw_family = AF_INET;
-                        assert_se(sd_dhcp_route_get_gateway(static_routes[i], &route->gw.in) >= 0);
-                        assert_se(sd_dhcp_route_get_destination(static_routes[i], &route->dst.in) >= 0);
-                        assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
-                        route->priority = link->network->dhcp_route_metric;
-                        route->table = table;
-                        route->mtu = link->network->dhcp_route_mtu;
-                        route->scope = route_scope_from_address(route, &address);
-                        if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
-                                route->prefsrc.in = address;
-
-                        if (set_contains(link->dhcp_routes, route))
-                                continue;
-
-                        r = dhcp_route_configure(route, link);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not set route: %m");
-                }
-        }
 
         if (link->network->dhcp_use_gateway) {
                 const struct in_addr *router;
@@ -344,7 +372,7 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "DHCP error: could not get gateway: %m");
                 else if (in4_addr_is_null(&router[0]))
                         log_link_info(link, "DHCP: Received gateway is null.");
-                else if (classless_route)
+                else if (has_classless_route)
                         /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
                          * a Router option, the DHCP client MUST ignore the Router option. */
                         log_link_warning(link, "Classless static routes received from DHCP server: ignoring router option");
