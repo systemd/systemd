@@ -380,6 +380,7 @@ int manager_new(Manager **ret) {
         *m = (Manager) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .manage_foreign_routes = true,
+                .manage_foreign_rules = true,
                 .ethtool_fd = -1,
         };
 
@@ -654,6 +655,9 @@ static int manager_enumerate_rules(Manager *m) {
 
         assert(m);
         assert(m->rtnl);
+
+        if (!m->manage_foreign_rules)
+                return 0;
 
         r = sd_rtnl_message_new_routing_policy_rule(m->rtnl, &req, RTM_GETRULE, 0);
         if (r < 0)
