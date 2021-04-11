@@ -298,6 +298,9 @@ static int link_set_dns_routes(Link *link) {
         route->mtu = link->network->dhcp_route_mtu;
 
         for (int i = 0; i < n; i ++) {
+                if (in4_addr_is_null(&dns[i]))
+                        continue;
+
                 route->dst.in = dns[i];
 
                 r = dhcp_route_configure(route, link);
