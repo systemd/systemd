@@ -39,6 +39,7 @@ struct Manager {
         LinkOperationalState operational_state;
         LinkCarrierState carrier_state;
         LinkAddressState address_state;
+        LinkOnlineState online_state;
 
         Hashmap *links;
         Hashmap *netdevs;
