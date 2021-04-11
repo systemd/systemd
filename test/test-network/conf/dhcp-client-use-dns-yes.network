@@ -6,6 +6,7 @@ DHCP=yes
 
 [DHCPv4]
 UseDNS=yes
+RoutesToDNS=yes
 
 [DHCPv6]
 UseDNS=yes
