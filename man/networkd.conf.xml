@@ -63,6 +63,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManageForeignRoutingPolicyRules=</varname></term>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will store any
+        routing policy rules configured by other tools in its memory, and
+        <command>systemd-networkd</command> will remove rules that are not configured in .network files.
+        When false, <command>systemd-networkd</command> will not manage the foreign rules, thus they
+        are kept even if they are not configured in .network files. Defaults to yes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ManageForeignRoutes=</varname></term>
         <listitem><para>A boolean. When true, <command>systemd-networkd</command> will store any routes
         configured by other tools in its memory. When false, <command>systemd-networkd</command> will
