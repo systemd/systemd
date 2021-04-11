@@ -67,6 +67,7 @@ Link.Promiscuous,                            config_parse_tristate,             
 Link.Unmanaged,                              config_parse_bool,                                        0,                             offsetof(Network, unmanaged)
 Link.ActivationPolicy,                       config_parse_activation_policy,                           0,                             offsetof(Network, activation_policy)
 Link.RequiredForOnline,                      config_parse_required_for_online,                         0,                             0
+Link.RequiredFamilyForOnline,                config_parse_required_family_for_online,                  0,                             offsetof(Network, required_family_for_online)
 SR-IOV.VirtualFunction,                      config_parse_sr_iov_uint32,                               0,                             0
 SR-IOV.VLANId,                               config_parse_sr_iov_uint32,                               0,                             0
 SR-IOV.QualityOfService,                     config_parse_sr_iov_uint32,                               0,                             0
