@@ -190,16 +190,15 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                 r = setsockopt_int(s, SOL_SOCKET, SO_BROADCAST, true);
                 if (r < 0)
                         return r;
-        }
-
-        if (address == INADDR_ANY) {
-                /* IP_PKTINFO filter should not be applied when packets are
-                   allowed to enter/leave through the interface other than
-                   DHCP server sits on(BindToInterface option). */
-                r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
-                if (r < 0)
-                        return r;
-        } else if (port != DHCP_PORT_SERVER) {
+                if (address == INADDR_ANY) {
+                        /* IP_PKTINFO filter should not be applied when packets are
+                           allowed to enter/leave through the interface other than
+                           DHCP server sits on(BindToInterface option). */
+                        r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
                 r = setsockopt_int(s, IPPROTO_IP, IP_FREEBIND, true);
                 if (r < 0)
                         return r;

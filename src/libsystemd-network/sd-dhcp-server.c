@@ -1042,7 +1042,6 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         if (r < 0)
                 goto on_error;
 
-
         if (!server->bind_to_interface) {
                 r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_BROADCAST, DHCP_PORT_SERVER, -1);
                 if (r < 0)
