@@ -197,6 +197,7 @@ static int link_set_dns_routes(Link *link, const struct in_addr *address) {
                 route->protocol = RTPROT_DHCP;
                 route->priority = link->network->dhcp_route_metric;
                 route->table = table;
+                route->mtu = link->network->dhcp_route_mtu;
 
                 r = dhcp_route_configure(route, link);
                 if (r < 0)
@@ -232,6 +233,7 @@ static int link_set_dhcp_prefix_route(
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_DHCP;
         route->table = table;
+        route->mtu = link->network->dhcp_route_mtu;
 
         return dhcp_route_configure(route, link);
 }
