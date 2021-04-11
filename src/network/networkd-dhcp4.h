@@ -17,8 +17,9 @@ typedef enum DHCPClientIdentifier {
         _DHCP_CLIENT_ID_INVALID = -EINVAL,
 } DHCPClientIdentifier;
 
-int dhcp4_configure(Link *link);
+int dhcp4_configure(Link *link, bool also_configure_duid);
 int dhcp4_update_mac(Link *link);
+int dhcp4_start(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_acl_ip_address);

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <netinet/in.h>
+
 #include "conf-parser.h"
 #include "dhcp-identifier.h"
 #include "time-util.h"
@@ -37,6 +39,7 @@ typedef struct DUID {
         uint8_t raw_data_len;
         uint8_t raw_data[MAX_DUID_LEN];
         usec_t llt_time;
+        bool set;
 } DUID;
 
 bool link_dhcp_enabled(Link *link, int family);
@@ -49,9 +52,16 @@ static inline bool link_dhcp6_enabled(Link *link) {
 
 void network_adjust_dhcp(Network *network);
 
-DUID* link_get_duid(Link *link);
-int link_configure_duid(Link *link);
-int manager_request_product_uuid(Manager *m, Link *link);
+DUID *link_get_duid(Link *link, int family);
+static inline DUID *link_get_dhcp4_duid(Link *link) {
+        return link_get_duid(link, AF_INET);
+}
+static inline DUID *link_get_dhcp6_duid(Link *link) {
+        return link_get_duid(link, AF_INET6);
+}
+
+int dhcp_configure_duid(Link *link, DUID *duid);
+int manager_request_product_uuid(Manager *m);
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
@@ -69,3 +79,9 @@ CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_or_vendor_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_option);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_request_options);
+CONFIG_PARSER_PROTOTYPE(config_parse_duid_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_manager_duid_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_duid_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_duid_rawdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_manager_duid_rawdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_duid_rawdata);
