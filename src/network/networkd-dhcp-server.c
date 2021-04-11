@@ -344,6 +344,10 @@ int dhcp4_server_configure(Link *link) {
                                                dhcp_lease_server_type_to_string(type));
         }
 
+        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, link->network->dhcp_server_bind_to_interface);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
+
         r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set router emission for DHCP server: %m");
