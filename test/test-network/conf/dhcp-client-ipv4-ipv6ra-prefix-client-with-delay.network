@@ -1,0 +1,9 @@
+[Match]
+Name=veth99
+
+[NetworkEmulator]
+DelaySec=9
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=true

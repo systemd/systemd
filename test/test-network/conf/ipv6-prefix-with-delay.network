@@ -1,0 +1,12 @@
+[Match]
+Name=veth-peer
+
+[NetworkEmulator]
+DelaySec=15
+
+[Network]
+IPv6AcceptRA=no
+IPv6SendRA=yes
+
+[IPv6Prefix]
+Prefix=2002:da8:1:0::/64

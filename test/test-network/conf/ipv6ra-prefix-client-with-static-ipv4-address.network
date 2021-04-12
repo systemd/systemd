@@ -1,0 +1,6 @@
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=true
+Address=192.168.5.1/24
