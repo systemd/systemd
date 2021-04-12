@@ -2036,7 +2036,7 @@ static void log_execution_mode(bool *ret_first_boot) {
                 }
         } else {
                 if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *t;
+                        _cleanup_free_ char *t = NULL;
 
                         t = uid_to_name(getuid());
                         log_debug("systemd " GIT_VERSION " running in %suser mode for user " UID_FMT "/%s. (%s)",
