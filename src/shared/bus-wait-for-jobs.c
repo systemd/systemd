@@ -184,7 +184,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
         service_shell_quoted = shell_maybe_quote(service, ESCAPE_BACKSLASH);
 
         if (!strv_isempty((char**) extra_args)) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strv_join((char**) extra_args, " ");
                 systemctl = strjoina("systemctl ", t ? : "<args>");
