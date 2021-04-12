@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-setup.h"
@@ -190,6 +191,15 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         free(b);
 }
 
+void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p) {
+        assert(c);
+        assert(p);
+
+        LIST_REMOVE(programs, c->bpf_foreign_programs, p);
+        free(p->bpffs_path);
+        free(p);
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -216,6 +226,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
+
+        while (c->bpf_foreign_programs)
+                cgroup_context_remove_bpf_foreign_program(c, c->bpf_foreign_programs);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
@@ -360,6 +373,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupIODeviceLatency *l;
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
+        CGroupBPFForeignProgram *p;
         CGroupDeviceAllow *a;
         CGroupContext *c;
         IPAddressAccessItem *iaai;
@@ -544,6 +558,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs)
+                fprintf(f, "%sBPFProgram: %s:%s",
+                        prefix, bpf_cgroup_attach_type_to_string(p->attach_type), p->bpffs_path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -571,6 +589,34 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 
         LIST_PREPEND(device_allow, c->device_allow, a);
         TAKE_PTR(a);
+
+        return 0;
+}
+
+int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
+        CGroupBPFForeignProgram *p;
+        _cleanup_free_ char *d = NULL;
+
+        assert(c);
+        assert(bpffs_path);
+
+        if (!path_is_normalized(bpffs_path) || !path_is_absolute(bpffs_path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not normalized: %m");
+
+        d = strdup(bpffs_path);
+        if (!d)
+                return log_oom();
+
+        p = new(CGroupBPFForeignProgram, 1);
+        if (!p)
+                return log_oom();
+
+        *p = (CGroupBPFForeignProgram) {
+                .attach_type = attach_type,
+                .bpffs_path = TAKE_PTR(d),
+        };
+
+        LIST_PREPEND(programs, c->bpf_foreign_programs, TAKE_PTR(p));
 
         return 0;
 }
@@ -1115,6 +1161,12 @@ static void set_io_weight(Unit *u, const char *controller, uint64_t weight) {
         (void) set_attribute_and_warn(u, controller, p, buf);
 }
 
+static void cgroup_apply_bpf_foreign_program(Unit *u) {
+        assert(u);
+
+        (void) bpf_foreign_install(u);
+}
+
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
@@ -1428,6 +1480,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
+                cgroup_apply_bpf_foreign_program(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1458,6 +1513,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_bpf_foreign_program(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return !LIST_IS_EMPTY(c->bpf_foreign_programs);
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1510,6 +1576,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_bpf_foreign_program(u))
+                mask |= CGROUP_MASK_BPF_FOREIGN;
 
         return mask;
 }
@@ -2988,6 +3057,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF pinned prog */
+        r = bpf_foreign_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_FOREIGN;
 
         *ret = mask;
         return 0;

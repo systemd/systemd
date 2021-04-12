@@ -842,6 +842,26 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (streq(field, "BPFProgram")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
+                else {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, word, eq);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
