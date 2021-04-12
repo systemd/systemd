@@ -1860,7 +1860,7 @@ static int add_current_paths(sd_journal *j) {
          * treat them as fatal. */
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
-                _cleanup_free_ char *dir;
+                _cleanup_free_ char *dir = NULL;
                 int r;
 
                 dir = dirname_malloc(f->path);
