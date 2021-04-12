@@ -63,8 +63,8 @@
         <term><varname>exec_delay=</varname></term>
 
         <listitem>
-          <para>An integer. Delay the execution of <varname>RUN</varname>
-          instructions by the given number of seconds. This option
+          <para>An integer. Delay the execution of each <varname>RUN{<replaceable>program</replaceable>}</varname>
+          parameter by the given number of seconds. This option
           might be useful when debugging system crashes during
           coldplug caused by loading non-working kernel
           modules.</para>
