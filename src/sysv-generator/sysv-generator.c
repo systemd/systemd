@@ -137,7 +137,7 @@ static int generate_unit_file(SysvStub *s) {
                 path_escaped);
 
         if (s->description) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = specifier_escape(s->description);
                 if (!t)
@@ -165,7 +165,7 @@ static int generate_unit_file(SysvStub *s) {
                 yes_no(!s->pid_file));
 
         if (s->pid_file) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = specifier_escape(s->pid_file);
                 if (!t)

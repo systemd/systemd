@@ -505,7 +505,7 @@ static void test_unit_name_to_instance(void) {
 }
 
 static void test_unit_name_escape(void) {
-        _cleanup_free_ char *r;
+        _cleanup_free_ char *r = NULL;
 
         log_info("/* %s */", __func__);
 

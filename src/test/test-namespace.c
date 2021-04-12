@@ -28,7 +28,7 @@ static void test_namespace_cleanup_tmpdir(void) {
 }
 
 static void test_tmpdir(const char *id, const char *A, const char *B) {
-        _cleanup_free_ char *a, *b;
+        _cleanup_free_ char *a = NULL, *b = NULL;
         struct stat x, y;
         char *c, *d;
 
