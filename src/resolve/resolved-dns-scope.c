@@ -1447,7 +1447,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
         /* Since all the active services are in the zone make them discoverable now. */
         SET_FOREACH(service_type, types) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr;
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
                                                   "_services._dns-sd._udp.local");

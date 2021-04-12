@@ -126,7 +126,7 @@ static int acquire_path(void) {
         strv_free_and_replace(arg_path, a);
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *j;
+                _cleanup_free_ char *j = NULL;
 
                 j = strv_join(arg_path, ":");
                 log_debug("Using %s as boot loader drop-in search path.", j);
