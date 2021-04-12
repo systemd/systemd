@@ -79,6 +79,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static bool arg_password_query = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -381,6 +382,8 @@ static int parse_one_option(const char *option) {
 
         } else if (streq(option, "try-empty-password"))
                 arg_try_empty_password = true;
+        else if (streq(option, "no-password"))
+                arg_password_query = false;
 
         else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
@@ -531,6 +534,9 @@ static int get_password(
         assert(vol);
         assert(src);
         assert(ret);
+
+        if (!arg_password_query)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Password querying disabled via 'no-password' option.");
 
         friendly = friendly_disk_name(src, vol);
         if (!friendly)
