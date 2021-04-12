@@ -81,6 +81,7 @@ int fido2_use_hmac_hash(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                bool pin_required, /* client pin required */
                 void **ret_hmac,
                 size_t *ret_hmac_size);
 
@@ -93,6 +94,8 @@ int fido2_generate_hmac_hash(
                 const char *user_display_name,
                 const char *user_icon,
                 const char *askpw_icon_name,
+                bool lock_with_pin,
+                bool lock_with_presence,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
