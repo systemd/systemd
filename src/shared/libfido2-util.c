@@ -219,6 +219,7 @@ static int fido2_use_hmac_hash_specific_token(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                bool pin_required, /* client pin required */
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
@@ -301,7 +302,12 @@ static int fido2_use_hmac_hash_specific_token(
 
                 log_info("Security token requires user presence.");
 
-                r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin but with up now */
+                /* If the client pin is required, do not attempt to skip it, or it will work but give
+                 * a different secret */
+                if (pin_required)
+                        r = FIDO_ERR_PIN_REQUIRED;
+                else
+                        r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin but with up now */
         }
         if (r == FIDO_ERR_PIN_REQUIRED) {
                 char **i;
@@ -367,6 +373,7 @@ int fido2_use_hmac_hash(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                bool pin_required, /* client pin required */
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
@@ -379,7 +386,7 @@ int fido2_use_hmac_hash(
                 return log_error_errno(r, "FIDO2 support is not installed.");
 
         if (device)
-                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, up, ret_hmac, ret_hmac_size);
+                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, up, pin_required, ret_hmac, ret_hmac_size);
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
@@ -414,7 +421,7 @@ int fido2_use_hmac_hash(
                         goto finish;
                 }
 
-                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, up, ret_hmac, ret_hmac_size);
+                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, up, pin_required, ret_hmac, ret_hmac_size);
                 if (!IN_SET(r,
                             -EBADSLT, /* device doesn't understand our credential hash */
                             -ENODEV   /* device is not a FIDO2 device with HMAC-SECRET */))
@@ -439,6 +446,7 @@ int fido2_generate_hmac_hash(
                 const char *user_display_name,
                 const char *user_icon,
                 const char *askpw_icon_name,
+                bool lock_with_pin,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
@@ -648,7 +656,7 @@ int fido2_generate_hmac_hash(
 
         log_info("Generating secret key on FIDO2 security token.");
 
-        r = sym_fido_dev_get_assert(d, a, used_pin);
+        r = sym_fido_dev_get_assert(d, a, lock_with_pin ? used_pin : NULL);
         if (r == FIDO_ERR_UP_REQUIRED) {
 
                 if (!has_up)
@@ -663,7 +671,7 @@ int fido2_generate_hmac_hash(
                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
-                r = sym_fido_dev_get_assert(d, a, used_pin);
+                r = sym_fido_dev_get_assert(d, a, lock_with_pin ? used_pin : NULL);
         }
         if (r == FIDO_ERR_ACTION_TIMEOUT)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
