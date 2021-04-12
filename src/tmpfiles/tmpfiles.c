@@ -142,6 +142,8 @@ typedef struct Item {
 
         bool allow_failure:1;
 
+        bool try_replace:1;
+
         OperationMask done;
 } Item;
 
@@ -2003,6 +2005,178 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
         return r;
 }
 
+static int rm_if_wrong_type_safe(
+                mode_t mode,
+                int parent_fd,
+                const struct stat *parent_st /* Only used if follow is true. */,
+                const char *name,
+                bool follow) {
+        struct stat st;
+        int r;
+        const char *e;
+
+        assert(name);
+        assert((mode & ~S_IFMT) == 0);
+        if (follow)
+                assert(parent_st);
+
+        e = strrchr(name, '/');
+        if (e)
+                return -EINVAL;
+
+        r = fstatat(parent_fd, name, &st, follow ? 0 : AT_SYMLINK_NOFOLLOW);
+        if (r < 0) {
+                if (errno != ENOENT) {
+                        // TODO fix this log to give full path like log_unsafe_transition
+                        log_error_errno(r, "stat(%s): %m", name);
+                }
+                return -errno;
+        }
+
+        /* Fail before removing anything if this is an unsafe transition. */
+        /* Ideally this would be fs-util's unsafe_transition, but it is not exported. */
+        if (follow && parent_st->st_uid != 0 && parent_st->st_uid != st.st_uid) {
+                // TODO log this.
+                return -ENOLINK;
+        }
+
+        if ((st.st_mode & S_IFMT) == mode)
+                return 0;
+
+        // TODO fix this log to give full path like log_unsafe_transition.
+        log_warning("wrong file type 0x%x; rm -rf \"%s\"", st.st_mode & S_IFMT, name);
+
+        /* If the target of the symlink was the wrong type, the link needs to be removed instead of the
+         * target, so make sure it is identified as a link and not a directory. */
+        if (follow) {
+                r = fstatat(parent_fd, name, &st, AT_SYMLINK_NOFOLLOW);
+                if (r < 0) {
+                        if (errno != ENOENT) {
+                                // TODO fix this log to give full path like log_unsafe_transition
+                                log_error_errno(r, "stat(%s): %m", name);
+                        }
+                        return -errno;
+                }
+        }
+
+        /* Do not remove mount points. */
+        if (parent_st->st_dev != st.st_dev) {
+                // TODO log this.
+                return -EBUSY;
+        }
+
+        if ((st.st_mode & S_IFMT) == S_IFDIR) {
+                r = rm_rf_children(parent_fd, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL, &st);
+                if (r < 0) {
+                        return r;
+                }
+
+                /* Ideally this would be unlinkat_harder but it isn't exported. */
+                r = unlinkat(parent_fd, name, AT_REMOVEDIR);
+        } else {
+                /* Ideally this would be unlinkat_harder but it isn't exported. */
+                r = unlinkat(parent_fd, name, 0);
+        }
+        if (r < 0) {
+                if (errno != ENOENT) {
+                        // TODO fix this log to give full path like log_unsafe_transition
+                        log_error_errno(r, "rm_rf(%s): %m", name);
+                }
+                return -errno;
+        }
+        return -ENOENT;
+}
+
+static void close_parent(int* parent_fd) {
+        if (*parent_fd != AT_FDCWD) {
+                safe_close(*parent_fd);
+        }
+        *parent_fd = -1;
+}
+
+/* If child_mode is non-zero, rm_if_wrong_type_safe will be executed for the last path component. */
+static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
+        _cleanup_(close_parent) int parent_fd = -1;
+        _cleanup_close_ int next_fd = -1;
+        struct stat parent_st;
+        const char *s, *e;
+        int r;
+        size_t path_len;
+
+        assert(path);
+        assert((child_mode & ~S_IFMT) == 0);
+
+        path_len = strlen(path);
+
+        e = strrchr(path, '/');
+        if (!e)
+                return child_mode ? rm_if_wrong_type_safe(child_mode, AT_FDCWD, NULL, path, false) : 0;
+
+        /* Trailing path separators are only allowed if child_mode isn't set. */
+        if (((size_t)(e - path + 1) == path_len) && child_mode)
+                return -EINVAL;
+
+        /* Get the parent_fd and stat. */
+        parent_fd = AT_FDCWD;
+        if (*path == '/') {
+                parent_fd = open("/", O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+                // TODO log on error.
+                if (parent_fd < 0)
+                        return -errno;
+                r = fstat(parent_fd, &parent_st);
+        } else {
+                r = stat("", &parent_st);
+        }
+        // TODO log on error.
+        if (r < 0)
+                return -errno;
+
+        /* Check every parent directory in the path, except the last component */
+        e = path;
+        for (;;) {
+                char t[path_len + 1];
+
+                /* Find the start of the next path component. */
+                s = e + strspn(e, "/");
+                /* Find the end of the next path component. */
+                e = s + strcspn(s, "/");
+
+                /* Copy the path component to t so it can be a null terminated string. */
+                memcpy(t, s, e - s);
+                t[e - s] = 0;
+
+                /* Is this the last component? If so, then check the type */
+                if (*e == 0)
+                        return child_mode ? rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, false) : 0;
+                else {
+                        r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, true);
+                        /* Remove dangling symlinks. */
+                        if (r == -ENOENT) {
+                                r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, false);
+                        }
+                }
+
+                if (r == -ENOENT) {
+                        RUN_WITH_UMASK(0000)
+                                (void) mkdirat_label(parent_fd, t, 0755);
+                } else if (r < 0) {
+                        return r;
+                }
+
+                next_fd = openat(parent_fd, t, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+                if (next_fd < 0)
+                        return -errno;
+                r = fstat(next_fd, &parent_st);
+                // TODO log on error.
+                if (r < 0)
+                        return -errno;
+
+                close_parent(&parent_fd);
+                parent_fd = next_fd;
+                next_fd = -1;
+        }
+}
+
 static int create_item(Item *i) {
         CreationMode creation;
         int r = 0;
@@ -2021,8 +2195,14 @@ static int create_item(Item *i) {
 
         case TRUNCATE_FILE:
         case CREATE_FILE:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(S_IFREG, i->path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                                (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 if ((i->type == CREATE_FILE && i->append_or_force) || i->type == TRUNCATE_FILE)
                         r = truncate_file(i, i->path);
@@ -2034,8 +2214,14 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(0, i->path);
+                        if (r < 0)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                                (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 r = copy_files(i);
                 if (r < 0)
@@ -2051,8 +2237,14 @@ static int create_item(Item *i) {
 
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(S_IFDIR, i->path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                                (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 r = create_directory(i, i->path);
                 if (r < 0)
@@ -2062,8 +2254,14 @@ static int create_item(Item *i) {
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(S_IFDIR, i->path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                                (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 r = create_subvolume(i, i->path);
                 if (r < 0)
@@ -2077,8 +2275,14 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_FIFO:
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(S_IFIFO, i->path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                               (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 r = create_fifo(i, i->path);
                 if (r < 0)
@@ -2086,8 +2290,14 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_SYMLINK: {
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(S_IFLNK, i->path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                               (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
@@ -2143,8 +2353,14 @@ static int create_item(Item *i) {
                         return 0;
                 }
 
-                RUN_WITH_UMASK(0000)
-                        (void) mkdir_parents_label(i->path, 0755);
+                if (i->try_replace) {
+                        r = mkdir_parents_rm_if_wrong_type(i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR, i->path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                } else {
+                        RUN_WITH_UMASK(0000)
+                               (void) mkdir_parents_label(i->path, 0755);
+                }
 
                 r = create_device(i, i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
                 if (r < 0)
@@ -2646,7 +2862,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false;
 
         assert(fname);
         assert(line >= 1);
@@ -2691,6 +2907,8 @@ static int parse_line(
                         append_or_force = true;
                 else if (action[pos] == '-' && !allow_failure)
                         allow_failure = true;
+                else if (action[pos] == '=' && !try_replace)
+                        try_replace = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
@@ -2705,6 +2923,7 @@ static int parse_line(
         i.type = action[0];
         i.append_or_force = append_or_force;
         i.allow_failure = allow_failure;
+        i.try_replace = try_replace;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
         if (r == -ENXIO)
