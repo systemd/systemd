@@ -166,10 +166,7 @@ static inline DnsResourceKey *dns_transaction_key(DnsTransaction *t) {
 
         assert(t->bypass);
 
-        if (dns_question_isempty(t->bypass->question))
-                return NULL;
-
-        return t->bypass->question->keys[0];
+        return dns_question_first_key(t->bypass->question);
 }
 
 static inline uint64_t dns_transaction_source_to_query_flags(DnsTransactionSource s) {
