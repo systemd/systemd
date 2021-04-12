@@ -24,6 +24,7 @@ int acquire_fido2_key(
                 size_t key_data_size,
                 usec_t until,
                 bool headless,
+                Fido2EnrollFlags required,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -73,19 +74,22 @@ int acquire_fido2_key(
         }
 
         for (;;) {
-                r = fido2_use_hmac_hash(
-                                device,
-                                rp_id ?: "io.systemd.cryptsetup",
-                                salt, salt_size,
-                                cid, cid_size,
-                                pins,
-                                /* up= */ true,
-                                ret_decrypted_key,
-                                ret_decrypted_key_size);
-                if (!IN_SET(r,
-                            -ENOANO,   /* needs pin */
-                            -ENOLCK))  /* pin incorrect */
-                        return r;
+                if (!FLAGS_SET(required, FIDO2ENROLL_PIN) || pins) {
+                        r = fido2_use_hmac_hash(
+                                        device,
+                                        rp_id ?: "io.systemd.cryptsetup",
+                                        salt, salt_size,
+                                        cid, cid_size,
+                                        pins,
+                                        /* up= */ true,
+                                        required,
+                                        ret_decrypted_key,
+                                        ret_decrypted_key_size);
+                        if (!IN_SET(r,
+                                    -ENOANO,   /* needs pin */
+                                    -ENOLCK))  /* pin incorrect */
+                                return r;
+                }
 
                 pins = strv_free_erase(pins);
 
@@ -107,12 +111,14 @@ int find_fido2_auto_data(
                 size_t *ret_salt_size,
                 void **ret_cid,
                 size_t *ret_cid_size,
-                int *ret_keyslot) {
+                int *ret_keyslot,
+                Fido2EnrollFlags *ret_required) {
 
         _cleanup_free_ void *cid = NULL, *salt = NULL;
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
         int r, keyslot = -1;
+        Fido2EnrollFlags required = FIDO2ENROLL_PIN; /* For backward compatibility, require pin by default */
 
         assert(cd);
         assert(ret_salt);
@@ -120,6 +126,7 @@ int find_fido2_auto_data(
         assert(ret_cid);
         assert(ret_cid_size);
         assert(ret_keyslot);
+        assert(ret_required);
 
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
@@ -176,6 +183,17 @@ int find_fido2_auto_data(
                         if (!rp)
                                 return log_oom();
                 }
+
+                w = json_variant_by_key(v, "fido2-clientPin-required");
+                if (w) {
+                        /* The "fido2-clientPin-required" field is optional. */
+
+                        if (!json_variant_is_boolean(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
+
+                        SET_FLAG(required, FIDO2ENROLL_PIN, json_variant_boolean(w));
+                }
         }
 
         if (!cid)
@@ -190,5 +208,6 @@ int find_fido2_auto_data(
         *ret_salt = TAKE_PTR(salt);
         *ret_salt_size = salt_size;
         *ret_keyslot = keyslot;
+        *ret_required = required;
         return 0;
 }
