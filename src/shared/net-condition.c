@@ -147,7 +147,7 @@ bool net_match_config(
                 const char *ssid,
                 const struct ether_addr *bssid) {
 
-        _cleanup_free_ char *iftype_str;
+        _cleanup_free_ char *iftype_str = NULL;
         const char *path = NULL;
 
         assert(match);

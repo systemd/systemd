@@ -294,7 +294,7 @@ static bool print_multiline(
                                         continuation * prefix, "",
                                         color_on, len, pos, color_off);
                         else {
-                                _cleanup_free_ char *e;
+                                _cleanup_free_ char *e = NULL;
 
                                 e = ellipsize_mem(pos, len, n_columns - prefix,
                                                   tail_line ? 100 : 90);
@@ -1651,7 +1651,7 @@ int show_journal_by_unit(
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *filter;
+                _cleanup_free_ char *filter = NULL;
 
                 filter = journal_make_match_string(j);
                 if (!filter)
