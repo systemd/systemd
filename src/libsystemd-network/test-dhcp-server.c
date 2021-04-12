@@ -227,7 +227,7 @@ static void test_client_id_hash(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
 
         test_setup_logging(LOG_DEBUG);
