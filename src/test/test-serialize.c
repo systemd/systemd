@@ -134,7 +134,7 @@ static void test_serialize_strv(void) {
 }
 
 static void test_deserialize_environment(void) {
-        _cleanup_strv_free_ char **env;
+        _cleanup_strv_free_ char **env = NULL;
 
         log_info("/* %s */", __func__);
 
