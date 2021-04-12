@@ -515,6 +515,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>headless=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to false. If true, never query interactively
+        for the password/PIN. Useful for headless systems.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>verify</option></term>
 
         <listitem><para>If the encryption password is read from console, it has to be entered twice to
