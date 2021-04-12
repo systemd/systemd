@@ -555,7 +555,7 @@ class Utilities():
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
         return False
 
-    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured', setup_timeout=5):
+    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, ipv4=False, ipv6=False, setup_state='configured', setup_timeout=5):
         """Wait for the link(s) to reach the specified operstate and/or setup state.
 
         This is similar to wait_operstate() but can be used for multiple links,
@@ -569,6 +569,9 @@ class Utilities():
         Set 'bool_any' to True to wait for any (instead of all) of the given links.
         If this is set, no setup_state checks are done.
 
+        Set 'ipv4' or 'ipv6' to True to wait for IPv4 address or IPv6 address, respectively, of each of the given links.
+        This is applied only for the operational state 'degraded' or above.
+
         Note that this function waits for the link(s) to reach *or exceed* the given operstate.
         However, the setup_state, if specified, must be matched *exactly*.
 
@@ -578,6 +581,10 @@ class Utilities():
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
+        if ipv4:
+            args += ['--ipv4']
+        if ipv6:
+            args += ['--ipv6']
         try:
             check_output(*args, env=env)
         except subprocess.CalledProcessError:
@@ -1781,6 +1788,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'gretun97',
         'ip6gretun97',
         'test1',
+        'veth-peer',
         'veth99',
         'vrf99',
     ]
@@ -1842,6 +1850,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-vrf.netdev',
         '25-vrf.network',
         '26-link-local-addressing-ipv6.network',
+        'dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network',
+        'dhcp-server-with-ipv6-prefix.network',
+        'ipv6ra-prefix-client-with-static-ipv4-address.network',
+        'ipv6-prefix-with-delay.network',
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network',
         'routing-policy-rule-reconfigure1.network',
@@ -3099,6 +3111,22 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         call('rmmod netdevsim', stderr=subprocess.DEVNULL)
 
+    def test_wait_online_ipv4(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-with-ipv6-prefix.network', 'dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
+        start_networkd()
+
+        self.wait_online(['veth99:routable'], ipv4=True)
+
+        self.wait_address('veth99', r'192.168.5.[0-9]+', ipv='-4', timeout_sec=1)
+
+    def test_wait_online_ipv6(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix-with-delay.network', 'ipv6ra-prefix-client-with-static-ipv4-address.network')
+        start_networkd()
+
+        self.wait_online(['veth99:routable'], ipv6=True)
+
+        self.wait_address('veth99', r'2002:da8:1:0:1034:56ff:fe78:9abc', ipv='-6', timeout_sec=1)
+
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
         'dummy98',
@@ -3135,10 +3163,13 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         with open(path) as f:
             data = f.read()
+            self.assertRegex(data, r'IPV4_ADDRESS_STATE=routable')
+            self.assertRegex(data, r'IPV6_ADDRESS_STATE=routable')
             self.assertRegex(data, r'ADMIN_STATE=configured')
             self.assertRegex(data, r'OPER_STATE=routable')
             self.assertRegex(data, r'REQUIRED_FOR_ONLINE=yes')
             self.assertRegex(data, r'REQUIRED_OPER_STATE_FOR_ONLINE=routable')
+            self.assertRegex(data, r'REQUIRED_FAMILY_FOR_ONLINE=both')
             self.assertRegex(data, r'ACTIVATION_POLICY=up')
             self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/state-file-tests.network')
             self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')

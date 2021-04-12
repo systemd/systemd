@@ -334,6 +334,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .required_family_for_online = ADDRESS_FAMILY_NO,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .arp = -1,
                 .multicast = -1,
@@ -1195,6 +1196,9 @@ int config_parse_required_for_online(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily,
+                         "Failed to parse RequiredFamilyForOnline= setting");
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration,
                          "Failed to parse KeepConfiguration= setting");
