@@ -37,6 +37,13 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
          *       0: operstate is not enough
          *       1: online */
 
+        assert(m);
+        assert(l);
+
+        AddressFamily required_family;
+        bool needs_ipv4;
+        bool needs_ipv6;
+
         if (!l->state)
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
                                             "link has not yet been processed by udev");
@@ -60,7 +67,31 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
                 return 0;
         }
 
+        required_family = m->required_family > 0 ? m->required_family : l->required_family;
+        needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
+        needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
+
+        if (s.min >= LINK_OPERSTATE_DEGRADED) {
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
+                        goto family_not_ready;
+
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED)
+                        goto family_not_ready;
+        }
+
+        if (s.min >= LINK_OPERSTATE_ROUTABLE) {
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE)
+                        goto family_not_ready;
+
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
+                        goto family_not_ready;
+        }
+
         return 1;
+
+family_not_ready:
+        log_link_debug(l, "Required address family '%s' is not reached", link_required_address_family_to_string(required_family));
+        return 0;
 }
 
 bool manager_configured(Manager *m) {
@@ -298,6 +329,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 LinkOperationalStateRange required_operstate,
+                AddressFamily required_family,
                 bool any, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -312,6 +344,7 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 .interfaces = interfaces,
                 .ignore = ignore,
                 .required_operstate = required_operstate,
+                .required_family = required_family,
                 .any = any,
         };
 
