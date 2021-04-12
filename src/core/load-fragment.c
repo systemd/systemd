@@ -1546,6 +1546,8 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
+        const Unit *u = userdata;
+        _cleanup_free_ char *k = NULL;
         int r;
 
         assert(filename);
@@ -1560,7 +1562,15 @@ int config_parse_exec_cpu_affinity(const char *unit,
                 return 0;
         }
 
-        r = parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m",
+                           rvalue);
+                return 0;
+        }
+
+        r = parse_cpu_set_extend(k, &c->cpu_set, true, unit, filename, line, lvalue);
         if (r >= 0)
                 c->cpu_affinity_from_numa = false;
 
