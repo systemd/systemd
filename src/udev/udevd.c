@@ -1566,7 +1566,7 @@ static int help(void) {
                "  -d --daemon                 Detach and run in the background\n"
                "  -D --debug                  Enable debug output\n"
                "  -c --children-max=INT       Set maximum number of workers\n"
-               "  -e --exec-delay=SECONDS     Seconds to wait before executing RUN=\n"
+               "  -e --exec-delay=SECONDS     Seconds to wait before executing each of RUN{program} instructions\n"
                "  -t --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
                "  -N --resolve-names=early|late|never\n"
                "                              When to resolve users and groups\n"
