@@ -184,17 +184,20 @@ html = custom_target(
         depends : html_pages,
         command : ['echo'])
 
-run_target(
-        'doc-sync',
-        depends : man_pages + html_pages,
-        command : ['rsync', '-rlv',
-                   '--delete-excluded',
-                   '--include=man',
-                   '--include=*.html',
-                   '--exclude=*',
-                   '--omit-dir-times',
-                   meson.current_build_dir(),
-                   get_option('www-target')])
+rsync = find_program('rsync', required : false)
+if rsync.found()
+        run_target(
+                'doc-sync',
+                depends : man_pages + html_pages,
+                command : [rsync, '-rlv',
+                           '--delete-excluded',
+                           '--include=man',
+                           '--include=*.html',
+                           '--exclude=*',
+                           '--omit-dir-times',
+                           meson.current_build_dir(),
+                           get_option('www-target')])
+endif
 
 ############################################################
 
