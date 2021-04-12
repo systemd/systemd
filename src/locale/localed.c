@@ -457,7 +457,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         (void) locale_update_system_manager(c, sd_bus_message_get_bus(m));
 
         if (settings) {
-                _cleanup_free_ char *line;
+                _cleanup_free_ char *line = NULL;
 
                 line = strv_join(settings, ", ");
                 log_info("Changed locale to %s.", strnull(line));

@@ -276,7 +276,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 nl = true;
         } else {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
-                _cleanup_fclose_ FILE *f;
+                _cleanup_fclose_ FILE *f = NULL;
 
                 f = fmemopen_unlocked((void*) data, sz, "re");
                 if (!f)

@@ -1626,7 +1626,7 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "RootHash=");
                         } else {
-                                _cleanup_free_ void *p;
+                                _cleanup_free_ void *p = NULL;
 
                                 encoded = hexmem(roothash_decoded, roothash_decoded_size);
                                 if (!encoded)
@@ -1672,7 +1672,7 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "RootHashSignature=");
                         } else {
-                                _cleanup_free_ void *p;
+                                _cleanup_free_ void *p = NULL;
                                 ssize_t len;
 
                                 len = base64mem(roothash_sig_decoded, roothash_sig_decoded_size, &encoded);

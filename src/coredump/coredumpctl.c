@@ -139,7 +139,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *filter;
+                _cleanup_free_ char *filter = NULL;
 
                 filter = journal_make_match_string(j);
                 log_debug("Journal filter: %s", filter);
@@ -944,7 +944,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
         if (filename) {
 #if HAVE_COMPRESSION
-                _cleanup_close_ int fdf;
+                _cleanup_close_ int fdf = -1;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);
                 if (fdf < 0) {

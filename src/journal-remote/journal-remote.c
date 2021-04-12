@@ -40,7 +40,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 break;
 
         case JOURNAL_WRITE_SPLIT_HOST: {
-                _cleanup_free_ char *name;
+                _cleanup_free_ char *name = NULL;
 
                 assert(host);
 

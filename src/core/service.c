@@ -4255,7 +4255,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         if (getpeername_pretty(fd, true, &peer) >= 0) {
 
                 if (UNIT(s)->description) {
-                        _cleanup_free_ char *a;
+                        _cleanup_free_ char *a = NULL;
 
                         a = strjoin(UNIT(s)->description, " (", peer, ")");
                         if (!a)

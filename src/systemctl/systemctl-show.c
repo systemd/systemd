@@ -1282,7 +1282,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         while ((r = exec_status_info_deserialize(m, &info, is_ex_prop)) > 0) {
                                 char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
                                 _cleanup_strv_free_ char **optv = NULL;
-                                _cleanup_free_ char *tt, *o = NULL;
+                                _cleanup_free_ char *tt = NULL, *o = NULL;
 
                                 tt = strv_join(info.argv, " ");
 
@@ -2112,7 +2112,7 @@ int show(int argc, char *argv[], void *userdata) {
                                 return r;
 
                         STRV_FOREACH(name, names) {
-                                _cleanup_free_ char *path;
+                                _cleanup_free_ char *path = NULL;
 
                                 path = unit_dbus_path_from_name(*name);
                                 if (!path)

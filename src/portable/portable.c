@@ -741,7 +741,7 @@ static int find_profile(const char *name, const char *unit, char **ret) {
         assert_se(dot = strrchr(unit, '.'));
 
         NULSTR_FOREACH(p, profile_dirs) {
-                _cleanup_free_ char *joined;
+                _cleanup_free_ char *joined = NULL;
 
                 joined = strjoin(p, "/", name, "/", dot + 1, ".conf");
                 if (!joined)

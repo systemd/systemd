@@ -1371,7 +1371,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
 }
 
 static int flush_devices(Manager *m) {
-        _cleanup_closedir_ DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
 
         assert(m);
 
@@ -2068,7 +2068,7 @@ static int update_schedule_file(Manager *m) {
                 m->scheduled_shutdown_type);
 
         if (!isempty(m->wall_message)) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = cescape(m->wall_message);
                 if (!t) {
