@@ -5,6 +5,7 @@
 
 typedef enum Fido2EnrollFlags {
         FIDO2ENROLL_PIN           = 1 << 0,
+        FIDO2ENROLL_UP            = 1 << 1, /* User presence (ie: touching token) */
         _FIDO2ENROLL_TYPE_MAX,
         _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
 } Fido2EnrollFlags;
@@ -86,7 +87,6 @@ int fido2_use_hmac_hash(
                 const void *cid,
                 size_t cid_size,
                 char **pins,
-                bool up, /* user presence permitted */
                 Fido2EnrollFlags required,
                 void **ret_hmac,
                 size_t *ret_hmac_size);

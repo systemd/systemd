@@ -28,8 +28,7 @@ int fido2_use_token(
                         salt->salt, salt->salt_size,
                         salt->credential.id, salt->credential.size,
                         secret->token_pin,
-                        h->fido2_user_presence_permitted > 0,
-                        FIDO2ENROLL_PIN, // FIXME: add a --lock-with-pin parameter like cryptenroll
+                        FIDO2ENROLL_PIN | (h->fido2_user_presence_permitted > 0 ? FIDO2ENROLL_UP : 0), // FIXME: add a --lock-with-pin parameter like cryptenroll
                         &hmac,
                         &hmac_size);
         if (r < 0)

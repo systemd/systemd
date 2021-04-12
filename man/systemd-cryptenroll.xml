@@ -133,6 +133,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fido2-with-user-presence=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the volume.
+        Defaults to <literal>yes</literal>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Enroll a TPM2 security chip. Expects a device node path referring to the TPM2 chip
