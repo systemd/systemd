@@ -4,8 +4,16 @@
 <head>
         <title>Journal</title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-        <style type="text/css">
-                div#divlogs, div#diventry {
+        <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+        <link rel="alternate icon" href="favicon.ico" />
+        <style type=text/css>
+                body {
+                        background-color: #ededed;
+                        color: #313739;
+                        font: message-box;
+                        margin: 3em;
+                }
+                div#divlogs, table#details {
                         font-family: monospace;
                         font-size: 7pt;
                         background-color: #ffffff;
@@ -13,69 +21,40 @@
                         margin: 2em 0em;
                         border-radius: 10px 10px 10px 10px;
                         border: 1px solid threedshadow;
-                        white-space: nowrap;
                         overflow-x: scroll;
+                        min-height: 3.5em;
+                        width: 100%;
+                        box-sizing: border-box;
                 }
-                div#diventry {
-                        display: none;
-                }
-                div#divlogs {
-                        display: block;
-                }
-                body {
-                        background-color: #ededed;
-                        color: #313739;
-                        font: message-box;
-                        margin: 3em;
-                }
-                td.timestamp {
-                        text-align: right;
-                        border-right: 1px dotted lightgrey;
-                        padding-right: 5px;
-                }
-                td.process {
-                        border-right: 1px dotted lightgrey;
-                        padding-left: 5px;
-                        padding-right: 5px;
-                }
-                td.message {
-                        padding-left: 5px;
-                }
-                td.message > a:link, td.message > a:visited {
-                        text-decoration: none;
-                        color: #313739;
-                }
-                td.message-error {
-                        padding-left: 5px;
-                        color: red;
-                        font-weight: bold;
-                }
-                td.message-error > a:link, td.message-error > a:visited {
-                        text-decoration: none;
-                        color: red;
-                }
-                td.message-highlight {
-                        padding-left: 5px;
-                        font-weight: bold;
-                }
-                td.message-highlight > a:link, td.message-highlight > a:visited {
-                        text-decoration: none;
-                        color: #313739;
-                }
-                td > a:hover, td > a:active {
-                        text-decoration: underline;
-                        color: #c13739;
-                }
-                table#tablelogs, table#tableentry {
+                table#tablelogs, table#details {
                         border-collapse: collapse;
                 }
-                td.field {
-                        text-align: right;
-                        border-right: 1px dotted lightgrey;
-                        padding-right: 5px;
+                table#tablelogs {
+                        white-space: pre;
                 }
-                td.data {
-                        padding-left: 5px;
+                table#details {
+                        white-space: pre-wrap;
+                }
+                #tablelogs td, #details td {
+                        border-left: 1px dotted lightgrey;
+                        padding: 0 5px;
+                }
+                #tablelogs td.timestamp, #details tr td:first-child {
+                        text-align: right;
+                        border-left-width: 0;
+                }
+                #tablelogs td.message-error {
+                        color: red;
+                        font-weight: bold;
+                }
+                #tablelogs td.message-highlight {
+                        font-weight: bold;
+                }
+                #tablelogs input[type="checkbox"]:checked ~ td {
+                        background-color: #ddd;
+                }
+                #details tr:nth-child(even) {
+                        background-color: #ededed
                 }
                 div#keynav {
                         text-align: center;
@@ -90,241 +69,821 @@
                 div#buttonnav {
                         text-align: center;
                 }
-                button {
+                #buttonnav button {
                         font-size: 18pt;
                         font-weight: bold;
                         width: 2em;
                         height: 2em;
                 }
-                div#filternav {
-                        text-align: center;
+                input, input[type=checkbox].includeexclude + span {
+                        border: 0;
+                        background: none;
+                        border-bottom: #999 2px dashed;
                 }
-                select {
+                input:focus, input[type=checkbox].includeexclude:active + span {
+                        border-color: #000;
+                }
+                input[type=checkbox] {
+                        display: none;
+                }
+                input[type=checkbox].includeexclude + span::before {
+                        content: "=";
+                        margin: 0 0.5em;
+                        font-weight: bold;
+                        color: #f00;
+                }
+                input[type=checkbox].includeexclude:checked + span::before {
+                        content: "≠";
+                }
+                input[name=follow] + button#followbtn::before {
+                        content: "\25B6";
+                }
+                input[name=follow]:checked + button#followbtn::before {
+                        content: "\25AE\25AE";
+                        font-stretch: extra-condensed;
+                }
+                input[name=follow]:checked + button#followbtn ~ button {
+                        opacity: 0.5;
+                }
+                input[type=number] {
+                        font-weight: bold;
+                        background: none;
+                        width: 6em;
+                        text-align: center;
+                        appearance: textfield;
+                }
+                input[name=lines] {
+                        width: 3em;
+                }
+                #filters select {
+                        background: none;
+                        appearance: none;
+                        border: 0;
+                        width: 2em;
+                        padding: 0 0.5em;
+                }
+                #filters input[name=MESSAGE] {
                         width: 50em;
+                }
+                #filters input {
+                        margin: 0 10px;
+                }
+                .errorbox {
+                        display: block;
+                        border-radius: 10px 10px 10px 10px;
+                        border: 1px solid #f00;
+                        background-color: #faa;
+                        text-align: center;
+                        margin-top: 10px;
+                }
+                a {
+                        color: #313739;
+                }
+                button.icon {
+                        opacity: 0;
+                        margin: 0;
+                        border: 0;
+                        background: none;
+                }
+                #filters p:hover > .icon, .filtervalue:hover .icon, #details div:hover > .icon, #details td:hover > .icon {
+                        opacity: 1;
+                }
+                #details .icon {
+                        padding: 0;
+                        padding-left: 0.4em;
+                }
+                #details .icon + .icon {
+                        padding-left: 0;
+                }
+                .remove {
+                        font-weight: bold;
+                        color: #f00;
+                }
+                #filters .filtervalue .icon {
+                        padding: 0.2em;
+                }
+                #filters .filtervalue {
+                        font-weight: bold;
+                        padding-left: 0.7em;
+                        display: inline-block;
+                }
+                .selected {
+                        font-weight: bold;
+                }
+                @keyframes swirling {
+                        0% { transform: rotate(0deg); transform-origin: 8px 18px; }
+                        100% { transform: rotate(360deg); transform-origin: 8px 18px; }
+                }
+                #loading_arrow {
+                        font-weight: bold;
+                        color: threedshadow;
+                        font-size: 25px;
+                        float: right;
+                        animation-name: swirling;
+                        animation-duration: 2s;
+                        animation-iteration-count: infinite;
+                        animation-timing-function: linear;
+                        width: 15px;
+                        margin-top: -10px;
+                        margin-right: 10px;
+                        display: inline-block;
+                        height: 0;
                 }
         </style>
 </head>
-
 <body>
-        <!-- TODO:
-                - live display
-                - show red lines for reboots -->
+        <h1>Filters</h1>
+        <select id=filterList></select>
+        <form name=control method=get>
+        <div id=filters></div>
 
-        <h1 id="title"></h1>
-
-        <div id="os"></div>
-        <div id="virtualization"></div>
-        <div id="cutoff"></div>
-        <div id="machine"></div>
-        <div id="usage"></div>
-        <div id="showing"></div>
-
-        <div id="filternav">
-                <select id="filter" onchange="onFilterChange(this);" onfocus="onFilterFocus(this);">
-                        <option>No filter</option>
-                </select>
+        <h1>Events</h1>
+        <div id=showing>Showing <b><input type=number name=lines min=10 max=1000 value=50 step=10 onchange="controls.reloadJournal();" /></b> entries.</div>
+        <div id=buttonnav>
+                <button type=button onclick="controls.entriesMore();" title="More Entries"/>+</button>
+                <button type=button onclick="controls.entriesLess();" title="Fewer Entries"/>-</button>
                 &nbsp;&nbsp;&nbsp;&nbsp;
-                <input id="boot" type="checkbox" onchange="onBootChange(this);">Only current boot</input>
+                <button type=button onclick="controls.loadEntriesHead();" title="First Page">&#8676;</button>
+                <button type=button onclick="controls.loadPreviousEntries();" title="Previous Page"/>&#8592;</button>
+                <a download="journal.csv" onclick="controls.downloadCSV(this);"><button type=button title="Download events as CSV"/>&#10515;</button></a>
+                <input type="checkbox" name=follow checked />
+                <button type=button id=followbtn onclick="controls.toggleFollow();" title="Pause"></button>
+                <button type=button onclick="controls.copyPosition();" title="Copy URL for current view to clipboard">&#128203;</button>
+                <button type=button onclick="controls.loadNextEntries();" title="Next Page"/>&#8594;</button>
+                <button type=button onclick="controls.loadEntriesTail();" title="Last Page"/>&#8677;</button>
         </div>
-
-        <div id="divlogs"><table id="tablelogs"></table></div>
-        <a name="entry"></a>
-        <div id="diventry"><table id="tableentry"></table></div>
-
-        <div id="buttonnav">
-                <button id="head" onclick="entriesLoadHead();" title="First Page">&#8676;</button>
-                <button id="previous" type="button" onclick="entriesLoadPrevious();" title="Previous Page"/>&#8592;</button>
-                <button id="next" type="button" onclick="entriesLoadNext();" title="Next Page"/>&#8594;</button>
-                <button id="tail" type="button" onclick="entriesLoadTail();" title="Last Page"/>&#8677;</button>
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <button id="more" type="button" onclick="entriesMore();" title="More Entries"/>+</button>
-                <button id="less" type="button" onclick="entriesLess();" title="Fewer Entries"/>-</button>
+        <div id=keynav>
+                <span class=key>g</span>: First Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class=key>&#8592;, k, BACKSPACE</span>: Previous Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class=key>p, SPACE</span>: Play/Pause &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class=key>&#8594;, j</span>: Next Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class=key>G</span>: Last Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class=key>+</span>: More entries &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class=key>-</span>: Fewer entries
         </div>
-
-        <div id="keynav">
-                <span class="key">g</span>: First Page &nbsp;&nbsp;&nbsp;&nbsp;
-                <span class="key">&#8592;, k, BACKSPACE</span>: Previous Page &nbsp;&nbsp;&nbsp;&nbsp;
-                <span class="key">&#8594;, j, SPACE</span>: Next Page &nbsp;&nbsp;&nbsp;&nbsp;
-                <span class="key">G</span>: Last Page &nbsp;&nbsp;&nbsp;&nbsp;
-                <span class="key">+</span>: More entries &nbsp;&nbsp;&nbsp;&nbsp;
-                <span class="key">-</span>: Fewer entries
+        <div id=connectionError class=errorbox style="display:none;" onclick="hideBlock(this);">Connection failed or interrupted. <a href="#" onclick="controls.reloadJournal();">Retry</a>.</div>
+        <div id=noEntriesError class=errorbox style="display:none;" onclick="hideBlock(this);">No entries found. <a href="#" onclick="controls.reloadJournal();">Load previous page</a>.</div>
+        <div id=filterErrors class=errorbox style="display:none;" onclick="hideBlock(this);">Search results may differ from expected :<br/></div>
+        <div id=cantFindEntriesError class=errorbox style="display:none;" onclick="hideBlock(this);"></div>
+        <div id=divlogs>
+        <div id=loading_arrow>↻</div>
+                <table id=tablelogs>
+                        <tbody id=journal></tbody>
+                </table>
         </div>
+        <table id=details style="display: none"></table>
+        </form>
+        <script type=text/javascript>
+                function htmlElement(tagName, attributes = {}, text = "") {
+                        let element = document.createElement(tagName);
+                        for (let [name, value] of Object.entries(attributes))
+                                element.setAttribute(name, value);
 
-        <script type="text/javascript">
-                var first_cursor = null;
-                var last_cursor = null;
+                        if (text)
+                                element.appendChild(document.createTextNode(text));
 
-                function getNEntries() {
-                        var n;
-                        n = localStorage["n_entries"];
-                        if (n == null)
-                                return 50;
-                        n = parseInt(n);
-                        if (n < 10)
-                                return 10;
-                        if (n > 1000)
-                                return 1000;
-                        return n;
+                        return element;
+                }
+                function clickableIcon(content, callback, title, clazz = "") {
+                        const icon = htmlElement("button", {class: "icon " + clazz, title: title, type: "button"}, content);
+                        icon.addEventListener("click", callback);
+                        return icon;
                 }
 
-                function showNEntries(n) {
-                        var showing = document.getElementById("showing");
-                        showing.innerHTML = "Showing <b>" + n.toString() + "</b> entries.";
+                function hideBlock(block) {
+                        block.style.display = "none";
                 }
-
-                function setNEntries(n) {
-                        if (n < 10)
-                                return 10;
-                        if (n > 1000)
-                                return 1000;
-                        localStorage["n_entries"] = n.toString();
-                        showNEntries(n);
+                function connectionError() {
+                        document.getElementById("connectionError").style.display = "block";
                 }
-
-                function machineLoad() {
-                        var request = new XMLHttpRequest();
-                        request.open("GET", "machine");
-                        request.onreadystatechange = machineOnResult;
-                        request.setRequestHeader("Accept", "application/json");
-                        request.send(null);
+                function noEntriesError() {
+                        document.getElementById("noEntriesError").style.display = "block";
                 }
-
-                function formatBytes(u) {
-                        if (u >= 1024*1024*1024*1024)
-                                return (u/1024/1024/1024/1024).toFixed(1) + " TiB";
-                        else if (u >= 1024*1024*1024)
-                                return (u/1024/1024/1024).toFixed(1) + " GiB";
-                        else if (u >= 1024*1024)
-                                return (u/1024/1024).toFixed(1) + " MiB";
-                        else if (u >= 1024)
-                                return (u/1024).toFixed(1) + " KiB";
+                function clearEntriesError() {
+                        document.getElementById("connectionError").style.display = "none";
+                        document.getElementById("noEntriesError").style.display = "none";
+                }
+                function filterNoValueError(filterName, filterValues) {
+                        const filterErrorsBlock = document.getElementById("filterErrors");
+                        let message = "For field " + filterName + ", value";
+                        const lastValue = filterValues.pop();
+                        if (filterValues.length)
+                                message += "s " + filterValues.join(", ") + " and " + lastValue + " do not exist anymore.";
                         else
-                                return u.toString() + " B";
+                                message += " " + lastValue + " does not exist anymore.";
+                        filterErrorsBlock.appendChild(document.createTextNode(message));
+                        filterErrorsBlock.appendChild(htmlElement("br"));
+                        filterErrorsBlock.style.display = "block";
+                }
+                function filterNoExistError(filterNames) {
+                        const filterErrorsBlock = document.getElementById("filterErrors");
+                        filterNames.forEach(field => {
+                                filterErrorsBlock.appendChild(document.createTextNode("Field " + field + " is not present anymore."));
+                                filterErrorsBlock.appendChild(htmlElement("br"));
+                        });
+                        filterErrorsBlock.style.display = "block";
+                }
+                function cantFindEntriesError(entriesNotFound) {
+                        const errorBlock = htmlElement("div", {id:"cantFindEntriesError", class: "errorbox"});
+                        errorBlock.appendChild(document.createTextNode("Unable to find entr" + (entriesNotFound.length > 1 ? "ies ":"y ")));
+
+                        function linkAndJoin(cursor, index, array) {
+                                const link = htmlElement("a", {href:"?entry="+encodeURIComponent(cursor)+"&cursor="+encodeURIComponent(cursor)+"&offset=-5  ", target:"_blank"}, cursor.substr(-10));
+                                link.addEventListener("click", event => {event.stopPropagation();});
+                                errorBlock.appendChild(link);
+                                if (index < array.length - 2)
+                                        errorBlock.appendChild(document.createTextNode(", "));
+                                else if (index == array.length - 2)
+                                        errorBlock.appendChild(document.createTextNode(" and "));
+
+                        }
+                        entriesNotFound.forEach(linkAndJoin);
+                        errorBlock.addEventListener("click", event => { hideBlock(event.currentTarget); });
+
+                        document.getElementById("cantFindEntriesError").replaceWith(errorBlock);
+                }
+                function fetchError(error) {
+                        switch (error.name) {
+                                case "AbortError":
+                                        break;
+                                case "ConnectionError":
+                                        connectionError();
+                                        break;
+                                default:
+                                        console.warn(error);
+                                        break;
+                        }
+                }
+                function loadingOption() {
+                        const option = new Option("Loading...", "");
+                        option.disabled = true;
+                        return option;
                 }
 
-                function escapeHTML(s) {
-                        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                }
+                class Field {
+                        filterable = false;
+                        name;
 
-                function machineOnResult(event) {
-                        if ((event.currentTarget.readyState != 4) ||
-                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
+                        constructor(name) {
+                                this.name = name;
+                        }
+                        static _blobAsHex(intArray) {
+                                return intArray
+                                        .map((b, index) => b.toString(16) + (index % 8 == 7 ? " ":"") + (index % 64 == 63 ? "\n":""))
+                                        .join("");
+                        }
+                        static _blobAsAscii(intArray, truncate = false) {
+                                if (truncate)
+                                        intArray.splice(truncate);
+
+                                return intArray.map(b => b <= 0x1F || b >= 0x80 ? "." : String.fromCharCode(b)).join("")
+                                        + (truncate && intArray.length > truncate ? " (...)" : "");
+                        }
+                        static valueCSV(value) {
+                                if (typeof value == "string")
+                                        return value;
+
+                                if (value == null)
+                                        return "[large blob data]";
+
+                                if (value instanceof Array && value.length > 0 && typeof value[0] == "number")
+                                        return "0x"+this._blobAsHex(value);
+
+                                if (value instanceof Array && value.length > 0)
+                                        return value.map(v => Field.valueCSV(v)).join("\n");
+
+                                return "[invalid data]";
+                        }
+                        static valueInterpreted(value, truncate = false) {
+                                if (value instanceof Array && value.length > 0 && typeof value[0] == "number")
+                                        return this._blobAsAscii(value, truncate);
+
+                                if (value instanceof Array && value.length > 0)
+                                        return value.map(v => this.valueInterpreted(v)).join("\n");
+
+                                return this.valueCSV(value);
+                        }
+                        valueDetails(value, blockTag = "td") {
+                                if (value instanceof Array && value.length > 0 && typeof value[0] == "number")
+                                        return htmlElement(blockTag, {}, "0x" + Field._blobAsHex(value) + "\n[ascii]\n" + Field._blobAsAscii(value));
+
+                                if (value instanceof Array && value.length > 0) {
+                                        const block = htmlElement(blockTag);
+                                        value.forEach(v => block.appendChild(this.valueDetails(v, "div")));
+                                        return block;
+                                }
+
+                                return htmlElement(blockTag, {}, Field.valueCSV(value));
+                        }
+                }
+                class TimeField extends Field {
+                        static valueInterpreted(value, truncate = false) {
+                                if (typeof value == "string") {
+                                        const date = new Date(parseInt(value) / 1000);
+                                        if (date.toString() == "Invalid Date")
+                                                return value;
+
+                                        return date.toLocaleString() + "." + (value % 1000).toString().padStart(3, 0);
+                                }
+                                return super.valueInterpreted(value, truncate);
+                        }
+                        valueDetails(value, blockTag = "td") {
+                                return htmlElement(blockTag, {}, TimeField.valueInterpreted(value));
+                        }
+                }
+                class Filter extends Field {
+                        filterable = true;
+                        option;
+                        defaultValue = [""];
+                        _input;
+                        _onChange = () => {};
+
+                        constructor(name, onChangeCallback) {
+                                super();
+                                this.name = name;
+                                let label = name.replace(/_/g, " ").trim().toLowerCase();
+                                label = label[0].toUpperCase() + label.substring(1);
+                                this.option = new Option(label, name);
+                                this._onChange = () => onChangeCallback();
+                        }
+                        _inputBlock(value = "") {
+                                const input = htmlElement("input", {type: "text", name: this.name, value: value});
+                                input.addEventListener("change", event => this._changeValue(event));
+                                return input;
+                        }
+                        _inputBlocks(initialValue) {
+                                this._input = htmlElement("span");
+                                initialValue.filter(v => v != "").forEach(v => this._input.appendChild(this._inputBlock(v)) );
+                                this._input.appendChild(this._inputBlock());
+                                return [document.createTextNode(" = "), this._input];
+                        }
+                        _labelBlock() {
+                                const block = htmlElement("p", {id: this.name});
+                                block.appendChild(clickableIcon("×", () => this.unselect(), "Remove filter on " + this.option.label, "remove"))
+                                block.appendChild(document.createTextNode(this.option.label));
+                                return block;
+                        }
+                        _changeValue(event) {
+                                if (event.target.value == "")
+                                        event.target.remove();
+                                if (this._input.lastChild.value != "")
+                                        this._input.appendChild(this._inputBlock());
+                                this._onChange();
+                        }
+                        _isFiltering() {
+                                return this._input.childNodes.length > 1;
+                        }
+                        valueToEntriesQuery(searchParams) {
+                                Array.from(this._input.childNodes).forEach(input => {
+                                        if (input.value != "")
+                                                searchParams.append(this.name, input.value);
+                                });
                                 return;
-
-                        var d = JSON.parse(event.currentTarget.responseText);
-
-                        var title = document.getElementById("title");
-                        title.innerHTML = 'Journal of ' + escapeHTML(d.hostname);
-                        document.title = 'Journal of ' + escapeHTML(d.hostname);
-
-                        var machine = document.getElementById("machine");
-                        machine.innerHTML = 'Machine ID is <b>' + d.machine_id + '</b>, current boot ID is <b>' + d.boot_id + '</b>.';
-
-                        var cutoff = document.getElementById("cutoff");
-                        var from = new Date(parseInt(d.cutoff_from_realtime) / 1000);
-                        var to = new Date(parseInt(d.cutoff_to_realtime) / 1000);
-                        cutoff.innerHTML = 'Journal begins at <b>' + from.toLocaleString() + '</b> and ends at <b>' + to.toLocaleString() + '</b>.';
-
-                        var usage = document.getElementById("usage");
-                        usage.innerHTML = 'Disk usage is <b>' + formatBytes(parseInt(d.usage)) + '</b>.';
-
-                        var os = document.getElementById("os");
-                        os.innerHTML = 'Operating system is <b>' + escapeHTML(d.os_pretty_name) + '</b>.';
-
-                        var virtualization = document.getElementById("virtualization");
-                        virtualization.innerHTML = d.virtualization == "bare" ? "Running on <b>bare metal</b>." : "Running on virtualization <b>" + escapeHTML(d.virtualization) + "</b>.";
-                }
-
-                function entriesLoad(range) {
-
-                        if (range == null) {
-                                if (localStorage["cursor"] != null && localStorage["cursor"] != "")
-                                        range = localStorage["cursor"] + ":0";
+                        }
+                        select(initialValue) {
+                                const labelBlock = this._labelBlock();
+                                this._inputBlocks(initialValue).forEach(block => labelBlock.appendChild(block));
+                                document.getElementById("filters").appendChild(labelBlock);
+                                this.option.classList.add("selected");
+                                if (this._isFiltering())
+                                        this._onChange();
+                        }
+                        valueFromURL(searchParams) {
+                                return searchParams.getAll(this.name) ?? this.defaultValue;
+                        }
+                        unselect() {
+                                document.getElementById(this.name).remove();
+                                this.option.classList.remove("selected");
+                                if (this._isFiltering()) {
+                                        this._onChange();
+                                }
+                        }
+                        isSelected() {
+                                return this.option.classList.contains("selected");
+                        }
+                        toggleSelect() {
+                                if (this.isSelected())
+                                        this.unselect();
                                 else
-                                        range = "";
+                                        this.select(this.defaultValue);
                         }
+                        setValue(value) {
+                                if (!this.isSelected())
+                                        return this.select(value);
 
-                        var url = "entries";
-
-                        if (localStorage["filter"] != "" && localStorage["filter"] != null) {
-                                url += "?_SYSTEMD_UNIT=" + escape(localStorage["filter"]);
-
-                                if (localStorage["boot"] == "1")
-                                        url += "&boot";
-                        } else {
-                                if (localStorage["boot"] == "1")
-                                        url += "?boot";
+                                Array.from(this._input.childNodes).forEach(input => input.remove());
+                                this._input.appendChild(this._inputBlock(value));
+                                this._input.appendChild(this._inputBlock(""));
+                                return this._onChange();
                         }
+                        _valueDetailsFromString(value, blockTag) {
+                                const block = htmlElement(blockTag, {}, value);
+                                block.appendChild(clickableIcon("🔎", () => this.setValue([value]), "Select entries where " + this.name +  " = " + value));
+                                return block;
+                        }
+                        valueDetails(value, blockTag = "td") {
+                                if (typeof value == "string")
+                                        return this._valueDetailsFromString(value, blockTag);
 
-                        var request = new XMLHttpRequest();
-                        request.open("GET", url);
-                        request.onreadystatechange = entriesOnResult;
-                        request.setRequestHeader("Accept", "application/json");
-                        request.setRequestHeader("Range", "entries=" + range + ":" + getNEntries().toString());
-                        request.send(null);
+                                return super.valueDetails(value, blockTag);
+                        }
                 }
-
-                function entriesLoadNext() {
-                        if (last_cursor == null)
-                                entriesLoad("");
-                        else
-                                entriesLoad(last_cursor + ":1");
+                class IdFilter extends Filter {
+                        _inputBlock(value) {
+                                const input = htmlElement("input", {type: "number", name: this.name, value: value, min: 0});
+                                input.addEventListener("change", event => this._changeValue(event));
+                                return input;
+                        }
                 }
+                class PriorityFilter extends Filter {
+                        defaultValue = "7";
+                        _priorityLabel = {
+                                "0": "0 Emergency",
+                                "1": "1 Alert",
+                                "2": "2 Critical",
+                                "3": "3 Error",
+                                "4": "4 Warning",
+                                "5": "5 Notice",
+                                "6": "6 Informational",
+                                "7": "7 Debug"
+                        };
+                        _label;
 
-                function entriesLoadPrevious() {
-                        if (first_cursor == null)
-                                entriesLoad("");
-                        else
-                                entriesLoad(first_cursor + ":-" + getNEntries().toString());
-                }
-
-                function entriesLoadHead() {
-                        entriesLoad("");
-                }
-
-                function entriesLoadTail() {
-                        entriesLoad(":-" + getNEntries().toString());
-                }
-
-                function entriesOnResult(event) {
-
-                        if ((event.currentTarget.readyState != 4) ||
-                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
-                                return;
-
-                        var logs = document.getElementById("tablelogs");
-
-                        var lc = null;
-                        var fc = null;
-
-                        var i, l = event.currentTarget.responseText.split('\n');
-
-                        if (l.length <= 1) {
-                                logs.innerHTML = '<tbody><tr><td colspan="3"><i>No further entries...</i></td></tr></tbody>';
+                        _isFiltering() {
+                                return this._input.value != this.defaultValue;
+                        }
+                        valueToEntriesQuery(searchParams) {
+                                if (!this.isSelected() || !this._isFiltering())
+                                        return;
+                                Array.from(new Array(parseInt(this._input.value)+1),(val,index)=>index)
+                                        .forEach(i => searchParams.append(this.name, i));
                                 return;
                         }
+                        _onPriorityChange() {
+                                this._label.textContent = this._priorityLabel[this._input.value];
+                                this._onChange();
+                        }
+                        _inputBlocks(initialValue) {
+                                this._input = htmlElement("input", {name: this.name, type:"range", min: 0, max: 7, value:initialValue});
+                                this._input.addEventListener("change", () => this._onPriorityChange());
+                                this._label = htmlElement("b", {id: "priority_label"}, this._priorityLabel[initialValue]);
+                                return [document.createTextNode(" ≤ "),
+                                        this._input,
+                                        document.createTextNode(" ("),
+                                        this._label,
+                                        document.createTextNode(")")];
+                        }
+                        _valueDetailsFromString(value, blockTag) {
+                                const block = htmlElement(blockTag, {title: value}, this._priorityLabel[value] ?? "invalid value");
+                                block.appendChild(clickableIcon("🔎", () => this.setValue(value), "Select entries where " + this.name +  " ≤ " + value));
+                                return block;
+                        }
+                }
+                class MultiSelectFilter extends Filter {
+                        _exclude;
+                        _options;
+                        _valuesPromise;
+                        _valuesPromiseController;
+                        _valuesLabelBlock;
+                        defaultValue = {values: [], exclude: false};
 
-                        var buf = '';
+                        _selectedOptions() {
+                                return Array.from(this._input.options)
+                                        .filter(o => o.classList.value == "selected");
+                        }
+                        _selectedValueBlock(htmlOption) {
+                                const block = htmlElement("span", {class:"filtervalue"}, htmlOption.label);
+                                block.appendChild(clickableIcon("×", () => this.toggleValue(htmlOption.value), "Unselect value " + htmlOption.label, "remove"));
+                                return block;
+                        }
+                        _resetValuesLabelAndSelectValue() {
+                                const selectedOptions = this._options.filter(o => o.classList.value == "selected");
 
-                        for (i in l) {
-                                if (l[i] == '')
-                                        continue;
+                                this._input.options[0].value = JSON.stringify(selectedOptions.map(o => o.value));
+                                this._input.selectedIndex = 0;
 
-                                var d = JSON.parse(l[i]);
-                                if (d.MESSAGE == undefined || d.__CURSOR == undefined)
-                                        continue;
+                                const labelBlock = htmlElement("span", {id : this.name + "_labels"});
 
-                                if (fc == null)
-                                        fc = d.__CURSOR;
-                                lc = d.__CURSOR;
+                                if (selectedOptions.length == 0) {
+                                        labelBlock.append(htmlElement("span", {class: "filtervalue"}, "Any"));
+                                } else {
+                                        let currentOption = null;
+                                        while (currentOption = selectedOptions.shift()) {
+                                                labelBlock.append(this._selectedValueBlock(currentOption));
+                                                if (selectedOptions.length >= 2)
+                                                        labelBlock.append(document.createTextNode(", "));
+                                                else if (selectedOptions.length == 1)
+                                                        labelBlock.append(document.createTextNode(" or "));
+                                        }
+                                }
+                                this._valuesLabelBlock.replaceWith(labelBlock);
+                                this._valuesLabelBlock = labelBlock;
+                        }
+                        _isFiltering() {
+                                return this._input.value != "[]";
+                        }
+                        toggleValue(value) {
+                                const option = Array.from(this._input.options).filter(o => o.value == value)[0];
+                                option.classList.toggle("selected");
+                                this._resetValuesLabelAndSelectValue();
+                                this._onChange();
+                        }
+                        _selector(values = [], selectedValues = [], addLoadingOption = false) {
+                                const select = htmlElement("select", {name: this.name});
+                                select.addEventListener("change", event => this.toggleValue(event.target.value));
+                                select.add(new Option("▾", JSON.stringify(selectedValues), true));
+                                this._options = values.sort().map(value => {
+                                        const opt = new Option(value == "" ? "[empty value]" : value, value);
+                                        opt.classList.toggle("selected", selectedValues.includes(value));
+                                        select.add(opt);
+                                        return opt;
+                                });
+                                if (addLoadingOption)
+                                        select.add(loadingOption());
+                                return select;
+                        }
+                        _includeOrExcludeBlock(checked = false) {
+                                const label = htmlElement("label");
+                                this._exclude = htmlElement("input", {type:"checkbox", name: this.name+"-", class:"includeexclude"});
+                                this._exclude.checked = checked;
+                                this._exclude.addEventListener("change", () => {
+                                        if (this._isFiltering())
+                                                this._onChange();
+                                });
+                                label.appendChild(this._exclude);
+                                label.appendChild(htmlElement("span"));
+                                return label;
+                        }
+                        _inputBlocks(initialValue) {
+                                const exclude = this._includeOrExcludeBlock(initialValue.exclude);
+                                this._input = this._selector(initialValue.values, initialValue.values, true);
+                                this._valuesLabelBlock = htmlElement("span", {id: this.name + "_labels"});
+                                this._resetValuesLabelAndSelectValue();
+                                return [exclude,
+                                        this._input,
+                                        this._valuesLabelBlock];
+                        }
+                        _onValuesReceive(values) {
+                                const selectedValues = this._options.filter(o => o.classList == "selected").map(o => o.value);
+                                const missingValues = selectedValues.filter(v => !values.includes(v));
+                                const newSelector = this._selector(values, selectedValues);
+                                this._input.replaceWith(newSelector);
+                                this._input = newSelector;
+                                if (missingValues.length) {
+                                        filterNoValueError(this.name, missingValues);
+                                        this._resetValuesLabelAndSelectValue();
+                                        this._onChange();
+                                }
+                                return values;
+                        }
+                        select(initialValue) {
+                                this._valuesPromiseController = new AbortController();
+                                this._valuesPromise = fetch("fields/" + encodeURIComponent(this.name), {signal: this._valuesPromiseController.signal})
+                                        .then(response => response.text())
+                                        .then(text => text.split("\n").slice(0, -1))
+                                        .then(values => this._onValuesReceive(values))
+                                        .catch(fetchError);
+                                super.select(initialValue);
+                        }
+                        valueFromURL(searchParams) {
+                                let values = [];
+                                try {
+                                        values = JSON.parse(searchParams.get(this.name));
+                                } catch(e) {
+                                        values = [];
+                                }
+                                if (!(values instanceof Array))
+                                        values = [];
+                                for (const v of values) {
+                                        if (!(typeof v == "string"))
+                                            values = [];
+                                }
+                                return {values: values, exclude: searchParams.has(this.name+"-")};
+                        }
+                        unselect() {
+                                this._valuesPromiseController.abort();
+                                return super.unselect();
+                        }
+                        setValue(newValue) {
+                                if (!this.isSelected())
+                                        return this.select(newValue);
 
-                                var priority;
-                                if (d.PRIORITY != undefined)
-                                        priority = parseInt(d.PRIORITY);
+                                this._exclude.checked = newValue.exclude;
+                                this._options.forEach(o => o.classList.toggle("selected", newValue.values.includes(o.value)));
+                                this._resetValuesLabelAndSelectValue();
+                                this._onChange();
+                                return;
+                        }
+                        excludeValue(newValue) {
+                                if (!this.isSelected())
+                                        return this.select(newValue);
+
+                                if(this._exclude.checked) {
+                                        this._options
+                                                .filter(o => newValue.values.includes(o.value))
+                                                .forEach(o => o.classList.add("selected"));
+                                } else {
+                                        this._exclude.checked = true;
+                                        this._options.forEach(o => o.classList.toggle("selected", newValue.values.includes(o.value)));
+                                }
+                                this._resetValuesLabelAndSelectValue();
+                                this._onChange();
+                                return;
+                        }
+                        _valueDetailsFromString(value, blockTag) {
+                                const block = htmlElement(blockTag, {}, value);
+                                block.appendChild(clickableIcon("🔎", () => this.setValue({values: [value], exclude: false}), "Select entries where " + this.name +  " = " + value));
+                                block.appendChild(clickableIcon("×", () => this.excludeValue({values: [value], exclude: true}), "Select entries where " + this.name +  " ≠ " + value, "remove"));
+                                return block;
+                        }
+                        valueToEntriesQuery(searchParams) {
+                                if (!this._isFiltering())
+                                        return;
+
+                                const selectedValues = this._options
+                                        .filter(o => o.classList.contains("selected"))
+                                        .map(o => o.value);
+
+                                if (!this._exclude.checked) {
+                                        selectedValues.forEach(value => searchParams.append(this.name, value));
+                                        return;
+                                }
+                                return this._valuesPromise
+                                        .then(values => {
+                                                const otherValues = values.filter(v => !selectedValues.includes(v));
+                                                if (otherValues.length == 0)
+                                                        searchParams.append(this.name, "__INVALID_VALUE__");
+                                                else
+                                                        otherValues.forEach(value => searchParams.append(this.name, value));
+                                                return;
+                                        });
+                        }
+                }
+                class RealtimeFilter extends Filter {
+                        _mindate;
+                        _maxdate;
+                        defaultValue = {date: "", time: ""};
+                        _onMachineInfoReceive(machineInfo) {
+                                if (!("cutoff_from_realtime" in machineInfo && "cutoff_to_realtime" in machineInfo))
+                                        return;
+
+                                const minDate = new Date(machineInfo.cutoff_from_realtime / 1000);
+                                const maxDate = new Date(machineInfo.cutoff_to_realtime / 1000);
+                                this._input.date.setAttribute("min", minDate.toLocaleDateString("fr-ca"));
+                                this._input.date.setAttribute("max", maxDate.toLocaleDateString("fr-ca"));
+                                return;
+                        }
+                        toMicroTimestamp() {
+                                if (!this._input)
+                                        return null;
+                                if (this._input.date.value == "" || this._input.time.value  == "")
+                                        return null;
+
+                                const date = new Date(this._input.date.value  + " " + this._input.time.value);
+                                const timestamp = date.getTime();
+
+                                if (isNaN(timestamp))
+                                        return null;
                                 else
+                                        return timestamp * 1000;
+                        }
+                        isValidDate() {
+                                return this.toMicroTimestamp() !== null;
+                        }
+                        _onDateTimeChange() {
+                                if (!this.isValidDate())
+                                        return;
+
+                                return this._onChange();
+                        }
+                        _valueFromMicroTimestamp(microTimestamp) {
+                                if (!microTimestamp || isNaN(microTimestamp))
+                                        return {date: "", time: ""};
+
+                                const date = new Date(microTimestamp / 1000);
+                                return {date: date.toLocaleDateString("fr-ca"), time: date.toLocaleTimeString("fr-fr")};
+                        }
+                        setValue(microTimestamp = null) {
+                                if (!this.isSelected())
+                                        if (!microTimestamp || isNaN(microTimestamp))
+                                            return;
+                                        else
+                                            return this.select(this._valueFromMicroTimestamp(microTimestamp));
+
+                                const value = this._valueFromMicroTimestamp(microTimestamp);
+                                this._input.date.value = value.date;
+                                this._input.time.value = value.time;
+                        }
+                        _inputBlocks(initialValue) {
+                                this._input = {
+                                        date: htmlElement("input", {type: "date", name: this.name + "-date", value: initialValue.date}),
+                                        time: htmlElement("input", {type: "time", name: this.name + "-time", value: initialValue.time, step: 1}),
+                                }
+                                this._input.date.addEventListener("change", () => this._onDateTimeChange());
+                                this._input.time.addEventListener("change", () => this._onDateTimeChange());
+
+                                fetch("machine")
+                                        .then(response => response.json())
+                                        .then(machineInfo => this._onMachineInfoReceive(machineInfo));
+
+                                return [document.createTextNode(" ≥ "),
+                                        this._input.date,
+                                        this._input.time];
+                        }
+                        _isFiltering() {
+                                return this.isValidDate();
+                        }
+                        valueFromURL(searchParams) {
+                                const initialValue = {date: searchParams.get(this.name+"-date"), time: searchParams.get(this.name+"-time")};
+                                if (typeof initialValue.date == "string" && typeof initialValue.time == "string") {
+                                        const date = new Date(initialValue.date + " " + initialValue.time);
+                                        if (date.toString() != "Invalid Date")
+                                                return initialValue;
+                                }
+                                return this.defaultValue;
+                        }
+                        _valueDetailsFromString(value, blockTag) {
+                                const date = new Date(parseInt(value) / 1000);
+                                if (date.toString() == "Invalid Date")
+                                        return document.createTextNode(value);
+
+                                const block = htmlElement(blockTag, {title: value}, date.toLocaleString() + "." + (value % 1000).toString().padStart(3, 0));
+                                block.appendChild(clickableIcon("🔎", () => this.setValue(value), "Select entries where " + this.name +  " ≥ " + date.toLocaleString()));
+                                return block;
+                        }
+                        valueToEntriesQuery(searchParams) {
+                                // time is not used for query parameters, but for Range header
+                                return ;
+                        }
+                }
+
+                class Journal {
+                        _block = document.getElementById("journal");
+                        _loadingArrow = document.getElementById("loading_arrow");
+                        _controller = new AbortController();
+                        _onChange;
+                        _stream;
+
+                        constructor(onChange) {
+                                this._onChange = (event) => onChange(event);
+                                window.addEventListener("beforeunload", () => this.stopStream());
+                        }
+                        _reset() {
+                                this._controller.abort();
+                                this._controller = new AbortController();
+                                this.stopStream();
+                        }
+                        _startStream(url, nlines, onError) {
+                                this._stream = new EventSource(url);
+                                this._stream.addEventListener("error", err => {
+                                        connectionError();
+                                        console.error("EventSource failed:", err);
+                                        onError();
+                                });
+                                this._stream.addEventListener("message", event => this._displayEntry(event.data, nlines));
+                        }
+                        stopStream() {
+                                if (typeof this._stream !== "undefined" && this._stream.readyState != 2)
+                                        this._stream.close();
+                        }
+                        _clear () {
+                                while (this._block.lastChild)
+                                        this._block.removeChild(this._block.lastChild);
+
+                                clearEntriesError();
+                        }
+                        _displayEntry(entryJSON, nlines) {
+                                this._loadingArrow.style.display = "none";
+                                const entry = JSON.parse(entryJSON);
+                                if (entry == undefined || entry.MESSAGE === undefined || entry.__CURSOR == undefined)
+                                        return;
+
+                                const line = htmlElement("tr", {"data-cursor": entry.__CURSOR});
+
+                                const checkbox = htmlElement("input", {type: "checkbox", name: "entry", value: entry.__CURSOR, id: "chk-" + entry.__CURSOR, "data-entry": entryJSON});
+                                checkbox.addEventListener("change", event => this._onChange(event));
+                                line.appendChild(checkbox);
+
+                                line.appendChild(htmlElement("td", {class: "timestamp"}, TimeField.valueInterpreted(entry.__REALTIME_TIMESTAMP ?? "")));
+                                line.appendChild(htmlElement("td", {}, Field.valueInterpreted(entry._HOSTNAME ?? "")));
+
+                                const process = htmlElement("td");
+                                if (entry.SYSLOG_IDENTIFIER != undefined)
+                                        process.textContent += Field.valueInterpreted(entry.SYSLOG_IDENTIFIER);
+                                else if (entry._COMM != undefined)
+                                        process.textContent += Field.valueInterpreted(entry._COMM);
+
+                                if (entry._PID != undefined)
+                                        process.textContent += "[" + Field.valueInterpreted(entry._PID) + "]";
+                                else if (entry.SYSLOG_PID != undefined)
+                                        process.textContent += "[" + Field.valueInterpreted(entry.SYSLOG_PID) + "]";
+
+                                line.appendChild(process);
+
+                                let clazz;
+                                let priority = parseInt(entry.PRIORITY ?? "6");
+                                if (isNaN(priority))
                                         priority = 6;
-
-                                var clazz;
                                 if (priority <= 3)
                                         clazz = "message-error";
                                 else if (priority <= 5)
@@ -332,217 +891,502 @@
                                 else
                                         clazz = "message";
 
-                                buf += '<tr><td class="timestamp">';
+                                const message = htmlElement("td", {class: clazz});
+                                message.appendChild(htmlElement("label", {for: "chk-" + entry.__CURSOR}, Field.valueInterpreted(entry.MESSAGE, 256)));
 
-                                if (d.__REALTIME_TIMESTAMP != undefined) {
-                                        var timestamp = new Date(parseInt(d.__REALTIME_TIMESTAMP) / 1000);
-                                        buf += timestamp.toLocaleString();
+                                line.appendChild(message);
+                                journal.appendChild(line);
+                                while (journal.childNodes.length > nlines)
+                                        journal.removeChild(journal.firstChild);
+                                return;
+                        }
+                        _displayEntries(entriesText) {
+                                const entries = entriesText.split(/[\x1E\x0A]/).filter(t => t != "");
+                                this._clear();
+
+                                if (entries.length == 0) {
+                                        this._loadingArrow.style.display = "none";
+                                        return noEntriesError();
                                 }
 
-                                buf += '</td><td class="process">';
-
-                                if (d.SYSLOG_IDENTIFIER != undefined)
-                                        buf += escapeHTML(d.SYSLOG_IDENTIFIER);
-                                else if (d._COMM != undefined)
-                                        buf += escapeHTML(d._COMM);
-
-                                if (d._PID != undefined)
-                                        buf += "[" + escapeHTML(d._PID) + "]";
-                                else if (d.SYSLOG_PID != undefined)
-                                        buf += "[" + escapeHTML(d.SYSLOG_PID) + "]";
-
-                                buf += '</td><td class="' + clazz + '"><a href="#entry" onclick="onMessageClick(\'' + d.__CURSOR + '\');">';
-
-                                if (d.MESSAGE == null)
-                                        buf += "[blob data]";
-                                else if (d.MESSAGE instanceof Array)
-                                        buf += "[" + formatBytes(d.MESSAGE.length) + " blob data]";
-                                else
-                                        buf += escapeHTML(d.MESSAGE);
-
-                                buf += '</a></td></tr>';
-                        }
-
-                        logs.innerHTML = '<tbody>' + buf + '</tbody>';
-
-                        if (fc != null) {
-                                first_cursor = fc;
-                                localStorage["cursor"] = fc;
-                        }
-                        if (lc != null)
-                                last_cursor = lc;
-                }
-
-                function entriesMore() {
-                        setNEntries(getNEntries() + 10);
-                        entriesLoad(first_cursor);
-                }
-
-                function entriesLess() {
-                        setNEntries(getNEntries() - 10);
-                        entriesLoad(first_cursor);
-                }
-
-                function onResultMessageClick(event) {
-                        if ((event.currentTarget.readyState != 4) ||
-                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
+                                entries.forEach(entry => this._displayEntry(entry));
                                 return;
-
-                        var d = JSON.parse(event.currentTarget.responseText);
-
-                        document.getElementById("diventry").style.display = "block";
-                        var entry = document.getElementById("tableentry");
-
-                        var buf = "";
-                        for (var key in d) {
-                                var data = d[key];
-
-                                if (data == null)
-                                        data = "[blob data]";
-                                else if (data instanceof Array)
-                                        data = "[" + formatBytes(data.length) + " blob data]";
-                                else
-                                        data = escapeHTML(data);
-
-                                buf += '<tr><td class="field">' + key + '</td><td class="data">' + data + '</td></tr>';
                         }
-                        entry.innerHTML = '<tbody>' + buf + '</tbody>';
+                        entries() {
+                                return Array.from(this._block.childNodes).map(t => JSON.parse(t.firstChild.dataset.entry));
+                        }
+                        firstCursor() {
+                                if (this._block.firstChild == null || typeof this._block.firstChild.getAttribute == "undefined")
+                                        return null;
+
+                                return this._block.firstChild.dataset.cursor;
+                        }
+                        lastCursor() {
+                                if (this._block.firstChild == null || typeof this._block.firstChild.getAttribute == "undefined")
+                                        return null;
+
+                                return this._block.lastChild.dataset.cursor;
+                        }
+                        currentPosition() {
+                                let offset = Array.from(this._block.childNodes).findIndex(line => line.firstChild.checked);
+                                if (offset == -1)
+                                        return {cursor: this.firstCursor(), offset: null};
+                                else
+                                        return {cursor: this._block.childNodes[offset].dataset.cursor, offset: -offset};
+                        }
+                        follow(entriesSearchParams, nlines, onError) {
+                                entriesSearchParams.append("follow", 1);
+                                entriesSearchParams.append("lines", nlines);
+                                this._reset();
+                                this._clear();
+                                return this._startStream("entries?" + entriesSearchParams.toString(), nlines, onError);
+                        }
+                        loadStatic(entriesSearchParams, range, nlines) {
+                                this._reset();
+                                this._loadingArrow.style.display = "block";
+                                return fetch("entries?" + entriesSearchParams.toString(),
+                                        {headers: new Headers({Range: range, Accept: "application/json",}), signal: this._controller.signal})
+                                .then(response => response.text())
+                                .then(text => this._displayEntries(text, nlines))
+                                .catch(fetchError);
+                        }
                 }
+                class Details {
+                        _block = document.getElementById("details");
+                        _fieldsPromise = [];
 
-                function onMessageClick(t) {
-                        var request = new XMLHttpRequest();
-                        request.open("GET", "entries?discrete");
-                        request.onreadystatechange = onResultMessageClick;
-                        request.setRequestHeader("Accept", "application/json");
-                        request.setRequestHeader("Range", "entries=" + t + ":0:1");
-                        request.send(null);
+                        constructor(fieldsPromise) {
+                                this._fieldsPromise = fieldsPromise.then(fields => this._init(fields));
+                        }
+
+                        _init(fields) {
+                                function line(name) {
+                                        const line = htmlElement("tr", {id: "field_" + name});
+                                        line.appendChild(htmlElement("td", {class: "field"}, name));
+                                        return line;
+                                }
+
+                                fields.forEach(f => this._block.appendChild(line(f.name)));
+                                return fields;
+                        }
+
+                        hide() {
+                                this._block.style.display = "none";
+                        }
+                        show() {
+                                this._block.style.display = "block";
+                        }
+                        clear() {
+                                this.hide();
+                                document.getElementsByName("entry").forEach(chk => chk.checked = false);
+                                Array.from(this._block.children).forEach(line => {
+                                        while (line.children.length > 1)
+                                                line.removeChild(line.lastChild);
+                                });
+                        }
+
+                        removeColumn(index) {
+                                Array.from(this._block.children).forEach(line => line.removeChild(line.children[index + 1]));
+                        }
+
+                        _displayFieldEntry(entry, field, index) {
+                                let cell = htmlElement("td");
+                                if (entry[field.name] !== undefined)
+                                        cell = field.valueDetails(entry[field.name]);
+
+                                this._block.children["field_"+field.name].children[index].insertAdjacentElement("afterend", cell);
+                        }
+
+                        displayEntry(entry, index) {
+                                return this._fieldsPromise.then(fields => fields.forEach(f => this._displayFieldEntry(entry, f, index)));
+                        }
                 }
+                class Controls {
+                        _form = document.forms.control;
+                        _filterList = document.getElementById("filterList");
+                        _details;
+                        _journal;
+                        _fields = {};
 
-                function onKeyUp(event) {
-                        switch (event.keyCode) {
-                                case 8:
-                                case 37:
-                                case 75:
-                                        entriesLoadPrevious();
-                                        break;
-                                case 32:
-                                case 39:
-                                case 74:
-                                        entriesLoadNext();
-                                        break;
 
-                                case 71:
-                                        if (event.shiftKey)
-                                                entriesLoadTail();
+                        _setFilterList(addLoadingOption = false) {
+                                this._filterList.options.length = 0;
+                                this._filterList.add(new Option("filter on...", ""));
+
+                                Object.values(this._fields)
+                                        .filter(f => f.filterable)
+                                        .sort((f1, f2) => f1.option.label < f2.option.label ? -1:1)
+                                        .map(f => this._filterList.add(f.option));
+
+                                if (addLoadingOption)
+                                        this._filterList.add(loadingOption());
+                        }
+                        _setBrowserURL() {
+                                const sp = new URLSearchParams(new FormData(this._form));
+                                const url = "browse?"+sp.toString();
+                                history.pushState(url, "", url);
+                                return sp;
+                        }
+                        _setPosition(position) {
+                                function setOrRemove(form, entity, value) {
+                                        if (value === null) {
+                                                if (entity in form)
+                                                        form.removeChild(form[entity]);
+
+                                                return;
+                                        }
+                                        if (entity in form)
+                                                form[entity].value = value;
                                         else
-                                                entriesLoadHead();
-                                        break;
-                                case 171:
-                                        entriesMore();
-                                        break;
-                                case 173:
-                                        entriesLess();
-                                        break;
+                                                form.appendChild(htmlElement("input", {type: "hidden", name: entity, value: value}));
+                                        return;
+                                }
+                                this._form.follow.checked = false;
+                                this._journal.stopStream();
+                                setOrRemove(this._form, "cursor", position.cursor ?? null);
+                                setOrRemove(this._form, "offset", position.offset ?? null);
+
+                                if (this._fields.__REALTIME_TIMESTAMP
+                                    && this._fields.__REALTIME_TIMESTAMP.isSelected()
+                                    && (position.cursor !== null || position.offset !== null))
+                                        this._fields.__REALTIME_TIMESTAMP.setValue(null);
+                        }
+                        _fixPosition() {
+                                this._form.follow.checked = false;
+                                if (!this._fields.__REALTIME_TIMESTAMP.isValidDate())
+                                        this._setPosition(this._journal.currentPosition());
+
+                                this._setBrowserURL();
+                        }
+                        _clearPosition() {
+                                if ("cursor" in this._form)
+                                        this._form.removeChild(this._form.cursor);
+
+                                if ("offset" in this._form)
+                                        this._form.removeChild(this._form.offset);
+
+                                if (this._fields.__REALTIME_TIMESTAMP.isValidDate())
+                                        this._fields.__REALTIME_TIMESTAMP.setValue(null);
+                        }
+                        _onEntryChange(event) {
+                                const checkbox = event.target;
+                                let selectedCursors;
+                                if (this._form.entry instanceof HTMLInputElement)
+                                        selectedCursors = [checkbox.value];
+                                else
+                                        selectedCursors = Array.from(this._form.entry)
+                                                .filter(e => e.checked || e.value == checkbox.value)
+                                                .map(e => e.value);
+
+                                const index = selectedCursors.indexOf(checkbox.value);
+                                this._fixPosition();
+                                if (checkbox.checked == false) {
+                                        if (selectedCursors.length == 1)
+                                                this._details.hide();
+
+                                        this._details.removeColumn(index);
+                                } else {
+                                        this._details.show();
+                                        return this._details.displayEntry(JSON.parse(checkbox.dataset.entry), index);
+                                }
+                        }
+                        _reselectEntries(cursors) {
+                                this._details.clear();
+
+                                let cursorsNotFound = [];
+                                let found = [];
+                                cursors.forEach(c => {
+                                        const chk = document.getElementById("chk-" + c);
+                                        if (chk)
+                                                found.push(chk);
+                                        else
+                                                cursorsNotFound.push(c);
+                                });
+                                if (found.length) {
+                                        found.forEach((c, index) => {
+                                                c.checked = true;
+                                                this._details.displayEntry(JSON.parse(c.dataset.entry), index);
+                                        });
+                                        this._details.show();
+                                }
+                                if (cursorsNotFound.length) {
+                                        cantFindEntriesError(cursorsNotFound);
+                                }
+                                this._fixPosition();
+                        }
+                        _selectedEntries() {
+                                if (this._form.follow.checked || !this._form.entry)
+                                        return [];
+                                if (this._form.entry instanceof HTMLElement)
+                                        return [this._form.entry.value];
+                                return Array.from(this._form.entry)
+                                        .filter(checkbox => checkbox.checked)
+                                        .map(checkbox => checkbox.value);
+                        }
+                        _unselectAllEntries() {
+                                this._details.clear();
+                                if (this._form.entry instanceof HTMLElement)
+                                        return this._form.entry.checked = false;
+                                else if (this._form.entry instanceof RadioNodeList)
+                                        return Array.from(this._form.entry).map(checkbox => checkbox.checked = false);
+                        }
+                        loadNextEntries() {
+                                if (!this._form.follow.checked) {
+                                        this._setPosition({cursor: this._journal.lastCursor(), offset: 1});
+                                        this._unselectAllEntries();
+                                        return this.reloadJournal();
+                                }
+                        }
+                        loadPreviousEntries() {
+                                this._setPosition({cursor: this._journal.firstCursor(), offset: -this._form.lines.value});
+                                this._unselectAllEntries();
+                                return this.reloadJournal();
+                        }
+                        loadEntriesHead() {
+                                this._setPosition({cursor: "", offset: null});
+                                this._unselectAllEntries();
+                                return this.reloadJournal();
+                        }
+                        loadEntriesTail() {
+                                if (!this._form.follow.checked) {
+                                        this._setPosition({cursor: "", offset: 1-this._form.lines.value});
+                                        this._unselectAllEntries();
+                                        return this.reloadJournal();
+                                }
+                        }
+                        entriesMore() {
+                                this._form.lines.value = Math.max(10, Math.min(1000, Number(this._form.lines.value)+10));
+                                return this.reloadJournal();
+                        }
+                        entriesLess() {
+                                this._form.lines.value = Math.max(10, Math.min(1000, Number(this._form.lines.value)-10));
+                                return this.reloadJournal();
+                        }
+                        copyPosition() {
+                                navigator.clipboard.writeText(document.location.toString());
+                        }
+                        toggleFollow() {
+                                const follow = this._form.follow;
+                                follow.checked = !follow.checked;
+                                document.getElementById("followbtn").title = follow.checked ? "Pause" : "Play";
+                                if (follow.checked) {
+                                        this._clearPosition();
+                                        this.reloadJournal();
+                                } else {
+                                        this._fixPosition();
+                                }
+                        }
+                        _getRange() {
+                                if (this._fields.__REALTIME_TIMESTAMP) {
+                                        const microTimestamp = this._fields.__REALTIME_TIMESTAMP.toMicroTimestamp();
+                                        if (microTimestamp !== null)
+                                                return "time=" + microTimestamp + "::" + this._form.lines.value;
+                                }
+
+                                let range = "entries=";
+                                if ("cursor" in this._form)
+                                        range += this._form.cursor.value;
+
+                                if ("offset" in this._form)
+                                        range += ":" + this._form.offset.value;
+
+                                range += ":" + this._form.lines.value;
+                                return range;
+                        }
+                        reloadJournal() {
+                                const searchParams = new URLSearchParams();
+                                this._setBrowserURL();
+                                return Promise.all(Object.values(this._fields)
+                                                .filter(f => f.filterable && f.isSelected())
+                                                .map(f => f.valueToEntriesQuery(searchParams)))
+                                        .then(() => this._onEntriesSearchParamsReady(searchParams));
+                        }
+
+                        _encodeCSV(text) {
+                                if (text.indexOf(",") == -1 && text.indexOf("\n") == -1 && text.indexOf("\"") == -1)
+                                        return text;
+
+                                return "\"" + text.replaceAll("\"", "\"\"") + "\"";
+                        }
+                        downloadCSV(anchor) {
+                                let csv = Object.keys(this._fields).join(",") + "\n";
+                                csv += this._journal.entries().map(entry =>
+                                        Object.values(this._fields)
+                                                .map(f => this._encodeCSV(Field.valueCSV(entry[f.name] ?? "")))
+                                                .join(",")
+                                        ).join("\n");
+                                anchor.href = "data:text/csv;charset=utf-8,\uFEFF" + encodeURI(csv);
+                        }
+                        _onEntriesSearchParamsReady(entriesSearchParams) {
+                                if (this._form.follow.checked) {
+                                        return this._journal.follow(entriesSearchParams, this._form.lines.value, () => this._fixPosition());
+                                } else {
+                                        const selectedEntries = this._selectedEntries();
+                                        return this._journal.loadStatic(entriesSearchParams, this._getRange(), this._form.lines.value)
+                                                .then(() => this._reselectEntries(selectedEntries));
+                                }
+                        }
+                        _newField(fieldName) {
+                                let field;
+                                switch (fieldName) {
+                                        case "MESSAGE":
+                                                field = new Filter(fieldName, () => this.reloadJournal());
+                                                break;
+                                        case "PRIORITY":
+                                                field = new PriorityFilter(fieldName, () => this.reloadJournal());
+                                                break;
+                                        case "__REALTIME_TIMESTAMP":
+                                                field = new RealtimeFilter(fieldName, () => {
+                                                        this._fixPosition();
+                                                        this.reloadJournal();
+                                                });
+                                                break;
+                                        case "__CURSOR":
+                                        case "__MONOTONIC_TIMESTAMP":
+                                                field = new Field(fieldName);
+                                                break;
+                                        default:
+                                                if (fieldName.endsWith("TIMESTAMP"))
+                                                        field = new TimeField(fieldName);
+                                                else if (fieldName.endsWith("UID") || fieldName.endsWith("GID") || fieldName.endsWith("PID"))
+                                                        field = new IdFilter(fieldName, () => this.reloadJournal());
+                                                else
+                                                        field = new MultiSelectFilter(fieldName, () => this.reloadJournal());
+
+                                                break;
+                                }
+                                this._fields[fieldName] = field;
+                        }
+                        _initWithDefaultFilters() {
+                                ["__REALTIME_TIMESTAMP", "_HOSTNAME", "SYSLOG_IDENTIFIER", "PRIORITY"]
+                                        .map(fieldName => {
+                                                this._newField(fieldName);
+                                                this._fields[fieldName].select(this._fields[fieldName].defaultValue);
+                                        });
+                        }
+                        _initFiltersFromURL(searchParams) {
+                                let selectedEntries = [];
+                                this._form.follow.checked = searchParams.has("follow");
+                                for (let [key, val] of searchParams.entries()) {
+                                        switch(key) {
+                                                case "lines":
+                                                        this._form.lines.value = val;
+                                                        break;
+                                                case "cursor":
+                                                        this._form.appendChild(htmlElement("input", {type: "hidden", name: "cursor", value: val}));
+                                                        break;
+                                                case "offset":
+                                                        this._form.appendChild(htmlElement("input", {type: "hidden", name: "offset", value: val}));
+                                                        break;
+                                                case "entry":
+                                                        selectedEntries.push(val);
+                                                        break;
+                                                case "follow":
+                                                        break;
+                                                default:
+                                                        let pos;
+                                                        if ((pos = key.indexOf("-")) >= 0)
+                                                                key = key.slice(0, pos);
+
+                                                        if (!this._fields[key])
+                                                                this._newField(key);
+
+                                                        if (!this._fields[key].isSelected())
+                                                                this._fields[key].select(this._fields[key].valueFromURL(searchParams));
+
+                                                        break;
+                                        }
+                                }
+                                return selectedEntries;
+                        }
+                        _onFieldListReceive(fieldNames) {
+                                const definedFields = Object.keys(this._fields);
+                                const selectedFilters = Object.values(this._fields).filter(f => f.filterable && f.isSelected());
+                                const missingFilters = selectedFilters.filter(f => !fieldNames.includes(f.name) && f.name != "__REALTIME_TIMESTAMP");
+                                fieldNames
+                                    .filter(name => !definedFields.includes(name))
+                                    .forEach(name => this._newField(name));
+                                this._setFilterList();
+                                if (missingFilters.length) {
+                                        filterNoExistError(missingFilters.map(f => f.name));
+                                        missingFilters.forEach(f => f.unselect());
+                                }
+                                return Object.values(this._fields);
+                        }
+                        _onKeyUp(event) {
+                                if (event.target.tagName == "INPUT")
+                                        return;
+                                switch (event.keyCode) {
+                                        case 8:
+                                        case 37:
+                                        case 75:
+                                                this.loadPreviousEntries();
+                                                break;
+                                        case 39:
+                                        case 74:
+                                                this.loadNextEntries();
+                                                break;
+                                        case 71:
+                                                if (event.shiftKey)
+                                                        this.loadEntriesTail();
+                                                else
+                                                        this.loadEntriesHead();
+                                                break;
+                                        case 107:
+                                                this.entriesMore();
+                                                break;
+                                        case 109:
+                                                this.entriesLess();
+                                                break;
+                                        case 32:
+                                        case 80:
+                                                this.toggleFollow();
+                                                break;
+                                }
+                        }
+                        constructor() {
+                                const searchParams = (new URL(window.location)).searchParams;
+                                this._newField("__REALTIME_TIMESTAMP");
+                                let selectedEntries = [];
+                                if (searchParams.toString().length == 0)
+                                        this._initWithDefaultFilters();
+                                else
+                                        selectedEntries = this._initFiltersFromURL(searchParams);
+                                this._newField("__MONOTONIC_TIMESTAMP");
+                                this._newField("__CURSOR");
+
+                                this._setFilterList(true);
+                                this._filterList.addEventListener("change", event => {
+                                        this._fields[event.target.value].toggleSelect()
+                                        this._filterList.selectedIndex = 0;
+                                });
+
+                                const fieldsPromise = fetch("fields", {headers: new Headers({Accept: "application/json"})})
+                                    .then(response => response.text())
+                                    .then(text => text
+                                        .split("\n")
+                                        .filter(line => line != "")
+                                        .map(line => JSON.parse(line).field))
+                                    .then(fields => this._onFieldListReceive(fields));
+
+                                this._details = new Details(fieldsPromise);
+                                this._journal = new Journal(event => this._onEntryChange(event));
+
+                                document.onkeyup = event => this._onKeyUp(event);
+                                this._form.addEventListener("submit", event => {
+                                        event.preventDefault();
+                                        this.reloadJournal();
+                                        return false;
+                                });
+
+                                if (selectedEntries.length)
+                                        this.reloadJournal().then(() => this._reselectEntries(selectedEntries));
+                                else
+                                        this.reloadJournal();
                         }
                 }
 
-                function onMouseWheel(event) {
-                        if (event.detail < 0 || event.wheelDelta > 0)
-                                entriesLoadPrevious();
-                        else
-                                entriesLoadNext();
-                }
-
-                function onResultFilterFocus(event) {
-                        if ((event.currentTarget.readyState != 4) ||
-                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
-                                return;
-
-                        var f = document.getElementById("filter");
-
-                        var l = event.currentTarget.responseText.split('\n');
-                        var buf = '<option>No filter</option>';
-                        var j = -1;
-
-                        for (i in l) {
-
-                                if (l[i] == '')
-                                      continue;
-
-                                var d = JSON.parse(l[i]);
-                                if (d._SYSTEMD_UNIT == undefined)
-                                      continue;
-
-                                buf += '<option value="' + escape(d._SYSTEMD_UNIT) + '">' + escapeHTML(d._SYSTEMD_UNIT) + '</option>';
-
-                                if (d._SYSTEMD_UNIT == localStorage["filter"])
-                                        j = i;
-                        }
-
-                        if (j < 0) {
-                                if (localStorage["filter"] != null && localStorage["filter"] != "") {
-                                          buf += '<option value="' + escape(localStorage["filter"]) + '">' + escapeHTML(localStorage["filter"]) + '</option>';
-                                          j = i + 1;
-                                } else
-                                          j = 0;
-                        }
-
-                        f.innerHTML = buf;
-                        f.selectedIndex = j;
-                }
-
-                function onFilterFocus(w) {
-                        var request = new XMLHttpRequest();
-                        request.open("GET", "fields/_SYSTEMD_UNIT");
-                        request.onreadystatechange = onResultFilterFocus;
-                        request.setRequestHeader("Accept", "application/json");
-                        request.send(null);
-                }
-
-                function onFilterChange(w) {
-                        if (w.selectedIndex <= 0)
-                                localStorage["filter"] = "";
-                        else
-                                localStorage["filter"] = unescape(w.options[w.selectedIndex].value);
-
-                        entriesLoadHead();
-                }
-
-                function onBootChange(w) {
-                        localStorage["boot"] = w.checked ? "1" : "0";
-                        entriesLoadHead();
-                }
-
-                function initFilter() {
-                        var f = document.getElementById("filter");
-
-                        var buf = '<option>No filter</option>';
-
-                        var filter = localStorage["filter"];
-                        var j;
-                        if (filter != null && filter != "") {
-                                buf += '<option value="' + escape(filter) + '">' + escapeHTML(filter) + '</option>';
-                                j = 1;
-                        } else
-                                j = 0;
-
-                        f.innerHTML = buf;
-                        f.selectedIndex = j;
-                }
-
-                function installHandlers() {
-                        document.onkeyup = onKeyUp;
-
-                        var logs = document.getElementById("divlogs");
-                        logs.addEventListener("mousewheel", onMouseWheel, false);
-                        logs.addEventListener("DOMMouseScroll", onMouseWheel, false);
-                }
-
-                machineLoad();
-                entriesLoad(null);
-                showNEntries(getNEntries());
-                initFilter();
-                installHandlers();
+                const controls = new Controls();
         </script>
 </body>
 </html>
