@@ -57,7 +57,7 @@ static void test_GREEDY_REALLOC(void) {
 
 static void test_memdup_multiply_and_greedy_realloc(void) {
         static const int org[] = { 1, 2, 3 };
-        _cleanup_free_ int *dup;
+        _cleanup_free_ int *dup = NULL;
         int *p;
         size_t i, allocated = 3;
 
