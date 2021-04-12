@@ -18,6 +18,8 @@ actions:
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
     - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
+    # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
+    - "rm -fv .packit_rpm/sources"
     # Drop backported patches from the specfile, but keep the downstream-only ones
     # - Patch0000-0499: backported patches from upstream
     # - Patch0500-9999: downstream-only patches
