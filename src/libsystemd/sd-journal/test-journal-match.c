@@ -13,7 +13,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         test_setup_logging(LOG_DEBUG);
 

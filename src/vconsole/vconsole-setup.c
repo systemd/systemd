@@ -146,7 +146,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         args[i++] = NULL;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cmd;
+                _cleanup_free_ char *cmd = NULL;
 
                 cmd = strv_join((char**) args, " ");
                 log_debug("Executing \"%s\"...", strnull(cmd));
@@ -189,7 +189,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         args[i++] = NULL;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cmd;
+                _cleanup_free_ char *cmd = NULL;
 
                 cmd = strv_join((char**) args, " ");
                 log_debug("Executing \"%s\"...", strnull(cmd));
