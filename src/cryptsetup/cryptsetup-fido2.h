@@ -24,6 +24,7 @@ int acquire_fido2_key(
                 usec_t until,
                 bool headless,
                 bool pin_required,
+                bool presence_required,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 
@@ -35,7 +36,8 @@ int find_fido2_auto_data(
                 void **ret_cid,
                 size_t *ret_cid_size,
                 int *ret_keyslot,
-                bool *ret_pin_required);
+                bool *ret_pin_required,
+                bool *ret_presence_required);
 
 #else
 
@@ -54,6 +56,7 @@ static inline int acquire_fido2_key(
                 usec_t until,
                 bool headless,
                 bool pin_required,
+                bool presence_required,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -69,7 +72,8 @@ static inline int find_fido2_auto_data(
                 void **ret_cid,
                 size_t *ret_cid_size,
                 int *ret_keyslot,
-                bool *ret_pin_required) {
+                bool *ret_pin_required,
+                bool *ret_presence_required) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 token support not available.");

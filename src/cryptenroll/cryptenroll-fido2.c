@@ -42,6 +42,7 @@ int enroll_fido2(
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "drive-harddisk",
                         lock_with_pin,
+                        /* up= */ true,
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,
@@ -78,7 +79,8 @@ int enroll_fido2(
                                        JSON_BUILD_PAIR("fido2-credential", JSON_BUILD_BASE64(cid, cid_size)),
                                        JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_BASE64(salt, salt_size)),
                                        JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_STRING("io.systemd.cryptsetup")),
-                                       JSON_BUILD_PAIR("fido2-pin-required", JSON_BUILD_BOOLEAN(lock_with_pin))));
+                                       JSON_BUILD_PAIR("fido2-pin-required", JSON_BUILD_BOOLEAN(lock_with_pin)),
+                                       JSON_BUILD_PAIR("fido2-presence-required", JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 

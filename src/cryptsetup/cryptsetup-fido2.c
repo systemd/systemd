@@ -25,6 +25,7 @@ int acquire_fido2_key(
                 usec_t until,
                 bool headless,
                 bool pin_required,
+                bool presence_required,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -81,7 +82,7 @@ int acquire_fido2_key(
                                         salt, salt_size,
                                         cid, cid_size,
                                         pins,
-                                        /* up= */ true,
+                                        presence_required,
                                         pin_required,
                                         ret_decrypted_key,
                                         ret_decrypted_key_size);
@@ -112,13 +113,15 @@ int find_fido2_auto_data(
                 void **ret_cid,
                 size_t *ret_cid_size,
                 int *ret_keyslot,
-                bool *ret_pin_required) {
+                bool *ret_pin_required,
+                bool *ret_presence_required) {
 
         _cleanup_free_ void *cid = NULL, *salt = NULL;
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
         int r, keyslot = -1;
-        bool pin_required = true; /* For backward compatibility, init to true */
+        bool pin_required = true, /* For backward compatibility, init to true */
+                presence_required = true; /* For backward compatibility, init to true */
 
         assert(cd);
         assert(ret_salt);
@@ -127,6 +130,7 @@ int find_fido2_auto_data(
         assert(ret_cid_size);
         assert(ret_keyslot);
         assert(ret_pin_required);
+        assert(ret_presence_required);
 
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
@@ -194,6 +198,17 @@ int find_fido2_auto_data(
 
                         pin_required = json_variant_boolean(w);
                 }
+
+                w = json_variant_by_key(v, "fido2-presence-required");
+                if (w) {
+                        /* The "presence-required" field is optional. */
+
+                        if (!json_variant_is_boolean(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "FIDO2 token data's 'fido2-presence-required' field is not a boolean.");
+
+                        presence_required = json_variant_boolean(w);
+                }
         }
 
         if (!cid)
@@ -209,5 +224,6 @@ int find_fido2_auto_data(
         *ret_salt_size = salt_size;
         *ret_keyslot = keyslot;
         *ret_pin_required = pin_required;
+        *ret_presence_required = presence_required;
         return 0;
 }
