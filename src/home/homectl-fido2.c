@@ -158,6 +158,7 @@ int identity_add_fido2_parameters(
                         /* user_display_name= */ rn ? json_variant_string(rn) : NULL,
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "user-home",
+                        FIDO2ENROLL_PIN, // FIXME: add a --lock-with-pin parameter like cryptenroll
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,
