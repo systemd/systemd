@@ -218,8 +218,7 @@ static int fido2_use_hmac_hash_specific_token(
                 const void *cid,
                 size_t cid_size,
                 char **pins,
-                bool up, /* user presence permitted */
-                Fido2EnrollFlags required, /* client pin required */
+                Fido2EnrollFlags required, /* client pin/user presence required */
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
@@ -254,6 +253,11 @@ static int fido2_use_hmac_hash_specific_token(
         if (!has_client_pin && FLAGS_SET(required, FIDO2ENROLL_PIN))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
                                        "PIN required to unlock, but FIDO2 device %s does not support it.",
+                                       path);
+
+        if (!has_up && FLAGS_SET(required, FIDO2ENROLL_UP))
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                       "User presence required to unlock, but FIDO2 device %s does not support it.",
                                        path);
 
         a = sym_fido_assert_new();
@@ -295,7 +299,11 @@ static int fido2_use_hmac_hash_specific_token(
         log_info("Asking FIDO2 token for authentication.");
 
         r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin and without up first */
-        if (r == FIDO_ERR_UP_REQUIRED && up) {
+        if (r == FIDO_ERR_UP_REQUIRED && !FLAGS_SET(required, FIDO2ENROLL_UP))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Volume locked without user presence, but FIDO2 device %s requires it.",
+                                       path);
+        if (r == FIDO_ERR_UP_REQUIRED || (FLAGS_SET(required, FIDO2ENROLL_UP) && has_up)) {
 
                 if (!has_up)
                         log_warning("Weird, device asked for User Presence check, but does not advertise it as feature. Ignoring.");
@@ -305,7 +313,7 @@ static int fido2_use_hmac_hash_specific_token(
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set FIDO2 assertion user presence: %s", sym_fido_strerr(r));
 
-                log_info("Security token requires user presence.");
+                log_info("User presence required to unlock.");
 
                 /* If the client pin is required, do not attempt to skip it, or it will work but give
                  * a different secret */
@@ -377,8 +385,7 @@ int fido2_use_hmac_hash(
                 const void *cid,
                 size_t cid_size,
                 char **pins,
-                bool up, /* user presence permitted */
-                Fido2EnrollFlags required, /* client pin required */
+                Fido2EnrollFlags required, /* client pin/user presence required */
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
@@ -391,7 +398,7 @@ int fido2_use_hmac_hash(
                 return log_error_errno(r, "FIDO2 support is not installed.");
 
         if (device)
-                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, up, required, ret_hmac, ret_hmac_size);
+                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
@@ -426,7 +433,7 @@ int fido2_use_hmac_hash(
                         goto finish;
                 }
 
-                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, up, required, ret_hmac, ret_hmac_size);
+                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
                 if (!IN_SET(r,
                             -EBADSLT, /* device doesn't understand our credential hash */
                             -ENODEV   /* device is not a FIDO2 device with HMAC-SECRET */))
@@ -519,6 +526,11 @@ int fido2_generate_hmac_hash(
         if (!has_client_pin && FLAGS_SET(lock_with, FIDO2ENROLL_PIN))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Requested to lock with PIN, but FIDO2 device %s does not support it.",
+                                       device);
+
+        if (!has_up && FLAGS_SET(lock_with, FIDO2ENROLL_UP))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Requested to lock with user presence, but FIDO2 device %s does not support it.",
                                        device);
 
         c = sym_fido_cred_new();
@@ -667,7 +679,11 @@ int fido2_generate_hmac_hash(
         log_info("Generating secret key on FIDO2 security token.");
 
         r = sym_fido_dev_get_assert(d, a, FLAGS_SET(lock_with, FIDO2ENROLL_PIN) ? used_pin : NULL);
-        if (r == FIDO_ERR_UP_REQUIRED) {
+        if (r == FIDO_ERR_UP_REQUIRED && !FLAGS_SET(lock_with, FIDO2ENROLL_UP))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Requested to lock without user presence, but FIDO2 device %s requires it.",
+                                       device);
+        if (r == FIDO_ERR_UP_REQUIRED || (FLAGS_SET(lock_with, FIDO2ENROLL_UP) && has_up)) {
 
                 if (!has_up)
                         log_warning("Weird, device asked for User Presence check, but does not advertise it as feature. Ignoring.");
