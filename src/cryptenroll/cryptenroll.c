@@ -36,6 +36,7 @@ static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
 static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
 static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
+static bool arg_lock_with_pin = false; /* FIDO2: if true, unlocking the volume requires entering the device PIN */
 
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
@@ -82,6 +83,7 @@ static int help(void) {
                "\n%sEnroll a security token or authentication credential to a LUKS volume.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
+               "     --lock-with-pin   Require entering a PIN to unlock the volume (FIDO2)\n"
                "     --password        Enroll a user-supplied password\n"
                "     --recovery-key    Enroll a recovery key\n"
                "     --pkcs11-token-uri=URI\n"
@@ -114,11 +116,13 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
                 ARG_WIPE_SLOT,
+                ARG_LOCK_WITH_PIN,
         };
 
         static const struct option options[] = {
                 { "help",             no_argument,       NULL, 'h'                  },
                 { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "lock-with-pin",    no_argument,       NULL, ARG_LOCK_WITH_PIN    },
                 { "password",         no_argument,       NULL, ARG_PASSWORD         },
                 { "recovery-key",     no_argument,       NULL, ARG_RECOVERY_KEY     },
                 { "pkcs11-token-uri", required_argument, NULL, ARG_PKCS11_TOKEN_URI },
@@ -143,6 +147,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_LOCK_WITH_PIN:
+                        arg_lock_with_pin = true;
+                        break;
 
                 case ARG_PASSWORD:
                         if (arg_enroll_type >= 0)
@@ -486,7 +494,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, vk, vks, arg_fido2_device);
+                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_lock_with_pin);
                 break;
 
         case ENROLL_TPM2:
