@@ -535,7 +535,7 @@ int vconsole_convert_to_x11(Context *c) {
 
 int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **new_keymap) {
         const char *dir;
-        _cleanup_free_ char *n;
+        _cleanup_free_ char *n = NULL;
 
         if (x11_variant)
                 n = strjoin(x11_layout, "-", x11_variant);
