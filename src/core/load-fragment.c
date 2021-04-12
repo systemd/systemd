@@ -1715,10 +1715,10 @@ int config_parse_exec_cpu_affinity(
 
         r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to resolve unit specifiers in '%s'",
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m",
                            rvalue);
-                return -ENOEXEC;
+                return 0;
         }
 
         r = parse_cpu_set_extend(k, &c->cpu_set, true, unit, filename, line, lvalue);
