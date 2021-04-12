@@ -769,9 +769,9 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(required, FIDO2ENROLL_PIN) && arg_headless)
+                if (FLAGS_SET(required, FIDO2ENROLL_PIN | FIDO2ENROLL_UP) && arg_headless)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
-                                               "A PIN is required to unlock this volume, but the 'headless' parameter was set.");
+                                               "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
                 rp_id = discovered_rp_id;
                 key_data = discovered_salt;
