@@ -1698,7 +1698,7 @@ int config_parse_exec_cpu_affinity(
 
         ExecContext *c = data;
         const Unit *u = userdata;
-        char *k;
+        _cleanup_free_ char *k = NULL;
         int r;
 
         assert(filename);
