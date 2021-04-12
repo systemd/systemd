@@ -2092,7 +2092,7 @@ int setup_namespace(
                 }
 
                 if (log_namespace) {
-                        _cleanup_free_ char *q;
+                        _cleanup_free_ char *q = NULL;
 
                         q = strjoin("/run/systemd/journal.", log_namespace);
                         if (!q) {
