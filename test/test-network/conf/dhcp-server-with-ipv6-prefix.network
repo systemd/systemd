@@ -1,0 +1,11 @@
+[Match]
+Name=veth-peer
+
+[Network]
+Address=192.168.5.1/24
+IPv6AcceptRA=no
+DHCPServer=yes
+IPv6SendRA=yes
+
+[IPv6Prefix]
+Prefix=2002:da8:1:0::/64
