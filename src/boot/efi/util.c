@@ -379,7 +379,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
                 return err;
 
         if (size == 0) {
-                _cleanup_freepool_ EFI_FILE_INFO *info;
+                _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
 
                 info = LibFileInfo(handle);
                 if (!info)

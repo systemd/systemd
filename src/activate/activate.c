@@ -151,7 +151,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
 
                         envp[n_env++] = k;
                 } else {
-                        _cleanup_free_ char *p;
+                        _cleanup_free_ char *p = NULL;
                         const char *n;
 
                         p = strjoin(*s, "=");
@@ -421,7 +421,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FDNAME: {
-                        _cleanup_strv_free_ char **names;
+                        _cleanup_strv_free_ char **names = NULL;
                         char **s;
 
                         names = strv_split(optarg, ":");
@@ -430,7 +430,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         STRV_FOREACH(s, names)
                                 if (!fdname_is_valid(*s)) {
-                                        _cleanup_free_ char *esc;
+                                        _cleanup_free_ char *esc = NULL;
 
                                         esc = cescape(*s);
                                         log_warning("File descriptor name \"%s\" is not valid.", esc);

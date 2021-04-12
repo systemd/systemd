@@ -289,7 +289,7 @@ static int wall_tty_block(void) {
 }
 
 static int process_password_files(void) {
-        _cleanup_closedir_ DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 

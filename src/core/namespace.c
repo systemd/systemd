@@ -2092,7 +2092,7 @@ int setup_namespace(
                 }
 
                 if (log_namespace) {
-                        _cleanup_free_ char *q;
+                        _cleanup_free_ char *q = NULL;
 
                         q = strjoin("/run/systemd/journal.", log_namespace);
                         if (!q) {
@@ -2331,7 +2331,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         }
 
         LIST_FOREACH(mount_options, i, item->mount_options) {
-                _cleanup_(mount_options_free_allp) MountOptions *o;
+                _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
 
                 o = new(MountOptions, 1);
                 if (!o)

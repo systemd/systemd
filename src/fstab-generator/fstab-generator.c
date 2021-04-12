@@ -460,7 +460,7 @@ static int add_mount(
                 return r;
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = specifier_escape(fstype);
                 if (!t)

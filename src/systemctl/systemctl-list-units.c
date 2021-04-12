@@ -24,7 +24,7 @@ static int get_unit_list_recursive(
                 char ***ret_machines) {
 
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_(message_set_freep) Set *replies;
+        _cleanup_(message_set_freep) Set *replies = NULL;
         sd_bus_message *reply;
         int c, r;
 

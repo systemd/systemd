@@ -485,7 +485,7 @@ int config_parse_n_autovts(
 static int vt_is_busy(unsigned vtnr) {
         struct vt_stat vt_stat;
         int r;
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
 

@@ -772,7 +772,7 @@ void lookup_paths_log(LookupPaths *p) {
                 log_debug("Ignoring unit files.");
                 p->search_path = strv_free(p->search_path);
         } else {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strv_join(p->search_path, "\n\t");
                 log_debug("Looking for unit files in (higher priority first):\n\t%s", strna(t));

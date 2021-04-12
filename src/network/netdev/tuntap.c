@@ -46,7 +46,7 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
 }
 
 static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
         TunTap *t = NULL;
         const char *user;
         const char *group;

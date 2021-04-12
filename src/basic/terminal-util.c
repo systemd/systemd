@@ -52,7 +52,7 @@ static volatile int cached_color_mode = _COLOR_INVALID;
 static volatile int cached_underline_enabled = -1;
 
 int chvt(int vt) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
@@ -514,7 +514,7 @@ int terminal_vhangup_fd(int fd) {
 }
 
 int terminal_vhangup(const char *name) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)

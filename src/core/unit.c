@@ -557,7 +557,7 @@ static void unit_free_requires_mounts_for(Unit *u) {
         assert(u);
 
         for (;;) {
-                _cleanup_free_ char *path;
+                _cleanup_free_ char *path = NULL;
 
                 path = hashmap_steal_first_key(u->requires_mounts_for);
                 if (!path)
@@ -1063,7 +1063,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
 
                 char **dp;
                 STRV_FOREACH(dp, c->directories[dt].paths) {
-                        _cleanup_free_ char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         p = path_join(u->manager->prefix[dt], *dp);
                         if (!p)
@@ -2184,7 +2184,7 @@ static int unit_log_resources(Unit *u) {
         if (n_message_parts == 0)
                 t = strjoina("MESSAGE=", u->id, ": Completed.");
         else {
-                _cleanup_free_ char *joined;
+                _cleanup_free_ char *joined = NULL;
 
                 message_parts[n_message_parts] = NULL;
 

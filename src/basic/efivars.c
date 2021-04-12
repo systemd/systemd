@@ -350,7 +350,7 @@ int cache_efi_options_variable(void) {
          * (NB: For testing purposes, we still check the $SYSTEMD_EFI_OPTIONS env var before accessing this
          * cache, even when in SecureBoot mode.) */
         if (is_efi_secure_boot()) {
-                _cleanup_free_ char *k;
+                _cleanup_free_ char *k = NULL;
 
                 k = efi_variable_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
                 if (!k)

@@ -134,7 +134,7 @@ int machine_save(Machine *m) {
                 m->name);
 
         if (m->unit) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->unit);
                 if (!escaped) {
@@ -149,7 +149,7 @@ int machine_save(Machine *m) {
                 fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
 
         if (m->service) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->service);
                 if (!escaped) {
@@ -160,7 +160,7 @@ int machine_save(Machine *m) {
         }
 
         if (m->root_directory) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->root_directory);
                 if (!escaped) {

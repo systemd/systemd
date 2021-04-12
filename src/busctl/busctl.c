@@ -797,7 +797,7 @@ static Set* member_set_free(Set *s) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);
 
 static int on_interface(const char *interface, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -828,7 +828,7 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
 }
 
 static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -871,7 +871,7 @@ static int on_method(const char *interface, const char *name, const char *signat
 }
 
 static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -910,7 +910,7 @@ static int on_signal(const char *interface, const char *name, const char *signat
 }
 
 static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m;
+        _cleanup_(member_freep) Member *m = NULL;
         Set *members = userdata;
         int r;
 
