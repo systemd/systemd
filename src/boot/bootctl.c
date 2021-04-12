@@ -312,7 +312,7 @@ static int status_variables(void) {
 }
 
 static int boot_entry_file_check(const char *root, const char *p) {
-        _cleanup_free_ char *path;
+        _cleanup_free_ char *path = NULL;
 
         path = path_join(root, p);
         if (!path)
