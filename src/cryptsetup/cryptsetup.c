@@ -739,6 +739,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         int keyslot = arg_key_slot, r;
         const char *rp_id;
         const void *cid;
+        Fido2EnrollFlags required;
 
         assert(cd);
         assert(name);
@@ -759,13 +760,18 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 &discovered_salt_size,
                                 &discovered_cid,
                                 &discovered_cid_size,
-                                &keyslot);
+                                &keyslot,
+                                &required);
 
                 if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
                 if (r < 0)
                         return r;
+
+                if (FLAGS_SET(required, FIDO2ENROLL_PIN) && arg_headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "A PIN is required to unlock this volume, but the 'headless' parameter was set.");
 
                 rp_id = discovered_rp_id;
                 key_data = discovered_salt;
@@ -791,6 +797,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 key_data, key_data_size,
                                 until,
                                 arg_headless,
+                                required,
                                 &decrypted_key, &decrypted_key_size);
                 if (r >= 0)
                         break;

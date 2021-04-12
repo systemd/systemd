@@ -3,6 +3,12 @@
 
 #include "macro.h"
 
+typedef enum Fido2EnrollFlags {
+        FIDO2ENROLL_PIN           = 1 << 0,
+        _FIDO2ENROLL_TYPE_MAX,
+        _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
+} Fido2EnrollFlags;
+
 #if HAVE_LIBFIDO2
 #include <fido.h>
 
@@ -81,6 +87,7 @@ int fido2_use_hmac_hash(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                Fido2EnrollFlags required,
                 void **ret_hmac,
                 size_t *ret_hmac_size);
 
@@ -93,6 +100,7 @@ int fido2_generate_hmac_hash(
                 const char *user_display_name,
                 const char *user_icon,
                 const char *askpw_icon_name,
+                Fido2EnrollFlags lock_with,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,

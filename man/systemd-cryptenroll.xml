@@ -126,6 +126,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        enter a PIN when unlocking the volume. Defaults to <literal>yes</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Enroll a TPM2 security chip. Expects a device node path referring to the TPM2 chip

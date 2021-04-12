@@ -219,6 +219,7 @@ static int fido2_use_hmac_hash_specific_token(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                Fido2EnrollFlags required, /* client pin required */
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
@@ -249,6 +250,11 @@ static int fido2_use_hmac_hash_specific_token(
         r = verify_features(d, path, LOG_ERR, NULL, &has_client_pin, &has_up, NULL);
         if (r < 0)
                 return r;
+
+        if (!has_client_pin && FLAGS_SET(required, FIDO2ENROLL_PIN))
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                       "PIN required to unlock, but FIDO2 device %s does not support it.",
+                                       path);
 
         a = sym_fido_assert_new();
         if (!a)
@@ -303,7 +309,7 @@ static int fido2_use_hmac_hash_specific_token(
 
                 r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin but with up now */
         }
-        if (r == FIDO_ERR_PIN_REQUIRED) {
+        if (FLAGS_SET(required, FIDO2ENROLL_PIN)) {
                 char **i;
 
                 if (!has_client_pin)
@@ -367,6 +373,7 @@ int fido2_use_hmac_hash(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                Fido2EnrollFlags required, /* client pin required */
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
@@ -379,7 +386,7 @@ int fido2_use_hmac_hash(
                 return log_error_errno(r, "FIDO2 support is not installed.");
 
         if (device)
-                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, up, ret_hmac, ret_hmac_size);
+                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, up, required, ret_hmac, ret_hmac_size);
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
@@ -414,7 +421,7 @@ int fido2_use_hmac_hash(
                         goto finish;
                 }
 
-                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, up, ret_hmac, ret_hmac_size);
+                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, up, required, ret_hmac, ret_hmac_size);
                 if (!IN_SET(r,
                             -EBADSLT, /* device doesn't understand our credential hash */
                             -ENODEV   /* device is not a FIDO2 device with HMAC-SECRET */))
@@ -439,6 +446,7 @@ int fido2_generate_hmac_hash(
                 const char *user_display_name,
                 const char *user_icon,
                 const char *askpw_icon_name,
+                Fido2EnrollFlags lock_with,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
@@ -502,6 +510,11 @@ int fido2_generate_hmac_hash(
         r = verify_features(d, device, LOG_ERR, &has_rk, &has_client_pin, &has_up, &has_uv);
         if (r < 0)
                 return r;
+
+        if (!has_client_pin && FLAGS_SET(lock_with, FIDO2ENROLL_PIN))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Requested to lock with PIN, but FIDO2 device %s does not support it.",
+                                       device);
 
         c = sym_fido_cred_new();
         if (!c)
@@ -648,7 +661,7 @@ int fido2_generate_hmac_hash(
 
         log_info("Generating secret key on FIDO2 security token.");
 
-        r = sym_fido_dev_get_assert(d, a, used_pin);
+        r = sym_fido_dev_get_assert(d, a, FLAGS_SET(lock_with, FIDO2ENROLL_PIN) ? used_pin : NULL);
         if (r == FIDO_ERR_UP_REQUIRED) {
 
                 if (!has_up)
@@ -663,7 +676,7 @@ int fido2_generate_hmac_hash(
                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
                            emoji_enabled() ? " " : "");
 
-                r = sym_fido_dev_get_assert(d, a, used_pin);
+                r = sym_fido_dev_get_assert(d, a, FLAGS_SET(lock_with, FIDO2ENROLL_PIN) ? used_pin : NULL);
         }
         if (r == FIDO_ERR_ACTION_TIMEOUT)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
