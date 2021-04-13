@@ -185,7 +185,7 @@ node /org/freedesktop/portable1 {
 
       <para><function>GetImageMetadataWithExtensions()</function> retrieves metadata associated with an image.
       This method is a superset of <function>GetImageMetadata()</function> with the addition of
-      a list of extensions as input parameter, which were overlayed on top of the main
+      a list of extensions as input parameter, which were overlaid on top of the main
       image via <function>AttachImageWithExtensions()</function>.
       The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
 
@@ -239,7 +239,7 @@ node /org/freedesktop/portable1 {
 
       <para><function>AttachImageWithExtensions()</function> attaches a portable image to the system.
       This method is a superset of <function>AttachImage()</function> with the addition of
-      a list of extensions as input parameter, which will be overlayed on top of the main
+      a list of extensions as input parameter, which will be overlaid on top of the main
       image. When this method is used, detaching must be done by passing the same arguments via the
       <function>DetachImageWithExtensions()</function> method. For more details on this functionality,
       see the <varname>MountImages=</varname> entry on
@@ -261,7 +261,7 @@ node /org/freedesktop/portable1 {
 
       <para><function>DetachImageWithExtensions()</function> detaches a portable image from the system.
       This method is a superset of <function>DetachImage()</function> with the addition of
-      a list of extensions as input parameter, which were overlayed on top of the main
+      a list of extensions as input parameter, which were overlaid on top of the main
       image via <function>AttachImageWithExtensions()</function>.
       The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
 
@@ -276,7 +276,7 @@ node /org/freedesktop/portable1 {
 
       <para><function>ReattachImageWithExtensions()</function> reattaches a portable image to the system.
       This method is a superset of <function>ReattachImage()</function> with the addition of
-      a list of extensions as input parameter, which will be overlayed on top of the main
+      a list of extensions as input parameter, which will be overlaid on top of the main
       image. For more details on this functionality, see the <varname>MountImages=</varname> entry on
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       and <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.

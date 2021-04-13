@@ -352,9 +352,9 @@
         <listitem><para> A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_" and
         "-"), identifying a specific image of the operating system. This is supposed to be used for
         environments where OS images are prepared, built, shipped and updated as comprehensive, consistent OS
-        images. This field is optional and may not be implemented on all systems, in particulary not on those
+        images. This field is optional and may not be implemented on all systems, in particularly not on those
         that are not managed via images but put together and updated from individual packages and on the
-        local system.  Examples: <literal>IMAGE_ID=vendorx-cashier-system</literal>,
+        local system. Examples: <literal>IMAGE_ID=vendorx-cashier-system</literal>,
         <literal>IMAGE_ID=netbook-image</literal> </para></listitem>
       </varlistentry>
 

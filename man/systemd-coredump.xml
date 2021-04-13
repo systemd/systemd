@@ -359,7 +359,7 @@ flags:   ...
 
         <listitem><para>If the executable contained .package metadata ELF notes, they will be
         parsed and attached. The <varname>package</varname> and <varname>packageVersion</varname>
-        of the 'main' ELF module (ie: the excutable) will be appended individually. The
+        of the 'main' ELF module (ie: the executable) will be appended individually. The
         JSON-formatted content of all modules will be appended as a single JSON object, each with
         the module name as the key. For more information about this metadata format and content, see
         <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">the coredump metadata spec</ulink>.</para>
