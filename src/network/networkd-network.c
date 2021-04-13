@@ -41,45 +41,6 @@
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128
 
-/* Set defaults following RFC7844 */
-void network_apply_anonymize_if_set(Network *network) {
-        if (!network->dhcp_anonymize)
-                return;
-        /* RFC7844 3.7
-         SHOULD NOT send the Host Name option */
-        network->dhcp_send_hostname = false;
-        /* RFC7844 section 3.:
-         MAY contain the Client Identifier option
-         Section 3.5:
-         clients MUST use client identifiers based solely
-         on the link-layer address */
-        /* NOTE: Using MAC, as it does not reveal extra information,
-        * and some servers might not answer if this option is not sent */
-        network->dhcp_client_identifier = DHCP_CLIENT_ID_MAC;
-        /* RFC 7844 3.10:
-         SHOULD NOT use the Vendor Class Identifier option */
-        network->dhcp_vendor_class_identifier = mfree(network->dhcp_vendor_class_identifier);
-        /* RFC7844 section 3.6.:
-         The client intending to protect its privacy SHOULD only request a
-         minimal number of options in the PRL and SHOULD also randomly shuffle
-         the ordering of option codes in the PRL. If this random ordering
-         cannot be implemented, the client MAY order the option codes in the
-         PRL by option code number (lowest to highest).
-        */
-        /* NOTE: dhcp_use_mtu is false by default,
-        * though it was not initiallized to any value in network_load_one.
-        * Maybe there should be another var called *send*?
-        * (to use the MTU sent by the server but to do not send
-        * the option in the PRL). */
-        network->dhcp_use_mtu = false;
-        /* NOTE: when Anonymize=yes, the PRL route options are sent by default,
-         * but this is needed to use them. */
-        network->dhcp_use_routes = true;
-        /* RFC7844 section 3.6.
-        * same comments as previous option */
-        network->dhcp_use_timezone = false;
-}
-
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret_netdev) {
         const char *kind_string;
         NetDev *netdev;
@@ -223,9 +184,6 @@ int network_verify(Network *network) {
                 network->dhcp_use_mtu = false;
         }
 
-        if (network->dhcp_use_gateway < 0)
-                network->dhcp_use_gateway = network->dhcp_use_routes;
-
         if (network->dhcp_critical >= 0) {
                 if (network->keep_configuration >= 0)
                         log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
@@ -353,19 +311,19 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
                 .dhcp_use_gateway = -1,
-                /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
+                /* NOTE: this var might be overwritten by network_adjust_dhcp4() */
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
                 /* To enable/disable RFC7844 Anonymity Profiles */
                 .dhcp_anonymize = false,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
-                /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
+                /* NOTE: this var might be overwritten by network_adjust_dhcp4() */
                 .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_route_table_set = false,
-                /* NOTE: from man: UseMTU=... Defaults to false*/
+                /* NOTE: from man: UseMTU=... Defaults to false */
                 .dhcp_use_mtu = false,
-                /* NOTE: from man: UseTimezone=... Defaults to "no".*/
+                /* NOTE: from man: UseTimezone=... Defaults to "no". */
                 .dhcp_use_timezone = false,
                 .dhcp_ip_service_type = -1,
 
@@ -504,8 +462,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         &network->timestamp);
         if (r < 0)
                 return r;
-
-        network_apply_anonymize_if_set(network);
 
         r = network_add_ipv4ll_route(network);
         if (r < 0)
