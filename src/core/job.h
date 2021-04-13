@@ -6,7 +6,9 @@
 #include "sd-event.h"
 
 #include "list.h"
+#include "unit-dependency-atom.h"
 #include "unit-name.h"
+#include "unit.h"
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
@@ -240,4 +242,4 @@ JobResult job_result_from_string(const char *s) _pure_;
 
 const char* job_type_to_access_method(JobType t);
 
-int job_compare(Job *a, Job *b, UnitDependency assume_dep);
+int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep);

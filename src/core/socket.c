@@ -2340,11 +2340,9 @@ static void socket_enter_running(Socket *s, int cfd_in) {
         if (cfd < 0) {
                 bool pending = false;
                 Unit *other;
-                void *v;
 
-                /* If there's already a start pending don't bother to
-                 * do anything */
-                HASHMAP_FOREACH_KEY(v, other, UNIT(s)->dependencies[UNIT_TRIGGERS])
+                /* If there's already a start pending don't bother to do anything */
+                UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_TRIGGERS)
                         if (unit_active_or_pending(other)) {
                                 pending = true;
                                 break;

@@ -1245,12 +1245,11 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                void *v;
                 Unit *u;
 
                 /* Pass all our configured sockets for singleton services */
 
-                HASHMAP_FOREACH_KEY(v, u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY]) {
+                UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         Socket *sock;
                         int cn_fds;

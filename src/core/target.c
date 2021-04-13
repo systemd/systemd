@@ -35,34 +35,31 @@ static void target_set_state(Target *t, TargetState state) {
 }
 
 static int target_add_default_dependencies(Target *t) {
-
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRES,
-                UNIT_REQUISITE,
-                UNIT_WANTS,
-                UNIT_BINDS_TO,
-                UNIT_PART_OF
-        };
-
-        int r;
+        _cleanup_free_ Unit **others = NULL;
+        int r, n_others;
 
         assert(t);
 
         if (!UNIT(t)->default_dependencies)
                 return 0;
 
-        /* Imply ordering for requirement dependencies on target units. Note that when the user created a contradicting
-         * ordering manually we won't add anything in here to make sure we don't create a loop. */
+        /* Imply ordering for requirement dependencies on target units. Note that when the user created a
+         * contradicting ordering manually we won't add anything in here to make sure we don't create a
+         * loop.
+         *
+         * Note that quite likely iterating through these dependencies will add new dependencies, which
+         * conflicts with the hashmap-based iteration logic. Hence, instead of iterating through the
+         * dependencies and acting on them as we go, first take an "atomic snapshot" of sorts and iterate
+         * through that. */
 
-        for (size_t k = 0; k < ELEMENTSOF(deps); k++) {
-                Unit *other;
-                void *v;
+        n_others = unit_get_dependency_array(UNIT(t), UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE, &others);
+        if (n_others < 0)
+                return n_others;
 
-                HASHMAP_FOREACH_KEY(v, other, UNIT(t)->dependencies[deps[k]]) {
-                        r = unit_add_default_target_dependency(other, UNIT(t));
-                        if (r < 0)
-                                return r;
-                }
+        for (int i = 0; i < n_others; i++) {
+                r = unit_add_default_target_dependency(others[i], UNIT(t));
+                if (r < 0)
+                        return r;
         }
 
         if (unit_has_name(UNIT(t), SPECIAL_SHUTDOWN_TARGET))

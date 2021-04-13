@@ -735,7 +735,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 UnitDependencyInfo di;
                 Unit *other;
 
-                HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d]) {
+                HASHMAP_FOREACH_KEY(di.data, other, unit_get_dependencies(u, d)) {
                         bool space = false;
 
                         fprintf(f, "%s\t%s: %s (", prefix, unit_dependency_to_string(d), other->id);
