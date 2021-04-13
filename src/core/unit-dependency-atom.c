@@ -66,6 +66,11 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
                                         UNIT_ATOM_RETROACTIVE_STOP_ON_START |
                                         UNIT_ATOM_PROPAGATE_STOP_FAILURE,
 
+        [UNIT_PROPAGATES_STOP_TO]     = UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
+                                        UNIT_ATOM_PROPAGATE_STOP,
+
+        [UNIT_STOP_PROPAGATED_FROM]   = 0,
+
         /* These are simple dependency types: they consist of a single atom only */
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
@@ -144,7 +149,6 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
                 UNIT_ATOM_PROPAGATE_START_FAILURE |
                 UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                 UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES:
-        case UNIT_ATOM_RETROACTIVE_STOP_ON_STOP:
                 return UNIT_BOUND_BY;
 
         case UNIT_ATOM_CONFLICT_MATTERS |
