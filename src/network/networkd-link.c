@@ -2806,6 +2806,12 @@ static int link_update(Link *link, sd_netlink_message *m) {
                                 return log_link_warning_errno(link, r, "Could not update MAC for NDisc: %m");
                 }
 
+                if (link->lldp) {
+                        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MAC address for LLDP: %m");
+                }
+
                 r = ipv4_dad_update_mac(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");

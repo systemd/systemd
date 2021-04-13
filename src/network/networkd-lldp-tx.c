@@ -378,7 +378,7 @@ int link_lldp_emit_start(Link *link) {
         link->lldp_tx_fast = LLDP_TX_FAST_INIT;
 
         next = usec_add(usec_add(now(clock_boottime_or_monotonic()), LLDP_FAST_TX_USEC),
-                     (usec_t) random_u64() % LLDP_JITTER_USEC);
+                        (usec_t) random_u64() % LLDP_JITTER_USEC);
 
         if (link->lldp_emit_event_source) {
                 usec_t old;
