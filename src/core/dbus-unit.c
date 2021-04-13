@@ -870,6 +870,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PropagatesStopTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StopPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SliceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RequiresMountsFor", "as", property_get_requires_mounts_for, offsetof(Unit, requires_mounts_for), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2302,6 +2304,8 @@ static int bus_unit_set_transient_property(
                             UNIT_ON_FAILURE,
                             UNIT_PROPAGATES_RELOAD_TO,
                             UNIT_RELOAD_PROPAGATED_FROM,
+                            UNIT_PROPAGATES_STOP_TO,
+                            UNIT_STOP_PROPAGATED_FROM,
                             UNIT_JOINS_NAMESPACE_OF))
                     return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Dependency type %s may not be created transiently.", unit_dependency_to_string(d));
 
