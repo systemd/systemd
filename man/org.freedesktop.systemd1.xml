@@ -1640,6 +1640,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ReloadPropagatedFrom = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as PropagatesStopTo = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as StopPropagatedFrom = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as JoinsNamespaceOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as SliceOf = ['...', ...];
@@ -1778,6 +1782,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property OnFailureOf is not documented!-->
 
     <!--property ReloadPropagatedFrom is not documented!-->
+
+    <!--property PropagatesStopTo is not documented!-->
+
+    <!--property StopPropagatedFrom is not documented!-->
 
     <!--property JoinsNamespaceOf is not documented!-->
 
@@ -1918,6 +1926,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="PropagatesReloadTo"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadPropagatedFrom"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PropagatesStopTo"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StopPropagatedFrom"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="JoinsNamespaceOf"/>
 
