@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 systemd-run --wait -p FailureAction=poweroff true
