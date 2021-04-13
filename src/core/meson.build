@@ -117,6 +117,8 @@ libcore_sources = '''
         timer.h
         transaction.c
         transaction.h
+        unit-dependency-atom.c
+        unit-dependency-atom.h
         unit-printf.c
         unit-printf.h
         unit-serialize.c

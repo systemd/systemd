@@ -468,7 +468,7 @@ static void device_upgrade_mount_deps(Unit *u) {
 
         /* Let's upgrade Requires= to BindsTo= on us. (Used when SYSTEMD_MOUNT_DEVICE_BOUND is set) */
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRED_BY]) {
+        HASHMAP_FOREACH_KEY(v, other, unit_get_dependencies(u, UNIT_REQUIRED_BY)) {
                 if (other->type != UNIT_MOUNT)
                         continue;
 

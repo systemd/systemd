@@ -1141,12 +1141,11 @@ enum {
 
 static void unit_gc_mark_good(Unit *u, unsigned gc_marker) {
         Unit *other;
-        void *v;
 
         u->gc_marker = gc_marker + GC_OFFSET_GOOD;
 
         /* Recursively mark referenced units as GOOD as well */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REFERENCES])
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_REFERENCES)
                 if (other->gc_marker == gc_marker + GC_OFFSET_UNSURE)
                         unit_gc_mark_good(other, gc_marker);
 }
@@ -1154,7 +1153,6 @@ static void unit_gc_mark_good(Unit *u, unsigned gc_marker) {
 static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         Unit *other;
         bool is_bad;
-        void *v;
 
         assert(u);
 
@@ -1172,7 +1170,7 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
         is_bad = true;
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REFERENCED_BY]) {
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_REFERENCED_BY) {
                 unit_gc_sweep(other, gc_marker);
 
                 if (other->gc_marker == gc_marker + GC_OFFSET_GOOD)
@@ -1870,30 +1868,20 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
         Unit *u;
         int r = 0;
 
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRED_BY,
-                UNIT_REQUISITE_OF,
-                UNIT_WANTED_BY,
-                UNIT_BOUND_BY
-        };
-
         assert(m);
 
         while ((u = m->target_deps_queue)) {
+                Unit *target;
+
                 assert(u->in_target_deps_queue);
 
                 LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
                 u->in_target_deps_queue = false;
 
-                for (size_t k = 0; k < ELEMENTSOF(deps); k++) {
-                        Unit *target;
-                        void *v;
-
-                        HASHMAP_FOREACH_KEY(v, target, u->dependencies[deps[k]]) {
-                                r = unit_add_default_target_dependency(u, target);
-                                if (r < 0)
-                                        return r;
-                        }
+                UNIT_FOREACH_DEPENDENCY(target, u, UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES) {
+                        r = unit_add_default_target_dependency(u, target);
+                        if (r < 0)
+                                return r;
                 }
         }
 
