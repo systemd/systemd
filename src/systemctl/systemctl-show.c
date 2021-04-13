@@ -2129,7 +2129,7 @@ int show(int argc, char *argv[], void *userdata) {
                                 return r;
 
                         STRV_FOREACH(name, names) {
-                                _cleanup_free_ char *path;
+                                _cleanup_free_ char *path = NULL;
 
                                 path = unit_dbus_path_from_name(*name);
                                 if (!path)

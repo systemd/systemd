@@ -588,7 +588,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
         const char *p;
         struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd;
+        _cleanup_close_ int proc_ns_dir_fd = -1;
 
         p = procfs_file_alloca(pid, "ns");
 

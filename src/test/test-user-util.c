@@ -366,7 +366,7 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
 static void test_make_salt(void) {
         log_info("/* %s */", __func__);
 
-        _cleanup_free_ char *s, *t;
+        _cleanup_free_ char *s = NULL, *t = NULL;
 
         assert_se(make_salt(&s) == 0);
         log_info("got %s", s);

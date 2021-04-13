@@ -34,7 +34,7 @@
 #include "time-util.h"
 
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
-        _cleanup_(free_sleep_configp) SleepConfig *sc;
+        _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
         int allow_suspend = -1, allow_hibernate = -1,
             allow_s2h = -1, allow_hybrid_sleep = -1;
 
