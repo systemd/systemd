@@ -275,6 +275,7 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
         [UNIT_ON_FAILURE] = "OnFailure",
+        [UNIT_ON_FAILURE_OF] = "OnFailureOf",
         [UNIT_TRIGGERS] = "Triggers",
         [UNIT_TRIGGERED_BY] = "TriggeredBy",
         [UNIT_PROPAGATES_RELOAD_TO] = "PropagatesReloadTo",
