@@ -434,7 +434,7 @@ static void test_write_string_stream(void) {
 static void test_write_string_file(void) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file-XXXXXX";
         char buf[64] = {};
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -447,7 +447,7 @@ static void test_write_string_file(void) {
 
 static void test_write_string_file_no_create(void) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file_no_create-XXXXXX";
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
         char buf[64] = {};
 
         fd = mkostemp_safe(fn);

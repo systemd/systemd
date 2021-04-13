@@ -2950,7 +2950,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, UnitFilePrese
                 return r;
 
         STRV_FOREACH(p, files) {
-                _cleanup_fclose_ FILE *f;
+                _cleanup_fclose_ FILE *f = NULL;
                 int n = 0;
 
                 f = fopen(*p, "re");

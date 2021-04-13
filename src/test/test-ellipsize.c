@@ -79,7 +79,7 @@ static void test_ellipsize_mem(void) {
 }
 
 static void test_ellipsize_one(const char *p) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
         t = ellipsize(p, columns(), 70);
         puts(t);
         free(t);

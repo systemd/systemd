@@ -200,7 +200,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
 
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const void *packet, size_t len) {
         size_t size;
-        _cleanup_free_ DHCPPacket *discover;
+        _cleanup_free_ DHCPPacket *discover = NULL;
         uint16_t ip_check, udp_check;
 
         assert_se(s >= 0);
@@ -545,7 +545,7 @@ static void test_addr_acq(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         test_setup_logging(LOG_DEBUG);
 

@@ -33,7 +33,7 @@ int find_key_file(
         }
 
         STRV_FOREACH(i, search_path) {
-                _cleanup_free_ char *joined;
+                _cleanup_free_ char *joined = NULL;
 
                 joined = path_join(*i, key_file);
                 if (!joined)
