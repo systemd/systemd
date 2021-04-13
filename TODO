@@ -48,7 +48,7 @@ Features:
 
 * add a switch to homectl (maybe called --first-boot) where it will check if
   any non-system users exist, and if not prompts interactively for basic user
-  info, mimicing systemd-firstboot. Then, place this in a service that runs
+  info, mimicking systemd-firstboot. Then, place this in a service that runs
   after systemd-homed, but before gdm and friends, as a simple, barebones
   fallback logic to get a regular user created on uninitialized systems.
 
