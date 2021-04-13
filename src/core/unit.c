@@ -85,8 +85,6 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE] = &scope_vtable,
 };
 
-static void maybe_warn_about_dependency(Unit *u, const char *other, UnitDependency dependency);
-
 Unit* unit_new(Manager *m, size_t size) {
         Unit *u;
 
@@ -508,22 +506,26 @@ void unit_submit_to_stop_when_unneeded_queue(Unit *u) {
         u->in_stop_when_unneeded_queue = true;
 }
 
-static void bidi_set_free(Unit *u, Hashmap *h) {
-        Unit *other;
-        void *v;
-
+static void unit_clear_dependencies(Unit *u) {
         assert(u);
 
-        /* Frees the hashmap and makes sure we are dropped from the inverse pointers */
+        /* Removes all dependencies configured on u and their reverse dependencies. */
 
-        HASHMAP_FOREACH_KEY(v, other, h) {
-                for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                        hashmap_remove(other->dependencies[d], u);
+        for (Hashmap *deps; (deps = hashmap_steal_first(u->dependencies));) {
 
-                unit_add_to_gc_queue(other);
+                for (Unit *other; (other = hashmap_steal_first_key(deps));) {
+                        Hashmap *other_deps;
+
+                        HASHMAP_FOREACH(other_deps, other->dependencies)
+                                hashmap_remove(other_deps, u);
+
+                        unit_add_to_gc_queue(other);
+                }
+
+                hashmap_free(deps);
         }
 
-        hashmap_free(h);
+        u->dependencies = hashmap_free(u->dependencies);
 }
 
 static void unit_remove_transient(Unit *u) {
@@ -656,8 +658,7 @@ Unit* unit_free(Unit *u) {
                 job_free(j);
         }
 
-        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                bidi_set_free(u, u->dependencies[d]);
+        unit_clear_dependencies(u);
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
          * detach the unit from slice tree in order to eliminate its effect on controller masks. */
@@ -809,22 +810,7 @@ const char* unit_sub_state_to_string(Unit *u) {
         return UNIT_VTABLE(u)->sub_state_to_string(u);
 }
 
-static int hashmap_complete_move(Hashmap **s, Hashmap **other) {
-        assert(s);
-        assert(other);
-
-        if (!*other)
-                return 0;
-
-        if (*s)
-                return hashmap_move(*s, *other);
-        else
-                *s = TAKE_PTR(*other);
-
-        return 0;
-}
-
-static int merge_names(Unit *u, Unit *other) {
+static int unit_merge_names(Unit *u, Unit *other) {
         char *name;
         int r;
 
@@ -850,87 +836,252 @@ static int merge_names(Unit *u, Unit *other) {
         return 0;
 }
 
-static int reserve_dependencies(Unit *u, Unit *other, UnitDependency d) {
-        unsigned n_reserve;
-
-        assert(u);
-        assert(other);
-        assert(d < _UNIT_DEPENDENCY_MAX);
-
-        /*
-         * If u does not have this dependency set allocated, there is no need
-         * to reserve anything. In that case other's set will be transferred
-         * as a whole to u by complete_move().
-         */
-        if (!u->dependencies[d])
-                return 0;
-
-        /* merge_dependencies() will skip a u-on-u dependency */
-        n_reserve = hashmap_size(other->dependencies[d]) - !!hashmap_get(other->dependencies[d], u);
-
-        return hashmap_reserve(u->dependencies[d], n_reserve);
-}
-
-static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitDependency d) {
-        Unit *back;
-        void *v;
+static int unit_reserve_dependencies(Unit *u, Unit *other) {
+        size_t n_reserve;
+        Hashmap* deps;
+        void *d;
         int r;
 
-        /* Merges all dependencies of type 'd' of the unit 'other' into the deps of the unit 'u' */
+        assert(u);
+        assert(other);
+
+        /* Let's reserve some space in the dependency hashmaps so that later on merging the units cannot
+         * fail.
+         *
+         * First make some room in the per dependency type hashmaps. Using the summed size of both unit's
+         * hashmaps is an estimate that is likely too high since they probably use some of the same
+         * types. But it's never too low, and that's all we need. */
+
+        n_reserve = MIN(hashmap_size(other->dependencies), LESS_BY((size_t) _UNIT_DEPENDENCY_MAX, hashmap_size(u->dependencies)));
+        if (n_reserve > 0) {
+                r = hashmap_ensure_allocated(&u->dependencies, NULL);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_reserve(u->dependencies, n_reserve);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Now, enlarge our per dependency type hashmaps by the number of entries in the same hashmap of the
+         * other unit's dependencies.
+         *
+         * NB: If u does not have a dependency set allocated for some dependency type, there is no need to
+         * reserve anything for. In that case other's set will be transferred as a whole to u by
+         * complete_move(). */
+
+        HASHMAP_FOREACH_KEY(deps, d, u->dependencies) {
+                Hashmap *other_deps;
+
+                other_deps = hashmap_get(other->dependencies, d);
+
+                r = hashmap_reserve(deps, hashmap_size(other_deps));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static void unit_maybe_warn_about_dependency(
+                Unit *u,
+                const char *other_id,
+                UnitDependency dependency) {
+
+        assert(u);
+
+        /* Only warn about some unit types */
+        if (!IN_SET(dependency,
+                    UNIT_CONFLICTS,
+                    UNIT_CONFLICTED_BY,
+                    UNIT_BEFORE,
+                    UNIT_AFTER,
+                    UNIT_ON_FAILURE,
+                    UNIT_TRIGGERS,
+                    UNIT_TRIGGERED_BY))
+                return;
+
+        if (streq_ptr(u->id, other_id))
+                log_unit_warning(u, "Dependency %s=%s dropped", unit_dependency_to_string(dependency), u->id);
+        else
+                log_unit_warning(u, "Dependency %s=%s dropped, merged into %s", unit_dependency_to_string(dependency), strna(other_id), u->id);
+}
+
+static int unit_per_dependency_type_hashmap_update(
+                Hashmap *per_type,
+                Unit *other,
+                UnitDependencyMask origin_mask,
+                UnitDependencyMask destination_mask) {
+
+        UnitDependencyInfo info;
+        int r;
+
+        assert(other);
+        assert_cc(sizeof(void*) == sizeof(info));
+
+        /* Acquire the UnitDependencyInfo entry for the Unit* we are interested in, and update it if it
+         * exists, or insert it anew if not. */
+
+        info.data = hashmap_get(per_type, other);
+        if (info.data) {
+                /* Entry already exists. Add in our mask. */
+
+                if (FLAGS_SET(origin_mask, info.origin_mask) &&
+                    FLAGS_SET(destination_mask, info.destination_mask))
+                        return 0; /* NOP */
+
+                info.origin_mask |= origin_mask;
+                info.destination_mask |= destination_mask;
+
+                r = hashmap_update(per_type, other, info.data);
+        } else {
+                info = (UnitDependencyInfo) {
+                        .origin_mask = origin_mask,
+                        .destination_mask = destination_mask,
+                };
+
+                r = hashmap_put(per_type, other, info.data);
+        }
+        if (r < 0)
+                return r;
+
+
+        return 1;
+}
+
+static int unit_add_dependency_hashmap(
+                Hashmap **dependencies,
+                UnitDependency d,
+                Unit *other,
+                UnitDependencyMask origin_mask,
+                UnitDependencyMask destination_mask) {
+
+        Hashmap *per_type;
+        int r;
+
+        assert(dependencies);
+        assert(other);
+        assert(origin_mask < _UNIT_DEPENDENCY_MASK_FULL);
+        assert(destination_mask < _UNIT_DEPENDENCY_MASK_FULL);
+        assert(origin_mask > 0 || destination_mask > 0);
+
+        /* Ensure the top-level dependency hashmap exists that maps UnitDependency → Hashmap(Unit* →
+         * UnitDependencyInfo) */
+        r = hashmap_ensure_allocated(dependencies, NULL);
+        if (r < 0)
+                return r;
+
+        /* Acquire the inner hashmap, that maps Unit* → UnitDependencyInfo, for the specified dependency
+         * type, and if it's missing allocate it and insert it. */
+        per_type = hashmap_get(*dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+        if (!per_type) {
+                per_type = hashmap_new(NULL);
+                if (!per_type)
+                        return -ENOMEM;
+
+                r = hashmap_put(*dependencies, UNIT_DEPENDENCY_TO_PTR(d), per_type);
+                if (r < 0) {
+                        hashmap_free(per_type);
+                        return r;
+                }
+        }
+
+        return unit_per_dependency_type_hashmap_update(per_type, other, origin_mask, destination_mask);
+}
+
+static void unit_merge_dependencies(
+                Unit *u,
+                Unit *other) {
+
+        int r;
 
         assert(u);
         assert(other);
-        assert(d < _UNIT_DEPENDENCY_MAX);
 
-        /* Fix backwards pointers. Let's iterate through all dependent units of the other unit. */
-        HASHMAP_FOREACH_KEY(v, back, other->dependencies[d])
+        if (u == other)
+                return;
 
-                /* Let's now iterate through the dependencies of that dependencies of the other units,
-                 * looking for pointers back, and let's fix them up, to instead point to 'u'. */
-                for (UnitDependency k = 0; k < _UNIT_DEPENDENCY_MAX; k++)
+        for (;;) {
+                _cleanup_(hashmap_freep) Hashmap *other_deps = NULL;
+                UnitDependencyInfo di_back;
+                Unit *back;
+                void *dt; /* Actually of type UnitDependency, except that we don't bother casting it here,
+                           * since the hashmaps all want it as void pointer. */
+
+                /* Let's focus on one dependency type at a time, that 'other' has defined. */
+                other_deps = hashmap_steal_first_key_and_value(other->dependencies, &dt);
+                if (!other_deps)
+                        break; /* done! */
+
+                /* Now iterate through all dependencies of this dependency type, of 'other'. We refer to the
+                 * referenced units as 'back'. */
+                HASHMAP_FOREACH_KEY(di_back.data, back, other_deps) {
+                        Hashmap *back_deps;
+                        void *back_dt;
+
                         if (back == u) {
-                                /* Do not add dependencies between u and itself. */
-                                if (hashmap_remove(back->dependencies[k], other))
-                                        maybe_warn_about_dependency(u, other_id, k);
-                        } else {
-                                UnitDependencyInfo di_u, di_other;
-
-                                /* Let's drop this dependency between "back" and "other", and let's create it between
-                                 * "back" and "u" instead. Let's merge the bit masks of the dependency we are moving,
-                                 * and any such dependency which might already exist */
-
-                                di_other.data = hashmap_get(back->dependencies[k], other);
-                                if (!di_other.data)
-                                        continue; /* dependency isn't set, let's try the next one */
-
-                                di_u.data = hashmap_get(back->dependencies[k], u);
-
-                                UnitDependencyInfo di_merged = {
-                                        .origin_mask = di_u.origin_mask | di_other.origin_mask,
-                                        .destination_mask = di_u.destination_mask | di_other.destination_mask,
-                                };
-
-                                r = hashmap_remove_and_replace(back->dependencies[k], other, u, di_merged.data);
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to remove/replace: back=%s other=%s u=%s: %m", back->id, other_id, u->id);
-                                assert(r >= 0);
-
-                                /* assert_se(hashmap_remove_and_replace(back->dependencies[k], other, u, di_merged.data) >= 0); */
+                                /* This is a dependency pointing back to the unit we want to merge with?
+                                 * Suppress it (but warn) */
+                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                continue;
                         }
 
-        /* Also do not move dependencies on u to itself */
-        back = hashmap_remove(other->dependencies[d], u);
-        if (back)
-                maybe_warn_about_dependency(u, other_id, d);
+                        /* Now iterate through all deps of 'back', and fix the ones pointing to 'other' to
+                         * point to 'u' instead. */
+                        HASHMAP_FOREACH_KEY(back_deps, back_dt, back->dependencies) {
+                                UnitDependencyInfo di_move;
 
-        /* The move cannot fail. The caller must have performed a reservation. */
-        assert_se(hashmap_complete_move(&u->dependencies[d], &other->dependencies[d]) == 0);
+                                di_move.data = hashmap_remove(back_deps, other);
+                                if (!di_move.data)
+                                        continue;
 
-        other->dependencies[d] = hashmap_free(other->dependencies[d]);
+                                assert_se(unit_per_dependency_type_hashmap_update(
+                                                          back_deps,
+                                                          u,
+                                                          di_move.origin_mask,
+                                                          di_move.destination_mask) >= 0);
+                        }
+                }
+
+                /* Now all references towards 'other' of the current type 'dt' are corrected to point to
+                 * 'u'. Lets's now move the deps of type 'dt' from 'other' to 'u'. First, let's try to move
+                 * them per type wholesale. */
+                r = hashmap_put(u->dependencies, dt, other_deps);
+                if (r == -EEXIST) {
+                        Hashmap *deps;
+
+                        /* The target unit already has dependencies of this type, let's then merge this individually. */
+
+                        assert_se(deps = hashmap_get(u->dependencies, dt));
+
+                        for (;;) {
+                                UnitDependencyInfo di_move;
+
+                                /* Get first dep */
+                                di_move.data = hashmap_steal_first_key_and_value(other_deps, (void**) &back);
+                                if (!di_move.data)
+                                        break; /* done */
+                                if (back == u) {
+                                        /* Would point back to us, ignore */
+                                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                        continue;
+                                }
+
+                                assert_se(unit_per_dependency_type_hashmap_update(deps, back, di_move.origin_mask, di_move.destination_mask) >= 0);
+                        }
+                } else {
+                        assert_se(r >= 0);
+                        TAKE_PTR(other_deps);
+
+                        if (hashmap_remove(other_deps, u))
+                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                }
+        }
+
+        other->dependencies = hashmap_free(other->dependencies);
 }
 
 int unit_merge(Unit *u, Unit *other) {
-        const char *other_id = NULL;
         int r;
 
         assert(u);
@@ -964,22 +1115,14 @@ int unit_merge(Unit *u, Unit *other) {
         if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
                 return -EEXIST;
 
-        if (other->id)
-                other_id = strdupa(other->id);
-
-        /* Make reservations to ensure merge_dependencies() won't fail */
-        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
-                r = reserve_dependencies(u, other, d);
-                /*
-                 * We don't rollback reservations if we fail. We don't have
-                 * a way to undo reservations. A reservation is not a leak.
-                 */
-                if (r < 0)
-                        return r;
-        }
+        /* Make reservations to ensure merge_dependencies() won't fail. We don't rollback reservations if we
+         * fail. We don't have a way to undo reservations. A reservation is not a leak. */
+        r = unit_reserve_dependencies(u, other);
+        if (r < 0)
+                return r;
 
         /* Merge names */
-        r = merge_names(u, other);
+        r = unit_merge_names(u, other);
         if (r < 0)
                 return r;
 
@@ -988,8 +1131,7 @@ int unit_merge(Unit *u, Unit *other) {
                 unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
 
         /* Merge dependencies */
-        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                merge_dependencies(u, other, other_id, d);
+        unit_merge_dependencies(u, other);
 
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
@@ -1248,7 +1390,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
                 return 0;
 
         /* Don't create loops */
-        if (hashmap_get(target->dependencies[UNIT_BEFORE], u))
+        if (unit_has_dependency(target, UNIT_ATOM_BEFORE, u))
                 return 0;
 
         return unit_add_dependency(target, UNIT_AFTER, u, true, UNIT_DEPENDENCY_DEFAULT);
@@ -1416,10 +1558,18 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                if (u->on_failure_job_mode == JOB_ISOLATE && hashmap_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
-                        r = log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC),
-                                                 "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
-                        goto fail;
+                if (u->on_failure_job_mode == JOB_ISOLATE) {
+                        Unit *other, *found = NULL;
+
+                        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ON_FAILURE) {
+                                if (!found)
+                                        found = other;
+                                else if (found != other) {
+                                        r = log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC),
+                                                                 "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
+                                        goto fail;
+                                }
+                        }
                 }
 
                 if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
@@ -1577,7 +1727,6 @@ bool unit_shall_confirm_spawn(Unit *u) {
 
 static bool unit_verify_deps(Unit *u) {
         Unit *other;
-        void *v;
 
         assert(u);
 
@@ -1586,9 +1735,9 @@ static bool unit_verify_deps(Unit *u) {
          * processing, but do not have any effect afterwards. We don't check BindsTo= dependencies that are not used in
          * conjunction with After= as for them any such check would make things entirely racy. */
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO]) {
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT) {
 
-                if (!hashmap_contains(u->dependencies[UNIT_AFTER], other))
+                if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other))
                         continue;
 
                 if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(other))) {
@@ -1802,20 +1951,14 @@ bool unit_can_reload(Unit *u) {
         if (UNIT_VTABLE(u)->can_reload)
                 return UNIT_VTABLE(u)->can_reload(u);
 
-        if (!hashmap_isempty(u->dependencies[UNIT_PROPAGATES_RELOAD_TO]))
+        if (unit_has_dependency(u, UNIT_ATOM_PROPAGATES_RELOAD_TO, NULL))
                 return true;
 
         return UNIT_VTABLE(u)->reload;
 }
 
 bool unit_is_unneeded(Unit *u) {
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRED_BY,
-                UNIT_REQUISITE_OF,
-                UNIT_WANTED_BY,
-                UNIT_BOUND_BY,
-        };
-
+        Unit *other;
         assert(u);
 
         if (!u->stop_when_unneeded)
@@ -1827,55 +1970,37 @@ bool unit_is_unneeded(Unit *u) {
         if (u->job)
                 return false;
 
-        for (size_t j = 0; j < ELEMENTSOF(deps); j++) {
-                Unit *other;
-                void *v;
-
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED) {
                 /* If a dependent unit has a job queued, is active or transitioning, or is marked for
                  * restart, then don't clean this one up. */
 
-                HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]]) {
-                        if (other->job)
-                                return false;
+                if (other->job)
+                        return false;
 
-                        if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
-                                return false;
+                if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
+                        return false;
 
-                        if (unit_will_restart(other))
-                                return false;
-                }
+                if (unit_will_restart(other))
+                        return false;
         }
 
         return true;
 }
 
 static void check_unneeded_dependencies(Unit *u) {
-
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRES,
-                UNIT_REQUISITE,
-                UNIT_WANTS,
-                UNIT_BINDS_TO,
-        };
-
+        Unit *other;
         assert(u);
 
         /* Add all units this unit depends on to the queue that processes StopWhenUnneeded= behaviour. */
 
-        for (size_t j = 0; j < ELEMENTSOF(deps); j++) {
-                Unit *other;
-                void *v;
-
-                HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]])
-                        unit_submit_to_stop_when_unneeded_queue(other);
-        }
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE)
+                unit_submit_to_stop_when_unneeded_queue(other);
 }
 
 static void unit_check_binds_to(Unit *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool stop = false;
         Unit *other;
-        void *v;
         int r;
 
         assert(u);
@@ -1886,7 +2011,7 @@ static void unit_check_binds_to(Unit *u) {
         if (unit_active_state(u) != UNIT_ACTIVE)
                 return;
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO]) {
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT) {
                 if (other->job)
                         continue;
 
@@ -1923,62 +2048,51 @@ static void unit_check_binds_to(Unit *u) {
 
 static void retroactively_start_dependencies(Unit *u) {
         Unit *other;
-        void *v;
 
         assert(u);
         assert(UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)));
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRES])
-                if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
+                if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO])
-                if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
-                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
-
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_WANTS])
-                if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
+                if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTS])
-                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
-
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTED_BY])
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
         Unit *other;
-        void *v;
 
         assert(u);
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
         /* Pull down units which are bound to us recursively if enabled */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BOUND_BY])
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 void unit_start_on_failure(Unit *u) {
+        bool logged = false;
         Unit *other;
-        void *v;
         int r;
 
         assert(u);
 
-        if (hashmap_size(u->dependencies[UNIT_ON_FAILURE]) <= 0)
-                return;
-
-        log_unit_info(u, "Triggering OnFailure= dependencies.");
-
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE]) {
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ON_FAILURE) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                if (!logged) {
+                        log_unit_info(u, "Triggering OnFailure= dependencies.");
+                        logged = true;
+                }
 
                 r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, &error, NULL);
                 if (r < 0)
@@ -1988,11 +2102,10 @@ void unit_start_on_failure(Unit *u) {
 
 void unit_trigger_notify(Unit *u) {
         Unit *other;
-        void *v;
 
         assert(u);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_TRIGGERED_BY])
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_TRIGGERED_BY)
                 if (UNIT_VTABLE(other)->trigger_notify)
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
@@ -2733,66 +2846,6 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         }
 }
 
-static void maybe_warn_about_dependency(Unit *u, const char *other, UnitDependency dependency) {
-        assert(u);
-
-        /* Only warn about some unit types */
-        if (!IN_SET(dependency, UNIT_CONFLICTS, UNIT_CONFLICTED_BY, UNIT_BEFORE, UNIT_AFTER, UNIT_ON_FAILURE, UNIT_TRIGGERS, UNIT_TRIGGERED_BY))
-                return;
-
-        if (streq_ptr(u->id, other))
-                log_unit_warning(u, "Dependency %s=%s dropped", unit_dependency_to_string(dependency), u->id);
-        else
-                log_unit_warning(u, "Dependency %s=%s dropped, merged into %s", unit_dependency_to_string(dependency), strna(other), u->id);
-}
-
-static int unit_add_dependency_hashmap(
-                Hashmap **h,
-                Unit *other,
-                UnitDependencyMask origin_mask,
-                UnitDependencyMask destination_mask) {
-
-        UnitDependencyInfo info;
-        int r;
-
-        assert(h);
-        assert(other);
-        assert(origin_mask < _UNIT_DEPENDENCY_MASK_FULL);
-        assert(destination_mask < _UNIT_DEPENDENCY_MASK_FULL);
-        assert(origin_mask > 0 || destination_mask > 0);
-
-        r = hashmap_ensure_allocated(h, NULL);
-        if (r < 0)
-                return r;
-
-        assert_cc(sizeof(void*) == sizeof(info));
-
-        info.data = hashmap_get(*h, other);
-        if (info.data) {
-                /* Entry already exists. Add in our mask. */
-
-                if (FLAGS_SET(origin_mask, info.origin_mask) &&
-                    FLAGS_SET(destination_mask, info.destination_mask))
-                        return 0; /* NOP */
-
-                info.origin_mask |= origin_mask;
-                info.destination_mask |= destination_mask;
-
-                r = hashmap_update(*h, other, info.data);
-        } else {
-                info = (UnitDependencyInfo) {
-                        .origin_mask = origin_mask,
-                        .destination_mask = destination_mask,
-                };
-
-                r = hashmap_put(*h, other, info.data);
-        }
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
 int unit_add_dependency(
                 Unit *u,
                 UnitDependency d,
@@ -2825,10 +2878,12 @@ int unit_add_dependency(
                 [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF,
         };
         Unit *original_u = u, *original_other = other;
+        UnitDependencyAtom a;
         int r;
-        /* Helper to know whether sending a notification is necessary or not:
-         * if the dependency is already there, no need to notify! */
-        bool noop = true;
+
+        /* Helper to know whether sending a notification is necessary or not: if the dependency is already
+         * there, no need to notify! */
+        bool noop;
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
@@ -2836,63 +2891,64 @@ int unit_add_dependency(
 
         u = unit_follow_merge(u);
         other = unit_follow_merge(other);
+        a = unit_dependency_to_atom(d);
+        assert(a >= 0);
 
-        /* We won't allow dependencies on ourselves. We will not
-         * consider them an error however. */
+        /* We won't allow dependencies on ourselves. We will not consider them an error however. */
         if (u == other) {
-                maybe_warn_about_dependency(original_u, original_other->id, d);
+                unit_maybe_warn_about_dependency(original_u, original_other->id, d);
                 return 0;
         }
 
-        /* Note that ordering a device unit after a unit is permitted since it
-         * allows to start its job running timeout at a specific time. */
-        if (d == UNIT_BEFORE && other->type == UNIT_DEVICE) {
+        /* Note that ordering a device unit after a unit is permitted since it allows to start its job
+         * running timeout at a specific time. */
+        if (FLAGS_SET(a, UNIT_ATOM_BEFORE) && other->type == UNIT_DEVICE) {
                 log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
                 return 0;
         }
 
-        if (d == UNIT_ON_FAILURE && !UNIT_VTABLE(u)->can_fail) {
+        if (FLAGS_SET(a, UNIT_ATOM_ON_FAILURE) && !UNIT_VTABLE(u)->can_fail) {
                 log_unit_warning(u, "Requested dependency OnFailure=%s ignored (%s units cannot fail).", other->id, unit_type_to_string(u->type));
                 return 0;
         }
 
-        if (d == UNIT_TRIGGERS && !UNIT_VTABLE(u)->can_trigger)
+        if (FLAGS_SET(a, UNIT_ATOM_TRIGGERS) && !UNIT_VTABLE(u)->can_trigger)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "Requested dependency Triggers=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(u->type));
-        if (d == UNIT_TRIGGERED_BY && !UNIT_VTABLE(other)->can_trigger)
+        if (FLAGS_SET(a, UNIT_ATOM_TRIGGERED_BY) && !UNIT_VTABLE(other)->can_trigger)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "Requested dependency TriggeredBy=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(other->type));
 
-        r = unit_add_dependency_hashmap(u->dependencies + d, other, mask, 0);
+        r = unit_add_dependency_hashmap(&u->dependencies, d, other, mask, 0);
         if (r < 0)
                 return r;
-        else if (r > 0)
-                noop = false;
+        noop = !r;
 
         if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
-                r = unit_add_dependency_hashmap(other->dependencies + inverse_table[d], u, 0, mask);
+                r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r)
                         noop = false;
         }
 
         if (add_reference) {
-                r = unit_add_dependency_hashmap(u->dependencies + UNIT_REFERENCES, other, mask, 0);
+                r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other, mask, 0);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r)
                         noop = false;
 
-                r = unit_add_dependency_hashmap(other->dependencies + UNIT_REFERENCED_BY, u, 0, mask);
+                r = unit_add_dependency_hashmap(&other->dependencies, UNIT_REFERENCED_BY, u, 0, mask);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r)
                         noop = false;
         }
 
         if (!noop)
                 unit_add_to_dbus_queue(u);
+
         return 0;
 }
 
@@ -4443,7 +4499,6 @@ int unit_setup_exec_runtime(Unit *u) {
         ExecRuntime **rt;
         size_t offset;
         Unit *other;
-        void *v;
         int r;
 
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
@@ -4455,7 +4510,7 @@ int unit_setup_exec_runtime(Unit *u) {
                 return 0;
 
         /* Try to get it from somebody else */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_JOINS_NAMESPACE_OF]) {
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
                 r = exec_runtime_acquire(u->manager, NULL, other->id, false, rt);
                 if (r == 1)
                         return 1;
@@ -4830,22 +4885,20 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
         return 0;
 }
 
-static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, UnitDependencyInfo di) {
-        assert(u);
-        assert(d >= 0);
-        assert(d < _UNIT_DEPENDENCY_MAX);
+static void unit_update_dependency_mask(Hashmap *deps, Unit *other, UnitDependencyInfo di) {
+        assert(deps);
         assert(other);
 
-        if (di.origin_mask == 0 && di.destination_mask == 0) {
+        if (di.origin_mask == 0 && di.destination_mask == 0)
                 /* No bit set anymore, let's drop the whole entry */
-                assert_se(hashmap_remove(u->dependencies[d], other));
-                log_unit_debug(u, "lost dependency %s=%s", unit_dependency_to_string(d), other->id);
-        } else
+                assert_se(hashmap_remove(deps, other));
+        else
                 /* Mask was reduced, let's update the entry */
-                assert_se(hashmap_update(u->dependencies[d], other, di.data) == 0);
+                assert_se(hashmap_update(deps, other, di.data) == 0);
 }
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
+        Hashmap *deps;
         assert(u);
 
         /* Removes all dependencies u has on other units marked for ownership by 'mask'. */
@@ -4853,7 +4906,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
         if (mask == 0)
                 return;
 
-        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+        HASHMAP_FOREACH(deps, u->dependencies) {
                 bool done;
 
                 do {
@@ -4862,26 +4915,29 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
 
                         done = true;
 
-                        HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d]) {
+                        HASHMAP_FOREACH_KEY(di.data, other, deps) {
+                                Hashmap *other_deps;
+
                                 if (FLAGS_SET(~mask, di.origin_mask))
                                         continue;
+
                                 di.origin_mask &= ~mask;
-                                unit_update_dependency_mask(u, d, other, di);
+                                unit_update_dependency_mask(deps, other, di);
 
                                 /* We updated the dependency from our unit to the other unit now. But most dependencies
                                  * imply a reverse dependency. Hence, let's delete that one too. For that we go through
                                  * all dependency types on the other unit and delete all those which point to us and
                                  * have the right mask set. */
 
-                                for (UnitDependency q = 0; q < _UNIT_DEPENDENCY_MAX; q++) {
+                                HASHMAP_FOREACH(other_deps, other->dependencies) {
                                         UnitDependencyInfo dj;
 
-                                        dj.data = hashmap_get(other->dependencies[q], u);
+                                        dj.data = hashmap_get(other_deps, u);
                                         if (FLAGS_SET(~mask, dj.destination_mask))
                                                 continue;
-                                        dj.destination_mask &= ~mask;
 
-                                        unit_update_dependency_mask(other, q, u, dj);
+                                        dj.destination_mask &= ~mask;
+                                        unit_update_dependency_mask(other_deps, u, dj);
                                 }
 
                                 unit_add_to_gc_queue(other);
@@ -5589,3 +5645,44 @@ static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(collect_mode, CollectMode);
+
+Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other) {
+        Unit *i;
+
+        assert(u);
+
+        /* Checks if the unit has a dependency on 'other' with the specified dependency atom. If 'other' is
+         * NULL checks if the unit has *any* dependency of that atom. Returns 'other' if found (or if 'other'
+         * is NULL the first entry found), or NULL if not found. */
+
+        UNIT_FOREACH_DEPENDENCY(i, u, atom)
+                if (!other || other == i)
+                        return i;
+
+        return NULL;
+}
+
+int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***ret_array) {
+        _cleanup_free_ Unit **array = NULL;
+        size_t n = 0;
+        Unit *other;
+
+        assert(u);
+        assert(ret_array);
+
+        /* Gets a list of units matching a specific atom as array. This is useful when iterating through
+         * dependencies while modifying them: the array is an "atomic snapshot" of sorts, that can be read
+         * while the dependency table is continously updated. */
+
+        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
+                if (!GREEDY_REALLOC(array, n + 1))
+                        return -ENOMEM;
+
+                array[n++] = other;
+        }
+
+        *ret_array = TAKE_PTR(array);
+
+        assert(n <= INT_MAX);
+        return (int) n;
+}
