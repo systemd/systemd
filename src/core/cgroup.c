@@ -1700,12 +1700,14 @@ CGroupMask unit_get_members_mask(Unit *u) {
         u->cgroup_members_mask = 0;
 
         if (u->type == UNIT_SLICE) {
-                void *v;
                 Unit *member;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE])
-                        if (UNIT_DEREF(member->slice) == u)
-                                u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
+                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_BEFORE) {
+                        if (UNIT_DEREF(member->slice) != u)
+                                continue;
+
+                        u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
+                }
         }
 
         u->cgroup_members_mask_valid = true;
@@ -2343,14 +2345,13 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
  * hierarchy upwards to the unit in question. */
 static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
         Unit *m;
-        void *v;
 
         assert(u);
 
         if (u->type != UNIT_SLICE)
                 return 0;
 
-        HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE]) {
+        UNIT_FOREACH_DEPENDENCY(m, u, UNIT_ATOM_BEFORE) {
                 CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
                 int r;
 
@@ -2515,12 +2516,12 @@ void unit_add_family_to_cgroup_realize_queue(Unit *u) {
 
         do {
                 Unit *m;
-                void *v;
 
                 /* Children of u likely changed when we're called */
                 u->cgroup_members_mask_valid = false;
 
-                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE]) {
+                UNIT_FOREACH_DEPENDENCY(m, u, UNIT_ATOM_BEFORE) {
+
                         /* Skip units that have a dependency on the slice but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != u)
                                 continue;
@@ -3782,11 +3783,13 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
          * list of our children includes our own. */
         if (u->type == UNIT_SLICE) {
                 Unit *member;
-                void *v;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE])
-                        if (UNIT_DEREF(member->slice) == u)
-                                unit_invalidate_cgroup_bpf(member);
+                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_BEFORE) {
+                        if (UNIT_DEREF(member->slice) != u)
+                                continue;
+
+                        unit_invalidate_cgroup_bpf(member);
+                }
         }
 }
 

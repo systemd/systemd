@@ -102,6 +102,16 @@ typedef union UnitDependencyInfo {
         } _packed_;
 } UnitDependencyInfo;
 
+/* Newer LLVM versions don't like implicit casts from large pointer types to smaller enums, hence let's add
+ * explicit type-safe helpers for that. */
+static inline UnitDependency UNIT_DEPENDENCY_FROM_PTR(const void *p) {
+        return PTR_TO_INT(p);
+}
+
+static inline void* UNIT_DEPENDENCY_TO_PTR(UnitDependency d) {
+        return INT_TO_PTR(d);
+}
+
 #include "job.h"
 
 struct UnitRef {
@@ -125,11 +135,13 @@ typedef struct Unit {
 
         Set *aliases; /* All the other names. */
 
-        /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
-         * dependency exists, using the UnitDependencyInfo type */
-        Hashmap *dependencies[_UNIT_DEPENDENCY_MAX];
+        /* For each dependency type we can look up another Hashmap with this, whose key is a Unit* object,
+         * and whose value encodes why the dependency exists, using the UnitDependencyInfo type. i.e. a
+         * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
+        Hashmap *dependencies;
 
-        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the UnitDependencyInfo type */
+        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the
+         * UnitDependencyInfo type */
         Hashmap *requires_mounts_for;
 
         char *description;
@@ -683,8 +695,15 @@ static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
+Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other);
+int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***ret_array);
+
+static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
+        return hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+}
+
 static inline Unit* UNIT_TRIGGER(Unit *u) {
-        return hashmap_first_key(u->dependencies[UNIT_TRIGGERS]);
+        return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
 }
 
 Unit* unit_new(Manager *m, size_t size);
@@ -990,3 +1009,54 @@ int unit_thaw_vtable_common(Unit *u);
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
+
+typedef struct UnitForEachDependencyData {
+        /* Stores state for the FOREACH macro below for iterating through all deps that have any of the
+         * specified dependency atom bits set */
+        UnitDependencyAtom match_atom;
+        Hashmap *by_type, *by_unit;
+        void *current_type;
+        Iterator by_type_iterator, by_unit_iterator;
+        Unit **current_unit;
+} UnitForEachDependencyData;
+
+/* Iterates through all dependencies that have a specific atom in the dependency type set. This tries to be
+ * smart: if the atom is unique, we'll directly go to right entry. Otherwise we'll iterate through the
+ * per-dependency type hashmap and match all dep that have the right atom set. */
+#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, data)                    \
+        for (UnitForEachDependencyData data = {                         \
+                        .match_atom = (ma),                             \
+                        .by_type = (u)->dependencies,                   \
+                        .by_type_iterator = ITERATOR_FIRST,             \
+                        .current_unit = &(other),                       \
+                };                                                      \
+             ({                                                         \
+                     UnitDependency _dt = _UNIT_DEPENDENCY_INVALID;     \
+                     bool _found;                                       \
+                                                                        \
+                     if (data.by_type && ITERATOR_IS_FIRST(data.by_type_iterator)) { \
+                             _dt = unit_dependency_from_unique_atom(data.match_atom); \
+                             if (_dt >= 0) {                            \
+                                     data.by_unit = hashmap_get(data.by_type, UNIT_DEPENDENCY_TO_PTR(_dt)); \
+                                     data.current_type = UNIT_DEPENDENCY_TO_PTR(_dt); \
+                                     data.by_type = NULL;               \
+                                     _found = !!data.by_unit;           \
+                             }                                          \
+                     }                                                  \
+                     if (_dt < 0)                                       \
+                             _found = hashmap_iterate(data.by_type,     \
+                                                      &data.by_type_iterator, \
+                                                      (void**)&(data.by_unit), \
+                                                      (const void**) &(data.current_type)); \
+                     _found;                                            \
+             }); )                                                      \
+                if ((unit_dependency_to_atom(UNIT_DEPENDENCY_FROM_PTR(data.current_type)) & data.match_atom) != 0) \
+                        for (data.by_unit_iterator = ITERATOR_FIRST;    \
+                                hashmap_iterate(data.by_unit,           \
+                                                &data.by_unit_iterator, \
+                                                NULL,                   \
+                                                (const void**) data.current_unit); )
+
+/* Note: this matches deps that have *any* of the atoms specified in match_atom set */
+#define UNIT_FOREACH_DEPENDENCY(other, u, match_atom) \
+        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, UNIQ_T(data, UNIQ))

@@ -122,32 +122,32 @@ int main(int argc, char *argv[]) {
         assert_se(manager_add_job(m, JOB_START, a_conj, JOB_REPLACE, NULL, NULL, &j) == -EDEADLK);
         manager_dump_jobs(m, stdout, "\t");
 
-        assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], b));
-        assert_se(!hashmap_get(b->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
-        assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
-        assert_se(!hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
+        assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), b));
+        assert_se(!hashmap_get(unit_get_dependencies(b, UNIT_RELOAD_PROPAGATED_FROM), a));
+        assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), c));
+        assert_se(!hashmap_get(unit_get_dependencies(c, UNIT_RELOAD_PROPAGATED_FROM), a));
 
         assert_se(unit_add_dependency(a, UNIT_PROPAGATES_RELOAD_TO, b, true, UNIT_DEPENDENCY_UDEV) == 0);
         assert_se(unit_add_dependency(a, UNIT_PROPAGATES_RELOAD_TO, c, true, UNIT_DEPENDENCY_PROC_SWAP) == 0);
 
-        assert_se(hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], b));
-        assert_se(hashmap_get(b->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
-        assert_se(hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
-        assert_se(hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
+        assert_se(hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), b));
+        assert_se(hashmap_get(unit_get_dependencies(b, UNIT_RELOAD_PROPAGATED_FROM), a));
+        assert_se(hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), c));
+        assert_se(hashmap_get(unit_get_dependencies(c, UNIT_RELOAD_PROPAGATED_FROM), a));
 
         unit_remove_dependencies(a, UNIT_DEPENDENCY_UDEV);
 
-        assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], b));
-        assert_se(!hashmap_get(b->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
-        assert_se(hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
-        assert_se(hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
+        assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), b));
+        assert_se(!hashmap_get(unit_get_dependencies(b, UNIT_RELOAD_PROPAGATED_FROM), a));
+        assert_se(hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), c));
+        assert_se(hashmap_get(unit_get_dependencies(c, UNIT_RELOAD_PROPAGATED_FROM), a));
 
         unit_remove_dependencies(a, UNIT_DEPENDENCY_PROC_SWAP);
 
-        assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], b));
-        assert_se(!hashmap_get(b->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
-        assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
-        assert_se(!hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
+        assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), b));
+        assert_se(!hashmap_get(unit_get_dependencies(b, UNIT_RELOAD_PROPAGATED_FROM), a));
+        assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), c));
+        assert_se(!hashmap_get(unit_get_dependencies(c, UNIT_RELOAD_PROPAGATED_FROM), a));
 
         assert_se(manager_load_unit(m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
 
