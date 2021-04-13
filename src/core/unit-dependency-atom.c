@@ -70,6 +70,7 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
         [UNIT_ON_FAILURE]             = UNIT_ATOM_ON_FAILURE,
+        [UNIT_ON_FAILURE_OF]          = 0,
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
         [UNIT_TRIGGERED_BY]           = UNIT_ATOM_TRIGGERED_BY,
         [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_ATOM_PROPAGATES_RELOAD_TO,
