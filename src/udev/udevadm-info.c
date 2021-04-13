@@ -249,8 +249,6 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
 static void cleanup_db(void) {
         _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
 
-        (void) unlink("/run/udev/queue.bin");
-
         dir1 = opendir("/run/udev/data");
         if (dir1)
                 cleanup_dir(dir1, S_ISVTX, 1);
