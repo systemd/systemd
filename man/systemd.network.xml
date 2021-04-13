@@ -230,6 +230,18 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>RequiredFamilyForOnline=</varname></term>
+        <listitem>
+          <para>Specifies an address family, whose routable or link-local IP address should be configured on the link
+          in addition to the range of operational states, that the link state should be considered as online.
+          See option <varname>RequiredForOnline=</varname> above.</para>
+
+          <para>Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
+          <literal>any</literal>. Defaults to <literal>any</literal>. Note that this is applied only for the operational state
+          <literal>degraded</literal> or above. Otherwise, it will be ignored.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ActivationPolicy=</varname></term>
         <listitem>
           <para>Specifies the policy for <command>systemd-networkd</command> managing the link
