@@ -339,7 +339,7 @@ static void test_oomd_swap_free_below(void) {
 
 static void test_oomd_sort_cgroups(void) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
-        _cleanup_free_ OomdCGroupContext **sorted_cgroups;
+        _cleanup_free_ OomdCGroupContext **sorted_cgroups = NULL;
         char **paths = STRV_MAKE("/herp.slice",
                                  "/herp.slice/derp.scope",
                                  "/herp.slice/derp.scope/sheep.service",

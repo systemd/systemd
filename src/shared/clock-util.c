@@ -55,7 +55,7 @@ int clock_set_hwclock(const struct tm *tm) {
 }
 
 int clock_is_localtime(const char* adjtime_path) {
-        _cleanup_fclose_ FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         if (!adjtime_path)

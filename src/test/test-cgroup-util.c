@@ -211,7 +211,7 @@ static void test_proc(void) {
 }
 
 static void test_escape_one(const char *s, const char *r) {
-        _cleanup_free_ char *b;
+        _cleanup_free_ char *b = NULL;
 
         b = cg_escape(s);
         assert_se(b);
