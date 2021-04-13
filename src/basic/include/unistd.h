@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include_next <unistd.h>
 
 /* since glibc-2.34 */
