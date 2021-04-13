@@ -57,6 +57,8 @@ void network_adjust_dhcp(Network *network) {
                             "Disabling DHCPv6 client.", network->filename);
                 SET_FLAG(network->dhcp, ADDRESS_FAMILY_IPV6, false);
         }
+
+        network_adjust_dhcp4(network);
 }
 
 static struct DUID fallback_duid = { .type = DUID_TYPE_EN };
