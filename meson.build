@@ -3318,6 +3318,14 @@ custom_target(
                    '} >@OUTPUT@'],
         build_by_default : true)
 
+# We intentionally do not inline initializations with definitions for
+# a bunch of _cleanup_ variables in tests, to ensure valgrind is triggered.
+# This triggers a lot of false maybe-uninitialized false positives. Suppress them.
+if cc.has_argument('-Wno-maybe-uninitialized')
+        no_uninit = ['-Wno-maybe-uninitialized']
+else
+        no_uninit = []
+endif
 foreach tuple : tests
         sources = tuple[0]
         link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
@@ -3326,6 +3334,7 @@ foreach tuple : tests
         condition = tuple.length() > 4 ? tuple[4] : ''
         type = tuple.length() > 5 ? tuple[5] : ''
         defs = tuple.length() > 6 ? tuple[6] : []
+        defs += no_uninit
         parallel = tuple.length() > 7 ? tuple[7] : true
         timeout = 30
 
