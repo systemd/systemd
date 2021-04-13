@@ -1,0 +1,42 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-cloud-providerd.service" conditional='ENABLE_CLOUD_PROVIDERD'>
+
+  <refentryinfo>
+    <title>systemd-cloud-providerd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-cloud-providerd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-cloud-providerd.service</refname>
+    <refname>systemd-cloud-providerd</refname>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-cloud-providerd.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-cloud-providerd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-cloud-providerd.service</filename> is a system service
+    that may be used on cloud-like platforms such as Azure, GCP and EC2 which interacts with
+    provider-specific metadata endpoints.</para>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

@@ -119,6 +119,8 @@ option('homed', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'install the systemd-homed stack')
 option('networkd', type : 'boolean',
        description : 'install the systemd-networkd stack')
+option('cloud-providerd', type : 'boolean',
+       description : 'install the systemd-cloud-providerd stack')
 option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',

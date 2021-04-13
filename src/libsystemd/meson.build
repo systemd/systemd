@@ -130,6 +130,7 @@ libsystemd_sources = files('''
         sd-device/device-util.c
         sd-device/device-util.h
         sd-device/sd-device.c
+        sd-cloud-provider/sd-cloud-provider.c
         sd-hwdb/hwdb-internal.h
         sd-hwdb/hwdb-util.c
         sd-hwdb/hwdb-util.h

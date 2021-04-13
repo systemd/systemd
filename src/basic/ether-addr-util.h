@@ -48,5 +48,6 @@ static inline bool ether_addr_is_null(const struct ether_addr *addr) {
 }
 
 int ether_addr_from_string(const char *s, struct ether_addr *ret);
+int ether_addr_from_string_full(const char *s, struct ether_addr *ret);
 
 extern const struct hash_ops ether_addr_hash_ops;

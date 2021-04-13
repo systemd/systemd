@@ -19,6 +19,7 @@ _systemd_headers = '''
 systemd_headers = files(_systemd_headers)
 
 _not_installed_headers = '''
+        sd-cloud-provider.h
         sd-dhcp6-client.h
         sd-dhcp6-lease.h
         sd-dhcp-client.h
