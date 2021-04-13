@@ -1702,12 +1702,8 @@ CGroupMask unit_get_members_mask(Unit *u) {
         if (u->type == UNIT_SLICE) {
                 Unit *member;
 
-                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_BEFORE) {
-                        if (UNIT_DEREF(member->slice) != u)
-                                continue;
-
+                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
                         u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
-                }
         }
 
         u->cgroup_members_mask_valid = true;
@@ -2362,12 +2358,9 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
         if (u->type != UNIT_SLICE)
                 return 0;
 
-        UNIT_FOREACH_DEPENDENCY(m, u, UNIT_ATOM_BEFORE) {
+        UNIT_FOREACH_DEPENDENCY(m, u, UNIT_ATOM_SLICE_OF) {
                 CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
                 int r;
-
-                if (UNIT_DEREF(m->slice) != u)
-                        continue;
 
                 /* The cgroup for this unit might not actually be fully realised yet, in which case it isn't
                  * holding any controllers open anyway. */
@@ -2530,11 +2523,7 @@ void unit_add_family_to_cgroup_realize_queue(Unit *u) {
                 /* Children of u likely changed when we're called */
                 u->cgroup_members_mask_valid = false;
 
-                UNIT_FOREACH_DEPENDENCY(m, u, UNIT_ATOM_BEFORE) {
-
-                        /* Skip units that have a dependency on the slice but aren't actually in it. */
-                        if (UNIT_DEREF(m->slice) != u)
-                                continue;
+                UNIT_FOREACH_DEPENDENCY(m, u, UNIT_ATOM_SLICE_OF) {
 
                         /* No point in doing cgroup application for units without active processes. */
                         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
@@ -3799,12 +3788,8 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
         if (u->type == UNIT_SLICE) {
                 Unit *member;
 
-                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_BEFORE) {
-                        if (UNIT_DEREF(member->slice) != u)
-                                continue;
-
+                UNIT_FOREACH_DEPENDENCY(member, u, UNIT_ATOM_SLICE_OF)
                         unit_invalidate_cgroup_bpf(member);
-                }
         }
 }
 
