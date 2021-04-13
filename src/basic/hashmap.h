@@ -51,6 +51,7 @@ typedef struct {
 
 #define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
 #define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
+#define ITERATOR_IS_FIRST(i) ((i).idx == _IDX_ITERATOR_FIRST)
 
 /* Macros for type checking */
 #define PTR_COMPATIBLE_WITH_HASHMAP_BASE(h) \
