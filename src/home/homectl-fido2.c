@@ -160,6 +160,7 @@ int identity_add_fido2_parameters(
                         /* askpw_icon_name= */ "user-home",
                         true, // FIXME: add a --lock-with-pin parameter like cryptenroll
                         true,
+                        false,
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,

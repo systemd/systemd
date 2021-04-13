@@ -38,6 +38,7 @@ static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
 static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
 static bool arg_fido2_lock_with_pin = true; /* FIDO2: if true, unlocking the volume requires entering the device PIN */
 static bool arg_fido2_lock_with_up = true; /* FIDO2: if true, unlocking the volume requires user presence */
+static bool arg_fido2_lock_with_uv = false; /* FIDO2: if true, unlocking the volume requires user verification */
 
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
@@ -94,6 +95,8 @@ static int help(void) {
                "                       Whether to require entering a PIN to unlock the volume\n"
                "     --fido2-with-user-presence=[yes|no]\n"
                "                       Whether to require user presence to unlock the volume\n"
+               "     --fido2-with-user-verification=[yes|no]\n"
+               "                       Whether to require user verification to unlock the volume\n"
                "     --tpm2-device=PATH\n"
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1,PCR2,PCR3,…\n"
@@ -122,6 +125,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WIPE_SLOT,
                 ARG_FIDO2_WITH_PIN,
                 ARG_FIDO2_WITH_UP,
+                ARG_FIDO2_WITH_UV,
         };
 
         static const struct option options[] = {
@@ -133,6 +137,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE     },
                 { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN   },
                 { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP    },
+                { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV    },
                 { "tpm2-device",                  required_argument, NULL, ARG_TPM2_DEVICE      },
                 { "tpm2-pcrs",                    required_argument, NULL, ARG_TPM2_PCRS        },
                 { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT        },
@@ -163,6 +168,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FIDO2_WITH_UP:
                         r = parse_boolean_argument("--fido2-with-user-presence=", optarg, &arg_fido2_lock_with_up);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_FIDO2_WITH_UV:
+                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, &arg_fido2_lock_with_uv);
                         if (r < 0)
                                 return r;
 
@@ -510,7 +522,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with_pin, arg_fido2_lock_with_up);
+                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with_pin, arg_fido2_lock_with_up, arg_fido2_lock_with_uv);
                 break;
 
         case ENROLL_TPM2:
