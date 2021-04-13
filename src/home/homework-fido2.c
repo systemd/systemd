@@ -30,6 +30,7 @@ int fido2_use_token(
                         secret->token_pin,
                         h->fido2_user_presence_permitted > 0,
                         true, // FIXME: add a --lock-with-pin parameter like cryptenroll
+                        false, // FIXME: add a parameter like cryptenroll
                         &hmac,
                         &hmac_size);
         if (r < 0)

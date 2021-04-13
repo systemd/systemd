@@ -730,7 +730,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         int keyslot = arg_key_slot, r;
         const char *rp_id;
         const void *cid;
-        bool pin_required, presence_required;
+        bool pin_required, presence_required, verification_required;
 
         assert(cd);
         assert(name);
@@ -753,7 +753,8 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 &discovered_cid_size,
                                 &keyslot,
                                 &pin_required,
-                                &presence_required);
+                                &presence_required,
+                                &verification_required);
 
                 if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
@@ -761,7 +762,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 if (r < 0)
                         return r;
 
-                if ((pin_required || presence_required) && arg_headless)
+                if ((pin_required || presence_required || verification_required) && arg_headless)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
@@ -791,6 +792,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 arg_headless,
                                 pin_required,
                                 presence_required,
+                                verification_required,
                                 &decrypted_key, &decrypted_key_size);
                 if (r >= 0)
                         break;
