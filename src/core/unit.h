@@ -305,6 +305,10 @@ typedef struct Unit {
         Set *ip_bpf_custom_egress;
         Set *ip_bpf_custom_egress_installed;
 
+        /* BPF programs managed (e.g. loaded to kernel) by an entity external to systemd,
+         * attached to unit cgroup by provided program fd and attach type. */
+        Hashmap *bpf_foreign_by_key;
+
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
