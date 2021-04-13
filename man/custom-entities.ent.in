@@ -11,5 +11,5 @@
 <!ENTITY KILL_USER_PROCESSES @KILL_USER_PROCESSES_YES_NO@>
 <!ENTITY DEBUGTTY @DEBUGTTY@>
 <!ENTITY RC_LOCAL_PATH @RC_LOCAL_PATH@>
-<!ENTITY fedora_latest_version "33">
+<!ENTITY fedora_latest_version "34">
 <!ENTITY fedora_cloud_release "1.2">
