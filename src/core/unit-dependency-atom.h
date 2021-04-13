@@ -69,7 +69,9 @@ typedef enum UnitDependencyAtom {
         UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 29,
         UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 30,
         UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 31,
-        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 32) - 1,
+        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 32,
+        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 33,
+        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 34) - 1,
         _UNIT_DEPENDENCY_ATOM_INVALID                 = -EINVAL,
 } UnitDependencyAtom;
 

@@ -1640,6 +1640,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as JoinsNamespaceOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as SliceOf = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RequiresMountsFor = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Documentation = ['...', ...];
@@ -1774,6 +1776,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ReloadPropagatedFrom is not documented!-->
 
     <!--property JoinsNamespaceOf is not documented!-->
+
+    <!--property SliceOf is not documented!-->
 
     <!--property FreezerState is not documented!-->
 
@@ -1910,6 +1914,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadPropagatedFrom"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="JoinsNamespaceOf"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SliceOf"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RequiresMountsFor"/>
 

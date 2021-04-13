@@ -78,6 +78,8 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_JOINS_NAMESPACE_OF]     = UNIT_ATOM_JOINS_NAMESPACE_OF,
         [UNIT_REFERENCES]             = UNIT_ATOM_REFERENCES,
         [UNIT_REFERENCED_BY]          = UNIT_ATOM_REFERENCED_BY,
+        [UNIT_IN_SLICE]               = UNIT_ATOM_IN_SLICE,
+        [UNIT_SLICE_OF]               = UNIT_ATOM_SLICE_OF,
 
         /* These are dependency types without effect on our state engine. We maintain them only to make
          * things discoverable/debuggable as they are the inverse dependencies to some of the above. As they
@@ -189,6 +191,12 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
 
         case UNIT_ATOM_REFERENCED_BY:
                 return UNIT_REFERENCED_BY;
+
+        case UNIT_ATOM_IN_SLICE:
+                return UNIT_IN_SLICE;
+
+        case UNIT_ATOM_SLICE_OF:
+                return UNIT_SLICE_OF;
 
         default:
                 return _UNIT_DEPENDENCY_INVALID;

@@ -245,6 +245,10 @@ typedef enum UnitDependency {
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
         UNIT_REFERENCED_BY,
 
+        /* Slice= */
+        UNIT_IN_SLICE,
+        UNIT_SLICE_OF,
+
         _UNIT_DEPENDENCY_MAX,
         _UNIT_DEPENDENCY_INVALID = -EINVAL,
 } UnitDependency;

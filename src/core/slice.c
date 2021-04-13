@@ -47,7 +47,7 @@ static void slice_set_state(Slice *t, SliceState state) {
 }
 
 static int slice_add_parent_slice(Slice *s) {
-        Unit *u = UNIT(s), *parent;
+        Unit *u = UNIT(s);
         _cleanup_free_ char *a = NULL;
         int r;
 
@@ -60,12 +60,7 @@ static int slice_add_parent_slice(Slice *s) {
         if (r <= 0) /* 0 means root slice */
                 return r;
 
-        r = manager_load_unit(u->manager, a, NULL, NULL, &parent);
-        if (r < 0)
-                return r;
-
-        unit_ref_set(&u->slice, u, parent);
-        return 0;
+        return unit_add_dependency_by_name(u, UNIT_IN_SLICE, a, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int slice_add_default_dependencies(Slice *s) {
@@ -346,14 +341,11 @@ static void slice_enumerate_perpetual(Manager *m) {
 
 static bool slice_freezer_action_supported_by_children(Unit *s) {
         Unit *member;
+        int r;
 
         assert(s);
 
-        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_BEFORE) {
-                int r;
-
-                if (UNIT_DEREF(member->slice) != s)
-                        continue;
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
 
                 if (member->type == UNIT_SLICE) {
                         r = slice_freezer_action_supported_by_children(member);
@@ -380,10 +372,7 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
                 return 0;
         }
 
-        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_BEFORE) {
-                if (UNIT_DEREF(member->slice) != s)
-                        continue;
-
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
                 if (action == FREEZER_FREEZE)
                         r = UNIT_VTABLE(member)->freeze(member);
                 else
