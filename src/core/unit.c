@@ -611,6 +611,7 @@ static void unit_done(Unit *u) {
 }
 
 Unit* unit_free(Unit *u) {
+        Unit *slice;
         char *t;
 
         if (!u)
@@ -658,8 +659,9 @@ Unit* unit_free(Unit *u) {
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
          * detach the unit from slice tree in order to eliminate its effect on controller masks. */
-        if (UNIT_ISSET(u->slice))
-                unit_add_family_to_cgroup_realize_queue(UNIT_DEREF(u->slice));
+        slice = UNIT_GET_SLICE(u);
+        if (slice)
+                unit_add_family_to_cgroup_realize_queue(slice);
 
         if (u->on_console)
                 manager_unref_console(u->manager);
@@ -676,7 +678,6 @@ Unit* unit_free(Unit *u) {
 
         unit_unwatch_all_pids(u);
 
-        unit_ref_unset(&u->slice);
         while (u->refs_by_target)
                 unit_ref_unset(u->refs_by_target);
 
@@ -1386,6 +1387,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_slice_dependencies(Unit *u) {
+        Unit *slice;
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1396,8 +1398,9 @@ static int unit_add_slice_dependencies(Unit *u) {
            relationship). */
         UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
-        if (UNIT_ISSET(u->slice))
-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT_DEREF(u->slice), true, mask);
+        slice = UNIT_GET_SLICE(u);
+        if (slice)
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, slice, true, mask);
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -2856,6 +2859,8 @@ int unit_add_dependency(
                 [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
                 [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
+                [UNIT_IN_SLICE] = UNIT_SLICE_OF,
+                [UNIT_SLICE_OF] = UNIT_IN_SLICE,
         };
         Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
@@ -2898,6 +2903,21 @@ int unit_add_dependency(
         if (FLAGS_SET(a, UNIT_ATOM_TRIGGERED_BY) && !UNIT_VTABLE(other)->can_trigger)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "Requested dependency TriggeredBy=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(other->type));
+
+        if (FLAGS_SET(a, UNIT_ATOM_IN_SLICE) && other->type != UNIT_SLICE)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency Slice=%s refused (%s is not a slice unit).", other->id, other->id);
+        if (FLAGS_SET(a, UNIT_ATOM_SLICE_OF) && u->type != UNIT_SLICE)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency SliceOf=%s refused (%s is not a slice unit).", other->id, u->id);
+
+        if (FLAGS_SET(a, UNIT_ATOM_IN_SLICE) && !UNIT_HAS_CGROUP_CONTEXT(u))
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency Slice=%s refused (%s is not a cgroup unit).", other->id, u->id);
+
+        if (FLAGS_SET(a, UNIT_ATOM_SLICE_OF) && !UNIT_HAS_CGROUP_CONTEXT(other))
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency SliceOf=%s refused (%s is not a cgroup unit).", other->id, other->id);
 
         r = unit_add_dependency_hashmap(&u->dependencies, d, other, mask, 0);
         if (r < 0)
@@ -3077,15 +3097,15 @@ reset:
         return r;
 }
 
-int unit_set_slice(Unit *u, Unit *slice) {
+int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask) {
+        int r;
+
         assert(u);
         assert(slice);
 
-        /* Sets the unit slice if it has not been set before. Is extra
-         * careful, to only allow this for units that actually have a
-         * cgroup context. Also, we don't allow to set this for slices
-         * (since the parent slice is derived from the name). Make
-         * sure the unit we set is actually a slice. */
+        /* Sets the unit slice if it has not been set before. Is extra careful, to only allow this for units
+         * that actually have a cgroup context. Also, we don't allow to set this for slices (since the parent
+         * slice is derived from the name). Make sure the unit we set is actually a slice. */
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return -EOPNOTSUPP;
@@ -3103,14 +3123,17 @@ int unit_set_slice(Unit *u, Unit *slice) {
             !unit_has_name(slice, SPECIAL_ROOT_SLICE))
                 return -EPERM;
 
-        if (UNIT_DEREF(u->slice) == slice)
+        if (UNIT_GET_SLICE(u) == slice)
                 return 0;
 
         /* Disallow slice changes if @u is already bound to cgroups */
-        if (UNIT_ISSET(u->slice) && u->cgroup_realized)
+        if (UNIT_GET_SLICE(u) && u->cgroup_realized)
                 return -EBUSY;
 
-        unit_ref_set(&u->slice, u, slice);
+        r = unit_add_dependency(u, UNIT_IN_SLICE, slice, true, mask);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
@@ -3121,7 +3144,7 @@ int unit_set_default_slice(Unit *u) {
 
         assert(u);
 
-        if (UNIT_ISSET(u->slice))
+        if (UNIT_GET_SLICE(u))
                 return 0;
 
         if (u->instance) {
@@ -3160,16 +3183,18 @@ int unit_set_default_slice(Unit *u) {
         if (r < 0)
                 return r;
 
-        return unit_set_slice(u, slice);
+        return unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
 }
 
 const char *unit_slice_name(Unit *u) {
+        Unit *slice;
         assert(u);
 
-        if (!UNIT_ISSET(u->slice))
+        slice = UNIT_GET_SLICE(u);
+        if (!slice)
                 return NULL;
 
-        return UNIT_DEREF(u->slice)->id;
+        return slice->id;
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
@@ -5629,7 +5654,7 @@ static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(collect_mode, CollectMode);
 
-Unit* unit_has_dependency(Unit *u, UnitDependencyAtom atom, Unit *other) {
+Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other) {
         Unit *i;
 
         /* Checks if the unit has a dependency on 'other' with the specified dependency atom. If 'other' is

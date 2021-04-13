@@ -192,8 +192,6 @@ typedef struct Unit {
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
 
-        UnitRef slice;
-
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 
@@ -676,7 +674,7 @@ static inline const UnitVTable* UNIT_VTABLE(Unit *u) {
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
-Unit* unit_has_dependency(Unit *u, UnitDependencyAtom atom, Unit *other);
+Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other);
 
 static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
         return hashmap_get(u->dependencies, (void*) d);
@@ -684,6 +682,10 @@ static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
 
 static inline Unit* UNIT_TRIGGER(Unit *u) {
         return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
+}
+
+static inline Unit *UNIT_GET_SLICE(const Unit *u) {
+        return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, NULL);
 }
 
 Unit* unit_new(Manager *m, size_t size);
@@ -726,7 +728,7 @@ Unit *unit_follow_merge(Unit *u) _pure_;
 int unit_load_fragment_and_dropin(Unit *u, bool fragment_required);
 int unit_load(Unit *unit);
 
-int unit_set_slice(Unit *u, Unit *slice);
+int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
