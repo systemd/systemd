@@ -1,53 +1,55 @@
-#! /bin/bash
-set -e
-set -x
+#!/bin/bash
+set -eux
+set -o pipefail
 
 _clear_service () {
-    systemctl stop $1.service 2>/dev/null || :
-    rm -f  /{etc,run,usr/lib}/systemd/system/$1.service
-    rm -fr /{etc,run,usr/lib}/systemd/system/$1.service.d
-    rm -fr /{etc,run,usr/lib}/systemd/system/$1.service.{wants,requires}
-    if [[ $1 == *@ ]]; then
-        systemctl stop $1*.service 2>/dev/null || :
-        rm -f  /{etc,run,usr/lib}/systemd/system/$1*.service
-        rm -fr /{etc,run,usr/lib}/systemd/system/$1*.service.d
-        rm -fr /{etc,run,usr/lib}/systemd/system/$1*.service.{wants,requires}
+    local SERVICE_NAME="${1:?_clear_service: missing argument}"
+    systemctl stop "$SERVICE_NAME.service" 2>/dev/null || :
+    rm -f  /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service
+    rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.d
+    rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.{wants,requires}
+    if [[ $SERVICE_NAME == *@ ]]; then
+        systemctl stop "$SERVICE_NAME"*.service 2>/dev/null || :
+        rm -f  /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME"*.service
+        rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME"*.service.d
+        rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME"*.service.{wants,requires}
     fi
 }
 
 clear_services () {
-    for u in $*; do
-        _clear_service $u
+    for u in "$@"; do
+        _clear_service "$u"
     done
     systemctl daemon-reload
 }
 
 create_service () {
-    clear_services $1
+    local SERVICE_NAME="${1:?create_service: missing argument}"
+    clear_services "$SERVICE_NAME"
 
-    cat >/etc/systemd/system/$1.service<<EOF
+    cat >/etc/systemd/system/"$SERVICE_NAME".service <<EOF
 [Unit]
-Description=$1 unit
+Description=$SERVICE_NAME unit
 
 [Service]
 ExecStart=/bin/sleep 100000
 EOF
-    mkdir -p /{etc,run,usr/lib}/systemd/system/$1.service.d
-    mkdir -p /etc/systemd/system/$1.service.{wants,requires}
-    mkdir -p /run/systemd/system/$1.service.{wants,requires}
-    mkdir -p /usr/lib/systemd/system/$1.service.{wants,requires}
+    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.d
+    mkdir -p /etc/systemd/system/"$SERVICE_NAME".service.{wants,requires}
+    mkdir -p /run/systemd/system/"$SERVICE_NAME".service.{wants,requires}
+    mkdir -p /usr/lib/systemd/system/"$SERVICE_NAME".service.{wants,requires}
 }
 
 create_services () {
-    for u in $*; do
-        create_service $u
+    for u in "$@"; do
+        create_service "$u"
     done
 }
 
 check_ok () {
     [ $# -eq 3 ] || return
 
-    x="$(systemctl show --value -p $2 $1)"
+    x="$(systemctl show --value -p "$2" "$1")"
     case "$x" in
         *$3*) return 0 ;;
         *)    return 1 ;;

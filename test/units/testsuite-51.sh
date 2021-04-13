@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 systemctl start testsuite-51-repro-1
