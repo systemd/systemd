@@ -229,6 +229,7 @@ typedef enum UnitDependency {
 
         /* On Failure */
         UNIT_ON_FAILURE,
+        UNIT_ON_FAILURE_OF,
 
         /* Triggers (i.e. a socket triggers a service) */
         UNIT_TRIGGERS,
