@@ -97,7 +97,8 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 int link_update_monitor(Link *l) {
-        _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *state = NULL;
+        _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *required_family = NULL,
+                            *ipv4_address_state = NULL, *ipv6_address_state = NULL, *state = NULL;
         int r, ret = 0;
 
         assert(l);
@@ -133,6 +134,47 @@ int link_update_monitor(Link *l) {
                         ret = log_link_debug_errno(l, s, "Failed to parse operational state, ignoring: %m");
                 else
                         l->operational_state = s;
+        }
+
+        r = sd_network_link_get_required_family_for_online(l->ifindex, &required_family);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get required address family, ignoring: %m");
+        else if (isempty(required_family))
+                l->required_family = ADDRESS_FAMILY_NO;
+        else {
+                AddressFamily f;
+
+                f = link_required_address_family_from_string(required_family);
+                if (f < 0)
+                        ret = log_link_debug_errno(l, f, "Failed to parse required address family, ignoring: %m");
+                else
+                        l->required_family = f;
+        }
+
+        r = sd_network_link_get_ipv4_address_state(l->ifindex, &ipv4_address_state);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get IPv4 address state, ignoring: %m");
+        else {
+                LinkAddressState s;
+
+                s = link_address_state_from_string(ipv4_address_state);
+                if (s < 0)
+                        ret = log_link_debug_errno(l, s, "Failed to parse IPv4 address state, ignoring: %m");
+                else
+                        l->ipv4_address_state = s;
+        }
+
+        r = sd_network_link_get_ipv6_address_state(l->ifindex, &ipv6_address_state);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get IPv6 address state, ignoring: %m");
+        else {
+                LinkAddressState s;
+
+                s = link_address_state_from_string(ipv6_address_state);
+                if (s < 0)
+                        ret = log_link_debug_errno(l, s, "Failed to parse IPv6 address state, ignoring: %m");
+                else
+                        l->ipv6_address_state = s;
         }
 
         r = sd_network_link_get_setup_state(l->ifindex, &state);
