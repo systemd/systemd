@@ -604,10 +604,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
                 "%s\tPerpetual: %s\n"
-                "%s\tGarbage Collection Mode: %s\n"
-                "%s\tSlice: %s\n"
-                "%s\tCGroup: %s\n"
-                "%s\tCGroup realized: %s\n",
+                "%s\tGarbage Collection Mode: %s\n",
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
@@ -621,10 +618,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
                 prefix, yes_no(u->perpetual),
-                prefix, collect_mode_to_string(u->collect_mode),
-                prefix, strna(unit_slice_name(u)),
-                prefix, strna(u->cgroup_path),
-                prefix, yes_no(u->cgroup_realized));
+                prefix, collect_mode_to_string(u->collect_mode));
 
         if (u->markers != 0) {
                 fprintf(f, "%s\tMarkers:", prefix);
@@ -635,37 +629,47 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fputs("\n", f);
         }
 
-        if (u->cgroup_realized_mask != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
-                fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
-        }
+        if (UNIT_HAS_CGROUP_CONTEXT(u)) {
+                fprintf(f,
+                        "%s\tSlice: %s\n"
+                        "%s\tCGroup: %s\n"
+                        "%s\tCGroup realized: %s\n",
+                        prefix, strna(unit_slice_name(u)),
+                        prefix, strna(u->cgroup_path),
+                        prefix, yes_no(u->cgroup_realized));
 
-        if (u->cgroup_enabled_mask != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
-                fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
-        }
+                if (u->cgroup_realized_mask != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
+                        fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
+                }
 
-        m = unit_get_own_mask(u);
-        if (m != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(m, &s);
-                fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
-        }
+                if (u->cgroup_enabled_mask != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
+                        fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
+                }
 
-        m = unit_get_members_mask(u);
-        if (m != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(m, &s);
-                fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
-        }
+                m = unit_get_own_mask(u);
+                if (m != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(m, &s);
+                        fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
+                }
 
-        m = unit_get_delegate_mask(u);
-        if (m != 0) {
-                _cleanup_free_ char *s = NULL;
-                (void) cg_mask_to_string(m, &s);
-                fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
+                m = unit_get_members_mask(u);
+                if (m != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(m, &s);
+                        fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
+                }
+
+                m = unit_get_delegate_mask(u);
+                if (m != 0) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) cg_mask_to_string(m, &s);
+                        fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
+                }
         }
 
         if (!sd_id128_is_null(u->invocation_id))
