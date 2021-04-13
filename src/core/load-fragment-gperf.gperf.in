@@ -269,6 +269,8 @@ Unit.PropagatesReloadTo,                 config_parse_unit_deps,                
 Unit.PropagateReloadTo,                  config_parse_unit_deps,                      UNIT_PROPAGATES_RELOAD_TO,          0
 Unit.ReloadPropagatedFrom,               config_parse_unit_deps,                      UNIT_RELOAD_PROPAGATED_FROM,        0
 Unit.PropagateReloadFrom,                config_parse_unit_deps,                      UNIT_RELOAD_PROPAGATED_FROM,        0
+Unit.PropagatesStopTo,                   config_parse_unit_deps,                      UNIT_PROPAGATES_STOP_TO,            0
+Unit.StopPropagatedFrom,                 config_parse_unit_deps,                      UNIT_STOP_PROPAGATED_FROM,          0
 Unit.PartOf,                             config_parse_unit_deps,                      UNIT_PART_OF,                       0
 Unit.JoinsNamespaceOf,                   config_parse_unit_deps,                      UNIT_JOINS_NAMESPACE_OF,            0
 Unit.RequiresOverridable,                config_parse_obsolete_unit_deps,             UNIT_REQUIRES,                      0
