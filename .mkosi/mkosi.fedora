@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=33
+Release=34
 
 [Packages]
 BuildPackages=
