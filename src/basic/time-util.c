@@ -1547,7 +1547,7 @@ int time_change_fd(void) {
                 .it_value.tv_sec = TIME_T_MAX,
         };
 
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 

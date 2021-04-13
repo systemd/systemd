@@ -509,7 +509,7 @@ static void test_inotify(unsigned n_create_events) {
 
         for (i = 0; i < n_create_events; i++) {
                 char buf[DECIMAL_STR_MAX(unsigned)+1];
-                _cleanup_free_ char *z;
+                _cleanup_free_ char *z = NULL;
 
                 xsprintf(buf, "%u", i);
                 assert_se(z = path_join(p, buf));
