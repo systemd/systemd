@@ -576,7 +576,7 @@ end:
 
                 /* Removing empty dropin dirs */
                 if (!arg_full) {
-                        _cleanup_free_ char *dir;
+                        _cleanup_free_ char *dir = NULL;
 
                         dir = dirname_malloc(*original);
                         if (!dir)

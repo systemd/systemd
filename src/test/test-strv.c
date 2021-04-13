@@ -249,8 +249,8 @@ static void test_strv_join_full(void) {
 }
 
 static void test_strv_unquote(const char *quoted, char **list) {
-        _cleanup_strv_free_ char **s;
-        _cleanup_free_ char *j;
+        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_free_ char *j = NULL;
         unsigned i = 0;
         char **t;
         int r;
@@ -645,7 +645,7 @@ static void test_strv_extendf(void) {
 }
 
 static void test_strv_foreach(void) {
-        _cleanup_strv_free_ char **a;
+        _cleanup_strv_free_ char **a = NULL;
         unsigned i = 0;
         char **check;
 
@@ -659,7 +659,7 @@ static void test_strv_foreach(void) {
 }
 
 static void test_strv_foreach_backwards(void) {
-        _cleanup_strv_free_ char **a;
+        _cleanup_strv_free_ char **a = NULL;
         unsigned i = 2;
         char **check;
 
