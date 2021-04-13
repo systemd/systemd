@@ -16,6 +16,7 @@ extern int (*sym_fido_assert_set_extensions)(fido_assert_t *, int);
 extern int (*sym_fido_assert_set_hmac_salt)(fido_assert_t *, const unsigned char *, size_t);
 extern int (*sym_fido_assert_set_rp)(fido_assert_t *, const char *);
 extern int (*sym_fido_assert_set_up)(fido_assert_t *, fido_opt_t);
+extern int (*sym_fido_assert_set_uv)(fido_assert_t *, fido_opt_t);
 extern size_t (*sym_fido_cbor_info_extensions_len)(const fido_cbor_info_t *);
 extern char **(*sym_fido_cbor_info_extensions_ptr)(const fido_cbor_info_t *);
 extern void (*sym_fido_cbor_info_free)(fido_cbor_info_t **);
@@ -81,6 +82,8 @@ int fido2_use_hmac_hash(
                 size_t cid_size,
                 char **pins,
                 bool up, /* user presence permitted */
+                bool pin_required, /* client pin required */
+                bool uv, /* user verification required */
                 void **ret_hmac,
                 size_t *ret_hmac_size);
 
@@ -93,6 +96,9 @@ int fido2_generate_hmac_hash(
                 const char *user_display_name,
                 const char *user_icon,
                 const char *askpw_icon_name,
+                bool lock_with_pin,
+                bool lock_with_presence,
+                bool lock_with_verification,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
