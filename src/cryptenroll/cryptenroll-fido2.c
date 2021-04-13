@@ -79,7 +79,8 @@ int enroll_fido2(
                                        JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_BASE64(salt, salt_size)),
                                        JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_STRING("io.systemd.cryptsetup")),
                                        JSON_BUILD_PAIR("fido2-clientPin-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
-                                       JSON_BUILD_PAIR("fido2-up-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP)))));
+                                       JSON_BUILD_PAIR("fido2-up-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
+                                       JSON_BUILD_PAIR("fido2-uv-required", JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV)))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 

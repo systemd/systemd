@@ -93,6 +93,8 @@ static int help(void) {
                "                       Whether to require entering a PIN to unlock the volume\n"
                "     --fido2-with-user-presence=BOOL\n"
                "                       Whether to require user presence to unlock the volume\n"
+               "     --fido2-with-user-verification=BOOL\n"
+               "                       Whether to require user verification to unlock the volume\n"
                "     --tpm2-device=PATH\n"
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1,PCR2,PCR3,…\n"
@@ -121,6 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WIPE_SLOT,
                 ARG_FIDO2_WITH_PIN,
                 ARG_FIDO2_WITH_UP,
+                ARG_FIDO2_WITH_UV,
         };
 
         static const struct option options[] = {
@@ -132,6 +135,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE     },
                 { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN   },
                 { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP    },
+                { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV    },
                 { "tpm2-device",                  required_argument, NULL, ARG_TPM2_DEVICE      },
                 { "tpm2-pcrs",                    required_argument, NULL, ARG_TPM2_PCRS        },
                 { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT        },
@@ -173,6 +177,18 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
+
+                        break;
+                }
+
+                case ARG_FIDO2_WITH_UV: {
+                        bool lock_with_uv;
+
+                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, &lock_with_uv);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
 
                         break;
                 }
