@@ -1730,10 +1730,11 @@ static bool unit_verify_deps(Unit *u) {
 
         assert(u);
 
-        /* Checks whether all BindsTo= dependencies of this unit are fulfilled — if they are also combined with
-         * After=. We do not check Requires= or Requisite= here as they only should have an effect on the job
-         * processing, but do not have any effect afterwards. We don't check BindsTo= dependencies that are not used in
-         * conjunction with After= as for them any such check would make things entirely racy. */
+        /* Checks whether all BindsTo= dependencies of this unit are fulfilled — if they are also combined
+         * with After=. We do not check Requires= or Requisite= here as they only should have an effect on
+         * the job processing, but do not have any effect afterwards. We don't check BindsTo= dependencies
+         * that are not used in conjunction with After= as for them any such check would make things entirely
+         * racy. */
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT) {
 
@@ -2875,7 +2876,7 @@ int unit_add_dependency(
                 [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
                 [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
-                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF,
+                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
         };
         Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
@@ -4924,10 +4925,10 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                                 di.origin_mask &= ~mask;
                                 unit_update_dependency_mask(deps, other, di);
 
-                                /* We updated the dependency from our unit to the other unit now. But most dependencies
-                                 * imply a reverse dependency. Hence, let's delete that one too. For that we go through
-                                 * all dependency types on the other unit and delete all those which point to us and
-                                 * have the right mask set. */
+                                /* We updated the dependency from our unit to the other unit now. But most
+                                 * dependencies imply a reverse dependency. Hence, let's delete that one
+                                 * too. For that we go through all dependency types on the other unit and
+                                 * delete all those which point to us and have the right mask set. */
 
                                 HASHMAP_FOREACH(other_deps, other->dependencies) {
                                         UnitDependencyInfo dj;
