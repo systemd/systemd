@@ -8,6 +8,11 @@
 
 #include_next <sys/syscall.h>
 
+/* The header defines _MIPS_SIM_ABI32 and friends used below, but musl does not include it in sys/syscall.h. */
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include <assert.h>
 
 /* Note: if this code looks strange, this is because it is derived from the same
