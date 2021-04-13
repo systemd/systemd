@@ -57,7 +57,7 @@ static void test_GREEDY_REALLOC(void) {
 
 static void test_memdup_multiply_and_greedy_realloc(void) {
         static const int org[] = { 1, 2, 3 };
-        _cleanup_free_ int *dup;
+        _cleanup_free_ int *dup = NULL;
         int *p;
         size_t i, allocated = 3;
 
@@ -134,7 +134,7 @@ static void test_cleanup_order(void) {
 }
 
 static void test_auto_erase_memory(void) {
-        _cleanup_(erase_and_freep) uint8_t *p1, *p2;
+        _cleanup_(erase_and_freep) uint8_t *p1 = NULL, *p2 = NULL;
 
         /* print address of p2, else e.g. clang-11 will optimize it out */
         log_debug("p1: %p p2: %p", &p1, &p2);

@@ -53,7 +53,7 @@ static int help(void) {
 
 static int parse_interface_with_operstate_range(const char *str) {
         _cleanup_free_ char *ifname = NULL;
-        _cleanup_free_ LinkOperationalStateRange *range;
+        _cleanup_free_ LinkOperationalStateRange *range = NULL;
         const char *p;
         int r;
 

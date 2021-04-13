@@ -90,7 +90,7 @@ static void print_device(struct udev_device *device) {
 }
 
 static void test_device(struct udev *udev, const char *syspath) {
-        _cleanup_(udev_device_unrefp) struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
 
         log_info("/* %s, device %s */", __func__, syspath);
         device = udev_device_new_from_syspath(udev, syspath);
@@ -101,7 +101,7 @@ static void test_device(struct udev *udev, const char *syspath) {
 }
 
 static void test_device_parents(struct udev *udev, const char *syspath) {
-        _cleanup_(udev_device_unrefp) struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         struct udev_device *device_parent;
 
         log_info("/* %s, device %s */", __func__, syspath);
@@ -126,7 +126,7 @@ static void test_device_parents(struct udev *udev, const char *syspath) {
 
 static void test_device_devnum(struct udev *udev) {
         dev_t devnum = makedev(1, 3);
-        _cleanup_(udev_device_unrefp) struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
 
         log_info("/* %s, device %d:%d */", __func__, major(devnum), minor(devnum));
 
@@ -138,7 +138,7 @@ static void test_device_devnum(struct udev *udev) {
 }
 
 static void test_device_subsys_name(struct udev *udev, const char *subsys, const char *dev) {
-        _cleanup_(udev_device_unrefp) struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
 
         log_info("looking up device: '%s:%s'", subsys, dev);
         device = udev_device_new_from_subsystem_sysname(udev, subsys, dev);
@@ -170,8 +170,8 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
 }
 
 static void test_monitor(struct udev *udev) {
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor;
-        _cleanup_close_ int fd_ep;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
+        _cleanup_close_ int fd_ep = -1;
         int fd_udev;
         struct epoll_event ep_udev = {
                 .events = EPOLLIN,
