@@ -3318,6 +3318,12 @@ custom_target(
                    '} >@OUTPUT@'],
         build_by_default : true)
 
+# We intentionally do not do inline initializations with definitions for
+# a bunch of _cleanup_ variables in tests, to ensure valgrind is triggered.
+# This triggers a lot of maybe-uninitialized false positives when the
+# combination of -O2 and -flto is used. Suppress them.
+no_uninit = '-O2' in get_option('c_args') and '-flto=auto' in get_option('c_args') ? cc.first_supported_argument('-Wno-maybe-uninitialized') : []
+error('@0@'.format(no_uninit))
 foreach tuple : tests
         sources = tuple[0]
         link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
@@ -3326,6 +3332,7 @@ foreach tuple : tests
         condition = tuple.length() > 4 ? tuple[4] : ''
         type = tuple.length() > 5 ? tuple[5] : ''
         defs = tuple.length() > 6 ? tuple[6] : []
+        defs += no_uninit
         parallel = tuple.length() > 7 ? tuple[7] : true
         timeout = 30
 
@@ -3393,7 +3400,7 @@ exe = executable(
         'test-libudev-sym',
         test_libudev_sym_c,
         include_directories : libudev_includes,
-        c_args : '-Wno-deprecated-declarations',
+        c_args : ['-Wno-deprecated-declarations'] + no_uninit,
         link_with : [libudev],
         build_by_default : want_tests != 'false',
         install : install_tests,
@@ -3406,7 +3413,7 @@ exe = executable(
         'test-libudev-static-sym',
         test_libudev_sym_c,
         include_directories : libudev_includes,
-        c_args : '-Wno-deprecated-declarations',
+        c_args : ['-Wno-deprecated-declarations'] + no_uninit,
         link_with : [install_libudev_static],
         build_by_default : want_tests != 'false' and static_libudev_pic,
         install : install_tests and static_libudev_pic,
