@@ -52,7 +52,7 @@ static void test_hash_password_full(void) {
 
         for (unsigned c = 0; c < 2; c++)
                 FOREACH_STRING(i, "abc123", "h⸿sło") {
-                        _cleanup_free_ char *hashed;
+                        _cleanup_free_ char *hashed = NULL;
 
                         if (c == 0)
                                 assert_se(hash_password_full(i, &cd_data, &cd_size, &hashed) == 0);

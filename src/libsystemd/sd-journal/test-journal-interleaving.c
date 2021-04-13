@@ -67,7 +67,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
 
 static void test_check_number (sd_journal *j, int n) {
         const void *d;
-        _cleanup_free_ char *k;
+        _cleanup_free_ char *k = NULL;
         size_t l;
         int x;
 
