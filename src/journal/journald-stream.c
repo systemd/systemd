@@ -189,7 +189,7 @@ static int stdout_stream_save(StdoutStream *s) {
                 s->id_field + STRLEN("_STREAM_ID="));
 
         if (!isempty(s->identifier)) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->identifier);
                 if (!escaped) {
@@ -201,7 +201,7 @@ static int stdout_stream_save(StdoutStream *s) {
         }
 
         if (!isempty(s->unit_id)) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->unit_id);
                 if (!escaped) {
