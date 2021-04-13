@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
+set -o pipefail
 
 # Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.
@@ -17,7 +18,7 @@ grep 'hello\.service.*waiting' /root/list-jobs.txt
 START_SEC=$(date -u '+%s')
 systemctl start --job-mode=ignore-dependencies hello
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 
 test "$ELAPSED" -lt 3
 
@@ -75,14 +76,14 @@ EOF
 START_SEC=$(date -u '+%s')
 systemctl start --wait wait2.service
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 2 ]] && [[ "$ELAPSED" -le 4 ]] || exit 1
 
 # wait5fail fails, so systemctl should fail
 START_SEC=$(date -u '+%s')
 systemctl start --wait wait2.service wait5fail.service && { echo 'unexpected success'; exit 1; }
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
 
 # Test time-limited scopes
@@ -91,7 +92,7 @@ set +e
 systemd-run --scope --property=RuntimeMaxSec=3s sleep 10
 RESULT=$?
 END_SEC=$(date -u '+%s')
-ELAPSED=$(($END_SEC-$START_SEC))
+ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
 
