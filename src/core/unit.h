@@ -202,8 +202,6 @@ typedef struct Unit {
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
 
-        UnitRef slice;
-
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 
@@ -707,8 +705,7 @@ static inline Unit* UNIT_TRIGGER(Unit *u) {
 }
 
 static inline Unit* UNIT_GET_SLICE(const Unit *u) {
-        assert(u);
-        return u->slice.target;
+        return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, NULL);
 }
 
 Unit* unit_new(Manager *m, size_t size);
@@ -751,7 +748,7 @@ Unit *unit_follow_merge(Unit *u) _pure_;
 int unit_load_fragment_and_dropin(Unit *u, bool fragment_required);
 int unit_load(Unit *unit);
 
-int unit_set_slice(Unit *u, Unit *slice);
+int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
