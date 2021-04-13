@@ -2015,7 +2015,7 @@ int config_parse_trigger_unit(
         assert(rvalue);
         assert(data);
 
-        if (!hashmap_isempty(u->dependencies[UNIT_TRIGGERS])) {
+        if (UNIT_TRIGGER(u)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Multiple units to trigger specified, ignoring: %s", rvalue);
                 return 0;
         }

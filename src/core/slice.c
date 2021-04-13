@@ -346,11 +346,10 @@ static void slice_enumerate_perpetual(Manager *m) {
 
 static bool slice_freezer_action_supported_by_children(Unit *s) {
         Unit *member;
-        void *v;
 
         assert(s);
 
-        HASHMAP_FOREACH_KEY(v, member, s->dependencies[UNIT_BEFORE]) {
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_BEFORE) {
                 int r;
 
                 if (UNIT_DEREF(member->slice) != s)
@@ -371,7 +370,6 @@ static bool slice_freezer_action_supported_by_children(Unit *s) {
 
 static int slice_freezer_action(Unit *s, FreezerAction action) {
         Unit *member;
-        void *v;
         int r;
 
         assert(s);
@@ -382,7 +380,7 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
                 return 0;
         }
 
-        HASHMAP_FOREACH_KEY(v, member, s->dependencies[UNIT_BEFORE]) {
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_BEFORE) {
                 if (UNIT_DEREF(member->slice) != s)
                         continue;
 
@@ -390,7 +388,6 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
                         r = UNIT_VTABLE(member)->freeze(member);
                 else
                         r = UNIT_VTABLE(member)->thaw(member);
-
                 if (r < 0)
                         return r;
         }

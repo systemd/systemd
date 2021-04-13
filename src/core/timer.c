@@ -124,7 +124,7 @@ static int timer_add_trigger_dependencies(Timer *t) {
 
         assert(t);
 
-        if (!hashmap_isempty(UNIT(t)->dependencies[UNIT_TRIGGERS]))
+        if (UNIT_TRIGGER(UNIT(t)))
                 return 0;
 
         r = unit_load_related_unit(UNIT(t), ".service", &x);
