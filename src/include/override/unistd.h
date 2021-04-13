@@ -3,6 +3,12 @@
 
 #include_next <unistd.h>
 
+/* The header defines _MIPS_SIM_ABI32 and friends, which used several places to determine mips architectures,
+ * but musl does not include it in unistd.h. Let's include it explicitly. */
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 /* Defined since glibc-2.34.
  * Supported since kernel v5.9 (9b4feb630e8e9801603f3cab3a36369e3c1cf88d). */
 #if !HAVE_CLOSE_RANGE
