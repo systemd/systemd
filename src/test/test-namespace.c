@@ -16,19 +16,19 @@
 
 static void test_namespace_cleanup_tmpdir(void) {
         {
-                _cleanup_(namespace_cleanup_tmpdirp) char *dir;
+                _cleanup_(namespace_cleanup_tmpdirp) char *dir = NULL;
                 assert_se(dir = strdup(RUN_SYSTEMD_EMPTY));
         }
 
         {
-                _cleanup_(namespace_cleanup_tmpdirp) char *dir;
+                _cleanup_(namespace_cleanup_tmpdirp) char *dir = NULL;
                 assert_se(dir = strdup("/tmp/systemd-test-namespace.XXXXXX"));
                 assert_se(mkdtemp(dir));
         }
 }
 
 static void test_tmpdir(const char *id, const char *A, const char *B) {
-        _cleanup_free_ char *a, *b;
+        _cleanup_free_ char *a = NULL, *b = NULL;
         struct stat x, y;
         char *c, *d;
 

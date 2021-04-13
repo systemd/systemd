@@ -25,7 +25,7 @@ static void test_sysctl_normalize(void) {
 
         const char **s, **expected;
         STRV_FOREACH_PAIR(s, expected, cases) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 assert_se(t = strdup(*s));
                 assert_se(sysctl_normalize(t) == t);
