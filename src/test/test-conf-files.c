@@ -28,7 +28,7 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
 
         va_start(ap, files);
         while (files) {
-                _cleanup_free_ char *path;
+                _cleanup_free_ char *path = NULL;
 
                 assert_se(path = path_join(tmp_dir, files));
                 (void) mkdir_parents(path, 0755);

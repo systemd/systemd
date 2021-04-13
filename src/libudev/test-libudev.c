@@ -171,7 +171,7 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
 
 static void test_monitor(struct udev *udev) {
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor;
-        _cleanup_close_ int fd_ep;
+        _cleanup_close_ int fd_ep = -1;
         int fd_udev;
         struct epoll_event ep_udev = {
                 .events = EPOLLIN,
