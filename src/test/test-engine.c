@@ -6,16 +6,58 @@
 #include "bus-util.h"
 #include "manager.h"
 #include "rm-rf.h"
+#include "service.h"
+#include "special.h"
 #include "strv.h"
 #include "tests.h"
-#include "service.h"
+#include "unit-serialize.h"
+
+static void verify_dependency_atoms(void) {
+        UnitDependencyAtom combined = 0, multi_use_atoms = 0;
+
+        /* Let's guarantee that our dependency type/atom translation tables are fully correct */
+
+        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+                UnitDependencyAtom a;
+                UnitDependency reverse;
+                bool has_superset = false;
+
+                assert_se((a = unit_dependency_to_atom(d)) >= 0);
+
+                for (UnitDependency t = 0; t < _UNIT_DEPENDENCY_MAX; t++) {
+                        UnitDependencyAtom b;
+
+                        if (t == d)
+                                continue;
+
+                        assert_se((b = unit_dependency_to_atom(t)) >= 0);
+
+                        if ((a & b) == a) {
+                                has_superset = true;
+                                break;
+                        }
+                }
+
+                reverse = unit_dependency_from_unique_atom(a);
+                assert_se(reverse == _UNIT_DEPENDENCY_INVALID || reverse >= 0);
+
+                assert_se((reverse < 0) == has_superset); /* If one dependency type is a superset of another,
+                                                           * then the reverse mapping is not unique, verify
+                                                           * that. */
+
+                log_info("Verified dependency type: %s", unit_dependency_to_string(d));
+
+                multi_use_atoms |= combined & a;
+                combined |= a;
+        }
+}
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL,
-             *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL;
+                *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL;
         Job *j;
         int r;
 
@@ -153,6 +195,52 @@ int main(int argc, char *argv[]) {
 
         assert_se(strv_equal(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3")));
         assert_se(streq_ptr(unit_with_multiple_dashes->description, "override4"));
+
+        /* Now merge a synthetic unit into the existing one */
+        assert_se(unit_new_for_name(m, sizeof(Service), "merged.service", &stub) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, SPECIAL_BASIC_TARGET, true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, "quux.target", true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_AFTER, SPECIAL_ROOT_SLICE, true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_REQUIRES, "non-existing.mount", true, UNIT_DEPENDENCY_FILE) >= 0);
+        assert_se(unit_add_dependency_by_name(stub, UNIT_ON_FAILURE, "non-existing-on-failure.target", true, UNIT_DEPENDENCY_FILE) >= 0);
+
+        log_info("/* Merging a+stub, dumps before */");
+        unit_dump(a, stderr, NULL);
+        unit_dump(stub, stderr, NULL);
+        assert_se(unit_merge(a, stub) >= 0);
+        log_info("/* Dump of merged a+stub */");
+        unit_dump(a, stderr, NULL);
+
+        assert_se(unit_has_dependency(a, UNIT_ATOM_AFTER, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(unit_has_dependency(a, UNIT_ATOM_AFTER, manager_get_unit(m, "quux.target")));
+        assert_se(unit_has_dependency(a, UNIT_ATOM_AFTER, manager_get_unit(m, SPECIAL_ROOT_SLICE)));
+        assert_se(unit_has_dependency(a, UNIT_ATOM_PULL_IN_START, manager_get_unit(m, "non-existing.mount")));
+        assert_se(unit_has_dependency(a, UNIT_ATOM_RETROACTIVE_START_REPLACE, manager_get_unit(m, "non-existing.mount")));
+        assert_se(unit_has_dependency(a, UNIT_ATOM_ON_FAILURE, manager_get_unit(m, "non-existing-on-failure.target")));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE, manager_get_unit(m, "basic.target")));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_PROPAGATES_RELOAD_TO, manager_get_unit(m, "non-existing-on-failure.target")));
+
+        assert_se(unit_has_name(a, "a.service"));
+        assert_se(unit_has_name(a, "merged.service"));
+
+        unsigned mm = 1;
+        Unit *other;
+
+        UNIT_FOREACH_DEPENDENCY(other, a, UNIT_ATOM_AFTER) {
+                mm *= unit_has_name(other, SPECIAL_BASIC_TARGET) ? 3 : 1;
+                mm *= unit_has_name(other, "quux.target") ? 5 : 1;
+                mm *= unit_has_name(other, SPECIAL_ROOT_SLICE) ? 7 : 1;
+        }
+
+        UNIT_FOREACH_DEPENDENCY(other, a, UNIT_ATOM_ON_FAILURE)
+                mm *= unit_has_name(other, "non-existing-on-failure.target") ? 11 : 1;
+
+        UNIT_FOREACH_DEPENDENCY(other, a, UNIT_ATOM_PULL_IN_START)
+                mm *= unit_has_name(other, "non-existing.mount") ? 13 : 1;
+
+        assert_se(mm == 3U*5U*7U*11U*13U);
+
+        verify_dependency_atoms();
 
         return 0;
 }
