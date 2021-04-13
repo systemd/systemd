@@ -1630,6 +1630,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as OnFailure = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as OnFailureOf = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Triggers = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as TriggeredBy = ['...', ...];
@@ -1773,6 +1775,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ConsistsOf is not documented!-->
 
+    <!--property OnFailureOf is not documented!-->
+
     <!--property ReloadPropagatedFrom is not documented!-->
 
     <!--property JoinsNamespaceOf is not documented!-->
@@ -1904,6 +1908,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="After"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OnFailure"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnFailureOf"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Triggers"/>
 
