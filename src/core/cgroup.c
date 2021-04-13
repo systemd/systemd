@@ -2358,22 +2358,19 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                 if (UNIT_DEREF(m->slice) != u)
                         continue;
 
-                /* The cgroup for this unit might not actually be fully
-                 * realised yet, in which case it isn't holding any controllers
-                 * open anyway. */
+                /* The cgroup for this unit might not actually be fully realised yet, in which case it isn't
+                 * holding any controllers open anyway. */
                 if (!m->cgroup_realized)
                         continue;
 
-                /* We must disable those below us first in order to release the
-                 * controller. */
+                /* We must disable those below us first in order to release the controller. */
                 if (m->type == UNIT_SLICE)
                         (void) unit_realize_cgroup_now_disable(m, state);
 
                 target_mask = unit_get_target_mask(m);
                 enable_mask = unit_get_enable_mask(m);
 
-                /* We can only disable in this direction, don't try to enable
-                 * anything. */
+                /* We can only disable in this direction, don't try to enable anything. */
                 if (unit_has_mask_disables_realized(m, target_mask, enable_mask))
                         continue;
 
@@ -2535,8 +2532,8 @@ void unit_add_family_to_cgroup_realize_queue(Unit *u) {
                         if (!m->cgroup_realized)
                                 continue;
 
-                        /* If the unit doesn't need any new controllers and has current ones realized, it
-                         * doesn't need any changes. */
+                        /* If the unit doesn't need any new controllers and has current ones
+                         * realized, it doesn't need any changes. */
                         if (unit_has_mask_realized(m,
                                                    unit_get_target_mask(m),
                                                    unit_get_enable_mask(m)))

@@ -1014,26 +1014,22 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                         job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_STOP_FAILURE);
         }
 
-        /* A special check to make sure we take down anything RequisiteOf if we
-         * aren't active. This is when the verify-active job merges with a
-         * satisfying job type, and then loses it's invalidation effect, as the
-         * result there is JOB_DONE for the start job we merged into, while we
-         * should be failing the depending job if the said unit isn't in fact
-         * active. Oneshots are an example of this, where going directly from
-         * activating to inactive is success.
+        /* A special check to make sure we take down anything RequisiteOf= if we aren't active. This is when
+         * the verify-active job merges with a satisfying job type, and then loses it's invalidation effect,
+         * as the result there is JOB_DONE for the start job we merged into, while we should be failing the
+         * depending job if the said unit isn't in fact active. Oneshots are an example of this, where going
+         * directly from activating to inactive is success.
          *
-         * This happens when you use ConditionXYZ= in a unit too, since in that
-         * case the job completes with the JOB_DONE result, but the unit never
-         * really becomes active. Note that such a case still involves merging:
+         * This happens when you use ConditionXYZ= in a unit too, since in that case the job completes with
+         * the JOB_DONE result, but the unit never really becomes active. Note that such a case still
+         * involves merging:
          *
-         * A start job waits for something else, and a verify-active comes in
-         * and merges in the installed job. Then, later, when it becomes
-         * runnable, it finishes with JOB_DONE result as execution on conditions
-         * not being met is skipped, breaking our dependency semantics.
+         * A start job waits for something else, and a verify-active comes in and merges in the installed
+         * job. Then, later, when it becomes runnable, it finishes with JOB_DONE result as execution on
+         * conditions not being met is skipped, breaking our dependency semantics.
          *
-         * Also, depending on if start job waits or not, the merging may or may
-         * not happen (the verify-active job may trigger after it finishes), so
-         * you get undeterministic results without this check.
+         * Also, depending on if start job waits or not, the merging may or may not happen (the verify-active
+         * job may trigger after it finishes), so you get undeterministic results without this check.
          */
         if (result == JOB_DONE && recursive &&
             IN_SET(t, JOB_START, JOB_RELOAD) &&
@@ -1656,8 +1652,7 @@ const char* job_type_to_access_method(JobType t) {
  *  stop a  + start b → 1st step stop a,  2nd step start b
  *  stop a  + stop b  → 1st step stop b,  2nd step stop a
  *
- *  This has the side effect that restarts are properly
- *  synchronized too.
+ *  This has the side effect that restarts are properly synchronized too.
  */
 int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep) {
         assert(a);
@@ -1676,9 +1671,8 @@ int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep) {
         if (assume_dep == UNIT_ATOM_AFTER)
                 return -job_compare(b, a, UNIT_ATOM_BEFORE);
 
-        /* Let's make it simple, JOB_STOP goes always first (in case both ua and ub stop,
-         * then ub's stop goes first anyway).
-         * JOB_RESTART is JOB_STOP in disguise (before it is patched to JOB_START). */
+        /* Let's make it simple, JOB_STOP goes always first (in case both ua and ub stop, then ub's stop goes
+         * first anyway). JOB_RESTART is JOB_STOP in disguise (before it is patched to JOB_START). */
         if (IN_SET(b->type, JOB_STOP, JOB_RESTART))
                 return 1;
         else
