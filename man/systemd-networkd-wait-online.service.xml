@@ -86,6 +86,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-4</option></term>
+        <term><option>--ipv4</option></term>
+
+        <listitem><para>Waiting for an IPv4 address of each network interface to be configured. If this
+        option is specified with <option>--any</option>, then
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online and has an IPv4 address. The option is applied only for the operational state
+        <literal>degraded</literal> or above. If neither <option>--ipv4</option> nor
+        <option>--ipv6</option> is specified, then the value from
+        <varname>RequiredFamilyForOnline=</varname> in the corresponding <filename>.network</filename>
+        file is used if present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-6</option></term>
+        <term><option>--ipv6</option></term>
+
+        <listitem><para>Waiting for an IPv6 address of each network interface to be configured. If this
+        option is specified with <option>--any</option>, then
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online and has an IPv6 address. The option is applied only for the operational state
+        <literal>degraded</literal> or above. If neither <option>--ipv4</option> nor
+        <option>--ipv6</option> is specified, then the value from
+        <varname>RequiredFamilyForOnline=</varname> in the corresponding <filename>.network</filename>
+        file is used if present.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--any</option></term>
 
         <listitem><para>Even if several interfaces are in configuring state,
