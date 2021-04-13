@@ -6,6 +6,7 @@
 typedef enum Fido2EnrollFlags {
         FIDO2ENROLL_PIN           = 1 << 0,
         FIDO2ENROLL_UP            = 1 << 1, /* User presence (ie: touching token) */
+        FIDO2ENROLL_UV            = 1 << 2, /* User verification (ie: fingerprint) */
         _FIDO2ENROLL_TYPE_MAX,
         _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
 } Fido2EnrollFlags;
@@ -23,6 +24,7 @@ extern int (*sym_fido_assert_set_extensions)(fido_assert_t *, int);
 extern int (*sym_fido_assert_set_hmac_salt)(fido_assert_t *, const unsigned char *, size_t);
 extern int (*sym_fido_assert_set_rp)(fido_assert_t *, const char *);
 extern int (*sym_fido_assert_set_up)(fido_assert_t *, fido_opt_t);
+extern int (*sym_fido_assert_set_uv)(fido_assert_t *, fido_opt_t);
 extern size_t (*sym_fido_cbor_info_extensions_len)(const fido_cbor_info_t *);
 extern char **(*sym_fido_cbor_info_extensions_ptr)(const fido_cbor_info_t *);
 extern void (*sym_fido_cbor_info_free)(fido_cbor_info_t **);

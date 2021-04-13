@@ -205,6 +205,17 @@ int find_fido2_auto_data(
 
                         SET_FLAG(required, FIDO2ENROLL_UP, json_variant_boolean(w));
                 }
+
+                w = json_variant_by_key(v, "fido2-uv-required");
+                if (w) {
+                        /* The "fido2-uv-required" field is optional. */
+
+                        if (!json_variant_is_boolean(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
+
+                        SET_FLAG(required, FIDO2ENROLL_UV, json_variant_boolean(w));
+                }
         }
 
         if (!cid)
