@@ -41,6 +41,10 @@ HEADER = '''\
  */
 #pragma once
 
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include_next <sys/syscall.h>
 '''
 
