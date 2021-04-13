@@ -359,8 +359,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         assert(j);
         assert(!j->transaction_prev);
 
-        /* Does a recursive sweep through the ordering graph, looking
-         * for a cycle. If we find a cycle we try to break it. */
+        /* Does a recursive sweep through the ordering graph, looking for a cycle. If we find a cycle we try
+         * to break it. */
 
         /* Have we seen this before? */
         if (j->generation == generation) {
@@ -368,18 +368,14 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 _cleanup_free_ char **array = NULL, *unit_ids = NULL;
                 char **unit_id, **job_type;
 
-                /* If the marker is NULL we have been here already and
-                 * decided the job was loop-free from here. Hence
-                 * shortcut things and return right-away. */
+                /* If the marker is NULL we have been here already and decided the job was loop-free from
+                 * here. Hence shortcut things and return right-away. */
                 if (!j->marker)
                         return 0;
 
-                /* So, the marker is not NULL and we already have been here. We have
-                 * a cycle. Let's try to break it. We go backwards in our path and
-                 * try to find a suitable job to remove. We use the marker to find
-                 * our way back, since smart how we are we stored our way back in
-                 * there. */
-
+                /* So, the marker is not NULL and we already have been here. We have a cycle. Let's try to
+                 * break it. We go backwards in our path and try to find a suitable job to remove. We use the
+                 * marker to find our way back, since smart how we are we stored our way back in there. */
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
                         /* For logging below */
@@ -457,9 +453,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         /* Is there a job for this unit? */
                         o = hashmap_get(tr->jobs, u);
                         if (!o) {
-                                /* Ok, there is no job for this in the
-                                 * transaction, but maybe there is already one
-                                 * running? */
+                                /* Ok, there is no job for this in the transaction, but maybe there is
+                                 * already one running? */
                                 o = u->job;
                                 if (!o)
                                         continue;
