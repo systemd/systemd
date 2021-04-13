@@ -787,13 +787,20 @@
         <term><varname>PropagatesReloadTo=</varname></term>
         <term><varname>ReloadPropagatedFrom=</varname></term>
 
-        <listitem><para>A space-separated list of one or more units
-        where reload requests on this unit will be propagated to, or
-        reload requests on the other unit will be propagated to this
-        unit, respectively. Issuing a reload request on a unit will
-        automatically also enqueue a reload request on all units that
-        the reload request shall be propagated to via these two
-        settings.</para></listitem>
+        <listitem><para>A space-separated list of one or more units to which reload requests from this unit
+        shall be propagated to, or units from which reload requests shall be propagated to this unit,
+        respectively. Issuing a reload request on a unit will automatically also enqueue reload requests on
+        all units that are linked to it using these two settings.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PropagatesStopTo=</varname></term>
+        <term><varname>StopPropagatedFrom=</varname></term>
+
+        <listitem><para>A space-separated list of one or more units to which stop requests from this unit
+        shall be propagated to, or units from which stop requests shall be propagated to this unit,
+        respectively. Issuing a stop request on a unit will automatically also enqueue stop requests on all
+        units that are linked to it using these two settings.</para></listitem>
       </varlistentry>
 
       <varlistentry>
