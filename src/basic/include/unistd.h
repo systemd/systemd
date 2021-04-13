@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+/* The header defines _MIPS_SIM_ABI32 and friends, which used several places to determine mips architectures,
+ * but musl does not include it in unistd.h. Let's include it explicitly. */
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
+
 #include_next <unistd.h>
 
 /* since glibc-2.34 */
