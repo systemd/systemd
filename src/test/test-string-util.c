@@ -278,7 +278,7 @@ static void test_strextend_with_separator(void) {
 static void test_strrep(void) {
         log_info("/* %s */", __func__);
 
-        _cleanup_free_ char *one, *three, *zero;
+        _cleanup_free_ char *one = NULL, *three = NULL, *zero = NULL;
         one = strrep("waldo", 1);
         three = strrep("waldo", 3);
         zero = strrep("waldo", 0);

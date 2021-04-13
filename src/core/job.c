@@ -844,7 +844,7 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
         REENABLE_WARNING;
 
         if (t == JOB_START && result == JOB_FAILED) {
-                _cleanup_free_ char *quoted;
+                _cleanup_free_ char *quoted = NULL;
 
                 quoted = shell_maybe_quote(u->id, ESCAPE_BACKSLASH);
                 manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
