@@ -55,7 +55,7 @@ static void test_vtable(void) {
                r == -ENOENT  /* dbus is inactive */ );
 
 #ifndef __cplusplus
-        _cleanup_free_ char *s, *s2;
+        _cleanup_free_ char *s = NULL, *s2 = NULL;
 
         assert_se(introspect_path(bus, "/foo", NULL, false, true, NULL, &s, NULL) == 1);
         fputs(s, stdout);

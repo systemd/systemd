@@ -133,7 +133,7 @@ static void cache_space_invalidate(JournalStorageSpace *space) {
 static int cache_space_refresh(Server *s, JournalStorage *storage) {
         JournalStorageSpace *space;
         JournalMetrics *metrics;
-        uint64_t vfs_used, vfs_avail, avail;
+        uint64_t vfs_used = UINT64_MAX, vfs_avail = UINT64_MAX, avail;
         usec_t ts;
         int r;
 

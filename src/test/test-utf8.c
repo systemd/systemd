@@ -86,7 +86,7 @@ static void test_utf8_encoded_valid_unichar(void) {
 }
 
 static void test_utf8_escape_invalid(void) {
-        _cleanup_free_ char *p1, *p2, *p3;
+        _cleanup_free_ char *p1 = NULL, *p2 = NULL, *p3 = NULL;
 
         log_info("/* %s */", __func__);
 
@@ -104,7 +104,7 @@ static void test_utf8_escape_invalid(void) {
 }
 
 static void test_utf8_escape_non_printable(void) {
-        _cleanup_free_ char *p1, *p2, *p3, *p4, *p5, *p6;
+        _cleanup_free_ char *p1 = NULL, *p2 = NULL, *p3 = NULL, *p4 = NULL, *p5 = NULL, *p6 = NULL;
 
         log_info("/* %s */", __func__);
 
@@ -137,7 +137,7 @@ static void test_utf8_escape_non_printable_full(void) {
         log_info("/* %s */", __func__);
 
         for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_non_printable_full("goo goo goo", i);
                 puts(p);
@@ -146,7 +146,7 @@ static void test_utf8_escape_non_printable_full(void) {
         }
 
         for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_non_printable_full("\001 \019\20\a", i);
                 puts(p);
@@ -155,7 +155,7 @@ static void test_utf8_escape_non_printable_full(void) {
         }
 
         for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_non_printable_full("\xef\xbf\x30\x13", i);
                 puts(p);

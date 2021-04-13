@@ -43,7 +43,7 @@ static void test_parse_etc_hosts(void) {
         log_info("/* %s */", __func__);
 
         int fd;
-        _cleanup_fclose_ FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         const char *s;
 
         fd = mkostemp_safe(t);
@@ -129,7 +129,7 @@ static void test_parse_etc_hosts(void) {
 
 static void test_parse_file(const char *fname) {
         _cleanup_(etc_hosts_free) EtcHosts hosts = {};
-        _cleanup_fclose_ FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
 
         log_info("/* %s(\"%s\") */", __func__, fname);
 
