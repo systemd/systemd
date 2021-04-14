@@ -3,7 +3,7 @@ set -ex
 
 systemd-analyze log-level debug
 
-systemd-run -p LogNamespace=foobar echo "hello world"
+systemd-run --wait -p LogNamespace=foobar echo "hello world"
 
 journalctl --namespace=foobar --sync
 journalctl --namespace=foobar > /tmp/hello-world
