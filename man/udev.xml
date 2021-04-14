@@ -117,7 +117,7 @@
           <varlistentry>
             <term><literal>:=</literal></term>
             <listitem>
-              <para>Assign  a  value  to  a key finally; disallow any later changes.</para>
+              <para>Assign a value to a key finally; disallow any later changes.</para>
             </listitem>
           </varlistentry>
         </variablelist>
@@ -605,7 +605,7 @@
                   </listitem>
                 </varlistentry>
                 <varlistentry>
-                  <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
+                  <term><option>string_escape=<replaceable>none|replace|slash</replaceable></option></term>
                   <listitem>
                     <para>Usually, control and other possibly unsafe characters are replaced
                     in strings used for device naming. The mode of replacement can be specified
