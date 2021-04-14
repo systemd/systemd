@@ -35,6 +35,12 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
 
         [UNIT_PART_OF]                = UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE,
 
+        [UNIT_UPHOLDS]                = UNIT_ATOM_PULL_IN_START_IGNORED |
+                                        UNIT_ATOM_RETROACTIVE_START_REPLACE |
+                                        UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE |
+                                        UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE |
+                                        UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE,
+
         [UNIT_REQUIRED_BY]            = UNIT_ATOM_PROPAGATE_STOP |
                                         UNIT_ATOM_PROPAGATE_RESTART |
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
@@ -57,6 +63,10 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
                                         UNIT_ATOM_PROPAGATE_START_FAILURE |
                                         UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                                         UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES,
+
+        [UNIT_UPHELD_BY]              = UNIT_ATOM_START_STEADILY |
+                                        UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES |
+                                        UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED,
 
         [UNIT_CONSISTS_OF]            = UNIT_ATOM_PROPAGATE_STOP |
                                         UNIT_ATOM_PROPAGATE_RESTART,
@@ -140,6 +150,14 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
         case UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT:
                 return UNIT_BINDS_TO;
 
+        case UNIT_ATOM_PULL_IN_START_IGNORED |
+                UNIT_ATOM_RETROACTIVE_START_REPLACE |
+                UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE |
+                UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE |
+                UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE:
+        case UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE:
+                return UNIT_UPHOLDS;
+
         case UNIT_ATOM_PROPAGATE_STOP |
                 UNIT_ATOM_PROPAGATE_RESTART |
                 UNIT_ATOM_PROPAGATE_START_FAILURE |
@@ -156,6 +174,12 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
                 UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED |
                 UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES:
                 return UNIT_BOUND_BY;
+
+        case UNIT_ATOM_START_STEADILY |
+                UNIT_ATOM_DEFAULT_TARGET_DEPENDENCIES |
+                UNIT_ATOM_PINS_STOP_WHEN_UNNEEDED:
+        case UNIT_ATOM_START_STEADILY:
+                return UNIT_UPHELD_BY;
 
         case UNIT_ATOM_PULL_IN_STOP |
                 UNIT_ATOM_RETROACTIVE_STOP_ON_START:

@@ -1295,7 +1295,7 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
                 /* If stopping a unit fails continuously we might enter a stop loop here, hence stop acting on the
                  * service being unnecessary after a while. */
 
-                if (!ratelimit_below(&u->auto_stop_ratelimit)) {
+                if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
                         log_unit_warning(u, "Unit not needed anymore, but not stopping since we tried this too often recently.");
                         continue;
                 }
@@ -1304,6 +1304,44 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
                 r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
+        }
+
+        return n;
+}
+
+static unsigned manager_dispatch_start_when_upheld_queue(Manager *m) {
+        unsigned n = 0;
+        Unit *u;
+        int r;
+
+        assert(m);
+
+        while ((u = m->start_when_upheld_queue)) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                Unit *culprit = NULL;
+
+                assert(u->in_start_when_upheld_queue);
+                LIST_REMOVE(start_when_upheld_queue, m->start_when_upheld_queue, u);
+                u->in_start_when_upheld_queue = false;
+
+                n++;
+
+                if (!unit_is_upheld_by_active(u, &culprit))
+                        continue;
+
+                log_unit_debug(u, "Unit is started because upheld by active unit %s.", culprit->id);
+
+                /* If stopping a unit fails continuously we might enter a stop loop here, hence stop acting on the
+                 * service being unnecessary after a while. */
+
+                if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
+                        log_unit_warning(u, "Unit needs to be started because active unit %s upholds it, but not starting since we tried this too often recently.", culprit->id);
+                        continue;
+                }
+
+                r = manager_add_job(u->manager, JOB_START, u, JOB_FAIL, NULL, &error, NULL);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to enqueue start job, ignoring: %s", bus_error_message(&error, r));
         }
 
         return n;
@@ -1327,6 +1365,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->gc_unit_queue);
         assert(!m->gc_job_queue);
         assert(!m->stop_when_unneeded_queue);
+        assert(!m->start_when_upheld_queue);
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
@@ -2952,6 +2991,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_cgroup_realize_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_start_when_upheld_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_stop_when_unneeded_queue(m) > 0)

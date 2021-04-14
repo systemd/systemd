@@ -2304,6 +2304,7 @@ static int bus_unit_set_transient_property(
                             UNIT_WANTS,
                             UNIT_BINDS_TO,
                             UNIT_PART_OF,
+                            UNIT_UPHOLDS,
                             UNIT_CONFLICTS,
                             UNIT_BEFORE,
                             UNIT_AFTER,

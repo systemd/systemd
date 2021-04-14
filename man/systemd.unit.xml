@@ -709,6 +709,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Upholds=</varname></term>
+
+        <listitem><para>Configures dependencies similar to <varname>Wants=</varname>, but as long a this unit
+        is up, all units listed in <varname>Upholds=</varname> are started whenever found to be inactive or
+        failed, and no job is queued for them. While a <varname>Wants=</varname> dependency on another unit
+        has a one-time effect when this units started, a <varname>Upholds=</varname> dependency on it has a
+        continuous effect, constantly restarting the unit if necessary. This is an alternative to the
+        <varname>Restart=</varname> setting of service units, to ensure they are kept running whatever
+        happens.</para>
+
+        <para>When <varname>Upholds=b.service</varname> is used on <filename>a.service</filename>, this
+        dependency will show as <varname>UpheldBy=a.service</varname> in the property listing of
+        <filename>b.service</filename>. The <varname>UpheldBy=</varname> dependency cannot be specified
+        directly.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Conflicts=</varname></term>
 
         <listitem><para>A space-separated list of unit names. Configures negative requirement

@@ -103,6 +103,7 @@ StopWhenUnneeded=
 StopPropagatedFrom=
 SuccessAction=
 SuccessActionExitStatus=
+Upholds=
 Wants=
 [Install]
 Alias=
