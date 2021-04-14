@@ -191,9 +191,10 @@ void log_assert_failed_return(
 #define log_full_errno(level, error, ...)                               \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
-                (log_get_max_level() >= LOG_PRI(_level))                \
+                _e = (log_get_max_level() >= LOG_PRI(_level))           \
                         ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
+                _e < 0 ? _e : -EIO;                                     \
         })
 
 #define log_full(level, ...) (void) log_full_errno((level), 0, __VA_ARGS__)
