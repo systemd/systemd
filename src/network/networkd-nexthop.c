@@ -711,8 +711,10 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: could not get nexthop family, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6))
-                return log_link_debug(link, "rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
+                return 0;
+        }
 
         r = sd_rtnl_message_nexthop_get_protocol(message, &tmp->protocol);
         if (r < 0) {

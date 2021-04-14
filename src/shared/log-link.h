@@ -29,7 +29,7 @@
 
 #define log_link_full(link, level, ...) (void) log_link_full_errno(link, level, 0, __VA_ARGS__)
 
-#define log_link_debug(link, ...)   log_link_full_errno(link, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_link_debug(link, ...)   log_link_full(link, LOG_DEBUG, __VA_ARGS__)
 #define log_link_info(link, ...)    log_link_full(link, LOG_INFO, __VA_ARGS__)
 #define log_link_notice(link, ...)  log_link_full(link, LOG_NOTICE, __VA_ARGS__)
 #define log_link_warning(link, ...) log_link_full(link, LOG_WARNING, __VA_ARGS__)
