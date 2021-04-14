@@ -179,7 +179,7 @@ static int clock_state_update(
 }
 
 static int run(int argc, char * argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *event;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(clock_state_release) ClockState state = {
                 .timerfd_fd = -1,
                 .inotify_fd = -1,

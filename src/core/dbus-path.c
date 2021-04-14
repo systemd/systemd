@@ -96,7 +96,7 @@ static int bus_path_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is not absolute: %s", type_name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                _cleanup_free_ char *k;
+                                _cleanup_free_ char *k = NULL;
                                 PathSpec *s;
 
                                 k = strdup(path);
