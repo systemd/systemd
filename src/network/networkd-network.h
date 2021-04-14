@@ -136,7 +136,7 @@ struct Network {
         int dhcp_ip_service_type;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
-        bool dhcp_broadcast;
+        int dhcp_broadcast;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
         bool dhcp_routes_to_dns;

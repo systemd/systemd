@@ -315,6 +315,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_ip_service_type = -1,
+                .dhcp_broadcast = -1,
 
                 .dhcp6_use_address = true,
                 .dhcp6_use_dns = true,
