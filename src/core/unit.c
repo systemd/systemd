@@ -2963,8 +2963,8 @@ int unit_add_dependency(
 
         static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
                 [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
-                [UNIT_WANTS] = UNIT_WANTED_BY,
                 [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
+                [UNIT_WANTS] = UNIT_WANTED_BY,
                 [UNIT_BINDS_TO] = UNIT_BOUND_BY,
                 [UNIT_PART_OF] = UNIT_CONSISTS_OF,
                 [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
@@ -2982,8 +2982,6 @@ int unit_add_dependency(
                 [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
                 [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
                 [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
-                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
-                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
                 [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
                 [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
                 [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
@@ -2991,6 +2989,8 @@ int unit_add_dependency(
                 [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
                 [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
                 [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
+                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
+                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
                 [UNIT_IN_SLICE] = UNIT_SLICE_OF,
                 [UNIT_SLICE_OF] = UNIT_IN_SLICE,
         };
