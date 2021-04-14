@@ -72,30 +72,30 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
         needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
 
         if (s.min >= LINK_OPERSTATE_DEGRADED) {
-                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
-                        goto ipv4_not_ready;
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED) {
+                        log_link_debug(l, "No routable or link-local IPv4 address is configured.");
+                        return 0;
+                }
 
-                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED)
-                        goto ipv6_not_ready;
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED) {
+                        log_link_debug(l, "No routable or link-local IPv6 address is configured.");
+                        return 0;
+                }
         }
 
         if (s.min >= LINK_OPERSTATE_ROUTABLE) {
-                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE)
-                        goto ipv4_not_ready;
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE) {
+                        log_link_debug(l, "No routable IPv4 address is configured.");
+                        return 0;
+                }
 
-                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)
-                        goto ipv6_not_ready;
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE) {
+                        log_link_debug(l, "No routable IPv6 address is configured.");
+                        return 0;
+                }
         }
 
         return 1;
-
-ipv4_not_ready:
-        log_link_debug(l, "No routable or link-local IPv4 address is configured.");
-        return 0;
-
-ipv6_not_ready:
-        log_link_debug(l, "No routable or link-local IPv6 address is configured.");
-        return 0;
 }
 
 bool manager_configured(Manager *m) {
