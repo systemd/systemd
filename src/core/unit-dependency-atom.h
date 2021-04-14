@@ -62,6 +62,7 @@ typedef enum UnitDependencyAtom {
         /* The remaining atoms map 1:1 to the equally named high-level deps */
         UNIT_ATOM_BEFORE                              = UINT64_C(1) << 22,
         UNIT_ATOM_AFTER                               = UINT64_C(1) << 23,
+        UNIT_ATOM_ON_SUCCESS                          = UINT64_C(1) << 24,
         UNIT_ATOM_ON_FAILURE                          = UINT64_C(1) << 25,
         UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 26,
         UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 27,

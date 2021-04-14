@@ -776,11 +776,16 @@
       <varlistentry>
         <term><varname>OnFailure=</varname></term>
 
-        <listitem><para>A space-separated list of one or more units
-        that are activated when this unit enters the
-        <literal>failed</literal> state.  A service unit using
-        <varname>Restart=</varname> enters the failed state only after
-        the start limits are reached.</para></listitem>
+        <listitem><para>A space-separated list of one or more units that are activated when this unit enters
+        the <literal>failed</literal> state.  A service unit using <varname>Restart=</varname> enters the
+        failed state only after the start limits are reached.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OnSuccess=</varname></term>
+
+        <listitem><para>A space-separated list of one or more units that are activated when this unit enters
+        the <literal>inactive</literal> state.</para></listitem>
       </varlistentry>
 
       <varlistentry>
