@@ -177,7 +177,7 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         ssize_t l = write(c->rfkill_fd, &we, sizeof we);
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
-        if (l < RFKILL_EVENT_SIZE_V1)
+        if ((size_t)l < RFKILL_EVENT_SIZE_V1) /* l cannot be < 0 here. Cast to fix -Werror=sign-compare */
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Couldn't write rfkill event structure, too short (wrote %zd of %zu bytes).",
                                        l, sizeof we);
@@ -335,9 +335,9 @@ static int run(int argc, char *argv[]) {
                         break;
                 }
 
-                if (l < RFKILL_EVENT_SIZE_V1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read of struct rfkill_event: (%zd < %d)",
-                                               l, RFKILL_EVENT_SIZE_V1);
+                if ((size_t)l < RFKILL_EVENT_SIZE_V1) /* l cannot be < 0 here. Cast to fix -Werror=sign-compare */
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read of struct rfkill_event: (%zd < %zu)",
+                                               l, (size_t) RFKILL_EVENT_SIZE_V1); /* Casting necessary to make compiling with different kernel versions happy */
                 log_debug("Reading struct rfkill_event: got %zd bytes.", l);
 
                 /* The event structure has more fields. We only care about the first few, so it's OK if we

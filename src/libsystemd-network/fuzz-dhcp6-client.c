@@ -23,7 +23,7 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
 }
 
 static void fuzz_client(const uint8_t *data, size_t size, bool is_information_request_enabled) {
-        _cleanup_(sd_event_unrefp) sd_event *e;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
 
