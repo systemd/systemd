@@ -49,16 +49,11 @@ struct sd_ipv4ll {
         void* userdata;
 };
 
-#define log_ipv4ll_errno(ll, error, fmt, ...)                           \
-        ({                                                              \
-                int _e = (error);                                       \
-                if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno_zerook(                \
-                                    sd_ipv4ll_get_ifname(ll),           \
-                                    LOG_DEBUG, _e, "IPv4LL: " fmt,      \
-                                    ##__VA_ARGS__);                     \
-                -ERRNO_VALUE(_e);                                       \
-        })
+#define log_ipv4ll_errno(ll, error, fmt, ...)           \
+        log_interface_prefix_full_errno_zerook(         \
+                "IPv4LL: ",                             \
+                sd_ipv4ll_get_ifname(ll),               \
+                error, fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...)                        \
         log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
 

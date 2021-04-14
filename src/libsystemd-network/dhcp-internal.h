@@ -66,15 +66,10 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 #define DHCP_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
 
-#define log_dhcp_client_errno(client, error, fmt, ...)                  \
-        ({                                                              \
-                int _e = (error);                                       \
-                if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno_zerook(                \
-                                sd_dhcp_client_get_ifname(client),      \
-                                LOG_DEBUG, _e, "DHCPv4 client: " fmt,   \
-                                ##__VA_ARGS__);                         \
-                -ERRNO_VALUE(_e);                                       \
-        })
+#define log_dhcp_client_errno(client, error, fmt, ...)          \
+        log_interface_prefix_full_errno_zerook(                 \
+                "DHCPv4 client: ",                              \
+                sd_dhcp_client_get_ifname(client),              \
+                error, fmt, ##__VA_ARGS__)
 #define log_dhcp_client(client, fmt, ...)                       \
         log_dhcp_client_errno(client, 0, fmt, ##__VA_ARGS__)

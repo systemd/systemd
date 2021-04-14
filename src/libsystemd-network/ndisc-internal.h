@@ -41,15 +41,10 @@ struct sd_ndisc {
 const char* ndisc_event_to_string(sd_ndisc_event_t e) _const_;
 sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
 
-#define log_ndisc_errno(ndisc, error, fmt, ...)                         \
-        ({                                                              \
-                int _e = (error);                                       \
-                if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno_zerook(                \
-                                    sd_ndisc_get_ifname(ndisc),         \
-                                    LOG_DEBUG, _e, "NDISC: " fmt,       \
-                                    ##__VA_ARGS__);                     \
-                -ERRNO_VALUE(_e);                                       \
-        })
-#define log_ndisc(ndisc, fmt, ...)                       \
+#define log_ndisc_errno(ndisc, error, fmt, ...)         \
+        log_interface_prefix_full_errno_zerook(         \
+                "NDISC: ",                              \
+                sd_ndisc_get_ifname(ndisc),             \
+                error, fmt, ##__VA_ARGS__)
+#define log_ndisc(ndisc, fmt, ...)                      \
         log_ndisc_errno(ndisc, 0, fmt, ##__VA_ARGS__)
