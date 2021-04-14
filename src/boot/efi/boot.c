@@ -456,7 +456,7 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
 
                         device_path = DevicePathFromHandle(entry->device);
                         if (device_path) {
-                                _cleanup_freepool_ CHAR16 *str;
+                                _cleanup_freepool_ CHAR16 *str = NULL;
 
                                 str = DevicePathToStr(device_path);
                                 Print(L"device handle           '%s'\n", str);
