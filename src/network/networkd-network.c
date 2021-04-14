@@ -1196,6 +1196,9 @@ int config_parse_required_for_online(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily,
+                         "Failed to parse RequiredFamilyForOnline= setting");
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_keep_configuration, keep_configuration, KeepConfiguration,
                          "Failed to parse KeepConfiguration= setting");
 
