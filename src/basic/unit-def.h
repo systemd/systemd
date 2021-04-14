@@ -227,7 +227,9 @@ typedef enum UnitDependency {
         UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
         UNIT_AFTER,
 
-        /* On Failure */
+        /* OnSuccess= + OnFailure= */
+        UNIT_ON_SUCCESS,
+        UNIT_ON_SUCCESS_OF,
         UNIT_ON_FAILURE,
         UNIT_ON_FAILURE_OF,
 

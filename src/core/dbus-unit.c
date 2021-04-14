@@ -866,6 +866,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("After", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailure", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailureOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccess", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccessOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Triggers", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -903,6 +905,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("RefuseManualStop", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AllowIsolate", "b", bus_property_get_bool, offsetof(Unit, allow_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultDependencies", "b", bus_property_get_bool, offsetof(Unit, default_dependencies), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccesJobMode", "s", property_get_job_mode, offsetof(Unit, on_success_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2126,6 +2129,9 @@ static int bus_unit_set_transient_property(
         if (streq(name, "DefaultDependencies"))
                 return bus_set_transient_bool(u, name, &u->default_dependencies, message, flags, error);
 
+        if (streq(name, "OnSuccessJobMode"))
+                return bus_set_transient_job_mode(u, name, &u->on_success_job_mode, message, flags, error);
+
         if (streq(name, "OnFailureJobMode"))
                 return bus_set_transient_job_mode(u, name, &u->on_failure_job_mode, message, flags, error);
 
@@ -2301,6 +2307,7 @@ static int bus_unit_set_transient_property(
                             UNIT_CONFLICTS,
                             UNIT_BEFORE,
                             UNIT_AFTER,
+                            UNIT_ON_SUCCESS,
                             UNIT_ON_FAILURE,
                             UNIT_PROPAGATES_RELOAD_TO,
                             UNIT_RELOAD_PROPAGATED_FROM,

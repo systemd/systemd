@@ -101,6 +101,7 @@ Unit* unit_new(Manager *m, size_t size) {
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
+        u->on_success_job_mode = JOB_FAIL;
         u->cgroup_control_inotify_wd = -1;
         u->cgroup_memory_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
@@ -896,6 +897,7 @@ static void unit_maybe_warn_about_dependency(
                     UNIT_CONFLICTED_BY,
                     UNIT_BEFORE,
                     UNIT_AFTER,
+                    UNIT_ON_SUCCESS,
                     UNIT_ON_FAILURE,
                     UNIT_TRIGGERS,
                     UNIT_TRIGGERED_BY))
@@ -1507,6 +1509,31 @@ static int unit_add_startup_units(Unit *u) {
         return set_ensure_put(&u->manager->startup_units, NULL, u);
 }
 
+static int unit_validate_on_failure_job_mode(
+                Unit *u,
+                const char *job_mode_setting,
+                JobMode job_mode,
+                const char *dependency_name,
+                UnitDependencyAtom atom) {
+
+        Unit *other, *found = NULL;
+
+        if (job_mode != JOB_ISOLATE)
+                return 0;
+
+        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
+                if (!found)
+                        found = other;
+                else if (found != other)
+                        return log_unit_error_errno(
+                                        u, SYNTHETIC_ERRNO(ENOEXEC),
+                                        "More than one %s dependencies specified but %sisolate set. Refusing.",
+                                        dependency_name, job_mode_setting);
+        }
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1560,19 +1587,13 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                if (u->on_failure_job_mode == JOB_ISOLATE) {
-                        Unit *other, *found = NULL;
+                r = unit_validate_on_failure_job_mode(u, "OnSuccessJobMode=", u->on_success_job_mode, "OnSuccess=", UNIT_ATOM_ON_SUCCESS);
+                if (r < 0)
+                        goto fail;
 
-                        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ON_FAILURE) {
-                                if (!found)
-                                        found = other;
-                                else if (found != other) {
-                                        r = log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC),
-                                                                 "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
-                                        goto fail;
-                                }
-                        }
-                }
+                r = unit_validate_on_failure_job_mode(u, "OnFailureJobMode=", u->on_failure_job_mode, "OnFailure=", UNIT_ATOM_ON_FAILURE);
+                if (r < 0)
+                        goto fail;
 
                 if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
                         log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
@@ -2082,25 +2103,39 @@ static void retroactively_stop_dependencies(Unit *u) {
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
-void unit_start_on_failure(Unit *u) {
+void unit_start_on_failure(
+                Unit *u,
+                const char *dependency_name,
+                UnitDependencyAtom atom,
+                JobMode job_mode) {
+
         bool logged = false;
         Unit *other;
         int r;
 
         assert(u);
+        assert(dependency_name);
+        assert(IN_SET(atom, UNIT_ATOM_ON_SUCCESS, UNIT_ATOM_ON_FAILURE));
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ON_FAILURE) {
+        /* Act on OnFailure= and OnSuccess= dependencies */
+
+        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!logged) {
-                        log_unit_info(u, "Triggering OnFailure= dependencies.");
+                        log_unit_info(u, "Triggering %s dependencies.", dependency_name);
                         logged = true;
                 }
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, &error, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
                 if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to enqueue OnFailure= job, ignoring: %s", bus_error_message(&error, r));
+                        log_unit_warning_errno(
+                                        u, r, "Failed to enqueue %s job, ignoring: %s",
+                                        dependency_name, bus_error_message(&error, r));
         }
+
+        if (logged)
+                log_unit_debug(u, "Triggering %s dependencies done.", dependency_name);
 }
 
 void unit_trigger_notify(Unit *u) {
@@ -2568,7 +2603,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                         log_unit_debug(u, "Unit entered failed state.");
 
                         if (!(flags & UNIT_NOTIFY_WILL_AUTO_RESTART))
-                                unit_start_on_failure(u);
+                                unit_start_on_failure(u, "OnFailure=", UNIT_ATOM_ON_FAILURE, u->on_failure_job_mode);
                 }
 
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns) && !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
@@ -2584,6 +2619,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                         unit_emit_audit_stop(u, ns);
                         unit_log_resources(u);
                 }
+
+                if (ns == UNIT_INACTIVE && !IN_SET(os, UNIT_FAILED, UNIT_INACTIVE, UNIT_MAINTENANCE) &&
+                    !(flags & UNIT_NOTIFY_WILL_AUTO_RESTART))
+                        unit_start_on_failure(u, "OnSuccess=", UNIT_ATOM_ON_SUCCESS, u->on_success_job_mode);
         }
 
         manager_recheck_journal(m);
@@ -2871,6 +2910,8 @@ int unit_add_dependency(
                 [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
                 [UNIT_AFTER] = UNIT_BEFORE,
+                [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
+                [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
                 [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
                 [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
                 [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
