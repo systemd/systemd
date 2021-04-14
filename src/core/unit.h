@@ -334,7 +334,8 @@ typedef struct Unit {
          * ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
 
-        /* How to start OnFailure units */
+        /* How to start OnSuccess=/OnFailure= units */
+        JobMode on_success_job_mode;
         JobMode on_failure_job_mode;
 
         /* Tweaking the GC logic */
@@ -828,7 +829,7 @@ bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
-void unit_start_on_failure(Unit *u);
+void unit_start_on_failure(Unit *u, const char *dependency_name, UnitDependencyAtom atom, JobMode job_mode);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);

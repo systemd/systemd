@@ -264,6 +264,7 @@ Unit.BindTo,                             config_parse_unit_deps,                
 Unit.Conflicts,                          config_parse_unit_deps,                      UNIT_CONFLICTS,                     0
 Unit.Before,                             config_parse_unit_deps,                      UNIT_BEFORE,                        0
 Unit.After,                              config_parse_unit_deps,                      UNIT_AFTER,                         0
+Unit.OnSuccess,                          config_parse_unit_deps,                      UNIT_ON_SUCCESS,                    0
 Unit.OnFailure,                          config_parse_unit_deps,                      UNIT_ON_FAILURE,                    0
 Unit.PropagatesReloadTo,                 config_parse_unit_deps,                      UNIT_PROPAGATES_RELOAD_TO,          0
 Unit.PropagateReloadTo,                  config_parse_unit_deps,                      UNIT_PROPAGATES_RELOAD_TO,          0
@@ -281,6 +282,7 @@ Unit.RefuseManualStart,                  config_parse_bool,                     
 Unit.RefuseManualStop,                   config_parse_bool,                           0,                                  offsetof(Unit, refuse_manual_stop)
 Unit.AllowIsolate,                       config_parse_bool,                           0,                                  offsetof(Unit, allow_isolate)
 Unit.DefaultDependencies,                config_parse_bool,                           0,                                  offsetof(Unit, default_dependencies)
+Unit.OnSuccessJobMode,                   config_parse_job_mode,                       0,                                  offsetof(Unit, on_success_job_mode)
 Unit.OnFailureJobMode,                   config_parse_job_mode,                       0,                                  offsetof(Unit, on_failure_job_mode)
 {# The following is a legacy alias name for compatibility #}
 Unit.OnFailureIsolate,                   config_parse_job_mode_isolate,               0,                                  offsetof(Unit, on_failure_job_mode)
