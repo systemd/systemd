@@ -12,6 +12,7 @@ rules = files('''
         60-evdev.rules
         60-fido-id.rules
         60-input-id.rules
+        60-net-dhcp.rules
         60-persistent-alsa.rules
         60-persistent-input.rules
         60-persistent-storage.rules
