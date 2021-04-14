@@ -4639,7 +4639,7 @@ static int exec_child(
                 final_argv = command->argv;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *line;
+                _cleanup_free_ char *line = NULL;
 
                 line = exec_command_line(final_argv);
                 if (line)
@@ -4933,7 +4933,7 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
                 return 0;
 
         STRV_FOREACH(i, c->directories[EXEC_DIRECTORY_RUNTIME].paths) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
                         p = path_join(runtime_prefix, "private", *i);

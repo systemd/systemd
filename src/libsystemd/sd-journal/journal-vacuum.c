@@ -88,7 +88,7 @@ static void patch_realtime(
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
         struct stat st;
         le64_t n_entries;
         ssize_t n;
