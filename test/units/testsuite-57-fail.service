@@ -1,0 +1,6 @@
+[Unit]
+Description=Failing unit
+OnFailure=testsuite-57-uphold.service
+
+[Service]
+ExecStart=/bin/false

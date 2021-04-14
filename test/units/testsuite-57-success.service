@@ -1,0 +1,6 @@
+[Unit]
+Description=Succeeding unit
+OnSuccess=testsuite-57-fail.service
+
+[Service]
+ExecStart=/bin/true
