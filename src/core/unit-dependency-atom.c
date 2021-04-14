@@ -74,6 +74,8 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         /* These are simple dependency types: they consist of a single atom only */
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
+        [UNIT_ON_SUCCESS]             = UNIT_ATOM_ON_SUCCESS,
+        [UNIT_ON_SUCCESS_OF]          = 0,
         [UNIT_ON_FAILURE]             = UNIT_ATOM_ON_FAILURE,
         [UNIT_ON_FAILURE_OF]          = 0,
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
@@ -170,6 +172,9 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
 
         case UNIT_ATOM_AFTER:
                 return UNIT_AFTER;
+
+        case UNIT_ATOM_ON_SUCCESS:
+                return UNIT_ON_SUCCESS;
 
         case UNIT_ATOM_ON_FAILURE:
                 return UNIT_ON_FAILURE;

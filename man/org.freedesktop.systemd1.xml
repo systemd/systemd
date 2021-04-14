@@ -1626,6 +1626,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as OnFailureOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as OnSuccess = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as OnSuccessOf = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Triggers = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as TriggeredBy = ['...', ...];
@@ -1695,6 +1699,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b AllowIsolate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultDependencies = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OnSuccesJobMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s OnFailureJobMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1775,6 +1781,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property OnFailureOf is not documented!-->
 
+    <!--property OnSuccess is not documented!-->
+
+    <!--property OnSuccessOf is not documented!-->
+
     <!--property ReloadPropagatedFrom is not documented!-->
 
     <!--property PropagatesStopTo is not documented!-->
@@ -1798,6 +1808,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property CanClean is not documented!-->
 
     <!--property CanFreeze is not documented!-->
+
+    <!--property OnSuccesJobMode is not documented!-->
 
     <!--property OnFailureJobMode is not documented!-->
 
@@ -1913,6 +1925,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="OnFailureOf"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="OnSuccess"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnSuccessOf"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Triggers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TriggeredBy"/>
@@ -1996,6 +2012,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="AllowIsolate"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultDependencies"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OnSuccesJobMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OnFailureJobMode"/>
 
