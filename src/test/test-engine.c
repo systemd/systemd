@@ -50,6 +50,23 @@ static void verify_dependency_atoms(void) {
                 multi_use_atoms |= combined & a;
                 combined |= a;
         }
+
+        /* Make sure all atoms are used, i.e. there's at least one dependency type that references it. */
+        assert_se(combined == _UNIT_DEPENDENCY_ATOM_MAX);
+
+        for (UnitDependencyAtom a = 1; a <= _UNIT_DEPENDENCY_ATOM_MAX; a <<= 1) {
+
+                if (multi_use_atoms & a) {
+                        /* If an atom is used by multiple dep types, then mapping the atom to a dependency is
+                         * not unique and *must* fail */
+                        assert_se(unit_dependency_from_unique_atom(a) == _UNIT_DEPENDENCY_INVALID);
+                        continue;
+                }
+
+                /* If only a single dep type uses specific atom, let's guarantee our mapping table is
+                complete, and thus the atom can be mapped to the single dep type that is used. */
+                assert_se(unit_dependency_from_unique_atom(a) >= 0);
+        }
 }
 
 int main(int argc, char *argv[]) {
