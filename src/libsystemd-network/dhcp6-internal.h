@@ -120,9 +120,12 @@ const char *dhcp6_message_status_to_string(int s) _const_;
 int dhcp6_message_status_from_string(const char *s) _pure_;
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
-        log_interface_prefix_full_errno_zerook(                 \
+        log_interface_prefix_full_errno(                        \
                 "DHCPv6 client: ",                              \
                 sd_dhcp6_client_get_ifname(client),             \
                 error, fmt, ##__VA_ARGS__)
 #define log_dhcp6_client(client, fmt, ...)                      \
-        log_dhcp6_client_errno(client, 0, fmt, ##__VA_ARGS__)
+        log_interface_prefix_full_errno_zerook(                 \
+                "DHCPv6 client: ",                              \
+                sd_dhcp6_client_get_ifname(client),             \
+                0, fmt, ##__VA_ARGS__)
