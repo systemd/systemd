@@ -36,15 +36,10 @@ struct sd_lldp {
 const char* lldp_event_to_string(sd_lldp_event_t e) _const_;
 sd_lldp_event_t lldp_event_from_string(const char *s) _pure_;
 
-#define log_lldp_errno(lldp, error, fmt, ...)                           \
-        ({                                                              \
-                int _e = (error);                                       \
-                if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno_zerook(                \
-                                    sd_lldp_get_ifname(lldp),           \
-                                    LOG_DEBUG, _e, "LLDP: " fmt,        \
-                                    ##__VA_ARGS__);                     \
-                -ERRNO_VALUE(_e);                                       \
-        })
-#define log_lldp(lldp, fmt, ...)                       \
+#define log_lldp_errno(lldp, error, fmt, ...)           \
+        log_interface_prefix_full_errno_zerook(         \
+                "LLDP: ",                               \
+                sd_lldp_get_ifname(lldp),               \
+                error, fmt, ##__VA_ARGS__)
+#define log_lldp(lldp, fmt, ...)                        \
         log_lldp_errno(lldp, 0, fmt, ##__VA_ARGS__)
