@@ -45,12 +45,12 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
-#include "build.h"
 #include "fileio.h"
 #include "main-func.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
+#include "version.h"
 
 #define SUPPORTED_SMBIOS_VER 0x030300
 

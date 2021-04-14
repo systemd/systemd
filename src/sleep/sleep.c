@@ -163,10 +163,10 @@ static int lock_all_homes(void) {
                 if (!bus_error_is_unknown_service(&error))
                         return log_error_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
 
-                return log_debug("systemd-homed is not running, locking of home directories skipped.");
-        }
-
-        return log_debug("Successfully requested locking of all home directories.");
+                log_debug("systemd-homed is not running, locking of home directories skipped.");
+        } else
+                log_debug("Successfully requested locking of all home directories.");
+        return 0;
 }
 
 static int execute(char **modes, char **states, const char *action) {

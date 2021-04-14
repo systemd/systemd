@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 
         r = cg_all_unified();
         if (r <= 0)
-                return log_tests_skipped_errno(r, "Unified hierarchy is required, skipping.");
+                return log_tests_skipped("Unified hierarchy is required, skipping.");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)

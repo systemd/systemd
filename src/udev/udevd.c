@@ -28,7 +28,6 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
@@ -65,6 +64,7 @@
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "user-util.h"
+#include "version.h"
 
 #define WORKER_NUM_MAX 2048U
 

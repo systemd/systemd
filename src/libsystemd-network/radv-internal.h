@@ -125,15 +125,13 @@ struct sd_radv_route_prefix {
         LIST_FIELDS(struct sd_radv_route_prefix, prefix);
 };
 
-#define log_radv_errno(radv, error, fmt, ...)                           \
-        ({                                                              \
-                int _e = (error);                                       \
-                if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
-                                    sd_radv_get_ifname(radv),           \
-                                    LOG_DEBUG, _e, "RADV: " fmt,        \
-                                    ##__VA_ARGS__);                     \
-                -ERRNO_VALUE(_e);                                       \
-        })
-#define log_radv(radv, fmt, ...)                       \
-        log_radv_errno(radv, 0, fmt, ##__VA_ARGS__)
+#define log_radv_errno(radv, error, fmt, ...)           \
+        log_interface_prefix_full_errno(                \
+                "RADV: ",                               \
+                sd_radv_get_ifname(radv),               \
+                error, fmt, ##__VA_ARGS__)
+#define log_radv(radv, fmt, ...)                        \
+        log_interface_prefix_full_errno_zerook(         \
+                "RADV: ",                               \
+                sd_radv_get_ifname(radv),               \
+                0, fmt, ##__VA_ARGS__)
