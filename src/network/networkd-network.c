@@ -368,6 +368,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 /* NOTE: from man: UseTimezone=... Defaults to "no".*/
                 .dhcp_use_timezone = false,
                 .dhcp_ip_service_type = -1,
+                .dhcp_broadcast = -1,
 
                 .dhcp6_use_address = true,
                 .dhcp6_use_dns = true,
