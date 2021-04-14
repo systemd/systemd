@@ -12,6 +12,7 @@ typedef enum {
         ESCAPE_UNSET,
         ESCAPE_NONE,    /* OPTIONS="string_escape=none" */
         ESCAPE_REPLACE, /* OPTIONS="string_escape=replace" */
+        ESCAPE_SLASH,   /* OPTIONS="string_escape=slash" */
         _ESCAPE_TYPE_MAX,
         _ESCAPE_TYPE_INVALID = -EINVAL,
 } UdevRuleEscapeType;

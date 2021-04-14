@@ -102,6 +102,7 @@ typedef enum {
         /* lvalues which take one of assign operators */
         TK_A_OPTIONS_STRING_ESCAPE_NONE,    /* no argument */
         TK_A_OPTIONS_STRING_ESCAPE_REPLACE, /* no argument */
+        TK_A_OPTIONS_STRING_ESCAPE_SLASH,   /* no argument */
         TK_A_OPTIONS_DB_PERSIST,            /* no argument */
         TK_A_OPTIONS_INOTIFY_WATCH,         /* boolean */
         TK_A_OPTIONS_DEVLINK_PRIORITY,      /* int */
@@ -813,6 +814,8 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_NONE, op, NULL, NULL);
                 else if (streq(value, "string_escape=replace"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_REPLACE, op, NULL, NULL);
+                else if (streq(value, "string_escape=slash"))
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_SLASH, op, NULL, NULL);
                 else if (streq(value, "db_persist"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_DB_PERSIST, op, NULL, NULL);
                 else if (streq(value, "watch"))
@@ -1852,6 +1855,9 @@ static int udev_rule_apply_token_to_event(
         case TK_A_OPTIONS_STRING_ESCAPE_REPLACE:
                 event->esc = ESCAPE_REPLACE;
                 break;
+        case TK_A_OPTIONS_STRING_ESCAPE_SLASH:
+                event->esc = ESCAPE_SLASH;
+                break;
         case TK_A_OPTIONS_DB_PERSIST:
                 device_set_db_persist(dev);
                 break;
@@ -2012,6 +2018,19 @@ static int udev_rule_apply_token_to_event(
                         l = strpcpyl(&p, l, val, " ", NULL);
 
                 (void) udev_event_apply_format(event, token->value, p, l, false);
+                if (event->esc == ESCAPE_SLASH) {
+                        count = 0;
+                        for (char *q = p; *q != '\0'; q++)
+                                if (q[0] == '\\')
+                                        q += q[1] != '\0';
+                                else if (q[0] == '/') {
+                                        q[0] = '_';
+                                        count++;
+                                }
+                        if (count > 0)
+                                log_rule_debug(dev, rules, "Replaced %zu shash(es) from result of ENV{%s}%s=\"%s\"",
+                                               count, name, token->op == OP_ADD ? "+" : "", token->value);
+                }
 
                 r = device_add_property(dev, name, value_new);
                 if (r < 0)
