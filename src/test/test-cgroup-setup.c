@@ -3,13 +3,13 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "build.h"
 #include "cgroup-setup.h"
 #include "errno-util.h"
 #include "log.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "tests.h"
+#include "version.h"
 
 static void test_is_wanted_print(bool header) {
         _cleanup_free_ char *cmdline = NULL;
