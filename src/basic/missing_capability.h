@@ -27,7 +27,7 @@
 
 #ifdef CAP_LAST_CAP
 #  if CAP_LAST_CAP > SYSTEMD_CAP_LAST_CAP
-#    if BUILD_MODE == BUILD_MODE_DEVELOPER && defined(TEST_CAPABILITY_C)
+#    if BUILD_MODE_DEVELOPER && defined(TEST_CAPABILITY_C)
 #      warning "The capability list here is outdated"
 #    endif
 #  else
