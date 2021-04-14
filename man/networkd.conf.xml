@@ -63,11 +63,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManageForeignRoutingPolicyRules=</varname></term>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will remove rules
+        that are not configured in .network files (except for rules with protocol
+        <literal>kernel</literal>). When false, it will not remove any foreign rules, keeping them even
+        if they are not configured in a .network file. Defaults to yes.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ManageForeignRoutes=</varname></term>
-        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will store any routes
-        configured by other tools in its memory. When false, <command>systemd-networkd</command> will
-        not manage the foreign routes, thus they are kept even if <varname>KeepConfiguration=</varname>
-        is false. Defaults to yes.</para></listitem>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will remove routes
+        that are not configured in .network files (except for routes with protocol
+        <literal>kernel</literal>, <literal>dhcp</literal> when <varname>KeepConfiguration=</varname>
+        is true or <literal>dhcp</literal>, and <literal>static</literal> when
+        <varname>KeepConfiguration=</varname> is true or <literal>static</literal>). When false, it will
+        not remove any foreign routes, keeping them even if they are not configured in a .network file.
+        Defaults to yes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
