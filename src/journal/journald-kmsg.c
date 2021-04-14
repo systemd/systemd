@@ -376,8 +376,8 @@ int server_open_dev_kmsg(Server *s) {
 
         s->dev_kmsg_fd = open("/dev/kmsg", mode);
         if (s->dev_kmsg_fd < 0) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to open /dev/kmsg, ignoring: %m");
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                               errno, "Failed to open /dev/kmsg, ignoring: %m");
                 return 0;
         }
 
