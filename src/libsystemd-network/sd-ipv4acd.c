@@ -79,7 +79,7 @@ struct sd_ipv4acd {
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_ipv4acd_get_ifname(acd),         \
                                     LOG_DEBUG, _e, "IPv4ACD: " fmt,     \
                                     ##__VA_ARGS__);                     \

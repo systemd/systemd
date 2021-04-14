@@ -102,7 +102,7 @@ int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_dhcp_server_get_ifname(server),  \
                                     LOG_DEBUG, _e, "DHCPv4 server: " fmt, \
                                     ##__VA_ARGS__);                     \

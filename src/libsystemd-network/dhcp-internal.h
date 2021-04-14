@@ -70,7 +70,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                 sd_dhcp_client_get_ifname(client),      \
                                 LOG_DEBUG, _e, "DHCPv4 client: " fmt,   \
                                 ##__VA_ARGS__);                         \

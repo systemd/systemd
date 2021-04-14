@@ -40,7 +40,7 @@ sd_lldp_event_t lldp_event_from_string(const char *s) _pure_;
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_lldp_get_ifname(lldp),           \
                                     LOG_DEBUG, _e, "LLDP: " fmt,        \
                                     ##__VA_ARGS__);                     \

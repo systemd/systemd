@@ -45,7 +45,7 @@ sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_ndisc_get_ifname(ndisc),         \
                                     LOG_DEBUG, _e, "NDISC: " fmt,       \
                                     ##__VA_ARGS__);                     \
