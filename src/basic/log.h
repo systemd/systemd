@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 
 #include "macro.h"
@@ -197,7 +198,12 @@ void log_assert_failed_return(
                 _e < 0 ? _e : -EIO;                                     \
         })
 
-#define log_full(level, ...) (void) log_full_errno((level), 0, __VA_ARGS__)
+#define log_full(level, fmt, ...)                                      \
+        ({                                                             \
+                if (BUILD_MODE_DEVELOPER)                              \
+                        assert(!strstr(fmt, "%m"));                    \
+                (void) log_full_errno((level), 0, fmt, ##__VA_ARGS__); \
+        })
 
 int log_emergency_level(void);
 
