@@ -312,8 +312,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
-                /* NOTE: this var might be overwritten by network_adjust_dhcp4() */
-                .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
+                .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_ip_service_type = -1,
 

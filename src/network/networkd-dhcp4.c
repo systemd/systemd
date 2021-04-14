@@ -35,13 +35,20 @@ void network_adjust_dhcp4(Network *network) {
         if (network->dhcp_use_gateway < 0)
                 network->dhcp_use_gateway = network->dhcp_use_routes;
 
-        if (network->dhcp_anonymize) {
-                /* RFC7844 section 3.: MAY contain the Client Identifier option
-                 * Section 3.5: clients MUST use client identifiers based solely on the link-layer address
-                 * NOTE: Using MAC, as it does not reveal extra information, and some servers might not
-                 * answer if this option is not sent */
+        /* RFC7844 section 3.: MAY contain the Client Identifier option
+         * Section 3.5: clients MUST use client identifiers based solely on the link-layer address
+         * NOTE: Using MAC, as it does not reveal extra information, and some servers might not answer
+         * if this option is not sent */
+        if (network->dhcp_anonymize &&
+            network->dhcp_client_identifier >= 0 &&
+            network->dhcp_client_identifier != DHCP_CLIENT_ID_MAC) {
+                log_warning("%s: ClientIdentifier= is set, although Anonymize=yes. Using ClientIdentifier=mac.",
+                            network->filename);
                 network->dhcp_client_identifier = DHCP_CLIENT_ID_MAC;
         }
+
+        if (network->dhcp_client_identifier < 0)
+                network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
 }
 
 static int dhcp4_release_old_lease(Link *link) {
