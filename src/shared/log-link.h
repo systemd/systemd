@@ -28,6 +28,13 @@
                 -ERRNO_VALUE(_e);                                       \
         })
 
+#define log_interface_prefix_full_errno(prefix, ifname_expr, error, fmt, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_interface_prefix_full_errno_zerook(prefix, ifname_expr, _error, fmt, ##__VA_ARGS__); \
+        })
+
 /*
  * The following macros append INTERFACE= to the message.
  * The macros require a struct named 'Link' which contains 'char *ifname':

@@ -50,12 +50,15 @@ struct sd_ipv4ll {
 };
 
 #define log_ipv4ll_errno(ll, error, fmt, ...)           \
-        log_interface_prefix_full_errno_zerook(         \
+        log_interface_prefix_full_errno(                \
                 "IPv4LL: ",                             \
                 sd_ipv4ll_get_ifname(ll),               \
                 error, fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...)                        \
-        log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
+        log_interface_prefix_full_errno_zerook(         \
+                "IPv4LL: ",                             \
+                sd_ipv4ll_get_ifname(ll),               \
+                0, fmt, ##__VA_ARGS__)
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
