@@ -28,6 +28,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "sigbus.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "util.h"
 
@@ -48,9 +49,10 @@ typedef struct RequestMeta {
         OutputMode mode;
 
         char *cursor;
+        usec_t since, until;
         int64_t n_skip;
         uint64_t n_entries;
-        bool n_entries_set;
+        bool n_entries_set, since_set, until_set;
 
         FILE *tmp;
         uint64_t delta, size;
@@ -202,6 +204,17 @@ static ssize_t request_reader_entries(
                                 return MHD_CONTENT_READER_END_OF_STREAM;
                 }
 
+                if (m->until_set) {
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(m->journal, &usec);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to determine timestamp: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+                        if (usec > m->until)
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                }
                 pos -= m->size;
                 m->delta += m->size;
 
@@ -283,12 +296,132 @@ static int request_parse_accept(
         return 0;
 }
 
+static int request_parse_range_skip_and_n_entries(
+                RequestMeta *m,
+                const char *colon) {
+
+        const char *p, *colon2;
+        int r;
+
+        colon2 = strchr(colon + 1, ':');
+        if (colon2) {
+                _cleanup_free_ char *t;
+
+                t = strndup(colon + 1, colon2 - colon - 1);
+                if (!t)
+                        return -ENOMEM;
+
+                r = safe_atoi64(t, &m->n_skip);
+                if (r < 0)
+                        return r;
+        }
+
+        p = (colon2 ? colon2 : colon) + 1;
+        if (*p) {
+                r = safe_atou64(p, &m->n_entries);
+                if (r < 0)
+                        return r;
+
+                if (m->n_entries <= 0)
+                        return -EINVAL;
+
+                m->n_entries_set = true;
+        }
+
+        return 0;
+}
+
+static int request_parse_range_entries(
+                RequestMeta *m,
+                const char *range) {
+
+        const char *colon;
+        int r;
+
+        range += 8;
+        range += strspn(range, WHITESPACE);
+
+        colon = strchr(range, ':');
+        if (!colon) {
+                m->cursor = mfree(m->cursor);
+                m->cursor = strdup(range);
+        } else {
+                r = request_parse_range_skip_and_n_entries(m, colon);
+                if (r < 0)
+                        return r;
+
+                m->cursor = strndup(range, colon - range);
+        }
+
+        if (!m->cursor)
+                return -ENOMEM;
+
+        if (isempty(m->cursor))
+                m->cursor = mfree(m->cursor);
+
+        return 0;
+}
+
+
+static int request_parse_range_time(
+                RequestMeta *m,
+                const char *range) {
+
+        _cleanup_free_ char *until = NULL;
+        char *colon;
+        int r;
+
+        range += 5;
+        range += strspn(range, WHITESPACE);
+
+        colon = strchr(range, ':');
+        if (!colon)
+                return -EINVAL;
+
+        if (colon - range > 0) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strndup(range, colon - range);
+                if (!t)
+                        return -ENOMEM;
+
+                r = parse_sec(t, &m->since);
+                if (r < 0)
+                        return r;
+
+                m->since_set = true;
+        }
+
+        range = colon;
+        colon = strchr(range + 1, ':');
+        if (!colon)
+                until = strdup(range + 1);
+        else {
+                r = request_parse_range_skip_and_n_entries(m, colon);
+                if (r < 0)
+                        return r;
+
+                until = strndup(range + 1, colon - range - 1);
+        }
+        if (!until)
+                return -ENOMEM;
+
+        if (!isempty(until)) {
+                r = parse_sec(until, &m->until);
+                if (r < 0)
+                        return r;
+
+                m->until_set = true;
+        }
+
+        return 0;
+}
+
 static int request_parse_range(
                 RequestMeta *m,
                 struct MHD_Connection *connection) {
 
-        const char *range, *colon, *colon2;
-        int r;
+        const char *range;
 
         assert(m);
         assert(connection);
@@ -297,52 +430,11 @@ static int request_parse_range(
         if (!range)
                 return 0;
 
-        if (!startswith(range, "entries="))
-                return 0;
-
-        range += 8;
-        range += strspn(range, WHITESPACE);
-
-        colon = strchr(range, ':');
-        if (!colon)
-                m->cursor = strdup(range);
-        else {
-                const char *p;
-
-                colon2 = strchr(colon + 1, ':');
-                if (colon2) {
-                        _cleanup_free_ char *t;
-
-                        t = strndup(colon + 1, colon2 - colon - 1);
-                        if (!t)
-                                return -ENOMEM;
-
-                        r = safe_atoi64(t, &m->n_skip);
-                        if (r < 0)
-                                return r;
-                }
-
-                p = (colon2 ? colon2 : colon) + 1;
-                if (*p) {
-                        r = safe_atou64(p, &m->n_entries);
-                        if (r < 0)
-                                return r;
-
-                        if (m->n_entries <= 0)
-                                return -EINVAL;
-
-                        m->n_entries_set = true;
-                }
-
-                m->cursor = strndup(range, colon - range);
-        }
-
-        if (!m->cursor)
-                return -ENOMEM;
-
-        m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
-        if (isempty(m->cursor))
-                m->cursor = mfree(m->cursor);
+        m->n_skip = 0;
+        if (startswith(range, "entries="))
+                return request_parse_range_entries(m, range);
+        else if (startswith(range, "time="))
+                return request_parse_range_time(m, range);
 
         return 0;
 }
@@ -393,6 +485,21 @@ static mhd_result request_parse_arguments_iterator(
                 }
 
                 m->discrete = r;
+                return MHD_YES;
+        }
+
+        if (streq(key, "lines")) {
+                if (isempty(value)) {
+                        return MHD_NO;
+                }
+
+                r = safe_atoi64(value, &m->n_skip);
+                if (r < 0) {
+                        m->argument_parse_error = r;
+                        return MHD_NO;
+                }
+
+                m->n_skip *= -1;
                 return MHD_YES;
         }
 
@@ -474,11 +581,12 @@ static int request_handler_entries(
         if (request_parse_accept(m, connection) < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
 
+        if (request_parse_arguments(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.");
+
         if (request_parse_range(m, connection) < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Range header.");
 
-        if (request_parse_arguments(m, connection) < 0)
-                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.");
 
         if (m->discrete) {
                 if (!m->cursor)
@@ -490,10 +598,16 @@ static int request_handler_entries(
 
         if (m->cursor)
                 r = sd_journal_seek_cursor(m->journal, m->cursor);
+        else if (m->since_set && m->n_skip >= 0)
+                r = sd_journal_seek_realtime_usec(m->journal, m->since);
         else if (m->n_skip >= 0)
                 r = sd_journal_seek_head(m->journal);
+        else if (m->until_set && m->n_skip < 0)
+                r = sd_journal_seek_realtime_usec(m->journal, m->until);
         else if (m->n_skip < 0)
                 r = sd_journal_seek_tail(m->journal);
+        else
+                r = 0;
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
 
@@ -634,6 +748,63 @@ static int request_handler_fields(
         if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
                 return respond_oom(connection);
 
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
+static int output_field_name(FILE *f, OutputMode m, const char *d) {
+        if (m == OUTPUT_JSON)
+                return fprintf(f, "{ \"field\" : \"%s\" }\n", d);
+        else
+                return fprintf(f, "%s\n", d);
+}
+
+static int request_handler_field_names(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = connection_cls;
+        int fd = -1;
+        FILE *tmp = NULL;
+        int r;
+        off_t n;
+        const char *field;
+
+        assert(connection);
+        assert(m);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        if (request_parse_accept(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
+
+        fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to create temporary file: %m");
+
+        tmp = fdopen(fd, "w+");
+        if (!tmp)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open temporary file: %m");
+
+        SD_JOURNAL_FOREACH_FIELD(m->journal, field) {
+                r = output_field_name(tmp, m->mode, field);
+                if (r < 0)
+                        return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to write to temporary file: %m");
+        }
+
+        n = ftello(tmp);
+        if (n == (off_t) -1)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to retrieve file position: %m");
+
+        rewind(tmp);
+        response = MHD_create_response_from_fd((size_t) n, fd);
+        if (!response)
+                return respond_oom(connection);
+        TAKE_FD(fd);
+
+        MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
@@ -828,16 +999,25 @@ static mhd_result request_handler(
         }
 
         if (streq(url, "/"))
-                return request_handler_redirect(connection, "/browse");
+                return request_handler_redirect(connection, "./browse");
 
         if (streq(url, "/entries"))
                 return request_handler_entries(connection, *connection_cls);
+
+        if (streq(url, "/fields"))
+                return request_handler_field_names(connection, *connection_cls);
 
         if (startswith(url, "/fields/"))
                 return request_handler_fields(connection, url + 8, *connection_cls);
 
         if (streq(url, "/browse"))
                 return request_handler_file(connection, DOCUMENT_ROOT "/browse.html", "text/html");
+
+        if (streq(url, "/favicon.svg"))
+                return request_handler_file(connection, DOCUMENT_ROOT "/favicon.svg", "image/svg+xml");
+
+        if (streq(url, "/favicon.ico"))
+                return request_handler_file(connection, DOCUMENT_ROOT "/favicon.ico", "image/x-icon");
 
         if (streq(url, "/machine"))
                 return request_handler_machine(connection, *connection_cls);

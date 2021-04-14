@@ -142,6 +142,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><uri>/fields</uri></term>
+
+        <listitem><para>Return the list of fields present in the logs.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><uri>/fields/<replaceable>FIELD_NAME</replaceable></uri></term>
 
         <listitem><para>Return a list of values of this field present in the logs.</para>
@@ -214,9 +221,13 @@
     <para>
       <option>Range: entries=<replaceable>cursor</replaceable>[[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
     </para>
+    <para>
+      <option>Range: time=[<replaceable>since</replaceable>]:[<replaceable>until</replaceable>][[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
+    </para>
 
     <para>where
       <replaceable>cursor</replaceable> is a cursor string,
+      <replaceable>since</replaceable> and <replaceable>until</replaceable> are timestamps,
       <replaceable>num_skip</replaceable> is an integer,
       <replaceable>num_entries</replaceable> is an unsigned integer.
     </para>
@@ -233,9 +244,19 @@
       <varlistentry>
         <term><uri>follow</uri></term>
 
-        <listitem><para>wait for new events
+        <listitem><para>Wait for new events
         (like <command>journalctl --follow</command>, except that
         the number of events returned is not limited).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><uri>lines=</uri></term>
+
+        <listitem><para>Show the most recent journal events and
+        limit the number of events shown (like
+        <command>journalctl --lines</command>). When <option>Range:</option>
+        is present, this parameter has no effect.</para>
         </listitem>
       </varlistentry>
 
