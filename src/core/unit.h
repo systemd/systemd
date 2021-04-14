@@ -229,8 +229,11 @@ typedef struct Unit {
         /* Target dependencies queue */
         LIST_FIELDS(Unit, target_deps_queue);
 
-        /* Queue of units with StopWhenUnneeded set that shell be checked for clean-up. */
+        /* Queue of units with StopWhenUnneeded= set that shall be checked for clean-up. */
         LIST_FIELDS(Unit, stop_when_unneeded_queue);
+
+        /* Queue of units that have an Uphold= dependency from some other unit, and should be checked for starting */
+        LIST_FIELDS(Unit, start_when_upheld_queue);
 
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
@@ -260,8 +263,8 @@ typedef struct Unit {
         int success_action_exit_status, failure_action_exit_status;
         char *reboot_arg;
 
-        /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
-        RateLimit auto_stop_ratelimit;
+        /* Make sure we never enter endless loops with the StopWhenUnneeded=, BindsTo=, Uphold= logic */
+        RateLimit auto_start_stop_ratelimit;
 
         /* Reference to a specific UID/GID */
         uid_t ref_uid;
@@ -383,6 +386,7 @@ typedef struct Unit {
         bool in_cgroup_oom_queue:1;
         bool in_target_deps_queue:1;
         bool in_stop_when_unneeded_queue:1;
+        bool in_start_when_upheld_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -740,6 +744,7 @@ void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
 void unit_add_to_target_deps_queue(Unit *u);
 void unit_submit_to_stop_when_unneeded_queue(Unit *u);
+void unit_submit_to_start_when_upheld_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
@@ -869,6 +874,7 @@ bool unit_type_supported(UnitType t);
 bool unit_is_pristine(Unit *u);
 
 bool unit_is_unneeded(Unit *u);
+bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit);
 
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
