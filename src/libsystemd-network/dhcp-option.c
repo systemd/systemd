@@ -17,6 +17,7 @@
 static int option_append(uint8_t options[], size_t size, size_t *offset,
                          uint8_t code, size_t optlen, const void *optval) {
         assert(options);
+        assert(size > 0);
         assert(offset);
 
         if (code != SD_DHCP_OPTION_END)
@@ -165,7 +166,7 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                         } else if (r == -ENOBUFS && use_sname) {
                                 /* did not fit, but we have more buffers to try
                                    close the file array and move the offset to its end */
-                                r = option_append(message->options, size, offset, SD_DHCP_OPTION_END, 0, NULL);
+                                r = option_append(message->file, sizeof(message->file), &file_offset, SD_DHCP_OPTION_END, 0, NULL);
                                 if (r < 0)
                                         return r;
 
