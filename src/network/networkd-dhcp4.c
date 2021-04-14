@@ -36,34 +36,11 @@ void network_adjust_dhcp4(Network *network) {
                 network->dhcp_use_gateway = network->dhcp_use_routes;
 
         if (network->dhcp_anonymize) {
-                /* RFC7844 3.7: SHOULD NOT send the Host Name option */
-                network->dhcp_send_hostname = false;
-
                 /* RFC7844 section 3.: MAY contain the Client Identifier option
                  * Section 3.5: clients MUST use client identifiers based solely on the link-layer address
                  * NOTE: Using MAC, as it does not reveal extra information, and some servers might not
                  * answer if this option is not sent */
                 network->dhcp_client_identifier = DHCP_CLIENT_ID_MAC;
-
-                /* RFC7844 3.10: SHOULD NOT use the Vendor Class Identifier option */
-                network->dhcp_vendor_class_identifier = mfree(network->dhcp_vendor_class_identifier);
-
-                /* RFC7844 section 3.6.: The client intending to protect its privacy SHOULD only
-                 * request a minimal number of options in the PRL and SHOULD also randomly shuffle the
-                 * ordering of option codes in the PRL. If this random ordering cannot be implemented,
-                 * the client MAY order the option codes in the PRL by option code number (lowest to
-                 * highest).
-                 *
-                 * TODO: Maybe there should be another variable called dhcp_request_mtu (to use the MTU
-                 * sent by the server but to do not request the option in the PRL)? */
-                network->dhcp_use_mtu = false;
-
-                /* NOTE: when Anonymize=yes, the PRL route options are sent by default, but this is
-                 * needed to use them. */
-                network->dhcp_use_routes = true;
-
-                /* RFC7844 section 3.6: same comments as previous option */
-                network->dhcp_use_timezone = false;
         }
 }
 
@@ -1370,96 +1347,93 @@ int dhcp4_configure(Link *link) {
                         return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set MTU: %m");
         }
 
-        if (link->network->dhcp_use_mtu) {
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_INTERFACE_MTU);
+        if (!link->network->dhcp_anonymize) {
+                if (link->network->dhcp_use_mtu) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_INTERFACE_MTU);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for MTU: %m");
+                }
+
+                if (link->network->dhcp_use_routes) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_STATIC_ROUTE);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for static route: %m");
+
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for classless static route: %m");
+                }
+
+                if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_DOMAIN_SEARCH_LIST);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for domain search list: %m");
+                }
+
+                if (link->network->dhcp_use_ntp) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for NTP server: %m");
+                }
+
+                if (link->network->dhcp_use_sip) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_SIP_SERVER);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for SIP server: %m");
+                }
+
+                if (link->network->dhcp_use_timezone) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for timezone: %m");
+                }
+
+                SET_FOREACH(request_options, link->network->dhcp_request_options) {
+                        uint32_t option = PTR_TO_UINT32(request_options);
+
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, option);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for '%u': %m", option);
+                }
+
+                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options) {
+                        r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
+                }
+
+                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options) {
+                        r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
+                }
+
+                r = dhcp4_set_hostname(link);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for MTU: %m");
-        }
+                        return r;
 
-        /* NOTE: even if this variable is called "use", it also "sends" PRL
-         * options, maybe there should be a different configuration variable
-         * to send or not route options?. */
-        /* NOTE: when using Anonymize=yes, routes PRL options are sent
-         * by default, so they don't need to be added here. */
-        if (link->network->dhcp_use_routes && !link->network->dhcp_anonymize) {
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_STATIC_ROUTE);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for static route: %m");
+                if (link->network->dhcp_vendor_class_identifier) {
+                        r = sd_dhcp_client_set_vendor_class_identifier(link->dhcp_client,
+                                                                       link->network->dhcp_vendor_class_identifier);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set vendor class identifier: %m");
+                }
 
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for classless static route: %m");
-        }
+                if (link->network->dhcp_mudurl) {
+                        r = sd_dhcp_client_set_mud_url(link->dhcp_client, link->network->dhcp_mudurl);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set MUD URL: %m");
+                }
 
-        if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO && !link->network->dhcp_anonymize) {
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_DOMAIN_SEARCH_LIST);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for domain search list: %m");
-        }
-
-        if (link->network->dhcp_use_ntp) {
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for NTP server: %m");
-        }
-
-        if (link->network->dhcp_use_sip) {
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_SIP_SERVER);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for SIP server: %m");
-        }
-
-        if (link->network->dhcp_use_timezone) {
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for timezone: %m");
-        }
-
-        SET_FOREACH(request_options, link->network->dhcp_request_options) {
-                uint32_t option = PTR_TO_UINT32(request_options);
-
-                r = sd_dhcp_client_set_request_option(link->dhcp_client, option);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for '%u': %m", option);
-        }
-
-        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options) {
-                r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
-        }
-
-        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options) {
-                r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
-        }
-
-        r = dhcp4_set_hostname(link);
-        if (r < 0)
-                return r;
-
-        if (link->network->dhcp_vendor_class_identifier) {
-                r = sd_dhcp_client_set_vendor_class_identifier(link->dhcp_client,
-                                                               link->network->dhcp_vendor_class_identifier);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set vendor class identifier: %m");
-        }
-
-       if (link->network->dhcp_mudurl) {
-                r = sd_dhcp_client_set_mud_url(link->dhcp_client, link->network->dhcp_mudurl);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set MUD URL: %m");
-        }
-
-        if (link->network->dhcp_user_class) {
-                r = sd_dhcp_client_set_user_class(link->dhcp_client, link->network->dhcp_user_class);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set user class: %m");
+                if (link->network->dhcp_user_class) {
+                        r = sd_dhcp_client_set_user_class(link->dhcp_client, link->network->dhcp_user_class);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set user class: %m");
+                }
         }
 
         if (link->network->dhcp_client_port > 0) {
