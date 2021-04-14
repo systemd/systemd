@@ -117,7 +117,7 @@
           <varlistentry>
             <term><literal>:=</literal></term>
             <listitem>
-              <para>Assign  a  value  to  a key finally; disallow any later changes.</para>
+              <para>Assign a value to a key finally; disallow any later changes.</para>
             </listitem>
           </varlistentry>
         </variablelist>
