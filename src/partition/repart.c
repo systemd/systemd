@@ -3043,7 +3043,7 @@ static int parse_efi_variable_factory_reset(void) {
 
         arg_factory_reset = r;
         if (r)
-                log_notice("Honouring factory reset requested via EFI variable FactoryReset: %m");
+                log_notice("Factory reset requested via EFI variable FactoryReset.");
 
         return 0;
 }
