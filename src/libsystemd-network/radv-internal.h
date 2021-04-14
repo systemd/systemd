@@ -129,7 +129,7 @@ struct sd_radv_route_prefix {
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_radv_get_ifname(radv),           \
                                     LOG_DEBUG, _e, "RADV: " fmt,        \
                                     ##__VA_ARGS__);                     \

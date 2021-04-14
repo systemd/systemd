@@ -53,7 +53,7 @@ struct sd_ipv4ll {
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_ipv4ll_get_ifname(ll),           \
                                     LOG_DEBUG, _e, "IPv4LL: " fmt,      \
                                     ##__VA_ARGS__);                     \

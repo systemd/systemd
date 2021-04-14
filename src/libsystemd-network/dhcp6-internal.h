@@ -123,7 +123,7 @@ int dhcp6_message_status_from_string(const char *s) _pure_;
         ({                                                              \
                 int _e = (error);                                       \
                 if (DEBUG_LOGGING)                                      \
-                        log_interface_full_errno(                       \
+                        log_interface_full_errno_zerook(                \
                                     sd_dhcp6_client_get_ifname(client), \
                                     LOG_DEBUG, _e, "DHCPv6 client: " fmt, \
                                     ##__VA_ARGS__);                     \
