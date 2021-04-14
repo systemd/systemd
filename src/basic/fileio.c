@@ -286,7 +286,7 @@ fail:
         /* OK, the operation failed, but let's see if the right
          * contents in place already. If so, eat up the error. */
 
-        q = verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE));
+        q = verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE));
         if (q <= 0)
                 return r;
 
