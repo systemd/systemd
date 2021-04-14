@@ -306,7 +306,8 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                         if (q < 0 && r == 0)
                                 r = q;
 
-                        log_debug_errno(q, "Got result %s/%m for job %s", d->result, d->name);
+                        log_full_errno_zerook(LOG_DEBUG, q,
+                                              "Got result %s/%m for job %s", d->result, d->name);
                 }
 
                 d->name = mfree(d->name);
