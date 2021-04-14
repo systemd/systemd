@@ -125,20 +125,11 @@ int manager_save(Manager *m) {
                 if (link->flags & IFF_LOOPBACK)
                         continue;
 
-                if (link->operstate > operstate)
-                        operstate = link->operstate;
-
-                if (link->carrier_state > carrier_state)
-                        carrier_state = link->carrier_state;
-
-                if (link->address_state > address_state)
-                        address_state = link->address_state;
-
-                if (link->ipv4_address_state > ipv4_address_state)
-                        ipv4_address_state = link->ipv4_address_state;
-
-                if (link->ipv6_address_state > ipv6_address_state)
-                        ipv6_address_state = link->ipv6_address_state;
+                operstate = MAX(operstate, link->operstate);
+                carrier_state = MAX(carrier_state, link->carrier_state);
+                address_state = MAX(address_state, link->address_state);
+                ipv4_address_state = MAX(ipv4_address_state, link->ipv4_address_state);
+                ipv6_address_state = MAX(ipv6_address_state, link->ipv6_address_state);
 
                 if (!link->network)
                         continue;

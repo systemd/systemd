@@ -182,7 +182,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkCarrierState carrier_state;
         LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
         _cleanup_strv_free_ char **p = NULL;
-        uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE, scope;
+        uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE;
         bool changed = false;
         Address *address;
 
@@ -215,11 +215,11 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 if (!address_is_ready(address))
                         continue;
 
-                if (address->family == AF_INET && address->scope < ipv4_scope)
-                        ipv4_scope = address->scope;
+                if (address->family == AF_INET)
+                        ipv4_scope = MIN(ipv4_scope, address->scope);
 
-                if (address->family == AF_INET6 && address->scope < ipv6_scope)
-                        ipv6_scope = address->scope;
+                if (address->family == AF_INET6)
+                        ipv6_scope = MIN(ipv6_scope, address->scope);
         }
 
         /* for operstate we also take foreign addresses into account */
@@ -227,18 +227,16 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 if (!address_is_ready(address))
                         continue;
 
-                if (address->family == AF_INET && address->scope < ipv4_scope)
-                        ipv4_scope = address->scope;
+                if (address->family == AF_INET)
+                        ipv4_scope = MIN(ipv4_scope, address->scope);
 
-                if (address->family == AF_INET6 && address->scope < ipv6_scope)
-                        ipv6_scope = address->scope;
+                if (address->family == AF_INET6)
+                        ipv6_scope = MIN(ipv6_scope, address->scope);
         }
 
         ipv4_address_state = address_state_from_scope(ipv4_scope);
         ipv6_address_state = address_state_from_scope(ipv6_scope);
-
-        scope = MIN(ipv4_scope, ipv6_scope);
-        address_state = address_state_from_scope(scope);
+        address_state = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
 
         /* Mapping of address and carrier state vs operational state
          *                                                     carrier state
