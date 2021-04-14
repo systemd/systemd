@@ -1047,7 +1047,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                                                  job_type_to_string(t),
                                                  job_result_to_string(result)));
 
-                unit_start_on_failure(u);
+                unit_start_on_failure(u, "OnFailure=", UNIT_ATOM_ON_FAILURE, u->on_failure_job_mode);
         }
 
         unit_trigger_notify(u);
