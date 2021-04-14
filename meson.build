@@ -802,7 +802,7 @@ if not meson.is_cross_build()
                 id = id_result.stdout().to_int()
                 if id != 65534
                         warning('\n' +
-                                'The local group with the configured group name "@0@" of the nobody group does not have UID 65534 (it has @1@).\n'.format(nobody_group, id) +
+                                'The local group with the configured group name "@0@" of the nobody group does not have GID 65534 (it has @1@).\n'.format(nobody_group, id) +
                                 'Your build will result in an group table setup that is incompatible with the local system.')
                 endif
         endif
