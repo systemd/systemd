@@ -245,14 +245,18 @@ Unit.Requisite,                          config_parse_unit_deps,                
 Unit.Wants,                              config_parse_unit_deps,                      UNIT_WANTS,                         0
 Unit.BindsTo,                            config_parse_unit_deps,                      UNIT_BINDS_TO,                      0
 Unit.BindTo,                             config_parse_unit_deps,                      UNIT_BINDS_TO,                      0
+Unit.Upholds,                            config_parse_unit_deps,                      UNIT_UPHOLDS,                       0
 Unit.Conflicts,                          config_parse_unit_deps,                      UNIT_CONFLICTS,                     0
 Unit.Before,                             config_parse_unit_deps,                      UNIT_BEFORE,                        0
 Unit.After,                              config_parse_unit_deps,                      UNIT_AFTER,                         0
+Unit.OnSuccess,                          config_parse_unit_deps,                      UNIT_ON_SUCCESS,                    0
 Unit.OnFailure,                          config_parse_unit_deps,                      UNIT_ON_FAILURE,                    0
 Unit.PropagatesReloadTo,                 config_parse_unit_deps,                      UNIT_PROPAGATES_RELOAD_TO,          0
 Unit.PropagateReloadTo,                  config_parse_unit_deps,                      UNIT_PROPAGATES_RELOAD_TO,          0
 Unit.ReloadPropagatedFrom,               config_parse_unit_deps,                      UNIT_RELOAD_PROPAGATED_FROM,        0
 Unit.PropagateReloadFrom,                config_parse_unit_deps,                      UNIT_RELOAD_PROPAGATED_FROM,        0
+Unit.PropagatesStopTo,                   config_parse_unit_deps,                      UNIT_PROPAGATES_STOP_TO,            0
+Unit.StopPropagatedFrom,                 config_parse_unit_deps,                      UNIT_STOP_PROPAGATED_FROM,          0
 Unit.PartOf,                             config_parse_unit_deps,                      UNIT_PART_OF,                       0
 Unit.JoinsNamespaceOf,                   config_parse_unit_deps,                      UNIT_JOINS_NAMESPACE_OF,            0
 Unit.RequiresOverridable,                config_parse_obsolete_unit_deps,             UNIT_REQUIRES,                      0
@@ -263,6 +267,7 @@ Unit.RefuseManualStart,                  config_parse_bool,                     
 Unit.RefuseManualStop,                   config_parse_bool,                           0,                                  offsetof(Unit, refuse_manual_stop)
 Unit.AllowIsolate,                       config_parse_bool,                           0,                                  offsetof(Unit, allow_isolate)
 Unit.DefaultDependencies,                config_parse_bool,                           0,                                  offsetof(Unit, default_dependencies)
+Unit.OnSuccessJobMode,                   config_parse_job_mode,                       0,                                  offsetof(Unit, on_success_job_mode)
 Unit.OnFailureJobMode,                   config_parse_job_mode,                       0,                                  offsetof(Unit, on_failure_job_mode)
 m4_dnl The following is a legacy alias name for compatibility
 Unit.OnFailureIsolate,                   config_parse_job_mode_isolate,               0,                                  offsetof(Unit, on_failure_job_mode)
