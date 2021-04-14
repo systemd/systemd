@@ -17,7 +17,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "build.h"
 #include "device-nodes.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -27,6 +26,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "udev-util.h"
+#include "version.h"
 
 static const struct option options[] = {
         { "device",             required_argument, NULL, 'd' },

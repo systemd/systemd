@@ -15,7 +15,6 @@
 #include "analyze-condition.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
-#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -53,6 +52,7 @@
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"
+#include "version.h"
 
 #define SCALE_X (0.1 / 1000.0) /* pixels per us */
 #define SCALE_Y (20.0)

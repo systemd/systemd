@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "build.h"
 #include "fd-util.h"
 #include "libudev-list-internal.h"
 #include "libudev-util.h"
@@ -15,6 +14,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "version.h"
 
 static bool arg_monitor = false;
 

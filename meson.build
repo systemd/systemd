@@ -38,8 +38,8 @@ relative_source_path = run_command('realpath',
                                    project_source_root).stdout().strip()
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
-conf.set('BUILD_MODE', 'BUILD_MODE_' + get_option('mode').to_upper(),
-         description : 'tailor build to development or release builds')
+conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
+           description : 'tailor build to development or release builds')
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
@@ -1117,7 +1117,7 @@ else
         libcurl = []
 endif
 conf.set10('HAVE_LIBCURL', have)
-conf.set10('CURL_NO_OLDIES', get_option('mode') == 'developer')
+conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
 want_libidn = get_option('libidn')
 want_libidn2 = get_option('libidn2')
@@ -3640,7 +3640,7 @@ if dbus_docs.length() > 0
                            '@INPUT@'],
                 input : dbus_docs)
 
-        if conf.get('BUILD_MODE') == 'BUILD_MODE_DEVELOPER'
+        if conf.get('BUILD_MODE_DEVELOPER') == 1
                 test('dbus-docs-fresh',
                      update_dbus_docs_py,
                      args : ['--build-dir=@0@'.format(project_build_root),

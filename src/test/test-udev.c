@@ -11,7 +11,6 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
-#include "build.h"
 #include "device-private.h"
 #include "fs-util.h"
 #include "log.h"
@@ -24,6 +23,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "udev-event.h"
+#include "version.h"
 
 static int fake_filesystems(void) {
         static const struct fakefs {

@@ -3,11 +3,11 @@
 #include <fcntl.h>
 
 #include "alloc-util.h"
-#include "build.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "locale-util.h"
 #include "string-util.h"
+#include "version.h"
 
 static void curl_glue_check_finished(CurlGlue *g) {
         CURLMsg *msg;
