@@ -216,7 +216,7 @@ int bpf_devices_apply_policy(
         _cleanup_free_ char *controller_path = NULL;
         int r;
 
-        /* This will assign *keep_program if everything goes well. */
+        /* This will assign *prog_installed if everything goes well. */
 
         if (!prog)
                 goto finish;
