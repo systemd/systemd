@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
@@ -14,11 +14,11 @@ start_test_service() {
 }
 
 dbus_freeze() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     busctl call \
            org.freedesktop.systemd1 \
@@ -28,11 +28,11 @@ dbus_freeze() {
 }
 
 dbus_thaw() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     busctl call \
            org.freedesktop.systemd1 \
@@ -62,11 +62,11 @@ dbus_thaw_unit() {
 }
 
 dbus_can_freeze() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     busctl get-property \
            org.freedesktop.systemd1 \
@@ -76,11 +76,11 @@ dbus_can_freeze() {
 }
 
 check_freezer_state() {
-    local suffix=
-    suffix="${1##*.}"
+    local name object_path suffix
 
-    local name="$(echo ${1%.$suffix} | sed s/-/_2d/g)"
-    local object_path="/org/freedesktop/systemd1/unit/${name}_2e${suffix}"
+    suffix="${1##*.}"
+    name="${1%.$suffix}"
+    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
 
     state=$(busctl get-property \
                    org.freedesktop.systemd1 \

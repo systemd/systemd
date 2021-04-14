@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-set -x
-set -e
+set -eux
 set -o pipefail
 
 U=/run/systemd/system/test12.socket
-cat <<'EOF' >$U
+cat >$U <<EOF
 [Unit]
 Description=Test 12 socket
 [Socket]
@@ -14,7 +13,7 @@ SocketGroup=adm
 SocketMode=0660
 EOF
 
-cat <<'EOF' >/run/systemd/system/test12@.service
+cat >/run/systemd/system/test12@.service <<EOF
 [Unit]
 Description=Test service
 [Service]

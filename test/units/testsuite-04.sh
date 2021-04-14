@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
-set -x
-set -e
+set -eux
 set -o pipefail
 
 # Test stdout stream
 
 # Skip empty lines
 ID=$(journalctl --new-id128 | sed -n 2p)
->/expected
+: >/expected
 printf $'\n\n\n' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
 ID=$(journalctl --new-id128 | sed -n 2p)
->/expected
+: >/expected
 printf $'<5>\n<6>\n<7>\n' | systemd-cat -t "$ID" --level-prefix true
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
@@ -55,7 +54,7 @@ ID=$(journalctl --new-id128 | sed -n 2p)
 printf $'foo' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ `grep -c . /output` -eq 6 ]]
+[[ $(grep -c . /output) -eq 6 ]]
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
@@ -83,7 +82,7 @@ journalctl --sync
 # We can drop this grep when https://github.com/systemd/systemd/issues/13937
 # has a fix.
 journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/output
-[[ `grep -c . /output` -eq 2 ]]
+[[ $(grep -c . /output) -eq 2 ]]
 grep -q "^_PID=$PID" /output
 grep -vq "^_PID=$PID" /output
 
