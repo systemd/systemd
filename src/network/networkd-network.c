@@ -311,7 +311,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
                 .dhcp_use_gateway = -1,
-                /* NOTE: this var might be overwritten by network_adjust_dhcp4() */
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
                 /* To enable/disable RFC7844 Anonymity Profiles */
