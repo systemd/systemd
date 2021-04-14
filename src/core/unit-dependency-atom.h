@@ -32,6 +32,11 @@ typedef enum UnitDependencyAtom {
         /* Stop our unit if the other unit happens to inactive */
         UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT            = UINT64_C(1) << 7,
 
+        /* Start this unit whenever we find it inactive and the other unit active */
+        UNIT_ATOM_START_STEADILY                      = UINT64_C(1) << 9,
+        /* Whenever our unit becomes active, add other unit to start_when_upheld_queue */
+        UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE         = UINT64_C(1) << 10,
+
         /* If our unit unexpectedly becomes active, retroactively start the other unit too, in "replace" job
          * mode */
         UNIT_ATOM_RETROACTIVE_START_REPLACE           = UINT64_C(1) << 11,
