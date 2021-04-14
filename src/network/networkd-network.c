@@ -298,11 +298,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .allmulticast = -1,
                 .promiscuous = -1,
 
-                .configure_without_carrier = false,
                 .ignore_carrier_loss = -1,
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 
-                .dhcp = ADDRESS_FAMILY_NO,
                 .duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
@@ -313,17 +311,10 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_gateway = -1,
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
-                /* To enable/disable RFC7844 Anonymity Profiles */
-                .dhcp_anonymize = false,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
                 /* NOTE: this var might be overwritten by network_adjust_dhcp4() */
                 .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
                 .dhcp_route_table = RT_TABLE_MAIN,
-                .dhcp_route_table_set = false,
-                /* NOTE: from man: UseMTU=... Defaults to false */
-                .dhcp_use_mtu = false,
-                /* NOTE: from man: UseTimezone=... Defaults to "no". */
-                .dhcp_use_timezone = false,
                 .dhcp_ip_service_type = -1,
 
                 .dhcp6_use_address = true,
@@ -389,7 +380,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_use_autonomous_prefix = true,
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
-                .ipv6_accept_ra_route_table_set = false,
                 .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
                 .can_triple_sampling = -1,
