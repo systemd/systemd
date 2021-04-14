@@ -122,7 +122,7 @@ Unit* unit_new(Manager *m, size_t size) {
         u->last_section_private = -1;
 
         u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
-        u->auto_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
+        u->auto_start_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
                 u->io_accounting_last[i] = UINT64_MAX;
@@ -507,6 +507,22 @@ void unit_submit_to_stop_when_unneeded_queue(Unit *u) {
         u->in_stop_when_unneeded_queue = true;
 }
 
+void unit_submit_to_start_when_upheld_queue(Unit *u) {
+        assert(u);
+
+        if (u->in_start_when_upheld_queue)
+                return;
+
+        if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                return;
+
+        if (!unit_has_dependency(u, UNIT_ATOM_START_STEADILY, NULL))
+                return;
+
+        LIST_PREPEND(start_when_upheld_queue, u->manager->start_when_upheld_queue, u);
+        u->in_start_when_upheld_queue = true;
+}
+
 static void unit_clear_dependencies(Unit *u) {
         assert(u);
 
@@ -718,6 +734,9 @@ Unit* unit_free(Unit *u) {
 
         if (u->in_stop_when_unneeded_queue)
                 LIST_REMOVE(stop_when_unneeded_queue, u->manager->stop_when_unneeded_queue, u);
+
+        if (u->in_start_when_upheld_queue)
+                LIST_REMOVE(start_when_upheld_queue, u->manager->start_when_upheld_queue, u);
 
         safe_close(u->ip_accounting_ingress_map_fd);
         safe_close(u->ip_accounting_egress_map_fd);
@@ -2011,6 +2030,36 @@ bool unit_is_unneeded(Unit *u) {
         return true;
 }
 
+bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit) {
+        Unit *other;
+
+        assert(u);
+
+        /* Checks if the unit needs to be started because it currently is not running, but some other unit
+         * that is active declared an Uphold= dependencies on it */
+
+        if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)) || u->job) {
+                if (ret_culprit)
+                        *ret_culprit = NULL;
+                return false;
+        }
+
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_START_STEADILY) {
+                if (other->job)
+                        continue;
+
+                if (UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(other))) {
+                        if (ret_culprit)
+                                *ret_culprit = other;
+                        return true;
+                }
+        }
+
+        if (ret_culprit)
+                *ret_culprit = NULL;
+        return false;
+}
+
 static void check_unneeded_dependencies(Unit *u) {
         Unit *other;
         assert(u);
@@ -2019,6 +2068,16 @@ static void check_unneeded_dependencies(Unit *u) {
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE)
                 unit_submit_to_stop_when_unneeded_queue(other);
+}
+
+static void check_uphold_dependencies(Unit *u) {
+        Unit *other;
+        assert(u);
+
+        /* Add all units this unit depends on to the queue that processes Uphold= behaviour. */
+
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE)
+                unit_submit_to_start_when_upheld_queue(other);
 }
 
 static void unit_check_binds_to(Unit *u) {
@@ -2056,7 +2115,7 @@ static void unit_check_binds_to(Unit *u) {
         /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
-        if (!ratelimit_below(&u->auto_stop_ratelimit)) {
+        if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
                 log_unit_warning(u, "Unit is bound to inactive unit %s, but not stopping since we tried this too often recently.", other->id);
                 return;
         }
@@ -2595,9 +2654,13 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                                 retroactively_stop_dependencies(u);
                 }
 
-                /* stop unneeded units regardless if going down was expected or not */
+                /* Stop unneeded units regardless if going down was expected or not */
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                         check_unneeded_dependencies(u);
+
+                /* Start uphold units regardless if going up was expected or not */
+                if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
+                        check_uphold_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
                         log_unit_debug(u, "Unit entered failed state.");
@@ -2633,6 +2696,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         if (!MANAGER_IS_RELOADING(m)) {
                 /* Maybe we finished startup and are now ready for being stopped because unneeded? */
                 unit_submit_to_stop_when_unneeded_queue(u);
+
+                /* Maybe someone wants us to remain up? */
+                unit_submit_to_start_when_upheld_queue(u);
 
                 /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens when
                  * something BindsTo= to a Type=oneshot unit, as these units go directly from starting to inactive,
@@ -2901,11 +2967,13 @@ int unit_add_dependency(
                 [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
                 [UNIT_BINDS_TO] = UNIT_BOUND_BY,
                 [UNIT_PART_OF] = UNIT_CONSISTS_OF,
+                [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
                 [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
                 [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
                 [UNIT_WANTED_BY] = UNIT_WANTS,
                 [UNIT_BOUND_BY] = UNIT_BINDS_TO,
                 [UNIT_CONSISTS_OF] = UNIT_PART_OF,
+                [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
                 [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
