@@ -914,6 +914,63 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry);
 }
 
+static BOOLEAN is_digit(CHAR16 c) {
+        return (c >= '0') && (c <= '9');
+}
+
+static UINTN c_order(CHAR16 c) {
+        if (c == '\0')
+                return 0;
+        if (is_digit(c))
+                return 0;
+        else if ((c >= 'a') && (c <= 'z'))
+                return c;
+        else
+                return c + 0x10000;
+}
+
+static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2) {
+        CHAR16 *os1 = s1;
+        CHAR16 *os2 = s2;
+
+        while (*s1 || *s2) {
+                INTN first;
+
+                while ((*s1 && !is_digit(*s1)) || (*s2 && !is_digit(*s2))) {
+                        INTN order;
+
+                        order = c_order(*s1) - c_order(*s2);
+                        if (order != 0)
+                                return order;
+                        s1++;
+                        s2++;
+                }
+
+                while (*s1 == '0')
+                        s1++;
+                while (*s2 == '0')
+                        s2++;
+
+                first = 0;
+                while (is_digit(*s1) && is_digit(*s2)) {
+                        if (first == 0)
+                                first = *s1 - *s2;
+                        s1++;
+                        s2++;
+                }
+
+                if (is_digit(*s1))
+                        return 1;
+                if (is_digit(*s2))
+                        return -1;
+
+                if (first != 0)
+                        return first;
+        }
+
+        return StrCmp(os1, os2);
+}
+
 static CHAR8 *line_get_key_value(
                 CHAR8 *content,
                 CHAR8 *sep,
@@ -1478,7 +1535,7 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
         if (a->tries_left == 0 && b->tries_left != 0)
                 return -1;
 
-        r = strverscmp_improved(a->id, b->id);
+        r = str_verscmp(a->id, b->id);
         if (r != 0)
                 return r;
 
