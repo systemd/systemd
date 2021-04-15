@@ -3689,6 +3689,43 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Europe/Berlin')
 
+class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
+    links = [
+        'client',
+        'server',
+        'client-peer',
+        'server-peer',
+        ]
+
+    units = [
+        'agent-veth-client.netdev',
+        'agent-veth-server.netdev',
+        'agent-client.network',
+        'agent-server.network',
+        'agent-client-peer.network',
+        'agent-server-peer.network',
+        ]
+
+    def setUp(self):
+        remove_links(self.links)
+        stop_networkd(show_logs=False)
+
+    def tearDown(self):
+        remove_links(self.links)
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+
+    def test_relay_agent(self):
+        copy_unit_to_networkd_unit_path(*self.units)
+        start_networkd()
+
+        #Test is disabled until BindToInterface DHCP server configuration option is supported
+        # self.wait_online(['client:routable'])
+
+        # output = check_output(*networkctl_cmd, '-n', '0', 'status', 'client', env=env)
+        # print(output)
+        # self.assertRegex(output, 'Address: 192.168.5.150 \(DHCP4 via 192.168.5.1\)')
+
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     links = [
         'veth99',
