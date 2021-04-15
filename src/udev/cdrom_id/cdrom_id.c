@@ -743,25 +743,23 @@ static int cd_media_toc(Context *c) {
 }
 
 static int open_drive(Context *c) {
-        _cleanup_close_ int fd = -1;
+        int fd;
 
         assert(c);
         assert(c->fd < 0);
 
-        for (int cnt = 0; cnt < 20; cnt++) {
-                if (cnt != 0)
-                        (void) usleep(100 * USEC_PER_MSEC + random_u64() % (100 * USEC_PER_MSEC));
-
+        for (int cnt = 0;; cnt++) {
                 fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
-                if (fd >= 0 || errno != EBUSY)
+                if (fd >= 0)
                         break;
+                if (++cnt >= 20 || errno != EBUSY)
+                        return log_debug_errno(errno, "Unable to open '%s': %m", arg_node);
+
+                (void) usleep(100 * USEC_PER_MSEC + random_u64() % (100 * USEC_PER_MSEC));
         }
-        if (fd < 0)
-                return log_debug_errno(errno, "Unable to open '%s'", arg_node);
 
         log_debug("probing: '%s'", arg_node);
-
-        c->fd = TAKE_FD(fd);
+        c->fd = fd;
         return 0;
 }
 
@@ -952,7 +950,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_node = argv[optind];
         if (!arg_node)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device is specified.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device specified.");
 
         return 1;
 }
