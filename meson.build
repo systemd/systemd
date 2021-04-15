@@ -3724,10 +3724,6 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d',
 status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
-status += [
-        'static libsystemd:                 @0@'.format(static_libsystemd),
-        'static libudev:                    @0@'.format(static_libudev)]
-
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
@@ -3868,6 +3864,18 @@ foreach tuple : [
                 missing += tuple[0]
         endif
 endforeach
+
+if static_libsystemd == 'false'
+        missing += 'static-libsystemd'
+else
+        found += 'static-libsystemd(@0@)'.format(static_libsystemd)
+endif
+
+if static_libudev == 'false'
+        missing += 'static-libudev'
+else
+        found += 'static-libudev(@0@)'.format(static_libudev)
+endif
 
 status += [
         '',
