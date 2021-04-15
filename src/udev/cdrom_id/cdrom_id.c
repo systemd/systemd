@@ -302,10 +302,23 @@ static int cd_capability_compat(Context *c) {
 }
 
 static int cd_media_compat(Context *c) {
+        int r;
+
         assert(c);
 
-        if (ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
-                return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
+        r = ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT);
+        if (r < 0)
+                return log_debug_errno(errno, "ioctl(CDROM_DRIVE_STATUS) failed: m");
+        if (r != CDS_DISC_OK) {
+                log_debug("ioctl(CDROM_DRIVE_STATUS) → %d (%s), ignoring",
+                          r,
+                          r == CDS_NO_INFO ? "no info" :
+                          r == CDS_NO_DISC ? "no disc" :
+                          r == CDS_TRAY_OPEN ? "tray open" :
+                          r == CDS_DRIVE_NOT_READY ? "drive not ready" :
+                          "unkown status");
+                return -ENOMEDIUM;
+        }
 
         c->has_media = true;
         return 0;
@@ -730,25 +743,23 @@ static int cd_media_toc(Context *c) {
 }
 
 static int open_drive(Context *c) {
-        _cleanup_close_ int fd = -1;
+        int fd;
 
         assert(c);
         assert(c->fd < 0);
 
-        for (int cnt = 0; cnt < 20; cnt++) {
-                if (cnt != 0)
-                        (void) usleep(100 * USEC_PER_MSEC + random_u64() % (100 * USEC_PER_MSEC));
-
+        for (int cnt = 0;; cnt++) {
                 fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
-                if (fd >= 0 || errno != EBUSY)
+                if (fd >= 0)
                         break;
+                if (++cnt >= 20 || errno != EBUSY)
+                        return log_debug_errno(errno, "Unable to open '%s': %m", arg_node);
+
+                (void) usleep(100 * USEC_PER_MSEC + random_u64() % (100 * USEC_PER_MSEC));
         }
-        if (fd < 0)
-                return log_debug_errno(errno, "Unable to open '%s'", arg_node);
 
         log_debug("probing: '%s'", arg_node);
-
-        c->fd = TAKE_FD(fd);
+        c->fd = fd;
         return 0;
 }
 
@@ -939,7 +950,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_node = argv[optind];
         if (!arg_node)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device is specified.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device specified.");
 
         return 1;
 }

@@ -208,8 +208,10 @@ int link_set_bridge_mdb(Link *link) {
         if (hashmap_isempty(link->network->mdb_entries_by_section))
                 goto finish;
 
-        if (!link_has_carrier(link))
-                return log_link_debug(link, "Link does not have carrier yet, setting MDB entries later.");
+        if (!link_has_carrier(link)) {
+                log_link_debug(link, "Link does not have carrier yet, setting MDB entries later.");
+                return 0;
+        }
 
         if (link->network->bridge) {
                 Link *master;
@@ -218,8 +220,10 @@ int link_set_bridge_mdb(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to get Link object for Bridge=%s", link->network->bridge->ifname);
 
-                if (!link_has_carrier(master))
-                        return log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+                if (!link_has_carrier(master)) {
+                        log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+                        return 0;
+                }
 
         } else if (!streq_ptr(link->kind, "bridge")) {
                 log_link_warning(link, "Link is neither a bridge master nor a bridge port, ignoring [BridgeMDB] sections.");
