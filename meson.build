@@ -1232,7 +1232,7 @@ conf.set10('HAVE_LIBFIDO2', have)
 want_tpm2 = get_option('tpm2')
 if want_tpm2 != 'false' and not skip_deps
         tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
-                              required : want_tpm2 == 'true')
+                          required : want_tpm2 == 'true')
         have = tpm2.found()
 else
         have = false
@@ -2329,7 +2329,7 @@ if conf.get('ENABLE_HOMED') == 1
 endif
 
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
-                (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
+                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
         meson.add_install_script(meson_make_symlink,
                                  join_paths(rootbindir, 'systemctl'),
                                  join_paths(rootsbindir, alias))
@@ -2750,14 +2750,14 @@ if conf.get('ENABLE_OOMD') == 1
                    install_dir : rootlibexecdir)
 
         public_programs += executable(
-                   'oomctl',
-                   oomctl_sources,
-                   include_directories : includes,
-                   link_with : [libshared],
-                   dependencies : [],
-                   install_rpath : rootlibexecdir,
-                   install : true,
-                   install_dir : rootbindir)
+                'oomctl',
+                oomctl_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootbindir)
 endif
 
 if conf.get('ENABLE_BINFMT') == 1
@@ -3313,9 +3313,9 @@ custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
         command : ['sh', '-c', '{ ' +
-                   'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
-                   'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(project_build_root, 'catalog')) +
-                   '} >@OUTPUT@'],
+                               'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
+                               'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(project_build_root, 'catalog')) +
+                               '} >@OUTPUT@'],
         build_by_default : true)
 
 # We intentionally do not do inline initializations with definitions for
@@ -3724,10 +3724,6 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d',
 status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
-status += [
-        'static libsystemd:                 @0@'.format(static_libsystemd),
-        'static libudev:                    @0@'.format(static_libudev)]
-
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
@@ -3750,107 +3746,112 @@ found = []
 missing = []
 
 foreach tuple : [
-        ['libcryptsetup'],
-        ['PAM'],
-        ['pwquality'],
-        ['libfdisk'],
-        ['p11kit'],
-        ['libfido2'],
-        ['tpm2'],
+        # dependencies
+        ['ACL'],
         ['AUDIT'],
-        ['IMA'],
         ['AppArmor'],
-        ['SELinux'],
+        ['IMA'],
+        ['PAM'],
         ['SECCOMP'],
+        ['SELinux'],
         ['SMACK'],
-        ['zlib'],
-        ['xz'],
+        ['blkid'],
+        ['elfutils'],
+        ['gcrypt'],
+        ['gnutls'],
+        ['libcryptsetup'],
+        ['libcurl'],
+        ['libfdisk'],
+        ['libfido2'],
+        ['libidn'],
+        ['libidn2'],
+        ['libiptc'],
+        ['microhttpd'],
+        ['openssl'],
+        ['p11kit'],
+        ['pcre2'],
+        ['pwquality'],
+        ['qrencode'],
+        ['tpm2'],
+        ['xkbcommon'],
+
+        # compression libs
         ['zstd'],
         ['lz4'],
+        ['xz'],
+        ['zlib'],
         ['bzip2'],
-        ['ACL'],
-        ['gcrypt'],
-        ['qrencode'],
-        ['microhttpd'],
-        ['gnutls'],
-        ['openssl'],
-        ['libcurl'],
-        ['idn'],
-        ['initrd'],
-        ['compat-mutable-uid-boundaries'],
-        ['nscd'],
-        ['libidn2'],
-        ['libidn'],
-        ['libiptc'],
-        ['elfutils'],
-        ['binfmt'],
-        ['repart'],
-        ['vconsole'],
-        ['quotacheck'],
-        ['tmpfiles'],
-        ['environment.d'],
-        ['sysusers'],
-        ['firstboot'],
-        ['randomseed'],
+
+        # components
         ['backlight'],
-        ['rfkill'],
-        ['xdg-autostart'],
+        ['binfmt'],
+        ['coredump'],
+        ['environment.d'],
+        ['efi'],
+        ['gnu-efi',               have_gnu_efi],
+        ['firstboot'],
+        ['hibernate'],
+        ['homed'],
+        ['hostnamed'],
+        ['hwdb'],
+        ['importd'],
+        ['initrd'],
+        ['kernel-install',        get_option('kernel-install')],
+        ['localed'],
         ['logind'],
         ['machined'],
-        ['portabled'],
-        ['sysext'],
-        ['userdb'],
-        ['homed'],
-        ['importd'],
-        ['hostnamed'],
-        ['timedated'],
-        ['timesyncd'],
-        ['localed'],
         ['networkd'],
-        ['resolve'],
-        ['DNS-over-TLS(gnutls)',  conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1],
-        ['DNS-over-TLS(openssl)', conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1],
-        ['coredump'],
-        ['pstore'],
-        ['oomd'],
-        ['polkit'],
-        ['legacy pkla',      install_polkit_pkla],
-        ['efi'],
-        ['gnu-efi',          have_gnu_efi],
-        ['kmod'],
-        ['xkbcommon'],
-        ['pcre2'],
-        ['blkid'],
-        ['dbus'],
-        ['glib'],
         ['nss-myhostname'],
         ['nss-mymachines'],
         ['nss-resolve'],
         ['nss-systemd'],
-        ['hwdb'],
+        ['oomd'],
+        ['portabled'],
+        ['pstore'],
+        ['quotacheck'],
+        ['randomseed'],
+        ['repart'],
+        ['resolve'],
+        ['rfkill'],
+        ['sysext'],
+        ['systemd-analyze',       conf.get('ENABLE_ANALYZE') == 1],
+        ['sysusers'],
+        ['timedated'],
+        ['timesyncd'],
+        ['tmpfiles'],
+        ['userdb'],
+        ['vconsole'],
+        ['xdg-autostart'],
+
+        # optional features
+        ['idn'],
+        ['polkit'],
+        ['nscd'],
+        ['legacy-pkla',           install_polkit_pkla],
+        ['kmod'],
+        ['dbus'],
+        ['glib'],
         ['tpm'],
-        ['man pages',        want_man],
-        ['html pages',       want_html],
-        ['man page indices', want_man and have_lxml],
+        ['man pages',             want_man],
+        ['html pages',            want_html],
+        ['man page indices',      want_man and have_lxml],
         ['SysV compat'],
+        ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],
-        ['hibernate'],
-        ['adm group',        get_option('adm-group')],
-        ['wheel group',      get_option('wheel-group')],
+        ['adm group',             get_option('adm-group')],
+        ['wheel group',           get_option('wheel-group')],
         ['gshadow'],
         ['debug hashmap'],
         ['debug mmap cache'],
         ['debug siphash'],
-        ['valgrind',         conf.get('VALGRIND') == 1],
-        ['trace logging',    conf.get('LOG_TRACE') == 1],
-        ['install tests',    install_tests],
+        ['valgrind',              conf.get('VALGRIND') == 1],
+        ['trace logging',         conf.get('LOG_TRACE') == 1],
+        ['install tests',         install_tests],
         ['link-udev-shared',      get_option('link-udev-shared')],
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
-        ['kernel-install',        get_option('kernel-install')],
-        ['systemd-analyze',  conf.get('ENABLE_ANALYZE') == 1],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
 ]
@@ -3868,6 +3869,26 @@ foreach tuple : [
                 missing += tuple[0]
         endif
 endforeach
+
+if static_libsystemd == 'false'
+        missing += 'static-libsystemd'
+else
+        found += 'static-libsystemd(@0@)'.format(static_libsystemd)
+endif
+
+if static_libudev == 'false'
+        missing += 'static-libudev'
+else
+        found += 'static-libudev(@0@)'.format(static_libudev)
+endif
+
+if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
+        found += 'DNS-over-TLS(gnutls)'
+elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
+        found += 'DNS-over-TLS(openssl)'
+else
+        missing += 'DNS-over-TLS'
+endif
 
 status += [
         '',
