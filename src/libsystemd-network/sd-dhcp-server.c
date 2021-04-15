@@ -1300,14 +1300,11 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
 
 int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address) {
         assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
         if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
                 return 0;
 
-        if (sd_dhcp_server_is_running(server)) {
-                log_dhcp_server(server, "Refusing to change RelayTarget setting on a running DHCP Server. Restart is needed");
-                return 0;
-        }
         server->relay_target = *address;
         return 1;
 }
