@@ -316,7 +316,7 @@ static int path_add_trigger_dependencies(Path *p) {
 
         assert(p);
 
-        if (!hashmap_isempty(UNIT(p)->dependencies[UNIT_TRIGGERS]))
+        if (UNIT_TRIGGER(UNIT(p)))
                 return 0;
 
         r = unit_load_related_unit(UNIT(p), ".service", &x);
