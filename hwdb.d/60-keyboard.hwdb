@@ -1251,7 +1251,7 @@ evdev:input:b0003v1532p0200*
  KEYBOARD_KEY_c01cb=down                                # zoomout
 
 ###########################################################
-# MSI
+# MSI (aka "Micro Star")
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*:*
