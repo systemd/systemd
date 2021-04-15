@@ -3824,8 +3824,6 @@ foreach tuple : [
         ['xdg-autostart'],
 
         # optional features
-        ['DNS-over-TLS(gnutls)',  conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1],
-        ['DNS-over-TLS(openssl)', conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1],
         ['idn'],
         ['polkit'],
         ['nscd'],
@@ -3882,6 +3880,14 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += 'static-libudev(@0@)'.format(static_libudev)
+endif
+
+if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
+        found += 'DNS-over-TLS(gnutls)'
+elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
+        found += 'DNS-over-TLS(openssl)'
+else
+        missing += 'DNS-over-TLS'
 endif
 
 status += [
