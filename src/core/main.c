@@ -1558,11 +1558,8 @@ static int become_shutdown(
         return -errno;
 }
 
-static void initialize_clock(void) {
+static void initialize_timezone(void) {
         int r;
-
-        /* This is called very early on, before we parse the kernel command line or otherwise figure out why
-         * we are running, but only once. */
 
         if (clock_is_localtime(NULL) > 0) {
                 int min;
@@ -1580,7 +1577,7 @@ static void initialize_clock(void) {
                 else
                         log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
 
-        } else if (!in_initrd())
+        } else if (!in_initrd()) {
                 /*
                  * Do a dummy very first call to seal the kernel's time warp magic.
                  *
@@ -1593,6 +1590,11 @@ static void initialize_clock(void) {
                  * be treated as UTC that way.
                  */
                 (void) clock_reset_timewarp();
+        }
+}
+
+static void initialize_clock(void) {
+        int r;
 
         r = clock_apply_epoch();
         if (r < 0)
@@ -2599,6 +2601,9 @@ int main(int argc, char *argv[]) {
         redirect_telinit(argc, argv);
 
         /* Take timestamps early on */
+	if(getpid_cached() == 1) {
+                initialize_timezone();
+        }
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
         dual_timestamp_get(&userspace_timestamp);
 
