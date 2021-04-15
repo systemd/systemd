@@ -20,11 +20,10 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                 return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,
                                       "Failed to look up module alias '%s': %m", module);
 
-        if (!modlist) {
-                log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,
-                               "Failed to find module '%s'", module);
-                return -ENOENT;
-        }
+        if (!modlist)
+                return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG,
+                                      SYNTHETIC_ERRNO(ENOENT),
+                                      "Failed to find module '%s'", module);
 
         kmod_list_foreach(itr, modlist) {
                 _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
