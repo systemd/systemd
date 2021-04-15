@@ -39,6 +39,7 @@ typedef struct DHCPLease {
 } DHCPLease;
 
 struct sd_dhcp_server {
+        struct in_addr relay_target;
         unsigned n_ref;
 
         sd_event *event;
