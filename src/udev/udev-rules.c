@@ -198,7 +198,7 @@ struct UdevRules {
 
 #define log_rule_full(device, rules, level, ...)   (void) log_rule_full_errno(device, rules, level, 0, __VA_ARGS__)
 
-#define log_rule_debug(device, rules, ...)   log_rule_full_errno(device, rules, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_rule_debug(device, rules, ...)   log_rule_full(device, rules, LOG_DEBUG, __VA_ARGS__)
 #define log_rule_info(device, rules, ...)    log_rule_full(device, rules, LOG_INFO, __VA_ARGS__)
 #define log_rule_notice(device, rules, ...)  log_rule_full(device, rules, LOG_NOTICE, __VA_ARGS__)
 #define log_rule_warning(device, rules, ...) log_rule_full(device, rules, LOG_WARNING, __VA_ARGS__)
@@ -213,7 +213,7 @@ struct UdevRules {
 #define log_token_full_errno(rules, level, error, ...) log_rule_full_errno(NULL, rules, level, error, __VA_ARGS__)
 #define log_token_full(rules, level, ...)  (void) log_token_full_errno(rules, level, 0, __VA_ARGS__)
 
-#define log_token_debug(rules, ...)   log_token_full_errno(rules, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_token_debug(rules, ...)   log_token_full(rules, LOG_DEBUG, __VA_ARGS__)
 #define log_token_info(rules, ...)    log_token_full(rules, LOG_INFO, __VA_ARGS__)
 #define log_token_notice(rules, ...)  log_token_full(rules, LOG_NOTICE, __VA_ARGS__)
 #define log_token_warning(rules, ...) log_token_full(rules, LOG_WARNING, __VA_ARGS__)

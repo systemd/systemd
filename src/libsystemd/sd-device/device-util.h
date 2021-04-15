@@ -60,7 +60,7 @@
 
 #define log_device_full(device, level, ...) (void) log_device_full_errno(device, level, 0, __VA_ARGS__)
 
-#define log_device_debug(device, ...)   log_device_full_errno(device, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_device_debug(device, ...)   log_device_full(device, LOG_DEBUG, __VA_ARGS__)
 #define log_device_info(device, ...)    log_device_full(device, LOG_INFO, __VA_ARGS__)
 #define log_device_notice(device, ...)  log_device_full(device, LOG_NOTICE, __VA_ARGS__)
 #define log_device_warning(device, ...) log_device_full(device, LOG_WARNING, __VA_ARGS__)
