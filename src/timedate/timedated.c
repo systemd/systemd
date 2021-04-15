@@ -68,7 +68,7 @@ typedef struct Context {
 #define log_unit_full(unit, level, error, ...)                          \
         ({                                                              \
                 const UnitStatusInfo *_u = (unit);                      \
-                log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, \
+                log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, elf_build_id_get(__func__), \
                                     "UNIT=", _u->name, NULL, NULL, ##__VA_ARGS__); \
         })
 

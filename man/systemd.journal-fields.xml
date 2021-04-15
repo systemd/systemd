@@ -82,6 +82,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ELF_FILE=</varname></term>
+        <term><varname>BUILD_ID=</varname></term>
+        <listitem>
+          <para>The ELF binary file (main executable or <filename>.so</filename> library) the code that
+          generated the log message is located in, and the ELF GNU build ID of it, if known and
+          applicable.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ERRNO=</varname></term>
         <listitem>
           <para>The low-level Unix error number causing this entry, if

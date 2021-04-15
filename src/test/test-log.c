@@ -52,6 +52,7 @@ static void test_long_lines(void) {
                             X1000("abcd_") ".txt",
                             1000000,
                             X1000("fff") "unc",
+                            NULL,
                             "OBJECT=",
                             X1000("obj_") "ect",
                             "EXTRA=",

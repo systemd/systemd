@@ -17,7 +17,7 @@
 static struct kmod_ctx *ctx = NULL;
 
 _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
-        log_internalv(priority, 0, file, line, fn, format, args);
+        log_internalv(priority, 0, file, line, fn, NULL, format, args);
 }
 
 static int builtin_kmod(sd_device *dev, int argc, char *argv[], bool test) {

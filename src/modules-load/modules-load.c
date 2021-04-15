@@ -27,7 +27,7 @@ static void systemd_kmod_log(void *data, int priority, const char *file, int lin
                              const char *fn, const char *format, va_list args) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(priority, 0, file, line, fn, format, args);
+        log_internalv(priority, 0, file, line, fn, NULL, format, args);
         REENABLE_WARNING;
 }
 

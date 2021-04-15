@@ -3863,6 +3863,7 @@ int json_log_internal(
                 const char *file,
                 int line,
                 const char *func,
+                const elf_build_id *build_id,
                 const char *format, ...) {
 
         PROTECT_ERRNO;
@@ -3893,7 +3894,7 @@ int json_log_internal(
                 return log_struct_internal(
                                 level,
                                 error,
-                                file, line, func,
+                                file, line, func, build_id,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                 "CONFIG_FILE=%s", source,
                                 "CONFIG_LINE=%u", source_line,
@@ -3904,7 +3905,7 @@ int json_log_internal(
                 return log_struct_internal(
                                 level,
                                 error,
-                                file, line, func,
+                                file, line, func, build_id,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                 "CONFIG_LINE=%u", source_line,
                                 "CONFIG_COLUMN=%u", source_column,
@@ -3914,7 +3915,7 @@ int json_log_internal(
                 return log_struct_internal(
                                 level,
                                 error,
-                                file, line, func,
+                                file, line, func, build_id,
                                 "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
                                 LOG_MESSAGE("%s", buffer),
                                 NULL);

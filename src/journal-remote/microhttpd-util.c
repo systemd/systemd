@@ -22,7 +22,7 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         f = strjoina("microhttpd: ", fmt);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(LOG_INFO, 0, NULL, 0, NULL, f, ap);
+        log_internalv(LOG_INFO, 0, NULL, 0, NULL, NULL, f, ap);
         REENABLE_WARNING;
 }
 
@@ -114,10 +114,10 @@ static void log_func_gnutls(int level, const char *message) {
 
         if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
                 if (gnutls_log_map[level].enabled)
-                        log_internal(gnutls_log_map[level].level, 0, NULL, 0, NULL, "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
+                        log_internal(gnutls_log_map[level].level, 0, NULL, 0, NULL, NULL, "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
         } else {
                 log_debug("Received GNUTLS message with unknown level %d.", level);
-                log_internal(LOG_DEBUG, 0, NULL, 0, NULL, "gnutls: %s", message);
+                log_internal(LOG_DEBUG, 0, NULL, 0, NULL, NULL, "gnutls: %s", message);
         }
 }
 
