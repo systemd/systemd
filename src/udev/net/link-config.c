@@ -364,9 +364,11 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
                 return r;
         switch (addr_type) {
         case NET_ADDR_SET:
-                return log_device_debug(device, "MAC on the device already set by userspace");
+                log_device_debug(device, "MAC on the device already set by userspace");
+                return 0;
         case NET_ADDR_STOLEN:
-                return log_device_debug(device, "MAC on the device already set based on another device");
+                log_device_debug(device, "MAC on the device already set based on another device");
+                return 0;
         case NET_ADDR_RANDOM:
         case NET_ADDR_PERM:
                 break;
@@ -375,9 +377,11 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
                 return 0;
         }
 
-        if (want_random == (addr_type == NET_ADDR_RANDOM))
-                return log_device_debug(device, "MAC on the device already matches policy *%s*",
-                                        mac_address_policy_to_string(policy));
+        if (want_random == (addr_type == NET_ADDR_RANDOM)) {
+                log_device_debug(device, "MAC on the device already matches policy *%s*",
+                                 mac_address_policy_to_string(policy));
+                return 0;
+        }
 
         if (want_random) {
                 log_device_debug(device, "Using random bytes to generate MAC");
