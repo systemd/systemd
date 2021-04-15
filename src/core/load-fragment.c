@@ -2015,7 +2015,7 @@ int config_parse_trigger_unit(
         assert(rvalue);
         assert(data);
 
-        if (!hashmap_isempty(u->dependencies[UNIT_TRIGGERS])) {
+        if (UNIT_TRIGGER(u)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Multiple units to trigger specified, ignoring: %s", rvalue);
                 return 0;
         }
@@ -3574,7 +3574,7 @@ int config_parse_unit_slice(
                 return 0;
         }
 
-        r = unit_set_slice(u, slice);
+        r = unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to assign slice %s to unit %s, ignoring: %m", slice->id, u->id);
                 return 0;

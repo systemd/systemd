@@ -347,21 +347,20 @@ static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
 }
 
 static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
-        Unit *u;
-        void *v;
-        int r;
-        static const UnitDependency directions[] = {
-                UNIT_BEFORE,
-                UNIT_AFTER,
+
+        static const UnitDependencyAtom directions[] = {
+                UNIT_ATOM_BEFORE,
+                UNIT_ATOM_AFTER,
         };
-        size_t d;
+
+        int r;
 
         assert(tr);
         assert(j);
         assert(!j->transaction_prev);
 
-        /* Does a recursive sweep through the ordering graph, looking
-         * for a cycle. If we find a cycle we try to break it. */
+        /* Does a recursive sweep through the ordering graph, looking for a cycle. If we find a cycle we try
+         * to break it. */
 
         /* Have we seen this before? */
         if (j->generation == generation) {
@@ -369,18 +368,14 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 _cleanup_free_ char **array = NULL, *unit_ids = NULL;
                 char **unit_id, **job_type;
 
-                /* If the marker is NULL we have been here already and
-                 * decided the job was loop-free from here. Hence
-                 * shortcut things and return right-away. */
+                /* If the marker is NULL we have been here already and decided the job was loop-free from
+                 * here. Hence shortcut things and return right-away. */
                 if (!j->marker)
                         return 0;
 
-                /* So, the marker is not NULL and we already have been here. We have
-                 * a cycle. Let's try to break it. We go backwards in our path and
-                 * try to find a suitable job to remove. We use the marker to find
-                 * our way back, since smart how we are we stored our way back in
-                 * there. */
-
+                /* So, the marker is not NULL and we already have been here. We have a cycle. Let's try to
+                 * break it. We go backwards in our path and try to find a suitable job to remove. We use the
+                 * marker to find our way back, since smart how we are we stored our way back in there. */
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
                         /* For logging below */
@@ -449,16 +444,17 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
          * the graph over 'before' edges in the actual job execution order. We traverse over both unit
          * ordering dependencies and we test with job_compare() whether it is the 'before' edge in the job
          * execution ordering. */
-        for (d = 0; d < ELEMENTSOF(directions); d++) {
-                HASHMAP_FOREACH_KEY(v, u, j->unit->dependencies[directions[d]]) {
+        for (size_t d = 0; d < ELEMENTSOF(directions); d++) {
+                Unit *u;
+
+                UNIT_FOREACH_DEPENDENCY(u, j->unit, directions[d]) {
                         Job *o;
 
                         /* Is there a job for this unit? */
                         o = hashmap_get(tr->jobs, u);
                         if (!o) {
-                                /* Ok, there is no job for this in the
-                                 * transaction, but maybe there is already one
-                                 * running? */
+                                /* Ok, there is no job for this in the transaction, but maybe there is
+                                 * already one running? */
                                 o = u->job;
                                 if (!o)
                                         continue;
@@ -879,13 +875,12 @@ static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependen
 void transaction_add_propagate_reload_jobs(Transaction *tr, Unit *unit, Job *by, bool ignore_order, sd_bus_error *e) {
         JobType nt;
         Unit *dep;
-        void *v;
         int r;
 
         assert(tr);
         assert(unit);
 
-        HASHMAP_FOREACH_KEY(v, dep, unit->dependencies[UNIT_PROPAGATES_RELOAD_TO]) {
+        UNIT_FOREACH_DEPENDENCY(dep, unit, UNIT_ATOM_PROPAGATES_RELOAD_TO) {
                 nt = job_type_collapse(JOB_TRY_RELOAD, dep);
                 if (nt == JOB_NOP)
                         continue;
@@ -914,7 +909,6 @@ int transaction_add_job_and_dependencies(
         bool is_new;
         Unit *dep;
         Job *ret;
-        void *v;
         int r;
 
         assert(tr);
@@ -1006,7 +1000,7 @@ int transaction_add_job_and_dependencies(
 
                 /* Finally, recursively add in all dependencies. */
                 if (IN_SET(type, JOB_START, JOB_RESTART)) {
-                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_REQUIRES]) {
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_MATTERS) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -1016,17 +1010,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_BINDS_TO]) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
-                                if (r < 0) {
-                                        if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
-
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
-                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_WANTS]) {
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_DOESNT_MATTER) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         /* unit masked, job type not applicable and unit not found are not considered as errors. */
@@ -1038,7 +1022,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_REQUISITE]) {
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_VERIFY) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -1048,7 +1032,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_CONFLICTS]) {
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_CONFLICT_MATTERS) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, true, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -1058,7 +1042,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[UNIT_CONFLICTED_BY]) {
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_CONFLICT_DOESNT_MATTER) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_unit_warning(dep,
@@ -1067,41 +1051,37 @@ int transaction_add_job_and_dependencies(
                                         sd_bus_error_free(e);
                                 }
                         }
-
                 }
 
                 if (IN_SET(type, JOB_STOP, JOB_RESTART)) {
-                        static const UnitDependency propagate_deps[] = {
-                                UNIT_REQUIRED_BY,
-                                UNIT_REQUISITE_OF,
-                                UNIT_BOUND_BY,
-                                UNIT_CONSISTS_OF,
-                        };
-
+                        UnitDependencyAtom atom;
                         JobType ptype;
-                        unsigned j;
 
-                        /* We propagate STOP as STOP, but RESTART only
-                         * as TRY_RESTART, in order not to start
+                        /* We propagate STOP as STOP, but RESTART only as TRY_RESTART, in order not to start
                          * dependencies that are not around. */
-                        ptype = type == JOB_RESTART ? JOB_TRY_RESTART : type;
+                        if (type == JOB_RESTART) {
+                                atom = UNIT_ATOM_PROPAGATE_RESTART;
+                                ptype = JOB_TRY_RESTART;
+                        } else {
+                                ptype = JOB_STOP;
+                                atom = UNIT_ATOM_PROPAGATE_STOP;
+                        }
 
-                        for (j = 0; j < ELEMENTSOF(propagate_deps); j++)
-                                HASHMAP_FOREACH_KEY(v, dep, ret->unit->dependencies[propagate_deps[j]]) {
-                                        JobType nt;
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, atom) {
+                                JobType nt;
 
-                                        nt = job_type_collapse(ptype, dep);
-                                        if (nt == JOB_NOP)
-                                                continue;
+                                nt = job_type_collapse(ptype, dep);
+                                if (nt == JOB_NOP)
+                                        continue;
 
-                                        r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
-                                        if (r < 0) {
-                                                if (r != -EBADR) /* job type not applicable */
-                                                        goto fail;
+                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
+                                if (r < 0) {
+                                        if (r != -EBADR) /* job type not applicable */
+                                                goto fail;
 
-                                                sd_bus_error_free(e);
-                                        }
+                                        sd_bus_error_free(e);
                                 }
+                        }
                 }
 
                 if (type == JOB_RELOAD)
@@ -1150,14 +1130,14 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
 }
 
 int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
-        void *v;
         Unit *trigger;
         int r;
 
         assert(tr);
         assert(u);
 
-        HASHMAP_FOREACH_KEY(v, trigger, u->dependencies[UNIT_TRIGGERED_BY]) {
+        UNIT_FOREACH_DEPENDENCY(trigger, u, UNIT_ATOM_TRIGGERED_BY) {
+
                 /* No need to stop inactive jobs */
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger)) && !trigger->job)
                         continue;
