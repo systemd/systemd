@@ -302,10 +302,23 @@ static int cd_capability_compat(Context *c) {
 }
 
 static int cd_media_compat(Context *c) {
+        int r;
+
         assert(c);
 
-        if (ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
-                return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
+        r = ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT);
+        if (r < 0)
+                return log_debug_errno(errno, "ioctl(CDROM_DRIVE_STATUS) failed: m");
+        if (r != CDS_DISC_OK) {
+                log_debug("ioctl(CDROM_DRIVE_STATUS) → %d (%s), ignoring",
+                          r,
+                          r == CDS_NO_INFO ? "no info" :
+                          r == CDS_NO_DISC ? "no disc" :
+                          r == CDS_TRAY_OPEN ? "tray open" :
+                          r == CDS_DRIVE_NOT_READY ? "drive not ready" :
+                          "unkown status");
+                return -ENOMEDIUM;
+        }
 
         c->has_media = true;
         return 0;
