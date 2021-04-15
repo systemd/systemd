@@ -1251,7 +1251,7 @@ evdev:input:b0003v1532p0200*
  KEYBOARD_KEY_c01cb=down                                # zoomout
 
 ###########################################################
-# Micro Star
+# MSI (aka "Micro Star")
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*:*
@@ -1308,11 +1308,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-StarInternational*:pnModern*:*
  KEYBOARD_KEY_97=unknown                                # lid close
  KEYBOARD_KEY_98=unknown                                # lid open
                                                         # Fn+PrntScr sends meta+shift+s
-
-
-###########################################################
-# MSI
-###########################################################
 
 evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:*
  KEYBOARD_KEY_0213=f22
