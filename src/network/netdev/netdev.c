@@ -747,8 +747,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r,
-                                                      "Failed to generate predictable MAC address for %s: %m",
-                                                      netdev->ifname);
+                                                      "Failed to generate predictable MAC address: %m");
         }
 
         r = hashmap_ensure_put(&netdev->manager->netdevs, &string_hash_ops, netdev->ifname, netdev);
@@ -760,8 +759,8 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 assert(n);
                 if (!streq(netdev->filename, n->filename))
                         log_netdev_warning_errno(netdev, r,
-                                                 "The setting Name=%s in %s conflicts with the one in %s, ignoring",
-                                                 netdev->ifname, netdev->filename, n->filename);
+                                                 "Device was already configured by file %s, ignoring %s.",
+                                                 n->filename, netdev->filename);
 
                 /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
                  * removed from the hashmap 'manager->netdevs'. */
