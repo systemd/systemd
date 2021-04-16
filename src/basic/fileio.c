@@ -57,7 +57,7 @@ int fdopen_unlocked(int fd, const char *options, FILE **ret) {
 }
 
 int take_fdopen_unlocked(int *fd, const char *options, FILE **ret) {
-        int     r;
+        int r;
 
         assert(fd);
 
@@ -1018,10 +1018,9 @@ int chase_symlinks_and_fopen_unlocked(
         if (fd < 0)
                 return fd;
 
-        r = fdopen_unlocked(fd, open_flags, &f);
+        r = take_fdopen_unlocked(&fd, open_flags, &f);
         if (r < 0)
                 return r;
-        TAKE_FD(fd);
 
         *ret_file = f;
         if (ret_path)
