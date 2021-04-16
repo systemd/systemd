@@ -1316,7 +1316,7 @@ int ndisc_configure(Link *link) {
                 return 0;
 
         if (link->ndisc)
-                return 0; /* Already configured. */
+                return -EBUSY; /* Already configured. */
 
         r = sd_ndisc_new(&link->ndisc);
         if (r < 0)
