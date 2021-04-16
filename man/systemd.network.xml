@@ -232,13 +232,13 @@
       <varlistentry>
         <term><varname>RequiredFamilyForOnline=</varname></term>
         <listitem>
-          <para>Specifies an address family. When specified,
-          <command>systemd-networkd-wait-online</command> waits for at least one routable or link-local
-          IP address in the family should be configured on the link. Takes one of
-          <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
-          <literal>any</literal>. Defaults to <literal>any</literal>. Note that this will be used only
-          when <varname>RequiredForOnline=</varname> is true, or its minimum operational state is
-          <literal>degraded</literal> or above. Otherwise, it will be ignored.</para>
+          <para>Takes an address family. When specified, an IP address in the given family is deemed required
+          when determining whether the link is online (including when running
+          <command>systemd-networkd-wait-online</command>). Takes one of <literal>ipv4</literal>,
+          <literal>ipv6</literal>, <literal>both</literal>, or <literal>any</literal>. Defaults to
+          <literal>any</literal>. Note that this option has no effect if
+          <literal>RequiredForOnline=no</literal>, or if <literal>RequiredForOnline=</literal> specifies a
+          minimum operational state below <literal>degraded</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
