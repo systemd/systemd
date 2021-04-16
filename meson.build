@@ -715,7 +715,7 @@ if time_epoch == -1
         if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command('git', 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command('git', 'log', '-1', '--format=%at', latest_tag).stdout()
+                time_epoch = run_command('git', 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
         endif
         if time_epoch == ''
                 NEWS = files('NEWS')
