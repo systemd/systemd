@@ -914,14 +914,13 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
         r = wireguard_read_key_file(w->private_key_file, w->private_key);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
-                                              "Failed to read private key from %s. Dropping network device %s.",
-                                              w->private_key_file, netdev->ifname);
+                                              "Failed to read private key from %s. Ignoring network device.",
+                                              w->private_key_file);
 
         if (eqzero(w->private_key))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: Missing PrivateKey= or PrivateKeyFile=, "
-                                              "Dropping network device %s.",
-                                              filename, netdev->ifname);
+                                              "Ignoring network device.", filename);
 
         LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
                 if (wireguard_peer_verify(peer) < 0)
