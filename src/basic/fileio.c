@@ -48,7 +48,7 @@ int fdopen_unlocked(int fd, const char *options, FILE **ret) {
 
         FILE *f = fdopen(fd, options);
         if (!f)
-                return -errno;
+                return errno > 0 ? -errno : -EIO;
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
