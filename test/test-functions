@@ -73,12 +73,12 @@ if ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
     fi
 fi
 
-PATH_TO_INIT=$ROOTLIBDIR/systemd
-[ "$SYSTEMD_JOURNALD" ] || SYSTEMD_JOURNALD=$(which -a $BUILD_DIR/systemd-journald $ROOTLIBDIR/systemd-journald 2>/dev/null | grep '^/' -m1)
-[ "$SYSTEMD_JOURNAL_REMOTE" ] || SYSTEMD_JOURNAL_REMOTE=$(which -a $BUILD_DIR/systemd-journal-remote $ROOTLIBDIR/systemd-journal-remote 2>/dev/null | grep '^/' -m1)
-[ "$SYSTEMD" ] || SYSTEMD=$(which -a $BUILD_DIR/systemd $ROOTLIBDIR/systemd 2>/dev/null | grep '^/' -m1)
-[ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
-[ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
+PATH_TO_INIT="$ROOTLIBDIR/systemd"
+SYSTEMD_JOURNALD="${SYSTEMD_JOURNALD:-$(command -v "$BUILD_DIR/systemd-journald" || command -v "$ROOTLIBDIR/systemd-journald")}"
+SYSTEMD_JOURNAL_REMOTE="${SYSTEMD_JOURNAL_REMOTE:-$(command -v "$BUILD_DIR/systemd-journal-remote" || command -v "$ROOTLIBDIR/systemd-journal-remote")}"
+SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" || command -v "$ROOTLIBDIR/systemd")}"
+SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" || command -v systemd-nspawn)}"
+JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" || command -v journalctl)}"
 
 TESTFILE="${BASH_SOURCE[1]}"
 if [ -z "$TESTFILE" ]; then
