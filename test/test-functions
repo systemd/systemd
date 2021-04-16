@@ -1,15 +1,31 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2031
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
+# ex: ts=8 sw=4 sts=4 et filetype=sh tw=180
+# Note: the shellcheck line above disables warning for variables which were
+#       modified in a subshell. In our case this behavior is expected, but
+#       `shellcheck` can't distinguish this because of poor variable tracking,
+#       which results in warning for every instance of such variable used
+#       throughout this file.
+#       See:
+#           * comment in function install_verity_minimal()
+#           * koalaman/shellcheck#280
+set -o pipefail
+# FIXME: debug only
+set -x
+export debug=1
+
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
 os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
-LOOKS_LIKE_DEBIAN=$(source $os_release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || :)
-LOOKS_LIKE_ARCH=$(source $os_release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || :)
-LOOKS_LIKE_SUSE=$(source $os_release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || :)
-KERNEL_VER=${KERNEL_VER-$(uname -r)}
-KERNEL_MODS="/lib/modules/$KERNEL_VER/"
+# shellcheck source=/etc/os-release
+source "$os_release"
+# TODO: me no likey, find another way
+[[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=""
+[[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=""
+[[ " $ID_LIKE " = *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=""
+KERNEL_VER="${KERNEL_VER-$(uname -r)}"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
@@ -32,7 +48,7 @@ LOOPDEV=
 # check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
 # running under KVM. If these conditions are met, enable KVM (and possibly
 # nested KVM), otherwise disable it.
-if [[ -n "$TEST_NESTED_KVM" || ( -z "$TEST_NO_KVM" && $(systemd-detect-virt -v) != kvm ) ]]; then
+if [[ -n "${TEST_NESTED_KVM:=}" || ( -z "${TEST_NO_KVM:=}" && $(systemd-detect-virt -v) != kvm ) ]]; then
     QEMU_KVM=yes
 else
     QEMU_KVM=no
@@ -44,34 +60,36 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
 fi
 
 # The calling test.sh scripts have TEST_BASE_DIR set via their Makefile, but we don't need them to provide it
-TEST_BASE_DIR=${TEST_BASE_DIR:-$(realpath $(dirname "$BASH_SOURCE"))}
+TEST_BASE_DIR=${TEST_BASE_DIR:-$(realpath "$(dirname "${BASH_SOURCE[0]}")")}
 TEST_UNITS_DIR="$TEST_BASE_DIR/units"
 SOURCE_DIR=$(realpath "$TEST_BASE_DIR/..")
 TOOLS_DIR="$SOURCE_DIR/tools"
+# These variables are used by test scripts
+export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
-if ! BUILD_DIR=$($TOOLS_DIR/find-build-dir.sh); then
+if ! BUILD_DIR="$("$TOOLS_DIR"/find-build-dir.sh)"; then
     if [ "$NO_BUILD" ]; then
-        BUILD_DIR=$SOURCE_DIR
+        BUILD_DIR="$SOURCE_DIR"
     else
         echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
         exit 1
     fi
 fi
 
-PATH_TO_INIT=$ROOTLIBDIR/systemd
-[ "$SYSTEMD_JOURNALD" ] || SYSTEMD_JOURNALD=$(which -a $BUILD_DIR/systemd-journald $ROOTLIBDIR/systemd-journald 2>/dev/null | grep '^/' -m1)
-[ "$SYSTEMD_JOURNAL_REMOTE" ] || SYSTEMD_JOURNAL_REMOTE=$(which -a $BUILD_DIR/systemd-journal-remote $ROOTLIBDIR/systemd-journal-remote 2>/dev/null | grep '^/' -m1)
-[ "$SYSTEMD" ] || SYSTEMD=$(which -a $BUILD_DIR/systemd $ROOTLIBDIR/systemd 2>/dev/null | grep '^/' -m1)
-[ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
-[ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
+PATH_TO_INIT="$ROOTLIBDIR/systemd"
+SYSTEMD_JOURNALD="${SYSTEMD_JOURNALD:-$(command -v "$BUILD_DIR/systemd-journald" "$ROOTLIBDIR/systemd-journald" 2>/dev/null | grep '^/' -m1)}"
+SYSTEMD_JOURNAL_REMOTE="${SYSTEMD_JOURNAL_REMOTE:-$(command -v "$BUILD_DIR/systemd-journal-remote" "$ROOTLIBDIR/systemd-journal-remote" 2>/dev/null | grep '^/' -m1)}"
+SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" "$ROOTLIBDIR/systemd" 2>/dev/null | grep '^/' -m1)}"
+SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" systemd-nspawn 2>/dev/null | grep '^/' -m1)}"
+JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" journalctl 2>/dev/null | grep '^/' -m1)}"
 
-TESTFILE=${BASH_SOURCE[1]}
+TESTFILE="${BASH_SOURCE[1]}"
 if [ -z "$TESTFILE" ]; then
     echo "ERROR: test-functions must be sourced from one of the TEST-*/test.sh scripts" >&2
     exit 1
 fi
-TESTNAME=$(basename $(dirname $(realpath $TESTFILE)))
+TESTNAME="$(basename "$(dirname "$(realpath "$TESTFILE")")")"
 STATEDIR="$BUILD_DIR/test/$TESTNAME"
 STATEFILE="$STATEDIR/.testdir"
 IMAGESTATEDIR="$STATEDIR/.."
@@ -183,8 +201,9 @@ is_built_with_asan() {
     fi
 
     # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
-    local _asan_calls=$(objdump -dC $SYSTEMD_JOURNALD | egrep "callq?\s+[0-9a-f]+\s+<__asan" -c)
-    if (( $_asan_calls < 1000 )); then
+    local _asan_calls
+    _asan_calls="$(objdump -dC "$SYSTEMD_JOURNALD" | grep -E "callq?\s+[0-9a-f]+\s+<__asan" -c)"
+    if ((_asan_calls < 1000)); then
         return 1
     else
         return 0
@@ -227,31 +246,32 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     echo "Detected ASan RT '$ASAN_RT_NAME' located at '$ASAN_RT_PATH'"
 fi
 
-function find_qemu_bin() {
+find_qemu_bin() {
+    QEMU_BIN="${QEMU_BIN:-""}"
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
     if [[ $QEMU_KVM == "yes" ]]; then
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v kvm qemu-kvm 2>/dev/null | grep '^/' -m1)"
     fi
 
-    [ "$ARCH" ] || ARCH=$(uname -m)
+    [[ -n "$ARCH" ]] || ARCH="$(uname -m)"
     case $ARCH in
     x86_64)
         # QEMU's own build system calls it qemu-system-x86_64
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-x86_64 2>/dev/null | grep '^/' -m1)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null | grep '^/' -m1)"
         ;;
     i*86)
         # new i386 version of QEMU
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-i386 2>/dev/null | grep '^/' -m1)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-i386 2>/dev/null | grep '^/' -m1)"
 
         # i386 version of QEMU
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu 2>/dev/null | grep '^/' -m1)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu 2>/dev/null | grep '^/' -m1)"
         ;;
     ppc64*)
-        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-ppc64 2>/dev/null | grep '^/' -m1)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-ppc64 2>/dev/null | grep '^/' -m1)"
         ;;
     esac
 
-    if [ ! -e "$QEMU_BIN" ]; then
+    if [[ ! -e "$QEMU_BIN" ]]; then
         echo "Could not find a suitable QEMU binary" >&2
         return 1
     fi
@@ -261,11 +281,12 @@ function find_qemu_bin() {
 # returns 0 if newer or equal
 # returns 1 if older
 # returns 2 if failing
-function qemu_min_version() {
+qemu_min_version() {
     find_qemu_bin || return 2
 
     # get version from binary
-    qemu_ver=$($QEMU_BIN --version | awk '/^QEMU emulator version ([0-9]*\.[0-9]*\.[0-9]*)/ {print $4}')
+    local qemu_ver
+    qemu_ver="$("$QEMU_BIN" --version | awk '/^QEMU emulator version ([0-9]*\.[0-9]*\.[0-9]*)/ {print $4}')"
 
     # Check version string format
     echo "$qemu_ver" | grep -q '^[0-9]*\.[0-9]*\.[0-9]*$' || return 2
@@ -279,14 +300,14 @@ function qemu_min_version() {
 # success), or 1 if QEMU is not available.
 run_qemu() {
     if [ -f /etc/machine-id ]; then
-        read MACHINE_ID < /etc/machine-id
+        read -r MACHINE_ID </etc/machine-id
         [ -z "$INITRD" ] && [ -e "$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/initrd" ] \
             && INITRD="$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/initrd"
         [ -z "$KERNEL_BIN" ] && [ -e "$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/linux" ] \
             && KERNEL_BIN="$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/linux"
     fi
 
-    CONSOLE=ttyS0
+    local CONSOLE=ttyS0
 
     rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
@@ -300,20 +321,20 @@ run_qemu() {
             [ "$ARCH" ] || ARCH=$(uname -m)
             case $ARCH in
                 ppc64*)
-                KERNEL_BIN=/boot/vmlinux-$KERNEL_VER
+                KERNEL_BIN="/boot/vmlinux-$KERNEL_VER"
                 CONSOLE=hvc0
                 ;;
                 *)
-                KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
+                KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
                 ;;
             esac
         fi
     fi
 
-    default_fedora_initrd=/boot/initramfs-${KERNEL_VER}.img
-    default_debian_initrd=/boot/initrd.img-${KERNEL_VER}
-    default_arch_initrd=/boot/initramfs-linux-fallback.img
-    default_suse_initrd=/boot/initrd-${KERNEL_VER}
+    local default_fedora_initrd="/boot/initramfs-${KERNEL_VER}.img"
+    local default_debian_initrd="/boot/initrd.img-${KERNEL_VER}"
+    local default_arch_initrd="/boot/initramfs-linux-fallback.img"
+    local default_suse_initrd="/boot/initrd-${KERNEL_VER}"
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
             INITRD="$default_fedora_initrd"
@@ -330,7 +351,7 @@ run_qemu() {
     # i.e. use the number of online CPUs on the host machine. If the nproc utility
     # is not installed or there's some other error when calling it, fall back
     # to the original value (QEMU_SMP=1).
-    if ! [ "$QEMU_SMP" ]; then
+    if [[ -z "${QEMU_SMP:=}" ]]; then
         if ! QEMU_SMP=$(nproc); then
             dwarn "nproc utility is not installed, falling back to QEMU_SMP=1"
             QEMU_SMP=1
@@ -340,7 +361,7 @@ run_qemu() {
     find_qemu_bin || return 1
 
     # Umount initdir to avoid concurrent access to the filesystem
-    _umount_dir $initdir
+    _umount_dir "$initdir"
 
     local _cgroup_args
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" ]]; then
@@ -365,6 +386,7 @@ run_qemu() {
         _end=""
     fi
 
+    # FIXME: use array
     KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
 rw \
@@ -403,6 +425,8 @@ $QEMU_OPTIONS \
     if [[ "$QEMU_TIMEOUT" != "infinity" ]]; then
         QEMU_BIN="timeout --foreground $QEMU_TIMEOUT $QEMU_BIN"
     fi
+    # FIXME (or split robustly with mapfile or read -a)
+    # shellcheck disable=SC2086
     (set -x; $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND")
     rc=$?
     if [ "$rc" = 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
@@ -420,24 +444,26 @@ run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
     rm -f "$initdir"/{testok,failed,skipped}
 
+    # FIXME (or split robustly with mapfile or read -a)
+    # shellcheck disable=SC2206
     local _nspawn_cmd=(
-        --register=no
-        --kill-signal=SIGKILL
-        --directory=$1
-        --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:
-        $PATH_TO_INIT
+        "--register=no"
+        "--kill-signal=SIGKILL"
+        "--directory=$1"
+        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:"
+        "$PATH_TO_INIT"
         $KERNEL_APPEND
-        systemd.unit=testsuite.target
-        systemd.wants=testsuite-$2.service
+        "systemd.unit=testsuite.target"
+        "systemd.wants=testsuite-$2.service"
     )
 
     if [[ ! "$INTERACTIVE_DEBUG" ]]; then
-        _nspawn_cmd+=( systemd.wants=end.service )
+        _nspawn_cmd+=("systemd.wants=end.service")
     fi
 
     local _nspawn_pre
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
-        _nspawn_pre=(timeout --foreground $NSPAWN_TIMEOUT)
+        _nspawn_pre=(timeout --foreground "$NSPAWN_TIMEOUT")
     else
         _nspawn_pre=()
     fi
@@ -446,14 +472,16 @@ run_nspawn() {
         dwarn "nspawn doesn't support SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=hybrid, skipping"
         exit
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" || "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
-        _nspawn_pre=("${_nspawn_pre[@]}" env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY)
+        _nspawn_pre=("${_nspawn_pre[@]}" env "SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY")
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "default" ]]; then
-        _nspawn_pre=("${_nspawn_pre[@]}" env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY)
+        _nspawn_pre=("${_nspawn_pre[@]}" env "--unset=UNIFIED_CGROUP_HIERARCHY" "--unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY")
     else
         dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
         exit 1
     fi
 
+    # FIXME (or split robustly with mapfile or read -a)
+    # shellcheck disable=SC2086
     (set -x; "${_nspawn_pre[@]}" "$SYSTEMD_NSPAWN" $NSPAWN_ARGUMENTS "${_nspawn_cmd[@]}")
     rc=$?
     if [ "$rc" = 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
@@ -467,7 +495,8 @@ run_nspawn() {
 
 # Build two very minimal root images, with two units, one is the same and one is different across them
 install_verity_minimal() {
-    if [ -e $initdir/usr/share/minimal.raw ]; then
+    dinfo "Set up a set of minimal images for verity verification"
+    if [ -e "$initdir/usr/share/minimal.raw" ]; then
         return
     fi
     if ! command -v mksquashfs >/dev/null 2>&1; then
@@ -478,6 +507,9 @@ install_verity_minimal() {
         dfatal "veritysetup not found"
         exit 1
     fi
+    # Local modifications of some global variables is intentional in this
+    # subshell (SC2030)
+    # shellcheck disable=SC2030
     (
         BASICTOOLS=(
             bash
@@ -486,12 +518,15 @@ install_verity_minimal() {
             mount
             sleep
         )
-        oldinitdir=$initdir
-        rm -rfv $TESTDIR/minimal
-        export initdir=$TESTDIR/minimal
-        mkdir -p $initdir/usr/lib/systemd/system $initdir/usr/lib/extension-release.d $initdir/etc $initdir/var/tmp $initdir/opt
+        oldinitdir="$initdir"
+        rm -rfv "$TESTDIR/minimal"
+        export initdir="$TESTDIR/minimal"
+        mkdir -p "$initdir/usr/lib/systemd/system" "$initdir/usr/lib/extension-release.d" "$initdir/etc" "$initdir/var/tmp" "$initdir/opt"
         setup_basic_dirs
         install_basic_tools
+        # Shellcheck treats [[ -v VAR ]] as an assignment to avoid a different
+        # issue, thus falsely triggering SC2030 in this case
+        # See: koalaman/shellcheck#1409
         if [[ -v ASAN_RT_PATH ]]; then
             # If we're compiled with ASan, install the ASan RT (and its dependencies)
             # into the verity images to get rid of the annoying errors about
@@ -499,71 +534,71 @@ install_verity_minimal() {
             inst_libs "$ASAN_RT_PATH"
             inst_library "$ASAN_RT_PATH"
         fi
-        cp $os_release $initdir/usr/lib/os-release
-        ln -s ../usr/lib/os-release $initdir/etc/os-release
-        touch $initdir/etc/machine-id $initdir/etc/resolv.conf
-        touch $initdir/opt/some_file
-        echo MARKER=1 >>$initdir/usr/lib/os-release
-        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >$initdir/usr/lib/systemd/system/app0.service
-        cp $initdir/usr/lib/systemd/system/app0.service $initdir/usr/lib/systemd/system/app0-foo.service
+        cp "$os_release" "$initdir/usr/lib/os-release"
+        ln -s ../usr/lib/os-release "$initdir/etc/os-release"
+        touch "$initdir/etc/machine-id" "$initdir/etc/resolv.conf"
+        touch "$initdir/opt/some_file"
+        echo MARKER=1 >>"$initdir/usr/lib/os-release"
+        echo -e "[Service]\nExecStartPre=cat /usr/lib/os-release\nExecStart=sleep 120" >"$initdir/usr/lib/systemd/system/app0.service"
+        cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-foo.service"
 
-        mksquashfs $initdir $oldinitdir/usr/share/minimal_0.raw
-        veritysetup format $oldinitdir/usr/share/minimal_0.raw $oldinitdir/usr/share/minimal_0.verity | \
-            grep '^Root hash:' | cut -f2 | tr -d '\n' >$oldinitdir/usr/share/minimal_0.roothash
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw"
+        veritysetup format "$oldinitdir/usr/share/minimal_0.raw" "$oldinitdir/usr/share/minimal_0.verity" | \
+            grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_0.roothash"
 
-        sed -i "s/MARKER=1/MARKER=2/g" $initdir/usr/lib/os-release
-        rm $initdir/usr/lib/systemd/system/app0-foo.service
-        cp $initdir/usr/lib/systemd/system/app0.service $initdir/usr/lib/systemd/system/app0-bar.service
+        sed -i "s/MARKER=1/MARKER=2/g" "$initdir/usr/lib/os-release"
+        rm "$initdir/usr/lib/systemd/system/app0-foo.service"
+        cp "$initdir/usr/lib/systemd/system/app0.service" "$initdir/usr/lib/systemd/system/app0-bar.service"
 
-        mksquashfs $initdir $oldinitdir/usr/share/minimal_1.raw
-        veritysetup format $oldinitdir/usr/share/minimal_1.raw $oldinitdir/usr/share/minimal_1.verity | \
-            grep '^Root hash:' | cut -f2 | tr -d '\n' >$oldinitdir/usr/share/minimal_1.roothash
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw"
+        veritysetup format "$oldinitdir/usr/share/minimal_1.raw" "$oldinitdir/usr/share/minimal_1.verity" | \
+            grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_1.roothash"
 
         # Rolling distros like Arch do not set VERSION_ID
         local version_id=""
-        if grep -q "^VERSION_ID=" $os_release; then
-            version_id="$(grep "^VERSION_ID=" $os_release)"
+        if grep -q "^VERSION_ID=" "$os_release"; then
+            version_id="$(grep "^VERSION_ID=" "$os_release")"
         fi
 
-        export initdir=$TESTDIR/app0
-        mkdir -p $initdir/usr/lib/extension-release.d $initdir/usr/lib/systemd/system $initdir/opt
-        grep "^ID=" $os_release >$initdir/usr/lib/extension-release.d/extension-release.app0
-        echo "${version_id}" >>$initdir/usr/lib/extension-release.d/extension-release.app0
-        cat <<EOF >$initdir/usr/lib/systemd/system/app0.service
+        export initdir="$TESTDIR/app0"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
+        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app0"
+        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
+        cat >"$initdir/usr/lib/systemd/system/app0.service" <<EOF
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script0.sh
 EOF
-        cat <<EOF >$initdir/opt/script0.sh
+        cat >"$initdir/opt/script0.sh" <<EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
 cat /usr/lib/extension-release.d/extension-release.app0
 EOF
-        chmod +x $initdir/opt/script0.sh
-        echo MARKER=1 >$initdir/usr/lib/systemd/system/some_file
-        mksquashfs $initdir $oldinitdir/usr/share/app0.raw
+        chmod +x "$initdir/opt/script0.sh"
+        echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw"
 
-        export initdir=$TESTDIR/app1
-        mkdir -p $initdir/usr/lib/extension-release.d $initdir/usr/lib/systemd/system $initdir/opt
-        grep "^ID=" $os_release >$initdir/usr/lib/extension-release.d/extension-release.app1
-        echo "${version_id}" >>$initdir/usr/lib/extension-release.d/extension-release.app1
-        cat <<EOF >$initdir/usr/lib/systemd/system/app1.service
+        export initdir="$TESTDIR/app1"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
+        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app1"
+        echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app1"
+        cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script1.sh
 EOF
-        cat <<EOF >$initdir/opt/script1.sh
+        cat >"$initdir/opt/script1.sh" <<EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
 cat /usr/lib/extension-release.d/extension-release.app1
 EOF
-        chmod +x $initdir/opt/script1.sh
-        echo MARKER=1 >$initdir/usr/lib/systemd/system/other_file
-        mksquashfs $initdir $oldinitdir/usr/share/app1.raw
+        chmod +x "$initdir/opt/script1.sh"
+        echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw"
     )
 }
 
@@ -603,26 +638,29 @@ setup_basic_environment() {
 }
 
 setup_selinux() {
+    dinfo "Setup SELinux"
     # don't forget KERNEL_APPEND='... selinux=1 ...'
     if [[ "$SETUP_SELINUX" != "yes" ]]; then
-        ddebug "Don't setup SELinux"
+        dinfo "SETUP_SELINUX != yes, skipping SELinux configuration"
         return 0
     fi
-    ddebug "Setup SELinux"
-    local _conf_dir=/etc/selinux
-    local _fixfiles_tools="bash uname cat sort uniq awk grep egrep head expr find rm secon setfiles"
 
-    rm -rf $initdir/$_conf_dir
-    if ! cp -ar $_conf_dir $initdir/$_conf_dir; then
-        dfatal "Failed to copy $_conf_dir"
+    local conf_dir=/etc/selinux
+    local fixfiles_tools=(bash uname cat sort uniq awk grep egrep head expr find rm secon setfiles)
+
+    # Make sure the following statement can't expand to "/" to prevent
+    # a potential where-are-my-backups situation
+    rm -rf "${initdir:?}/$conf_dir"
+    if ! cp -ar "$conf_dir" "$initdir/$conf_dir"; then
+        dfatal "Failed to copy $conf_dir"
         exit 1
     fi
 
-    touch $initdir/.autorelabel
-    mkdir -p $initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants
-    ln -sf ../autorelabel.service $initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/
+    touch "$initdir/.autorelabel"
+    mkdir -p "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants"
+    ln -sf ../autorelabel.service "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/"
 
-    dracut_install $_fixfiles_tools
+    dracut_install "${fixfiles_tools[@]}"
     dracut_install fixfiles
     dracut_install sestatus
 }
@@ -633,35 +671,36 @@ install_valgrind() {
         exit 1
     fi
 
-    local _valgrind_bins=$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')
-    dracut_install $_valgrind_bins
+    local valgrind_bins valgrind_libs valgrind_dbg_and_supp
 
-    local _valgrind_libs=$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')
-    dracut_install $_valgrind_libs
+    valgrind_bins="$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')"
+    dracut_install "$valgrind_bins"
 
-    local _valgrind_dbg_and_supp=$(
+    valgrind_libs="$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')"
+    dracut_install "$valgrind_libs"
+
+    valgrind_dbg_and_supp="$(
         strace -e open valgrind /bin/true 2>&1 >/dev/null |
         perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
-    )
-    dracut_install $_valgrind_dbg_and_supp
+    )"
+    dracut_install "$valgrind_dbg_and_supp"
 }
 
 create_valgrind_wrapper() {
-    local _valgrind_wrapper=$initdir/$ROOTLIBDIR/systemd-under-valgrind
-    ddebug "Create $_valgrind_wrapper"
-    cat >$_valgrind_wrapper <<EOF
+    local valgrind_wrapper="$initdir/$ROOTLIBDIR/systemd-under-valgrind"
+    ddebug "Create $valgrind_wrapper"
+    cat >"$valgrind_wrapper" <<EOF
 #!/usr/bin/env bash
 
 mount -t proc proc /proc
 exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
 EOF
-    chmod 0755 $_valgrind_wrapper
+    chmod 0755 "$valgrind_wrapper"
 }
 
 create_asan_wrapper() {
-    local _asan_wrapper=$initdir/$ROOTLIBDIR/systemd-under-asan
-    local _asan_rt_pattern
-    ddebug "Create $_asan_wrapper"
+    local asan_wrapper="$initdir/$ROOTLIBDIR/systemd-under-asan"
+    dinfo "Create ASan wrapper as '$asan_wrapper'"
 
     [[ -z "$ASAN_RT_PATH" ]] && dfatal "ASAN_RT_PATH is empty, but it shouldn't be"
 
@@ -669,7 +708,7 @@ create_asan_wrapper() {
     # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
     [[ "$ASAN_COMPILER" == "clang" ]] && dracut_install "llvm-symbolizer"
 
-    cat >$_asan_wrapper <<EOF
+    cat >"$asan_wrapper" <<EOF
 #!/usr/bin/env bash
 
 set -x
@@ -764,24 +803,25 @@ unset_ld_preload systemd-remount-fs
 unset_ld_preload testsuite-
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
-exec  $ROOTLIBDIR/systemd "\$@"
+exec "$ROOTLIBDIR/systemd" "\$@"
 EOF
 
-    chmod 0755 $_asan_wrapper
+    chmod 0755 "$asan_wrapper"
 }
 
 create_strace_wrapper() {
-    local _strace_wrapper=$initdir/$ROOTLIBDIR/systemd-under-strace
-    ddebug "Create $_strace_wrapper"
-    cat >$_strace_wrapper <<EOF
+    local strace_wrapper="$initdir/$ROOTLIBDIR/systemd-under-strace"
+    ddebug "Create $strace_wrapper"
+    cat >"$strace_wrapper" <<EOF
 #!/usr/bin/env bash
 
-exec strace -f -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
+exec strace -f -D -o /strace.out "$ROOTLIBDIR/systemd" "\$@"
 EOF
-    chmod 0755 $_strace_wrapper
+    chmod 0755 "$strace_wrapper"
 }
 
 install_fsck() {
+    dinfo "Install fsck"
     dracut_install /sbin/fsck*
     dracut_install -o /bin/fsck*
 
@@ -806,34 +846,35 @@ install_dmevent() {
 }
 
 install_compiled_systemd() {
-    ddebug "Install compiled systemd"
+    dinfo "Install compiled systemd"
 
-    local _ninja_bin=$(type -P ninja || type -P ninja-build)
-    if [[ -z "$_ninja_bin" ]]; then
+    local ninja_bin
+    ninja_bin="$(type -P ninja || type -P ninja-build)"
+    if [[ -z "$ninja_bin" ]]; then
         dfatal "ninja was not found"
         exit 1
     fi
-    (set -x; DESTDIR=$initdir "$_ninja_bin" -C $BUILD_DIR install)
+    (set -x; DESTDIR="$initdir" "$ninja_bin" -C "$BUILD_DIR" install)
 }
 
 install_debian_systemd() {
-    ddebug "Install debian systemd"
+    dinfo "Install debian systemd"
 
-    local _systemd_pkgs=$(grep -E '^Package:' ${SOURCE_DIR}/debian/control | cut -d ':' -f 2)
-    local _files=""
-    for deb in $_systemd_pkgs; do
-        _files=$(dpkg-query -L $deb 2>/dev/null) || continue
+    local files
+
+    while read -r deb; do
+        files="$(dpkg-query -L "$deb" 2>/dev/null)" || continue
         ddebug "Install debian files from package $deb"
-        for file in $_files; do
+        for file in $files; do
             [ -e "$file" ] || continue
             [ -d "$file" ] && continue
-            inst $file
+            inst "$file"
         done
-    done
+    done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
 install_distro_systemd() {
-    ddebug "Install distro systemd"
+    dinfo "Install distro systemd"
 
     if [ "$LOOKS_LIKE_DEBIAN" ]; then
         install_debian_systemd
@@ -844,6 +885,7 @@ install_distro_systemd() {
 }
 
 install_systemd() {
+    dinfo "Install systemd"
     if [ "$NO_BUILD" ]; then
         install_distro_systemd
     else
@@ -851,39 +893,41 @@ install_systemd() {
     fi
 
     # remove unneeded documentation
-    rm -fr $initdir/usr/share/{man,doc}
+    rm -fr "$initdir"/usr/share/{man,doc}
 
     [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
 
     # enable debug logging in PID1
-    echo LogLevel=debug >>$initdir/etc/systemd/system.conf
+    echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
     # store coredumps in journal
-    echo Storage=journal >>$initdir/etc/systemd/coredump.conf
+    echo Storage=journal >>"$initdir/etc/systemd/coredump.conf"
 }
 
 get_ldpath() {
-    local _bin="$1"
-    local rpath=$(objdump -p "$_bin" 2>/dev/null | awk "/R(UN)?PATH/ { print \"$initdir\" \$2 }" | paste -sd :)
+    local rpath
+    rpath="$(objdump -p "${1:?}" 2>/dev/null | awk "/R(UN)?PATH/ { print \"$initdir\" \$2 }" | paste -sd :)"
 
     if [ -z "$rpath" ] ; then
-        echo $BUILD_DIR
+        echo "$BUILD_DIR"
     else
-        echo $rpath
+        echo "$rpath"
     fi
 }
 
 install_missing_libraries() {
+    dinfo "Install missing libraries"
     # install possible missing libraries
-    for i in $initdir{,/usr}/{sbin,bin}/* $initdir{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
-        LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath $i)" inst_libs $i
+    for i in "${initdir:?}"{,/usr}/{sbin,bin}/* "$initdir"{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
+        LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath "$i")" inst_libs "$i"
     done
 
+    local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
     for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2; do
         ddebug "Searching for $lib via pkg-config"
-        if pkg-config --exists ${lib}; then
-                path=$(pkg-config --variable=libdir ${lib})
+        if pkg-config --exists "$lib"; then
+                path="$(pkg-config --variable=libdir "$lib")"
                 if [ -z "${path}" ]; then
                     ddebug "$lib.pc does not contain a libdir variable, skipping"
                     continue
@@ -904,7 +948,7 @@ install_missing_libraries() {
 }
 
 cleanup_loopdev() {
-    if [ -n "${LOOPDEV}" ]; then
+    if [ -n "${LOOPDEV:=}" ]; then
         ddebug "losetup -d $LOOPDEV"
         losetup -d "${LOOPDEV}"
         unset LOOPDEV
@@ -914,66 +958,65 @@ cleanup_loopdev() {
 trap cleanup_loopdev EXIT INT QUIT PIPE
 
 create_empty_image() {
-    if [ -z "$IMAGE_NAME" ]; then
+    if [ -z "${IMAGE_NAME:=}" ]; then
         echo "create_empty_image: \$IMAGE_NAME not set"
         exit 1
     fi
 
-    local _size=500
+    local size=500
     if [[ "$STRIP_BINARIES" = "no" ]]; then
-        _size=$((4*_size))
+        size=$((4 * size))
     fi
 
-    echo "Setting up $IMAGE_PUBLIC (${_size} MB)"
-    rm -f "$IMAGE_PRIVATE" "$IMAGE_PUBLIC"
+    echo "Setting up ${IMAGE_PUBLIC:?} (${size} MB)"
+    rm -f "${IMAGE_PRIVATE:?}" "$IMAGE_PUBLIC"
 
     # Create the blank file to use as a root filesystem
-    truncate -s "${_size}M" "$IMAGE_PUBLIC"
+    truncate -s "${size}M" "$IMAGE_PUBLIC"
 
     LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
     [ -b "$LOOPDEV" ] || return 1
     sfdisk "$LOOPDEV" <<EOF
-,$((_size-50))M
+,$((size - 50))M
 ,
 EOF
 
     udevadm settle
 
-    local _label="-L systemd.${name}"
+    local label=(-L systemd)
     # mkfs.reiserfs doesn't know -L. so, use --label instead
-    [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd.${name}"
-    mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; ret=$?
-    if [ $ret -ne 0 ] ; then
+    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd)
+    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p1" -q; then
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
     fi
 }
 
 mount_initdir() {
-    if [ -z "${LOOPDEV}" ]; then
-        [ -e "$IMAGE_PRIVATE" ] && image="$IMAGE_PRIVATE" || image="$IMAGE_PUBLIC"
-        LOOPDEV=$(losetup --show -P -f "$image")
+    if [ -z "${LOOPDEV:=}" ]; then
+        [ -e "${IMAGE_PRIVATE:?}" ] && image="$IMAGE_PRIVATE" || image="${IMAGE_PUBLIC:?}"
+        LOOPDEV="$(losetup --show -P -f "$image")"
         [ -b "$LOOPDEV" ] || return 1
 
         udevadm settle
     fi
 
-    if ! mountpoint -q $initdir; then
-        mkdir -p $initdir
-        mount ${LOOPDEV}p1 $initdir
+    if ! mountpoint -q "${initdir:?}"; then
+        mkdir -p "$initdir"
+        mount "${LOOPDEV}p1" "$initdir"
         TEST_SETUP_CLEANUP_ROOTDIR=1
     fi
 }
 
 cleanup_initdir() {
     # only umount if create_empty_image_rootdir() was called to mount it
-    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $initdir
+    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir "${initdir:?}"
 }
 
 umount_loopback() {
     # unmount the loopback device from all places. Otherwise we risk file
     # system corruption.
-    for device in $(losetup -l | awk '$6=="'"$IMAGE_PUBLIC"'" {print $1}'); do
+    for device in $(losetup -l | awk '$6=="'"${IMAGE_PUBLIC:?}"'" {print $1}'); do
         ddebug "Unmounting all uses of $device"
         mount | awk '/^'"${device}"'p/{print $1}' | xargs --no-run-if-empty umount -v
     done
@@ -986,23 +1029,23 @@ create_empty_image_rootdir() {
 
 check_asan_reports() {
     local ret=0
-    local root="$1"
+    local root="${1:?}"
 
     if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
         ls -l "$root"
         if [[ -e "$root/systemd.asan.log.1" ]]; then
             cat "$root/systemd.asan.log.1"
-            ret=$(($ret+1))
+            ret=$((ret+1))
         fi
 
-        journald_report=$(find "$root" -name "systemd-journald.*san.log*" -exec cat {} \;)
-        if [[ ! -z "$journald_report" ]]; then
+        journald_report="$(find "$root" -name "systemd-journald.*san.log*" -exec cat {} \;)"
+        if [[ -n "$journald_report" ]]; then
             printf "%s\n" "$journald_report"
             cat "$root/systemd-journald.out" || :
-            ret=$(($ret+1))
+            ret=$((ret+1))
         fi
 
-        pids=$(
+        pids="$(
             "$JOURNALCTL" -D "$root/var/log/journal" | perl -alne '
                  BEGIN {
                      %services_to_ignore = (
@@ -1010,11 +1053,11 @@ check_asan_reports() {
                      );
                  }
                  print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
-        )
-        if [[ ! -z "$pids" ]]; then
-            ret=$(($ret+1))
+        )"
+        if [[ -n "$pids" ]]; then
+            ret=$((ret+1))
             for pid in $pids; do
-                "$JOURNALCTL" -D "$root/var/log/journal" _PID=$pid --no-pager
+                "$JOURNALCTL" -D "$root/var/log/journal" _PID="$pid" --no-pager
             done
         fi
     fi
@@ -1024,44 +1067,45 @@ check_asan_reports() {
 
 save_journal() {
     if [ -n "${ARTIFACT_DIRECTORY}" ]; then
-        dest="${ARTIFACT_DIRECTORY}/${testname}.journal"
+        dest="${ARTIFACT_DIRECTORY}/${testname:?}.journal"
     else
-        dest="$TESTDIR/system.journal"
+        dest="${TESTDIR:?}/system.journal"
     fi
 
-    for j in $1/*; do
-        $SYSTEMD_JOURNAL_REMOTE \
-            -o $dest \
+    for j in "${1:?}"/*; do
+        "$SYSTEMD_JOURNAL_REMOTE" \
+            -o "$dest" \
             --getter="$JOURNALCTL -o export -D $j"
 
         if [ -n "${TEST_SHOW_JOURNAL}" ]; then
             echo "---- $j ----"
-            $JOURNALCTL --no-pager -o short-monotonic --no-hostname --priority=${TEST_SHOW_JOURNAL} -D $j
+            "$JOURNALCTL" --no-pager -o short-monotonic --no-hostname --priority="${TEST_SHOW_JOURNAL}" -D "$j"
         fi
 
-        rm -r $j
+        rm -r "$j"
     done
 
     # we want to print this sometime later, so save this in a variable
-    JOURNAL_LIST="$(ls -l $dest*)"
+    JOURNAL_LIST="$(ls -l "$dest"*)"
 }
 
 check_result_nspawn() {
+    local workspace="${1:?}"
     local ret=1
     local journald_report=""
     local pids=""
-    [[ -e $1/testok ]] && ret=0
-    [[ -f $1/failed ]] && cp -a $1/failed $TESTDIR
-    save_journal $1/var/log/journal
-    [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    echo $JOURNAL_LIST
-    test -s $TESTDIR/failed && ret=$(($ret+1))
-    [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
-    check_asan_reports "$1" || ret=$(($ret+1))
-    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f $1/strace.out ]; then
-        cp $1/strace.out "${ARTIFACT_DIRECTORY}/"
+    [[ -e "$workspace/testok" ]] && ret=0
+    [[ -f "$workspace/failed" ]] && cp -a "$workspace/failed" "${TESTDIR:?}"
+    save_journal "$workspace/var/log/journal"
+    [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
+    test -s "$TESTDIR/failed" && ret=$((ret+1))
+    [ -n "$TIMED_OUT" ] && ret=$((ret+1))
+    check_asan_reports "$workspace" || ret=$((ret+1))
+    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
+        cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
     fi
-    _umount_dir $initdir
+    _umount_dir "${initdir:?}"
     return $ret
 }
 
@@ -1069,100 +1113,106 @@ check_result_nspawn() {
 check_result_qemu() {
     local ret=1
     mount_initdir
-    [[ -e $initdir/testok ]] && ret=0
-    [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
-    save_journal $initdir/var/log/journal
-    check_asan_reports "$initdir" || ret=$(($ret+1))
-    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f $initdir/strace.out ]; then
-        cp $initdir/strace.out "${ARTIFACT_DIRECTORY}/"
+    [[ -e "${initdir:?}/testok" ]] && ret=0
+    [[ -f "$initdir/failed" ]] && cp -a "$initdir/failed" "${TESTDIR:?}"
+    save_journal "$initdir/var/log/journal"
+    check_asan_reports "$initdir" || ret=$((ret+1))
+    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$initdir/strace.out" ]; then
+        cp "$initdir/strace.out" "${ARTIFACT_DIRECTORY}/"
     fi
-    _umount_dir $initdir
-    [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    echo $JOURNAL_LIST
-    test -s $TESTDIR/failed && ret=$(($ret+1))
-    [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
+    _umount_dir "$initdir"
+    [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
+    test -s "$TESTDIR/failed" && ret=$((ret+1))
+    [ -n "$TIMED_OUT" ] && ret=$((ret+1))
     return $ret
 }
 
 strip_binaries() {
+    dinfo "Strip binaries"
     if [[ "$STRIP_BINARIES" = "no" ]]; then
-        ddebug "Don't strip binaries"
+        dinfo "STRIP_BINARIES == no, keeping binaries unstripped"
         return 0
     fi
-    ddebug "Strip binaries"
-    find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | \
-        xargs strip --strip-unneeded |& \
-        grep -vi 'file format not recognized' | \
-        ddebug
+    while read -r bin; do
+        strip --strip-unneeded "$bin" |& grep -vi 'file format not recognized' | ddebug || :
+    done < <(find "${initdir:?}" -executable -not -path '*/lib/modules/*.ko' -type f)
 }
 
 create_rc_local() {
-    mkdir -p $initdir/etc/rc.d
-    cat >$initdir/etc/rc.d/rc.local <<EOF
+    dinfo "Create rc.local"
+    mkdir -p "${initdir:?}/etc/rc.d"
+    cat >"$initdir/etc/rc.d/rc.local" <<EOF
 #!/usr/bin/env bash
 exit 0
 EOF
-    chmod 0755 $initdir/etc/rc.d/rc.local
+    chmod 0755 "$initdir/etc/rc.d/rc.local"
 }
 
 install_execs() {
-    ddebug "install any Execs from the service files"
-    (
-    export PKG_CONFIG_PATH=$BUILD_DIR/src/core/
-    systemdsystemunitdir=$(pkg-config --variable=systemdsystemunitdir systemd)
-    systemduserunitdir=$(pkg-config --variable=systemduserunitdir systemd)
-    sed -r -n 's|^Exec[a-zA-Z]*=[@+!-]*([^ ]+).*|\1|gp' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
-         | sort -u | while read i; do
-         # some {rc,halt}.local scripts and programs are okay to not exist, the rest should
-         # also, plymouth is pulled in by rescue.service, but even there the exit code
-         # is ignored; as it's not present on some distros, don't fail if it doesn't exist
-         dinfo "Attempting to install $i (based on unit file reference)"
-         inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ] || [ "${i##*/}" == "plymouth" ]
-     done
-    )
+    ddebug "Install executables from the service files"
+
+    local pkg_config_path="${BUILD_DIR:?}/src/core/"
+    local systemunitdir userunitdir exe
+    systemunitdir="$(PKG_CONFIG_PATH="$pkg_config_path" pkg-config --variable=systemdsystemunitdir systemd)"
+    userunitdir="$(PKG_CONFIG_PATH="$pkg_config_path" pkg-config --variable=systemduserunitdir systemd)"
+    while read -r exe; do
+        # some {rc,halt}.local scripts and programs are okay to not exist, the rest should
+        # also, plymouth is pulled in by rescue.service, but even there the exit code
+        # is ignored; as it's not present on some distros, don't fail if it doesn't exist
+        dinfo "Attempting to install $exe (based on unit file reference)"
+        inst "$exe" || [ "${exe%.local}" != "$exe" ] || [ "${exe%systemd-update-done}" != "$exe" ] || [ "${exe##*/}" == "plymouth" ]
+    done < <(sed -r -n 's|^Exec[a-zA-Z]*=[@+!-]*([^ ]+).*|\1|gp' "${initdir:?}"/{"$systemunitdir","$userunitdir"}/*.service | sort -u)
 }
 
 generate_module_dependencies() {
-    if [[ -d $initdir/lib/modules/$KERNEL_VER ]] && \
-        ! depmod -a -b "$initdir" $KERNEL_VER; then
+    dinfo "Generate modules dependencies"
+    if [[ -d "${initdir:?}/lib/modules/${KERNEL_VER:?}" ]] && \
+        ! depmod -a -b "$initdir" "$KERNEL_VER"; then
             dfatal "\"depmod -a $KERNEL_VER\" failed."
             exit 1
     fi
 }
 
 install_depmod_files() {
-    inst /lib/modules/$KERNEL_VER/modules.order
-    inst /lib/modules/$KERNEL_VER/modules.builtin
+    dinfo "Install depmod files"
+    inst "/lib/modules/${KERNEL_VER:?}/modules.order"
+    inst "/lib/modules/$KERNEL_VER/modules.builtin"
 }
 
 install_plymouth() {
+    dinfo "Install plymouth"
     # install plymouth, if found... else remove plymouth service files
     # if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
     #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
     #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
     #         dracut_install plymouth plymouthd
     # else
-        rm -f $initdir/{usr/lib,lib,etc}/systemd/system/plymouth* $initdir/{usr/lib,lib,etc}/systemd/system/*/plymouth*
+        rm -f "${initdir:?}"/{usr/lib,lib,etc}/systemd/system/plymouth* "$initdir"/{usr/lib,lib,etc}/systemd/system/*/plymouth*
     # fi
 }
 
 install_ld_so_conf() {
-    cp -a /etc/ld.so.conf* $initdir/etc
+    dinfo "Install /etc/ld.so.conf*"
+    cp -a /etc/ld.so.conf* "${initdir:?}/etc"
     ldconfig -r "$initdir"
 }
 
 install_testuser() {
+    dinfo "Set up a test user"
     # create unprivileged user for user manager tests
-    mkdir -p $initdir/etc/sysusers.d
-    cat >$initdir/etc/sysusers.d/testuser.conf <<EOF
+    mkdir -p "${initdir:?}/etc/sysusers.d"
+    cat >"$initdir/etc/sysusers.d/testuser.conf" <<EOF
 u testuser    4711     "Test User" /home/testuser
 EOF
 
-    mkdir -p $initdir/home/testuser -m 0700
-    chown 4711:4711 $initdir/home/testuser
+    mkdir -p "$initdir/home/testuser"
+    chmod 0700 "$initdir/home/testuser"
+    chown 4711:4711 "$initdir/home/testuser"
 }
 
 install_config_files() {
+    dinfo "Install config files"
     inst /etc/sysconfig/init || :
     inst /etc/passwd
     inst /etc/shadow
@@ -1174,21 +1224,22 @@ install_config_files() {
     inst_any /etc/os-release /usr/lib/os-release
     inst /etc/localtime
     # we want an empty environment
-    >$initdir/etc/environment
-    >$initdir/etc/machine-id
-    >$initdir/etc/resolv.conf
+    : >"${initdir:?}/etc/environment"
+    : >"$initdir/etc/machine-id"
+    : >"$initdir/etc/resolv.conf"
 
     # set the hostname
-    echo systemd-testsuite >$initdir/etc/hostname
+    echo systemd-testsuite >"$initdir/etc/hostname"
 
     # let's set up just one image with the traditional verbose output
-    if [ ${IMAGE_NAME} != "basic" ]; then
-        mkdir -p $initdir/etc/systemd/system.conf.d
-        echo -e '[Manager]\nStatusUnitFormat=name' >$initdir/etc/systemd/system.conf.d/status.conf
+    if [ "${IMAGE_NAME:?}" != "basic" ]; then
+        mkdir -p "$initdir/etc/systemd/system.conf.d"
+        echo -e '[Manager]\nStatusUnitFormat=name' >"$initdir/etc/systemd/system.conf.d/status.conf"
     fi
 }
 
 install_basic_tools() {
+    dinfo "Install basic tools"
     dracut_install "${BASICTOOLS[@]}"
     dracut_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
@@ -1196,13 +1247,14 @@ install_basic_tools() {
 }
 
 install_debug_tools() {
+    dinfo "Install debug tools"
     dracut_install "${DEBUGTOOLS[@]}"
 
     if [[ $INTERACTIVE_DEBUG ]]; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
-        local _getty_override="$initdir/etc/systemd/system/serial-getty@.service.d"
-        mkdir -p "$_getty_override"
-        echo -e "[Service]\nEnvironment=TERM=linux" >"$_getty_override/default-TERM.conf"
+        local getty_override="${initdir:?}/etc/systemd/system/serial-getty@.service.d"
+        mkdir -p "$getty_override"
+        echo -e "[Service]\nEnvironment=TERM=linux" >"$getty_override/default-TERM.conf"
 
         cat >"$initdir/etc/motd" <<EOF
 To adjust the terminal size use:
@@ -1215,38 +1267,39 @@ EOF
 }
 
 install_libnss() {
+    dinfo "Install libnss"
     # install libnss_files for login
-    NSS_LIBS=$(LD_DEBUG=files getent passwd 2>&1 >/dev/null |sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
-    dracut_install $NSS_LIBS
+    local NSS_LIBS
+    mapfile -t NSS_LIBS < <(LD_DEBUG=files getent passwd 2>&1 >/dev/null |sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
+    dracut_install "${NSS_LIBS[@]}"
 }
 
 install_dbus() {
-    inst $ROOTLIBDIR/system/dbus.socket
+    dinfo "Install dbus"
+    inst "${ROOTLIBDIR:?}/system/dbus.socket"
 
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
-    if [ -f $ROOTLIBDIR/system/dbus-broker.service ]; then
-        inst $ROOTLIBDIR/system/dbus-broker.service
+    if [ -f "$ROOTLIBDIR/system/dbus-broker.service" ]; then
+        inst "$ROOTLIBDIR/system/dbus-broker.service"
         inst_symlink /etc/systemd/system/dbus.service
         inst /usr/bin/dbus-broker
         inst /usr/bin/dbus-broker-launch
-    elif [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
+    elif [ -f "$ROOTLIBDIR/system/dbus-daemon.service" ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
-        inst $ROOTLIBDIR/system/dbus-daemon.service
+        inst "$ROOTLIBDIR/system/dbus-daemon.service"
         # Alias symlink
         inst_symlink /etc/systemd/system/dbus.service
     else
-        inst $ROOTLIBDIR/system/dbus.service
+        inst "$ROOTLIBDIR/system/dbus.service"
     fi
 
-    find \
-        /etc/dbus-1 /usr/share/dbus-1 -xtype f \
-        | while read file; do
-        inst $file
-    done
+    while read -r file; do
+        inst "$file"
+    done < <(find /etc/dbus-1 /usr/share/dbus-1 -xtype f 2>/dev/null)
 
     # setup policy for Type=dbus test
-    mkdir -p $initdir/etc/dbus-1/system.d
-    cat >$initdir/etc/dbus-1/system.d/systemd.test.ExecStopPost.conf <<EOF
+    mkdir -p "${initdir:?}/etc/dbus-1/system.d"
+    cat >"$initdir/etc/dbus-1/system.d/systemd.test.ExecStopPost.conf" <<EOF
 <?xml version="1.0"?>
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
         "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
@@ -1259,59 +1312,65 @@ EOF
 }
 
 install_user_dbus() {
+    dinfo "Install user dbus"
     local userunitdir
-    if ! userunitdir=$(pkg-config --variable=systemduserunitdir systemd); then
-        echo "WARNING! Cannot determine userunitdir from pkg-config, assuming /usr/lib/systemd/user" >&2
-        local userunitdir=/usr/lib/systemd/user
+    if ! userunitdir="$(pkg-config --variable=systemduserunitdir systemd)"; then
+        dwarn "WARNING! Cannot determine userunitdir from pkg-config, assuming /usr/lib/systemd/user"
+        userunitdir=/usr/lib/systemd/user
     fi
 
-    inst $userunitdir/dbus.socket
-    inst_symlink $userunitdir/sockets.target.wants/dbus.socket || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
+    inst "$userunitdir/dbus.socket"
+    inst_symlink "$userunitdir/sockets.target.wants/dbus.socket" || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
 
     # Append the After= dependency on dbus in case it isn't already set up
-    mkdir -p "$initdir/etc/systemd/system/user@.service.d/"
-    cat <<EOF >"$initdir/etc/systemd/system/user@.service.d/dbus.conf"
+    mkdir -p "${initdir:?}/etc/systemd/system/user@.service.d/"
+    cat >"$initdir/etc/systemd/system/user@.service.d/dbus.conf" <<EOF
 [Unit]
 After=dbus.service
 EOF
 
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
-    if [ -f $userunitdir/dbus-broker.service ]; then
-        inst $userunitdir/dbus-broker.service
+    if [ -f "$userunitdir/dbus-broker.service" ]; then
+        inst "$userunitdir/dbus-broker.service"
         inst_symlink /etc/systemd/user/dbus.service
-    elif [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
+    elif [ -f "${ROOTLIBDIR:?}/system/dbus-daemon.service" ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
-        inst $userunitdir/dbus-daemon.service
+        inst "$userunitdir/dbus-daemon.service"
         # Alias symlink
         inst_symlink /etc/systemd/user/dbus.service
     else
-        inst $userunitdir/dbus.service
+        inst "$userunitdir/dbus.service"
     fi
 }
 
 install_pam() {
-    (
+    dinfo "Install PAM"
+    local paths=()
+
     if [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null; then
-        find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
+        paths+=("/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security")
     else
-        find /lib*/security -xtype f
+        paths+=(/lib*/security)
     fi
+
     for d in /etc/pam.d /etc/security /usr/lib/pam.d; do
-        [ -d "$d" ] && find $d -xtype f
+        [ -d "$d" ] && paths+=("$d")
     done
-    ) | while read file; do
-        inst $file
-    done
+
+    while read -r file; do
+        inst "$file"
+    done < <(find "${paths[@]}" -xtype f)
 
     # pam_unix depends on unix_chkpwd.
     # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
     dracut_install -o unix_chkpwd
 
     # set empty root password for easy debugging
-    sed -i 's/^root:x:/root::/' $initdir/etc/passwd
+    sed -i 's/^root:x:/root::/' "${initdir:?}/etc/passwd"
 }
 
 install_keymaps() {
+    dinfo "Install keymaps"
     # The first three paths may be deprecated.
     # It seems now the last two paths are used by many distributions.
     for i in \
@@ -1320,22 +1379,23 @@ install_keymaps() {
         /usr/lib/kbd/keymaps/i386/qwerty/us.* \
         /usr/lib/kbd/keymaps/legacy/include/* \
         /usr/lib/kbd/keymaps/legacy/i386/qwerty/us.*; do
-            [[ -f $i ]] || continue
-            inst $i
+            [[ -f "$i" ]] || continue
+            inst "$i"
     done
 
     # When it takes any argument, then install more keymaps.
-    if [[ -n $1 ]]; then
+    if [[ $# -gt 1 ]]; then
         for i in \
         /usr/lib/kbd/keymaps/i386/*/* \
         /usr/lib/kbd/keymaps/legacy/i386/*/*; do
-            [[ -f $i ]] || continue
-            inst $i
+            [[ -f "$i" ]] || continue
+            inst "$i"
         done
     fi
 }
 
 install_zoneinfo() {
+    dinfo "Install time zones"
     inst_any /usr/share/zoneinfo/Asia/Seoul
     inst_any /usr/share/zoneinfo/Asia/Vladivostok
     inst_any /usr/share/zoneinfo/Australia/Sydney
@@ -1350,19 +1410,22 @@ install_zoneinfo() {
 }
 
 install_fonts() {
+    dinfo "Install system fonts"
     for i in \
         /usr/lib/kbd/consolefonts/eurlatgr* \
         /usr/lib/kbd/consolefonts/latarcyrheb-sun16*; do
-            [[ -f $i ]] || continue
-            inst $i
+            [[ -f "$i" ]] || continue
+            inst "$i"
     done
 }
 
 install_terminfo() {
-    for _terminfodir in /lib/terminfo /etc/terminfo /usr/share/terminfo; do
-        [ -f ${_terminfodir}/l/linux ] && break
+    dinfo "Install terminfo files"
+    local terminfodir
+    for terminfodir in /lib/terminfo /etc/terminfo /usr/share/terminfo; do
+        [ -f "${terminfodir}/l/linux" ] && break
     done
-    dracut_install -o ${_terminfodir}/l/linux
+    dracut_install -o "${terminfodir}/l/linux"
 }
 
 has_user_dbus_socket() {
@@ -1380,20 +1443,21 @@ setup_nspawn_root() {
         exit 1
     fi
 
-    rm -rf "$TESTDIR/unprivileged-nspawn-root"
+    rm -rf "${TESTDIR:?}/unprivileged-nspawn-root"
 
     if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
         ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
-        cp -ar $initdir $TESTDIR/unprivileged-nspawn-root
+        cp -ar "$initdir" "$TESTDIR/unprivileged-nspawn-root"
     fi
 }
 
 setup_basic_dirs() {
-    mkdir -p $initdir/run
-    mkdir -p $initdir/etc/systemd/system
-    mkdir -p $initdir/var/log/journal
+    mkdir -p "${initdir:?}/run"
+    mkdir -p "$initdir/etc/systemd/system"
+    mkdir -p "$initdir/var/log/journal"
 
-    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log var/tmp dev proc sys sysroot root run run/lock run/initramfs; do
+
+    for d in usr/bin usr/sbin bin etc lib "${libdir:?}" sbin tmp usr var var/log var/tmp dev proc sys sysroot root run run/lock run/initramfs; do
         if [ -L "/$d" ]; then
             inst_symlink "/$d"
         else
@@ -1407,63 +1471,65 @@ setup_basic_dirs() {
 
 mask_supporting_services() {
     # mask some services that we do not want to run in these tests
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
+    ln -fs /dev/null "${initdir:?}/etc/systemd/system/systemd-hwdb-update.service"
+    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-journal-catalog-update.service"
+    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-networkd.service"
+    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-networkd.socket"
+    ln -fs /dev/null "$initdir/etc/systemd/system/systemd-resolved.service"
 }
 
 inst_libs() {
-    local _bin=$1
-    local _so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
-    local _file _line
+    local bin="${1:?}"
+    local so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
+    local file line
 
-    LC_ALL=C ldd "$_bin" 2>/dev/null | while read _line; do
-        [[ $_line = 'not a dynamic executable' ]] && break
+     while read -r line; do
+        [[ "$line" = 'not a dynamic executable' ]] && break
 
-        if [[ $_line =~ $_so_regex ]]; then
-            _file=${BASH_REMATCH[1]}
-            [[ -e ${initdir}/$_file ]] && continue
-            inst_library "$_file"
+        if [[ "$line" =~ $so_regex ]]; then
+            file="${BASH_REMATCH[1]}"
+            [[ -e "${initdir:?}/$file" ]] && continue
+            inst_library "$file"
             continue
         fi
 
-        if [[ $_line =~ not\ found ]]; then
-            dfatal "Missing a shared library required by $_bin."
-            dfatal "Run \"ldd $_bin\" to find out what it is."
-            dfatal "$_line"
+        if [[ "$line" =~ not\ found ]]; then
+            dfatal "Missing a shared library required by $bin."
+            dfatal "Run \"ldd $bin\" to find out what it is."
+            dfatal "$line"
             dfatal "dracut cannot create an initrd."
             exit 1
         fi
-    done
+    done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
 }
 
 import_testdir() {
     # make sure we don't get a stale LOOPDEV value from old times
-    __LOOPDEV=$LOOPDEV
-    [[ -e $STATEFILE ]] && . $STATEFILE
-    LOOPDEV=$__LOOPDEV
+    local _LOOPDEV="${LOOPDEV:=}"
+    # We don't want shellcheck to follow & check the $STATEFILE
+    # shellcheck source=/dev/null
+    [[ -e "$STATEFILE" ]] && . "$STATEFILE"
+    LOOPDEV="$_LOOPDEV"
     if [[ ! -d "$TESTDIR" ]]; then
         if [[ -z "$TESTDIR" ]]; then
-            TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
+            TESTDIR="$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)"
         else
             mkdir -p "$TESTDIR"
         fi
 
-        cat >$STATEFILE<<EOF
+        cat >"$STATEFILE" <<EOF
 TESTDIR="$TESTDIR"
 EOF
         export TESTDIR
     fi
 
-    IMAGE_PRIVATE="${TESTDIR}/${IMAGE_NAME}.img"
-    IMAGE_PUBLIC="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+    IMAGE_PRIVATE="${TESTDIR}/${IMAGE_NAME:?}.img"
+    IMAGE_PUBLIC="${IMAGESTATEDIR:?}/${IMAGE_NAME}.img"
 }
 
 import_initdir() {
-    initdir=$TESTDIR/root
-    mkdir -p $initdir
+    initdir="${TESTDIR:?}/root"
+    mkdir -p "$initdir"
     export initdir
 }
 
@@ -1501,18 +1567,20 @@ _lvl2char() {
 # This enables:
 # dwarn "This is a warning"
 # echo "This is a warning" | dwarn
-LOG_LEVEL=${LOG_LEVEL:-4}
+LOG_LEVEL="${LOG_LEVEL:-4}"
 
 dlog() {
+    local lvl lvlc
+
     [ -z "$LOG_LEVEL" ] && return 0
-    [ $1 -le $LOG_LEVEL ] || return 0
-    local lvl="$1"; shift
-    local lvlc=$(_lvl2char "$lvl") || return 0
+    lvl="${1:?}"; shift
+    [ "$lvl" -le "$LOG_LEVEL" ] || return 0
+    lvlc="$(_lvl2char "$lvl")" || return 0
 
     if [ $# -ge 1 ]; then
         echo "$lvlc: $*"
     else
-        while read line; do
+        while read -r line; do
             echo "$lvlc: " "$line"
         done
     fi
@@ -1525,7 +1593,9 @@ dlog() {
 dtrace() {
     set +x
     dlog 6 "$@"
-    [ -n "$debug" ] && set -x || :
+    if [[ "${debug:=}" ]]; then
+        set -x
+    fi
 }
 
 ## @brief Logs message at DEBUG level (5)
@@ -1533,9 +1603,7 @@ dtrace() {
 # @param msg Message.
 # @retval 0 It's always returned, even if logging failed.
 ddebug() {
-#    set +x
     dlog 5 "$@"
-#    [ -n "$debug" ] && set -x || :
 }
 
 ## @brief Logs message at INFO level (4)
@@ -1545,7 +1613,9 @@ ddebug() {
 dinfo() {
     set +x
     dlog 4 "$@"
-    [ -n "$debug" ] && set -x || :
+    if [[ "${debug:=}" ]]; then
+        set -x
+    fi
 }
 
 ## @brief Logs message at WARN level (3)
@@ -1555,7 +1625,9 @@ dinfo() {
 dwarn() {
     set +x
     dlog 3 "$@"
-    [ -n "$debug" ] && set -x || :
+    if [[ "${debug:=}" ]]; then
+        set -x
+    fi
 }
 
 ## @brief Logs message at ERROR level (2)
@@ -1563,9 +1635,7 @@ dwarn() {
 # @param msg Message.
 # @retval 0 It's always returned, even if logging failed.
 derror() {
-#    set +x
     dlog 2 "$@"
-#    [ -n "$debug" ] && set -x || :
 }
 
 ## @brief Logs message at FATAL level (1)
@@ -1575,7 +1645,9 @@ derror() {
 dfatal() {
     set +x
     dlog 1 "$@"
-    [ -n "$debug" ] && set -x || :
+    if [[ "${debug:=}" ]]; then
+        set -x
+    fi
 }
 
 
@@ -1605,7 +1677,7 @@ convert_abs_rel() {
     local __current __absolute __abssize __cursize __newpath
     local -i __i __level
 
-    set -- "$(normalize_path "$1")" "$(normalize_path "$2")"
+    set -- "$(normalize_path "${1:?}")" "$(normalize_path "${2:?}")"
 
     # corner case #1 - self looping link
     [[ "$1" == "$2" ]] && { echo "${1##*/}"; return; }
@@ -1613,13 +1685,13 @@ convert_abs_rel() {
     # corner case #2 - own dir link
     [[ "${1%/*}" == "$2" ]] && { echo "."; return; }
 
-    IFS="/" __current=($1)
-    IFS="/" __absolute=($2)
+    IFS="/" read -ra __current <<< "$1"
+    IFS="/" read -ra __absolute <<< "$2"
 
     __abssize=${#__absolute[@]}
     __cursize=${#__current[@]}
 
-    while [[ ${__absolute[__level]} == ${__current[__level]} ]]
+    while [[ "${__absolute[__level]}" == "${__current[__level]}" ]]
     do
         (( __level++ ))
         if (( __level > __abssize || __level > __cursize ))
@@ -1655,24 +1727,27 @@ convert_abs_rel() {
 # will create ${initdir}/lib64, ${initdir}/lib64/file,
 # and a symlink ${initdir}/lib -> lib64.
 inst_dir() {
-    [[ -e ${initdir}/"$1" ]] && return 0  # already there
+    local dir="${1:?}"
+    local part="${dir%/*}"
+    local file
 
-    local _dir="$1" _part="${1%/*}" _file
-    while [[ "$_part" != "${_part%/*}" ]] && ! [[ -e "${initdir}/${_part}" ]]; do
-        _dir="$_part $_dir"
-        _part=${_part%/*}
+    [[ -e "${initdir:?}/${dir}" ]] && return 0  # already there
+
+    while [[ "$part" != "${part%/*}" ]] && ! [[ -e "${initdir}/${part}" ]]; do
+        dir="$part $dir"
+        part="${part%/*}"
     done
 
     # iterate over parent directories
-    for _file in $_dir; do
-        [[ -e "${initdir}/$_file" ]] && continue
-        if [[ -L $_file ]]; then
-            inst_symlink "$_file"
+    for file in $dir; do
+        [[ -e "${initdir}/$file" ]] && continue
+        if [[ -L $file ]]; then
+            inst_symlink "$file"
         else
             # create directory
-            mkdir -m 0755 -p "${initdir}/$_file" || return 1
-            [[ -e "$_file" ]] && chmod --reference="$_file" "${initdir}/$_file"
-            chmod u+w "${initdir}/$_file"
+            mkdir -m 0755 "${initdir}/$file" || return 1
+            [[ -e "$file" ]] && chmod --reference="$file" "${initdir}/$file"
+            chmod u+w "${initdir}/$file"
         fi
     done
 }
@@ -1682,21 +1757,22 @@ inst_dir() {
 # Location of the image dir is assumed to be $initdir
 # We never overwrite the target if it exists.
 inst_simple() {
-    [[ -f "$1" ]] || return 1
+    [[ -f "${1:?}" ]] || return 1
     strstr "$1" "/" || return 1
 
-    local _src=$1 target="${2:-$1}"
-    if ! [[ -d ${initdir}/$target ]]; then
+    local src="$1"
+    local target="${2:-$1}"
+    if ! [[ -d ${initdir:?}/$target ]]; then
         [[ -e ${initdir}/$target ]] && return 0
         [[ -L ${initdir}/$target ]] && return 0
         [[ -d "${initdir}/${target%/*}" ]] || inst_dir "${target%/*}"
     fi
     # install checksum files also
-    if [[ -e "${_src%/*}/.${_src##*/}.hmac" ]]; then
-        inst "${_src%/*}/.${_src##*/}.hmac" "${target%/*}/.${target##*/}.hmac"
+    if [[ -e "${src%/*}/.${src##*/}.hmac" ]]; then
+        inst "${src%/*}/.${src##*/}.hmac" "${target%/*}/.${target##*/}.hmac"
     fi
-    ddebug "Installing $_src"
-    cp --sparse=always -pfL "$_src" "${initdir}/$target"
+    ddebug "Installing $src"
+    cp --sparse=always -pfL "$src" "${initdir}/$target"
 }
 
 # find symlinks linked to given library file
@@ -1710,15 +1786,16 @@ inst_simple() {
 # output: libfoo.so.8 libfoo.so
 # (Only if libfoo.so.8 and libfoo.so exists on host system.)
 rev_lib_symlinks() {
-    [[ ! $1 ]] && return 0
+    local fn="${1:?}"
+    local links=""
+    local orig
+    orig="$(readlink -f "$1")"
 
-    local fn="$1" orig="$(readlink -f "$1")" links=''
+    [[ "${fn}" =~ .*\.so\..* ]] || return 1
 
-    [[ ${fn} =~ .*\.so\..* ]] || return 1
-
-    until [[ ${fn##*.} == so ]]; do
+    until [[ "${fn##*.}" == so ]]; do
         fn="${fn%.*}"
-        [[ -L ${fn} && $(readlink -f "${fn}") == ${orig} ]] && links+=" ${fn}"
+        [[ -L "${fn}" && "$(readlink -f "${fn}")" == "${orig}" ]] && links+=" ${fn}"
     done
 
     echo "${links}"
@@ -1728,185 +1805,204 @@ rev_lib_symlinks() {
 # It handles making symlinks according to how the original library
 # is referenced.
 inst_library() {
-    local _src="$1" _dest=${2:-$1} _lib _reallib _symlink
+    local src="${1:?}"
+    local dest="${2:-$1}"
+    local reallib symlink
+
     strstr "$1" "/" || return 1
-    [[ -e $initdir/$_dest ]] && return 0
-    if [[ -L $_src ]]; then
+    [[ -e ${initdir:?}/$dest ]] && return 0
+    if [[ -L $src ]]; then
         # install checksum files also
-        if [[ -e "${_src%/*}/.${_src##*/}.hmac" ]]; then
-            inst "${_src%/*}/.${_src##*/}.hmac" "${_dest%/*}/.${_dest##*/}.hmac"
+        if [[ -e "${src%/*}/.${src##*/}.hmac" ]]; then
+            inst "${src%/*}/.${src##*/}.hmac" "${dest%/*}/.${dest##*/}.hmac"
         fi
-        _reallib=$(readlink -f "$_src")
-        inst_simple "$_reallib" "$_reallib"
-        inst_dir "${_dest%/*}"
-        [[ -d "${_dest%/*}" ]] && _dest=$(readlink -f "${_dest%/*}")/${_dest##*/}
-        ln -sfn $(convert_abs_rel "${_dest}" "${_reallib}") "${initdir}/${_dest}"
+        reallib="$(readlink -f "$src")"
+        inst_simple "$reallib" "$reallib"
+        inst_dir "${dest%/*}"
+        [[ -d "${dest%/*}" ]] && dest="$(readlink -f "${dest%/*}")/${dest##*/}"
+        ln -sfn -- "$(convert_abs_rel "${dest}" "${reallib}")" "${initdir}/${dest}"
     else
-        inst_simple "$_src" "$_dest"
+        inst_simple "$src" "$dest"
     fi
 
     # Create additional symlinks.  See rev_symlinks description.
-    for _symlink in $(rev_lib_symlinks $_src) $(rev_lib_symlinks $_reallib); do
-        [[ -e $initdir/$_symlink ]] || {
-            ddebug "Creating extra symlink: $_symlink"
-            inst_symlink $_symlink
-        }
+    for symlink in $(rev_lib_symlinks "$src") ${reallib:+$(rev_lib_symlinks "$reallib")}; do
+        if [[ ! -e "$initdir/$symlink" ]]; then
+            ddebug "Creating extra symlink: $symlink"
+            inst_symlink "$symlink"
+        fi
     done
 }
 
 # find a binary.  If we were not passed the full path directly,
 # search in the usual places to find the binary.
 find_binary() {
-    if [[ -z ${1##/*} ]]; then
-        if [[ -x $1 ]] || { strstr "$1" ".so" && ldd $1 &>/dev/null; };  then
-            echo $1
+    local bin="${1:?}"
+    if [[ -z ${bin##/*} ]]; then
+        if [[ -x "$bin" ]] || { strstr "$bin" ".so" && ldd "$bin" &>/dev/null; }; then
+            echo "$bin"
             return 0
         fi
     fi
 
-    type -P $1
+    type -P "$bin"
 }
 
 # Same as above, but specialized to install binary executables.
 # Install binary executable, and all shared library dependencies, if any.
 inst_binary() {
-    local _bin _target
+    local bin="${1:?}"
+    local path target
 
     # In certain cases we might attempt to install a binary which is already
     # present in the test image, yet it's missing from the host system.
     # In such cases, let's check if the binary indeed exists in the image
     # before doing any other chcecks. If it does, immediately return with
     # success.
-    [[ $# -eq 1 && -e $initdir/$1 || -e $initdir/bin/$1 || -e $initdir/sbin/$1 || -e $initdir/usr/bin/$1 || -e $initdir/usr/sbin/$1 ]] && return 0
+    if [[ $# -eq 1 ]]; then
+        for path in "" bin sbin usr/bin usr/sbin; do
+            [[ -e "${initdir:?}${path:+/$path}/${bin}" ]] && return 0
+        done
+    fi
 
-    _bin=$(find_binary "$1") || return 1
-    _target=${2:-$_bin}
-    [[ -e $initdir/$_target ]] && return 0
-    [[ -L $_bin ]] && inst_symlink $_bin $_target && return 0
-    local _file _line
-    local _so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
+    bin="$(find_binary "$bin")" || return 1
+    target="${2:-$bin}"
+    [[ -e "${initdir:?}/$target" ]] && return 0
+    [[ -L "$bin" ]] && inst_symlink "$bin" "$target" && return 0
+
+    local file line
+    local so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
     # I love bash!
-    LC_ALL=C ldd "$_bin" 2>/dev/null | while read _line; do
-        [[ $_line = 'not a dynamic executable' ]] && break
+    while read -r line; do
+        [[ "$line" = 'not a dynamic executable' ]] && break
 
-        if [[ $_line =~ $_so_regex ]]; then
-            _file=${BASH_REMATCH[1]}
-            [[ -e ${initdir}/$_file ]] && continue
-            inst_library "$_file"
+        if [[ "$line" =~ $so_regex ]]; then
+            file="${BASH_REMATCH[1]}"
+            [[ -e "${initdir}/$file" ]] && continue
+            inst_library "$file"
             continue
         fi
 
-        if [[ $_line =~ not\ found ]]; then
-            dfatal "Missing a shared library required by $_bin."
-            dfatal "Run \"ldd $_bin\" to find out what it is."
-            dfatal "$_line"
+        if [[ "$line" =~ not\ found ]]; then
+            dfatal "Missing a shared library required by $bin."
+            dfatal "Run \"ldd $bin\" to find out what it is."
+            dfatal "$line"
             dfatal "dracut cannot create an initrd."
             exit 1
         fi
-    done
-    inst_simple "$_bin" "$_target"
+    done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
+    inst_simple "$bin" "$target"
 }
 
 # same as above, except for shell scripts.
 # If your shell script does not start with shebang, it is not a shell script.
 inst_script() {
-    local _bin
-    _bin=$(find_binary "$1") || return 1
+    local bin line shebang_regex
+    bin="$(find_binary "${1:?}")" || return 1
     shift
-    local _line _shebang_regex
-    read -r -n 80 _line <"$_bin"
+
+    read -r -n 80 line <"$bin"
     # If debug is set, clean unprintable chars to prevent messing up the term
-    [[ $debug ]] && _line=$(echo -n "$_line" | tr -c -d '[:print:][:space:]')
-    _shebang_regex='(#! *)(/[^ ]+).*'
-    [[ $_line =~ $_shebang_regex ]] || return 1
-    inst "${BASH_REMATCH[2]}" && inst_simple "$_bin" "$@"
+    [[ "${debug:=}" ]] && line="$(echo -n "$line" | tr -c -d '[:print:][:space:]')"
+    shebang_regex='(#! *)(/[^ ]+).*'
+    [[ "$line" =~ $shebang_regex ]] || return 1
+    inst "${BASH_REMATCH[2]}" && inst_simple "$bin" "$@"
 }
 
 # same as above, but specialized for symlinks
 inst_symlink() {
-    local _src=$1 _target=${2:-$1} _realsrc
-    strstr "$1" "/" || return 1
-    [[ -L $1 ]] || return 1
-    [[ -L $initdir/$_target ]] && return 0
-    _realsrc=$(readlink -f "$_src")
-    if ! [[ -e $initdir/$_realsrc ]]; then
-        if [[ -d $_realsrc ]]; then
-            inst_dir "$_realsrc"
+    local src="${1:?}"
+    local target="${2:-$src}"
+    local realsrc
+
+    strstr "$src" "/" || return 1
+    [[ -L "$src" ]] || return 1
+    [[ -L "${initdir:?}/$target" ]] && return 0
+    realsrc="$(readlink -f "$src")"
+    if ! [[ -e "$initdir/$realsrc" ]]; then
+        if [[ -d "$realsrc" ]]; then
+            inst_dir "$realsrc"
         else
-            inst "$_realsrc"
+            inst "$realsrc"
         fi
     fi
-    [[ ! -e $initdir/${_target%/*} ]] && inst_dir "${_target%/*}"
-    [[ -d ${_target%/*} ]] && _target=$(readlink -f ${_target%/*})/${_target##*/}
-    ln -sfn $(convert_abs_rel "${_target}" "${_realsrc}") "$initdir/$_target"
+    [[ ! -e "$initdir/${target%/*}" ]] && inst_dir "${target%/*}"
+    [[ -d "${target%/*}" ]] && target="$(readlink -f "${target%/*}")/${target##*/}"
+    ln -sfn -- "$(convert_abs_rel "${target}" "${realsrc}")" "$initdir/$target"
 }
 
 # attempt to install any programs specified in a udev rule
 inst_rule_programs() {
-    local _prog _bin
+    local rule="${1:?}"
+    local prog bin
 
-    if grep -qE 'PROGRAM==?"[^ "]+' "$1"; then
-        for _prog in $(grep -E 'PROGRAM==?"[^ "]+' "$1" | sed -r 's/.*PROGRAM==?"([^ "]+).*/\1/'); do
-            if [ -x /lib/udev/$_prog ]; then
-                _bin=/lib/udev/$_prog
-            else
-                _bin=$(find_binary "$_prog") || {
-                    dinfo "Skipping program $_prog using in udev rule $(basename $1) as it cannot be found"
-                    continue;
-                }
+    awk 'match($0, /PROGRAM==?"([^ "]+)/, m) { print m[1]; }' "$rule" | while read -r prog; do
+        if [ -x "/lib/udev/$prog" ]; then
+            bin="/lib/udev/$prog"
+        else
+            if ! bin="$(find_binary "$prog")"; then
+                dinfo "Skipping program $prog used in udev rule $(basename "$rule") as it cannot be found"
+                continue
             fi
+        fi
 
-            #dinfo "Installing $_bin due to it's use in the udev rule $(basename $1)"
-            dracut_install "$_bin"
-        done
-    fi
+        #dinfo "Installing $_bin due to it's use in the udev rule $(basename $1)"
+        dracut_install "$bin"
+    done
 }
 
 # udev rules always get installed in the same place, so
 # create a function to install them to make life simpler.
 inst_rules() {
-    local _target=/etc/udev/rules.d _rule _found
+    local target=/etc/udev/rules.d
+    local found rule
 
     inst_dir "/lib/udev/rules.d"
-    inst_dir "$_target"
-    for _rule in "$@"; do
+    inst_dir "$target"
+    for rule in "$@"; do
         if [ "${rule#/}" = "$rule" ]; then
             for r in /lib/udev/rules.d /etc/udev/rules.d; do
-                if [[ -f $r/$_rule ]]; then
-                    _found="$r/$_rule"
-                    inst_simple "$_found"
-                    inst_rule_programs "$_found"
+                if [[ -f "$r/$rule" ]]; then
+                    found="$r/$rule"
+                    inst_simple "$found"
+                    inst_rule_programs "$found"
                 fi
             done
         fi
-        for r in '' ./ $dracutbasedir/rules.d/; do
-            if [[ -f ${r}$_rule ]]; then
-                _found="${r}$_rule"
-                inst_simple "$_found" "$_target/${_found##*/}"
-                inst_rule_programs "$_found"
+        for r in '' ./; do
+            if [[ -f "${r}${rule}" ]]; then
+                found="${r}${rule}"
+                inst_simple "$found" "$target/${found##*/}"
+                inst_rule_programs "$found"
             fi
         done
-        [[ $_found ]] || dinfo "Skipping udev rule: $_rule"
-        _found=
+        [[ $found ]] || dinfo "Skipping udev rule: $rule"
+        found=
     done
 }
 
 # general purpose installation function
 # Same args as above.
 inst() {
-    local _x
-
     case $# in
         1) ;;
-        2) [[ ! $initdir && -d $2 ]] && export initdir=$2
-            [[ $initdir = $2 ]] && set $1;;
-        3) [[ -z $initdir ]] && export initdir=$2
-            set $1 $3;;
-        *) dfatal "inst only takes 1 or 2 or 3 arguments"
-            exit 1;;
+        2)
+            [[ ! "$initdir" && -d "$2" ]] && export initdir="$2"
+            [[ "$initdir" = "$2" ]] && set "$1"
+            ;;
+        3)
+            [[ -z "$initdir" ]] && export initdir="$2"
+            set "$1" "$3"
+            ;;
+        *)
+            dfatal "inst only takes 1 or 2 or 3 arguments"
+            exit 1
+            ;;
     esac
-    for _x in inst_symlink inst_script inst_binary inst_simple; do
-        $_x "$@" && return 0
+
+    local fun
+    for fun in inst_symlink inst_script inst_binary inst_simple; do
+        "$fun" "$@" && return 0
     done
     return 1
 }
@@ -1925,14 +2021,14 @@ inst() {
 # Lets assume that /bin/baz exists, so it will be installed as /bin/foo in
 # initramfs.
 inst_any() {
-    local to f
+    local dest file
 
-    [[ $1 = '-d' ]] && to="$2" && shift 2
+    [[ "${1:?}" = '-d' ]] && dest="${2:?}" && shift 2
 
-    for f in "$@"; do
-        if [[ -e $f ]]; then
-            [[ $to ]] && inst "$f" "$to" && return 0
-            inst "$f" && return 0
+    for file in "$@"; do
+        if [[ -e "$file" ]]; then
+            [[ -n "$dest" ]] && inst "$file" "$dest" && return 0
+            inst "$file" && return 0
         fi
     done
 
@@ -1943,75 +2039,61 @@ inst_any() {
 # Install <file> to the initramfs image
 # -o optionally install the <file> and don't fail, if it is not there
 dracut_install() {
-    local _optional=no
-    if [[ $1 = '-o' ]]; then
-        _optional=yes
+    local optional=no
+    local prog="${1:?}"
+
+    if [[ "$prog" = '-o' ]]; then
+        optional=yes
         shift
     fi
-    while (($# > 0)); do
-        if ! inst "$1" ; then
-            if [[ $_optional = yes ]]; then
-                dinfo "Skipping program $1 as it cannot be found and is" \
+
+    for prog in "$@"; do
+        if ! inst "$prog" ; then
+            if [[ "$optional" = yes ]]; then
+                dinfo "Skipping program $prog as it cannot be found and is" \
                     "flagged to be optional"
             else
-                dfatal "Failed to install $1"
+                dfatal "Failed to install $prog"
                 exit 1
             fi
         fi
-        shift
     done
 }
 
 # Install a single kernel module along with any firmware it may require.
 # $1 = full path to kernel module to install
 install_kmod_with_fw() {
+    local module="${1:?}"
     # no need to go further if the module is already installed
+    [[ -e "${initdir:?}/lib/modules/${KERNEL_VER:?}/${module##*/lib/modules/$KERNEL_VER/}" ]] && return 0
+    [[ -e "$initdir/.kernelmodseen/${module##*/}" ]] && return 0
 
-    [[ -e "${initdir}/lib/modules/$KERNEL_VER/${1##*/lib/modules/$KERNEL_VER/}" ]] \
-        && return 0
+    [ -d "$initdir/.kernelmodseen" ] && : >"$initdir/.kernelmodseen/${module##*/}"
 
-    [[ -e "$initdir/.kernelmodseen/${1##*/}" ]] && return 0
+    inst_simple "$module" "/lib/modules/$KERNEL_VER/${module##*/lib/modules/$KERNEL_VER/}" || return $?
 
-    if [[ $omit_drivers ]]; then
-        local _kmod=${1##*/}
-        _kmod=${_kmod%.ko}
-        _kmod=${_kmod/-/_}
-        if [[ "$_kmod" =~ $omit_drivers ]]; then
-            dinfo "Omitting driver $_kmod"
-            return 1
-        fi
-        if [[ "${1##*/lib/modules/$KERNEL_VER/}" =~ $omit_drivers ]]; then
-            dinfo "Omitting driver $_kmod"
-            return 1
-        fi
-    fi
+    local modname="${module##*/}"
+    local fwdir found fw
+    modname="${modname%.ko*}"
 
-    [ -d "$initdir/.kernelmodseen" ] && \
-        >"$initdir/.kernelmodseen/${1##*/}"
-
-    inst_simple "$1" "/lib/modules/$KERNEL_VER/${1##*/lib/modules/$KERNEL_VER/}" \
-        || return $?
-
-    local _modname=${1##*/} _fwdir _found _fw
-    _modname=${_modname%.ko*}
-    for _fw in $(modinfo -k $KERNEL_VER -F firmware $1 2>/dev/null); do
-        _found=''
-        for _fwdir in $fw_dir; do
-            if [[ -d $_fwdir && -f $_fwdir/$_fw ]]; then
-                inst_simple "$_fwdir/$_fw" "/lib/firmware/$_fw"
-                _found=yes
+    while read -r fw; do
+        found=
+        for fwdir in /lib/firmware/updates /lib/firmware; do
+            if [[ -d "$fwdir" && -f "$fwdir/$fw" ]]; then
+                inst_simple "$fwdir/$fw" "/lib/firmware/$fw"
+                found=yes
             fi
         done
-        if [[ $_found != yes ]]; then
-            if ! grep -qe "\<${_modname//-/_}\>" /proc/modules; then
-                dinfo "Possible missing firmware \"${_fw}\" for kernel module" \
-                    "\"${_modname}.ko\""
+        if [[ $found != yes ]]; then
+            if ! grep -qe "\<${modname//-/_}\>" /proc/modules; then
+                dinfo "Possible missing firmware \"${fw}\" for kernel module" \
+                    "\"${modname}.ko\""
             else
-                dwarn "Possible missing firmware \"${_fw}\" for kernel module" \
-                    "\"${_modname}.ko\""
+                dwarn "Possible missing firmware \"${fw}\" for kernel module" \
+                    "\"${modname}.ko\""
             fi
         fi
-    done
+    done < <(modinfo -k "$KERNEL_VER" -F firmware "$module" 2>/dev/null)
     return 0
 }
 
@@ -2021,181 +2103,118 @@ install_kmod_with_fw() {
 #      It will be passed the full path to the found kernel module
 # $2 = module to get dependencies for
 # rest of args = arguments to modprobe
-# _fderr specifies FD passed from surrounding scope
 for_each_kmod_dep() {
-    local _func=$1 _kmod=$2 _cmd _modpath _options _found=0
+    local func="${1:?}"
+    local kmod="${2:?}"
+    local found=0
+    local cmd modpath
     shift 2
-    modprobe "$@" --ignore-install --show-depends $_kmod 2>&${_fderr} | (
-        while read _cmd _modpath _options; do
-            [[ $_cmd = insmod ]] || continue
-            $_func ${_modpath} || exit $?
-            _found=1
-        done
-        [[ $_found -eq 0 ]] && exit 1
-        exit 0
-    )
-}
 
-# filter kernel modules to install certain modules that meet specific
-# requirements.
-# $1 = search only in subdirectory of /kernel/$1
-# $2 = function to call with module name to filter.
-#      This function will be passed the full path to the module to test.
-# The behavior of this function can vary depending on whether $hostonly is set.
-# If it is, we will only look at modules that are already in memory.
-# If it is not, we will look at all kernel modules
-# This function returns the full filenames of modules that match $1
-filter_kernel_modules_by_path () (
-    local _modname _filtercmd
-    if ! [[ $hostonly ]]; then
-        _filtercmd='find "$KERNEL_MODS/kernel/$1" "$KERNEL_MODS/extra"'
-        _filtercmd+=' "$KERNEL_MODS/weak-updates" -name "*.ko" -o -name "*.ko.gz"'
-        _filtercmd+=' -o -name "*.ko.xz"'
-        _filtercmd+=' 2>/dev/null'
-    else
-        _filtercmd='cut -d " " -f 1 </proc/modules|xargs modinfo -F filename '
-        _filtercmd+='-k $KERNEL_VER 2>/dev/null'
-    fi
-    for _modname in $(eval $_filtercmd); do
-        case $_modname in
-            *.ko) "$2" "$_modname" && echo "$_modname";;
-            *.ko.gz) gzip -dc "$_modname" >$initdir/$$.ko
-                $2 $initdir/$$.ko && echo "$_modname"
-                rm -f $initdir/$$.ko
-                ;;
-            *.ko.xz) xz -dc "$_modname" >$initdir/$$.ko
-                $2 $initdir/$$.ko && echo "$_modname"
-                rm -f $initdir/$$.ko
-                ;;
-        esac
-    done
-)
-find_kernel_modules_by_path () (
-    if ! [[ $hostonly ]]; then
-        find "$KERNEL_MODS/kernel/$1" "$KERNEL_MODS/extra" "$KERNEL_MODS/weak-updates" \
-          -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" 2>/dev/null
-    else
-        cut -d " " -f 1 </proc/modules \
-        | xargs modinfo -F filename -k $KERNEL_VER 2>/dev/null
-    fi
-)
+    while read -r cmd modpath _; do
+        [[ "$cmd" = insmod ]] || continue
+        "$func" "$modpath" || return $?
+        found=1
+    done < <(modprobe "$@" --ignore-install --show-depends "$kmod")
 
-filter_kernel_modules () {
-    filter_kernel_modules_by_path  drivers  "$1"
-}
-
-find_kernel_modules () {
-    find_kernel_modules_by_path  drivers
+    [[ $found -eq 0 ]] && return 1
+    return 0
 }
 
 # instmods [-c] <kernel module> [<kernel module> ... ]
 # instmods [-c] <kernel subsystem>
 # install kernel modules along with all their dependencies.
 # <kernel subsystem> can be e.g. "=block" or "=drivers/usb/storage"
+# FIXME(?): dracutdevs/dracut@f4e38c0da8d6bf3764c1ad753d9d52aef63050e5
 instmods() {
-    [[ $no_kernel = yes ]] && return
-    # called [sub]functions inherit _fderr
-    local _fderr=9
-    local _check=no
-    if [[ $1 = '-c' ]]; then
-        _check=yes
+    local check=no
+    if [[ $# -ge 0 && "$1" = '-c' ]]; then
+        check=yes
         shift
     fi
 
-    function inst1mod() {
-        local _ret=0 _mod="$1"
-        case $_mod in
+    inst1mod() {
+        local mod="${1:?}"
+        local ret=0
+        local mod_dir="/lib/modules/${KERNEL_VER:?}/"
+
+        case "$mod" in
             =*)
-                if [ -f $KERNEL_MODS/modules.${_mod#=} ]; then
-                    ( [[ "$_mpargs" ]] && echo $_mpargs
-                      cat "${KERNEL_MODS}/modules.${_mod#=}" ) \
-                    | instmods
+                if [ -f "${mod_dir}/modules.${mod#=}" ]; then
+                    (
+                        [[ "$mpargs" ]] && echo "$mpargs"
+                        cat "${mod_dir}/modules.${mod#=}"
+                    ) | instmods
                 else
-                    ( [[ "$_mpargs" ]] && echo $_mpargs
-                      find "$KERNEL_MODS" -path "*/${_mod#=}/*" -type f -printf '%f\n' ) \
-                    | instmods
+                    (
+                        [[ "$mpargs" ]] && echo "$mpargs"
+                        find "$mod_dir" -path "*/${mod#=}/*" -type f -printf '%f\n'
+                    ) | instmods
                 fi
                 ;;
-            --*) _mpargs+=" $_mod" ;;
-            i2o_scsi) return ;; # Do not load this diagnostic-only module
+            --*)
+                mpargs+=" $mod"
+                ;;
+            i2o_scsi)
+                # Do not load this diagnostic-only module
+                return
+                ;;
             *)
-                _mod=${_mod##*/}
+                mod=${mod##*/}
                 # if we are already installed, skip this module and go on
                 # to the next one.
-                [[ -f "$initdir/.kernelmodseen/${_mod%.ko}.ko" ]] && return
-
-                if [[ $omit_drivers ]] && [[ "$1" =~ $omit_drivers ]]; then
-                    dinfo "Omitting driver ${_mod##$KERNEL_MODS}"
-                    return
-                fi
-                # If we are building a host-specific initramfs and this
-                # module is not already loaded, move on to the next one.
-                [[ $hostonly ]] && ! grep -qe "\<${_mod//-/_}\>" /proc/modules \
-                    && ! echo $add_drivers | grep -qe "\<${_mod}\>" \
-                    && return
+                [[ -f "${initdir:?}/.kernelmodseen/${mod%.ko}.ko" ]] && return
 
                 # We use '-d' option in modprobe only if modules prefix path
                 # differs from default '/'.  This allows us to use Dracut with
                 # old version of modprobe which doesn't have '-d' option.
-                local _moddirname=${KERNEL_MODS%%/lib/modules/*}
-                [[ -n ${_moddirname} ]] && _moddirname="-d ${_moddirname}/"
+                local mod_dirname=${mod_dir%%/lib/modules/*}
+                [[ -n ${mod_dirname} ]] && mod_dirname="-d ${mod_dirname}/"
 
                 # ok, load the module, all its dependencies, and any firmware
                 # it may require
-                for_each_kmod_dep install_kmod_with_fw $_mod \
-                    --set-version $KERNEL_VER ${_moddirname} $_mpargs
-                ((_ret+=$?))
+                for_each_kmod_dep install_kmod_with_fw "$mod" \
+                    --set-version "$KERNEL_VER" \
+                    ${mod_dirname:+"$mod_dirname"} \
+                    ${mpargs:+"$mpargs"}
+                ((ret+=$?))
                 ;;
         esac
-        return $_ret
+        return $ret
     }
 
-    function instmods_1() {
-        local _mod _mpargs
-        if (($# == 0)); then  # filenames from stdin
-            while read _mod; do
-                inst1mod "${_mod%.ko*}" || {
-                    if [ "$_check" = "yes" ]; then
-                        dfatal "Failed to install $_mod"
-                        return 1
-                    fi
-                }
-            done
-        fi
-        while (($# > 0)); do  # filenames as arguments
-            inst1mod ${1%.ko*} || {
-                if [ "$_check" = "yes" ]; then
-                    dfatal "Failed to install $1"
-                    return 1
-                fi
-            }
-            shift
+    local mod mpargs
+
+    if [[ $# -eq 0 ]]; then  # filenames from stdin
+        while read -r mod; do
+            if ! inst1mod "${mod%.ko*}" && [ "$check" = "yes" ]; then
+                dfatal "Failed to install $mod"
+                return 1
+            fi
         done
-        return 0
-    }
+    fi
 
-    local _ret _filter_not_found='FATAL: Module .* not found.'
-    set -o pipefail
-    # Capture all stderr from modprobe to _fderr. We could use {var}>...
-    # redirections, but that would make dracut require bash4 at least.
-    eval "( instmods_1 \"\$@\" ) ${_fderr}>&1" \
-    | while read line; do [[ "$line" =~ $_filter_not_found ]] && echo $line || echo $line >&2 ;done | derror
-    _ret=$?
-    set +o pipefail
-    return $_ret
+    for mod in "$@"; do # filenames as arguments
+        if ! inst1mod "${mod%.ko*}" && [ "$check" = "yes" ]; then
+            dfatal "Failed to install $mod"
+            return 1
+        fi
+    done
+
+    return 0
 }
 
 setup_suse() {
-    ln -fs ../usr/bin/systemctl $initdir/bin/
-    ln -fs ../usr/lib/systemd $initdir/lib/
+    ln -fs ../usr/bin/systemctl "${initdir:?}/bin/"
+    ln -fs ../usr/lib/systemd "$initdir/lib/"
     inst_simple "/usr/lib/systemd/system/haveged.service"
     instmods ext4
 }
 
 _umount_dir() {
-    if mountpoint -q $1; then
-        ddebug "umount $1"
-        umount $1
+    local mountpoint="${1:?}"
+    if mountpoint -q "$mountpoint"; then
+        ddebug "umount $mountpoint"
+        umount "$mountpoint"
     fi
 }
 
@@ -2208,14 +2227,14 @@ _test_cleanup() {
     # (post-test) cleanup should always ignore failure and cleanup as much as possible
     (
         set +e
-        _umount_dir $initdir
-        rm -vf "$IMAGE_PUBLIC"
+        [[ -n "$initdir" ]] && _umount_dir "$initdir"
+        [[ -n "$IMAGE_PUBLIC" ]] && rm -vf "$IMAGE_PUBLIC"
         # If multiple setups/cleans are ran in parallel, this can cause a race
-        if [ ${TEST_PARALLELIZE} -ne 1 ]; then
+        if [[ -n "$IMAGESTATEDIR" &&  $TEST_PARALLELIZE -ne 1 ]]; then
             rm -vf "${IMAGESTATEDIR}/default.img"
         fi
-        rm -vfr "$TESTDIR"
-        rm -vf "$STATEFILE"
+        [[ -n "$TESTDIR" ]] && rm -vfr "$TESTDIR"
+        [[ -n "$STATEFILE" ]] && rm -vf "$STATEFILE"
     ) || :
 }
 
@@ -2227,7 +2246,7 @@ test_cleanup() {
 test_cleanup_again() {
     [ -n "$TESTDIR" ] || return
     rm -rf "$TESTDIR/unprivileged-nspawn-root"
-    _umount_dir $initdir
+    [[ -n "$initdir" ]] && _umount_dir "$initdir"
 }
 
 test_create_image() {
@@ -2242,25 +2261,25 @@ test_create_image() {
 }
 
 test_setup() {
-    if [ ${TEST_REQUIRE_INSTALL_TESTS} -ne 0 ] && \
-            type -P meson >/dev/null && \
-            [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+    if [ "${TEST_REQUIRE_INSTALL_TESTS:?}" -ne 0 ] && \
+            command -v meson >/dev/null && \
+            [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
         exit 1
     fi
 
-    if [ -e "$IMAGE_PRIVATE" ]; then
-        echo "Reusing existing image $IMAGE_PRIVATE → $(realpath $IMAGE_PRIVATE)"
+    if [ -e "${IMAGE_PRIVATE:?}" ]; then
+        echo "Reusing existing image $IMAGE_PRIVATE → $(realpath "$IMAGE_PRIVATE")"
         mount_initdir
     else
-        if [ ! -e "$IMAGE_PUBLIC" ]; then
+        if [ ! -e "${IMAGE_PUBLIC:?}" ]; then
             # default.img is the base that every test uses and optionally appends to
-            if [ ! -e "${IMAGESTATEDIR}/default.img" ] || [ -n "${TEST_FORCE_NEWIMAGE}" ]; then
+            if [ ! -e "${IMAGESTATEDIR:?}/default.img" ] || [ -n "${TEST_FORCE_NEWIMAGE:=}" ]; then
                 # Create the backing public image, but then completely unmount
                 # it and drop the loopback device responsible for it, since we're
                 # going to symlink/copy the image and mount it again from
                 # elsewhere.
-                local image_old=${IMAGE_PUBLIC}
+                local image_old="${IMAGE_PUBLIC}"
                 if [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
                     IMAGE_PUBLIC="${IMAGESTATEDIR}/default.img"
                 fi
@@ -2270,7 +2289,7 @@ test_setup() {
                 cleanup_loopdev
                 IMAGE_PUBLIC="${image_old}"
             fi
-            if [ "${IMAGE_NAME}" != "default" ] && [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
+            if [ "${IMAGE_NAME:?}" != "default" ] && [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
                 cp -v "$(realpath "${IMAGESTATEDIR}/default.img")" "$IMAGE_PUBLIC"
             fi
         fi
@@ -2280,16 +2299,16 @@ test_setup() {
             hook_defined=$?
         fi
 
-        echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath $IMAGE_PUBLIC)"
-        if [ ${TEST_PARALLELIZE} -ne 0 ] || [ ${hook_defined} -eq 0 ]; then
-            cp -v "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+        echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath "$IMAGE_PUBLIC")"
+        if [ "$TEST_PARALLELIZE" -ne 0 ] || [ "$hook_defined" -eq 0 ]; then
+            cp -v -- "$(realpath "$IMAGE_PUBLIC")" "$IMAGE_PRIVATE"
         else
-            ln -sv "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+            ln -sv -- "$(realpath "$IMAGE_PUBLIC")" "$IMAGE_PRIVATE"
         fi
 
         mount_initdir
-        if [ ${hook_defined} -eq 0 ]; then
-            test_append_files "$initdir"
+        if [ "$hook_defined" -eq 0 ]; then
+            test_append_files "${initdir:?}"
         fi
     fi
 
@@ -2297,26 +2316,27 @@ test_setup() {
 }
 
 test_run() {
+    local test_id="${1:?}"
     mount_initdir
 
-    if [ -z "$TEST_NO_QEMU" ]; then
-        if run_qemu "$1"; then
+    if [ -z "${TEST_NO_QEMU:=}" ]; then
+        if run_qemu "$test_id"; then
             check_result_qemu || { echo "QEMU test failed"; return 1; }
         else
             dwarn "can't run QEMU, skipping"
         fi
     fi
-    if [ -z "$TEST_NO_NSPAWN" ]; then
+    if [ -z "${TEST_NO_NSPAWN:=}" ]; then
         mount_initdir
-        if run_nspawn "$initdir" "$1"; then
+        if run_nspawn "${initdir:?}" "$test_id"; then
             check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
-        if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+        if [[ "${RUN_IN_UNPRIVILEGED_CONTAINER:=}" = "yes" ]]; then
             dir="$TESTDIR/unprivileged-nspawn-root"
-            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "$dir" "$1"; then
+            if NSPAWN_ARGUMENTS="-U --private-network ${NSPAWN_ARGUMENTS:-}" run_nspawn "$dir" "$test_id"; then
                 check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
@@ -2332,26 +2352,26 @@ do_test() {
         exit 0
     fi
 
-    if [ -n "$TEST_NO_QEMU" ] && [ -n "$TEST_NO_NSPAWN" ]; then
+    if [ -n "${TEST_NO_QEMU:=}" ] && [ -n "${TEST_NO_NSPAWN:=}" ]; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
         exit 0
     fi
 
-    if [ -n "$TEST_QEMU_ONLY" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+    if [ -n "${TEST_QEMU_ONLY:=}" ] && [ -z "$TEST_NO_NSPAWN" ]; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: QEMU-only tests requested" >&2
         exit 0
     fi
 
-    if [ -n "$TEST_PREFER_NSPAWN" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+    if [ -n "${TEST_PREFER_NSPAWN:=}" ] && [ -z "$TEST_NO_NSPAWN" ]; then
         TEST_NO_QEMU=1
     fi
 
     # Detect lib paths
-    [[ $libdir ]] || for libdir in /lib64 /lib; do
+    [[ "$libdir" ]] || for libdir in /lib64 /lib; do
         [[ -d $libdir ]] && libdirs+=" $libdir" && break
     done
 
-    [[ $usrlibdir ]] || for usrlibdir in /usr/lib64 /usr/lib; do
+    [[ "$usrlibdir" ]] || for usrlibdir in /usr/lib64 /usr/lib; do
         [[ -d $usrlibdir ]] && libdirs+=" $usrlibdir" && break
     done
 
@@ -2360,7 +2380,7 @@ do_test() {
     import_testdir
     import_initdir
 
-    testname="$(basename $PWD)"
+    testname="$(basename "$PWD")"
 
     while (($# > 0)); do
         case $1 in
@@ -2368,7 +2388,7 @@ do_test() {
                 echo "${testname} RUN: $TEST_DESCRIPTION"
                 test_run "$2"
                 ret=$?
-                if (( $ret == 0 )); then
+                if [ $ret -eq 0 ]; then
                     echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
                 else
                     echo "${testname} RUN: $TEST_DESCRIPTION [FAILED]"
