@@ -48,10 +48,9 @@
     <title>Setup Information</title>
 
     <para>The system must be running systemd with a full unified cgroup hierarchy for the expected cgroups-v2 features.
-    Furthermore, resource accounting must be turned on for all units monitored by <command>systemd-oomd</command>.
-    The easiest way to turn on resource accounting is by ensuring the values for <varname>DefaultCPUAccounting</varname>,
-    <varname>DefaultIOAccounting</varname>, <varname>DefaultMemoryAccounting</varname>, and
-    <varname>DefaultTasksAccounting</varname> are set to <constant>true</constant> in
+    Furthermore, memory accounting must be turned on for all units monitored by <command>systemd-oomd</command>.
+    The easiest way to turn on memory accounting is by ensuring the value for <varname>DefaultMemoryAccounting=</varname>
+    is set to <constant>true</constant> in
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>You will need a kernel compiled with PSI support. This is available in Linux 4.20 and above.</para>
