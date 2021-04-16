@@ -919,7 +919,7 @@ int unit_thaw_vtable_common(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
-#define log_unit_full_errno(unit, level, error, ...)                    \
+#define log_unit_full_errno_zerook(unit, level, error, ...)             \
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 (log_get_max_level() < LOG_PRI(level)) ? -ERRNO_VALUE(error) : \
@@ -927,9 +927,16 @@ int unit_thaw_vtable_common(Unit *u);
                                 log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
-#define log_unit_full(unit, level, ...) (void) log_unit_full_errno(unit, level, 0, __VA_ARGS__)
+#define log_unit_full_errno(unit, level, error, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_unit_full_errno_zerook(unit, level, _error, ##__VA_ARGS__); \
+        })
 
-#define log_unit_debug(unit, ...)   log_unit_full_errno(unit, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_unit_full(unit, level, ...) (void) log_unit_full_errno_zerook(unit, level, 0, __VA_ARGS__)
+
+#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, __VA_ARGS__)
 #define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, __VA_ARGS__)
 #define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, __VA_ARGS__)
 #define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, __VA_ARGS__)
