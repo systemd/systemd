@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2031
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
+# ex: ts=8 sw=4 sts=4 et filetype=sh tw=180
+# Note: the shellcheck line above disables warning for variables which were
+#       modified in a subshell. In our case this behavior is expected, but
+#       `shellcheck` can't distinguish this because of poor variable tracking,
+#       which results in warning for every instance of such variable used
+#       throughout this file.
+#       See:
+#           * comment in function install_verity_minimal()
+#           * koalaman/shellcheck#280
+set -o pipefail
+
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
@@ -838,17 +849,17 @@ install_compiled_systemd() {
 install_debian_systemd() {
     dinfo "Install debian systemd"
 
-    local _systemd_pkgs=$(grep -E '^Package:' ${SOURCE_DIR}/debian/control | cut -d ':' -f 2)
-    local _files=""
-    for deb in $_systemd_pkgs; do
-        _files=$(dpkg-query -L $deb 2>/dev/null) || continue
+    local files
+
+    while read -r deb; do
+        files="$(dpkg-query -L "$deb" 2>/dev/null)" || continue
         ddebug "Install debian files from package $deb"
-        for file in $_files; do
+        for file in $files; do
             [ -e "$file" ] || continue
             [ -d "$file" ] && continue
-            inst $file
+            inst "$file"
         done
-    done
+    done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
 install_distro_systemd() {
@@ -1270,11 +1281,9 @@ install_dbus() {
         inst "$ROOTLIBDIR/system/dbus.service"
     fi
 
-    find \
-        /etc/dbus-1 /usr/share/dbus-1 -xtype f \
-        | while read file; do
-        inst $file
-    done
+    while read -r file; do
+        inst "$file"
+    done < <(find /etc/dbus-1 /usr/share/dbus-1 -xtype f 2>/dev/null)
 
     # setup policy for Type=dbus test
     mkdir -p "${initdir:?}/etc/dbus-1/system.d"
@@ -1323,18 +1332,22 @@ EOF
 }
 
 install_pam() {
-    (
+    dinfo "Install PAM"
+    local paths=()
+
     if [[ "$LOOKS_LIKE_DEBIAN" ]] && type -p dpkg-architecture &>/dev/null; then
-        find "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security" -xtype f
+        paths+=("/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security")
     else
-        find /lib*/security -xtype f
+        paths+=(/lib*/security)
     fi
+
     for d in /etc/pam.d /etc/security /usr/lib/pam.d; do
-        [ -d "$d" ] && find $d -xtype f
+        [ -d "$d" ] && paths+=("$d")
     done
-    ) | while read file; do
-        inst $file
-    done
+
+    while read -r file; do
+        inst "$file"
+    done < <(find "${paths[@]}" -xtype f)
 
     # pam_unix depends on unix_chkpwd.
     # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
@@ -1454,28 +1467,28 @@ mask_supporting_services() {
 }
 
 inst_libs() {
-    local _bin=$1
-    local _so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
-    local _file _line
+    local bin="${1:?}"
+    local so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
+    local file line
 
-    LC_ALL=C ldd "$_bin" 2>/dev/null | while read _line; do
-        [[ $_line = 'not a dynamic executable' ]] && break
+    while read -r line; do
+        [[ "$line" = 'not a dynamic executable' ]] && break
 
-        if [[ $_line =~ $_so_regex ]]; then
-            _file=${BASH_REMATCH[1]}
-            [[ -e ${initdir}/$_file ]] && continue
-            inst_library "$_file"
+        if [[ "$line" =~ $so_regex ]]; then
+            file="${BASH_REMATCH[1]}"
+            [[ -e "${initdir:?}/$file" ]] && continue
+            inst_library "$file"
             continue
         fi
 
-        if [[ $_line =~ not\ found ]]; then
-            dfatal "Missing a shared library required by $_bin."
-            dfatal "Run \"ldd $_bin\" to find out what it is."
-            dfatal "$_line"
+        if [[ "$line" =~ not\ found ]]; then
+            dfatal "Missing a shared library required by $bin."
+            dfatal "Run \"ldd $bin\" to find out what it is."
+            dfatal "$line"
             dfatal "dracut cannot create an initrd."
             exit 1
         fi
-    done
+    done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
 }
 
 import_testdir() {
