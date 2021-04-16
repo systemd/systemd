@@ -114,6 +114,12 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
+int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server) {
+        assert_return(server, false);
+
+        return !!in4_addr_is_set(&server->relay_target);
+}
+
 void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id);
         assert(id->length);
@@ -706,14 +712,12 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
         return be32toh(requested_ip & ~server->netmask) - server->pool_offset;
 }
 
-
-static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message,
-                               size_t opt_length) {
+static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length) {
         _cleanup_free_ DHCPPacket *packet = NULL;
 
         assert(server);
         assert(message);
-        assert(in4_addr_is_set(&server->relay_target));
+        assert(sd_dhcp_server_is_in_relay_mode(server));
 
         if (message->op == BOOTREPLY) {
                 log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
@@ -726,18 +730,14 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 if (message_type < 0 )
                         return message_type;
 
-                be32_t destination = INADDR_ANY;
-                if (message->ciaddr && message_type != DHCP_NAK)
-                        destination = message->ciaddr;
-
                 packet = malloc0(sizeof(DHCPPacket) + opt_length);
                 if (!packet)
                         return -ENOMEM;
-
                 memcpy(&packet->dhcp, message, sizeof(DHCPMessage) + opt_length);
+
                 bool l2_broadcast = requested_broadcast(message) || message_type == DHCP_NAK;
-                return dhcp_server_send(server, destination, DHCP_PORT_CLIENT,
-                            packet, opt_length, l2_broadcast);
+                const be32_t destination = message_type == DHCP_NAK ? INADDR_ANY : message->ciaddr;
+                return dhcp_server_send(server, destination, DHCP_PORT_CLIENT, packet, opt_length, l2_broadcast);
         } else if (message->op == BOOTREQUEST) {
                 log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
                 if (message->hops >= 16)
@@ -748,10 +748,9 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 if (message->giaddr == 0)
                         message->giaddr = server->address;
 
-                return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, opt_length + sizeof(DHCPMessage));
-        } else {
-                return -EBADMSG;
+                return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
         }
+        return -EBADMSG;
 }
 
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
@@ -1052,16 +1051,15 @@ static int server_receive_message(sd_event_source *s, int fd,
                 }
         }
 
-        if (in4_addr_is_null(&server->relay_target)) {
-                r = dhcp_server_handle_message(server, message, (size_t) len);
-                if (r < 0)
-                        log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
-        } else {
+        if (sd_dhcp_server_is_in_relay_mode(server)) {
                 r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage));
                 if (r < 0)
                         log_dhcp_server_errno(server, r, "Couldn't relay message: %m");
+        } else {
+                r = dhcp_server_handle_message(server, message, (size_t) len);
+                if (r < 0)
+                        log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
         }
-
         return 0;
 }
 
