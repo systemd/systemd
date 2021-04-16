@@ -47,7 +47,7 @@ static int ipv6_proxy_ndp_address_configure(Link *link, const struct in6_addr *a
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

@@ -396,7 +396,7 @@ static int nexthop_remove(const NextHop *nexthop, Manager *manager, Link *link) 
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
         r = netlink_call_async(manager->rtnl, NULL, req, nexthop_remove_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -482,7 +482,7 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

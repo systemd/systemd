@@ -573,6 +573,8 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
 
+        sd_event_source_unref(link->dhcp4_mtu_reset_loop_detector);
+
         link_free_engines(link);
 
         free(link->ifname);
@@ -925,7 +927,7 @@ static int link_set_mac(Link *link) {
                 return log_link_error_errno(link, r, "Could not set MAC address: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_mac_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -975,7 +977,7 @@ static int link_set_nomaster(Link *link) {
                 return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_nomaster_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1046,14 +1048,14 @@ int link_set_mtu(Link *link, uint32_t mtu) {
                 return log_link_error_errno(link, r, "Could not append MTU: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
         link->setting_mtu = true;
 
-        return 0;
+        return 1;
 }
 
 static bool link_reduces_vlan_mtu(Link *link) {
@@ -1163,7 +1165,7 @@ static int link_set_flags(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1362,7 +1364,7 @@ static int link_configure_addrgen_mode(Link *link) {
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_address_genmode_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1408,7 +1410,7 @@ static int link_up(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1453,7 +1455,7 @@ int link_down(Link *link, link_netlink_message_handler_t callback) {
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                callback ?: link_down_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1500,7 +1502,7 @@ static int link_set_group(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link group: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_group_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -2302,7 +2304,7 @@ int link_reconfigure(Link *link, bool force) {
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                force ? link_force_reconfigure_handler : link_reconfigure_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return r;
 
@@ -2441,7 +2443,7 @@ static int link_initialized(Link *link, sd_device *device) {
                 return r;
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_initialized_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return r;
 

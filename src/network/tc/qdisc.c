@@ -218,7 +218,7 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                         return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, qdisc_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, qdisc_handler, link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

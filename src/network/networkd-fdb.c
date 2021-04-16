@@ -156,7 +156,7 @@ static int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
 
         /* send message to the kernel to update its internal static MAC table. */
         r = netlink_call_async(link->manager->rtnl, NULL, req, set_fdb_handler,
-                               link_netlink_destroy_callback, link);
+                               link_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
