@@ -357,70 +357,81 @@ run_qemu() {
     find_qemu_bin || return 1
 
     # Umount initdir to avoid concurrent access to the filesystem
-    _umount_dir $initdir
+    _umount_dir "$initdir"
 
-    local _cgroup_args
+    local kernel_params=()
+    local qemu_options=()
+    local qemu_cmd=("$QEMU_BIN")
+
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" ]]; then
-        _cgroup_args="systemd.unified_cgroup_hierarchy=yes"
+        kernel_params+=("systemd.unified_cgroup_hierarchy=yes")
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
-        _cgroup_args="systemd.unified_cgroup_hierarchy=no systemd.legacy_systemd_cgroup_controller=yes"
+        kernel_params+=("systemd.unified_cgroup_hierarchy=no" "systemd.legacy_systemd_cgroup_controller=yes")
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
-        _cgroup_args="systemd.unified_cgroup_hierarchy=no systemd.legacy_systemd_cgroup_controller=no"
+        kernel_params+=("systemd.unified_cgroup_hierarchy=no" "systemd.legacy_systemd_cgroup_controller=no")
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" != "default" ]]; then
         dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
         exit 1
     fi
 
     if [[ "$LOOKS_LIKE_SUSE" ]]; then
-        PARAMS+="rd.hostonly=0"
+        kernel_params+=("rd.hostonly=0")
     fi
 
-    local _end
+    kernel_params+=(
+        "root=/dev/sda1"
+        "rw"
+        "raid=noautodetect"
+        "rd.luks=0"
+        "loglevel=2"
+        "init=$PATH_TO_INIT"
+        "console=$CONSOLE"
+        "selinux=0"
+        "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
+        "systemd.unit=testsuite.target"
+        "systemd.wants=testsuite-$1.service"
+    )
+
     if [[ ! "$INTERACTIVE_DEBUG" ]]; then
-        _end="systemd.wants=end.service"
-    else
-        _end=""
+        kernel_params+=("systemd.wants=end.service")
     fi
-
-    KERNEL_APPEND="$PARAMS \
-root=/dev/sda1 \
-rw \
-raid=noautodetect \
-rd.luks=0 \
-loglevel=2 \
-init=$PATH_TO_INIT \
-console=$CONSOLE \
-selinux=0 \
-$_cgroup_args \
-SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units: \
-systemd.unit=testsuite.target \
-systemd.wants=testsuite-$1.service ${_end} \
-$KERNEL_APPEND \
-"
 
     [ -e "$IMAGE_PRIVATE" ] && image="$IMAGE_PRIVATE" || image="$IMAGE_PUBLIC"
-    QEMU_OPTIONS="-smp $QEMU_SMP \
--net none \
--m $QEMU_MEM \
--nographic \
--kernel $KERNEL_BIN \
--drive format=raw,cache=unsafe,file=$image \
-$QEMU_OPTIONS \
-"
+    qemu_options+=(
+        -smp "$QEMU_SMP"
+        -net none
+        -m "$QEMU_MEM"
+        -nographic
+        -kernel "$KERNEL_BIN"
+        -drive "format=raw,cache=unsafe,file=$image"
+    )
+
+    if [[ -n "${QEMU_OPTIONS:=}" ]]; then
+        local user_qemu_options
+        read -ra user_qemu_options <<< "$QEMU_OPTIONS"
+        qemu_options+=("${user_qemu_options[@]}")
+    fi
+
+    if [[ -n "${KERNEL_APPEND:=}" ]]; then
+        local user_kernel_append
+        read -ra user_kernel_append <<< "$KERNEL_APPEND"
+        kernel_params+=("${user_kernel_append[@]}")
+    fi
 
     if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
-        QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
+        qemu_options+=(-initrd "$INITRD")
     fi
 
     # Let's use KVM if possible
     if [[ -c /dev/kvm && $QEMU_KVM == "yes" ]]; then
-        QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
+        qemu_options+=(-machine "accel=kvm" -enable-kvm -cpu host)
     fi
 
     if [[ "$QEMU_TIMEOUT" != "infinity" ]]; then
-        QEMU_BIN="timeout --foreground $QEMU_TIMEOUT $QEMU_BIN"
+        qemu_cmd=(timeout --foreground "$QEMU_TIMEOUT" "$QEMU_BIN")
     fi
-    (set -x; $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND")
+
+    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}")
     rc=$?
     if [ "$rc" = 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
         derror "test timed out after $QEMU_TIMEOUT s"
@@ -435,43 +446,56 @@ $QEMU_OPTIONS \
 # success), or 1 if nspawn is not available.
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
-    rm -f "$initdir"/{testok,failed,skipped}
+    rm -f "${initdir:?}"/{testok,failed,skipped}
 
-    local _nspawn_cmd=(
-        --register=no
-        --kill-signal=SIGKILL
-        --directory=$1
-        --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:
-        $PATH_TO_INIT
-        $KERNEL_APPEND
-        systemd.unit=testsuite.target
-        systemd.wants=testsuite-$2.service
+    local nspawn_cmd=()
+    local nspawn_options=(
+        "--register=no"
+        "--kill-signal=SIGKILL"
+        "--directory=${1:?}"
+        "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:"
+    )
+    local kernel_params=(
+        "$PATH_TO_INIT"
+        "systemd.unit=testsuite.target"
+        "systemd.wants=testsuite-$2.service"
     )
 
     if [[ ! "$INTERACTIVE_DEBUG" ]]; then
-        _nspawn_cmd+=( systemd.wants=end.service )
+        kernel_params+=("systemd.wants=end.service")
     fi
 
-    local _nspawn_pre
-    if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
-        _nspawn_pre=(timeout --foreground $NSPAWN_TIMEOUT)
-    else
-        _nspawn_pre=()
+    if [[ -n "${NSPAWN_ARGUMENTS:=}" ]]; then
+        local user_nspawn_arguments
+        read -ra user_nspawn_arguments <<< "$NSPAWN_ARGUMENTS"
+        nspawn_options+=("${user_nspawn_arguments[@]}")
+    fi
+
+    if [[ -n "${KERNEL_APPEND:=}" ]]; then
+        local user_kernel_append
+        read -ra user_kernel_append <<< "$KERNEL_APPEND"
+        kernel_params+=("${user_kernel_append[@]}")
     fi
 
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
         dwarn "nspawn doesn't support SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=hybrid, skipping"
         exit
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" || "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
-        _nspawn_pre=("${_nspawn_pre[@]}" env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY)
+        nspawn_cmd+=(env "SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY")
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "default" ]]; then
-        _nspawn_pre=("${_nspawn_pre[@]}" env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY)
+        nspawn_cmd+=(env "--unset=UNIFIED_CGROUP_HIERARCHY" "--unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY")
     else
         dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
         exit 1
     fi
 
-    (set -x; "${_nspawn_pre[@]}" "$SYSTEMD_NSPAWN" $NSPAWN_ARGUMENTS "${_nspawn_cmd[@]}")
+    if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
+        nspawn_cmd+=(timeout --foreground "$NSPAWN_TIMEOUT" "$SYSTEMD_NSPAWN")
+    else
+        nspawn_cmd+=("$SYSTEMD_NSPAWN")
+    fi
+
+    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}")
     rc=$?
     if [ "$rc" = 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
         derror "test timed out after $NSPAWN_TIMEOUT s"
@@ -1258,8 +1282,9 @@ EOF
 install_libnss() {
     dinfo "Install libnss"
     # install libnss_files for login
-    NSS_LIBS=$(LD_DEBUG=files getent passwd 2>&1 >/dev/null |sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
-    dracut_install $NSS_LIBS
+    local NSS_LIBS
+    mapfile -t NSS_LIBS < <(LD_DEBUG=files getent passwd 2>&1 >/dev/null | sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
+    dracut_install "${NSS_LIBS[@]}"
 }
 
 install_dbus() {
