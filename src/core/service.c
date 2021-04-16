@@ -3472,8 +3472,18 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         switch (s->state) {
 
-                        case SERVICE_START_POST:
                         case SERVICE_RELOAD:
+                            /* The service has exited but it's still in
+                             * reloading state, we can't expect the reload
+                             * to complete so end the control process.
+                             */
+                            s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                            service_kill_control_process(s);
+                            s->reload_result = f;
+                            service_enter_running(s, f);
+                            break;
+
+                        case SERVICE_START_POST:
                         case SERVICE_STOP:
                                 /* Need to wait until the operation is
                                  * done */
