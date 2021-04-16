@@ -1656,6 +1656,7 @@ subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/udev')
 subdir('src/libudev')
+subdir('src/systemd-tpm2-plugin')
 
 libsystemd = shared_library(
         'systemd',
@@ -1730,6 +1731,19 @@ install_libudev_static = static_library(
         dependencies : libshared_deps + [libmount],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
+
+systemd_tpm2_plugin = shared_library(
+        'cryptsetup-token-systemd-tpm2',
+        version : systemd_tpm2_plugin_version,
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + systemd_tpm2_plugin_sym_path],
+        dependencies : libshared_deps + [libcryptsetup],
+        link_with : [libshared],
+        link_whole : [systemd_tpm2_plugin_static],
+        link_depends : systemd_tpm2_plugin_sym,
+        install_rpath : rootlibexecdir,
+        install : true,
+        install_dir : rootlibdir)
 
 ############################################################
 

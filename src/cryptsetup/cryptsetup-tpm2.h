@@ -23,18 +23,6 @@ int acquire_tpm2_key(
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 
-int find_tpm2_auto_data(
-                struct crypt_device *cd,
-                uint32_t search_pcr_mask,
-                int start_token,
-                uint32_t *ret_pcr_mask,
-                void **ret_blob,
-                size_t *ret_blob_size,
-                void **ret_policy_hash,
-                size_t *ret_policy_hash_size,
-                int *ret_keyslot,
-                int *ret_token);
-
 #else
 
 static inline int acquire_tpm2_key(
@@ -50,22 +38,6 @@ static inline int acquire_tpm2_key(
                 size_t policy_hash_size,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
-
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 support not available.");
-}
-
-static inline int find_tpm2_auto_data(
-                struct crypt_device *cd,
-                uint32_t search_pcr_mask,
-                int start_token,
-                uint32_t *ret_pcr_mask,
-                void **ret_blob,
-                size_t *ret_blob_size,
-                void **ret_policy_hash,
-                size_t *ret_policy_hash_size,
-                int *ret_keyslot,
-                int *ret_token) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 support not available.");
