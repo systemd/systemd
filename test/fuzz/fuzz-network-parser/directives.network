@@ -147,6 +147,7 @@ Announce=
 Assign=
 ManageTemporaryAddress=
 Token=
+RouteMetric=
 [Route]
 Destination=
 Protocol=
@@ -236,6 +237,7 @@ PreferredLifetimeSec=
 AddressAutoconfiguration=
 ValidLifetimeSec=
 Assign=
+RouteMetric=
 [IPv6RoutePrefix]
 Route=
 LifetimeSec=
@@ -270,6 +272,7 @@ ManageTemporaryAddress=
 Broadcast=
 Peer=
 Label=
+RouteMetric=
 [RoutingPolicyRule]
 Table=
 IncomingInterface=
@@ -317,6 +320,7 @@ Prefix=
 [IPv6AcceptRA]
 UseDomains=
 RouteTable=
+RouteMetric=
 UseDNS=
 DHCPv6Client=
 UseAutonomousPrefix=
