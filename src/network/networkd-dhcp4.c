@@ -893,6 +893,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
         if (prefixlen <= 30)
                 addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
+        addr->route_metric = link->network->dhcp_route_metric;
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
