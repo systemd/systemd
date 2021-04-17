@@ -52,11 +52,12 @@ struct Manager {
 
         usec_t network_dirs_ts_usec;
 
-        DUID duid;
+        DUID dhcp_duid;
+        DUID dhcp6_duid;
         sd_id128_t product_uuid;
         bool has_product_uuid;
+        bool product_uuid_requested;
         Set *links_requesting_uuid;
-        Set *duids_requesting_uuid;
 
         char* dynamic_hostname;
         char* dynamic_timezone;

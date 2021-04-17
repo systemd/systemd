@@ -4,9 +4,11 @@
 #include <linux/if_arp.h>
 
 #include "bus-error.h"
+#include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp6-internal.h"
 #include "escape.h"
+#include "hexdecoct.h"
 #include "in-addr-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
@@ -62,30 +64,64 @@ void network_adjust_dhcp(Network *network) {
 }
 
 static struct DUID fallback_duid = { .type = DUID_TYPE_EN };
-DUID* link_get_duid(Link *link) {
-        if (link->network->duid.type != _DUID_TYPE_INVALID)
-                return &link->network->duid;
-        else if (link->hw_addr.length == 0 && IN_SET(link->manager->duid.type, DUID_TYPE_LLT, DUID_TYPE_LL))
+
+DUID* link_get_duid(Link *link, int family) {
+        DUID *duid;
+
+        assert(link);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (link->network) {
+                duid = family == AF_INET ? &link->network->dhcp_duid : &link->network->dhcp6_duid;
+                if (duid->type != _DUID_TYPE_INVALID)
+                        return duid;
+        }
+
+        duid = family == AF_INET ? &link->manager->dhcp_duid : &link->manager->dhcp6_duid;
+        if (link->hw_addr.length == 0 && IN_SET(duid->type, DUID_TYPE_LLT, DUID_TYPE_LL))
                 /* Fallback to DUID that works without MAC address.
                  * This is useful for tunnel devices without MAC address. */
                 return &fallback_duid;
-        else
-                return &link->manager->duid;
+
+        return duid;
 }
 
-static int duid_set_uuid(DUID *duid, sd_id128_t uuid) {
-        assert(duid);
+static int link_configure_and_start_dhcp_delayed(Link *link) {
+        int r;
 
-        if (duid->raw_data_len > 0)
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
-        if (duid->type != DUID_TYPE_UUID)
-                return -EINVAL;
+        if (!link->dhcp_client) {
+                r = dhcp4_configure(link);
+                if (r < 0)
+                        return r;
+        }
 
-        memcpy(&duid->raw_data, &uuid, sizeof(sd_id128_t));
-        duid->raw_data_len = sizeof(sd_id128_t);
+        if (!link->dhcp6_client) {
+                r = dhcp6_configure(link);
+                if (r < 0)
+                        return r;
+        }
 
-        return 1;
+        if (!link_has_carrier(link))
+                return 0;
+
+        r = dhcp4_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv4 client: %m");
+
+        r = ndisc_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start IPv6 Router Discovery: %m");
+
+        r = dhcp6_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start DHCPv6 client: %m");
+
+        return 0;
 }
 
 static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -93,7 +129,6 @@ static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_er
         const sd_bus_error *e;
         const void *a;
         size_t sz;
-        DUID *duid;
         Link *link;
         int r;
 
@@ -120,54 +155,34 @@ static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_er
         }
 
         memcpy(&manager->product_uuid, a, sz);
-        while ((duid = set_steal_first(manager->duids_requesting_uuid)))
-                (void) duid_set_uuid(duid, manager->product_uuid);
-
-        manager->duids_requesting_uuid = set_free(manager->duids_requesting_uuid);
 
 configure:
-        while ((link = set_steal_first(manager->links_requesting_uuid))) {
-                link_unref(link);
-
-                r = link_configure(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
-
         /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
          * even if the method fails. */
         manager->has_product_uuid = true;
 
+        while ((link = set_steal_first(manager->links_requesting_uuid))) {
+                r = link_configure_and_start_dhcp_delayed(link);
+                if (r < 0)
+                        link_enter_failed(link);
+
+                link_unref(link);
+        }
+
+        manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
+
         return 1;
 }
 
-int manager_request_product_uuid(Manager *m, Link *link) {
+int manager_request_product_uuid(Manager *m) {
         int r;
 
         assert(m);
 
-        if (m->has_product_uuid)
+        if (m->product_uuid_requested)
                 return 0;
 
         log_debug("Requesting product UUID");
-
-        if (link) {
-                DUID *duid;
-
-                assert_se(duid = link_get_duid(link));
-
-                r = set_ensure_put(&m->links_requesting_uuid, NULL, link);
-                if (r < 0)
-                        return log_oom();
-                if (r > 0)
-                        link_ref(link);
-
-                r = set_ensure_put(&m->duids_requesting_uuid, NULL, duid);
-                if (r < 0)
-                        return log_oom();
-        }
 
         if (sd_bus_is_ready(m->bus) <= 0) {
                 log_debug("Not connected to system bus, requesting product UUID later.");
@@ -188,70 +203,42 @@ int manager_request_product_uuid(Manager *m, Link *link) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get product UUID: %m");
 
+        m->product_uuid_requested = true;
+
         return 0;
 }
 
-static bool link_requires_uuid(Link *link) {
-        const DUID *duid;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->network);
-
-        duid = link_get_duid(link);
-        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
-                return false;
-
-        if (link_dhcp4_enabled(link) && IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
-                return true;
-
-        if (link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link))
-                return true;
-
-        return false;
-}
-
-int link_configure_duid(Link *link) {
+int dhcp_configure_duid(Link *link, DUID *duid) {
         Manager *m;
-        DUID *duid;
         int r;
 
         assert(link);
         assert(link->manager);
-        assert(link->network);
+        assert(duid);
 
         m = link->manager;
-        duid = link_get_duid(link);
 
-        if (!link_requires_uuid(link))
+        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
                 return 1;
 
         if (m->has_product_uuid) {
-                (void) duid_set_uuid(duid, m->product_uuid);
+                memcpy(&duid->raw_data, &m->product_uuid, sizeof(sd_id128_t));
+                duid->raw_data_len = sizeof(sd_id128_t);
                 return 1;
         }
 
-        if (!m->links_requesting_uuid) {
-                r = manager_request_product_uuid(m, link);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                return r;
-
-                        log_link_warning_errno(link, r,
-                                               "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
-                        return 1;
-                }
-        } else {
-                r = set_put(m->links_requesting_uuid, link);
-                if (r < 0)
-                        return log_oom();
-                if (r > 0)
-                        link_ref(link);
-
-                r = set_put(m->duids_requesting_uuid, duid);
-                if (r < 0)
-                        return log_oom();
+        r = manager_request_product_uuid(m);
+        if (r < 0) {
+                log_link_warning_errno(link, r,
+                                       "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
+                return 1;
         }
+
+        r = set_ensure_put(&m->links_requesting_uuid, NULL, link);
+        if (r < 0)
+                return log_oom();
+        if (r > 0)
+                link_ref(link);
 
         return 0;
 }
@@ -523,6 +510,7 @@ int config_parse_iaid(const char *unit,
                       const char *rvalue,
                       void *data,
                       void *userdata) {
+
         Network *network = userdata;
         uint32_t iaid;
         int r;
@@ -531,6 +519,7 @@ int config_parse_iaid(const char *unit,
         assert(lvalue);
         assert(rvalue);
         assert(network);
+        assert(IN_SET(ltype, AF_INET, AF_INET6));
 
         r = safe_atou32(rvalue, &iaid);
         if (r < 0) {
@@ -539,8 +528,21 @@ int config_parse_iaid(const char *unit,
                 return 0;
         }
 
-        network->iaid = iaid;
-        network->iaid_set = true;
+        if (ltype == AF_INET) {
+                network->dhcp_iaid = iaid;
+                network->dhcp_iaid_set = true;
+                if (!network->dhcp6_iaid_set_explicitly) {
+                        /* Backward compatibility. Previously, IAID is shared by DHCP4 and DHCP6.
+                         * If DHCP6 IAID is not specified explicitly, then use DHCP4 IAID for DHCP6. */
+                        network->dhcp6_iaid = iaid;
+                        network->dhcp6_iaid_set = true;
+                }
+        } else {
+                assert(ltype == AF_INET6);
+                network->dhcp6_iaid = iaid;
+                network->dhcp6_iaid_set = true;
+                network->dhcp6_iaid_set_explicitly = true;
+        }
 
         return 0;
 }
@@ -924,3 +926,260 @@ static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);
+
+static const char* const duid_type_table[_DUID_TYPE_MAX] = {
+        [DUID_TYPE_LLT]  = "link-layer-time",
+        [DUID_TYPE_EN]   = "vendor",
+        [DUID_TYPE_LL]   = "link-layer",
+        [DUID_TYPE_UUID] = "uuid",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(duid_type, DUIDType);
+
+int config_parse_duid_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *type_string = NULL;
+        const char *p = rvalue;
+        bool force = ltype;
+        DUID *duid = data;
+        DUIDType type;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(duid);
+
+        if (!force && duid->set)
+                return 0;
+
+        r = extract_first_word(&p, &type_string, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract DUID type from '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        type = duid_type_from_string(type_string);
+        if (type < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, type,
+                           "Failed to parse DUID type '%s', ignoring.", type_string);
+                return 0;
+        }
+
+        if (!isempty(p)) {
+                usec_t u;
+
+                if (type != DUID_TYPE_LLT) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                r = parse_timestamp(p, &u);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse timestamp, ignoring: %s", p);
+                        return 0;
+                }
+
+                duid->llt_time = u;
+        }
+
+        duid->type = type;
+        duid->set = force;
+
+        return 0;
+}
+
+int config_parse_manager_duid_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *manager = userdata;
+        int r;
+
+        assert(manager);
+
+        /* For backward compatibility. Setting both DHCP4 and DHCP6 DUID if they are not specified explicitly. */
+
+        r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
+        if (r < 0)
+                return r;
+
+        return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp6_duid, manager);
+}
+
+int config_parse_network_duid_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(network);
+
+        r = config_parse_duid_type(unit, filename, line, section, section_line, lvalue, true, rvalue, &network->dhcp_duid, network);
+        if (r < 0)
+                return r;
+
+        /* For backward compatibility, also set DHCP6 DUID if not specified explicitly. */
+        return config_parse_duid_type(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
+}
+
+int config_parse_duid_rawdata(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t raw_data[MAX_DUID_LEN];
+        unsigned count = 0;
+        bool force = ltype;
+        DUID *duid = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(duid);
+
+        if (!force && duid->set)
+                return 0;
+
+        /* RawData contains DUID in format "NN:NN:NN..." */
+        for (const char *p = rvalue;;) {
+                int n1, n2, len, r;
+                uint32_t byte;
+                _cleanup_free_ char *cbyte = NULL;
+
+                r = extract_first_word(&p, &cbyte, ":", 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to read DUID, ignoring assignment: %s.", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (count >= MAX_DUID_LEN) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
+                        return 0;
+                }
+
+                len = strlen(cbyte);
+                if (!IN_SET(len, 1, 2)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
+                        return 0;
+                }
+                n1 = unhexchar(cbyte[0]);
+                if (len == 2)
+                        n2 = unhexchar(cbyte[1]);
+                else
+                        n2 = 0;
+
+                if (n1 < 0 || n2 < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid DUID byte: %s. Ignoring assignment: %s.", cbyte, rvalue);
+                        return 0;
+                }
+
+                byte = ((uint8_t) n1 << (4 * (len-1))) | (uint8_t) n2;
+                raw_data[count++] = byte;
+        }
+
+        assert_cc(sizeof(raw_data) == sizeof(duid->raw_data));
+        memcpy(duid->raw_data, raw_data, count);
+        duid->raw_data_len = count;
+        duid->set = force;
+
+        return 0;
+}
+
+int config_parse_manager_duid_rawdata(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *manager = userdata;
+        int r;
+
+        assert(manager);
+
+        /* For backward compatibility. Setting both DHCP4 and DHCP6 DUID if they are not specified explicitly. */
+
+        r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp_duid, manager);
+        if (r < 0)
+                return r;
+
+        return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &manager->dhcp6_duid, manager);
+}
+
+int config_parse_network_duid_rawdata(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(network);
+
+        r = config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, true, rvalue, &network->dhcp_duid, network);
+        if (r < 0)
+                return r;
+
+        /* For backward compatibility, also set DHCP6 DUID if not specified explicitly. */
+        return config_parse_duid_rawdata(unit, filename, line, section, section_line, lvalue, false, rvalue, &network->dhcp6_duid, network);
+}
