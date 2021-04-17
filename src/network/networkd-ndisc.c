@@ -530,7 +530,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->table = table;
-        route->priority = link->network->dhcp6_route_metric;
+        route->priority = link->network->ipv6_accept_ra_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw_family = AF_INET6;
@@ -554,7 +554,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (!route_gw->table_set)
                         route_gw->table = table;
                 if (!route_gw->priority_set)
-                        route_gw->priority = link->network->dhcp6_route_metric;
+                        route_gw->priority = link->network->ipv6_accept_ra_route_metric;
                 if (!route_gw->protocol_set)
                         route_gw->protocol = RTPROT_RA;
                 if (!route_gw->pref_set)
@@ -814,7 +814,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->table = link_get_ipv6_accept_ra_route_table(link);
-        route->priority = link->network->dhcp6_route_metric;
+        route->priority = link->network->ipv6_accept_ra_route_metric;
         route->protocol = RTPROT_RA;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
@@ -899,7 +899,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->table = link_get_ipv6_accept_ra_route_table(link);
-        route->priority = link->network->dhcp6_route_metric;
+        route->priority = link->network->ipv6_accept_ra_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw = gateway;

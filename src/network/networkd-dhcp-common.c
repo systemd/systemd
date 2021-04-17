@@ -332,14 +332,14 @@ int config_parse_dhcp_route_metric(
         if (streq_ptr(section, "DHCPv4")) {
                 network->dhcp_route_metric = metric;
                 network->dhcp_route_metric_set = true;
-        } else if (streq_ptr(section, "DHCPv6")) {
-                network->dhcp6_route_metric = metric;
-                network->dhcp6_route_metric_set = true;
+        } else if (STRPTR_IN_SET(section, "DHCPv6", "IPv6AcceptRA")) {
+                network->ipv6_accept_ra_route_metric = metric;
+                network->ipv6_accept_ra_route_metric_set = true;
         } else { /* [DHCP] section */
                 if (!network->dhcp_route_metric_set)
                         network->dhcp_route_metric = metric;
-                if (!network->dhcp6_route_metric_set)
-                        network->dhcp6_route_metric = metric;
+                if (!network->ipv6_accept_ra_route_metric_set)
+                        network->ipv6_accept_ra_route_metric = metric;
         }
 
         return 0;
