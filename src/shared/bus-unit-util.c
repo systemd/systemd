@@ -862,6 +862,57 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (STR_IN_SET(field, "SocketBindAllow",
+                              "SocketBindDeny")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(iuu)", 0);
+                else {
+                        const char *address_family, *user_port;
+                        _cleanup_free_ char *word = NULL;
+                        int family = AF_UNSPEC;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        address_family = eq ? word : NULL;
+                        if (address_family) {
+                                if (!STR_IN_SET(address_family, "IPv4", "IPv6"))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Only IPv4 and IPv6 protocols are supported");
+
+                                if (streq(address_family, "IPv4"))
+                                        family = AF_INET;
+                                else
+                                        family = AF_INET6;
+                        }
+
+                        user_port = eq ? eq : word;
+                        if (streq(user_port, "any")) {
+                                r = sd_bus_message_append(m, "(sv)", field, "a(iuu)", 1, family, 0, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        } else {
+                                uint16_t port_min, port_max;
+
+                                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Invalid port or port range: %s", user_port);
+
+                                r = sd_bus_message_append(
+                                                m, "(sv)", field, "a(iuu)", 1, family, port_max - port_min + 1, port_min);
+                        }
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
