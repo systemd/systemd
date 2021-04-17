@@ -735,6 +735,10 @@ sensor:modalias:acpi:KIOX020A*:dmi:*:svnTECLAST:pnF6Pro:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=base
 
+# Teclast Tbook 11 (E5A6)
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnTbooK11:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 # Teclast X80 Plus (H5C5)
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
