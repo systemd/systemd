@@ -170,8 +170,6 @@ struct Network {
         DHCPUseDomains dhcp6_use_domains;
         bool dhcp6_use_domains_set;
         uint8_t dhcp6_pd_length;
-        uint32_t dhcp6_route_metric;
-        bool dhcp6_route_metric_set;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;
@@ -277,10 +275,12 @@ struct Network {
         bool ipv6_accept_ra_use_onlink_prefix;
         bool active_slave;
         bool primary_slave;
-        bool ipv6_accept_ra_route_table_set;
         DHCPUseDomains ipv6_accept_ra_use_domains;
         IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
         uint32_t ipv6_accept_ra_route_table;
+        bool ipv6_accept_ra_route_table_set;
+        uint32_t ipv6_accept_ra_route_metric;
+        bool ipv6_accept_ra_route_metric_set;
         Set *ndisc_deny_listed_router;
         Set *ndisc_allow_listed_router;
         Set *ndisc_deny_listed_prefix;

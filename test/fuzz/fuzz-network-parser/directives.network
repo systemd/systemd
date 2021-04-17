@@ -318,6 +318,7 @@ Prefix=
 [IPv6AcceptRA]
 UseDomains=
 RouteTable=
+RouteMetric=
 UseDNS=
 DHCPv6Client=
 UseAutonomousPrefix=
