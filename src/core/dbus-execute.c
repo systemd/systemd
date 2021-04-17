@@ -2379,8 +2379,8 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "RestrictAddressFamilies")) {
-                int allow_list;
                 _cleanup_strv_free_ char **l = NULL;
+                int allow_list;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
@@ -2403,10 +2403,11 @@ int bus_exec_context_set_transient_property(
                         char **s;
 
                         if (strv_isempty(l)) {
-                                c->address_families_allow_list = false;
+                                c->address_families_allow_list = allow_list;
                                 c->address_families = set_free(c->address_families);
 
-                                unit_write_settingf(u, flags, name, "RestrictAddressFamilies=");
+                                unit_write_settingf(u, flags, name, "RestrictAddressFamilies=%s",
+                                                    allow_list ? "none" : "");
                                 return 1;
                         }
 
@@ -2430,7 +2431,7 @@ int bus_exec_context_set_transient_property(
                                         if (r < 0)
                                                 return r;
                                 } else
-                                        (void) set_remove(c->address_families, INT_TO_PTR(af));
+                                        set_remove(c->address_families, INT_TO_PTR(af));
                         }
 
                         joined = strv_join(l, " ");
