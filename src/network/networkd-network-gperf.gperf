@@ -244,13 +244,13 @@ DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                 
 DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0
 DHCPv6.WithoutRA,                            config_parse_dhcp6_client_start_mode,                     0,                             offsetof(Network, dhcp6_without_ra)
 DHCPv6.SendOption,                           config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_options)
-DHCPv6.RouteMetric,                          config_parse_dhcp_route_metric,                           0,                             0
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_dns)
 IPv6AcceptRA.UseDomains,                     config_parse_ipv6_accept_ra_use_domains,                  0,                             offsetof(Network, ipv6_accept_ra_use_domains)
 IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_dhcp6_client,           0,                             offsetof(Network, ipv6_accept_ra_start_dhcp6_client)
 IPv6AcceptRA.RouteTable,                     config_parse_section_route_table,                         0,                             0
+IPv6AcceptRA.RouteMetric,                    config_parse_dhcp_route_metric,                           0,                             0
 IPv6AcceptRA.RouterAllowList,                config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_router)
 IPv6AcceptRA.RouterDenyList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_router)
 IPv6AcceptRA.PrefixAllowList,                config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_prefix)
@@ -491,6 +491,7 @@ DHCP.RapidCommit,                            config_parse_bool,                 
 DHCP.ForceDHCPv6PDOtherInformation,          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            0,                             0
 DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
+DHCPv6.RouteMetric,                          config_parse_dhcp_route_metric,                           0,                             0
 IPv6AcceptRA.DenyList,                       config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.BlackList,                      config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
 TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,             _QDISC_KIND_INVALID,           0

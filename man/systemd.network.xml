@@ -1985,13 +1985,6 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
-          <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>RapidCommit=</varname></term>
           <listitem>
             <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
@@ -2211,6 +2204,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
+            unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
