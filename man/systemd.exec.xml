@@ -1777,11 +1777,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <term><varname>RestrictAddressFamilies=</varname></term>
 
         <listitem><para>Restricts the set of socket address families accessible to the processes of this
-        unit. Takes a space-separated list of address family names to allow-list, such as
-        <constant>AF_UNIX</constant>, <constant>AF_INET</constant> or <constant>AF_INET6</constant>. When
-        prefixed with <constant>~</constant> the listed address families will be applied as deny list,
-        otherwise as allow list.  Note that this restricts access to the <citerefentry
-        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        unit. Takes <literal>none</literal>, or a space-separated list of address family names to
+        allow-list, such as <constant>AF_UNIX</constant>, <constant>AF_INET</constant> or
+        <constant>AF_INET6</constant>. When <literal>none</literal> is specified, then all address
+        families will be denied. When prefixed with <literal>~</literal> the listed address
+        families will be applied as deny list, otherwise as allow list. Note that this restricts access
+        to the
+        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         system call only. Sockets passed into the process by other means (for example, by using socket
         activation with socket units, see
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
