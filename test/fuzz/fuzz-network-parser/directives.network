@@ -147,6 +147,7 @@ Announce=
 Assign=
 ManageTemporaryAddress=
 Token=
+RouteMetric=
 [Route]
 Destination=
 Protocol=

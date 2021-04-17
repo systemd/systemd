@@ -284,6 +284,7 @@ static int dhcp6_set_pd_route(Link *link, const union in_addr_union *prefix, con
         route->dst = *prefix;
         route->dst_prefixlen = 64;
         route->protocol = RTPROT_DHCP;
+        route->priority = link->network->dhcp6_pd_route_metric;
 
         r = route_configure(route, link, dhcp6_pd_route_handler, &ret);
         if (r < 0)
@@ -399,6 +400,7 @@ static int dhcp6_set_pd_address(
         address->cinfo.ifa_prefered = lifetime_preferred;
         address->cinfo.ifa_valid = lifetime_valid;
         SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
+        address->route_metric = link->network->dhcp6_pd_route_metric;
 
         r = address_configure(address, link, dhcp6_pd_address_handler, &ret);
         if (r < 0)
