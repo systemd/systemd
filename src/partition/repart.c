@@ -26,6 +26,7 @@
 #include "conf-parser.h"
 #include "cryptsetup-util.h"
 #include "def.h"
+#include "dirent-util.h"
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -44,6 +45,7 @@
 #include "mkdir.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -76,12 +78,6 @@
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
-#if !HAVE_LIBCRYPTSETUP
-struct crypt_device;
-static inline void sym_crypt_free(struct crypt_device* cd) {}
-static inline void sym_crypt_freep(struct crypt_device** cd) {}
-#endif
-
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
@@ -98,6 +94,7 @@ static enum {
 static bool arg_dry_run = true;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static char *arg_definitions = NULL;
 static bool arg_discard = true;
 static bool arg_can_factory_reset = false;
@@ -116,6 +113,7 @@ static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -161,12 +159,17 @@ struct Partition {
         FreeArea *allocated_to_area;
 
         char *copy_blocks_path;
+        bool copy_blocks_auto;
         int copy_blocks_fd;
         uint64_t copy_blocks_size;
 
         char *format;
         char **copy_files;
+        char **make_directories;
         EncryptMode encrypt;
+
+        uint64_t gpt_flags;
+        int read_only;
 
         LIST_FIELDS(Partition, partitions);
 };
@@ -239,6 +242,7 @@ static Partition *partition_new(void) {
                 .offset = UINT64_MAX,
                 .copy_blocks_fd = -1,
                 .copy_blocks_size = UINT64_MAX,
+                .read_only = -1,
         };
 
         return p;
@@ -262,6 +266,7 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         strv_free(p->copy_files);
+        strv_free(p->make_directories);
 
         return mfree(p);
 }
@@ -967,6 +972,9 @@ static int config_parse_label(
         assert(rvalue);
         assert(label);
 
+        /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
+         * assigning the empty string to reset to default here, but really accept it as label to set. */
+
         r = specifier_printf(rvalue, specifier_table, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
@@ -1165,26 +1173,145 @@ static int config_parse_copy_files(
         return 0;
 }
 
+static int config_parse_copy_blocks(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *d = NULL;
+        Partition *partition = data;
+        int r;
+
+        assert(rvalue);
+        assert(partition);
+
+        if (isempty(rvalue)) {
+                partition->copy_blocks_path = mfree(partition->copy_blocks_path);
+                partition->copy_blocks_auto = false;
+                return 0;
+        }
+
+        if (streq(rvalue, "auto")) {
+                partition->copy_blocks_path = mfree(partition->copy_blocks_path);
+                partition->copy_blocks_auto = true;
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, specifier_table, NULL, &d);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in CopyBlocks= source path, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!path_is_absolute(d) || !path_is_normalized(d)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid path name in CopyBlocks= path, ignoring: %s", d);
+                return 0;
+        }
+
+        free_and_replace(partition->copy_blocks_path, d);
+        partition->copy_blocks_auto = false;
+        return 0;
+}
+
+static int config_parse_make_dirs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *d = NULL;
+        Partition *partition = data;
+        int r;
+
+        assert(rvalue);
+        assert(partition);
+
+        r = specifier_printf(rvalue, specifier_table, NULL, &d);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in MakeDirectories= source, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!path_is_absolute(d) || !path_is_normalized(d)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid path name in MakeDirectories= path, ignoring: %s", d);
+                return 0;
+        }
+
+        r = strv_consume(&partition->make_directories, TAKE_PTR(d));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
+
+static int config_parse_gpt_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint64_t *gpt_flags = data;
+        int r;
+
+        assert(rvalue);
+        assert(gpt_flags);
+
+        r = safe_atou64(rvalue, gpt_flags);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Flags= value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
 
 static int partition_read_definition(Partition *p, const char *path) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,       0, &p->type_uuid        },
-                { "Partition", "Label",           config_parse_label,      0, &p->new_label        },
-                { "Partition", "UUID",            config_parse_id128,      0, &p->new_uuid         },
-                { "Partition", "Priority",        config_parse_int32,      0, &p->priority         },
-                { "Partition", "Weight",          config_parse_weight,     0, &p->weight           },
-                { "Partition", "PaddingWeight",   config_parse_weight,     0, &p->padding_weight   },
-                { "Partition", "SizeMinBytes",    config_parse_size4096,   1, &p->size_min         },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096,  -1, &p->size_max         },
-                { "Partition", "PaddingMinBytes", config_parse_size4096,   1, &p->padding_min      },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096,  -1, &p->padding_max      },
-                { "Partition", "FactoryReset",    config_parse_bool,       0, &p->factory_reset    },
-                { "Partition", "CopyBlocks",      config_parse_path,       0, &p->copy_blocks_path },
-                { "Partition", "Format",          config_parse_fstype,     0, &p->format           },
-                { "Partition", "CopyFiles",       config_parse_copy_files, 0, p                    },
-                { "Partition", "Encrypt",         config_parse_encrypt,    0, &p->encrypt          },
+                { "Partition", "Type",            config_parse_type,        0, &p->type_uuid        },
+                { "Partition", "Label",           config_parse_label,       0, &p->new_label        },
+                { "Partition", "UUID",            config_parse_id128,       0, &p->new_uuid         },
+                { "Partition", "Priority",        config_parse_int32,       0, &p->priority         },
+                { "Partition", "Weight",          config_parse_weight,      0, &p->weight           },
+                { "Partition", "PaddingWeight",   config_parse_weight,      0, &p->padding_weight   },
+                { "Partition", "SizeMinBytes",    config_parse_size4096,    1, &p->size_min         },
+                { "Partition", "SizeMaxBytes",    config_parse_size4096,   -1, &p->size_max         },
+                { "Partition", "PaddingMinBytes", config_parse_size4096,    1, &p->padding_min      },
+                { "Partition", "PaddingMaxBytes", config_parse_size4096,   -1, &p->padding_max      },
+                { "Partition", "FactoryReset",    config_parse_bool,        0, &p->factory_reset    },
+                { "Partition", "CopyBlocks",      config_parse_copy_blocks, 0, p                    },
+                { "Partition", "Format",          config_parse_fstype,      0, &p->format           },
+                { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                    },
+                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                    },
+                { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt          },
+                { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags        },
+                { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only        },
                 {}
         };
         int r;
@@ -1210,20 +1337,27 @@ static int partition_read_definition(Partition *p, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
-        if (p->copy_blocks_path && (p->format || !strv_isempty(p->copy_files)))
+        if ((p->copy_blocks_path || p->copy_blocks_auto) &&
+            (p->format || !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format= and CopyBlocks= cannot be combined, refusing.");
+                                  "Format=/CopyFiles=/MakeDirectories= and CopyBlocks= cannot be combined, refusing.");
 
-        if (!strv_isempty(p->copy_files) && streq_ptr(p->format, "swap"))
+        if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
-        if (!p->format && (!strv_isempty(p->copy_files) || (p->encrypt != ENCRYPT_OFF && !p->copy_blocks_path))) {
+        if (!p->format && (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))) {
                 /* Pick "ext4" as file system if we are configured to copy files or encrypt the device */
                 p->format = strdup("ext4");
                 if (!p->format)
                         return log_oom();
         }
+
+        /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
+        if ((gpt_partition_type_is_root_verity(p->type_uuid) ||
+             gpt_partition_type_is_usr_verity(p->type_uuid)) &&
+            p->read_only < 0)
+                p->read_only = true;
 
         return 0;
 }
@@ -1881,7 +2015,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type_uuid, uuid_buffer),
-                                TABLE_STRING, label ?: "-", TABLE_SET_COLOR, label ? NULL : ansi_grey(),
+                                TABLE_STRING, empty_to_null(label) ?: "-", TABLE_SET_COLOR, empty_to_null(label) ? NULL : ansi_grey(),
                                 TABLE_UUID, sd_id128_is_null(p->new_uuid) ? p->current_uuid : p->new_uuid,
                                 TABLE_STRING, p->definition_path ? basename(p->definition_path) : "-", TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
                                 TABLE_STRING, partname ?: "-", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
@@ -2235,6 +2369,9 @@ static int context_discard_range(
 
                 range[0] = round_up_size(offset, 512);
 
+                if (offset > UINT64_MAX - size)
+                        return -ERANGE;
+
                 end = offset + size;
                 if (end <= range[0])
                         return 0;
@@ -2272,6 +2409,11 @@ static int context_discard_partition(Context *context, Partition *p) {
         r = context_discard_range(context, p->offset, p->new_size);
         if (r == -EOPNOTSUPP) {
                 log_info("Storage does not support discard, not discarding data in future partition %" PRIu64 ".", p->partno);
+                return 0;
+        }
+        if (r == -EBUSY) {
+                /* Let's handle this gracefully: https://bugzilla.kernel.org/show_bug.cgi?id=211167 */
+                log_info("Block device is busy, not discarding partition %" PRIu64 " because it probably is mounted.", p->partno);
                 return 0;
         }
         if (r == 0) {
@@ -2444,7 +2586,7 @@ static int partition_encrypt(
                          volume_key,
                          volume_key_size,
                          &(struct crypt_params_luks2) {
-                                 .label = p->new_label,
+                                 .label = strempty(p->new_label),
                                  .sector_size = 512U,
                          });
         if (r < 0)
@@ -2729,13 +2871,30 @@ static int do_copy_files(Partition *p, const char *fs) {
         return 0;
 }
 
-static int partition_copy_files(Partition *p, const char *node) {
+static int do_make_directories(Partition *p, const char *fs) {
+        char **d;
+        int r;
+
+        assert(p);
+        assert(fs);
+
+        STRV_FOREACH(d, p->make_directories) {
+
+                r = mkdir_p_root(fs, *d, UID_INVALID, GID_INVALID, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
+        }
+
+        return 0;
+}
+
+static int partition_populate(Partition *p, const char *node) {
         int r;
 
         assert(p);
         assert(node);
 
-        if (strv_isempty(p->copy_files))
+        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
 
         log_info("Populating partition %" PRIu64 " with files.", p->partno);
@@ -2761,6 +2920,9 @@ static int partition_copy_files(Partition *p, const char *node) {
                         _exit(EXIT_FAILURE);
 
                 if (do_copy_files(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_make_directories(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -2838,7 +3000,7 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, p->new_label, fs_uuid, arg_discard);
+                r = make_filesystem(fsdev, p->format, strempty(p->new_label), fs_uuid, arg_discard);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -2852,7 +3014,7 @@ static int context_mkfs(Context *context) {
                         if (flock(encrypted_dev_fd, LOCK_UN) < 0)
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
-                r = partition_copy_files(p, fsdev);
+                r = partition_populate(p, fsdev);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -3024,10 +3186,9 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                         p->new_uuid = p->current_uuid;
 
                         if (p->current_label) {
-                                free(p->new_label);
-                                p->new_label = strdup(p->current_label);
-                                if (!p->new_label)
-                                        return log_oom();
+                                r = free_and_strdup_warn(&p->new_label, strempty(p->current_label));
+                                if (r < 0)
+                                        return r;
                         }
 
                         continue;
@@ -3043,10 +3204,10 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                 }
 
                 if (!isempty(p->current_label)) {
-                        free(p->new_label);
-                        p->new_label = strdup(p->current_label); /* never change initialized labels */
-                        if (!p->new_label)
-                                return log_oom();
+                        /* never change initialized labels */
+                        r = free_and_strdup_warn(&p->new_label, p->current_label);
+                        if (r < 0)
+                                return r;
                 } else if (!p->new_label) {
                         /* Not explicitly set by user! */
 
@@ -3057,6 +3218,24 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         }
 
         return 0;
+}
+
+static int set_gpt_flags(struct fdisk_partition *q, uint64_t flags) {
+        _cleanup_free_ char *a = NULL;
+
+        for (unsigned i = 0; i < sizeof(flags) * 8; i++) {
+                uint64_t bit = UINT64_C(1) << i;
+                char buf[DECIMAL_STR_MAX(unsigned)+1];
+
+                if (!FLAGS_SET(flags, bit))
+                        continue;
+
+                xsprintf(buf, "%u", i);
+                if (!strextend_with_separator(&a, ",", buf))
+                        return -ENOMEM;
+        }
+
+        return fdisk_partition_set_attrs(q, a);
 }
 
 static int context_mangle_partitions(Context *context) {
@@ -3108,9 +3287,7 @@ static int context_mangle_partitions(Context *context) {
                         }
 
                         if (!streq_ptr(p->new_label, p->current_label)) {
-                                assert(!isempty(p->new_label));
-
-                                r = fdisk_partition_set_name(p->current_partition, p->new_label);
+                                r = fdisk_partition_set_name(p->current_partition, strempty(p->new_label));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition label: %m");
 
@@ -3129,12 +3306,13 @@ static int context_mangle_partitions(Context *context) {
                         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
                         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
                         char ids[ID128_UUID_STRING_MAX];
+                        uint64_t f;
 
                         assert(!p->new_partition);
                         assert(p->offset % 512 == 0);
                         assert(p->new_size % 512 == 0);
                         assert(!sd_id128_is_null(p->new_uuid));
-                        assert(!isempty(p->new_label));
+                        assert(p->new_label);
 
                         t = fdisk_new_parttype();
                         if (!t)
@@ -3172,9 +3350,25 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition UUID: %m");
 
-                        r = fdisk_partition_set_name(q, p->new_label);
+                        r = fdisk_partition_set_name(q, strempty(p->new_label));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
+
+                        /* Merge the read only setting with the literal flags */
+                        f = p->gpt_flags;
+                        if (p->read_only >= 0) {
+                                if (gpt_partition_type_knows_read_only(p->type_uuid))
+                                        SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
+                                else {
+                                        char buffer[ID128_UUID_STRING_MAX];
+                                        log_warning("Configured ReadOnly=yes for partition type '%s' that doesn't support it, ignoring.",
+                                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                                }
+                        }
+
+                        r = set_gpt_flags(q, f);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set GPT partition flags: %m");
 
                         log_info("Adding new partition %" PRIu64 " to partition table.", p->partno);
 
@@ -3387,7 +3581,311 @@ static int context_can_factory_reset(Context *context) {
         return false;
 }
 
-static int context_open_copy_block_paths(Context *context) {
+static int resolve_copy_blocks_auto_candidate(
+                dev_t partition_devno,
+                sd_id128_t partition_type_uuid,
+                dev_t restrict_devno,
+                sd_id128_t *ret_uuid) {
+
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *pttype, *t;
+        sd_id128_t pt_parsed, u;
+        blkid_partition pp;
+        dev_t whole_devno;
+        blkid_partlist pl;
+        struct stat st;
+        int r;
+
+        /* Checks if the specified partition has the specified GPT type UUID, and is located on the specified
+         * 'restrict_devno' device. The type check is particularly relevant if we have Verity volume which is
+         * backed by two separate partitions: the data and the hash partitions, and we need to find the right
+         * one of the two. */
+
+        r = block_get_whole_disk(partition_devno, &whole_devno);
+        if (r < 0)
+                return log_error_errno(
+                                r,
+                                "Unable to determine containing block device of partition %u:%u: %m",
+                                major(partition_devno), minor(partition_devno));
+
+        if (restrict_devno != (dev_t) -1 &&
+            restrict_devno != whole_devno)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EPERM),
+                                "Partition %u:%u is located outside of block device %u:%u, refusing.",
+                                major(partition_devno), minor(partition_devno),
+                                major(restrict_devno), minor(restrict_devno));
+
+        r = device_path_make_major_minor(S_IFBLK, whole_devno, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert block device to device node path: %m");
+
+        fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return log_error_errno(r, "Failed to open '%s': %m", p);
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(r, "Failed to stat '%s': %m", p);
+
+        if (!S_ISBLK(st.st_mode) || st.st_rdev != whole_devno)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EPERM),
+                                "Opened and determined block device don't match, refusing.");
+
+        b = blkid_new_probe();
+        if (!b)
+                return log_oom();
+
+        errno = 0;
+        r = blkid_probe_set_device(b, fd, 0, 0);
+        if (r != 0)
+                return log_error_errno(errno_or_else(ENOMEM), "Failed to open block device '%s': %m", p);
+
+        (void) blkid_probe_enable_partitions(b, 1);
+        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (IN_SET(r, -2, 1)) { /* nothing found or ambiguous result */
+                log_debug("Didn't find partition table on block device '%s'.", p);
+                return false;
+        }
+        if (r != 0)
+                return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
+
+        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        if (!streq_ptr(pttype, "gpt")) {
+                log_debug("Didn't find a GPT partition table on '%s'.", p);
+                return false;
+        }
+
+        errno = 0;
+        pl = blkid_probe_get_partitions(b);
+        if (!pl)
+                return log_error_errno(errno_or_else(EIO), "Unable read partition table of '%s': %m", p);
+        errno = 0;
+
+        pp = blkid_partlist_devno_to_partition(pl, partition_devno);
+        if (!pp) {
+                log_debug("Partition %u:%u has no matching partition table entry on '%s'.",
+                          major(partition_devno), minor(partition_devno), p);
+                return false;
+        }
+
+        t = blkid_partition_get_type_string(pp);
+        if (isempty(t)) {
+                log_debug("Partition %u:%u has no type on '%s'.",
+                          major(partition_devno), minor(partition_devno), p);
+                return false;
+        }
+
+        r = sd_id128_from_string(t, &pt_parsed);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse partition type \"%s\": %m", t);
+                return false;
+        }
+
+        if (!sd_id128_equal(pt_parsed, partition_type_uuid)) {
+                log_debug("Partition %u:%u has non-matching partition type " SD_ID128_FORMAT_STR " (needed: " SD_ID128_FORMAT_STR "), ignoring.",
+                          major(partition_devno), minor(partition_devno),
+                          SD_ID128_FORMAT_VAL(pt_parsed), SD_ID128_FORMAT_VAL(partition_type_uuid));
+                return false;
+        }
+
+        t = blkid_partition_get_uuid(pp);
+        if (isempty(t)) {
+                log_debug("Partition %u:%u has no UUID.",
+                          major(partition_devno), minor(partition_devno));
+                return false;
+        }
+
+        r = sd_id128_from_string(t, &u);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse partition UUID \"%s\": %m", t);
+                return false;
+        }
+
+        log_debug("Automatically found partition %u:%u of right type " SD_ID128_FORMAT_STR ".",
+                  major(partition_devno), minor(partition_devno),
+                  SD_ID128_FORMAT_VAL(pt_parsed));
+
+        if (ret_uuid)
+                *ret_uuid = u;
+
+        return true;
+}
+
+static int find_backing_devno(
+                const char *path,
+                const char *root,
+                dev_t *ret) {
+
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(path);
+
+        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
+        if (r < 0)
+                return r;
+
+        r = path_is_mount_point(resolved, NULL, 0);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Not a mount point, then it's not a partition of its own, let's not automatically use it. */
+                return -ENOENT;
+
+        r = get_block_device(resolved, ret);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Not backed by physical file system, we can't use this */
+                return -ENOENT;
+
+        return 0;
+}
+
+static int resolve_copy_blocks_auto(
+                sd_id128_t type_uuid,
+                const char *root,
+                dev_t restrict_devno,
+                char **ret_path,
+                sd_id128_t *ret_uuid) {
+
+        const char *try1 = NULL, *try2 = NULL;
+        char p[SYS_BLOCK_PATH_MAX("/slaves")];
+        _cleanup_(closedirp) DIR *d = NULL;
+        sd_id128_t found_uuid = SD_ID128_NULL;
+        dev_t devno, found = 0;
+        int r;
+
+        assert(ret_path);
+
+        /* Enforce some security restrictions: CopyBlocks=auto should not be an avenue to get outside of the
+         * --root=/--image= confinement. Specifically, refuse CopyBlocks= in combination with --root= at all,
+         * and restrict block device references in the --image= case to loopback block device we set up.
+         *
+         * restrict_devno contain the dev_t of the loop back device we operate on in case of --image=, and
+         * thus declares which device (and its partition subdevices) we shall limit access to. If
+         * restrict_devno is zero no device probing access shall be allowed at all (used for --root=) and if
+         * it is (dev_t) -1 then free access shall be allowed (if neither switch is used). */
+
+        if (restrict_devno == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Automatic discovery of backing block devices not permitted in --root= mode, refusing.");
+
+        /* Handles CopyBlocks=auto, and finds the right source partition to copy from. We look for matching
+         * partitions in the host, using the appropriate directory as key and ensuring that the partition
+         * type matches. */
+
+        if (gpt_partition_type_is_root(type_uuid))
+                try1 = "/";
+        else if (gpt_partition_type_is_usr(type_uuid))
+                try1 = "/usr/";
+        else if (gpt_partition_type_is_root_verity(type_uuid))
+                try1 = "/";
+        else if (gpt_partition_type_is_usr_verity(type_uuid))
+                try1 = "/usr/";
+        else if (sd_id128_equal(type_uuid, GPT_ESP)) {
+                try1 = "/efi/";
+                try2 = "/boot/";
+        } else if (sd_id128_equal(type_uuid, GPT_XBOOTLDR))
+                try1 = "/boot/";
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Partition type " SD_ID128_FORMAT_STR " not supported from automatic source block device discovery.",
+                                       SD_ID128_FORMAT_VAL(type_uuid));
+
+        r = find_backing_devno(try1, root, &devno);
+        if (r == -ENOENT && try2)
+                r = find_backing_devno(try2, root, &devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve automatic CopyBlocks= path for partition type " SD_ID128_FORMAT_STR ", sorry: %m",
+                                       SD_ID128_FORMAT_VAL(type_uuid));
+
+        xsprintf_sys_block_path(p, "/slaves", devno);
+        d = opendir(p);
+        if (d) {
+                struct dirent *de;
+
+                for (;;) {
+                        _cleanup_free_ char *q = NULL, *t = NULL;
+                        sd_id128_t u;
+                        dev_t sl;
+
+                        errno = 0;
+                        de = readdir_no_dot(d);
+                        if (!de) {
+                                if (errno != 0)
+                                        return log_error_errno(errno, "Failed to read directory '%s': %m", p);
+
+                                break;
+                        }
+
+                        if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                                continue;
+
+                        q = path_join(p, de->d_name, "/dev");
+                        if (!q)
+                                return log_oom();
+
+                        r = read_one_line_file(q, &t);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read %s: %m", q);
+
+                        r = parse_dev(t, &sl);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to parse %s, ignoring: %m", q);
+                                continue;
+                        }
+                        if (major(sl) == 0) {
+                                log_debug_errno(r, "Device backing %s is special, ignoring: %m", q);
+                                continue;
+                        }
+
+                        r = resolve_copy_blocks_auto_candidate(sl, type_uuid, restrict_devno, &u);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                /* We found a matching one! */
+                                if (found != 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                                               "Multiple matching partitions found, refusing.");
+
+                                found = sl;
+                                found_uuid = u;
+                        }
+                }
+        } else if (errno != ENOENT)
+                return log_error_errno(errno, "Failed open %s: %m", p);
+        else {
+                r = resolve_copy_blocks_auto_candidate(devno, type_uuid, restrict_devno, &found_uuid);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        found = devno;
+        }
+
+        if (found == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Unable to automatically discover suitable partition to copy blocks from.");
+
+        r = device_path_make_major_minor(S_IFBLK, found, ret_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert dev_t to device node path: %m");
+
+        if (ret_uuid)
+                *ret_uuid = found_uuid;
+
+        return 0;
+}
+
+static int context_open_copy_block_paths(
+                Context *context,
+                const char *root,
+                dev_t restrict_devno) {
+
         Partition *p;
         int r;
 
@@ -3395,6 +3893,8 @@ static int context_open_copy_block_paths(Context *context) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_close_ int source_fd = -1;
+                _cleanup_free_ char *opened = NULL;
+                sd_id128_t uuid = SD_ID128_NULL;
                 uint64_t size;
                 struct stat st;
 
@@ -3404,15 +3904,38 @@ static int context_open_copy_block_paths(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over partitions that already exist! */
                         continue;
 
-                if (!p->copy_blocks_path)
+                if (p->copy_blocks_path) {
+
+                        source_fd = chase_symlinks_and_open(p->copy_blocks_path, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        if (source_fd < 0)
+                                return log_error_errno(r, "Failed to open '%s': %m", p->copy_blocks_path);
+
+                        if (fstat(source_fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat block copy file '%s': %m", opened);
+
+                        if (!S_ISREG(st.st_mode) && restrict_devno != (dev_t) -1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Copying from block device node is not permitted in --image=/--root= mode, refusing.");
+
+                } else if (p->copy_blocks_auto) {
+
+                        r = resolve_copy_blocks_auto(p->type_uuid, root, restrict_devno, &opened, &uuid);
+                        if (r < 0)
+                                return r;
+
+                        source_fd = open(opened, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (source_fd < 0)
+                                return log_error_errno(errno, "Failed to open automatically determined source block copy device '%s': %m", opened);
+
+                        if (fstat(source_fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat block copy file '%s': %m", opened);
+
+                        /* If we found it automatically, it must be a block device, let's enforce that */
+                        if (!S_ISBLK(st.st_mode))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                                       "Automatically detected source block copy device '%s' is not a block device, refusing: %m", opened);
+                }  else
                         continue;
-
-                source_fd = open(p->copy_blocks_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (source_fd < 0)
-                        return log_error_errno(errno, "Failed to open block copy file '%s': %m", p->copy_blocks_path);
-
-                if (fstat(source_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat block copy file '%s': %m", p->copy_blocks_path);
 
                 if (S_ISDIR(st.st_mode)) {
                         _cleanup_free_ char *bdev = NULL;
@@ -3428,14 +3951,14 @@ static int context_open_copy_block_paths(Context *context) {
 
                                 r = btrfs_get_block_device_fd(source_fd, &devt);
                                 if (r == -EUCLEAN)
-                                        return btrfs_log_dev_root(LOG_ERR, r, p->copy_blocks_path);
+                                        return btrfs_log_dev_root(LOG_ERR, r, opened);
                                 if (r < 0)
-                                        return log_error_errno(r, "Unable to determine backing block device of '%s': %m", p->copy_blocks_path);
+                                        return log_error_errno(r, "Unable to determine backing block device of '%s': %m", opened);
 
                                 r = device_path_make_major_minor(S_IFBLK, devt, &bdev);
                         }
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine block device path for block device backing '%s': %m", p->copy_blocks_path);
+                                return log_error_errno(r, "Failed to determine block device path for block device backing '%s': %m", opened);
 
                         safe_close(source_fd);
 
@@ -3456,15 +3979,21 @@ static int context_open_copy_block_paths(Context *context) {
                         if (ioctl(source_fd, BLKGETSIZE64, &size) != 0)
                                 return log_error_errno(errno, "Failed to determine size of block device to copy from: %m");
                 } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing: %m", p->copy_blocks_path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing: %m", opened);
 
                 if (size <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", p->copy_blocks_path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", opened);
                 if (size % 512 != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has size that is not multiple of 512, refusing.", p->copy_blocks_path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has size that is not multiple of 512, refusing.", opened);
 
                 p->copy_blocks_fd = TAKE_FD(source_fd);
                 p->copy_blocks_size = size;
+
+                free_and_replace(p->copy_blocks_path, opened);
+
+                /* When copying from an existing partition copy that partitions UUID if none is configured explicitly */
+                if (sd_id128_is_null(p->new_uuid) && !sd_id128_is_null(uuid))
+                        p->new_uuid = uuid;
         }
 
         return 0;
@@ -3493,6 +4022,7 @@ static int help(void) {
                "                          them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
                "     --root=PATH          Operate relative to root path\n"
+               "     --image=PATH         Operate relative to image file\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
@@ -3523,6 +4053,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FACTORY_RESET,
                 ARG_CAN_FACTORY_RESET,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_SEED,
                 ARG_PRETTY,
                 ARG_DEFINITIONS,
@@ -3544,6 +4075,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "factory-reset",     required_argument, NULL, ARG_FACTORY_RESET     },
                 { "can-factory-reset", no_argument,       NULL, ARG_CAN_FACTORY_RESET },
                 { "root",              required_argument, NULL, ARG_ROOT              },
+                { "image",             required_argument, NULL, ARG_IMAGE             },
                 { "seed",              required_argument, NULL, ARG_SEED              },
                 { "pretty",            required_argument, NULL, ARG_PRETTY            },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
@@ -3623,7 +4155,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -3773,9 +4311,18 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "If --empty=create is specified, --size= must be specified, too.");
 
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+        else if (!arg_image && !arg_root && in_initrd()) {
+                /* Default to operation on /sysroot when invoked in the initrd! */
+                arg_root = strdup("/sysroot");
+                if (!arg_root)
+                        return log_oom();
+        }
+
         arg_node = argc > optind ? argv[optind] : NULL;
 
-        if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node)
+        if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to a device node or loopback file must be specified when --empty=force, --empty=require or --empty=create are used.");
 
@@ -3848,39 +4395,44 @@ static int remove_efi_variable_factory_reset(void) {
         return 0;
 }
 
-static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) {
+static int acquire_root_devno(
+                const char *p,
+                const char *root,
+                int mode,
+                char **ret,
+                int *ret_fd) {
+
+        _cleanup_free_ char *found_path = NULL;
+        dev_t devno, fd_devno = MODE_INVALID;
         _cleanup_close_ int fd = -1;
         struct stat st;
-        dev_t devno, fd_devno = MODE_INVALID;
         int r;
 
         assert(p);
         assert(ret);
         assert(ret_fd);
 
-        fd = open(p, mode);
+        fd = chase_symlinks_and_open(p, root, CHASE_PREFIX_ROOT, mode, &found_path);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (S_ISREG(st.st_mode)) {
-                char *s;
-
-                s = strdup(p);
-                if (!s)
-                        return log_oom();
-
-                *ret = s;
+                *ret = TAKE_PTR(found_path);
                 *ret_fd = TAKE_FD(fd);
-
                 return 0;
         }
 
-        if (S_ISBLK(st.st_mode))
+        if (S_ISBLK(st.st_mode)) {
+                /* Refuse referencing explicit block devices if a root dir is specified, after all we should
+                 * not be able to leave the image the root path constrains us to. */
+                if (root)
+                        return -EPERM;
+
                 fd_devno = devno = st.st_rdev;
-        else if (S_ISDIR(st.st_mode)) {
+        } else if (S_ISDIR(st.st_mode)) {
 
                 devno = st.st_dev;
                 if (major(devno) == 0) {
@@ -3895,7 +4447,9 @@ static int acquire_root_devno(const char *p, int mode, char **ret, int *ret_fd) 
 
         /* From dm-crypt to backing partition */
         r = block_get_originating(devno, &devno);
-        if (r < 0)
+        if (r == -ENOENT)
+                log_debug_errno(r, "Device '%s' has no dm-crypt/dm-verity device, no need to look for underlying block device.", p);
+        else if (r < 0)
                 log_debug_errno(r, "Failed to find underlying block device for '%s', ignoring: %m", p);
 
         /* From partition to whole disk containing it */
@@ -3938,7 +4492,9 @@ static int find_root(char **ret, int *ret_fd) {
                         return 0;
                 }
 
-                r = acquire_root_devno(arg_node, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                /* Note that we don't specify a root argument here: if the user explicitly configured a node
+                 * we'll take it relative to the host, not the image */
+                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, arg_node);
                 if (r < 0)
@@ -3966,7 +4522,7 @@ static int find_root(char **ret, int *ret_fd) {
                 } else
                         p = t;
 
-                r = acquire_root_devno(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
+                r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
                 if (r < 0) {
                         if (r == -EUCLEAN)
                                 return btrfs_log_dev_root(LOG_ERR, r, p);
@@ -4013,9 +4569,15 @@ static int resize_pt(int fd) {
         return 1;
 }
 
-static int resize_backing_fd(const char *node, int *fd) {
+static int resize_backing_fd(
+                const char *node,           /* The primary way we access the disk image to operate on */
+                int *fd,                    /* An O_RDONLY fd referring to that inode */
+                const char *backing_file,   /* If the above refers to a loopback device, the backing regular file for that, which we can grow */
+                LoopDevice *loop_device) {
+
         char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
         _cleanup_close_ int writable_fd = -1;
+        uint64_t current_size;
         struct stat st;
         int r;
 
@@ -4036,25 +4598,64 @@ static int resize_backing_fd(const char *node, int *fd) {
         if (fstat(*fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", node);
 
-        r = stat_verify_regular(&st);
-        if (r < 0)
-                return log_error_errno(r, "Specified path '%s' is not a regular file, cannot resize: %m", node);
+        if (S_ISBLK(st.st_mode)) {
+                if (!backing_file)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Cannot resize block device '%s'.", node);
 
-        assert_se(format_bytes(buf1, sizeof(buf1), st.st_size));
+                assert(loop_device);
+
+                if (ioctl(*fd, BLKGETSIZE64, &current_size) < 0)
+                        return log_error_errno(errno, "Failed to determine size of block device %s: %m", node);
+        } else {
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Specified path '%s' is not a regular file or loopback block device, cannot resize: %m", node);
+
+                assert(!backing_file);
+                assert(!loop_device);
+                current_size = st.st_size;
+        }
+
+        assert_se(format_bytes(buf1, sizeof(buf1), current_size));
         assert_se(format_bytes(buf2, sizeof(buf2), arg_size));
 
-        if ((uint64_t) st.st_size >= arg_size) {
+        if (current_size >= arg_size) {
                 log_info("File '%s' already is of requested size or larger, not growing. (%s >= %s)", node, buf1, buf2);
                 return 0;
         }
 
-        /* The file descriptor is read-only. In order to grow the file we need to have a writable fd. We
-         * reopen the file for that temporarily. We keep the writable fd only open for this operation though,
-         * as fdisk can't accept it anyway. */
+        if (S_ISBLK(st.st_mode)) {
+                assert(backing_file);
 
-        writable_fd = fd_reopen(*fd, O_WRONLY|O_CLOEXEC);
-        if (writable_fd < 0)
-                return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
+                /* This is a loopback device. We can't really grow those directly, but we can grow the
+                 * backing file, hence let's do that. */
+
+                writable_fd = open(backing_file, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+                if (writable_fd < 0)
+                        return log_error_errno(errno, "Failed to open backing file '%s': %m", backing_file);
+
+                if (fstat(writable_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat() backing file '%s': %m", backing_file);
+
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_error_errno(r, "Backing file '%s' of block device is not a regular file: %m", backing_file);
+
+                if ((uint64_t) st.st_size != current_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Size of backing file '%s' of loopback block device '%s' don't match, refusing.", node, backing_file);
+        } else {
+                assert(S_ISREG(st.st_mode));
+                assert(!backing_file);
+
+                /* The file descriptor is read-only. In order to grow the file we need to have a writable fd. We
+                 * reopen the file for that temporarily. We keep the writable fd only open for this operation though,
+                 * as fdisk can't accept it anyway. */
+
+                writable_fd = fd_reopen(*fd, O_WRONLY|O_CLOEXEC);
+                if (writable_fd < 0)
+                        return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
+        }
 
         if (!arg_discard) {
                 if (fallocate(writable_fd, 0, 0, arg_size) < 0) {
@@ -4065,16 +4666,12 @@ static int resize_backing_fd(const char *node, int *fd) {
                         /* Fallback to truncation, if fallocate() is not supported. */
                         log_debug("Backing file system does not support fallocate(), falling back to ftruncate().");
                 } else {
-                        r = resize_pt(writable_fd);
-                        if (r < 0)
-                                return r;
-
-                        if (st.st_size == 0) /* Likely regular file just created by us */
+                        if (current_size == 0) /* Likely regular file just created by us */
                                 log_info("Allocated %s for '%s'.", buf2, node);
                         else
                                 log_info("File '%s' grown from %s to %s by allocation.", node, buf1, buf2);
 
-                        return 1;
+                        goto done;
                 }
         }
 
@@ -4082,14 +4679,21 @@ static int resize_backing_fd(const char *node, int *fd) {
                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by truncation: %m",
                                        node, buf1, buf2);
 
+        if (current_size == 0) /* Likely regular file just created by us */
+                log_info("Sized '%s' to %s.", node, buf2);
+        else
+                log_info("File '%s' grown from %s to %s by truncation.", node, buf1, buf2);
+
+done:
         r = resize_pt(writable_fd);
         if (r < 0)
                 return r;
 
-        if (st.st_size == 0) /* Likely regular file just created by us */
-                log_info("Sized '%s' to %s.", node, buf2);
-        else
-                log_info("File '%s' grown from %s to %s by truncation.", node, buf1, buf2);
+        if (loop_device) {
+                r = loop_device_refresh_size(loop_device, UINT64_MAX, arg_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update loop device size: %m");
+        }
 
         return 1;
 }
@@ -4100,8 +4704,6 @@ static int determine_auto_size(Context *c) {
         Partition *p;
 
         assert_se(c);
-        assert_se(arg_size == UINT64_MAX);
-        assert_se(arg_size_auto);
 
         LIST_FOREACH(partitions, p, c->partitions) {
                 uint64_t m;
@@ -4124,22 +4726,18 @@ static int determine_auto_size(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *node = NULL;
         _cleanup_close_ int backing_fd = -1;
-        bool from_scratch;
+        bool from_scratch, node_is_our_loop = false;
         int r;
 
         log_show_color(true);
         log_parse_environment();
         log_open();
-
-        if (in_initrd()) {
-                /* Default to operation on /sysroot when invoked in the initrd! */
-                arg_root = strdup("/sysroot");
-                if (!arg_root)
-                        return log_oom();
-        }
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -4152,6 +4750,40 @@ static int run(int argc, char *argv[]) {
         r = parse_efi_variable_factory_reset();
         if (r < 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                /* Mount this strictly read-only: we shall modify the partition table, not the file
+                 * systems */
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_MOUNT_READ_ONLY |
+                                DISSECT_IMAGE_GPT_ONLY |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_USR_NO_ROOT|
+                                DISSECT_IMAGE_REQUIRE_ROOT,
+                                &mounted_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+
+                if (!arg_node) {
+                        arg_node = strdup(loop_device->node);
+                        if (!arg_node)
+                                return log_oom();
+
+                        /* Remember that the the device we are about to manipulate is actually the one we
+                         * allocated here, and thus to increase its backing file we know what to do */
+                        node_is_our_loop = true;
+                }
+        }
 
         context = context_new(arg_seed);
         if (!context)
@@ -4171,7 +4803,11 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_size != UINT64_MAX) {
-                r = resize_backing_fd(node, &backing_fd);
+                r = resize_backing_fd(
+                                node,
+                                &backing_fd,
+                                node_is_our_loop ? arg_image : NULL,
+                                node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
         }
@@ -4220,7 +4856,12 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* Open all files to copy blocks from now, since we want to take their size into consideration */
-        r = context_open_copy_block_paths(context);
+        r = context_open_copy_block_paths(
+                        context,
+                        arg_root,
+                        loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device*/
+                                      arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
+                                      (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)
                 return r;
 
@@ -4233,7 +4874,11 @@ static int run(int argc, char *argv[]) {
                 context_unload_partition_table(context);
 
                 assert_se(arg_size != UINT64_MAX);
-                r = resize_backing_fd(node, &backing_fd);
+                r = resize_backing_fd(
+                                node,
+                                &backing_fd,
+                                node_is_our_loop ? arg_image : NULL,
+                                node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
 
@@ -4247,9 +4892,13 @@ static int run(int argc, char *argv[]) {
                 if (context_allocate_partitions(context))
                         break; /* Success! */
 
-                if (!context_drop_one_priority(context))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                if (!context_drop_one_priority(context)) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                                "Can't fit requested partitions into free space, refusing.");
+
+                        determine_auto_size(context);
+                        return r;
+                }
         }
 
         /* Now assign free space according to the weight logic */
