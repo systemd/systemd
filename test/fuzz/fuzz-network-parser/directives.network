@@ -270,6 +270,7 @@ ManageTemporaryAddress=
 Broadcast=
 Peer=
 Label=
+RouteMetric=
 [RoutingPolicyRule]
 Table=
 IncomingInterface=

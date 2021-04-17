@@ -28,6 +28,7 @@ typedef struct Address {
         unsigned char prefixlen;
         unsigned char scope;
         uint32_t flags;
+        uint32_t route_metric; /* route metric for prefix route */
         char *label;
 
         int set_broadcast;
@@ -83,6 +84,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
 
 #define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
