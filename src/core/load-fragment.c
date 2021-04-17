@@ -3437,6 +3437,13 @@ int config_parse_address_families(
                 return 0;
         }
 
+        if (streq(rvalue, "none")) {
+                /* Forbid all address families. */
+                c->address_families = set_free(c->address_families);
+                c->address_families_allow_list = true;
+                return 0;
+        }
+
         if (rvalue[0] == '~') {
                 invert = true;
                 rvalue++;
