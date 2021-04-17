@@ -4007,7 +4007,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip route show dev veth99')
         print(output)
-        self.assertRegex(output, 'metric 24')
+        self.assertIn('default via 192.168.5.1 proto dhcp src 192.168.5.181 metric 24', output)
+        self.assertIn('192.168.5.0/24 proto kernel scope link src 192.168.5.181 metric 24', output)
+        self.assertIn('192.168.5.1 proto dhcp scope link src 192.168.5.181 metric 24', output)
 
     def test_dhcp_client_reassign_static_routes_ipv4(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
