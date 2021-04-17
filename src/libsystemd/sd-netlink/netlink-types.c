@@ -683,13 +683,13 @@ static const NLType rtnl_address_types[] = {
         [IFA_ADDRESS]           = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_LABEL]             = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
-        [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
+        [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_ANYCAST]           = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_CACHEINFO]         = { .type = NETLINK_TYPE_CACHE_INFO, .size = sizeof(struct ifa_cacheinfo) },
-/*
-        [IFA_ANYCAST],
-        [IFA_MULTICAST],
-*/
+        [IFA_MULTICAST]         = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_FLAGS]             = { .type = NETLINK_TYPE_U32 },
+        [IFA_RT_PRIORITY]       = { .type = NETLINK_TYPE_U32 },
+        [IFA_TARGET_NETNSID]    = { .type = NETLINK_TYPE_S32 },
 };
 
 static const NLTypeSystem rtnl_address_type_system = {
