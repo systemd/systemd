@@ -105,6 +105,8 @@ libcore_sources = '''
         slice.h
         smack-setup.c
         smack-setup.h
+        socket-bind.c
+        socket-bind.h
         socket.c
         socket.h
         swap.c
@@ -122,6 +124,11 @@ libcore_sources = '''
         unit.c
         unit.h
 '''.split()
+
+if conf.get('BPF_FRAMEWORK') == 1
+        subdir('bpf')
+        libcore_sources += [socket_bind_skel_h]
+endif
 
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
@@ -152,6 +159,7 @@ libcore = static_library(
         include_directories : includes,
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libpam,
