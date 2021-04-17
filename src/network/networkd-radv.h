@@ -33,6 +33,7 @@ typedef struct Prefix {
         sd_radv_prefix *radv_prefix;
 
         bool assign;
+        uint32_t route_metric;
 } Prefix;
 
 typedef struct RoutePrefix {
@@ -64,6 +65,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_assign);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);
