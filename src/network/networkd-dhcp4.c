@@ -1224,17 +1224,17 @@ static int dhcp4_set_client_identifier(Link *link) {
         switch (link->network->dhcp_client_identifier) {
         case DHCP_CLIENT_ID_DUID: {
                 /* If configured, apply user specified DUID and IAID */
-                const DUID *duid = link_get_duid(link);
+                const DUID *duid = link_get_dhcp4_duid(link);
 
                 if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                         r = sd_dhcp_client_set_iaid_duid_llt(link->dhcp_client,
-                                                             link->network->iaid_set,
-                                                             link->network->iaid,
+                                                             link->network->dhcp_iaid_set,
+                                                             link->network->dhcp_iaid,
                                                              duid->llt_time);
                 else
                         r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
-                                                         link->network->iaid_set,
-                                                         link->network->iaid,
+                                                         link->network->dhcp_iaid_set,
+                                                         link->network->dhcp_iaid,
                                                          duid->type,
                                                          duid->raw_data_len > 0 ? duid->raw_data : NULL,
                                                          duid->raw_data_len);
@@ -1244,7 +1244,7 @@ static int dhcp4_set_client_identifier(Link *link) {
         }
         case DHCP_CLIENT_ID_DUID_ONLY: {
                 /* If configured, apply user specified DUID */
-                const DUID *duid = link_get_duid(link);
+                const DUID *duid = link_get_dhcp4_duid(link);
 
                 if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                         r = sd_dhcp_client_set_duid_llt(link->dhcp_client,
@@ -1283,6 +1283,15 @@ static int dhcp4_set_client_identifier(Link *link) {
         return 0;
 }
 
+static int dhcp4_configure_duid(Link *link) {
+        assert(link);
+
+        if (!IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
+                return 1;
+
+        return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
+}
+
 static int dhcp4_set_request_address(Link *link) {
         Address *a;
 
@@ -1308,7 +1317,7 @@ static int dhcp4_set_request_address(Link *link) {
         return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
 }
 
-int dhcp4_configure(Link *link) {
+int dhcp4_configure(Link *link, bool also_configure_duid) {
         sd_dhcp_option *send_option;
         void *request_options;
         int r;
@@ -1321,6 +1330,16 @@ int dhcp4_configure(Link *link) {
 
         if (link->dhcp_client)
                 return -EBUSY; /* Already configured. */
+
+        log_link_info(link, "%s(also_configure_duid=%s): before", __func__, yes_no(also_configure_duid));
+
+        if (also_configure_duid) {
+                r = dhcp4_configure_duid(link);
+                if (r <= 0)
+                        return r;
+        }
+
+        log_link_info(link, "%s(also_configure_duid=%s): after", __func__, yes_no(also_configure_duid));
 
         r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
         if (r < 0)
@@ -1502,6 +1521,20 @@ int dhcp4_update_mac(Link *link) {
                 return r;
 
         return 0;
+}
+
+int dhcp4_start(Link *link) {
+        assert(link);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        if (sd_dhcp_client_is_running(link->dhcp_client) > 0)
+                return 0;
+
+        log_link_debug(link, "Acquiring DHCPv4 lease");
+
+        return sd_dhcp_client_start(link->dhcp_client);
 }
 
 int config_parse_dhcp_max_attempts(

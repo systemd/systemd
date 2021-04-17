@@ -118,9 +118,9 @@ struct Network {
         /* DHCP Client Support */
         AddressFamily dhcp;
         DHCPClientIdentifier dhcp_client_identifier;
-        DUID duid;
-        uint32_t iaid;
-        bool iaid_set;
+        DUID dhcp_duid;
+        uint32_t dhcp_iaid;
+        bool dhcp_iaid_set;
         char *dhcp_vendor_class_identifier;
         char *dhcp_mudurl;
         char **dhcp_user_class;
@@ -169,6 +169,10 @@ struct Network {
         bool dhcp6_rapid_commit;
         DHCPUseDomains dhcp6_use_domains;
         bool dhcp6_use_domains_set;
+        uint32_t dhcp6_iaid;
+        bool dhcp6_iaid_set;
+        bool dhcp6_iaid_set_explicitly;
+        DUID dhcp6_duid;
         uint8_t dhcp6_pd_length;
         uint32_t dhcp6_route_metric;
         bool dhcp6_route_metric_set;
