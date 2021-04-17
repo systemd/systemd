@@ -1095,6 +1095,7 @@ int link_set_addresses(Link *link) {
                         return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
 
                 address->family = AF_INET6;
+                address->route_metric = p->route_metric;
                 r = static_address_configure(address, link);
                 if (r < 0)
                         return r;
