@@ -146,6 +146,7 @@ Address.AddPrefixRoute,                      config_parse_address_flags,        
 Address.AutoJoin,                            config_parse_address_flags,                               IFA_F_MCAUTOJOIN,              0
 Address.DuplicateAddressDetection,           config_parse_duplicate_address_detection,                 0,                             0
 Address.Scope,                               config_parse_address_scope,                               0,                             0
+Address.RouteMetric,                         config_parse_address_route_metric,                        0,                             0
 IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix,                        0,                             0
 IPv6AddressLabel.Label,                      config_parse_address_label,                               0,                             0
 Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0

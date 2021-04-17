@@ -1100,6 +1100,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>The metric of the prefix route. Takes an unsigned integer in the range 0…4294967295.
+            When unset or set to 0, the kernel's default value is used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>HomeAddress=</varname></term>
           <listitem>
             <para>Takes a boolean. Designates this address the "home address" as defined in
