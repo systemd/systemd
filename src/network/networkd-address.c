@@ -918,6 +918,10 @@ int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_CACHEINFO attribute: %m");
 
+        r = sd_netlink_message_append_u32(req, IFA_RT_PRIORITY, address->route_metric);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFA_RT_PRIORITY attribute: %m");
+
         k = address_add(link, address, &a);
         if (k < 0)
                 return log_link_error_errno(link, k, "Could not add address: %m");
@@ -1091,6 +1095,7 @@ int link_set_addresses(Link *link) {
                         return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
 
                 address->family = AF_INET6;
+                address->route_metric = p->route_metric;
                 r = static_address_configure(address, link);
                 if (r < 0)
                         return r;
@@ -1797,6 +1802,48 @@ int config_parse_address_scope(
         }
 
         n->scope_set = true;
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_address_route_metric(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate new address, ignoring assignment: %m");
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &n->route_metric);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
         TAKE_PTR(n);
         return 0;
 }
