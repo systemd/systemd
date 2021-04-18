@@ -1311,7 +1311,7 @@ static int dhcp4_set_request_address(Link *link) {
 int dhcp4_configure(Link *link) {
         sd_dhcp_option *send_option;
         void *request_options;
-        int r;
+        int dhcp_broadcast, r;
 
         assert(link);
         assert(link->network);
@@ -1345,7 +1345,29 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set callback: %m");
 
-        r = sd_dhcp_client_set_request_broadcast(link->dhcp_client, link->network->dhcp_broadcast);
+        /* Some interfaces require that the DHCPOFFER message is being broadcast because
+         * they can't handle unicast messages while not fully configured.
+         * Setting device property ID_NET_NEEDS_DHCP_BROADCAST to "1" can be used to
+         * override the dhcp_broadcast flag for such interfaces. */
+        dhcp_broadcast = link->network->dhcp_broadcast;
+        if (dhcp_broadcast < 0) {
+                const char *needs_dhcp_broadcast = NULL;
+
+                r = sd_device_get_property_value(link->sd_device,
+                                                 "ID_NET_NEEDS_DHCP_BROADCAST",
+                                                 &needs_dhcp_broadcast);
+                if (r >= 0) {
+                        r = parse_boolean(needs_dhcp_broadcast);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to parse ID_NET_NEEDS_DHCP_BROADCAST: %m");
+                        else {
+                                dhcp_broadcast = r;
+                                log_link_info(link, "DHCP4 CLIENT: Overriding broadcast flag.");
+                        }
+                }
+        }
+
+        r = sd_dhcp_client_set_request_broadcast(link->dhcp_client, dhcp_broadcast);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for broadcast: %m");
 
