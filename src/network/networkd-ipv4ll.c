@@ -91,6 +91,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         ll_addr->prefixlen = 16;
         ll_addr->broadcast.s_addr = ll_addr->in_addr.in.s_addr | htobe32(0xfffffffflu >> ll_addr->prefixlen);
         ll_addr->scope = RT_SCOPE_LINK;
+        ll_addr->route_metric = IPV4LL_ROUTE_METRIC;
 
         r = address_configure(ll_addr, link, ipv4ll_address_handler, NULL);
         if (r < 0)
