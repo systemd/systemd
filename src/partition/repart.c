@@ -3116,7 +3116,7 @@ static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *re
                         continue;
 
                 if (sd_id128_in_set(result.id, q->current_uuid, q->new_uuid)) {
-                        log_warning("Partition UUID calculated from seed for partition %" PRIu64 " exists already, reverting to randomized UUID.", p->partno);
+                        log_warning("Partition UUID calculated from seed for partition %" PRIu64 " already used, reverting to randomized UUID.", p->partno);
 
                         r = sd_id128_randomize(&result.id);
                         if (r < 0)
