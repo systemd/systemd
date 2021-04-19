@@ -18,6 +18,7 @@
 ***/
 
 #include <inttypes.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "_sd-common.h"
@@ -118,6 +119,37 @@ _sd_pure_ static __inline__ int sd_id128_is_allf(sd_id128_t a) {
 
 #define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
 #define SD_ID128_ALLF ((const sd_id128_t) { .qwords = { UINT64_C(0xFFFFFFFFFFFFFFFF), UINT64_C(0xFFFFFFFFFFFFFFFF) }})
+
+_sd_pure_ static __inline__ int sd_id128_equalv(sd_id128_t a, va_list ap) {
+        int r = 0;
+
+        for (;;) {
+                sd_id128_t b = va_arg(ap, sd_id128_t);
+
+                if (sd_id128_is_null(b))
+                        break;
+
+                r = sd_id128_equal(a, b);
+                if (r)
+                        break;
+        }
+
+        return r;
+}
+
+_sd_pure_ static __inline__ int sd_id128_equals_sentinel(sd_id128_t a, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, a);
+        r = sd_id128_equalv(a, ap);
+        va_end(ap);
+
+        return r;
+}
+
+#define sd_id128_equals(a, ...) \
+        sd_id128_equals_sentinel(a, ##__VA_ARGS__, SD_ID128_NULL)
 
 _SD_END_DECLARATIONS;
 
