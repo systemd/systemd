@@ -115,7 +115,7 @@
   __attribute__((cleanup(sd_login_monitor_unrefp))) sd_login_monitor *m = NULL;
   int r;
   …
-  r = sd_login_monitor_default(&amp;m);
+  r = sd_login_monitor_new(NULL, &amp;m);
   if (r &lt; 0)
     fprintf(stderr, "Failed to allocate login monitor object: %s\n", strerror(-r));
   …
