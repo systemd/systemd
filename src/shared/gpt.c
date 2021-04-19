@@ -28,16 +28,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ARM,         "arm"),
         _GPT_ARCH_SEXTET(ARM64,       "arm64"),
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
-
-        // TODO: Replace with `_GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64")` once
-        // https://github.com/systemd/systemd/pull/21288 is merged. */
-        { GPT_ROOT_LOONGARCH64,            "root-loongarch64",            _ARCHITECTURE_INVALID, .is_root = true            },
-        { GPT_ROOT_LOONGARCH64_VERITY,     "root-loongarch64-verity",     _ARCHITECTURE_INVALID, .is_root_verity = true     },
-        { GPT_ROOT_LOONGARCH64_VERITY_SIG, "root-loongarch64-verity-sig", _ARCHITECTURE_INVALID, .is_root_verity_sig = true },
-        { GPT_USR_LOONGARCH64,             "usr-loongarch64",             _ARCHITECTURE_INVALID, .is_usr = true             },
-        { GPT_USR_LOONGARCH64_VERITY,      "usr-loongarch64-verity",      _ARCHITECTURE_INVALID, .is_usr_verity = true      },
-        { GPT_USR_LOONGARCH64_VERITY_SIG,  "usr-loongarch64-verity-sig",  _ARCHITECTURE_INVALID, .is_usr_verity_sig = true  },
-
+        _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
