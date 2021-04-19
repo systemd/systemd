@@ -7,6 +7,7 @@
 #include "format-util.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "socket-bind.h"
 #include "string-table.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -150,6 +151,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
+
+        (void) serialize_socket_bind(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -361,6 +364,23 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                 else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-invalidated-mask", l, v, cg_mask_from_string, u->cgroup_invalidated_mask))
                         continue;
+
+                else if (STR_IN_SET(l, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
+                        int fd;
+
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                                log_unit_debug(u, "Failed to parse %s value: %s, ignoring.", l, v);
+                        else {
+                                if (fdset_remove(fds, fd) < 0) {
+                                        log_unit_debug(u, "Failed to remove %s value=%d from fdset", l, fd);
+
+                                        continue;
+                                }
+
+                                (void) socket_bind_add_initial_link_fd(u, fd);
+                        }
+                        continue;
+                }
 
                 else if (streq(l, "ref-uid")) {
                         uid_t uid;

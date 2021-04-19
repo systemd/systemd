@@ -309,6 +309,7 @@ typedef struct Unit {
          * attached to unit cgroup by provided program fd and attach type. */
         Hashmap *bpf_foreign_by_key;
 
+        FDSet *initial_socket_bind_link_fds;
 #if BPF_FRAMEWORK
         /* BPF links to BPF programs attached to cgroup/bind{4|6} hooks and
          * responsible for allowing or denying a unit to bind(2) to a socket
