@@ -132,7 +132,25 @@ int socket_bind_supported(void) {
         return can_link_bpf_program(obj->progs.sd_bind4);
 }
 
-int socket_bind_install(Unit *u) {
+int socket_bind_add_initial_link_fd(Unit *u, int fd) {
+        int r;
+
+        assert(u);
+
+        if (!u->initial_socket_bind_link_fds) {
+                u->initial_socket_bind_link_fds = fdset_new();
+                if (!u->initial_socket_bind_link_fds)
+                        return log_oom();
+        }
+
+        r = fdset_put(u->initial_socket_bind_link_fds, fd);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to put socket-bind BPF link fd %d to initial fdset", fd);
+
+        return 0;
+}
+
+static int socket_bind_install_impl(Unit *u) {
         _cleanup_(bpf_link_freep) struct bpf_link *ipv4 = NULL, *ipv6 = NULL;
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
@@ -177,8 +195,35 @@ int socket_bind_install(Unit *u) {
 
         return 0;
 }
+
+int socket_bind_install(Unit *u) {
+        int r = socket_bind_install_impl(u);
+        if (r == -ENOMEM)
+                return r;
+
+        fdset_close(u->initial_socket_bind_link_fds);
+
+        return r;
+}
+
+int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(u);
+
+        r = serialize_bpf_link(f, fds, "ipv4-socket-bind-bpf-link", u->ipv4_socket_bind_link);
+        if (r < 0)
+                return r;
+
+        return serialize_bpf_link(f, fds, "ipv6-socket-bind-bpf-link", u->ipv6_socket_bind_link);
+}
+
 #else /* ! BPF_FRAMEWORK */
 int socket_bind_supported(void) {
+        return 0;
+}
+
+int socket_bind_add_initial_link_fd(Unit *u, int fd) {
         return 0;
 }
 
@@ -187,4 +232,7 @@ int socket_bind_install(Unit *u) {
         return 0;
 }
 
+int serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
+        return 0;
+}
 #endif
