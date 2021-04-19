@@ -268,7 +268,7 @@ static int manager_enumerate_seats(Manager *m) {
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning_errno(errno, "Failed to remove /run/systemd/seats/%s: %m",
+                                log_warning_errno(errno, "Failed to remove /run/systemd/seats/%s, ignoring: %m",
                                                   de->d_name);
                         continue;
                 }
