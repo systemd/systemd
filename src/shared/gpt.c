@@ -106,3 +106,54 @@ int gpt_partition_label_valid(const char *s) {
 
         return char16_strlen(recoded) <= 36;
 }
+
+bool gpt_partition_type_is_root(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_ROOT_X86) ||
+                sd_id128_equal(id, GPT_ROOT_X86_64) ||
+                sd_id128_equal(id, GPT_ROOT_ARM) ||
+                sd_id128_equal(id, GPT_ROOT_ARM_64) ||
+                sd_id128_equal(id, GPT_ROOT_IA64) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV32) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV64);
+}
+
+bool gpt_partition_type_is_root_verity(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_ROOT_X86_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_X86_64_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_ARM_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_ARM_64_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_IA64_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV32_VERITY) ||
+                sd_id128_equal(id, GPT_ROOT_RISCV64_VERITY);
+}
+
+bool gpt_partition_type_is_usr(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_USR_X86) ||
+                sd_id128_equal(id, GPT_USR_X86_64) ||
+                sd_id128_equal(id, GPT_USR_ARM) ||
+                sd_id128_equal(id, GPT_USR_ARM_64) ||
+                sd_id128_equal(id, GPT_USR_IA64) ||
+                sd_id128_equal(id, GPT_USR_RISCV32) ||
+                sd_id128_equal(id, GPT_USR_RISCV64);
+}
+
+bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
+        return sd_id128_equal(id, GPT_USR_X86_VERITY) ||
+                sd_id128_equal(id, GPT_USR_X86_64_VERITY) ||
+                sd_id128_equal(id, GPT_USR_ARM_VERITY) ||
+                sd_id128_equal(id, GPT_USR_ARM_64_VERITY) ||
+                sd_id128_equal(id, GPT_USR_IA64_VERITY) ||
+                sd_id128_equal(id, GPT_USR_RISCV32_VERITY) ||
+                sd_id128_equal(id, GPT_USR_RISCV64_VERITY);
+}
+
+bool gpt_partition_type_knows_read_only(sd_id128_t id) {
+        return gpt_partition_type_is_root(id) ||
+                gpt_partition_type_is_usr(id) ||
+                sd_id128_equal(id, GPT_HOME) ||
+                sd_id128_equal(id, GPT_SRV) ||
+                sd_id128_equal(id, GPT_VAR) ||
+                sd_id128_equal(id, GPT_TMP) ||
+                gpt_partition_type_is_root_verity(id) || /* pretty much implied, but let's set the bit to make things really clear */
+                gpt_partition_type_is_usr_verity(id);    /* ditto */
+}
