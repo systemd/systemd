@@ -1139,11 +1139,9 @@ static int config_parse_copy_files(
                 return 0;
         }
 
-        if (!path_is_absolute(resolved_source) || !path_is_normalized(resolved_source)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid path name in CopyFiles= source, ignoring: %s", resolved_source);
+        r = path_simplify_and_warn(resolved_source, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
                 return 0;
-        }
 
         r = specifier_printf(target, specifier_table, NULL, &resolved_target);
         if (r < 0) {
@@ -1152,11 +1150,9 @@ static int config_parse_copy_files(
                 return 0;
         }
 
-        if (!path_is_absolute(resolved_target) || !path_is_normalized(resolved_target)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid path name in CopyFiles= source, ignoring: %s", resolved_target);
+        r = path_simplify_and_warn(resolved_target, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
                 return 0;
-        }
 
         r = strv_consume_pair(&partition->copy_files, TAKE_PTR(resolved_source), TAKE_PTR(resolved_target));
         if (r < 0)
