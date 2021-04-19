@@ -18,16 +18,18 @@
 
   <refnamediv>
     <refname>sd-id128</refname>
-    <refname>sd_id128_t</refname>
+    <refname>SD_ID128_ALLF</refname>
+    <refname>SD_ID128_CONST_STR</refname>
+    <refname>SD_ID128_FORMAT_STR</refname>
+    <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>SD_ID128_MAKE</refname>
     <refname>SD_ID128_MAKE_STR</refname>
     <refname>SD_ID128_NULL</refname>
-    <refname>SD_ID128_CONST_STR</refname>
-    <refname>SD_ID128_FORMAT_STR</refname>
     <refname>SD_ID128_UUID_FORMAT_STR</refname>
-    <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>sd_id128_equal</refname>
+    <refname>sd_id128_is_allf</refname>
     <refname>sd_id128_is_null</refname>
+    <refname>sd_id128_t</refname>
     <refpurpose>APIs for processing 128-bit IDs</refpurpose>
   </refnamediv>
 
@@ -85,7 +87,7 @@
 
     <programlisting>#define SD_MESSAGE_COREDUMP SD_ID128_MAKE(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)</programlisting>
 
-    <para><constant>SD_ID128_NULL</constant> may be used to refer to the 128bit ID consisting of only
+    <para><constant>SD_ID128_NULL</constant> may be used to refer to the 128-bit ID consisting of only
     <constant>NUL</constant> bytes.</para>
 
     <para><function>SD_ID128_MAKE_STR()</function> is similar to <function>SD_ID128_MAKE()</function>, but creates a
@@ -136,12 +138,15 @@ int main(int argc, char **argv) {
   return 0;
 }</programlisting>
 
-    <para>Use <function>sd_id128_is_null()</function> to check if an 128bit ID consists of only
+    <para>Use <function>sd_id128_is_null()</function> to check if an 128-bit ID consists of only
     <constant>NUL</constant> bytes:</para>
 
-    <programlisting>int main(int argc, char *argv[]) {
-  assert(sd_id128_is_null(SD_ID128_NULL));
-}</programlisting>
+    <programlisting>assert(sd_id128_is_null(SD_ID128_NULL));</programlisting>
+
+    <para>Similarly, use <function>sd_id128_is_allf()</function> to check if an 128-bit ID consists of only
+    <constant>0xFF</constant> bytes:</para>
+
+    <programlisting>assert(sd_id128_is_allf(SD_ID128_ALLF));</programlisting>
 
     <para>Note that new, randomized IDs may be generated with
     <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
