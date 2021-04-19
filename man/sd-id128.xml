@@ -65,8 +65,8 @@
     union type:</para>
 
     <programlisting>typedef union sd_id128 {
-        uint8_t bytes[16];
-        uint64_t qwords[2];
+  uint8_t bytes[16];
+  uint64_t qwords[2];
 } sd_id128_t;</programlisting>
 
     <para>This union type allows accessing the 128-bit ID as 16
@@ -95,7 +95,7 @@
 #define SD_MESSAGE_COREDUMP_STR SD_ID128_MAKE_STR(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)
 
 int main(int argc, char **argv) {
-        puts("Match for coredumps: MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+  puts("Match for coredumps: MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 }
     </programlisting>
 
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
     following example code will output the string
     "fc2e22bc6ee647b6b90729ab34a250b1":</para>
     <programlisting>int main(int argc, char *argv[]) {
-        puts("Match for coredumps: %s", SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
+  puts("Match for coredumps: %s", SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
 }</programlisting>
 
     <para><constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_FORMAT_VAL()</function> may
@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
     format string, as shown in the following example:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
-        sd_id128_t id;
-        id = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
-        printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
-        return 0;
+  sd_id128_t id;
+  id = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+  printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
+  return 0;
 }</programlisting>
 
     <para><constant>SD_ID128_UUID_FORMAT_STR</constant> is similar to
@@ -127,20 +127,20 @@ int main(int argc, char **argv) {
     <para>Use <function>sd_id128_equal()</function> to compare two 128-bit IDs:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
-        sd_id128_t a, b, c;
-        a = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
-        b = SD_ID128_MAKE(f2,28,88,9c,5f,09,44,15,9d,d7,04,77,58,cb,e7,3e);
-        c = a;
-        assert(sd_id128_equal(a, c));
-        assert(!sd_id128_equal(a, b));
-        return 0;
+  sd_id128_t a, b, c;
+  a = SD_ID128_MAKE(ee,89,be,71,bd,6e,43,d6,91,e6,c5,5d,eb,03,02,07);
+  b = SD_ID128_MAKE(f2,28,88,9c,5f,09,44,15,9d,d7,04,77,58,cb,e7,3e);
+  c = a;
+  assert(sd_id128_equal(a, c));
+  assert(!sd_id128_equal(a, b));
+  return 0;
 }</programlisting>
 
     <para>Use <function>sd_id128_is_null()</function> to check if an 128bit ID consists of only
     <constant>NUL</constant> bytes:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
-        assert(sd_id128_is_null(SD_ID128_NULL));
+  assert(sd_id128_is_null(SD_ID128_NULL));
 }</programlisting>
 
     <para>Note that new, randomized IDs may be generated with
