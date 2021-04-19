@@ -1391,6 +1391,27 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", m->mount_options))
                         return -ENOMEM;
 
+        /* So, when you request MS_RDONLY from ext4, then this means nothing. It happily still writes to the
+         * backing storage. What's worse, the BLKRO[GS]ET flag and (in case of loopback devices)
+         * LO_FLAGS_READ_ONLY don't mean anything, they affect userspace accesses only, and write accesses
+         * from the upper file system still get propagated through to the underlying file system,
+         * unrestricted. To actually get ext4/xfs/btrfs to stop writing to the device we need to specify
+         * "norecovery" as mount option, in addition to MS_RDONLY. Yes, this sucks, since it means we need to
+         * carry a per file system table here.
+         *
+         * Note that this means that we might not be able to mount corrupted file systems as read-only
+         * anymore (since in some cases the kernel implementations will refuse mounting when corrupted,
+         * read-only and "norecovery" is specified). But I think for the case of automatically determined
+         * mount options for loopback devices this is the right choice, since otherwise using the same
+         * loopback file twice even in read-only mode, is going to fail badly sooner or later. The usecase of
+         * making reuse of the immutable images "just work" is more relevant to us than having read-only
+         * access that actually modifies stuff work on such image files. Or to say this differently: if
+         * people want their file systems to be fixed up they should just open them in writable mode, where
+         * all these problems don't exist. */
+        if (!rw && STRPTR_IN_SET(fstype, "ext3", "ext4", "xfs", "btrfs"))
+                if (!strextend_with_separator(&options, ",", "norecovery"))
+                        return -ENOMEM;
+
         r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
                 return r;
