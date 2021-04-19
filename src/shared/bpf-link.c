@@ -3,6 +3,7 @@
 #include <bpf/libbpf.h>
 
 #include "bpf-link.h"
+#include "serialize.h"
 
 bool can_link_bpf_program(struct bpf_program *prog) {
         _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
@@ -14,6 +15,21 @@ bool can_link_bpf_program(struct bpf_program *prog) {
 
         /* EBADF indicates that bpf_link is supported by kernel. */
         return libbpf_get_error(link) == -EBADF;
+}
+
+int serialize_bpf_link(FILE *f, FDSet *fds, const char *key, struct bpf_link *link) {
+        int fd;
+
+        assert(key);
+
+        if (!link)
+                return -ENOENT;
+
+        if (libbpf_get_error(link) != 0)
+                return -EINVAL;
+
+        fd = bpf_link__fd(link);
+        return serialize_fd(f, fds, key, fd);
 }
 
 struct bpf_link *bpf_link_free(struct bpf_link *link) {
