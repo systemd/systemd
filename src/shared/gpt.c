@@ -108,52 +108,57 @@ int gpt_partition_label_valid(const char *s) {
 }
 
 bool gpt_partition_type_is_root(sd_id128_t id) {
-        return sd_id128_equal(id, GPT_ROOT_X86) ||
-                sd_id128_equal(id, GPT_ROOT_X86_64) ||
-                sd_id128_equal(id, GPT_ROOT_ARM) ||
-                sd_id128_equal(id, GPT_ROOT_ARM_64) ||
-                sd_id128_equal(id, GPT_ROOT_IA64) ||
-                sd_id128_equal(id, GPT_ROOT_RISCV32) ||
-                sd_id128_equal(id, GPT_ROOT_RISCV64);
+        return sd_id128_in_set(id,
+                               GPT_ROOT_X86,
+                               GPT_ROOT_X86_64,
+                               GPT_ROOT_ARM,
+                               GPT_ROOT_ARM_64,
+                               GPT_ROOT_IA64,
+                               GPT_ROOT_RISCV32,
+                               GPT_ROOT_RISCV64);
 }
 
 bool gpt_partition_type_is_root_verity(sd_id128_t id) {
-        return sd_id128_equal(id, GPT_ROOT_X86_VERITY) ||
-                sd_id128_equal(id, GPT_ROOT_X86_64_VERITY) ||
-                sd_id128_equal(id, GPT_ROOT_ARM_VERITY) ||
-                sd_id128_equal(id, GPT_ROOT_ARM_64_VERITY) ||
-                sd_id128_equal(id, GPT_ROOT_IA64_VERITY) ||
-                sd_id128_equal(id, GPT_ROOT_RISCV32_VERITY) ||
-                sd_id128_equal(id, GPT_ROOT_RISCV64_VERITY);
+        return sd_id128_in_set(id,
+                               GPT_ROOT_X86_VERITY,
+                               GPT_ROOT_X86_64_VERITY,
+                               GPT_ROOT_ARM_VERITY,
+                               GPT_ROOT_ARM_64_VERITY,
+                               GPT_ROOT_IA64_VERITY,
+                               GPT_ROOT_RISCV32_VERITY,
+                               GPT_ROOT_RISCV64_VERITY);
 }
 
 bool gpt_partition_type_is_usr(sd_id128_t id) {
-        return sd_id128_equal(id, GPT_USR_X86) ||
-                sd_id128_equal(id, GPT_USR_X86_64) ||
-                sd_id128_equal(id, GPT_USR_ARM) ||
-                sd_id128_equal(id, GPT_USR_ARM_64) ||
-                sd_id128_equal(id, GPT_USR_IA64) ||
-                sd_id128_equal(id, GPT_USR_RISCV32) ||
-                sd_id128_equal(id, GPT_USR_RISCV64);
+        return sd_id128_in_set(id,
+                               GPT_USR_X86,
+                               GPT_USR_X86_64,
+                               GPT_USR_ARM,
+                               GPT_USR_ARM_64,
+                               GPT_USR_IA64,
+                               GPT_USR_RISCV32,
+                               GPT_USR_RISCV64);
 }
 
 bool gpt_partition_type_is_usr_verity(sd_id128_t id) {
-        return sd_id128_equal(id, GPT_USR_X86_VERITY) ||
-                sd_id128_equal(id, GPT_USR_X86_64_VERITY) ||
-                sd_id128_equal(id, GPT_USR_ARM_VERITY) ||
-                sd_id128_equal(id, GPT_USR_ARM_64_VERITY) ||
-                sd_id128_equal(id, GPT_USR_IA64_VERITY) ||
-                sd_id128_equal(id, GPT_USR_RISCV32_VERITY) ||
-                sd_id128_equal(id, GPT_USR_RISCV64_VERITY);
+        return sd_id128_in_set(id,
+                               GPT_USR_X86_VERITY,
+                               GPT_USR_X86_64_VERITY,
+                               GPT_USR_ARM_VERITY,
+                               GPT_USR_ARM_64_VERITY,
+                               GPT_USR_IA64_VERITY,
+                               GPT_USR_RISCV32_VERITY,
+                               GPT_USR_RISCV64_VERITY);
 }
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id) {
         return gpt_partition_type_is_root(id) ||
                 gpt_partition_type_is_usr(id) ||
-                sd_id128_equal(id, GPT_HOME) ||
-                sd_id128_equal(id, GPT_SRV) ||
-                sd_id128_equal(id, GPT_VAR) ||
-                sd_id128_equal(id, GPT_TMP) ||
+                sd_id128_in_set(id,
+                                GPT_HOME,
+                                GPT_SRV,
+                                GPT_VAR,
+                                GPT_TMP) ||
                 gpt_partition_type_is_root_verity(id) || /* pretty much implied, but let's set the bit to make things really clear */
                 gpt_partition_type_is_usr_verity(id);    /* ditto */
 }
