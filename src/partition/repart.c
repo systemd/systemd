@@ -2635,7 +2635,7 @@ static int do_copy_files(Partition *p, const char *fs) {
 
                         pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (pfd < 0)
-                                return log_error_errno(tfd, "Failed to open parent directory of target: %m");
+                                return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
                         tfd = openat(pfd, basename(*target), O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0700);
                         if (tfd < 0)
