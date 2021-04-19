@@ -115,9 +115,9 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
 }
 
 int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server) {
-        assert_return(server, false);
+        assert_return(server, -EINVAL);
 
-        return !!in4_addr_is_set(&server->relay_target);
+        return in4_addr_is_set(&server->relay_target);
 }
 
 void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
@@ -727,7 +727,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 }
 
                 int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
-                if (message_type < 0 )
+                if (message_type < 0)
                         return message_type;
 
                 packet = malloc0(sizeof(DHCPPacket) + opt_length);
