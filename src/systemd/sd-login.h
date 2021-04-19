@@ -110,7 +110,7 @@ int sd_peer_get_machine_name(int fd, char **machine);
 
 /* Similar to sd_pid_get_cgroup(), but retrieves data about the peer
  * of a connected AF_UNIX socket. */
-int sd_peer_get_cgroup(pid_t pid, char **cgroup);
+int sd_peer_get_cgroup(int fd, char **cgroup);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char **state);
