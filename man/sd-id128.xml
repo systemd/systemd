@@ -27,6 +27,9 @@
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_UUID_FORMAT_STR</refname>
     <refname>sd_id128_equal</refname>
+    <refname>sd_id128_in_set</refname>
+    <refname>sd_id128_in_set_sentinel</refname>
+    <refname>sd_id128_in_setv</refname>
     <refname>sd_id128_is_allf</refname>
     <refname>sd_id128_is_null</refname>
     <refname>sd_id128_t</refname>
@@ -147,6 +150,30 @@ int main(int argc, char **argv) {
     <constant>0xFF</constant> bytes (all bits on):</para>
 
     <programlisting>assert(sd_id128_is_allf(SD_ID128_ALLF));</programlisting>
+
+    <para>For convenience, <function>sd_id128_in_set()</function> takes a list of IDs and
+    returns true if any are equal to the first argument:</para>
+
+    <programlisting>int main(int argc, char *argv[]) {
+  sd_id12_t a;
+  assert(sd_id128_randomize(&amp;a) == 0);
+  assert(sd_id128_in_set(a, a));
+  assert(sd_id128_in_set(a, a, a));
+  assert(!sd_id128_in_set(a));
+  assert(!sd_id128_in_set(a, SD_ID128_ALLF));
+  return 0;
+}
+</programlisting>
+
+    <para><function>sd_id128_in_set()</function> is defined as a macro over
+    <function>sd_id128_in_set_sentinel()</function>, adding the <constant>SD_ID128_NULL</constant>
+    sentinel. Since <function>sd_id128_in_set_sentinel()</function> uses <constant>SD_ID128_NULL</constant>
+    as the sentinel, <constant>SD_ID128_NULL</constant> cannot be otherwise placed in the argument list.
+    </para>
+
+    <para><function>sd_id128_in_setv()</function> is similar to
+    <function>sd_id128_in_set_sentinel()</function>, but takes a <structname>struct varargs</structname>
+    argument.</para>
 
     <para>Note that new, randomized IDs may be generated with
     <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
