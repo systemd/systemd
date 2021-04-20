@@ -69,7 +69,7 @@ struct sd_device {
 
         char *id_filename;
 
-        uint64_t usec_initialized;
+        usec_t usec_initialized;
 
         mode_t devmode;
         uid_t devuid;
