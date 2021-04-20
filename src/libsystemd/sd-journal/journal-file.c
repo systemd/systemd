@@ -707,7 +707,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
            as we can. */
-        r = posix_fallocate(f->fd, old_size, new_size - old_size);
+        r = TEMP_FAILURE_RETRY(posix_fallocate(f->fd, old_size, new_size - old_size));
         if (r != 0)
                 return -r;
 
