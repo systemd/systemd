@@ -53,6 +53,23 @@ static int loop_is_bound(int fd) {
         return true; /* bound! */
 }
 
+static int get_current_uevent_seqnum(uint64_t *ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = read_full_virtual_file("/sys/kernel/uevent_seqnum", &p, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
+
+        truncate_nl(p);
+
+        r = safe_atou64(p, ret);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
+
+        return 0;
+}
+
 static int device_has_block_children(sd_device *d) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *main_sn, *main_ss;
@@ -114,11 +131,13 @@ static int loop_configure(
                 int fd,
                 int nr,
                 const struct loop_config *c,
-                bool *try_loop_configure) {
+                bool *try_loop_configure,
+                uint64_t *ret_seqnum_not_before) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
+        uint64_t seqnum;
         int r;
 
         assert(fd >= 0);
@@ -167,6 +186,16 @@ static int loop_configure(
         }
 
         if (*try_loop_configure) {
+                /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
+                 * callers to ignore all uevents with a seqnum before this one, if they need to associate
+                 * uevent with this attachment. Doing so isn't race-free though, as uevents that happen in
+                 * the window between this reading of the seqnum, and the LOOP_CONFIGURE call might still be
+                 * mistaken as originating from our attachment, even though might be caused by an earlier
+                 * use. But doing this at least shortens the race window a bit. */
+                r = get_current_uevent_seqnum(&seqnum);
+                if (r < 0)
+                        return r;
+
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
                         /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
                          * errors. Note that the kernel is weird: non-existing ioctls currently return EINVAL
@@ -224,9 +253,17 @@ static int loop_configure(
                                 goto fail;
                         }
 
+                        if (ret_seqnum_not_before)
+                                *ret_seqnum_not_before = seqnum;
+
                         return 0;
                 }
         }
+
+        /* Let's read the seqnum again, to shorten the window. */
+        r = get_current_uevent_seqnum(&seqnum);
+        if (r < 0)
+                return r;
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
          * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
@@ -254,6 +291,9 @@ static int loop_configure(
                 (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
                               random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
+
+        if (ret_seqnum_not_before)
+                *ret_seqnum_not_before = seqnum;
 
         return 0;
 
@@ -312,6 +352,7 @@ int loop_device_make(
         bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d = NULL;
+        uint64_t seqnum;
         struct stat st;
         int nr = -1, r;
 
@@ -354,6 +395,7 @@ int loop_device_make(
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                                 .devno = st.st_rdev,
+                                .uevent_seqnum_not_before = UINT64_MAX,
                         };
 
                         *ret = d;
@@ -401,7 +443,7 @@ int loop_device_make(
                         if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, nr, &config, &try_loop_configure);
+                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
@@ -574,6 +616,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_dev,
+                .uevent_seqnum_not_before = UINT64_MAX,
         };
 
         *ret = d;
