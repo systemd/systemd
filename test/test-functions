@@ -2393,6 +2393,12 @@ do_test() {
     import_testdir
     import_initdir
 
+    if [ -n "${SUDO_USER}" ]; then
+        ddebug "Making ${TESTDIR:?} readable for ${SUDO_USER} (acquired from sudo)"
+        setfacl -m "user:${SUDO_USER:?}:r-x" "${TESTDIR?:}"
+        setfacl -d -m "user:${SUDO_USER:?}:r-x" "${TESTDIR?:}"
+    fi
+
     testname="$(basename "$PWD")"
 
     while (($# > 0)); do
