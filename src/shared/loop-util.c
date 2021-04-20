@@ -132,12 +132,14 @@ static int loop_configure(
                 int nr,
                 const struct loop_config *c,
                 bool *try_loop_configure,
-                uint64_t *ret_seqnum_not_before) {
+                uint64_t *ret_seqnum_not_before,
+                usec_t *ret_timestamp_not_before) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
         uint64_t seqnum;
+        usec_t timestamp;
         int r;
 
         assert(fd >= 0);
@@ -195,6 +197,7 @@ static int loop_configure(
                 r = get_current_uevent_seqnum(&seqnum);
                 if (r < 0)
                         return r;
+                timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
                         /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
@@ -255,6 +258,8 @@ static int loop_configure(
 
                         if (ret_seqnum_not_before)
                                 *ret_seqnum_not_before = seqnum;
+                        if (ret_timestamp_not_before)
+                                *ret_timestamp_not_before = timestamp;
 
                         return 0;
                 }
@@ -264,6 +269,7 @@ static int loop_configure(
         r = get_current_uevent_seqnum(&seqnum);
         if (r < 0)
                 return r;
+        timestamp = now(CLOCK_MONOTONIC);
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
          * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
@@ -294,6 +300,8 @@ static int loop_configure(
 
         if (ret_seqnum_not_before)
                 *ret_seqnum_not_before = seqnum;
+        if (ret_timestamp_not_before)
+                *ret_timestamp_not_before = timestamp;
 
         return 0;
 
@@ -353,6 +361,7 @@ int loop_device_make(
         struct loop_config config;
         LoopDevice *d = NULL;
         uint64_t seqnum = UINT64_MAX;
+        usec_t timestamp = USEC_INFINITY;
         struct stat st;
         int nr = -1, r;
 
@@ -396,6 +405,7 @@ int loop_device_make(
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                                 .devno = st.st_rdev,
                                 .uevent_seqnum_not_before = UINT64_MAX,
+                                .timestamp_not_before = USEC_INFINITY,
                         };
 
                         *ret = d;
@@ -443,7 +453,7 @@ int loop_device_make(
                         if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum);
+                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
@@ -481,6 +491,7 @@ int loop_device_make(
                 .nr = nr,
                 .devno = st.st_rdev,
                 .uevent_seqnum_not_before = seqnum,
+                .timestamp_not_before = timestamp,
         };
 
         *ret = d;
@@ -617,6 +628,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_dev,
                 .uevent_seqnum_not_before = UINT64_MAX,
+                .timestamp_not_before = USEC_INFINITY,
         };
 
         *ret = d;

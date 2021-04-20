@@ -2,6 +2,7 @@
 #pragma once
 
 #include "macro.h"
+#include "time-util.h"
 
 typedef struct LoopDevice LoopDevice;
 
@@ -14,6 +15,7 @@ struct LoopDevice {
         char *node;
         bool relinquished;
         uint64_t uevent_seqnum_not_before; /* uevent sequm right before we attached the loopback device, or UINT64_MAX if we don't know */
+        usec_t timestamp_not_before; /* CLOCK_MONOTONIC timestamp taken immediately before attaching the loopback device, or USEC_INFINITY if we don't know */
 };
 
 int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t loop_flags, LoopDevice **ret);
