@@ -403,3 +403,6 @@ option('kernel-install', type: 'boolean', value: 'true',
        description : 'install kernel-install and associated files')
 option('analyze', type: 'boolean', value: 'true',
        description : 'install systemd-analyze')
+
+option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
+    description: 'build BPF programs from source code in restricted C')
