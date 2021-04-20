@@ -22,6 +22,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* ability to insert trusted configuration and secrets into the boot paramaters
+  of a kernel booting in a VM or on baremetal some way, via TPM
+  protection. idea:
+  1. pass via /proc/bootconfig
+  2. for secrets: put secrets in node of /proc/bootconfig, decrypt them via
+     TPM early on in PID 1, put them in $CREDENTIAL_PATH logic
+  3. for config: put signed data in node /proc/booconfig, validate via TPM
+     early on in PID 1, put data into /run/bootconfig/ as individual files
+  4. boot loader/stub should pick these up automatically from the boot loader
+     file systems
+
 * journald: support RFC3164 fully for the incoming syslog transport, see
   https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
 
