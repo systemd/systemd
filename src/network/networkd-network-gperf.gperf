@@ -207,7 +207,7 @@ DHCPv4.RequestOptions,                       config_parse_dhcp_request_options, 
 DHCPv4.Anonymize,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
 DHCPv4.SendHostname,                         config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_hostname)
 DHCPv4.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
-DHCPv4.RequestBroadcast,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_broadcast)
+DHCPv4.RequestBroadcast,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
 DHCPv4.VendorClassIdentifier,                config_parse_string,                                      0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCPv4.MUDURL,                               config_parse_dhcp_mud_url,                                0,                             0
 DHCPv4.MaxAttempts,                          config_parse_dhcp_max_attempts,                           0,                             0
@@ -476,7 +476,7 @@ DHCP.UseRoutes,                              config_parse_bool,                 
 DHCP.Anonymize,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
 DHCP.SendHostname,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_hostname)
 DHCP.Hostname,                               config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
-DHCP.RequestBroadcast,                       config_parse_bool,                                        0,                             offsetof(Network, dhcp_broadcast)
+DHCP.RequestBroadcast,                       config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,                  config_parse_string,                                      0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.UserClass,                              config_parse_dhcp_user_or_vendor_class,                   AF_INET,                       offsetof(Network, dhcp_user_class)
