@@ -13,6 +13,7 @@ struct LoopDevice {
         dev_t devno;
         char *node;
         bool relinquished;
+        uint64_t uevent_seqnum_not_before; /* uevent sequm right before we attached the loopback device, or UINT64_MAX if we don't know */
 };
 
 int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t loop_flags, LoopDevice **ret);
