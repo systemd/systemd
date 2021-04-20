@@ -151,6 +151,7 @@ typedef struct Link {
         sd_dhcp6_lease *dhcp6_lease;
         Set *dhcp6_addresses, *dhcp6_addresses_old;
         Set *dhcp6_routes, *dhcp6_routes_old;
+        Set *dhcp6_pd_prefixes;
         Set *dhcp6_pd_addresses, *dhcp6_pd_addresses_old;
         Set *dhcp6_pd_routes, *dhcp6_pd_routes_old;
         unsigned dhcp6_address_messages;
