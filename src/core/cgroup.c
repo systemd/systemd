@@ -25,6 +25,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -200,6 +201,18 @@ void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeig
         free(p);
 }
 
+void cgroup_context_free_socket_bind(CGroupSocketBindItem **head) {
+        CGroupSocketBindItem *h;
+
+        assert(head);
+
+        while (*head) {
+                h = *head;
+                LIST_REMOVE(socket_bind_items, *head, h);
+                free(h);
+        }
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -220,6 +233,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_allow);
+
+        cgroup_context_free_socket_bind(&c->socket_bind_deny);
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
@@ -376,6 +393,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupBPFForeignProgram *p;
         CGroupDeviceAllow *a;
         CGroupContext *c;
+        CGroupSocketBindItem *bi;
         IPAddressAccessItem *iaai;
         char **path;
         char q[FORMAT_TIMESPAN_MAX];
@@ -562,6 +580,34 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         LIST_FOREACH(programs, p, c->bpf_foreign_programs)
                 fprintf(f, "%sBPFProgram: %s:%s",
                         prefix, bpf_cgroup_attach_type_to_string(p->attach_type), p->bpffs_path);
+
+        LIST_FOREACH(socket_bind_items, bi, c->socket_bind_allow)
+                cgroup_context_dump_socket_bind_item(bi, f, prefix, "SocketBindAllow", ": ");
+
+        LIST_FOREACH(socket_bind_items, bi, c->socket_bind_deny)
+                cgroup_context_dump_socket_bind_item(bi, f, prefix, "SocketBindDeny", ": ");
+}
+
+void cgroup_context_dump_socket_bind_item(
+                const CGroupSocketBindItem *item,
+                FILE *f, const char *prefix, const char *name, const char *delim) {
+        const char *family = "";
+
+        assert(item);
+        assert(prefix);
+        assert(name);
+
+        if (IN_SET(item->address_family, AF_INET, AF_INET6))
+                family = item->address_family == AF_INET ? "IPv4:" : "IPv6:";
+
+        if (item->nr_ports == 0)
+                fprintf(f, "%s%s%s%sany\n", prefix, name, delim, family);
+        else if (item->nr_ports == 1)
+                fprintf(f, "%s%s%s%s%" PRIu16 "\n", prefix, name, delim, family, item->port_min);
+        else {
+                uint16_t port_max = item->port_min + item->nr_ports - 1;
+                fprintf(f, "%s%s%s%s%" PRIu16 "-%" PRIu16 "\n", prefix, name, delim, family, item->port_min, port_max);
+        }
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -1055,6 +1101,12 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+static void cgroup_apply_socket_bind(Unit *u) {
+        assert(u);
+
+        (void) socket_bind_install(u);
+}
+
 static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         const char *path;
@@ -1483,6 +1535,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
                 cgroup_apply_bpf_foreign_program(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
+                cgroup_apply_socket_bind(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1524,6 +1579,17 @@ static bool unit_get_needs_bpf_foreign_program(Unit *u) {
                 return false;
 
         return !LIST_IS_EMPTY(c->bpf_foreign_programs);
+}
+
+static bool unit_get_needs_socket_bind(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->socket_bind_allow != NULL || c->socket_bind_deny != NULL;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1579,6 +1645,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_foreign_program(u))
                 mask |= CGROUP_MASK_BPF_FOREIGN;
+
+        if (unit_get_needs_socket_bind(u))
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         return mask;
 }
@@ -3062,6 +3131,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_foreign_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_FOREIGN;
+
+        /* BPF-based bind{4|6} hooks */
+        r = socket_bind_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         *ret = mask;
         return 0;
