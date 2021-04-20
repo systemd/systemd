@@ -1408,7 +1408,7 @@ static int mount_partition(
         if (streq(fstype, "crypto_LUKS"))
                 return -EUNATCH;
 
-        rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
+        rw = m->rw && !(flags & DISSECT_IMAGE_MOUNT_READ_ONLY);
 
         if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw) {
                 r = run_fsck(node, fstype);
@@ -1461,6 +1461,27 @@ static int mount_partition(
 
         if (!isempty(m->mount_options))
                 if (!strextend_with_separator(&options, ",", m->mount_options))
+                        return -ENOMEM;
+
+        /* So, when you request MS_RDONLY from ext4, then this means nothing. It happily still writes to the
+         * backing storage. What's worse, the BLKRO[GS]ET flag and (in case of loopback devices)
+         * LO_FLAGS_READ_ONLY don't mean anything, they affect userspace accesses only, and write accesses
+         * from the upper file system still get propagated through to the underlying file system,
+         * unrestricted. To actually get ext4/xfs/btrfs to stop writing to the device we need to specify
+         * "norecovery" as mount option, in addition to MS_RDONLY. Yes, this sucks, since it means we need to
+         * carry a per file system table here.
+         *
+         * Note that this means that we might not be able to mount corrupted file systems as read-only
+         * anymore (since in some cases the kernel implementations will refuse mounting when corrupted,
+         * read-only and "norecovery" is specified). But I think for the case of automatically determined
+         * mount options for loopback devices this is the right choice, since otherwise using the same
+         * loopback file twice even in read-only mode, is going to fail badly sooner or later. The usecase of
+         * making reuse of the immutable images "just work" is more relevant to us than having read-only
+         * access that actually modifies stuff work on such image files. Or to say this differently: if
+         * people want their file systems to be fixed up they should just open them in writable mode, where
+         * all these problems don't exist. */
+        if (!rw && STRPTR_IN_SET(fstype, "ext3", "ext4", "xfs", "btrfs"))
+                if (!strextend_with_separator(&options, ",", "norecovery"))
                         return -ENOMEM;
 
         r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
@@ -1756,7 +1777,7 @@ static int decrypt_partition(
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
         r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
                                              ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
@@ -2674,7 +2695,7 @@ int mount_image_privately_interactively(
 
         r = loop_device_make_by_path(
                         image,
-                        FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         &d);
         if (r < 0)
