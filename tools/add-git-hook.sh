@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eu
 
-cd "$MESON_SOURCE_ROOT"
+cd "${MESON_SOURCE_ROOT:?}"
 
-if [ ! -f .git/hooks/pre-commit.sample -o -f .git/hooks/pre-commit ]; then
+if [ ! -f .git/hooks/pre-commit.sample ] || [ -f .git/hooks/pre-commit ]; then
     exit 2 # not needed
 fi
 
