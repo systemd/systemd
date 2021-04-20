@@ -461,7 +461,7 @@ def remove_unit_from_networkd_path(units):
                 shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
 def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
-    dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
+    dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
 def stop_dnsmasq(pid_file):
@@ -3852,55 +3852,71 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.8 proto dhcp scope link src 192.168.5.181 metric 1024')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
-        for (routes, gateway, dnsroutes) in itertools.product([True, False, None], repeat=3):
+        for (routes, gateway, dnsroutes, classless) in itertools.product([True, False], repeat=4):
             self.setUp()
-            with self.subTest(routes=routes, gateway=gateway, dnsroutes=dnsroutes):
-                self._test_dhcp_client_ipv4_use_routes_gateway(routes, gateway, dnsroutes)
+            with self.subTest(routes=routes, gateway=gateway, dnsroutes=dnsroutes, classless=classless):
+                self._test_dhcp_client_ipv4_use_routes_gateway(routes, gateway, dnsroutes, classless)
             self.tearDown()
 
-    def _test_dhcp_client_ipv4_use_routes_gateway(self, routes, gateway, dnsroutes):
+    def _test_dhcp_client_ipv4_use_routes_gateway(self, use_routes, use_gateway, dnsroutes, classless):
         testunit = 'dhcp-client-ipv4-use-routes-use-gateway.network'
         testunits = ['25-veth.netdev', 'dhcp-server-veth-peer.network', testunit]
-        if routes != None:
-            testunits.append(f'{testunit}.d/use-routes-{routes}.conf');
-        if gateway != None:
-            testunits.append(f'{testunit}.d/use-gateway-{gateway}.conf');
-        if dnsroutes != None:
-            testunits.append(f'{testunit}.d/use-dns-routes-{dnsroutes}.conf');
+        testunits.append(f'{testunit}.d/use-routes-{use_routes}.conf');
+        testunits.append(f'{testunit}.d/use-gateway-{use_gateway}.conf');
+        testunits.append(f'{testunit}.d/use-dns-routes-{dnsroutes}.conf');
         copy_unit_to_networkd_unit_path(*testunits, dropins=False)
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq(additional_options='--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7', lease_time='2m')
+        additional_options = '--dhcp-option=option:dns-server,192.168.5.10,8.8.8.8 --dhcp-option=option:static-route,192.168.5.100,192.168.5.2,8.8.8.8,192.168.5.3'
+        if classless:
+            additional_options += ' --dhcp-option=option:classless-static-route,0.0.0.0/0,192.168.5.4,8.0.0.0/8,192.168.5.5'
+        start_dnsmasq(additional_options=additional_options, lease_time='2m')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = check_output('ip route show dev veth99')
+        output = check_output('ip -4 route show dev veth99')
         print(output)
 
-        # UseRoutes= defaults to true
-        useroutes = routes in [True, None]
-        # UseGateway= defaults to useroutes
-        usegateway = useroutes if gateway == None else gateway
-
         # Check UseRoutes=
-        if useroutes:
-            self.assertRegex(output, r'192.168.5.0/24 via 192.168.5.5 proto dhcp src 192.168.5.181 metric 1024')
+        if use_routes:
+            if classless:
+                self.assertRegex(output, r'default via 192.168.5.4 proto dhcp src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'8.0.0.0/8 via 192.168.5.5 proto dhcp src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'192.168.5.4 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'192.168.5.5 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            else:
+                self.assertRegex(output, r'192.168.5.0/24 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'8.0.0.0/8 via 192.168.5.3 proto dhcp src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'192.168.5.3 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
         else:
-            self.assertNotRegex(output, r'192.168.5.5')
+            self.assertNotRegex(output, r'default via 192.168.5.4 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'8.0.0.0/8 via 192.168.5.5 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.5.4 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.5.5 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.5.0/24 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'8.0.0.0/8 via 192.168.5.3 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.5.3 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
 
         # Check UseGateway=
-        if usegateway:
-            self.assertRegex(output, r'default via 192.168.5.1 proto dhcp src 192.168.5.181 metric 1024')
+        if use_gateway and (not classless or not use_routes):
+            self.assertRegex(output, r'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            self.assertRegex(output, r'192.168.5.1 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
         else:
-            self.assertNotRegex(output, r'default via 192.168.5.1')
+            self.assertNotRegex(output, r'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.5.1 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
 
-        # Check RoutesToDNS=, which defaults to false
+        # Check RoutesToDNS=
         if dnsroutes:
-            self.assertRegex(output, r'192.168.5.6 proto dhcp scope link src 192.168.5.181 metric 1024')
-            self.assertRegex(output, r'192.168.5.7 proto dhcp scope link src 192.168.5.181 metric 1024')
+            self.assertRegex(output, r'192.168.5.10 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            if classless and use_routes:
+                self.assertRegex(output, r'8.8.8.8 via 192.168.5.4 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            elif use_gateway:
+                self.assertRegex(output, r'8.8.8.8 via 192.168.5.1 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            else:
+                self.assertNotRegex(output, r'8.8.8.8 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
         else:
-            self.assertNotRegex(output, r'192.168.5.6')
-            self.assertNotRegex(output, r'192.168.5.7')
+            self.assertNotRegex(output, r'192.168.5.10 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'8.8.8.8 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
 
     def test_dhcp_client_ipv4_ipv6(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network',
@@ -3948,7 +3964,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp')
         if main_table_is_empty:
             self.assertRegex(output, '192.168.5.0/24 proto dhcp')
-        self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 proto dhcp')
         self.assertRegex(output, '192.168.5.1 proto dhcp scope link')
 
         print('## dnsmasq log')
@@ -4020,7 +4035,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]* metric 1024')
         self.assertRegex(output, r'192.168.5.0/24 proto kernel scope link src 192.168.5.250')
-        self.assertRegex(output, r'192.168.5.0/24 via 192.168.5.5 proto dhcp src 192.168.5.[0-9]* metric 1024')
         self.assertRegex(output, r'192.168.5.1 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
 
     def test_dhcp_route_table_id(self):
@@ -4271,7 +4285,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 dev veth99 proto dhcp src 192.168.5.')
         self.assertRegex(output, '192.168.5.0/24 dev veth99 proto kernel scope link src 192.168.5')
-        self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 dev veth99 proto dhcp')
         self.assertRegex(output, '192.168.5.1 dev veth99 proto dhcp scope link src 192.168.5')
 
         print('## ip route show table main dev veth99')
