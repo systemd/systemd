@@ -572,7 +572,7 @@
         <listitem><para>Configures the 64bit GPT partition flags to set for the partition when creating
         it. This option has no effect if the partition already exists. If not specified the flags values is
         set to all zeroes, except if the partition type (as configured with <varname>Type=</varname> above)
-        refers to a Verity partition, in wich case bit 60 is set (i.e. the read-only bit). This bit may also
+        refers to a Verity partition, in which case bit 60 is set (i.e. the read-only bit). This bit may also
         be configured separately via <varname>ReadOnly=</varname>, see below. Specify the flags value in
         hexadecimal (by prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or
         decimal (no prefix).</para></listitem>
