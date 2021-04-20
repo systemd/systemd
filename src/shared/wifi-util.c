@@ -30,7 +30,7 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
         if (r < 0)
                 return log_debug_errno(r, "Failed to request information about wifi interface %d: %m", ifindex);
         if (!reply) {
-                log_debug_errno(r, "No reply received to request for information about wifi interface %d, ignoring.", ifindex);
+                log_debug("No reply received to request for information about wifi interface %d, ignoring.", ifindex);
                 goto nodata;
         }
 
@@ -98,7 +98,7 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *bssid) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to request information about wifi station: %m");
         if (!reply) {
-                log_debug_errno(r, "No reply received to request for information about wifi station, ignoring.");
+                log_debug("No reply received to request for information about wifi station, ignoring.");
                 goto nodata;
         }
 
