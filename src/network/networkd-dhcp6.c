@@ -363,6 +363,29 @@ static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return 1;
 }
 
+static void log_dhcp6_pd_address(Link *link, const Address *address) {
+        char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
+        const char *valid_str = NULL, *preferred_str = NULL;
+        _cleanup_free_ char *buffer = NULL;
+        int log_level;
+
+        log_level = address_get(link, address, NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
+        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buffer);
+        if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
+                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                            address->cinfo.ifa_valid * USEC_PER_SEC,
+                                            USEC_PER_SEC);
+        if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
+                preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
+                                                address->cinfo.ifa_prefered * USEC_PER_SEC,
+                                                USEC_PER_SEC);
+
+        log_link_full(link, log_level, "DHCPv6-PD address %s (valid %s%s, preferred %s%s)",
+                      strna(buffer),
+                      valid_str ? "for " : "forever", strempty(valid_str),
+                      preferred_str ? "for " : "forever", strempty(preferred_str));
+}
+
 static int dhcp6_set_pd_address(
                 Link *link,
                 const union in_addr_union *prefix,
@@ -400,6 +423,7 @@ static int dhcp6_set_pd_address(
         address->cinfo.ifa_valid = lifetime_valid;
         SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
 
+        log_dhcp6_pd_address(link, address);
         r = address_configure(address, link, dhcp6_pd_address_handler, &ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 delegated prefix address: %m");
