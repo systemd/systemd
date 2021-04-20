@@ -16,8 +16,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "limits-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "socket-bind.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
 
@@ -375,6 +377,32 @@ static int property_get_bpf_foreign_program(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_socket_bind(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        CGroupSocketBindItem **items = userdata, *i;
+        int r;
+
+        assert(items);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iqq)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(socket_bind_items, i, *items) {
+                r = sd_bus_message_append(reply, "(iqq)", i->address_family, i->nr_ports, i->port_min);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -427,6 +455,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
+        SD_BUS_PROPERTY("SocketBindAllow", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
+        SD_BUS_PROPERTY("SocketBindDeny", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -1845,6 +1875,88 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->moom_preference = p;
                         unit_write_settingf(u, flags, name, "ManagedOOMPreference=%s", pref);
+                }
+
+                return 1;
+        }
+        if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
+                CGroupSocketBindItem **list;
+                uint16_t nr_ports, port_min;
+                size_t n = 0;
+                int family;
+
+                list = streq(name, "SocketBindAllow") ? &c->socket_bind_allow : &c->socket_bind_deny;
+
+                r = sd_bus_message_enter_container(message, 'a', "(iqq)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(iqq)", &family, &nr_ports, &port_min)) > 0) {
+
+                        if (!IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects INET or INET6 family, if specified.", name);
+
+                        if (port_min + (uint32_t) nr_ports > (1 << 16))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects maximum port value lesser than 65536.", name);
+
+                        if (port_min == 0 && nr_ports != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects port range starting with positive value.", name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                _cleanup_free_ CGroupSocketBindItem *item = NULL;
+
+                                item = new(CGroupSocketBindItem, 1);
+                                if (!item)
+                                        return log_oom();
+
+                                *item = (CGroupSocketBindItem) {
+                                        .address_family = family,
+                                        .nr_ports = nr_ports,
+                                        .port_min = port_min
+                                };
+
+                                LIST_PREPEND(socket_bind_items, *list, TAKE_PTR(item));
+                        }
+                        n++;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupSocketBindItem *item;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                cgroup_context_free_socket_bind(list);
+
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        LIST_FOREACH(socket_bind_items, item, *list)
+                                cgroup_context_dump_socket_bind_item(item, f, /*prefix*/"", name, /*delim*/"=");
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (*list) {
+                                r = socket_bind_supported();
+                                if (r < 0)
+                                        return r;
+                        }
+
                 }
 
                 return 1;
