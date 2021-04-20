@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eu
+set -o pipefail
 
 SOURCE_ROOT="${1:?Missing argument: project source root}"
 BUILD_ROOT="${2:?Missing argument: project build root}"
