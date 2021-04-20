@@ -573,6 +573,8 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
 
+        link->dhcp6_pd_prefixes = set_free(link->dhcp6_pd_prefixes);
+
         link_free_engines(link);
 
         free(link->ifname);
