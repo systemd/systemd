@@ -395,6 +395,7 @@ static int portable_extract_by_path(
                 r = dissect_image(
                                 d->fd,
                                 NULL, NULL,
+                                d->uevent_seqnum_not_before,
                                 DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |

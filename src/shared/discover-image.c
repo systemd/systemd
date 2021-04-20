@@ -1201,10 +1201,12 @@ int image_read_metadata(Image *i) {
                 r = dissect_image(
                                 d->fd,
                                 NULL, NULL,
+                                d->uevent_seqnum_not_before,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_USR_NO_ROOT, &m);
+                                DISSECT_IMAGE_USR_NO_ROOT,
+                                &m);
                 if (r < 0)
                         return r;
 
