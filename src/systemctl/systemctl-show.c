@@ -1711,6 +1711,34 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         return 1;
+                } else if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
+                        uint16_t nr_ports, port_min;
+                        const char *family;
+                        int af;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(iqq)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        while ((r = sd_bus_message_read(m, "(iqq)", &af, &nr_ports, &port_min)) > 0) {
+                                family = af == AF_INET ? "IPv4:" : af == AF_INET6 ? "IPv6:" : "";
+                                if (nr_ports == 0)
+                                        bus_print_property_valuef(name, expected_value, value, "%sany", family);
+                                else if (nr_ports == 1)
+                                        bus_print_property_valuef(
+                                                        name, expected_value, value, "%s%hu", family, port_min);
+                                else
+                                        bus_print_property_valuef(
+                                                        name, expected_value, value, "%s%hu-%hu", family, port_min,
+                                                        (uint16_t) (port_min + nr_ports - 1));
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
                 }
 
                 break;
