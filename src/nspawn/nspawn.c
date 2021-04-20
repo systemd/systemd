@@ -5484,6 +5484,7 @@ static int run(int argc, char *argv[]) {
                                 &arg_verity_settings,
                                 NULL,
                                 loop->uevent_seqnum_not_before,
+                                loop->timestamp_not_before,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r == -ENOPKG) {

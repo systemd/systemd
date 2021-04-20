@@ -1864,6 +1864,7 @@ int setup_namespace(
                                 &verity,
                                 root_image_options,
                                 loop_device->uevent_seqnum_not_before,
+                                loop_device->timestamp_not_before,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r < 0)
