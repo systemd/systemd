@@ -937,6 +937,25 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
+want_bpf_framework = get_option('bpf-framework')
+bpf_framework_required = want_bpf_framework == 'true'
+
+libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
+conf.set10('HAVE_LIBBPF', libbpf.found())
+
+if want_bpf_framework == 'false'
+        conf.set10('BPF_FRAMEWORK', 0)
+else
+        clang = find_program('clang', required : bpf_framework_required)
+        llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
+        bpftool = find_program('bpftool', required : bpf_framework_required)
+        bpf_arches = ['x86_64']
+        deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
+        # Can build BPF program from source code in restricted C
+        conf.set10('BPF_FRAMEWORK',
+                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
+endif
+
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
@@ -1601,6 +1620,7 @@ conf.set10('ENABLE_EFI', have)
 
 ############################################################
 
+build_bpf_skel_py=find_program('tools/build-bpf-skel.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -1693,6 +1713,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
+                        libbpf,
                         libcap,
                         libblkid,
                         libmount,
@@ -3728,6 +3749,10 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d',
 status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
+status += [
+        'static libsystemd:                 @0@'.format(static_libsystemd),
+        'static libudev:                    @0@'.format(static_libudev)]
+
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
@@ -3750,99 +3775,92 @@ found = []
 missing = []
 
 foreach tuple : [
-        # dependencies
-        ['ACL'],
-        ['AUDIT'],
-        ['AppArmor'],
-        ['IMA'],
-        ['PAM'],
-        ['SECCOMP'],
-        ['SELinux'],
-        ['SMACK'],
-        ['blkid'],
-        ['elfutils'],
-        ['gcrypt'],
-        ['gnutls'],
         ['libcryptsetup'],
-        ['libcurl'],
-        ['libfdisk'],
-        ['libfido2'],
-        ['libidn'],
-        ['libidn2'],
-        ['libiptc'],
-        ['microhttpd'],
-        ['openssl'],
-        ['p11kit'],
-        ['pcre2'],
+        ['PAM'],
         ['pwquality'],
-        ['qrencode'],
+        ['libfdisk'],
+        ['p11kit'],
+        ['libfido2'],
         ['tpm2'],
-        ['xkbcommon'],
-
-        # compression libs
+        ['AUDIT'],
+        ['IMA'],
+        ['AppArmor'],
+        ['SELinux'],
+        ['SECCOMP'],
+        ['SMACK'],
+        ['zlib'],
+        ['xz'],
         ['zstd'],
         ['lz4'],
-        ['xz'],
-        ['zlib'],
         ['bzip2'],
-
-        # components
-        ['backlight'],
-        ['binfmt'],
-        ['coredump'],
-        ['environment.d'],
-        ['efi'],
-        ['gnu-efi',               have_gnu_efi],
-        ['firstboot'],
-        ['hibernate'],
-        ['homed'],
-        ['hostnamed'],
-        ['hwdb'],
-        ['importd'],
+        ['ACL'],
+        ['gcrypt'],
+        ['qrencode'],
+        ['microhttpd'],
+        ['gnutls'],
+        ['openssl'],
+        ['libcurl'],
+        ['idn'],
         ['initrd'],
-        ['kernel-install',        get_option('kernel-install')],
-        ['localed'],
+        ['compat-mutable-uid-boundaries'],
+        ['nscd'],
+        ['libidn2'],
+        ['libidn'],
+        ['libiptc'],
+        ['elfutils'],
+        ['binfmt'],
+        ['repart'],
+        ['vconsole'],
+        ['quotacheck'],
+        ['tmpfiles'],
+        ['environment.d'],
+        ['sysusers'],
+        ['firstboot'],
+        ['randomseed'],
+        ['backlight'],
+        ['rfkill'],
+        ['xdg-autostart'],
         ['logind'],
         ['machined'],
+        ['portabled'],
+        ['sysext'],
+        ['userdb'],
+        ['homed'],
+        ['importd'],
+        ['hostnamed'],
+        ['timedated'],
+        ['timesyncd'],
+        ['localed'],
         ['networkd'],
+        ['resolve'],
+        ['DNS-over-TLS(gnutls)',  conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1],
+        ['DNS-over-TLS(openssl)', conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1],
+        ['coredump'],
+        ['pstore'],
+        ['oomd'],
+        ['polkit'],
+        ['legacy pkla',           install_polkit_pkla],
+        ['efi'],
+        ['gnu-efi',               have_gnu_efi],
+        ['kmod'],
+        ['xkbcommon'],
+        ['pcre2'],
+        ['blkid'],
+        ['dbus'],
+        ['glib'],
         ['nss-myhostname'],
         ['nss-mymachines'],
         ['nss-resolve'],
         ['nss-systemd'],
-        ['oomd'],
-        ['portabled'],
-        ['pstore'],
-        ['quotacheck'],
-        ['randomseed'],
-        ['repart'],
-        ['resolve'],
-        ['rfkill'],
-        ['sysext'],
-        ['systemd-analyze',       conf.get('ENABLE_ANALYZE') == 1],
-        ['sysusers'],
-        ['timedated'],
-        ['timesyncd'],
-        ['tmpfiles'],
-        ['userdb'],
-        ['vconsole'],
-        ['xdg-autostart'],
-
-        # optional features
-        ['idn'],
-        ['polkit'],
-        ['nscd'],
-        ['legacy-pkla',           install_polkit_pkla],
-        ['kmod'],
-        ['dbus'],
-        ['glib'],
+        ['hwdb'],
         ['tpm'],
         ['man pages',             want_man],
         ['html pages',            want_html],
         ['man page indices',      want_man and have_lxml],
         ['SysV compat'],
-        ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],
+        ['hibernate'],
         ['adm group',             get_option('adm-group')],
         ['wheel group',           get_option('wheel-group')],
         ['gshadow'],
@@ -3856,6 +3874,8 @@ foreach tuple : [
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
+        ['kernel-install',        get_option('kernel-install')],
+        ['systemd-analyze',       conf.get('ENABLE_ANALYZE') == 1],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
 ]
@@ -3873,26 +3893,6 @@ foreach tuple : [
                 missing += tuple[0]
         endif
 endforeach
-
-if static_libsystemd == 'false'
-        missing += 'static-libsystemd'
-else
-        found += 'static-libsystemd(@0@)'.format(static_libsystemd)
-endif
-
-if static_libudev == 'false'
-        missing += 'static-libudev'
-else
-        found += 'static-libudev(@0@)'.format(static_libudev)
-endif
-
-if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
-        found += 'DNS-over-TLS(gnutls)'
-elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
-        found += 'DNS-over-TLS(openssl)'
-else
-        missing += 'DNS-over-TLS'
-endif
 
 status += [
         '',

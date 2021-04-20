@@ -55,6 +55,7 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-bind.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -5653,6 +5654,66 @@ int config_parse_bpf_foreign_program(
         r = cgroup_add_bpf_foreign_program(c, attach_type, resolved);
         if (r < 0)
                 return log_error_errno(r, "Failed to add foreign BPF program to cgroup context: %m");
+
+        return 0;
+}
+
+int config_parse_cgroup_socket_bind(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupSocketBindItem **head = data;
+        const char *address_family, *user_port;
+        _cleanup_free_ char *word = NULL;
+        uint16_t port_min, port_max;
+        int af = AF_UNSPEC, r;
+
+        if (isempty(rvalue)) {
+                cgroup_context_free_socket_bind(head);
+                return 0;
+        }
+
+        r = extract_first_word(&rvalue, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+
+        address_family = rvalue ? word : NULL;
+        if (address_family) {
+                if (!STR_IN_SET(address_family, "IPv4", "IPv6"))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Only IPv4 or IPv6 protocols are supported, ignoring");
+
+                if (streq(address_family, "IPv4"))
+                        af = AF_INET;
+                else
+                        af = AF_INET6;
+        }
+
+        user_port = rvalue ? rvalue : word;
+        if (!streq(user_port, "any")) {
+                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_warning_errno(r,
+                                        "Invalid port or port range, ignoring: %m");
+        }
+
+        r = cgroup_add_socket_bind_item(af, port_min, port_max, head);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to add %s item, ignoring: %m", lvalue);
+                return 0;
+        }
 
         return 0;
 }
