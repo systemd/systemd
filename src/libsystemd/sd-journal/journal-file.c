@@ -707,9 +707,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
            as we can. */
-        r = posix_fallocate(f->fd, old_size, new_size - old_size);
-        if (r != 0)
-                return -r;
+        r = posix_fallocate_loop(f->fd, old_size, new_size - old_size);
+        if (r < 0)
+                return r;
 
         f->header->arena_size = htole64(new_size - old_header_size);
 
