@@ -1443,10 +1443,10 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
         if (!device->is_initialized)
                 return -EBUSY;
 
-        if (!device->usec_initialized)
+        if (device->usec_initialized == 0)
                 return -ENODATA;
 
-        now_ts = now(clock_boottime_or_monotonic());
+        now_ts = now(CLOCK_MONOTONIC);
 
         if (now_ts < device->usec_initialized)
                 return -EIO;
