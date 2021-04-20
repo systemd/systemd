@@ -146,3 +146,5 @@ int conservative_renameat(int olddirfd, const char *oldpath, int newdirfd, const
 static inline int conservative_rename(const char *oldpath, const char *newpath) {
         return conservative_renameat(AT_FDCWD, oldpath, AT_FDCWD, newpath);
 }
+
+int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
