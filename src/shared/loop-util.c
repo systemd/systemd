@@ -444,7 +444,12 @@ int loop_device_make(
         return d->fd;
 }
 
-int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
+int loop_device_make_by_path(
+                const char *path,
+                int open_flags,
+                uint32_t loop_flags,
+                LoopDevice **ret) {
+
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -567,6 +572,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
+                .devno = st.st_dev,
         };
 
         *ret = d;
