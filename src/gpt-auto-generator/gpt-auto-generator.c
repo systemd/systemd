@@ -672,6 +672,7 @@ static int enumerate_partitions(dev_t devnum) {
         r = dissect_image(
                         fd,
                         NULL, NULL,
+                        UINT64_MAX,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_NO_UDEV|
                         DISSECT_IMAGE_USR_NO_ROOT,
