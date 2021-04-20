@@ -719,11 +719,22 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
         assert(message);
         assert(sd_dhcp_server_is_in_relay_mode(server));
 
-        if (message->op == BOOTREPLY) {
+        if (message->op == BOOTREQUEST) {
+                log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
+                if (message->hops >= 16)
+                        return -ETIME;
+                message->hops++;
+
+                /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
+                if (message->giaddr == 0)
+                        message->giaddr = server->address;
+
+                return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
+        } else if (message->op == BOOTREPLY) {
                 log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
                 if (message->giaddr != server->address) {
-                        log_dhcp_server(server, "(relay agent)  BOOTREPLY giaddr mismatch, discarding");
-                        return -EBADMSG;
+                        return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(EBADMSG),
+                                                     "(relay agent)  BOOTREPLY giaddr mismatch, discarding");
                 }
 
                 int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
@@ -738,17 +749,6 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 bool l2_broadcast = requested_broadcast(message) || message_type == DHCP_NAK;
                 const be32_t destination = message_type == DHCP_NAK ? INADDR_ANY : message->ciaddr;
                 return dhcp_server_send(server, destination, DHCP_PORT_CLIENT, packet, opt_length, l2_broadcast);
-        } else if (message->op == BOOTREQUEST) {
-                log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
-                if (message->hops >= 16)
-                        return -ETIME;
-                message->hops++;
-
-                /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
-                if (message->giaddr == 0)
-                        message->giaddr = server->address;
-
-                return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
         }
         return -EBADMSG;
 }
