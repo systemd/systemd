@@ -441,7 +441,7 @@ int loop_device_make(
         };
 
         *ret = d;
-        return 0;
+        return d->fd;
 }
 
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
