@@ -24,6 +24,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "ratelimit.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -1714,4 +1715,24 @@ do_rename:
                 return -errno;
 
         return 1;
+}
+
+int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size) {
+        RateLimit rl;
+        int r;
+
+        r = posix_fallocate(fd, offset, size); /* returns positive errnos on error */
+        if (r != EINTR)
+                return -r; /* Let's return negative errnos, like common in our codebase */
+
+        /* On EINTR try a couple of times more, but protect against busy looping
+         * (not more than 16 times per 10s) */
+        rl = (RateLimit) { 10 * USEC_PER_SEC, 16 };
+        while (ratelimit_below(&rl)) {
+                r = posix_fallocate(fd, offset, size);
+                if (r != EINTR)
+                        return -r;
+        }
+
+        return -EINTR;
 }

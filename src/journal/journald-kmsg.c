@@ -14,6 +14,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
@@ -436,8 +437,8 @@ int server_open_kernel_seqnum(Server *s) {
                 return 0;
         }
 
-        r = posix_fallocate(fd, 0, sizeof(uint64_t));
-        if (r != 0) {
+        r = posix_fallocate_loop(fd, 0, sizeof(uint64_t));
+        if (r < 0) {
                 log_error_errno(r, "Failed to allocate sequential number file, ignoring: %m");
                 return 0;
         }
