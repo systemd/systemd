@@ -1621,7 +1621,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>When true, the routes to the DNS servers received from the DHCP server will be
             configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
-            Defaults to false.</para>
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
