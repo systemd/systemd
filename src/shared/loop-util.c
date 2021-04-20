@@ -252,7 +252,7 @@ static int loop_configure(
                 /* Sleep some random time, but at least 10ms, at most 250ms. Increase the delay the more
                  * failed attempts we see */
                 (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
-                              random_u64() % (UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
+                              random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
         return 0;
@@ -422,8 +422,8 @@ int loop_device_make(
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
-                (void) usleep(random_u64() % (UINT64_C(10) * USEC_PER_MSEC +
-                                              UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
+                (void) usleep(random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
+                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
         if (fstat(loop_with_fd, &st) < 0)
