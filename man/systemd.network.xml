@@ -1642,6 +1642,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>RoutesToNTP=</varname></term>
+          <listitem>
+            <para>When true, the routes to the NTP servers received from the DHCP server will be
+            configured. When <varname>UseNTP=</varname> is disabled, this setting is ignored.
+            Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseSIP=</varname></term>
           <listitem>
             <para>When true (the default), the SIP servers received from the DHCP server will be collected
