@@ -304,6 +304,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
+                .dhcp_routes_to_ntp = true,
                 .dhcp_use_sip = true,
                 .dhcp_use_dns = true,
                 .dhcp_routes_to_dns = true,
