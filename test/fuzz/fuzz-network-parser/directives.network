@@ -95,6 +95,7 @@ UseGateway=
 IAID=
 UserClass=
 UseNTP=
+RoutesToNTP=
 UseSIP=
 UseMTU=
 UseDomainName=

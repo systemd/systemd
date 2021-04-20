@@ -549,6 +549,28 @@ static int link_set_routes_to_dns(Link *link, const struct in_addr *gw) {
         return link_set_routes_to_servers(link, dns, r, gw);
 }
 
+static int link_set_routes_to_ntp(Link *link, const struct in_addr *gw) {
+        const struct in_addr *ntp;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+        assert(gw);
+
+        if (!link->network->dhcp_use_ntp ||
+            !link->network->dhcp_routes_to_ntp)
+                return 0;
+
+        r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &ntp);
+        if (IN_SET(r, 0, -ENODATA))
+                return 0;
+        if (r < 0)
+                return r;
+
+        return link_set_routes_to_servers(link, ntp, r, gw);
+}
+
 static int link_set_dhcp_routes(Link *link) {
         struct in_addr gw = {};
         Route *rt;
@@ -591,6 +613,10 @@ static int link_set_dhcp_routes(Link *link) {
         r = link_set_routes_to_dns(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set routes to DNS servers: %m");
+
+        r = link_set_routes_to_ntp(link, &gw);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not set routes to NTP servers: %m");
 
         return 0;
 }

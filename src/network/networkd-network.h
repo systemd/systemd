@@ -142,6 +142,7 @@ struct Network {
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
         bool dhcp_use_ntp_set;
+        bool dhcp_routes_to_ntp;
         bool dhcp_use_sip;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
