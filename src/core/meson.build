@@ -123,6 +123,11 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+subdir('bpf/socket_bind')
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += [socket_bind_skel_h]
+endif
+
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
