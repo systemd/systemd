@@ -353,6 +353,8 @@ SendOption=
 SendVendorOption=
 BindToInterface=
 RelayTarget=
+AgentCircuitId=
+AgentRemoteId=
 [NextHop]
 Id=
 Gateway=

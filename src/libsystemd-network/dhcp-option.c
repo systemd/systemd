@@ -121,6 +121,38 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
         return 0;
 }
 
+int dhcp_option_remove_option(uint8_t options[], size_t length, uint8_t option_code) {
+        size_t offset = 0;
+        uint8_t code;
+
+        while (offset < length) {
+                code = options[offset ++];
+
+                switch (code) {
+                case SD_DHCP_OPTION_PAD:
+                        continue;
+
+                case SD_DHCP_OPTION_END:
+                        return -ENOMSG;
+                }
+
+                if (length < offset + 1)
+                        return -ENOBUFS;
+
+                uint8_t len = options[offset ++];
+                if (length < offset + len)
+                        return -EINVAL;
+                offset += len;
+
+                if (code == option_code) {
+                        const size_t option_offset = offset - len - 2;
+                        memmove(options + option_offset, options + offset, length - offset);
+                        return length - len - 2;
+                }
+        }
+        return -ENOMSG;
+}
+
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                        uint8_t overload,
                        uint8_t code, size_t optlen, const void *optval) {
