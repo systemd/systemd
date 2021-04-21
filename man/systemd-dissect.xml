@@ -187,8 +187,8 @@
         <term><option>--fsck=no</option></term>
 
         <listitem><para>Turn off automatic file system checking. By default when an image is accessed for
-        writing (by <option>--mount</option> or <option>--add</option>) the file systems contained in the OS
-        image are automatically checked using the appropriate <citerefentry
+        writing (by <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the
+        OS image are automatically checked using the appropriate <citerefentry
         project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         command, in automatic fixing mode. This behavior may be switched off using
         <option>--fsck=no</option>.</para></listitem>
