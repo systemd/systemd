@@ -14,11 +14,32 @@
 #include "strv.h"
 #include "utf8.h"
 
+/* Append type-length value structure to the options buffer */
+static int dhcp_option_append_tlv(uint8_t options[], size_t size, size_t *offset, uint8_t code, size_t optlen, const void *optval) {
+        assert(options);
+        assert(size > 0);
+        assert(offset);
+        assert(optlen <= UINT8_MAX);
+        assert(*offset < size);
+
+        if (*offset + 2 + optlen > size)
+                return -ENOBUFS;
+
+        options[*offset] = code;
+        options[*offset + 1] = optlen;
+
+        memcpy_safe(&options[*offset + 2], optval, optlen);
+        *offset += 2 + optlen;
+        return 0;
+}
+
 static int option_append(uint8_t options[], size_t size, size_t *offset,
                          uint8_t code, size_t optlen, const void *optval) {
         assert(options);
         assert(size > 0);
         assert(offset);
+
+        int r;
 
         if (code != SD_DHCP_OPTION_END)
                 /* always make sure there is space for an END option */
@@ -93,32 +114,91 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
                 options[*offset] = code;
                 options[*offset + 1] = l;
-
                 *offset += 2;
 
                 ORDERED_SET_FOREACH(p, s) {
-                        options[*offset] = p->option;
-                        options[*offset + 1] = p->length;
-                        memcpy(&options[*offset + 2], p->data, p->length);
-                        *offset += 2 + p->length;
+                        r = dhcp_option_append_tlv(options, size, offset, p->option, p->length, p->data);
+                        if (r < 0)
+                                return r;
+                }
+                break;
+        }
+        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
+                sd_dhcp_server *server = (sd_dhcp_server *) optval;
+                size_t current_offset = *offset + 2;
+
+                if (server->agent_circuit_id) {
+                        r = dhcp_option_append_tlv(options, size, &current_offset, SD_DHCP_RELAY_AGENT_CIRCUIT_ID,
+                                                   strlen(server->agent_circuit_id), server->agent_circuit_id);
+                        if (r < 0)
+                                return r;
+                }
+                if (server->agent_remote_id) {
+                        r = dhcp_option_append_tlv(options, size, &current_offset, SD_DHCP_RELAY_AGENT_REMOTE_ID,
+                                                   strlen(server->agent_remote_id), server->agent_remote_id);
+                        if (r < 0)
+                                return r;
                 }
 
+                options[*offset] = code;
+                options[*offset + 1] = current_offset - *offset - 2;
+                assert(current_offset - *offset - 2 <= UINT8_MAX);
+                *offset = current_offset;
                 break;
         }
         default:
-                if (*offset + 2 + optlen > size)
-                        return -ENOBUFS;
-
-                options[*offset] = code;
-                options[*offset + 1] = optlen;
-
-                memcpy_safe(&options[*offset + 2], optval, optlen);
-                *offset += 2 + optlen;
-
-                break;
+                return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
         }
-
         return 0;
+}
+
+static int option_length(uint8_t *options, size_t length, size_t offset) {
+        assert(options);
+        assert(offset < length);
+
+        if (IN_SET(options[offset], SD_DHCP_OPTION_PAD, SD_DHCP_OPTION_END))
+                return 1;
+        if (length < offset + 2)
+                return -ENOBUFS;
+
+        /* validating that buffer is long enough */
+        if (length < offset + 2 + options[offset + 1])
+                return -ENOBUFS;
+
+        return options[offset + 1] + 2;
+}
+
+int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t code, size_t *ret_offset) {
+        int r;
+
+        assert(options);
+        assert(ret_offset);
+
+        for (size_t offset = 0; offset < length; offset += r) {
+                r = option_length(options, length, offset);
+                if (r < 0)
+                        return r;
+
+                if (code == options[offset]) {
+                        *ret_offset = offset;
+                        return r;
+                }
+        }
+        return -ENOENT;
+}
+
+int dhcp_option_remove_option(uint8_t *options, size_t length, uint8_t option_code) {
+        int r;
+        size_t offset;
+
+        assert(options);
+
+        r = dhcp_option_find_option(options, length, option_code, &offset);
+        if (r < 0)
+                return r;
+
+        memmove(options + offset, options + offset + r, length - offset - r);
+        return length - r;
 }
 
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,

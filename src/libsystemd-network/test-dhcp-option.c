@@ -270,6 +270,14 @@ static void test_options(struct option_desc *desc) {
                 printf("DHCP type %s\n", dhcp_type(res));
 }
 
+static void test_option_removal(struct option_desc *desc) {
+        _cleanup_free_ DHCPMessage *message = create_message(&desc->options[0], desc->len, NULL, 0, NULL, 0);
+
+        assert_se(dhcp_option_parse(message, sizeof(DHCPMessage) + desc->len, NULL, NULL, NULL) >= 0);
+        assert_se((desc->len = dhcp_option_remove_option(message->options, desc->len, SD_DHCP_OPTION_MESSAGE_TYPE)) >= 0);
+        assert_se(dhcp_option_parse(message, sizeof(DHCPMessage) + desc->len, NULL, NULL, NULL) < 0);
+}
+
 static uint8_t options[64] = {
         'A', 'B', 'C', 'D',
         160, 2, 0x11, 0x12,
@@ -365,6 +373,13 @@ int main(int argc, char *argv[]) {
                 test_options(&option_tests[i]);
 
         test_option_set();
+
+        for (i = 0; i < ELEMENTSOF(option_tests); i++) {
+                struct option_desc *desc = &option_tests[i];
+                if (!desc->success || desc->snamelen > 0 || desc->filelen > 0)
+                        continue;
+                test_option_removal(desc);
+        }
 
         return 0;
 }
