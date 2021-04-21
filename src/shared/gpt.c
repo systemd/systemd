@@ -158,7 +158,8 @@ bool gpt_partition_type_knows_read_only(sd_id128_t id) {
                                 GPT_HOME,
                                 GPT_SRV,
                                 GPT_VAR,
-                                GPT_TMP) ||
+                                GPT_TMP,
+                                GPT_XBOOTLDR) ||
                 gpt_partition_type_is_root_verity(id) || /* pretty much implied, but let's set the bit to make things really clear */
                 gpt_partition_type_is_usr_verity(id);    /* ditto */
 }
