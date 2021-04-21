@@ -7,7 +7,7 @@
 #
 # Entries in this file show the compile time defaults. Local configuration
 # should be created by either modifying this file, or by creating "drop-ins" in
-# the system.conf.d/ subdirectory. The latter is generally recommended.
+# the timesyncd.conf.d/ subdirectory. The latter is generally recommended.
 # Defaults can be restored by simply deleting this file and all drop-ins.
 #
 # See timesyncd.conf(5) for details.
