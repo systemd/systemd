@@ -22,7 +22,7 @@ Janitorial Clean-ups:
 
 Features:
 
-* ability to insert trusted configuration and secrets into the boot paramaters
+* ability to insert trusted configuration and secrets into the boot parameters
   of a kernel booting in a VM or on baremetal some way, via TPM
   protection. idea:
   1. pass via /proc/bootconfig
