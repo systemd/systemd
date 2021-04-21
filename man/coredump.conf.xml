@@ -119,6 +119,22 @@
         either value to 0 to turn off size-based
         clean-up.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+         <term><varname>RateLimitIntervalSec=</varname></term>
+         <term><varname>RateLimitBurst=</varname></term>
+         <listitem><para>Configures the rate-limiting that is applied to
+         core dump generated per binary. Whenever a binary crashes need to
+         compare the number of core dump files present in the core dump path
+         belonging to that binary and generated within the interval time
+         against the burst value. If the burst value is reached, the
+         core dump will not processed further for generation. This rate-limiting
+         is applied per binary, so that two binaries crashing together do not
+         interfere with each other's rate-limits. By default core dump generation
+         rate-limit is disabled. <option>RateLimitIntervalSec=</option> time
+         specification specified in the following units: s, min, h, ms, us.</para>
+         </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The defaults for all values are listed as comments in the
