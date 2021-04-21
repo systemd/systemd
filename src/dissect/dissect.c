@@ -49,7 +49,8 @@ static DissectImageFlags arg_flags =
         DISSECT_IMAGE_DISCARD_ON_LOOP |
         DISSECT_IMAGE_RELAX_VAR_CHECK |
         DISSECT_IMAGE_FSCK |
-        DISSECT_IMAGE_USR_NO_ROOT;
+        DISSECT_IMAGE_USR_NO_ROOT |
+        DISSECT_IMAGE_GROWFS;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -75,6 +76,7 @@ static int help(void) {
                "     --no-legend          Do not show the headers and footers\n"
                "  -r --read-only          Mount read-only\n"
                "     --fsck=BOOL          Run fsck before mounting\n"
+               "     --growfs=BOOL        Grow file system to partition size, if marked\n"
                "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
@@ -112,6 +114,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_DISCARD,
                 ARG_FSCK,
+                ARG_GROWFS,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
                 ARG_VERITY_DATA,
@@ -128,6 +131,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
+                { "growfs",        required_argument, NULL, ARG_GROWFS        },
                 { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
@@ -262,6 +266,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --fsck= parameter: %s", optarg);
 
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
+                        break;
+
+                case ARG_GROWFS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", optarg);
+
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
                         break;
 
                 case ARG_JSON:
