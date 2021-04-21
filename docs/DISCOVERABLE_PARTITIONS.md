@@ -94,24 +94,45 @@ localized.
 
 ## Partition Flags
 
-For the root, `/usr/`, server data, home, variable data, temporary data and swap
-partitions, the partition flag bit 63 ("*no-auto*") may be used to turn off
-auto-discovery for the specific partition.  If set, the partition will not be
-automatically mounted or enabled.
+This specification defines three GPT partition flags that may be set for the
+partition types defined above:
 
-For the root, `/usr/`, server data, home, variable data and temporary data
-partitions, the partition flag bit 60 ("*read-only*") may be used to mark a
-partition for read-only mounts only.  If set, the partition will be mounted
-read-only instead of read-write. Note that the variable data partition and the
-temporary data partition will generally not be able to serve their purpose if
-marked read-only, since by their very definition they are supposed to be
-mutable. (The home and server data partitions are generally assumed to be
-mutable as well, but the requirement for them is not equally strong.) Because
-of that, while the read-only flag is defined and supported, it's almost never a
-good idea to actually use it for these partitions.
+1. For the root, `/usr/`, Verity, home, server data, variable data, temporary data,
+   swap and extended boot loader partitions, the partition flag bit 63
+   ("*no-auto*") may be used to turn off auto-discovery for the specific
+   partition.  If set, the partition will not be automatically mounted or
+   enabled.
 
-Note that these two flag definitions happen to map nicely to the ones used by
-Microsoft Basic Data Partitions.
+2. For the root, `/usr/`, Verity, home, server data, variable data, temporary
+   data and extended boot loader partitions, the partition flag bit 60
+   ("*read-only*") may be used to mark a partition for read-only mounts only.
+   If set, the partition will be mounted read-only instead of read-write. Note
+   that the variable data partition and the temporary data partition will
+   generally not be able to serve their purpose if marked read-only, since by
+   their very definition they are supposed to be mutable. (The home and server
+   data partitions are generally assumed to be mutable as well, but the
+   requirement for them is not equally strong.) Because of that, while the
+   read-only flag is defined and supported, it's almost never a good idea to
+   actually use it for these partitions. Also note that Verity partitions are
+   by their semantics always read-only. The flag is hence of little effect for
+   them, and it is recommended to set it unconditionally for the Verity
+   partition types.
+
+3. For the root, `/usr/`, home, server data, variable data, temporary data and
+   extended boot loader partitions, the partition flag bit 59
+   ("*grow-file-system*") may be used to mark a partition for automatic growing
+   of the contained file system to the size of the partition when
+   mounted. Tools that automatically mount disk image with a GPT partition
+   table are suggested to implicitly grow the contained file system to the
+   partition size they are contained in. This flag is without effect on
+   partitions marked read-only.
+
+Note that the first two flag definitions happen to map nicely to the ones used
+by Microsoft Basic Data Partitions.
+
+All three of these flags generally affect only auto-discovery and automatic
+mounting of disk images. If partitions marked with these flags are mounted
+explicitly by user intervention they typically have no effect.
 
 ## Suggested Mode of Operation
 
