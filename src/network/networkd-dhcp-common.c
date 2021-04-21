@@ -63,6 +63,12 @@ void network_adjust_dhcp(Network *network) {
         network_adjust_dhcp4(network);
 }
 
+static bool duid_needs_product_uuid(const DUID *duid) {
+        assert(duid);
+
+        return duid->type == DUID_TYPE_UUID && duid->raw_data_len == 0;
+}
+
 static struct DUID fallback_duid = { .type = DUID_TYPE_EN };
 
 DUID* link_get_duid(Link *link, int family) {
@@ -218,7 +224,7 @@ int dhcp_configure_duid(Link *link, DUID *duid) {
 
         m = link->manager;
 
-        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
+        if (!duid_needs_product_uuid(duid))
                 return 1;
 
         if (m->has_product_uuid) {
