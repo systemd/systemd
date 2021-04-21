@@ -130,8 +130,8 @@ losetup -d "${loop}"
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
 VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
 
-systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$architecture"'","verity":"yes","node":'
-systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$architecture"'","verity":null,"node":'
+systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$architecture"'","verity":"yes",'
+systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$architecture"'","verity":null,'
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F "MARKER=1"
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F -f <(sed 's/"//g' "$os_release")
 

@@ -467,7 +467,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_oom();
         }
 
-        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "node", "partno");
+        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "growfs", "node", "partno");
         if (!t)
                 return log_oom();
 
@@ -508,6 +508,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
                 else
                         r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(t, TABLE_BOOLEAN, (int) p->growfs);
                 if (r < 0)
                         return table_log_add_error(r);
 
