@@ -349,6 +349,11 @@ static int fido2_use_hmac_hash_specific_token(
         case FIDO_ERR_PIN_AUTH_BLOCKED:
                 return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
                                        "PIN of security token is blocked, please remove/reinsert token.");
+#ifdef FIDO_ERR_UV_BLOCKED
+        case FIDO_ERR_UV_BLOCKED:
+                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                       "Verification of security token is blocked, please remove/reinsert token.");
+#endif
         case FIDO_ERR_PIN_INVALID:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
                                        "PIN of security token incorrect.");
@@ -633,6 +638,11 @@ int fido2_generate_hmac_hash(
         if (r == FIDO_ERR_PIN_AUTH_BLOCKED)
                 return log_notice_errno(SYNTHETIC_ERRNO(EPERM),
                                         "Token PIN is currently blocked, please remove and reinsert token.");
+#ifdef FIDO_ERR_UV_BLOCKED
+        if (r == FIDO_ERR_UV_BLOCKED)
+                return log_notice_errno(SYNTHETIC_ERRNO(EPERM),
+                                        "Token verification is currently blocked, please remove and reinsert token.");
+#endif
         if (r == FIDO_ERR_ACTION_TIMEOUT)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
                                        "Token action timeout. (User didn't interact with token quickly enough.)");
