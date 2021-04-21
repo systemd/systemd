@@ -2858,7 +2858,7 @@ static int do_copy_files(Partition *p, const char *fs) {
                         if (pfd < 0)
                                 return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
-                        tfd = openat(pfd, basename(*target), O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0700);
+                        tfd = openat(pfd, fn, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0700);
                         if (tfd < 0)
                                 return log_error_errno(errno, "Failed to create target file '%s': %m", *target);
 
