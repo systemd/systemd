@@ -628,11 +628,11 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
 
                 log_link_debug(link,
-                               "%s route: dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s, nexthop: %"PRIu32,
+                               "%s route: dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32,
                                str, strna(dst), strna(src), strna(gw), strna(prefsrc),
                                strna(scope), strna(table), strna(proto),
                                strna(route_type_to_string(route->type)),
-                               route->nexthop_id);
+                               route->nexthop_id, route->priority);
         }
 }
 
