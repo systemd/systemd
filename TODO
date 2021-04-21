@@ -50,12 +50,6 @@ Features:
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
 
-* add a flag to the GPT spec that says "grow my fs to partition size", and make
-  it settable via systemd-repart. Add in growfs jobs in
-  systemd-gpt-auto-generator when it is set, and issue the ioctls while
-  mounting in systemd-npsawn --image=. That way systemd-repart suffices to
-  enlarge an image.
-
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
   partition on disk, but only if it is marked for growing and not read-only.
@@ -354,9 +348,6 @@ Features:
 
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
-
-* systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
-  creates
 
 * bootctl:
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
