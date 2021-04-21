@@ -1818,7 +1818,8 @@ int setup_namespace(
                 DISSECT_IMAGE_DISCARD_ON_LOOP |
                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                 DISSECT_IMAGE_FSCK |
-                DISSECT_IMAGE_USR_NO_ROOT;
+                DISSECT_IMAGE_USR_NO_ROOT |
+                DISSECT_IMAGE_GROWFS;
         size_t n_mounts;
         int r;
 
