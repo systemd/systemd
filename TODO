@@ -225,13 +225,6 @@ Features:
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
 
-* Add root=gpt-auto-late support or so, that is like root=gpt-auto but
-  initially mounts a tmpfs to /sysroot, and then revisits later after
-  systemd-repart ran. Usecase: let's ship images with only /usr partition, then
-  on first boot create the root partition. In this case we want to read the
-  repart data from /usr before the root partition exists. Add usr=gpt-auto that
-  automatically finds a /usr partition.
-
 * change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
   documented in the pivot_root(2) man page, so that we can drop the /oldroot
   temporary dir.
@@ -836,10 +829,6 @@ Features:
   execve() and turn off watchdog support. Then, use that to implement
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
-
-* gpt-auto logic: related to the above, maybe support a "secondary" root
-  partition, that is mounted to / and is writable, and where the actual root's
-  /usr is mounted into.
 
 * gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
 
