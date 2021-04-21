@@ -525,7 +525,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
                         r = loop_device_make_by_path(img->path, O_RDONLY, 0, &d);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set up loopback device: %m");
+                                return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
 
                         r = dissect_image_and_warn(
                                         d->fd,
