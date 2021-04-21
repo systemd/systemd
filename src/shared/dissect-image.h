@@ -111,6 +111,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_MOUNT_READ_ONLY     = 1 << 17, /* Make mounts read-only */
         DISSECT_IMAGE_READ_ONLY           = DISSECT_IMAGE_DEVICE_READ_ONLY |
                                             DISSECT_IMAGE_MOUNT_READ_ONLY,
+        DISSECT_IMAGE_GROWFS              = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
 } DissectImageFlags;
 
 struct DissectedImage {
