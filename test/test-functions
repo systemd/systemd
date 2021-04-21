@@ -632,7 +632,8 @@ setup_basic_environment() {
     install_keymaps
     install_terminfo
     install_execs
-    install_fsck
+    install_fs_tools
+    install_modules
     install_plymouth
     install_debug_tools
     install_ld_so_conf
@@ -833,13 +834,28 @@ EOF
     chmod 0755 "$strace_wrapper"
 }
 
-install_fsck() {
+install_fs_tools() {
     dinfo "Install fsck"
     dracut_install /sbin/fsck*
     dracut_install -o /bin/fsck*
 
     # fskc.reiserfs calls reiserfsck. so, install it
     dracut_install -o reiserfsck
+
+    # we use mkfs in system-repart tests
+    dracut_install /sbin/mkfs.ext4
+    dracut_install /sbin/mkfs.vfat
+}
+
+install_modules() {
+    dinfo "Install modules"
+
+    instmods loop
+    instmods vfat
+
+    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+        instmods ext4
+    fi
 }
 
 install_dmevent() {
@@ -2220,7 +2236,6 @@ setup_suse() {
     ln -fs ../usr/bin/systemctl "${initdir:?}/bin/"
     ln -fs ../usr/lib/systemd "$initdir/lib/"
     inst_simple "/usr/lib/systemd/system/haveged.service"
-    instmods ext4
 }
 
 _umount_dir() {
