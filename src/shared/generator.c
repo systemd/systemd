@@ -138,6 +138,13 @@ int generator_write_fsck_deps(
         assert(what);
         assert(where);
 
+        /* Let's do an early exit if we are invoked for the root and /usr/ trees in the initrd, to avoid
+         * generating confusing log messages */
+        if (in_initrd() && PATH_IN_SET(where, "/", "/usr")) {
+                log_debug("Skipping fsck for / + /usr in initrd.");
+                return 0;
+        }
+
         if (!is_device_path(what)) {
                 log_warning("Checking was requested for \"%s\", but it is not a device.", what);
                 return 0;
@@ -156,6 +163,11 @@ int generator_write_fsck_deps(
 
         if (path_equal(where, "/")) {
                 const char *lnk;
+
+                /* We support running the fsck instance for the root fs while it is already mounted, for
+                 * compatibility with non-initrd boots. It's ugly, but it is how it is. Since – unlike for
+                 * regular file systems – this means the ordering is reversed (i.e. mount *before* fsck) we
+                 * have a separate fsck unit for this, independent of systemd-fsck@.service. */
 
                 lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
@@ -180,7 +192,7 @@ int generator_write_fsck_deps(
                          * Requires= from /usr onto a fsck@.service unit and that unit is shut down, then
                          * we'd have to unmount /usr too.  */
 
-                        dep = !in_initrd() && path_equal(where, "/usr") ? "Wants" : "Requires";
+                        dep = path_equal(where, "/usr") ? "Wants" : "Requires";
 
                         r = unit_name_from_path_instance("systemd-fsck", what, ".service", &_fsck);
                         if (r < 0)
