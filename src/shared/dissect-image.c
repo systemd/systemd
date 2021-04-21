@@ -46,6 +46,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
+#include "resize-fs.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -532,7 +533,8 @@ int dissect_image(
         sd_id128_t usr_uuid = SD_ID128_NULL, usr_verity_uuid = SD_ID128_NULL;
 #endif
         bool is_gpt, is_mbr, multiple_generic = false,
-                generic_rw = false;  /* initialize to appease gcc */
+                generic_rw = false,  /* initialize to appease gcc */
+                generic_growfs = false;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
@@ -793,7 +795,7 @@ int dissect_image(
                         int architecture = _ARCHITECTURE_INVALID;
                         const char *stype, *sid, *fstype = NULL, *label;
                         sd_id128_t type_id, id;
-                        bool rw = true;
+                        bool rw = true, growfs = false;
 
                         sid = blkid_partition_get_uuid(pp);
                         if (!sid)
@@ -811,23 +813,25 @@ int dissect_image(
 
                         if (sd_id128_equal(type_id, GPT_HOME)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_HOME;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_SRV)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_SRV;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_ESP)) {
 
@@ -844,18 +848,19 @@ int dissect_image(
 
                         } else if (sd_id128_equal(type_id, GPT_XBOOTLDR)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_XBOOTLDR;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -867,6 +872,7 @@ int dissect_image(
                                 designator = PARTITION_ROOT;
                                 architecture = native_architecture();
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
 
@@ -890,7 +896,7 @@ int dissect_image(
 #ifdef GPT_ROOT_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -902,6 +908,7 @@ int dissect_image(
                                 designator = PARTITION_ROOT_SECONDARY;
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
 
@@ -925,7 +932,7 @@ int dissect_image(
 #ifdef GPT_USR_NATIVE
                         else if (sd_id128_equal(type_id, GPT_USR_NATIVE)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -937,6 +944,7 @@ int dissect_image(
                                 designator = PARTITION_USR;
                                 architecture = native_architecture();
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_USR_NATIVE_VERITY)) {
 
@@ -960,7 +968,7 @@ int dissect_image(
 #ifdef GPT_USR_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_USR_SECONDARY)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -972,6 +980,7 @@ int dissect_image(
                                 designator = PARTITION_USR_SECONDARY;
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_USR_SECONDARY_VERITY)) {
 
@@ -1004,7 +1013,7 @@ int dissect_image(
 
                         } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -1014,6 +1023,7 @@ int dissect_image(
                                 else {
                                         generic_nr = nr;
                                         generic_rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                        generic_growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
                                         generic_uuid = id;
                                         generic_node = strdup(node);
                                         if (!generic_node)
@@ -1022,17 +1032,18 @@ int dissect_image(
 
                         } else if (sd_id128_equal(type_id, GPT_TMP)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_TMP;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
 
                         } else if (sd_id128_equal(type_id, GPT_VAR)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -1060,6 +1071,7 @@ int dissect_image(
 
                                 designator = PARTITION_VAR;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
@@ -1106,6 +1118,7 @@ int dissect_image(
                                         .found = true,
                                         .partno = nr,
                                         .rw = rw,
+                                        .growfs = growfs,
                                         .architecture = architecture,
                                         .node = TAKE_PTR(n),
                                         .fstype = TAKE_PTR(t),
@@ -1129,6 +1142,7 @@ int dissect_image(
                                 else {
                                         generic_nr = nr;
                                         generic_rw = true;
+                                        generic_growfs = false;
                                         generic_node = strdup(node);
                                         if (!generic_node)
                                                 return -ENOMEM;
@@ -1164,6 +1178,7 @@ int dissect_image(
                                         .found = true,
                                         .partno = nr,
                                         .rw = true,
+                                        .growfs = false,
                                         .architecture = _ARCHITECTURE_INVALID,
                                         .node = TAKE_PTR(n),
                                         .uuid = id,
@@ -1252,6 +1267,7 @@ int dissect_image(
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
                                 .rw = generic_rw,
+                                .growfs = generic_growfs,
                                 .partno = generic_nr,
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .node = TAKE_PTR(generic_node),
@@ -1314,6 +1330,9 @@ int dissect_image(
 
                 if (p->fstype && fstype_is_ro(p->fstype))
                         p->rw = false;
+
+                if (!p->rw)
+                        p->growfs = false;
         }
 
         *ret = TAKE_PTR(m);
@@ -1404,6 +1423,43 @@ static int run_fsck(const char *node, const char *fstype) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "File system is corrupted, refusing.");
 
                 log_debug("Ignoring fsck error.");
+        }
+
+        return 0;
+}
+
+static int fs_grow(const char *node_path, const char *mount_path) {
+        _cleanup_close_ int mount_fd = -1, node_fd = -1;
+        char fb[FORMAT_BYTES_MAX];
+        uint64_t size, newsize;
+        int r;
+
+        node_fd = open(node_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (node_fd < 0)
+                return log_debug_errno(errno, "Failed to open node device %s: %m", node_path);
+
+        if (ioctl(node_fd, BLKGETSIZE64, &size) != 0)
+                return log_debug_errno(errno, "Failed to get block device size of %s: %m", node_path);
+
+        mount_fd = open(mount_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to open mountd file system %s: %m", mount_path);
+
+        log_debug("Resizing \"%s\" to %"PRIu64" bytes...", mount_path, size);
+        r = resize_fs(mount_fd, size, &newsize);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to resize \"%s\" to %"PRIu64" bytes: %m", mount_path, size);
+
+        if (newsize == size)
+                log_debug("Successfully resized \"%s\" to %s bytes.",
+                          mount_path,
+                          format_bytes(fb, sizeof fb, newsize));
+        else {
+                assert(newsize < size);
+                log_debug("Successfully resized \"%s\" to %s bytes (%"PRIu64" bytes lost due to blocksize).",
+                          mount_path,
+                          format_bytes(fb, sizeof fb, newsize),
+                          size - newsize);
         }
 
         return 0;
@@ -1516,6 +1572,9 @@ static int mount_partition(
         r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
                 return r;
+
+        if (rw && m->growfs && FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))
+                (void) fs_grow(node, p);
 
         return 1;
 }
