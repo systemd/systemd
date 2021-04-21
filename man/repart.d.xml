@@ -55,11 +55,13 @@
     partition slot greater than the highest slot number currently in use. Any existing partitions that have
     no matching partition file are left as they are.</para>
 
-    <para>Note that these definitions may only be used to created and initialize new partitions or grow
+    <para>Note that these definitions may only be used to create and initialize new partitions or to grow
     existing ones. In the latter case it will not grow the contained files systems however; separate
     mechanisms, such as
     <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
-    used to grow the file systems inside of these partitions.</para>
+    used to grow the file systems inside of these partitions. Partitions may also be marked for automatic
+    growing via the <varname>GrowFileSystem=</varname> setting, in which case the file system is grown on
+    first mount by tools that respect this flag. See below for details.</para>
   </refsect1>
 
   <refsect1>
@@ -580,13 +582,39 @@
 
       <varlistentry>
         <term><varname>ReadOnly=</varname></term>
+        <term><varname>GrowFileSystem=</varname></term>
 
-        <listitem><para>Configures the Read-Only partition flags (bit 60) of the partition table entry. This
-        option is a friendly way to set bit 60 of the partition flags value without setting any of the other
-        bits, and may be set via <varname>Flags=</varname> too, see above.</para>
+        <listitem><para>Configures the Read-Only and Grow-File-System partition flags (bit 60 and 59) of the
+        partition table entry, as defined by the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. Only
+        available for partition types supported by the specification. This option is a friendly way to set bit
+        60 and 59 of the partition flags value without setting any of the other bits, and may be set via
+        <varname>Flags=</varname> too, see above.</para>
 
-        <para>If both <varname>Flags=</varname> and <varname>ReadOnly=</varname> are set the latter controls
-        the value of the flag.</para></listitem>
+        <para>If <varname>Flags=</varname> is used in conjunction with one or both of
+        <varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> the latter control the value of the
+        relevant flags, i.e. the high-level settings
+        <varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> override the low-level setting
+        <varname>Flags=</varname>.</para>
+
+        <para>Note that the two flags affect only automatic partition mounting, as implemented by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        or the <option>--image=</option> option of various commands (such as
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>). It
+        has no effect on explicit mounts, such as those done via <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+        <citerefentry
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry></para>
+
+        <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
+        marked for file system growing) the latter is typically without effect: the read-only flag takes
+        precedence in most tools reading these flags, and since growing the file system involves writing to
+        the partition it is consequently ignored.</para>
+
+        <para><varname>ReadOnly=</varname> defaults to on for Verity partition
+        types. <varname>GrowFileSystem=</varname> defaults to on for all partition types that support it,
+        except if the partition is marked read-only (and thus effectively, defaults to off for Verity
+        partitions).</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
