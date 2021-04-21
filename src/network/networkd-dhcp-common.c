@@ -69,18 +69,22 @@ static bool duid_needs_product_uuid(const DUID *duid) {
         return duid->type == DUID_TYPE_UUID || duid->raw_data_len == 0;
 }
 
-static struct DUID fallback_duid = { .type = DUID_TYPE_EN };
+static const struct DUID fallback_duid = { .type = DUID_TYPE_EN };
 
-DUID* link_get_duid(Link *link, int family) {
-        DUID *duid;
+const DUID *link_get_duid(Link *link, int family) {
+        const DUID *duid;
 
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
 
         if (link->network) {
                 duid = family == AF_INET ? &link->network->dhcp_duid : &link->network->dhcp6_duid;
-                if (duid->type != _DUID_TYPE_INVALID)
-                        return duid;
+                if (duid->type != _DUID_TYPE_INVALID) {
+                        if (duid_needs_product_uuid(duid))
+                                return &link->manager->duid_product_uuid;
+                        else
+                                return duid;
+                }
         }
 
         duid = family == AF_INET ? &link->manager->dhcp_duid : &link->manager->dhcp6_duid;
@@ -160,7 +164,8 @@ static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_er
                 goto configure;
         }
 
-        memcpy(&manager->product_uuid, a, sz);
+        memcpy(&manager->duid_product_uuid.raw_data, a, sz);
+        manager->duid_product_uuid.raw_data_len = sz;
 
 configure:
         /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
@@ -214,7 +219,7 @@ int manager_request_product_uuid(Manager *m) {
         return 0;
 }
 
-int dhcp_configure_duid(Link *link, DUID *duid) {
+int dhcp_configure_duid(Link *link, const DUID *duid) {
         Manager *m;
         int r;
 
@@ -227,11 +232,8 @@ int dhcp_configure_duid(Link *link, DUID *duid) {
         if (!duid_needs_product_uuid(duid))
                 return 1;
 
-        if (m->has_product_uuid) {
-                memcpy(&duid->raw_data, &m->product_uuid, sizeof(sd_id128_t));
-                duid->raw_data_len = sizeof(sd_id128_t);
+        if (m->has_product_uuid)
                 return 1;
-        }
 
         r = manager_request_product_uuid(m);
         if (r < 0) {
