@@ -2,6 +2,11 @@
 set -eux
 set -o pipefail
 
+if ! command -v systemd-repart &>/dev/null; then
+    echo "no systemd-repart" >/skipped
+    exit 0
+fi
+
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
 
