@@ -170,6 +170,7 @@ struct Partition {
 
         uint64_t gpt_flags;
         int read_only;
+        int growfs;
 
         LIST_FIELDS(Partition, partitions);
 };
@@ -243,6 +244,7 @@ static Partition *partition_new(void) {
                 .copy_blocks_fd = -1,
                 .copy_blocks_size = UINT64_MAX,
                 .read_only = -1,
+                .growfs = -1,
         };
 
         return p;
@@ -1316,6 +1318,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt          },
                 { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags        },
                 { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only        },
+                { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs           },
                 {}
         };
         int r;
@@ -1362,6 +1365,11 @@ static int partition_read_definition(Partition *p, const char *path) {
              gpt_partition_type_is_usr_verity(p->type_uuid)) &&
             p->read_only < 0)
                 p->read_only = true;
+
+        /* Default to "growfs" on, unless read-only */
+        if (gpt_partition_type_knows_growfs(p->type_uuid) &&
+            p->read_only <= 0)
+                p->growfs = true;
 
         return 0;
 }
@@ -3241,6 +3249,38 @@ static int set_gpt_flags(struct fdisk_partition *q, uint64_t flags) {
         return fdisk_partition_set_attrs(q, a);
 }
 
+static uint64_t partition_merge_flags(Partition *p) {
+        uint64_t f;
+
+        assert(p);
+
+        f = p->gpt_flags;
+
+        if (p->read_only >= 0) {
+                if (gpt_partition_type_knows_read_only(p->type_uuid))
+                        SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
+                else {
+                        char buffer[ID128_UUID_STRING_MAX];
+                        log_warning("Configured ReadOnly=%s for partition type '%s' that doesn't support it, ignoring.",
+                                    yes_no(p->read_only),
+                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                }
+        }
+
+        if (p->growfs >= 0) {
+                if (gpt_partition_type_knows_growfs(p->type_uuid))
+                        SET_FLAG(f, GPT_FLAG_GROWFS, p->growfs);
+                else {
+                        char buffer[ID128_UUID_STRING_MAX];
+                        log_warning("Configured GrowFileSystem=%s for partition type '%s' that doesn't support it, ignoring.",
+                                    yes_no(p->growfs),
+                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                }
+        }
+
+        return f;
+}
+
 static int context_mangle_partitions(Context *context) {
         Partition *p;
         int r;
@@ -3309,7 +3349,6 @@ static int context_mangle_partitions(Context *context) {
                         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
                         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
                         char ids[ID128_UUID_STRING_MAX];
-                        uint64_t f;
 
                         assert(!p->new_partition);
                         assert(p->offset % 512 == 0);
@@ -3357,19 +3396,8 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
 
-                        /* Merge the read only setting with the literal flags */
-                        f = p->gpt_flags;
-                        if (p->read_only >= 0) {
-                                if (gpt_partition_type_knows_read_only(p->type_uuid))
-                                        SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
-                                else {
-                                        char buffer[ID128_UUID_STRING_MAX];
-                                        log_warning("Configured ReadOnly=yes for partition type '%s' that doesn't support it, ignoring.",
-                                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
-                                }
-                        }
-
-                        r = set_gpt_flags(q, f);
+                        /* Merge the read only + growfs setting with the literal flags, and set them for the partition */
+                        r = set_gpt_flags(q, partition_merge_flags(p));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set GPT partition flags: %m");
 
