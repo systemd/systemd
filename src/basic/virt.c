@@ -134,9 +134,7 @@ static int detect_vm_device_tree(void) {
 #endif
 }
 
-static int detect_vm_dmi(void) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-
+static int detect_vm_dmi_vendor(void) {
         static const char *const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
@@ -181,8 +179,43 @@ static int detect_vm_dmi(void) {
                                 return dmi_vendor_table[j].id;
                         }
         }
-#endif
+        return VIRTUALIZATION_NONE;
+}
 
+static int detect_vm_dmi(void) {
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+
+        int r;
+        r = detect_vm_dmi_vendor();
+        if (r == VIRTUALIZATION_AMAZON) {
+                /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between Amazon EC2
+                 * virtual machines and bare-metal instances, so we need to look deeper.  The EC2 firmware
+                 * BIOS Charateristics Extension Byte 2 (Section 2.1.2.2 of
+                 * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf), which
+                 * specifies that the 4th bit being set indicates a VM. The BIOS Characteristics table is
+                 * exposed via the kernel in /sys/firmware/dmi/entries/0-0. */
+                _cleanup_free_ char *s = NULL;
+                int i;
+                size_t readsize;
+                i = read_full_virtual_file("/sys/firmware/dmi/entries/0-0/raw", &s, &readsize);
+                if (i < 0) {
+                        log_debug("Unable to read /sys/firmware/dmi/entries/0-0/raw: %d", i);
+                        return r;
+                }
+                if (readsize < 20) {
+                        log_debug("Only read %lu bytes from /sys/firmware/dmi/entries/0-0/raw", readsize);
+                        return r;
+                }
+                unsigned byte = s[19];
+                if (byte ^ 1<<4) {
+                        log_debug("DMI BIOS Extension table does not indicate virtualization");
+                        return VIRTUALIZATION_NONE;
+                }
+                log_debug("DMI BIOS Extension table indicates virtualization");
+        }
+
+        return r;
+#endif
         log_debug("No virtualization found in DMI");
 
         return VIRTUALIZATION_NONE;
