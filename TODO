@@ -89,6 +89,14 @@ Features:
   or so. (this is useful to factory reset an image, then putting it into
   another machine, ensuring that luks key is generated on new machine, not old)
 
+* systemd-repart: support setting up dm-integrity with HMAC
+
+* systemd-repart: maybe remove half-initialized image on failure. It fails
+  if the output file exists, so a repeated invocation will usually fail if
+  something goes wrong on the way.
+
+* systemd-repart: drop pager mode on normal operation?
+
 * move logind udev rules to top-level rule.d/ directory
 
 * move multiseat vid/pid matches from logind udev rule to hwdb
@@ -248,8 +256,6 @@ Features:
 
 * when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
   so, freeze the payload too.
-
-* repart: support setting up dm-integrity with HMAC
 
 * add /etc/integritytab, to support dm-integrity setups. In particular those
   with HMAC as hash function, so that we can have a protected /home without
