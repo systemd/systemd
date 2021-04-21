@@ -112,7 +112,8 @@
  * auto-discovery. These happen to be identical to what Microsoft defines for its own Basic Data Partitions,
  * but that's just because we saw no point in defining any other values here. */
 #define GPT_FLAG_READ_ONLY (1ULL << 60)
-#define GPT_FLAG_NO_AUTO (1ULL << 63)
+#define GPT_FLAG_NO_AUTO   (1ULL << 63)
+#define GPT_FLAG_GROWFS    (1ULL << 59)
 
 const char *gpt_partition_type_uuid_to_string(sd_id128_t id);
 const char *gpt_partition_type_uuid_to_string_harder(
