@@ -384,6 +384,7 @@ int manager_new(Manager **ret) {
                 .ethtool_fd = -1,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
+                .duid_product_uuid.type = DUID_TYPE_UUID,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");

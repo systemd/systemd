@@ -52,15 +52,15 @@ static inline bool link_dhcp6_enabled(Link *link) {
 
 void network_adjust_dhcp(Network *network);
 
-DUID *link_get_duid(Link *link, int family);
-static inline DUID *link_get_dhcp4_duid(Link *link) {
+const DUID *link_get_duid(Link *link, int family);
+static inline const DUID *link_get_dhcp4_duid(Link *link) {
         return link_get_duid(link, AF_INET);
 }
-static inline DUID *link_get_dhcp6_duid(Link *link) {
+static inline const DUID *link_get_dhcp6_duid(Link *link) {
         return link_get_duid(link, AF_INET6);
 }
 
-int dhcp_configure_duid(Link *link, DUID *duid);
+int dhcp_configure_duid(Link *link, const DUID *duid);
 int manager_request_product_uuid(Manager *m);
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
