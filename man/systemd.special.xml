@@ -413,7 +413,7 @@
             run once the <filename>/sysusr/</filename> hierarchy becomes available, on systems that come up
             initially without a root file system, but with an initialized <filename>/usr/</filename> and need
             to access that before setting up the root file system to ultimately switch to. On systems where
-            <varname>usr=</varname> is not used this target is ordered afer
+            <varname>usr=</varname> is not used this target is ordered after
             <filename>sysroot.mount</filename> and thus mostly equivalent to
             <filename>initrd-root-fs.target</filename>. In effect on any system once this target is reached
             the file system backing <filename>/usr/</filename> is mounted, though possibly at two different
