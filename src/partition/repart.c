@@ -2846,7 +2846,7 @@ static int do_copy_files(Partition *p, const char *fs) {
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy %s%s to %s: %m", strempty(arg_root), *source, *target);
+                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
                         /* We are looking at a regular file */
 
@@ -2864,7 +2864,7 @@ static int do_copy_files(Partition *p, const char *fs) {
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_SIGINT);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s%s' to '%s': %m", strempty(arg_root), *source, *target);
+                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
                         (void) copy_xattr(sfd, tfd);
                         (void) copy_access(sfd, tfd);
