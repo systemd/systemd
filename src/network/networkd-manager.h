@@ -54,7 +54,7 @@ struct Manager {
 
         DUID dhcp_duid;
         DUID dhcp6_duid;
-        sd_id128_t product_uuid;
+        DUID duid_product_uuid;
         bool has_product_uuid;
         bool product_uuid_requested;
         Set *links_requesting_uuid;
