@@ -503,6 +503,9 @@ int generator_hook_up_growfs(
         const char *unit_file;
         int r;
 
+        assert(dir);
+        assert(where);
+
         escaped = cescape(where);
         if (!escaped)
                 return log_oom();
@@ -534,9 +537,10 @@ int generator_hook_up_growfs(
                 "BindsTo=%%i.mount\n"
                 "Conflicts=shutdown.target\n"
                 "After=%%i.mount\n"
-                "Before=shutdown.target %s\n",
+                "Before=shutdown.target%s%s\n",
                 program_invocation_short_name,
-                target);
+                target ? " " : "",
+                strempty(target));
 
         if (empty_or_root(where)) /* Make sure the root fs is actually writable before we resize it */
                 fprintf(f,
