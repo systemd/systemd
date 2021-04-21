@@ -774,7 +774,7 @@ static int run(int argc, char *argv[]) {
                         FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device: %m");
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
         r = dissect_image_and_warn(
                         d->fd,

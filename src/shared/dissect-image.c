@@ -2741,7 +2741,7 @@ int mount_image_privately_interactively(
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device: %m");
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
         r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
         if (r < 0)

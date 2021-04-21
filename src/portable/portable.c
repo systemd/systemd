@@ -376,7 +376,7 @@ static int portable_extract_by_path(
                         return r;
 
         } else if (r < 0)
-                return log_debug_errno(r, "Failed to set up loopback device: %m");
+                return log_debug_errno(r, "Failed to set up loopback device for %s: %m", path);
         else {
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
