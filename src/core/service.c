@@ -3267,6 +3267,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
         case SERVICE_START:
                 if (s->type == SERVICE_NOTIFY &&
+                    s->exit_type == SERVICE_EXIT_MAIN &&
                     main_pid_good(s) == 0 &&
                     control_pid_good(s) == 0) {
                         /* No chance of getting a ready notification anymore */
@@ -3277,6 +3278,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 _fallthrough_;
         case SERVICE_START_POST:
                 if (s->pid_file_pathspec &&
+                    s->exit_type == SERVICE_EXIT_MAIN &&
                     main_pid_good(s) == 0 &&
                     control_pid_good(s) == 0) {
 
@@ -3300,7 +3302,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         case SERVICE_STOP_SIGTERM:
         case SERVICE_STOP_SIGKILL:
 
-                if (main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
+                if (s->exit_type == SERVICE_EXIT_MAIN && main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
                         service_enter_stop_post(s, SERVICE_SUCCESS);
 
                 break;
@@ -3309,7 +3311,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         case SERVICE_FINAL_WATCHDOG:
         case SERVICE_FINAL_SIGTERM:
         case SERVICE_FINAL_SIGKILL:
-                if (main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
+                if (s->exit_type == SERVICE_EXIT_MAIN && main_pid_good(s) <= 0 && control_pid_good(s) <= 0)
                         service_enter_dead(s, SERVICE_SUCCESS, true);
 
                 break;
