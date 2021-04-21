@@ -2801,15 +2801,6 @@ static int do_copy_files(Partition *p, const char *fs) {
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
-                _cleanup_free_ char *dn = NULL, *fn = NULL;
-
-                r = path_extract_directory(*target, &dn);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
-
-                r = path_extract_filename(*target, &fn);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
 
                 sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT|CHASE_WARN, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
@@ -2823,8 +2814,18 @@ static int do_copy_files(Partition *p, const char *fs) {
                         /* We are looking at a directory */
                         tfd = chase_symlinks_and_open(*target, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
+                                _cleanup_free_ char *dn = NULL, *fn = NULL;
+
                                 if (tfd != -ENOENT)
                                         return log_error_errno(tfd, "Failed to open target directory '%s': %m", *target);
+
+                                r = path_extract_filename(*target, &fn);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
+
+                                r = path_extract_directory(*target, &dn);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
                                 r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
                                 if (r < 0)
@@ -2848,7 +2849,20 @@ static int do_copy_files(Partition *p, const char *fs) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
+                        _cleanup_free_ char *dn = NULL, *fn = NULL;
+
                         /* We are looking at a regular file */
+
+                        r = path_extract_filename(*target, &fn);
+                        if (r == -EADDRNOTAVAIL || r == O_DIRECTORY)
+                                return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                                       "Target path '%s' refers to a directory, but source path '%s' refers to regular file, can't copy.", *target, *source);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", *target);
+
+                        r = path_extract_directory(*target, &dn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
                         r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
                         if (r < 0)
