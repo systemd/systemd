@@ -1100,6 +1100,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>The metric of the prefix route, which is pointing to the subnet of the configured IP
+            address, taking the configured prefix length into account. Takes an unsigned integer in the
+            range 0…4294967295. When unset or set to 0, the kernel's default value is used. This
+            setting will be ignored when <varname>AddPrefixRoute=</varname> is false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>HomeAddress=</varname></term>
           <listitem>
             <para>Takes a boolean. Designates this address the "home address" as defined in
@@ -1421,7 +1430,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Metric=</varname></term>
           <listitem>
-            <para>The metric of the route (an unsigned integer).</para>
+            <para>The metric of the route. Takes an unsigned integer in the range 0…4294967295.
+            Defaluts to unset, and the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1837,7 +1847,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
+            <para>Set the routing metric for routes specified by the DHCP server. Takes an unsigned
+            integer in the range 0…4294967295. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -1974,13 +1985,6 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>UseDomains=</varname></term>
           <listitem>
             <para>As in the [DHCPv4] section.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
-          <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -2158,6 +2162,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>As in the [Address] section, but defaults to true.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
+          the range 0…4294967295. When unset or set to 0, the kernel's default value is used.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2204,6 +2216,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
+            unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -2563,6 +2583,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>Assign=</varname></term>
         <listitem><para>Takes a boolean. When true, adds an address from the prefix. Default to false.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The metric of the prefix route. Takes an unsigned integer in the range 0…4294967295.
+          When unset or set to 0, the kernel's default value is used. This setting is ignored when
+          <varname>Assign=</varname> is false.</para>
+        </listitem>
       </varlistentry>
     </variablelist>
     </refsect1>

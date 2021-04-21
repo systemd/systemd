@@ -3911,7 +3911,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
@@ -4014,7 +4014,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip address show dev veth99 scope global')
         print(output)
         self.assertRegex(output, r'inet 192.168.5.250/24 brd 192.168.5.255 scope global veth99')
-        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global secondary dynamic veth99')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global secondary dynamic veth99')
 
         output = check_output('ip route show dev veth99')
         print(output)
@@ -4044,7 +4044,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip route show dev veth99')
         print(output)
-        self.assertRegex(output, 'metric 24')
+        self.assertIn('default via 192.168.5.1 proto dhcp src 192.168.5.181 metric 24', output)
+        self.assertIn('192.168.5.0/24 proto kernel scope link src 192.168.5.181 metric 24', output)
+        self.assertIn('192.168.5.1 proto dhcp scope link src 192.168.5.181 metric 24', output)
 
     def test_dhcp_client_reassign_static_routes_ipv4(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
@@ -4056,7 +4058,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
         output = check_output('ip route show dev veth99')
         print(output)
@@ -4201,7 +4203,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = check_output('ip address show dev veth99 scope global')
@@ -4244,7 +4246,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable', 'vrf99:carrier'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         print('## ip -d link show dev vrf99')
@@ -4255,14 +4257,14 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## ip address show vrf vrf99')
         output = check_output('ip address show vrf vrf99')
         print(output)
-        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
         self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
 
         print('## ip address show dev veth99')
         output = check_output('ip address show dev veth99')
         print(output)
-        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
         self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
 
@@ -4338,9 +4340,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dev veth99 scope link')
         self.assertRegex(output, r'inet6 .* scope link')
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic veth99')
+        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 brd 169\.254\.255\.255 scope link')
+        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
 
         print('Wait for the dynamic address to be expired')
         time.sleep(130)
@@ -4353,9 +4355,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dev veth99 scope link')
         self.assertRegex(output, r'inet6 .* scope link')
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic veth99')
+        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 brd 169\.254\.255\.255 scope link')
+        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
 
         search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
 
@@ -4375,13 +4377,13 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dev veth99 scope link')
         self.assertRegex(output, r'inet6 .* scope link')
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic veth99')
+        self.assertNotRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertRegex(output, r'inet 169\.254\.\d+\.\d+/16 brd 169\.254\.255\.255 scope link')
+        self.assertRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
 
         start_dnsmasq(lease_time='2m')
-        self.wait_address('veth99', r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic', ipv='-4')
-        self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 brd 169\.255\.255\.255 scope link', scope='link', ipv='-4')
+        self.wait_address('veth99', r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic', ipv='-4')
+        self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.255\.255\.255 scope link', scope='link', ipv='-4')
 
     def test_dhcp_client_route_remove_on_renew(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
@@ -4395,7 +4397,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
         print(output)
-        self.assertRegex(output, 'inet 192.168.5.1[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, 'inet 192.168.5.1[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
         address1=None
         for line in output.splitlines():
             if 'brd 192.168.5.255 scope global dynamic veth99' in line:
@@ -4415,10 +4417,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
         print(output)
-        self.assertRegex(output, 'inet 192.168.5.2[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, 'inet 192.168.5.2[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
         address2=None
         for line in output.splitlines():
-            if 'brd 192.168.5.255 scope global dynamic veth99' in line:
+            if 'metric 1024 brd 192.168.5.255 scope global dynamic veth99' in line:
                 address2 = line.split()[1].split('/')[0]
                 break
 
@@ -4440,7 +4442,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
@@ -4458,7 +4460,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
@@ -4476,7 +4478,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
@@ -4494,7 +4496,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic', ipv='-4')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         time.sleep(3)
