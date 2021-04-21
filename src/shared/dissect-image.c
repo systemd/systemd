@@ -46,6 +46,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
+#include "resize-fs.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -1427,6 +1428,43 @@ static int run_fsck(const char *node, const char *fstype) {
         return 0;
 }
 
+static int fs_grow(const char *node_path, const char *mount_path) {
+        _cleanup_close_ int mount_fd = -1, node_fd = -1;
+        char fb[FORMAT_BYTES_MAX];
+        uint64_t size, newsize;
+        int r;
+
+        node_fd = open(node_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (node_fd < 0)
+                return log_debug_errno(errno, "Failed to open node device %s: %m", node_path);
+
+        if (ioctl(node_fd, BLKGETSIZE64, &size) != 0)
+                return log_debug_errno(errno, "Failed to get block device size of %s: %m", node_path);
+
+        mount_fd = open(mount_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to open mountd file system %s: %m", mount_path);
+
+        log_debug("Resizing \"%s\" to %"PRIu64" bytes...", mount_path, size);
+        r = resize_fs(mount_fd, size, &newsize);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to resize \"%s\" to %"PRIu64" bytes: %m", mount_path, size);
+
+        if (newsize == size)
+                log_debug("Successfully resized \"%s\" to %s bytes.",
+                          mount_path,
+                          format_bytes(fb, sizeof fb, newsize));
+        else {
+                assert(newsize < size);
+                log_debug("Successfully resized \"%s\" to %s bytes (%"PRIu64" bytes lost due to blocksize).",
+                          mount_path,
+                          format_bytes(fb, sizeof fb, newsize),
+                          size - newsize);
+        }
+
+        return 0;
+}
+
 static int mount_partition(
                 DissectedPartition *m,
                 const char *where,
@@ -1534,6 +1572,9 @@ static int mount_partition(
         r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
                 return r;
+
+        if (rw && m->growfs && FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))
+                (void) fs_grow(node, p);
 
         return 1;
 }
