@@ -644,7 +644,7 @@ int journal_file_fstat(JournalFile *f) {
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
         uint64_t old_size, new_size, old_header_size, old_arena_size;
-        int r;
+        int r, retry_count = 1;
 
         assert(f);
         assert(f->header);
@@ -707,7 +707,10 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
            as we can. */
-        r = posix_fallocate(f->fd, old_size, new_size - old_size);
+        do {
+                r = posix_fallocate(f->fd, old_size, new_size - old_size);
+        } while (r == EINTR && retry_count-- > 0);
+
         if (r != 0)
                 return -r;
 
