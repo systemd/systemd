@@ -16,6 +16,7 @@
 #include "unit-file.h"
 #include "cgroup.h"
 
+typedef struct SocketBind SocketBind;
 typedef struct UnitRef UnitRef;
 
 typedef enum KillOperation {
@@ -308,6 +309,11 @@ typedef struct Unit {
         /* BPF programs managed (e.g. loaded to kernel) by an entity external to systemd,
          * attached to unit cgroup by provided program fd and attach type. */
         Hashmap *bpf_foreign_by_key;
+
+        /* BPF links to BPF programs attached to cgroup/bind{4|6} hooks and
+         * responsible for allowing or denying a unit to bind(2) to a socket
+         * address.*/
+        SocketBind *socket_bind;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
