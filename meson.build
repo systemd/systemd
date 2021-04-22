@@ -1585,6 +1585,9 @@ if get_option('efi')
         elif efi_arch == 'aarch64'
                 EFI_MACHINE_TYPE_NAME = 'aa64'
                 gnu_efi_arch = 'aarch64'
+        elif efi_arch == 'riscv64'
+                EFI_MACHINE_TYPE_NAME = 'riscv64'
+                gnu_efi_arch = 'riscv64'
         else
                 EFI_MACHINE_TYPE_NAME = ''
                 gnu_efi_arch = ''
