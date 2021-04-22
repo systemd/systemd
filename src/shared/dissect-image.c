@@ -178,8 +178,8 @@ static int device_is_partition(
         if (!path_equal(parent_syspath, expected_parent_syspath))
                 return false; /* Has a different parent than what we need, not interesting to us */
 
-        /* On kernel uevents the partition number we may find in the PARTN= field. Let's use that preferably,
-         * since it's cheaper and more importantly: the sysfs attribute "partition" appear to become
+        /* On kernel uevents we may find the partition number in the PARTN= field. Let's use that preferably,
+         * since it's cheaper and more importantly: the sysfs attribute "partition" appears to become
          * available late, hence let's use the property instead, which is available at the moment we see the
          * uevent. */
         r = sd_device_get_property_value(d, "PARTN", &v);
