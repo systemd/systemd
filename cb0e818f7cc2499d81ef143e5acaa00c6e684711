@@ -1,0 +1,20 @@
+description from the pull request:
+
+This PR introduces `ExitType=main|cgroup` for services. Similar to how `Type`
+specifies the launch of a service, `ExitType` is concerned with how systemd
+determines that a service exited.
+
+- If set to `main` (the current behavior), the service manager will consider
+  the unit stopped when the main process exits.
+
+- The `cgroup` exit type is meant for applications whose forking model is not
+  known ahead of time and which might not have a specific main process. The
+  service will stay running as long as at least one process in the cgroup is
+  running. The exit status of the service is that of the last process in the
+  cgroup to exit. This is intended for transient or automatically generated
+  services, such as graphical applications inside of a desktop environment.
+
+Motivation for this is #16805. `xdg-autostart-generator` was amended to use
+`ExitType=cgroup`, which fixes https://bugs.kde.org/show_bug.cgi?id=433299, a
+bug where some generated autostart app services that forked not launching
+(systemd kills the entire cgroup after the main process exited).
