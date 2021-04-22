@@ -493,7 +493,7 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s DefaultOOMPolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly x CtrlAltDelBurstAction = ...;
+      readonly s CtrlAltDelBurstAction = '...';
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
