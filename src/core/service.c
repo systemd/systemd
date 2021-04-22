@@ -3474,6 +3474,15 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_START_POST:
                         case SERVICE_RELOAD:
+                                /* If neither main nor control processes are running then
+                                 * the current state can never exit cleanly, hence immediately
+                                 * terminate the service. */
+                                if (control_pid_good(s) <= 0)
+                                        service_enter_stop(s, f);
+
+                                /* Otherwise need to wait untill the operation is done. */
+                                break;
+
                         case SERVICE_STOP:
                                 /* Need to wait until the operation is
                                  * done */
