@@ -6,6 +6,23 @@ TEST_DESCRIPTION="systemd-oomd Memory Pressure Test"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+test_create_image() {
+    create_empty_image_rootdir
+
+    mkswap "${LOOPDEV}p2"
+    # Create what will eventually be our root filesystem onto an overlay
+    (
+        LOG_LEVEL=5
+        setup_basic_environment
+        mask_supporting_services
+        dracut_install swapon swapoff
+
+        cat >>"$initdir/etc/fstab" <<EOF
+UUID=$(blkid -o value -s UUID "${LOOPDEV}p2")    none    swap    defaults 0 0
+EOF
+    )
+}
+
 check_result_nspawn() {
     local workspace="${1:?}"
     local ret=1
