@@ -139,7 +139,11 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         return 0;
 }
 
-static int device_is_partition(sd_device *d, sd_device *expected_parent, blkid_partition pp) {
+static int device_is_partition(
+                sd_device *d,
+                sd_device *expected_parent,
+                blkid_partition pp) {
+
         const char *v, *parent_syspath, *expected_parent_syspath;
         blkid_loff_t bsize, bstart;
         uint64_t size, start;
@@ -174,9 +178,16 @@ static int device_is_partition(sd_device *d, sd_device *expected_parent, blkid_p
         if (!path_equal(parent_syspath, expected_parent_syspath))
                 return false; /* Has a different parent than what we need, not interesting to us */
 
-        r = sd_device_get_sysattr_value(d, "partition", &v);
+        /* On kernel uevents the partition number we may find in the PARTN= field. Let's use that preferably,
+         * since it's cheaper and more importantly: the sysfs attribute "partition" appear to become
+         * available late, hence let's use the property instead, which is available at the moment we see the
+         * uevent. */
+        r = sd_device_get_property_value(d, "PARTN", &v);
+        if (r == -ENOENT)
+                r = sd_device_get_sysattr_value(d, "partition", &v);
         if (r < 0)
                 return r;
+
         r = safe_atoi(v, &partno);
         if (r < 0)
                 return r;
