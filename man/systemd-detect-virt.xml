@@ -73,6 +73,11 @@
           </row>
 
           <row>
+            <entry><varname>amazon</varname></entry>
+            <entry>Amazon EC2 Nitro</entry>
+          </row>
+
+          <row>
             <entry><varname>zvm</varname></entry>
             <entry>s390 z/VM</entry>
           </row>
