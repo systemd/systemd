@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-59-RELOADING-RESTART
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
