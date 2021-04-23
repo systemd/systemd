@@ -1118,23 +1118,53 @@ save_journal() {
     JOURNAL_LIST="$(ls -l "$dest"*)"
 }
 
+check_result_common() {
+    local workspace="${1:?}"
+    local ret
+
+    if [ -s "$workspace/failed" ]; then
+        # …/failed only counts if non-empty
+        ls -l "$workspace/failed"
+        cp -a "$workspace/failed" "${TESTDIR:?}/"
+        ret=1
+    elif [ -e "$workspace/testok" ]; then
+        # …/testok always counts (but with lower priority than …/failed)
+        ret=0
+    elif [ -e "$workspace/skipped" ]; then
+        # …/skipped always counts (a message is expected)
+        echo "${TESTNAME:?} was skipped:"
+        cat "$workspace/skipped"
+        ret=0
+    elif [ -n "$TIMED_OUT" ]; then
+        echo "${TESTNAME:?} timed out!"
+        ret=2
+    else
+        echo "${TESTNAME:?} did not report a result!"
+    fi
+
+    save_journal "$workspace/var/log/journal"
+
+    check_asan_reports "$workspace" || ret=3
+
+    if [ -d "${ARTIFACT_DIRECTORY}" -a -f "$workspace/strace.out" ]; then
+        cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
+    fi
+
+    return $ret
+}
+
 check_result_nspawn() {
     local workspace="${1:?}"
     local ret=1
-    local journald_report=""
-    local pids=""
-    [[ -e "$workspace/testok" ]] && ret=0
-    [[ -f "$workspace/failed" ]] && cp -a "$workspace/failed" "${TESTDIR:?}"
-    save_journal "$workspace/var/log/journal"
-    [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
-    echo "${JOURNAL_LIST:-"No journals were saved"}"
-    test -s "$TESTDIR/failed" && ret=$((ret+1))
-    [ -n "$TIMED_OUT" ] && ret=$((ret+1))
-    check_asan_reports "$workspace" || ret=$((ret+1))
-    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
-        cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
-    fi
+
+    check_result_common "${workspace}"
+    ret=$?
+
     _umount_dir "${initdir:?}"
+
+    [ -f "$TESTDIR/failed" ] && head -v "$TESTDIR/failed"
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
+
     return $ret
 }
 
@@ -1142,18 +1172,15 @@ check_result_nspawn() {
 check_result_qemu() {
     local ret=1
     mount_initdir
-    [[ -e "${initdir:?}/testok" ]] && ret=0
-    [[ -f "$initdir/failed" ]] && cp -a "$initdir/failed" "${TESTDIR:?}"
-    save_journal "$initdir/var/log/journal"
-    check_asan_reports "$initdir" || ret=$((ret+1))
-    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$initdir/strace.out" ]; then
-        cp "$initdir/strace.out" "${ARTIFACT_DIRECTORY}/"
-    fi
-    _umount_dir "$initdir"
+
+    check_result_common "${initdir}"
+    ret=$?
+
+    _umount_dir "${initdir:?}"
+
     [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
     echo "${JOURNAL_LIST:-"No journals were saved"}"
-    test -s "$TESTDIR/failed" && ret=$((ret+1))
-    [ -n "$TIMED_OUT" ] && ret=$((ret+1))
+
     return $ret
 }
 
