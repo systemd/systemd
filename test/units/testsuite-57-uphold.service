@@ -1,0 +1,6 @@
+[Unit]
+Description=Upholding Unit
+Upholds=testsuite-57-short-lived.service
+
+[Service]
+ExecStart=/bin/sleep infinity
