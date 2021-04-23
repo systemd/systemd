@@ -38,9 +38,9 @@ _hostnamectl() {
 
     local -A VERBS=(
         [STANDALONE]='status'
-        [ICONS]='set-icon-name'
-        [NAME]='set-hostname set-deployment set-location'
-        [CHASSIS]='set-chassis'
+        [ICONS]='icon-name'
+        [NAME]='hostname deployment location'
+        [CHASSIS]='chassis'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
