@@ -39,7 +39,7 @@ check_result_nspawn() {
     save_journal "$workspace/var/log/journal"
     _umount_dir "${initdir:?}"
 
-    [[ -n "${TIMED_OUT:=}" ]] && ret=$((ret + 1))
+    [[ -n "${TIMED_OUT:=}" ]] && ret=1
     return $ret
 }
 
@@ -67,7 +67,7 @@ check_result_qemu() {
     save_journal "$initdir/var/log/journal"
     _umount_dir "$initdir"
 
-    [[ -n "${TIMED_OUT:=}" ]] && ret=$((ret + 1))
+    [[ -n "${TIMED_OUT:=}" ]] && ret=1
     return $ret
 }
 
