@@ -48,6 +48,7 @@ static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
 }
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_oom_policy, oom_policy, OOMPolicy);
+BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_emergency_action, emergency_action, EmergencyAction);
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", GIT_VERSION);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_features, "s", systemd_features);
@@ -2723,6 +2724,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTasksMax", "t", bus_property_get_tasks_max, offsetof(Manager, default_tasks_max), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, default_oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_NAMES("GetUnit",
                                  "s",

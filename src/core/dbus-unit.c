@@ -10,6 +10,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "dbus-job.h"
+#include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
 #include "dbus.h"
@@ -43,7 +44,6 @@ static bool unit_can_isolate_refuse_manual(Unit *u) {
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 static BUS_DEFINE_PROPERTY_GET(property_get_description, "s", Unit, unit_description);
 static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_active_state, unit_active_state_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_freezer_state, "s", Unit, unit_freezer_state, freezer_state_to_string);
@@ -899,7 +899,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Markers", "as", property_get_markers, offsetof(Unit, markers), 0),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobRunningTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_running_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_emergency_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JobTimeoutAction", "s", bus_property_get_emergency_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutRebootArgument", "s", NULL, offsetof(Unit, job_timeout_reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConditionResult", "b", bus_property_get_bool, offsetof(Unit, condition_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AssertResult", "b", bus_property_get_bool, offsetof(Unit, assert_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -912,10 +912,10 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("FailureAction", "s", property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StartLimitAction", "s", bus_property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FailureAction", "s", bus_property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FailureActionExitStatus", "i", bus_property_get_int, offsetof(Unit, failure_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SuccessAction", "s", property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SuccessAction", "s", bus_property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SuccessActionExitStatus", "i", bus_property_get_int, offsetof(Unit, success_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
