@@ -185,7 +185,7 @@ static bool mount_in_initrd(struct mntent *me) {
         assert(me);
 
         return fstab_test_option(me->mnt_opts, "x-initrd.mount\0") ||
-               streq(me->mnt_dir, "/usr");
+               path_startswith(me->mnt_dir, "/usr");
 }
 
 static int write_timeout(
