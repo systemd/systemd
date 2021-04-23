@@ -26,7 +26,7 @@ check_result_qemu() {
     [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
     echo "${JOURNAL_LIST:-No journals were saved}"
 
-    test -s "$TESTDIR/failed" && ret=$((ret + 1))
+    test -s "$TESTDIR/failed" && ret=1
     return $ret
 }
 
