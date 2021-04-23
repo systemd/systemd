@@ -190,7 +190,12 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int acquire_existing_password(const char *user_name, UserRecord *hr, bool emphasize_current) {
+static int acquire_existing_password(
+                const char *user_name,
+                UserRecord *hr,
+                bool emphasize_current,
+                AskPasswordFlags flags) {
+
         _cleanup_(strv_free_erasep) char **password = NULL;
         _cleanup_free_ char *question = NULL;
         char *e;
@@ -212,7 +217,7 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
                 string_erase(e);
                 assert_se(unsetenv("PASSWORD") == 0);
 
-                return 0;
+                return 1;
         }
 
         if (asprintf(&question, emphasize_current ?
@@ -221,7 +226,14 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
                      user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question, "user-home", NULL, "home-password", "home.password", USEC_INFINITY, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE, &password);
+        r = ask_password_auto(question,
+                              /* icon= */ "user-home",
+                              NULL,
+                              /* key_name= */ "home-password",
+                              /* credential_name= */ "home.password",
+                              USEC_INFINITY,
+                              flags,
+                              &password);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -229,10 +241,14 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
         if (r < 0)
                 return log_error_errno(r, "Failed to store password: %m");
 
-        return 0;
+        return 1;
 }
 
-static int acquire_token_pin(const char *user_name, UserRecord *hr) {
+static int acquire_token_pin(
+                const char *user_name,
+                UserRecord *hr,
+                AskPasswordFlags flags) {
+
         _cleanup_(strv_free_erasep) char **pin = NULL;
         _cleanup_free_ char *question = NULL;
         char *e;
@@ -250,14 +266,21 @@ static int acquire_token_pin(const char *user_name, UserRecord *hr) {
                 string_erase(e);
                 assert_se(unsetenv("PIN") == 0);
 
-                return 0;
+                return 1;
         }
 
         if (asprintf(&question, "Please enter security token PIN for user %s:", user_name) < 0)
                 return log_oom();
 
-        /* We never cache or use cached PINs, since usually there are only very few attempts allowed before the PIN is blocked */
-        r = ask_password_auto(question, "user-home", NULL, "token-pin", "home.token-pin", USEC_INFINITY, 0, &pin);
+        r = ask_password_auto(
+                        question,
+                        /* icon= */ "user-home",
+                        NULL,
+                        /* key_name= */ "token-pin",
+                        /* credential_name= */ "home.token-pin",
+                        USEC_INFINITY,
+                        flags,
+                        &pin);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire security token PIN: %m");
 
@@ -265,7 +288,7 @@ static int acquire_token_pin(const char *user_name, UserRecord *hr) {
         if (r < 0)
                 return log_error_errno(r, "Failed to store security token PIN: %m");
 
-        return 0;
+        return 1;
 }
 
 static int handle_generic_user_record_error(
@@ -292,7 +315,13 @@ static int handle_generic_user_record_error(
                 if (!strv_isempty(hr->password))
                         log_notice("Password incorrect or not sufficient, please try again.");
 
-                r = acquire_existing_password(user_name, hr, emphasize_current_password);
+                /* Don't consume cache entries or credentials here, we already tried that unsuccessfully. But
+                 * let's push what we acquire here into the cache */
+                r = acquire_existing_password(
+                                user_name,
+                                hr,
+                                emphasize_current_password,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
@@ -303,13 +332,21 @@ static int handle_generic_user_record_error(
                 else
                         log_notice("Password incorrect or not sufficient, and configured security token not inserted, please try again.");
 
-                r = acquire_existing_password(user_name, hr, emphasize_current_password);
+                r = acquire_existing_password(
+                                user_name,
+                                hr,
+                                emphasize_current_password,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_NEEDED)) {
 
-                r = acquire_token_pin(user_name, hr);
+                /* First time the PIN is requested, let's accept cached data, and allow using credential store */
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                 if (r < 0)
                         return r;
 
@@ -340,7 +377,11 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again.");
 
-                r = acquire_token_pin(user_name, hr);
+                /* If the previous PIN was wrong don't accept cached info anymore, but add to cache. Also, don't use the credential data */
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
@@ -348,7 +389,10 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again (only a few tries left!).");
 
-                r = acquire_token_pin(user_name, hr);
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
 
@@ -356,7 +400,10 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again (only one try left!).");
 
-                r = acquire_token_pin(user_name, hr);
+                r = acquire_token_pin(
+                                user_name,
+                                hr,
+                                ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_NO_CREDENTIAL);
                 if (r < 0)
                         return r;
         } else
@@ -399,7 +446,7 @@ static int activate_home(int argc, char *argv[], void *userdata) {
 
                         r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                         if (r < 0) {
-                                r = handle_generic_user_record_error(*i, secret, &error, r, false);
+                                r = handle_generic_user_record_error(*i, secret, &error, r, /* emphasize_current_password= */ false);
                                 if (r < 0) {
                                         if (ret == 0)
                                                 ret = r;
@@ -1010,7 +1057,15 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s:", user_name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(question, "user-home", NULL, "home-password", "home.new-password", USEC_INFINITY, 0, &first);
+                r = ask_password_auto(
+                                question,
+                                /* icon= */ "user-home",
+                                NULL,
+                                /* key_name= */ "home-password",
+                                /* credential_name= */ "home.new-password",
+                                USEC_INFINITY,
+                                0, /* no caching, we want to collect a new password here after all */
+                                &first);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -1018,7 +1073,15 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s (repeat):", user_name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(question, "user-home", NULL, "home-password", "home.new-password", USEC_INFINITY, 0, &second);
+                r = ask_password_auto(
+                                question,
+                                /* icon= */ "user-home",
+                                NULL,
+                                /* key_name= */ "home-password",
+                                /* credential_name= */ "home.new-password",
+                                USEC_INFINITY,
+                                0, /* no caching */
+                                &second);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -1106,7 +1169,11 @@ static int create_home(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to hash password: %m");
                 } else {
                         /* There's a hash password set in the record, acquire the unhashed version of it. */
-                        r = acquire_existing_password(hr->user_name, hr, /* emphasize_current= */ false);
+                        r = acquire_existing_password(
+                                        hr->user_name,
+                                        hr,
+                                        /* emphasize_current= */ false,
+                                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE);
                         if (r < 0)
                                 return r;
                 }
