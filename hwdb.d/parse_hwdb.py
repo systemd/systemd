@@ -72,6 +72,7 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'joystick': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
          'sensor':   ('modalias', ),
+         'ieee1394-unit-function' : ('node', ),
         }
 
 # Patterns that are used to set general properties on a device
@@ -82,6 +83,7 @@ GENERAL_MATCHES = {'acpi',
                    'sdio',
                    'vmbus',
                    'OUI',
+                   'ieee1394',
                    }
 
 def upperhex_word(length):
@@ -99,7 +101,7 @@ def hwdb_grammar():
     matchline = (matchline_typed | matchline_general) + EOL
 
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "'))
+                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/'))
                             - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
@@ -121,6 +123,9 @@ def property_grammar():
     mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
     mount_matrix = Group(mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
     xkb_setting = Optional(Word(alphanums + '+-/@._'))
+
+    # Although this set doesn't cover all of characters in database entries, it's enough for test targets.
+    name_literal = Word(printables + ' ')
 
     props = (('MOUSE_DPI', Group(OneOrMore(dpi_setting))),
              ('MOUSE_WHEEL_CLICK_ANGLE', INTEGER),
@@ -153,6 +158,11 @@ def property_grammar():
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
              ('ACCEL_LOCATION', Or(('display', 'base'))),
              ('PROXIMITY_NEAR_LEVEL', INTEGER),
+             ('IEEE1394_UNIT_FUNCTION_MIDI', Or((Literal('0'), Literal('1')))),
+             ('IEEE1394_UNIT_FUNCTION_AUDIO', Or((Literal('0'), Literal('1')))),
+             ('IEEE1394_UNIT_FUNCTION_VIDEO', Or((Literal('0'), Literal('1')))),
+             ('ID_VENDOR_FROM_DATABASE', name_literal),
+             ('ID_MODEL_FROM_DATABASE', name_literal),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
