@@ -412,6 +412,7 @@ DHCP={dhcp_mode}
             out = subprocess.check_output(['networkctl', '-n', '0', 'status', self.iface])
             self.assertRegex(out, br'Type:\s+ether')
             self.assertRegex(out, br'State:\s+routable.*configured')
+            self.assertRegex(out, br'Online state:\s+online')
             self.assertRegex(out, br'Address:\s+192.168.5.\d+')
             if ipv6:
                 self.assertRegex(out, br'2600::')
