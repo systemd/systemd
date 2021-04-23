@@ -190,7 +190,7 @@ if have_gnu_efi
                        '-znocombreloc',
                        '-L', efi_libdir,
                        efi_crt0]
-        if efi_arch == 'aarch64' or efi_arch == 'arm' or efi_arch == 'riscv64'
+        if ['aarch64', 'arm', 'riscv64'].contains(efi_arch)
                 # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
                 # Use 'binary' instead, and add required symbols manually.
                 efi_ldflags += ['--defsym=EFI_SUBSYSTEM=0xa']
