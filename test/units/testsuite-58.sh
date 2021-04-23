@@ -10,7 +10,7 @@ fi
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
 
-rm -f /var/tmp/testsuite-58.img /var/tmp/testsuite-58.2.img /tmp/testsuite-58.dump /tmp/testsuite-58.2.dump
+rm -f /var/tmp/testsuite-58.img /var/tmp/testsuite-58.2.img /tmp/testsuite-58.dump
 mkdir -p /tmp/testsuite-58-defs/
 
 # First part: create a disk image and verify its in order
