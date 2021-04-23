@@ -133,6 +133,17 @@ tests += [
 
         [['src/test/test-serialize.c']],
 
+        [['src/test/test-unit-serialize.c'],
+         [libcore,
+          libshared],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid],
+         core_includes],
+
         [['src/test/test-utf8.c']],
 
         [['src/test/test-dev-setup.c']],

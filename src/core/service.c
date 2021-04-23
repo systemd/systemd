@@ -2718,7 +2718,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int service_deserialize_exec_command(
+int service_deserialize_exec_command(
                 Unit *u,
                 const char *key,
                 const char *value) {

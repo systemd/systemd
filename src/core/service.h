@@ -244,3 +244,6 @@ ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s
 DEFINE_CAST(SERVICE, Service);
 
 #define STATUS_TEXT_MAX (16U*1024U)
+
+/* Only exported for unit tests */
+int service_deserialize_exec_command(Unit *u, const char *key, const char *value);
