@@ -406,12 +406,13 @@ DHCP={dhcp_mode}
 
             # check networkctl state
             out = subprocess.check_output(['networkctl'])
-            self.assertRegex(out, (r'{}\s+ether\s+[a-z-]+\s+unmanaged'.format(self.if_router)).encode())
-            self.assertRegex(out, (r'{}\s+ether\s+routable\s+configured'.format(self.iface)).encode())
+            self.assertRegex(out, (r'{}\s+ether\s+[a-z-]+\s+unmanaged\s+unknown'.format(self.if_router)).encode())
+            self.assertRegex(out, (r'{}\s+ether\s+routable\s+configured\s+online'.format(self.iface)).encode())
 
             out = subprocess.check_output(['networkctl', '-n', '0', 'status', self.iface])
             self.assertRegex(out, br'Type:\s+ether')
             self.assertRegex(out, br'State:\s+routable.*configured')
+            self.assertRegex(out, br'Online state:\s+online')
             self.assertRegex(out, br'Address:\s+192.168.5.\d+')
             if ipv6:
                 self.assertRegex(out, br'2600::')
