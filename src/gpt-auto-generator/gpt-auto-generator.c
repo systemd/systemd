@@ -194,6 +194,7 @@ static int add_mount(
                 const char *where,
                 const char *fstype,
                 bool rw,
+                bool growfs,
                 const char *options,
                 const char *description,
                 const char *post) {
@@ -271,8 +272,18 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        if (post)
-                return generator_add_symlink(arg_dest, post, "requires", unit);
+        if (growfs) {
+                r = generator_hook_up_growfs(arg_dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
+        if (post) {
+                r = generator_add_symlink(arg_dest, post, "requires", unit);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -321,6 +332,7 @@ static int add_partition_mount(
                         where,
                         p->fstype,
                         p->rw,
+                        p->growfs,
                         NULL,
                         description,
                         SPECIAL_LOCAL_FS_TARGET);
@@ -385,6 +397,7 @@ static int add_automount(
                 const char *where,
                 const char *fstype,
                 bool rw,
+                bool growfs,
                 const char *options,
                 const char *description,
                 usec_t timeout) {
@@ -406,6 +419,7 @@ static int add_automount(
                       where,
                       fstype,
                       rw,
+                      growfs,
                       opt,
                       description,
                       NULL);
@@ -481,7 +495,8 @@ static int add_xbootldr(DissectedPartition *p) {
                              p->node,
                              "/boot",
                              p->fstype,
-                             true,
+                             /* rw= */ true,
+                             /* growfs= */ false,
                              esp_or_xbootldr_options(p),
                              "Boot Loader Partition",
                              120 * USEC_PER_SEC);
@@ -555,7 +570,8 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                              p->node,
                              esp_path,
                              p->fstype,
-                             true,
+                             /* rw= */ true,
+                             /* growfs= */ false,
                              esp_or_xbootldr_options(p),
                              "EFI System Partition Automount",
                              120 * USEC_PER_SEC);
@@ -651,7 +667,8 @@ static int add_root_mount(void) {
                         "/dev/gpt-auto-root",
                         in_initrd() ? "/sysroot" : "/",
                         NULL,
-                        arg_root_rw > 0,
+                        /* rw= */ arg_root_rw > 0,
+                        /* growfs= */ false,
                         NULL,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);

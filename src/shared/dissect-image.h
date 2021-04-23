@@ -18,6 +18,7 @@ typedef struct VeritySettings VeritySettings;
 struct DissectedPartition {
         bool found:1;
         bool rw:1;
+        bool growfs:1;
         int partno;        /* -1 if there was no partition and the images contains a file system directly */
         int architecture;  /* Intended architecture: either native, secondary or unset (-1). */
         sd_id128_t uuid;   /* Partition entry UUID as reported by the GPT */
@@ -110,6 +111,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_MOUNT_READ_ONLY     = 1 << 17, /* Make mounts read-only */
         DISSECT_IMAGE_READ_ONLY           = DISSECT_IMAGE_DEVICE_READ_ONLY |
                                             DISSECT_IMAGE_MOUNT_READ_ONLY,
+        DISSECT_IMAGE_GROWFS              = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
 } DissectImageFlags;
 
 struct DissectedImage {
