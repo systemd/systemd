@@ -106,6 +106,12 @@ enum {
         SD_DHCP_OPTION_END                         = 255,
 };
 
+/* Suboptions for SD_DHCP_OPTION_RELAY_AGENT_INFORMATION option */
+enum {
+        SD_DHCP_RELAY_AGENT_CIRCUIT_ID             = 1,
+        SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2,
+};
+
 typedef struct sd_dhcp_client sd_dhcp_client;
 
 typedef int (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event, void *userdata);

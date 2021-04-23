@@ -717,6 +717,9 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 
 static size_t relay_option_length(sd_dhcp_server *server) {
         size_t length = 0;
+
+        assert(server);
+
         if (server->agent_circuit_id)
                 length += strlen(server->agent_circuit_id) + 2;
         if (server->agent_remote_id)
@@ -725,7 +728,12 @@ static size_t relay_option_length(sd_dhcp_server *server) {
         return length;
 }
 
-static uint8_t* append_suboption(uint8_t* dst, uint8_t subcode, char* value, uint8_t length) {
+static uint8_t *append_suboption(uint8_t *dst, size_t dst_len, uint8_t subcode, const char *value, size_t length) {
+        assert(dst);
+        assert(value);
+
+        if (dst_len < length + 2)
+                return NULL;
         dst[0] = subcode;
         dst[1] = length;
         memcpy(dst + 2, value, length);
@@ -733,25 +741,34 @@ static uint8_t* append_suboption(uint8_t* dst, uint8_t subcode, char* value, uin
 }
 
 static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t msg_len, size_t buf_len) {
+        assert(server);
         assert(message);
 
-        uint8_t* end_option_ptr = memrchr(message->options, SD_DHCP_OPTION_END, msg_len - sizeof(DHCPMessage));
+        int r;
+        uint8_t inf[255];
+        const uint8_t *inf_end = inf + sizeof(inf);
+        uint8_t *dst = inf;
+        uint8_t *end_option_ptr = memrchr(message->options, SD_DHCP_OPTION_END, msg_len - sizeof(DHCPMessage));
         if (end_option_ptr == NULL)
-                return -1;
-
+                return -EINVAL;
         size_t options_length = end_option_ptr - message->options;
-        uint8_t inf[(255 + 2)*2];
-        uint8_t* dst = inf;
 
-        if (server->agent_circuit_id && strlen(server->agent_circuit_id) <= 255)
-                dst = append_suboption(dst, 1, server->agent_circuit_id, strlen(server->agent_circuit_id));
-        if (server->agent_remote_id && strlen(server->agent_remote_id) <= 255)
-                dst = append_suboption(dst, 2, server->agent_remote_id, strlen(server->agent_remote_id));
-
+        if (server->agent_circuit_id) {
+                size_t length = strlen(server->agent_circuit_id);
+                dst = append_suboption(dst, inf_end - dst, SD_DHCP_RELAY_AGENT_CIRCUIT_ID, server->agent_circuit_id, length);
+                if (dst == NULL)
+                        return -ENOBUFS;
+        }
+        if (server->agent_remote_id) {
+                size_t length = strlen(server->agent_remote_id);
+                dst = append_suboption(dst, inf_end - dst, SD_DHCP_RELAY_AGENT_REMOTE_ID, server->agent_remote_id, length);
+                if (dst == NULL)
+                        return -ENOBUFS;
+        }
         if (dst == inf)
                 return options_length;
 
-        int r = dhcp_option_append(message, buf_len, &options_length, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, dst - inf, inf);
+        r = dhcp_option_append(message, buf_len, &options_length, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, dst - inf, inf);
         if (r < 0)
                 return r;
 
@@ -761,9 +778,9 @@ static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *
         return options_length;
 }
 
-static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message,
-                               size_t opt_length, int buflen) {
+static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t buflen) {
         _cleanup_free_ DHCPPacket *packet = NULL;
+        int r;
 
         assert(server);
         assert(message);
@@ -779,10 +796,10 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 if (message->giaddr == 0)
                         message->giaddr = server->address;
 
-                int res = append_agent_information_option(server, message, opt_length + sizeof(DHCPMessage), buflen);
-                if (res < 0)
-                        return log_dhcp_server_errno(server, res, "could not append relay option");
-                opt_length = res;
+                r = append_agent_information_option(server, message, opt_length + sizeof(DHCPMessage), buflen);
+                if (r < 0)
+                        return log_dhcp_server_errno(server, r, "could not append relay option: %m");
+                opt_length = r;
 
                 return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
         } else if (message->op == BOOTREPLY) {
@@ -1077,12 +1094,11 @@ static int server_receive_message(sd_event_source *s, int fd,
         assert(server);
 
         datagram_size = next_datagram_size_fd(fd);
-
         if (datagram_size < 0)
                 return datagram_size;
 
-        //preallocate the additional size for DHCP Relay Agent Information Option if neeeded
-        int buflen = datagram_size;
+        /* Preallocate the additional size for DHCP Relay Agent Information Option if neeeded */
+        size_t buflen = datagram_size;
         if (sd_dhcp_server_is_in_relay_mode(server))
                 buflen += relay_option_length(server);
 
@@ -1360,7 +1376,7 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
         return 0;
 }
 
-int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address) {
+int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr *address) {
         assert_return(server, -EINVAL);
         assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
