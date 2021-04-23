@@ -299,11 +299,11 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), select domains are resolved on the local system, among them
-        <literal>localhost</literal> and <literal>_gateway</literal> or entries from
-        <filename>/etc/hosts</filename>. If false these domains are not resolved locally, and either fail (in
-        case of <literal>localhost</literal> or <literal>_gateway</literal> and suchlike) or go to the
-        network via regular DNS/mDNS/LLMNR lookups (in case of <filename>/etc/hosts</filename>
-        entries).</para></listitem>
+        <literal>localhost</literal>, <literal>_gateway</literal> and <literal>_outbound</literal>, or
+        entries from <filename>/etc/hosts</filename>. If false these domains are not resolved locally, and
+        either fail (in case of <literal>localhost</literal>, <literal>_gateway</literal> or
+        <literal>_outbound</literal> and suchlike) or go to the network via regular DNS/mDNS/LLMNR lookups
+        (in case of <filename>/etc/hosts</filename> entries).</para></listitem>
       </varlistentry>
 
       <varlistentry>
