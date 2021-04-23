@@ -318,6 +318,19 @@ static int show_all_names(sd_bus *bus) {
         return print_status_info(&info);
 }
 
+static int get_hostname_based_on_flag(sd_bus *bus) {
+        const char *attr;
+
+        if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot query more than one name type at a time");
+
+        attr = arg_pretty ? "PrettyHostname" :
+                arg_static ? "StaticHostname" : "Hostname";
+
+        return get_one_name(bus, attr, NULL);
+}
+
 static int show_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
@@ -352,21 +365,12 @@ static int show_status(int argc, char **argv, void *userdata) {
                 return 0;
         }
 
-        if (arg_pretty || arg_static || arg_transient) {
-                const char *attr;
-
-                if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Cannot query more than one name type at a time");
-
-                attr = arg_pretty ? "PrettyHostname" :
-                        arg_static ? "StaticHostname" : "Hostname";
-
-                return get_one_name(bus, attr, NULL);
-        }
+        if (arg_pretty || arg_static || arg_transient)
+                return get_hostname_based_on_flag(bus);
 
         return show_all_names(bus);
 }
+
 
 static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *target, const char *method, const char *value) {
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
@@ -481,20 +485,29 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         return ret;
 }
 
-static int set_icon_name(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "icon", "SetIconName", argv[1]);
+static int get_or_set_hostname(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_hostname_based_on_flag(userdata) :
+                           set_hostname(argc, argv, userdata);
 }
 
-static int set_chassis(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
+static int get_or_set_icon_name(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "IconName", NULL) :
+                           set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
-static int set_deployment(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
+static int get_or_set_chassis(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "Chassis", NULL) :
+                           set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
-static int set_location(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "location", "SetLocation", argv[1]);
+static int get_or_set_deployment(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "Deployment", NULL) :
+                           set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
+}
+
+static int get_or_set_location(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "Location", NULL) :
+                           set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
 static int help(void) {
@@ -509,11 +522,11 @@ static int help(void) {
                "%sQuery or change system hostname.%s\n"
                "\nCommands:\n"
                "  status                 Show current hostname settings\n"
-               "  set-hostname NAME      Set system hostname\n"
-               "  set-icon-name NAME     Set icon name for host\n"
-               "  set-chassis NAME       Set chassis type for host\n"
-               "  set-deployment NAME    Set deployment environment for host\n"
-               "  set-location NAME      Set location for host\n"
+               "  hostname [NAME]        Get/set system hostname\n"
+               "  icon-name [NAME]       Get/set icon name for host\n"
+               "  chassis [NAME]         Get/set chassis type for host\n"
+               "  deployment [NAME]      Get/set deployment environment for host\n"
+               "  location [NAME]        Get/set location for host\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -623,13 +636,18 @@ static int parse_argv(int argc, char *argv[]) {
 static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status    },
-                { "set-hostname",   2,        2,        0,            set_hostname   },
-                { "set-icon-name",  2,        2,        0,            set_icon_name  },
-                { "set-chassis",    2,        2,        0,            set_chassis    },
-                { "set-deployment", 2,        2,        0,            set_deployment },
-                { "set-location",   2,        2,        0,            set_location   },
-                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help      }, /* Not documented, but supported since it is created. */
+                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status           },
+                { "hostname",       VERB_ANY, 2,        0,            get_or_set_hostname   },
+                { "set-hostname",   2,        2,        0,            get_or_set_hostname   }, /* obsolete */
+                { "icon-name",      VERB_ANY, 2,        0,            get_or_set_icon_name  },
+                { "set-icon-name",  2,        2,        0,            get_or_set_icon_name  }, /* obsolete */
+                { "chassis",        VERB_ANY, 2,        0,            get_or_set_chassis    },
+                { "set-chassis",    2,        2,        0,            get_or_set_chassis    }, /* obsolete */
+                { "deployment",     VERB_ANY, 2,        0,            get_or_set_deployment },
+                { "set-deployment", 2,        2,        0,            get_or_set_deployment }, /* obsolete */
+                { "location",       VERB_ANY, 2,        0,            get_or_set_location   },
+                { "set-location",   2,        2,        0,            get_or_set_location   }, /* obsolete */
+                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help             }, /* Not documented, but supported since it is created. */
                 {}
         };
 
