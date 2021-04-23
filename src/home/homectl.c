@@ -220,6 +220,10 @@ static int acquire_existing_password(
                 return 1;
         }
 
+        /* If this is not our own user, then don't use the password cache */
+        if (is_this_me(user_name) <= 0)
+                flags &= ~(ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE);
+
         if (asprintf(&question, emphasize_current ?
                      "Please enter current password for user %s:" :
                      "Please enter password for user %s:",
@@ -268,6 +272,10 @@ static int acquire_token_pin(
 
                 return 1;
         }
+
+        /* If this is not our own user, then don't use the password cache */
+        if (is_this_me(user_name) <= 0)
+                flags &= ~(ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE);
 
         if (asprintf(&question, "Please enter security token PIN for user %s:", user_name) < 0)
                 return log_oom();
