@@ -35,15 +35,7 @@ static void target_set_state(Target *t, TargetState state) {
 }
 
 static int target_add_default_dependencies(Target *t) {
-
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRES,
-                UNIT_REQUISITE,
-                UNIT_WANTS,
-                UNIT_BINDS_TO,
-                UNIT_PART_OF
-        };
-
+        Unit *other;
         int r;
 
         assert(t);
@@ -51,18 +43,14 @@ static int target_add_default_dependencies(Target *t) {
         if (!UNIT(t)->default_dependencies)
                 return 0;
 
-        /* Imply ordering for requirement dependencies on target units. Note that when the user created a contradicting
-         * ordering manually we won't add anything in here to make sure we don't create a loop. */
+        /* Imply ordering for requirement dependencies on target units. Note that when the user created a
+         * contradicting ordering manually we won't add anything in here to make sure we don't create a
+         * loop. */
 
-        for (size_t k = 0; k < ELEMENTSOF(deps); k++) {
-                Unit *other;
-                void *v;
-
-                HASHMAP_FOREACH_KEY(v, other, UNIT(t)->dependencies[deps[k]]) {
-                        r = unit_add_default_target_dependency(other, UNIT(t));
-                        if (r < 0)
-                                return r;
-                }
+        UNIT_FOREACH_DEPENDENCY(other, UNIT(t), UNIT_ATOM_ADD_DEFAULT_TARGET_DEPENDENCY_QUEUE) {
+                r = unit_add_default_target_dependency(other, UNIT(t));
+                if (r < 0)
+                        return r;
         }
 
         if (unit_has_name(UNIT(t), SPECIAL_SHUTDOWN_TARGET))
