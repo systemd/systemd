@@ -238,6 +238,11 @@ static int acquire_existing_password(
                               USEC_INFINITY,
                               flags,
                               &password);
+        if (r == -EUNATCH) { /* EUNATCH is returned if no password was found and asking interactively was
+                              * disabled via the flags. Not an error for us. */
+                log_debug_errno(r, "No passwords acquired.");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire password: %m");
 
@@ -289,6 +294,11 @@ static int acquire_token_pin(
                         USEC_INFINITY,
                         flags,
                         &pin);
+        if (r == -EUNATCH) { /* EUNATCH is returned if no PIN was found and asking interactively was disabled
+                              * via the flags. Not an error for us. */
+                log_debug_errno(r, "No security token PINs acquired.");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire security token PIN: %m");
 
@@ -420,6 +430,39 @@ static int handle_generic_user_record_error(
         return 0;
 }
 
+static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
+        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        int r;
+
+        assert(ret);
+
+        /* Generates an initial secret objects that contains passwords supplied via $PASSWORD, the password
+         * cache or the credentials subsystem, but excluding any interactive stuff. If nothing is passed,
+         * returns an empty secret object. */
+
+        secret = user_record_new();
+        if (!secret)
+                return log_oom();
+
+        r = acquire_existing_password(
+                        user_name,
+                        secret,
+                        /* emphasize_current_password = */ false,
+                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
+        if (r < 0)
+                return r;
+
+        r = acquire_token_pin(
+                        user_name,
+                        secret,
+                        ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(secret);
+        return 0;
+}
+
 static int activate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -432,9 +475,9 @@ static int activate_home(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(i, strv_skip(argv, 1)) {
                 _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
 
-                secret = user_record_new();
-                if (!secret)
-                        return log_oom();
+                r = acquire_passed_secrets(*i, &secret);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -658,9 +701,9 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(i, items) {
                 _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
 
-                secret = user_record_new();
-                if (!secret)
-                        return log_oom();
+                r = acquire_passed_secrets(*i, &secret);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1660,9 +1703,9 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                 ds = arg_disk_size;
         }
 
-        secret = user_record_new();
-        if (!secret)
-                return log_oom();
+        r = acquire_passed_secrets(argv[1], &secret);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1736,9 +1779,9 @@ static int unlock_home(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(i, strv_skip(argv, 1)) {
                 _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
 
-                secret = user_record_new();
-                if (!secret)
-                        return log_oom();
+                r = acquire_passed_secrets(*i, &secret);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1802,9 +1845,9 @@ static int with_home(int argc, char *argv[], void *userdata) {
         if (!cmdline)
                 return log_oom();
 
-        secret = user_record_new();
-        if (!secret)
-                return log_oom();
+        r = acquire_passed_secrets(argv[1], &secret);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 r = bus_message_new_method_call(bus, &m, bus_mgr, "AcquireHome");
