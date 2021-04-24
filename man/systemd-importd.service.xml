@@ -34,7 +34,7 @@
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, and provides the implementation for
     <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>pull-raw</command>, <command>pull-tar</command>, <command>import-raw</command>,
-    <command>import-tar</command>, <command>export-raw</command>, and <command>export-tar</command> commands.</para>
+    <command>import-tar</command>, <command>import-fs</command>, <command>export-raw</command>, and <command>export-tar</command> commands.</para>
 
     <para>See
     <citerefentry><refentrytitle>org.freedesktop.import1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
