@@ -749,24 +749,22 @@ static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *
         const uint8_t *inf_end = inf + sizeof(inf);
         uint8_t *dst = inf;
         uint8_t *end_option_ptr = memrchr(message->options, SD_DHCP_OPTION_END, msg_len - sizeof(DHCPMessage));
-        if (end_option_ptr == NULL)
+        if (!end_option_ptr)
                 return -EINVAL;
         size_t options_length = end_option_ptr - message->options;
 
         if (server->agent_circuit_id) {
                 size_t length = strlen(server->agent_circuit_id);
                 dst = append_suboption(dst, inf_end - dst, SD_DHCP_RELAY_AGENT_CIRCUIT_ID, server->agent_circuit_id, length);
-                if (dst == NULL)
+                if (!dst)
                         return -ENOBUFS;
         }
         if (server->agent_remote_id) {
                 size_t length = strlen(server->agent_remote_id);
                 dst = append_suboption(dst, inf_end - dst, SD_DHCP_RELAY_AGENT_REMOTE_ID, server->agent_remote_id, length);
-                if (dst == NULL)
+                if (!dst)
                         return -ENOBUFS;
         }
-        if (dst == inf)
-                return options_length;
 
         r = dhcp_option_append(message, buf_len, &options_length, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, dst - inf, inf);
         if (r < 0)
@@ -796,10 +794,12 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 if (message->giaddr == 0)
                         message->giaddr = server->address;
 
-                r = append_agent_information_option(server, message, opt_length + sizeof(DHCPMessage), buflen);
-                if (r < 0)
-                        return log_dhcp_server_errno(server, r, "could not append relay option: %m");
-                opt_length = r;
+                if (server->agent_circuit_id || server->agent_remote_id) {
+                        r = append_agent_information_option(server, message, opt_length + sizeof(DHCPMessage), buflen);
+                        if (r < 0)
+                                return log_dhcp_server_errno(server, r, "could not append relay option: %m");
+                        opt_length = r;
+                }
 
                 return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
         } else if (message->op == BOOTREPLY) {
