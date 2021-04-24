@@ -5,6 +5,7 @@
 #include <efilib.h>
 
 #include "console.h"
+#include "devicetree.h"
 #include "disk.h"
 #include "efi-loader-features.h"
 #include "graphics.h"
@@ -40,6 +41,7 @@ typedef struct {
         EFI_HANDLE *device;
         enum loader_type type;
         CHAR16 *loader;
+        CHAR16 *devicetree;
         CHAR16 *options;
         CHAR16 key;
         EFI_STATUS (*call)(VOID);
@@ -475,6 +477,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 }
                 if (entry->loader)
                         Print(L"loader                  '%s'\n", entry->loader);
+                if (entry->devicetree)
+                        Print(L"devicetree              '%s'\n", entry->devicetree);
                 if (entry->options)
                         Print(L"options                 '%s'\n", entry->options);
                 Print(L"auto-select             %s\n", yes_no(!entry->no_autoselect));
@@ -893,6 +897,7 @@ static VOID config_entry_free(ConfigEntry *entry) {
         FreePool(entry->version);
         FreePool(entry->machine_id);
         FreePool(entry->loader);
+        FreePool(entry->devicetree);
         FreePool(entry->options);
         FreePool(entry->path);
         FreePool(entry->current_name);
@@ -1327,6 +1332,12 @@ static VOID config_entry_add_from_file(
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
+                        continue;
+                }
+
+                if (strcmpa((CHAR8 *)"devicetree", key) == 0) {
+                        FreePool(entry->devicetree);
+                        entry->devicetree = stra_to_path(value);
                         continue;
                 }
 
@@ -2270,10 +2281,12 @@ found:
 }
 
 static EFI_STATUS image_start(
+                EFI_FILE_HANDLE root_dir,
                 EFI_HANDLE parent_image,
                 const Config *config,
                 const ConfigEntry *entry) {
 
+        _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         EFI_HANDLE image;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
         CHAR16 *options;
@@ -2289,6 +2302,12 @@ static EFI_STATUS image_start(
         err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
+
+        if (entry->devicetree) {
+                err = devicetree_install(&dtstate, root_dir, entry->devicetree);
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
+        }
 
         if (config->options_edit)
                 options = config->options_edit;
@@ -2533,7 +2552,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (VOID) process_random_seed(root_dir, config.random_seed_mode);
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
-                err = image_start(image, &config, entry);
+                err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
                         log_error_stall(L"Failed to execute %s (%s): %r", entry->title, entry->loader, err);
