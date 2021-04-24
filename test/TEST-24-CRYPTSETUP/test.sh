@@ -44,9 +44,9 @@ test_create_image() {
     (
         LOG_LEVEL=5
         # shellcheck source=/dev/null
-        source <(udevadm info --export --query=env --name=/dev/mapper/varcrypt)
+        source <(udevadm info --export --query=env --name=/dev/mapper/varcrypt | grep -v net.ifnames)
         # shellcheck source=/dev/null
-        source <(udevadm info --export --query=env --name="${LOOPDEV}p2")
+        source <(udevadm info --export --query=env --name="${LOOPDEV}p2" | grep -v net.ifnames)
 
         setup_basic_environment
         mask_supporting_services
