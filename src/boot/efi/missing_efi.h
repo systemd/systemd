@@ -124,3 +124,39 @@ typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
 #ifndef EFI_IMAGE_MACHINE_RISCV64
         #define EFI_IMAGE_MACHINE_RISCV64 0x5064
 #endif
+
+#ifndef EFI_DTB_TABLE_GUID
+#define EFI_DTB_TABLE_GUID \
+        { 0xb1b621d5, 0xf19c, 0x41a5, {0x83, 0x0b, 0xd9, 0x15, 0x2c, 0x69, 0xaa, 0xe0} }
+#define EfiDtbTableGuid ((EFI_GUID)EFI_DTB_TABLE_GUID)
+#endif
+
+#ifndef EFI_DT_FIXUP_PROTOCOL_GUID
+#define EFI_DT_FIXUP_PROTOCOL_GUID \
+        { 0xe617d64c, 0xfe08, 0x46da, {0xf4, 0xdc, 0xbb, 0xd5, 0x87, 0x0c, 0x73, 0x00} }
+#define EfiDtFixupProtocol ((EFI_GUID)EFI_DT_FIXUP_PROTOCOL_GUID)
+
+#define EFI_DT_FIXUP_PROTOCOL_REVISION 0x00010000
+
+/* Add nodes and update properties */
+#define EFI_DT_APPLY_FIXUPS    0x00000001
+/*
+ * Reserve memory according to the /reserved-memory node
+ * and the memory reservation block
+ */
+#define EFI_DT_RESERVE_MEMORY  0x00000002
+
+typedef struct _EFI_DT_FIXUP_PROTOCOL EFI_DT_FIXUP_PROTOCOL;
+
+typedef EFI_STATUS (EFIAPI *EFI_DT_FIXUP) (
+        IN EFI_DT_FIXUP_PROTOCOL *This,
+        IN VOID                  *Fdt,
+        IN OUT UINTN             *BufferSize,
+        IN UINT32                Flags);
+
+struct _EFI_DT_FIXUP_PROTOCOL {
+        UINT64         Revision;
+        EFI_DT_FIXUP   Fixup;
+};
+
+#endif
