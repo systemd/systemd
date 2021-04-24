@@ -2,6 +2,7 @@
 
 efi_headers = files('''
         console.h
+        devicetree.h
         disk.h
         graphics.h
         linux.h
@@ -28,6 +29,7 @@ common_sources = '''
 systemd_boot_sources = '''
         boot.c
         console.c
+        devicetree.c
         random-seed.c
         sha256.c
         shim.c
