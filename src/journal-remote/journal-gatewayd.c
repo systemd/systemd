@@ -112,7 +112,7 @@ static int open_journal(RequestMeta *m) {
         if (arg_directory)
                 return sd_journal_open_directory(&m->journal, arg_directory, 0);
         else
-                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
+                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY);
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
