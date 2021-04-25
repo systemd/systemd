@@ -8,4 +8,4 @@ TEST_DESCRIPTION="test RuntimeDirectoryPreserve=yes"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 37
+do_test "$@"

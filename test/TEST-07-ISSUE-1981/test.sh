@@ -9,4 +9,4 @@ TEST_NO_QEMU=1
 
 NSPAWN_TIMEOUT=30
 
-do_test "$@" 07
+do_test "$@"
