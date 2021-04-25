@@ -1129,6 +1129,15 @@ check_result_nspawn() {
     if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
         cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
     fi
+
+    # Run additional test-specific checks if defined by check_result_nspawn_hook()
+    if declare -F check_result_nspawn_hook >/dev/null; then
+        if ! check_result_nspawn_hook; then
+            derror "check_result_nspawn_hook() returned with EC > 0"
+            ret=$((ret+1))
+        fi
+    fi
+
     _umount_dir "${initdir:?}"
     return $ret
 }
@@ -1149,6 +1158,15 @@ check_result_qemu() {
     echo "${JOURNAL_LIST:-"No journals were saved"}"
     test -s "$TESTDIR/failed" && ret=$((ret+1))
     [ -n "$TIMED_OUT" ] && ret=$((ret+1))
+
+    # Run additional test-specific checks if defined by check_result_qemu_hook()
+    if declare -F check_result_qemu_hook >/dev/null; then
+        if ! check_result_qemu_hook; then
+            derror "check_result_qemu_hook() returned with EC > 0"
+            ret=$((ret+1))
+        fi
+    fi
+
     return $ret
 }
 
