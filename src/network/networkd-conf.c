@@ -18,6 +18,8 @@ int manager_parse_config_file(Manager *m) {
                         PKGSYSCONFDIR "/networkd.conf",
                         CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
                         "Network\0"
+                        "DHCPv4\0"
+                        "DHCPv6\0"
                         "DHCP\0",
                         config_item_perf_lookup, networkd_gperf_lookup,
                         CONFIG_PARSE_WARN,
