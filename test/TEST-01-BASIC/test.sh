@@ -16,4 +16,4 @@ test_append_files() {
     cp -v "$TEST_UNITS_DIR"/{testsuite-01,end}.service "$TEST_UNITS_DIR/testsuite.target" "$dst"
 }
 
-do_test "$@" 01
+do_test "$@"
