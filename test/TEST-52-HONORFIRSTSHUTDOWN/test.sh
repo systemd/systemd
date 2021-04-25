@@ -18,4 +18,10 @@ NSPAWN_TIMEOUT=20
 # only found from the console during the poweroff.
 rm -f /tmp/honorfirstshutdown.log >/dev/null
 
-do_test "$@" 52 >/tmp/honorfirstshutdown.log
+check_result_nspawn_hook() {
+    grep -q "Shutdown is already active. Skipping emergency action request" /tmp/honorfirstshutdown.log
+}
+
+# Note: don't use a pipe in the following expression, as it breaks the trap
+#       handlers we have defined in test/test-functions.
+do_test "$@" > >(tee /tmp/honorfirstshutdown.log)
