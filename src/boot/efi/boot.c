@@ -8,6 +8,7 @@
 #include "crc32.h"
 #include "disk.h"
 #include "efi-loader-features.h"
+#include "fdt.h"
 #include "graphics.h"
 #include "linux.h"
 #include "measure.h"
@@ -39,6 +40,7 @@ typedef struct {
         EFI_HANDLE *device;
         enum loader_type type;
         CHAR16 *loader;
+        CHAR16 *devicetree;
         CHAR16 *options;
         CHAR16 key;
         EFI_STATUS (*call)(VOID);
@@ -464,6 +466,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 }
                 if (entry->loader)
                         Print(L"loader                  '%s'\n", entry->loader);
+                if (entry->devicetree)
+                        Print(L"devicetree              '%s'\n", entry->devicetree);
                 if (entry->options)
                         Print(L"options                 '%s'\n", entry->options);
                 Print(L"auto-select             %s\n", yes_no(!entry->no_autoselect));
@@ -1328,6 +1332,12 @@ static VOID config_entry_add_from_file(
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"devicetree", key) == 0) {
+                        FreePool(entry->devicetree);
+                        entry->devicetree = stra_to_path(value);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"initrd", key) == 0) {
                         _cleanup_freepool_ CHAR16 *new = NULL;
 
@@ -1951,6 +1961,145 @@ static VOID config_entry_add_linux(
         uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
 }
 
+#ifndef DEVICE_TREE_GUID
+#define DEVICE_TREE_GUID \
+        { 0xb1b621d5, 0xf19c, 0x41a5, {0x83, 0x0b, 0xd9, 0x15, 0x2c, 0x69, 0xaa, 0xe0} }
+#endif
+static const EFI_GUID fdt_guid = DEVICE_TREE_GUID;
+
+static EFI_STATUS devicetree_get(const void **fdt) {
+        EFI_CONFIGURATION_TABLE *entry = ST->ConfigurationTable;
+        EFI_CONFIGURATION_TABLE *end = entry + ST->NumberOfTableEntries;
+
+        for (; entry < end; entry++) {
+                if (CompareGuid(&entry->VendorGuid, (EFI_GUID *)&fdt_guid) == 0) {
+                        *fdt = entry->VendorTable;
+                        return EFI_SUCCESS;
+                }
+        }
+
+        return EFI_UNSUPPORTED;
+}
+
+static const void *devicetree_orig;
+static EFI_PHYSICAL_ADDRESS devicetree_addr;
+static UINTN devicetree_pages;
+
+#ifdef __riscv
+#define DEVICETREE_OVERALLOC 64
+
+static EFI_STATUS devicetree_fixup(void *fdt, UINTN size) {
+        const fdt32_t *value;
+        int chosen;
+        int len;
+        uint32_t boot_hartid;
+
+        /* get /chosen/boot-hartid from original fdt */
+        chosen = fdt_subnode_offset_namelen(devicetree_orig, 0, "chosen", 6);
+        if (chosen < 0)
+                return EFI_INVALID_PARAMETER;
+
+        value = fdt_getprop_namelen(devicetree_orig, chosen, "boot-hartid", 11, &len);
+        if (value == NULL || len != sizeof(*value))
+                return EFI_INVALID_PARAMETER;
+
+        boot_hartid = fdt32_ld(value);
+
+        /* set /chosen/boot-hartid in the loaded fdt */
+        if (fdt_open_into(fdt, fdt, size + DEVICETREE_OVERALLOC))
+                return EFI_INVALID_PARAMETER;
+
+        chosen = fdt_subnode_offset_namelen(fdt, 0, "chosen", 6);
+        if (chosen < 0) {
+                chosen = fdt_add_subnode_namelen(fdt, 0, "chosen", 6);
+                if (chosen < 0)
+                        return EFI_BAD_BUFFER_SIZE;
+        }
+
+        if (fdt_setprop_u32(fdt, chosen, "boot-hartid", boot_hartid))
+                return EFI_BAD_BUFFER_SIZE;
+
+        return EFI_SUCCESS;
+}
+#else
+#define DEVICETREE_OVERALLOC 0
+
+static inline EFI_STATUS devicetree_fixup(void *fdt, UINTN size) {
+        (void)fdt;
+        (void)size;
+        return EFI_SUCCESS;
+}
+#endif
+
+static EFI_STATUS devicetree_install(EFI_FILE_HANDLE root_dir, const CHAR16 *name) {
+        _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
+        _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+        UINTN size;
+        EFI_STATUS err;
+        void *fdt;
+
+        err = devicetree_get(&devicetree_orig);
+        if (EFI_ERROR(err))
+                return err;
+
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, (CHAR16 *)name,
+                        EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
+        if (EFI_ERROR(err))
+                return err;
+
+        info = LibFileInfo(handle);
+        if (!info)
+                return EFI_OUT_OF_RESOURCES;
+        if (info->FileSize < FDT_V1_SIZE || info->FileSize > 32 * 1024 * 1024)
+                /* 32MB device tree blob doesn't seem right */
+                return EFI_INVALID_PARAMETER;
+
+        size  = info->FileSize;
+        FreePool(TAKE_PTR(info));
+
+        devicetree_pages = (size + DEVICETREE_OVERALLOC + EFI_PAGE_SIZE - 1) / EFI_PAGE_SIZE;
+        err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiACPIReclaimMemory,
+                        devicetree_pages, &devicetree_addr);
+        if (EFI_ERROR(err))
+                return err;
+
+        fdt = (void *)(uintptr_t)devicetree_addr;
+
+        err = uefi_call_wrapper(handle->Read, 3, handle, &size, fdt);
+        if (EFI_ERROR(err))
+                goto err_free;
+
+        if (fdt_check_full(fdt, size)) {
+                err = EFI_INVALID_PARAMETER;
+                goto err_free;
+        }
+
+        err = devicetree_fixup(fdt, size);
+        if (EFI_ERROR(err))
+                goto err_free;
+
+        err = uefi_call_wrapper(BS->InstallConfigurationTable, 2,
+                        (EFI_GUID *)&fdt_guid, (VOID *)fdt);
+        if (EFI_ERROR(err))
+                goto err_free;
+
+        return err;
+err_free:
+        uefi_call_wrapper(BS->FreePages, 2, devicetree_addr, devicetree_pages);
+        return err;
+}
+
+static EFI_STATUS devicetree_restore(void) {
+        EFI_STATUS err;
+
+        err = uefi_call_wrapper(BS->InstallConfigurationTable, 2,
+                        (EFI_GUID *)&fdt_guid, (VOID *)devicetree_orig);
+        if (EFI_ERROR(err))
+                return err;
+
+        return uefi_call_wrapper(BS->FreePages, 2, devicetree_addr, devicetree_pages);
+}
+
 #define XBOOTLDR_GUID \
         &(const EFI_GUID) { 0xbc13c2ff, 0x59e6, 0x4262, { 0xa3, 0x52, 0xb2, 0x75, 0xfd, 0x6f, 0x71, 0x72 } }
 
@@ -2156,6 +2305,7 @@ found:
 }
 
 static EFI_STATUS image_start(
+                EFI_FILE_HANDLE root_dir,
                 EFI_HANDLE parent_image,
                 const Config *config,
                 const ConfigEntry *entry) {
@@ -2177,6 +2327,15 @@ static EFI_STATUS image_start(
                 Print(L"Error loading %s: %r", entry->loader, err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
+        }
+
+        if (entry->devicetree) {
+                err = devicetree_install(root_dir, entry->devicetree);
+                if (EFI_ERROR(err)) {
+                        Print(L"Error loading %s: %r", entry->devicetree, err);
+                        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                        return err;
+                }
         }
 
         if (config->options_edit)
@@ -2214,6 +2373,8 @@ static EFI_STATUS image_start(
         err = uefi_call_wrapper(BS->StartImage, 3, image, NULL, NULL);
 out_unload:
         uefi_call_wrapper(BS->UnloadImage, 1, image);
+        if (entry->devicetree)
+                devicetree_restore();
         return err;
 }
 
@@ -2438,7 +2599,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (VOID) process_random_seed(root_dir, config.random_seed_mode);
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
-                err = image_start(image, &config, entry);
+                err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
                         Print(L"\nFailed to execute %s (%s): %r\n", entry->title, entry->loader, err);
