@@ -1985,6 +1985,52 @@ static const void *devicetree_orig;
 static EFI_PHYSICAL_ADDRESS devicetree_addr;
 static UINTN devicetree_pages;
 
+#ifdef __riscv
+#define DEVICETREE_OVERALLOC 64
+
+static EFI_STATUS devicetree_fixup(void *fdt, UINTN size) {
+        const fdt32_t *value;
+        int chosen;
+        int len;
+        uint32_t boot_hartid;
+
+        /* get /chosen/boot-hartid from original fdt */
+        chosen = fdt_subnode_offset_namelen(devicetree_orig, 0, "chosen", 6);
+        if (chosen < 0)
+                return EFI_INVALID_PARAMETER;
+
+        value = fdt_getprop_namelen(devicetree_orig, chosen, "boot-hartid", 11, &len);
+        if (value == NULL || len != sizeof(*value))
+                return EFI_INVALID_PARAMETER;
+
+        boot_hartid = fdt32_ld(value);
+
+        /* set /chosen/boot-hartid in the loaded fdt */
+        if (fdt_open_into(fdt, fdt, size + DEVICETREE_OVERALLOC))
+                return EFI_INVALID_PARAMETER;
+
+        chosen = fdt_subnode_offset_namelen(fdt, 0, "chosen", 6);
+        if (chosen < 0) {
+                chosen = fdt_add_subnode_namelen(fdt, 0, "chosen", 6);
+                if (chosen < 0)
+                        return EFI_BAD_BUFFER_SIZE;
+        }
+
+        if (fdt_setprop_u32(fdt, chosen, "boot-hartid", boot_hartid))
+                return EFI_BAD_BUFFER_SIZE;
+
+        return EFI_SUCCESS;
+}
+#else
+#define DEVICETREE_OVERALLOC 0
+
+static inline EFI_STATUS devicetree_fixup(void *fdt, UINTN size) {
+        (void)fdt;
+        (void)size;
+        return EFI_SUCCESS;
+}
+#endif
+
 static EFI_STATUS devicetree_install(EFI_FILE_HANDLE root_dir, const CHAR16 *name) {
         _cleanup_(FileHandleClosep) EFI_FILE_HANDLE handle = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
@@ -2011,7 +2057,7 @@ static EFI_STATUS devicetree_install(EFI_FILE_HANDLE root_dir, const CHAR16 *nam
         size  = info->FileSize;
         FreePool(TAKE_PTR(info));
 
-        devicetree_pages = (size + EFI_PAGE_SIZE - 1) / EFI_PAGE_SIZE;
+        devicetree_pages = (size + DEVICETREE_OVERALLOC + EFI_PAGE_SIZE - 1) / EFI_PAGE_SIZE;
         err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiACPIReclaimMemory,
                         devicetree_pages, &devicetree_addr);
         if (EFI_ERROR(err))
@@ -2027,6 +2073,10 @@ static EFI_STATUS devicetree_install(EFI_FILE_HANDLE root_dir, const CHAR16 *nam
                 err = EFI_INVALID_PARAMETER;
                 goto err_free;
         }
+
+        err = devicetree_fixup(fdt, size);
+        if (EFI_ERROR(err))
+                goto err_free;
 
         err = uefi_call_wrapper(BS->InstallConfigurationTable, 2,
                         (EFI_GUID *)&fdt_guid, (VOID *)fdt);
