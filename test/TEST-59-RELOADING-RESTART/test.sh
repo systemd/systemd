@@ -6,4 +6,4 @@ TEST_NO_QEMU=1
 
 . $TEST_BASE_DIR/test-functions
 
-do_test "$@" 59
+do_test "$@"
