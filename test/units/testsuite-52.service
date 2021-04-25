@@ -2,5 +2,5 @@
 Description=Testsuite service
 
 [Service]
-ExecStart=/usr/lib/systemd/tests/testdata/%N.units/%N.sh
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot
