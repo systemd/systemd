@@ -1330,6 +1330,90 @@ int link_request_static_routes(Link *link) {
         return 0;
 }
 
+static bool gateway_is_accessible_one(int family, const union in_addr_union *gw, Route *route) {
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(gw);
+        assert(route);
+
+        if (route->family != family)
+                return false;
+
+        if (!in_addr_is_set(route->family, &route->dst))
+                return false;
+
+        return in_addr_prefix_intersect(
+                        route->family,
+                        &route->dst,
+                        route->dst_prefixlen,
+                        gw,
+                        FAMILY_ADDRESS_SIZE(family) * 8) > 0;
+}
+
+bool gateway_is_accessible(int family, const union in_addr_union *gw, Link *link) {
+        Route *route;
+        Link *l;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(gw);
+        assert(link);
+
+        SET_FOREACH(route, link->routes_foreign)
+                if (gateway_is_accessible_one(family, gw, route))
+                        return true;
+        SET_FOREACH(route, link->routes)
+                if (gateway_is_accessible_one(family, gw, route))
+                        return true;
+
+        HASHMAP_FOREACH(l, link->manager->links) {
+                if (l == link)
+                        continue;
+                SET_FOREACH(route, l->routes_foreign)
+                        if (gateway_is_accessible_one(family, gw, route))
+                                return true;
+                SET_FOREACH(route, l->routes)
+                        if (gateway_is_accessible_one(family, gw, route))
+                                return true;
+        }
+
+        return false;
+}
+
+static int route_is_ready_to_configure(const Route *route, Link *link) {
+        int r;
+
+        assert(link);
+        assert(route);
+
+        if (route->gateway_onlink <= 0 &&
+            in_addr_is_set(route->gw_family, &route->gw) > 0 &&
+            !gateway_is_accessible(route->gw_family, &route->gw, link))
+                return false;
+
+        if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
+                _cleanup_(address_freep) Address *address = NULL;
+                bool have = false;
+                Link *l;
+
+                r = address_new(&address);
+                if (r < 0)
+                        return r;
+
+                address->family = route->family;
+                address->in_addr = route->prefsrc;
+
+                HASHMAP_FOREACH(l, link->manager->links)
+                        if (address_get(link, address, NULL) >= 0) {
+                                have = true;
+                                break;
+                        }
+
+                if (!have)
+                        return false;
+        }
+
+        return true;
+}
+
 int request_process_route(Request *req) {
         Route *ret = NULL;
         int r;
@@ -1344,6 +1428,10 @@ int request_process_route(Request *req) {
 
         if (req->link->route_remove_messages > 0)
                 return 0;
+
+        r = route_is_ready_to_configure(req->route, req->link);
+        if (r <= 0)
+                return r;
 
         r = route_configure(req->route, req->link, req->netlink_handler,
                             ordered_set_isempty(req->route->multipath_routes) ? &ret : NULL);
