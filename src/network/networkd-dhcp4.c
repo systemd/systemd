@@ -676,8 +676,10 @@ static int dhcp4_remove_route_handler(sd_netlink *rtnl, sd_netlink_message *m, L
         assert(m);
         assert(link);
         assert(link->dhcp4_remove_messages > 0);
+        assert(link->route_remove_messages > 0);
 
         link->dhcp4_remove_messages--;
+        link->route_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -701,8 +703,10 @@ static int dhcp4_remove_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
         assert(m);
         assert(link);
         assert(link->dhcp4_remove_messages > 0);
+        assert(link->address_remove_messages > 0);
 
         link->dhcp4_remove_messages--;
+        link->address_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
