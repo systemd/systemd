@@ -11,7 +11,6 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
-#include "networkd-routing-policy-rule.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
@@ -1404,10 +1403,6 @@ int link_set_routes(Link *link) {
                 log_link_debug(link, "Static routes are configuring.");
                 return 0;
         }
-
-        r = link_set_routing_policy_rules(link);
-        if (r < 0)
-                return r;
 
         /* First, add the routes that enable us to talk to gateways. */
         r = link_set_routes_internal(link, false);
