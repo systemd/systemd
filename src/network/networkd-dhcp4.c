@@ -83,6 +83,12 @@ static void dhcp4_check_ready(Link *link) {
         if (link->network->dhcp_send_decline && !link->dhcp4_address_bind)
                 return;
 
+        if (!link->dhcp_address)
+                return;
+
+        if (!address_is_ready(link->dhcp_address))
+                return;
+
         if (link->dhcp4_messages > 0)
                 return;
 
@@ -578,15 +584,7 @@ static int link_set_dhcp_routes(Link *link) {
 
         assert(link);
 
-        if (!link->dhcp_lease) /* link went down while we configured the IP addresses? */
-                return 0;
-
-        if (!link->network) /* link went down while we configured the IP addresses? */
-                return 0;
-
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                /* During configuring addresses, the link lost its carrier. As networkd is dropping
-                 * the addresses now, let's not configure the routes either. */
+        if (!link->dhcp_lease)
                 return 0;
 
         while ((rt = set_steal_first(link->dhcp_routes))) {
@@ -719,6 +717,10 @@ static int dhcp4_remove_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         if (link->dhcp4_remove_messages == 0) {
                 r = dhcp4_update_address(link, false);
+                if (r < 0)
+                        link_enter_failed(link);
+
+                r = link_set_dhcp_routes(link);
                 if (r < 0)
                         link_enter_failed(link);
         }
@@ -942,30 +944,12 @@ static int dhcp4_start_acd(Link *link) {
 }
 
 static int dhcp4_address_ready_callback(Address *address) {
-        Link *link;
-        int r;
-
         assert(address);
-
-        link = address->link;
 
         /* Do not call this again. */
         address->callback = NULL;
 
-        r = link_set_dhcp_routes(link);
-        if (r < 0)
-                return r;
-
-        /* Reconfigure static routes as kernel may remove some routes when lease expires. */
-        r = link_set_routes(link);
-        if (r < 0)
-                return r;
-
-        r = dhcp4_start_acd(link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 address: %m");
-
-        dhcp4_check_ready(link);
+        dhcp4_check_ready(address->link);
         return 0;
 }
 
@@ -985,14 +969,15 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
-        if (address_is_ready(link->dhcp_address)) {
-                r = dhcp4_address_ready_callback(link->dhcp_address);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return 1;
-                }
-        } else
-                link->dhcp_address->callback = dhcp4_address_ready_callback;
+        /* Reconfigure static routes as kernel may remove some routes when lease expires. */
+        /* TODO: move this after removing address. */
+        r = link_request_static_routes(link);
+        if (r < 0)
+                return r;
+
+        r = dhcp4_start_acd(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 address: %m");
 
         return 1;
 }
@@ -1086,6 +1071,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
         if (!address_equal(link->dhcp_address, ret))
                 link->dhcp_address_old = link->dhcp_address;
         link->dhcp_address = ret;
+        link->dhcp_address->callback = dhcp4_address_ready_callback;
 
         return 0;
 }
@@ -1105,7 +1091,11 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);
 
-        return dhcp4_update_address(link, false);
+        r = dhcp4_update_address(link, false);
+        if (r < 0)
+                return r;
+
+        return link_set_dhcp_routes(link);
 }
 
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
@@ -1170,16 +1160,11 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 }
         }
 
-        if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_update_address(link, true);
-                if (r < 0)
-                        return r;
-        } else
-                log_link_debug(link,
-                               "The link has previously assigned DHCPv4 address or routes. "
-                               "The newly assigned address and routes will set up after old ones are removed.");
+        r = dhcp4_update_address(link, true);
+        if (r < 0)
+                return r;
 
-        return 0;
+        return link_set_dhcp_routes(link);
 }
 
 static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {

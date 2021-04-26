@@ -61,7 +61,7 @@ int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
-int link_set_addresses(Link *link);
+int link_request_static_addresses(Link *link);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 bool link_address_is_dynamic(const Link *link, const Address *address);
