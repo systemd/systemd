@@ -422,7 +422,7 @@ static int bpf_firewall_prepare_access_maps(
         assert(ret_ipv6_map_fd);
         assert(ret_has_any);
 
-        for (p = u; p; p = UNIT_DEREF(p->slice)) {
+        for (p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
 
                 cc = unit_get_cgroup_context(p);
@@ -463,7 +463,7 @@ static int bpf_firewall_prepare_access_maps(
                         return ipv6_map_fd;
         }
 
-        for (p = u; p; p = UNIT_DEREF(p->slice)) {
+        for (p = u; p; p = UNIT_GET_SLICE(p)) {
                 CGroupContext *cc;
 
                 cc = unit_get_cgroup_context(p);

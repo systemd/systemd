@@ -706,6 +706,11 @@ static inline Unit* UNIT_TRIGGER(Unit *u) {
         return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
 }
 
+static inline Unit* UNIT_GET_SLICE(const Unit *u) {
+        assert(u);
+        return u->slice.target;
+}
+
 Unit* unit_new(Manager *m, size_t size);
 Unit* unit_free(Unit *u);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Unit *, unit_free);

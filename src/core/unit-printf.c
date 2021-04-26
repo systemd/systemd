@@ -132,18 +132,15 @@ static int specifier_cgroup_root(char specifier, const void *data, const void *u
 }
 
 static int specifier_cgroup_slice(char specifier, const void *data, const void *userdata, char **ret) {
-        const Unit *u = userdata;
+        const Unit *u = userdata, *slice;
         char *n;
 
         assert(u);
 
         bad_specifier(u, specifier);
 
-        if (UNIT_ISSET(u->slice)) {
-                const Unit *slice;
-
-                slice = UNIT_DEREF(u->slice);
-
+        slice = UNIT_GET_SLICE(u);
+        if (slice) {
                 if (slice->cgroup_path)
                         n = strdup(slice->cgroup_path);
                 else
