@@ -1026,17 +1026,14 @@ static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t
 }
 
 static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
-        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
-        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
-        CGroupIOLimitType type;
+        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)],
+             buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
         dev_t dev;
-        int r;
 
-        r = lookup_block_device(dev_path, &dev);
-        if (r < 0)
+        if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
-        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+        for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                 if (limits[type] != cgroup_io_limit_defaults[type])
                         xsprintf(limit_bufs[type], "%" PRIu64, limits[type]);
                 else
@@ -1051,10 +1048,8 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
 static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
-        int r;
 
-        r = lookup_block_device(dev_path, &dev);
-        if (r < 0)
+        if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
