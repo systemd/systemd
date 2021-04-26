@@ -356,18 +356,37 @@ static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *s
         }
 }
 
-static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
+        assert(link);
+        assert(link->nexthop_remove_messages > 0);
 
-        /* Note that link may be NULL. */
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        link->nexthop_remove_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ENOENT)
                 log_link_message_warning_errno(link, m, r, "Could not drop nexthop, ignoring");
+
+        return 1;
+}
+
+static int manager_nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Manager *manager) {
+        int r;
+
+        assert(m);
+        assert(manager);
+        assert(manager->nexthop_remove_messages > 0);
+
+        manager->nexthop_remove_messages--;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ENOENT)
+                log_message_warning_errno(m, r, "Could not drop nexthop, ignoring");
 
         return 1;
 }
@@ -396,12 +415,21 @@ static int nexthop_remove(const NextHop *nexthop, Manager *manager, Link *link) 
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, req, nexthop_remove_handler,
-                               link_netlink_destroy_callback, link);
+        if (link)
+                r = netlink_call_async(manager->rtnl, NULL, req, link_nexthop_remove_handler,
+                                       link_netlink_destroy_callback, link);
+        else
+                r = netlink_call_async(manager->rtnl, NULL, req, manager_nexthop_remove_handler,
+                                       NULL, manager);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link); /* link may be NULL, link_ref() is OK with that */
+
+        if (link)
+                link->nexthop_remove_messages++;
+        else
+                manager->nexthop_remove_messages++;
 
         return 0;
 }
@@ -672,13 +700,10 @@ int request_process_nexthop(Request *req) {
         assert(req->nexthop);
         assert(req->type == REQUEST_TYPE_NEXTHOP);
 
-        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(req->link))
                 return 0;
 
         if (req->link->nexthop_remove_messages > 0)
-                return 0;
-
-        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
                 return 0;
 
         r = nexthop_configure(req->nexthop, req->link, req->netlink_handler, &ret);
