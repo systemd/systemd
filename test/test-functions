@@ -57,7 +57,7 @@ fi
 
 # The calling test.sh scripts have TEST_BASE_DIR set via their Makefile, but we don't need them to provide it
 TEST_BASE_DIR=${TEST_BASE_DIR:-$(realpath "$(dirname "${BASH_SOURCE[0]}")")}
-TEST_UNITS_DIR="$TEST_BASE_DIR/units"
+TEST_UNITS_DIR="$(realpath "$TEST_BASE_DIR/units")"
 SOURCE_DIR=$(realpath "$TEST_BASE_DIR/..")
 TOOLS_DIR="$SOURCE_DIR/tools"
 # These variables are used by test scripts
@@ -90,6 +90,17 @@ STATEDIR="$BUILD_DIR/test/$TESTNAME"
 STATEFILE="$STATEDIR/.testdir"
 IMAGESTATEDIR="$STATEDIR/.."
 TESTLOG="$STATEDIR/test.log"
+
+if ! [[ "$TESTNAME" =~ ^TEST\-([0-9]+)\-.+$ ]]; then
+    echo "ERROR: Test name '$TESTNAME' is not in the expected format: TEST-[0-9]+-*" >&2
+    exit 1
+fi
+TESTID="${BASH_REMATCH[1]:?}"
+
+if [[ ! -f "$TEST_UNITS_DIR/testsuite-$TESTID.service" ]]; then
+    echo "ERROR: Test '$TESTNAME' is missing its service file '$TEST_UNITS_DIR/testsuite-$TESTID.service" >&2
+    exit 1
+fi
 
 BASICTOOLS=(
     awk
@@ -1163,6 +1174,14 @@ check_result_nspawn() {
     check_result_common "${workspace}"
     ret=$?
 
+    # Run additional test-specific checks if defined by check_result_nspawn_hook()
+    if declare -F check_result_nspawn_hook >/dev/null; then
+        if ! check_result_nspawn_hook; then
+            derror "check_result_nspawn_hook() returned with EC > 0"
+            ret=$((ret+1))
+        fi
+    fi
+
     _umount_dir "${initdir:?}"
 
     return $ret
@@ -1177,6 +1196,14 @@ check_result_qemu() {
     ret=$?
 
     _umount_dir "${initdir:?}"
+
+    # Run additional test-specific checks if defined by check_result_qemu_hook()
+    if declare -F check_result_qemu_hook >/dev/null; then
+        if ! check_result_qemu_hook; then
+            derror "check_result_qemu_hook() returned with EC > 0"
+            ret=$((ret+1))
+        fi
+    fi
 
     return $ret
 }
@@ -2444,7 +2471,7 @@ do_test() {
         case $1 in
             --run)
                 echo "${testname} RUN: $TEST_DESCRIPTION"
-                test_run "$2"
+                test_run "$TESTID"
                 ret=$?
                 if [ $ret -eq 0 ]; then
                     echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
@@ -2475,7 +2502,7 @@ do_test() {
                     test_setup_cleanup </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 if [ $ret -eq 0 ]; then
-                    test_run "$2" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
+                    test_run "$TESTID" </dev/null >>"$TESTLOG" 2>&1 || ret=$?
                 fi
                 test_cleanup
                 if [ $ret -eq 0 ]; then
