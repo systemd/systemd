@@ -6,4 +6,4 @@ TEST_DESCRIPTION="test migrating state directory from DynamicUser=1 to DynamicUs
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 34
+do_test "$@"

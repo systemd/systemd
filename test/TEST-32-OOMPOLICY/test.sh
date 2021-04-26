@@ -9,4 +9,4 @@ TEST_NO_NSPAWN=1
 
 UNIFIED_CGROUP_HIERARCHY=yes
 
-do_test "$@" 32
+do_test "$@"

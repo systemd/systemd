@@ -13,4 +13,4 @@ else
     QEMU_OPTIONS="-numa node,nodeid=0"
 fi
 
-do_test "$@" 36
+do_test "$@"

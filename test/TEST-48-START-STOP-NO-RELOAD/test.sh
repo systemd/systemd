@@ -8,4 +8,4 @@ TEST_DESCRIPTION="test StartStopNoReload"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 48
+do_test "$@"

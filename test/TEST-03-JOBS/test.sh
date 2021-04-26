@@ -8,4 +8,4 @@ IMAGE_NAME="default"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 03
+do_test "$@"

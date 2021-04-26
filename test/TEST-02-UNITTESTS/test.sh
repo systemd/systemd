@@ -71,4 +71,4 @@ check_result_qemu() {
     return $ret
 }
 
-do_test "$@" 02
+do_test "$@"

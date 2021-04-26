@@ -8,4 +8,4 @@ TEST_DESCRIPTION="FailureAction= operation"
 
 QEMU_TIMEOUT=600
 
-do_test "$@" 18
+do_test "$@"

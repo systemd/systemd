@@ -4,4 +4,4 @@ TEST_DESCRIPTION="test systemd-repart"
 TEST_NO_NSPAWN=1
 . $TEST_BASE_DIR/test-functions
 
-do_test "$@" 58
+do_test "$@"

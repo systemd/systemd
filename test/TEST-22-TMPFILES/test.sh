@@ -18,4 +18,4 @@ test_append_files() {
     fi
 }
 
-do_test "$@" 22
+do_test "$@"

@@ -8,4 +8,4 @@ TEST_DESCRIPTION="Test PrivateUsers=yes on user manager"
 
 has_user_dbus_socket || exit 0
 
-do_test "$@" 43
+do_test "$@"

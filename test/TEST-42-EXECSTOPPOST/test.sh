@@ -6,4 +6,4 @@ TEST_DESCRIPTION="test that ExecStopPost= is always run"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 42
+do_test "$@"

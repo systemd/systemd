@@ -10,4 +10,4 @@ TEST_NO_NSPAWN=1
 QEMU_TIMEOUT=600
 UNIFIED_CGROUP_HIERARCHY=yes
 
-do_test "$@" 19
+do_test "$@"

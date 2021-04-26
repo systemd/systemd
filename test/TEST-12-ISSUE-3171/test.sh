@@ -7,4 +7,4 @@ TEST_NO_QEMU=1
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 12
+do_test "$@"

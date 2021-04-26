@@ -12,4 +12,4 @@ QEMU_TIMEOUT=300
 FSTYPE=ext4
 TEST_FORCE_NEWIMAGE=1
 
-do_test "$@" 08
+do_test "$@"

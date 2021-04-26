@@ -6,4 +6,4 @@ TEST_DESCRIPTION="Journal-related tests"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 04
+do_test "$@"

@@ -6,4 +6,4 @@ TEST_DESCRIPTION="Test that KillMode=mixed does not leave left over processes wi
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 47
+do_test "$@"

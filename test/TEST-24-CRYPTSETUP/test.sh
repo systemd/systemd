@@ -86,4 +86,4 @@ test_setup_cleanup() {
     cleanup_initdir
 }
 
-do_test "$@" 24
+do_test "$@"

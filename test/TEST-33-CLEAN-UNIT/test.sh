@@ -8,4 +8,4 @@ TEST_DESCRIPTION="test CleanUnit"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 33
+do_test "$@"

@@ -12,4 +12,4 @@ test_append_files() {
     printf "556f48e837bc4424a710fa2e2c9d3e3c\ne3d\n" >"${1:?}/etc/machine-id"
 }
 
-do_test "$@" 14
+do_test "$@"
