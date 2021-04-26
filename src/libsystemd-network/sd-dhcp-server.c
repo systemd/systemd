@@ -728,26 +728,13 @@ static size_t relay_option_length(sd_dhcp_server *server) {
         return length;
 }
 
-static uint8_t *append_suboption(uint8_t *dst, size_t dst_len, uint8_t subcode, const char *value, size_t length) {
-        assert(dst);
-        assert(value);
-
-        if (dst_len < length + 2)
-                return NULL;
-        dst[0] = subcode;
-        dst[1] = length;
-        memcpy(dst + 2, value, length);
-        return dst + 2 + length;
-}
-
 static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t msg_len, size_t buf_len) {
         assert(server);
         assert(message);
 
         int r;
         uint8_t inf[255];
-        const uint8_t *inf_end = inf + sizeof(inf);
-        uint8_t *dst = inf;
+        size_t offset = 0;
         uint8_t *end_option_ptr = memrchr(message->options, SD_DHCP_OPTION_END, msg_len - sizeof(DHCPMessage));
         if (!end_option_ptr)
                 return -EINVAL;
@@ -755,18 +742,20 @@ static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *
 
         if (server->agent_circuit_id) {
                 size_t length = strlen(server->agent_circuit_id);
-                dst = append_suboption(dst, inf_end - dst, SD_DHCP_RELAY_AGENT_CIRCUIT_ID, server->agent_circuit_id, length);
-                if (!dst)
-                        return -ENOBUFS;
+                int code = SD_DHCP_RELAY_AGENT_CIRCUIT_ID;
+                r = dhcp_option_append_tlv(inf, sizeof(inf), &offset, code, length, server->agent_circuit_id);
+                if (r < 0)
+                        return r;
         }
         if (server->agent_remote_id) {
                 size_t length = strlen(server->agent_remote_id);
-                dst = append_suboption(dst, inf_end - dst, SD_DHCP_RELAY_AGENT_REMOTE_ID, server->agent_remote_id, length);
-                if (!dst)
-                        return -ENOBUFS;
+                int code = SD_DHCP_RELAY_AGENT_REMOTE_ID;
+                r = dhcp_option_append_tlv(inf, sizeof(inf), &offset, code, length, server->agent_remote_id);
+                if (r < 0)
+                        return r;
         }
 
-        r = dhcp_option_append(message, buf_len, &options_length, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, dst - inf, inf);
+        r = dhcp_option_append(message, buf_len, &options_length, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, offset, inf);
         if (r < 0)
                 return r;
 
@@ -817,9 +806,9 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                         return -ENOMEM;
                 memcpy(&packet->dhcp, message, sizeof(DHCPMessage) + opt_length);
 
-                int ret = dhcp_option_remove_option(packet->dhcp.options, opt_length, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
-                if (ret > 0)
-                        opt_length = ret;
+                r = dhcp_option_remove_option(packet->dhcp.options, opt_length, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
+                if (r > 0)
+                        opt_length = r;
 
                 bool l2_broadcast = requested_broadcast(message) || message_type == DHCP_NAK;
                 const be32_t destination = message_type == DHCP_NAK ? INADDR_ANY : message->ciaddr;
