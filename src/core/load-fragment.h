@@ -141,6 +141,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
 CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
+CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
