@@ -33,22 +33,20 @@ static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, size_t n) {
         return r;
 }
 
-static inline size_t IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
+static inline void IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
         size_t j;
 
         for (j = 0; j < n; j++) {
                 size_t sub;
 
                 if (_unlikely_(k <= 0))
-                        break;
+                        return;
 
                 sub = MIN(i[j].iov_len, k);
                 i[j].iov_len -= sub;
                 i[j].iov_base = (uint8_t*) i[j].iov_base + sub;
                 k -= sub;
         }
-
-        return k;
 }
 
 static inline bool FILE_SIZE_VALID(uint64_t l) {
