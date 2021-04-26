@@ -9,6 +9,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "parse-util.h"
@@ -1200,6 +1201,38 @@ int route_configure(
                 *ret = nr;
 
         return k;
+}
+
+int request_process_route(Request *req) {
+        Route *ret = NULL;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->route);
+        assert(req->type == REQUEST_TYPE_ROUTE);
+
+        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (req->link->route_remove_messages > 0)
+                return 0;
+
+        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
+                return 0;
+
+        r = route_configure(req->route, req->link, req->netlink_handler,
+                            ordered_set_isempty(req->route->multipath_routes) ? &ret : NULL);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure_handler) {
+                r = req->after_configure_handler(req->link, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 static int route_handler_with_gateway(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
