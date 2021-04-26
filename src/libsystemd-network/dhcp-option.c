@@ -103,6 +103,30 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
                 break;
         }
+        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
+                sd_dhcp_server *server = (sd_dhcp_server *) optval;
+                if (optlen > 255)
+                        return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(ENOBUFS), "relay agent circuit and/or remote id is too long: %m");
+                options[(*offset)++] = code;
+                options[(*offset)++] = optlen;
+
+                if (server->agent_circuit_id) {
+                        size_t length = strlen(server->agent_circuit_id);
+                        int subcode = SD_DHCP_RELAY_AGENT_CIRCUIT_ID;
+                        int r = dhcp_option_append_tlv(options, size, offset, subcode, length, server->agent_circuit_id);
+                        if (r < 0)
+                                return r;
+                }
+                if (server->agent_remote_id) {
+                        size_t length = strlen(server->agent_remote_id);
+                        int subcode = SD_DHCP_RELAY_AGENT_REMOTE_ID;
+                        int r = dhcp_option_append_tlv(options, size, offset, subcode, length, server->agent_remote_id);
+                        if (r < 0)
+                                return r;
+                }
+                break;
+
+        }
         default:
                 return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
         }
