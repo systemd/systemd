@@ -6,4 +6,4 @@ TEST_DESCRIPTION="Test ExecReload= (PR #13098)"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 39
+do_test "$@"
