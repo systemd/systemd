@@ -95,7 +95,7 @@ struct Manager {
 
         FirewallContext *fw_ctx;
 
-        Set *request_queue;
+        OrderedSet *request_queue;
 };
 
 int manager_new(Manager **ret);
