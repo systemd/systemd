@@ -936,11 +936,7 @@ static int dhcp4_start_acd(Link *link) {
                 log_link_debug(link, "Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
         }
 
-        r = sd_ipv4acd_start(link->dhcp_acd, !in4_addr_equal(&addr.in, &old));
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_ipv4acd_start(link->dhcp_acd, !in4_addr_equal(&addr.in, &old));
 }
 
 static int dhcp4_address_ready_callback(Address *address) {
@@ -974,10 +970,6 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         r = link_request_static_routes(link);
         if (r < 0)
                 return r;
-
-        r = dhcp4_start_acd(link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 address: %m");
 
         return 1;
 }
@@ -1072,6 +1064,10 @@ static int dhcp4_update_address(Link *link, bool announce) {
                 link->dhcp_address_old = link->dhcp_address;
         link->dhcp_address = ret;
         link->dhcp_address->callback = dhcp4_address_ready_callback;
+
+        r = dhcp4_start_acd(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 address: %m");
 
         return 0;
 }
