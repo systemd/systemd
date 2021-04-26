@@ -1379,6 +1379,57 @@ bool gateway_is_accessible(int family, const union in_addr_union *gw, Link *link
         return false;
 }
 
+static int prefsrc_exists(int family, const union in_addr_union *prefsrc, Link *link) {
+        Link *l;
+        int r;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(prefsrc);
+        assert(link);
+
+        if (family == AF_INET) {
+                Address *address;
+
+                SET_FOREACH(address, link->addresses)
+                        if (address->family == family &&
+                            in_addr_equal(family, &address->in_addr, prefsrc) > 0)
+                                return true;
+                SET_FOREACH(address, link->addresses_foreign)
+                        if (address->family == family &&
+                            in_addr_equal(family, &address->in_addr, prefsrc) > 0)
+                                return true;
+
+                HASHMAP_FOREACH(l, link->manager->links) {
+                        if (l == link)
+                                continue;
+
+                        SET_FOREACH(address, l->addresses)
+                                if (address->family == family &&
+                                    in_addr_equal(family, &address->in_addr, prefsrc) > 0)
+                                        return true;
+                        SET_FOREACH(address, l->addresses_foreign)
+                                if (address->family == family &&
+                                    in_addr_equal(family, &address->in_addr, prefsrc) > 0)
+                                        return true;
+                }
+        } else {
+                _cleanup_(address_freep) Address *address = NULL;
+
+                r = address_new(&address);
+                if (r < 0)
+                        return r;
+
+                address->family = family;
+                address->in_addr = *prefsrc;
+
+                HASHMAP_FOREACH(l, link->manager->links)
+                        if (address_get(link, address, NULL) >= 0)
+                                return true;
+        }
+
+        return false;
+}
+
 static int route_is_ready_to_configure(const Route *route, Link *link) {
         int r;
 
@@ -1391,25 +1442,9 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 return false;
 
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
-                _cleanup_(address_freep) Address *address = NULL;
-                bool have = false;
-                Link *l;
-
-                r = address_new(&address);
-                if (r < 0)
+                r = prefsrc_exists(route->family, &route->prefsrc, link);
+                if (r <= 0)
                         return r;
-
-                address->family = route->family;
-                address->in_addr = route->prefsrc;
-
-                HASHMAP_FOREACH(l, link->manager->links)
-                        if (address_get(link, address, NULL) >= 0) {
-                                have = true;
-                                break;
-                        }
-
-                if (!have)
-                        return false;
         }
 
         return true;
