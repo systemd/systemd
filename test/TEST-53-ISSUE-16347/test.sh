@@ -9,4 +9,4 @@ QEMU_OPTIONS="-rtc base=$(date -u +%Y-%m-%dT%H:%M:%S -d '+3 days')"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 53
+do_test "$@"
