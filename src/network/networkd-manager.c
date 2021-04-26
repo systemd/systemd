@@ -407,6 +407,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_post(m->event, NULL, manager_process_requests, m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_rtnl(m);
         if (r < 0)
                 return r;
