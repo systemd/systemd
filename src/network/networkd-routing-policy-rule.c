@@ -604,17 +604,16 @@ static int routing_policy_rule_configure(
         if (r < 0)
                 return r;
 
+        r = routing_policy_rule_add(link->manager, rule, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add rule: %m");
+
         r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
-        link->routing_policy_rule_messages++;
-
-        r = routing_policy_rule_add(link->manager, rule, ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add rule: %m");
 
         return r;
 }
@@ -700,9 +699,9 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->routing_policy_rule_messages > 0);
+        assert(link->static_routing_policy_rule_messages > 0);
 
-        link->routing_policy_rule_messages--;
+        link->static_routing_policy_rule_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -714,9 +713,9 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
                 return 1;
         }
 
-        if (link->routing_policy_rule_messages == 0) {
+        if (link->static_routing_policy_rule_messages == 0) {
                 log_link_debug(link, "Routing policy rule configured");
-                link->routing_policy_rules_configured = true;
+                link->static_routing_policy_rules_configured = true;
                 link_check_ready(link);
         }
 
@@ -726,37 +725,47 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
 static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
         int r;
 
-        if (IN_SET(rule->family, AF_INET, AF_INET6))
-                return link_request_routing_policy_rule(link, rule, false, static_routing_policy_rule_configure_handler, NULL);
+        if (IN_SET(rule->family, AF_INET, AF_INET6)) {
+                r = link_request_routing_policy_rule(link, rule, false, static_routing_policy_rule_configure_handler, NULL);
+                if (r < 0)
+                        return r;
+
+                link->static_routing_policy_rule_messages++;
+                return 0;
+        }
 
         if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)) {
-                RoutingPolicyRule *tmp;
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
 
                 r = routing_policy_rule_new(&tmp);
                 if (r < 0)
                         return r;
 
                 routing_policy_rule_copy(tmp, rule);
-                rule->family = AF_INET;
+                tmp->family = AF_INET;
 
-                r = link_request_routing_policy_rule(link, rule, true, static_routing_policy_rule_configure_handler, NULL);
+                r = link_request_routing_policy_rule(link, TAKE_PTR(tmp), true, static_routing_policy_rule_configure_handler, NULL);
                 if (r < 0)
                         return r;
+
+                link->static_routing_policy_rule_messages++;
         }
 
         if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) {
-                RoutingPolicyRule *tmp;
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
 
                 r = routing_policy_rule_new(&tmp);
                 if (r < 0)
                         return r;
 
                 routing_policy_rule_copy(tmp, rule);
-                rule->family = AF_INET6;
+                tmp->family = AF_INET6;
 
-                r = link_request_routing_policy_rule(link, rule, true, static_routing_policy_rule_configure_handler, NULL);
+                r = link_request_routing_policy_rule(link, TAKE_PTR(tmp), true, static_routing_policy_rule_configure_handler, NULL);
                 if (r < 0)
                         return r;
+
+                link->static_routing_policy_rule_messages++;
         }
 
         return 0;
@@ -769,12 +778,7 @@ int link_request_static_routing_policy_rules(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (link->routing_policy_rule_messages != 0) {
-                log_link_debug(link, "Routing policy rules are configuring.");
-                return 0;
-        }
-
-        link->routing_policy_rules_configured = false;
+        link->static_routing_policy_rules_configured = false;
 
         HASHMAP_FOREACH(rule, link->network->rules_by_section) {
                 r = link_request_static_routing_policy_rule(link, rule);
@@ -782,10 +786,11 @@ int link_request_static_routing_policy_rules(Link *link) {
                         return log_link_warning_errno(link, r, "Could not request routing policy rule: %m");
         }
 
-        if (link->routing_policy_rule_messages == 0)
-                link->routing_policy_rules_configured = true;
-        else {
-                log_link_debug(link, "Setting routing policy rules");
+        if (link->static_routing_policy_rule_messages == 0) {
+                link->static_routing_policy_rules_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Requesting routing policy rules");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
