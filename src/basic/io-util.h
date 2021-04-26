@@ -25,18 +25,16 @@ int fd_wait_for_event(int fd, int event, usec_t timeout);
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);
 
 static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, size_t n) {
-        size_t j, r = 0;
+        size_t r = 0;
 
-        for (j = 0; j < n; j++)
+        for (size_t j = 0; j < n; j++)
                 r += i[j].iov_len;
 
         return r;
 }
 
 static inline void IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
-        size_t j;
-
-        for (j = 0; j < n; j++) {
+        for (size_t j = 0; j < n; j++) {
                 size_t sub;
 
                 if (_unlikely_(k <= 0))
