@@ -27,4 +27,4 @@ test_append_files() {
     )
 }
 
-do_test "$@" 29
+do_test "$@"

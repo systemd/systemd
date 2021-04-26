@@ -30,4 +30,4 @@ test_append_files() {
     )
 }
 
-do_test "$@" 50
+do_test "$@"
