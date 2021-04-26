@@ -35,7 +35,7 @@ Request *request_free(Request *req) {
                 return NULL;
 
         if (req->link && req->link->manager)
-                set_remove(req->link->manager->request_queue, req);
+                ordered_set_remove(req->link->manager->request_queue, req);
         if (req->take_object)
                 request_free_object(req->type, req->object);
         link_unref(req->link);
@@ -79,7 +79,7 @@ int link_queue_request(
 
         link_ref(link);
 
-        r = set_ensure_put(&link->manager->request_queue, NULL, req);
+        r = ordered_set_ensure_put(&link->manager->request_queue, NULL, req);
         if (r < 0)
                 return r;
 
@@ -91,7 +91,7 @@ int manager_process_request_queue(Manager *manager) {
         Request *req;
         int r;
 
-        SET_FOREACH(req, manager->request_queue) {
+        ORDERED_SET_FOREACH(req, manager->request_queue) {
                 switch(req->type) {
                 case REQUEST_TYPE_ADDRESS:
                         r = request_process_address(req);
@@ -114,7 +114,7 @@ int manager_process_request_queue(Manager *manager) {
                 if (r < 0)
                         link_enter_failed(req->link);
                 if (r > 0) {
-                        set_remove(manager->request_queue, req);
+                        ordered_set_remove(manager->request_queue, req);
                         request_free(req);
                 }
         }
