@@ -133,6 +133,18 @@ bool link_ipv6_enabled(Link *link) {
         return false;
 }
 
+bool link_is_ready_to_configure(Link *link) {
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                return false;
+
+        return true;
+}
+
 static bool link_is_enslaved(Link *link) {
         if (link->flags & IFF_SLAVE)
                 /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
