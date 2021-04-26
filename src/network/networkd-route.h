@@ -14,6 +14,7 @@
 
 typedef struct Manager Manager;
 typedef struct Network Network;
+typedef struct Request Request;
 
 typedef struct Route {
         Network *network;
@@ -73,6 +74,8 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 
 int route_configure(const Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
+
+int request_process_route(Request *req);
 
 int link_set_routes(Link *link);
 int link_set_routes_with_gateway(Link *link);
