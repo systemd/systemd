@@ -452,11 +452,6 @@ static int write_to_syslog(
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_time[64],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[5] = {};
-        struct msghdr msghdr = {
-                .msg_iov = iovec,
-                .msg_iovlen = ELEMENTSOF(iovec),
-        };
         time_t t;
         struct tm tm;
 
@@ -474,15 +469,21 @@ static int write_to_syslog(
 
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
-        iovec[0] = IOVEC_MAKE_STRING(header_priority);
-        iovec[1] = IOVEC_MAKE_STRING(header_time);
-        iovec[2] = IOVEC_MAKE_STRING(program_invocation_short_name);
-        iovec[3] = IOVEC_MAKE_STRING(header_pid);
-        iovec[4] = IOVEC_MAKE_STRING(buffer);
+        struct iovec iovec[] = {
+                IOVEC_MAKE_STRING(header_priority),
+                IOVEC_MAKE_STRING(header_time),
+                IOVEC_MAKE_STRING(program_invocation_short_name),
+                IOVEC_MAKE_STRING(header_pid),
+                IOVEC_MAKE_STRING(buffer),
+        };
+        struct msghdr msghdr = {
+                .msg_iov = iovec,
+                .msg_iovlen = ELEMENTSOF(iovec),
+        };
 
         /* When using syslog via SOCK_STREAM separate the messages by NUL chars */
         if (syslog_is_stream)
-                iovec[4].iov_len++;
+                iovec[ELEMENTSOF(iovec) - 1].iov_len++;
 
         for (;;) {
                 ssize_t n;
@@ -520,7 +521,6 @@ static int write_to_kmsg(
 
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[5] = {};
 
         if (kmsg_fd < 0)
                 return 0;
@@ -531,11 +531,13 @@ static int write_to_kmsg(
         xsprintf(header_priority, "<%i>", level);
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
 
-        iovec[0] = IOVEC_MAKE_STRING(header_priority);
-        iovec[1] = IOVEC_MAKE_STRING(program_invocation_short_name);
-        iovec[2] = IOVEC_MAKE_STRING(header_pid);
-        iovec[3] = IOVEC_MAKE_STRING(buffer);
-        iovec[4] = IOVEC_MAKE_STRING("\n");
+        const struct iovec iovec[] = {
+                IOVEC_MAKE_STRING(header_priority),
+                IOVEC_MAKE_STRING(program_invocation_short_name),
+                IOVEC_MAKE_STRING(header_pid),
+                IOVEC_MAKE_STRING(buffer),
+                IOVEC_MAKE_STRING("\n"),
+        };
 
         if (writev(kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
                 return -errno;
@@ -959,7 +961,7 @@ int log_struct_internal(
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
                         struct iovec iovec[17] = {};
-                        size_t n = 0, i;
+                        size_t n = 0;
                         int r;
                         struct msghdr mh = {
                                 .msg_iov = iovec,
@@ -981,7 +983,7 @@ int log_struct_internal(
                         }
 
                         va_end(ap);
-                        for (i = 1; i < n; i += 2)
+                        for (size_t i = 1; i < n; i += 2)
                                 free(iovec[i].iov_base);
 
                         if (!fallback) {
