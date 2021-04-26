@@ -7,6 +7,7 @@
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
+#include "networkd-queue.h"
 #include "set.h"
 
 Neighbor *neighbor_free(Neighbor *neighbor) {
@@ -414,6 +415,37 @@ int link_drop_neighbors(Link *link) {
         }
 
         return r;
+}
+
+int request_process_neighbor(Request *req) {
+        Neighbor *ret;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->neighbor);
+        assert(req->type == REQUEST_TYPE_NEIGHBOR);
+
+        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (req->link->neighbor_remove_messages > 0)
+                return 0;
+
+        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
+                return 0;
+
+        r = neighbor_configure(req->neighbor, req->link, req->netlink_handler, &ret);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure_handler) {
+                r = req->after_configure_handler(req->link, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, union lladdr_union *lladdr, size_t *size, char **str) {

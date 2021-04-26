@@ -15,6 +15,7 @@
 typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
+typedef struct Request Request;
 
 typedef struct NextHop {
         Network *network;
@@ -39,6 +40,8 @@ void network_drop_invalid_nexthops(Network *network);
 int link_set_nexthops(Link *link);
 int link_drop_nexthops(Link *link);
 int link_drop_foreign_nexthops(Link *link);
+
+int request_process_nexthop(Request *req);
 
 int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

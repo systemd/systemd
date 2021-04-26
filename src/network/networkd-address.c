@@ -12,6 +12,7 @@
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -602,6 +603,7 @@ int address_remove(
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+        link->address_remove_messages++;
 
         return 0;
 }
@@ -1118,6 +1120,37 @@ int link_set_addresses(Link *link) {
         }
 
         return 0;
+}
+
+int request_process_address(Request *req) {
+        Address *ret;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->address);
+        assert(req->type == REQUEST_TYPE_ADDRESS);
+
+        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (req->link->address_remove_messages > 0)
+                return 0;
+
+        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
+                return 0;
+
+        r = address_configure(req->address, req->link, req->netlink_handler, &ret);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure_handler) {
+                r = req->after_configure_handler(req->link, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
