@@ -870,12 +870,6 @@ static int link_set_static_configs(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        /* Reset all *_configured flags we are configuring. */
-        link->static_neighbors_configured = false;
-        link->static_nexthops_configured = false;
-        link->static_routes_configured = false;
-        link->static_routing_policy_rules_configured = false;
-
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
@@ -888,11 +882,7 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_static_neighbors(link);
-        if (r < 0)
-                return r;
-
-        r = link_request_static_routing_policy_rules(link);
+        r = link_set_address_labels(link);
         if (r < 0)
                 return r;
 
@@ -900,7 +890,19 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_address_labels(link);
+        r = link_request_static_neighbors(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_nexthops(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routes(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routing_policy_rules(link);
         if (r < 0)
                 return r;
 
