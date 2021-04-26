@@ -82,9 +82,13 @@ typedef struct Link {
         unsigned address_remove_messages;
         unsigned address_label_messages;
         unsigned neighbor_messages;
+        unsigned neighbor_remove_messages;
         unsigned route_messages;
+        unsigned route_remove_messages;
         unsigned nexthop_messages;
+        unsigned nexthop_remove_messages;
         unsigned routing_policy_rule_messages;
+        unsigned routing_policy_rule_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
