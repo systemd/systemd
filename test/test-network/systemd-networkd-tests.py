@@ -3719,7 +3719,6 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path(*self.units)
         start_networkd()
 
-        #Test is disabled until BindToInterface DHCP server configuration option is supported
         self.wait_online(['client:routable'])
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'client', env=env)
