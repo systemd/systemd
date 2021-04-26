@@ -406,37 +406,12 @@ static int nexthop_remove(const NextHop *nexthop, Manager *manager, Link *link) 
         return 0;
 }
 
-static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
+static int nexthop_configure(
+                const NextHop *nexthop,
+                Link *link,
+                link_netlink_message_handler_t callback,
+                NextHop **ret) {
 
-        assert(link);
-        assert(link->nexthop_messages > 0);
-
-        link->nexthop_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->nexthop_messages == 0) {
-                log_link_debug(link, "Nexthops set");
-                link->static_nexthops_configured = true;
-                /* Now all nexthops are configured. Let's configure remaining routes. */
-                r = link_set_routes_with_gateway(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int nexthop_configure(const NextHop *nexthop, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -445,6 +420,7 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
         assert(IN_SET(nexthop->family, AF_INET, AF_INET6));
+        assert(callback);
 
         log_nexthop_debug(nexthop, nexthop->id, "Configuring", link);
 
@@ -482,18 +458,48 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
                 }
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
-        r = nexthop_add(link, nexthop, NULL);
+        r = nexthop_add(link, nexthop, ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add nexthop: %m");
 
         return r;
+}
+
+static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->nexthop_messages > 0);
+
+        link->nexthop_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        if (link->nexthop_messages == 0) {
+                log_link_debug(link, "Nexthops set");
+                link->static_nexthops_configured = true;
+                /* Now all nexthops are configured. Let's configure remaining routes. */
+                r = link_set_routes_with_gateway(link);
+                if (r < 0)
+                        link_enter_failed(link);
+        }
+
+        return 1;
 }
 
 int link_set_nexthops(Link *link) {
@@ -520,7 +526,7 @@ int link_set_nexthops(Link *link) {
                         if ((nh->id > 0) != (phase == PHASE_ID))
                                 continue;
 
-                        r = nexthop_configure(nh, link);
+                        r = nexthop_configure(nh, link, static_nexthop_handler, NULL);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not set nexthop: %m");
 
