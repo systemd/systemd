@@ -2666,16 +2666,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                                 retroactively_stop_dependencies(u);
                 }
 
-                /* Stop unneeded units and bound-by units regardless if going down was expected or not */
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                        check_unneeded_dependencies(u);
-                        check_bound_by_dependencies(u);
-                }
-
-                /* Start uphold units regardless if going up was expected or not */
-                if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        check_uphold_dependencies(u);
-
                 if (ns != os && ns == UNIT_FAILED) {
                         log_unit_debug(u, "Unit entered failed state.");
 
@@ -2708,17 +2698,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         unit_trigger_notify(u);
 
         if (!MANAGER_IS_RELOADING(m)) {
-                /* Maybe we finished startup and are now ready for being stopped because unneeded? */
-                unit_submit_to_stop_when_unneeded_queue(u);
-
-                /* Maybe someone wants us to remain up? */
-                unit_submit_to_start_when_upheld_queue(u);
-
-                /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens when
-                 * something BindsTo= to a Type=oneshot unit, as these units go directly from starting to inactive,
-                 * without ever entering started.) */
-                unit_submit_to_stop_when_bound_queue(u);
-
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
                         emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
@@ -2728,7 +2707,36 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 }
         }
 
-        unit_add_to_gc_queue(u);
+        /* And now, add the unit or depending units to various queues that will act on the new situation if
+         * needed. These queues generally check for continous state changes rather than events (like most of
+         * the state propagation above), and do work deferred instead of instantly, since they typically
+         * don't want to run during reloading, and usually involve checking combined state of multiple units
+         * at once. */
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                /* Stop unneeded units and bound-by units regardless if going down was expected or not */
+                check_unneeded_dependencies(u);
+                check_bound_by_dependencies(u);
+
+                /* Maybe someone wants us to remain up? */
+                unit_submit_to_start_when_upheld_queue(u);
+
+                /* Maybe the unit should be GC'ed now? */
+                unit_add_to_gc_queue(u);
+        }
+
+        if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                /* Start uphold units regardless if going up was expected or not */
+                check_uphold_dependencies(u);
+
+                /* Maybe we finished startup and are now ready for being stopped because unneeded? */
+                unit_submit_to_stop_when_unneeded_queue(u);
+
+                /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens
+                 * when something BindsTo= to a Type=oneshot unit, as these units go directly from starting to
+                 * inactive, without ever entering started.) */
+                unit_submit_to_stop_when_bound_queue(u);
+        }
 }
 
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
