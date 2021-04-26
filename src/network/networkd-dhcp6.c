@@ -888,7 +888,7 @@ static int dhcp6_pd_prefix_add(Link *link, const union in_addr_union *prefix, ui
                       "DHCP6: received PD Prefix %s%s",
                       strna(buf),
                       prefixlen > 64 ? " with prefix length > 64, ignoring." :
-                      prefixlen < 48 ? " with prefix lenght < 48, looks unusual.": "");
+                      prefixlen < 48 ? " with prefix length < 48, looks unusual.": "");
 
         /* Store PD prefix even if prefixlen > 64, not to make logged at warning level so frequently. */
         r = set_ensure_put(&link->dhcp6_pd_prefixes, &in_addr_prefix_hash_ops_free, p);
