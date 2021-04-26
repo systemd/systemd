@@ -25,13 +25,14 @@ typedef enum RequestType {
 typedef struct Request {
         Link *link;
         RequestType type;
+        bool take_object;
         union {
-                const Address *address;
-                const Neighbor *neighbor;
-                const NextHop *nexthop;
-                const Route *route;
-                const RoutingPolicyRule *rule;
-                const void *object;
+                Address *address;
+                Neighbor *neighbor;
+                NextHop *nexthop;
+                Route *route;
+                RoutingPolicyRule *rule;
+                void *object;
         };
         link_netlink_message_handler_t netlink_handler;
         link_after_configure_handler_t after_configure_handler;
@@ -42,43 +43,49 @@ Request *request_free(Request *req);
 int link_queue_request(
                 Link *link,
                 RequestType type,
-                const void *object,
+                void *object,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler);
 static inline int link_request_address(
                 Link *link,
-                const Address *address,
+                Address *address,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, netlink_handler, after_configure_handler);
+        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, take_object, netlink_handler, after_configure_handler);
 }
 static inline int link_request_neighbor(
                 Link *link,
-                const Neighbor *neighbor,
+                Neighbor *neighbor,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_NEIGHBOR, neighbor, netlink_handler, after_configure_handler);
+        return link_queue_request(link, REQUEST_TYPE_NEIGHBOR, neighbor, take_object, netlink_handler, after_configure_handler);
 }
 static inline int link_request_nexthop(
                 Link *link,
-                const NextHop *nexthop,
+                NextHop *nexthop,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, netlink_handler, after_configure_handler);
+        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, take_object, netlink_handler, after_configure_handler);
 }
 static inline int link_request_route(
                 Link *link,
-                const Route *route,
+                Route *route,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, netlink_handler, after_configure_handler);
+        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, take_object, netlink_handler, after_configure_handler);
 }
 static inline int link_request_routing_policy_rule(
                 Link *link,
-                const RoutingPolicyRule *rule,
+                RoutingPolicyRule *rule,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, netlink_handler, after_configure_handler);
+        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, take_object, netlink_handler, after_configure_handler);
 }
 
 int manager_process_request_queue(Manager *manager);

@@ -275,9 +275,11 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                /* Neighbor may not exist yet. So, do not enter failed state here. */
-                log_link_message_warning_errno(link, m, r, "Could not set neighbor, ignoring");
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set neighbor");
+                link_enter_failed(link);
+                return 1;
+        }
 
         if (link->neighbor_messages == 0) {
                 log_link_debug(link, "Neighbors set");
@@ -288,7 +290,7 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
         return 1;
 }
 
-int link_set_neighbors(Link *link) {
+int link_request_static_neighbors(Link *link) {
         Neighbor *neighbor;
         int r;
 
@@ -296,17 +298,12 @@ int link_set_neighbors(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        if (link->neighbor_messages != 0) {
-                log_link_debug(link, "Neighbors are configuring.");
-                return 0;
-        }
-
         link->neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = neighbor_configure(neighbor, link, static_neighbor_configure_handler, NULL);
+                r = link_request_neighbor(link, neighbor, false, static_neighbor_configure_handler, NULL);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set neighbor: %m");
+                        return log_link_warning_errno(link, r, "Could not request neighbor: %m");
         }
 
         if (link->neighbor_messages == 0) {
