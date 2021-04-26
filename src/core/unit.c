@@ -2008,7 +2008,7 @@ bool unit_is_unneeded(Unit *u) {
                 return false;
 
         /* Don't clean up while the unit is transitioning or is even inactive. */
-        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+        if (unit_active_state(u) != UNIT_ACTIVE)
                 return false;
         if (u->job)
                 return false;
