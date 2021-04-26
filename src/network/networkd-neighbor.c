@@ -213,7 +213,55 @@ static bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
         return neighbor_compare_func(n1, n2) == 0;
 }
 
-static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int neighbor_configure(
+                const Neighbor *neighbor,
+                Link *link,
+                link_netlink_message_handler_t callback,
+                Neighbor **ret) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(neighbor);
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(callback);
+
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
+                                      link->ifindex, neighbor->family);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_NEWNEIGH message: %m");
+
+        r = sd_rtnl_message_neigh_set_state(req, NUD_PERMANENT);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set state: %m");
+
+        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
+
+        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link->neighbor_messages++;
+        link_ref(link);
+
+        r = neighbor_add(link, neighbor, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add neighbor: %m");
+
+        return r;
+}
+
+static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
@@ -239,48 +287,6 @@ static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, L
         return 1;
 }
 
-static int neighbor_configure(Neighbor *neighbor, Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(neighbor);
-        assert(link);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
-                                      link->ifindex, neighbor->family);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_NEWNEIGH message: %m");
-
-        r = sd_rtnl_message_neigh_set_state(req, NUD_PERMANENT);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set state: %m");
-
-        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
-
-        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, neighbor_configure_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link->neighbor_messages++;
-        link_ref(link);
-
-        r = neighbor_add(link, neighbor, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add neighbor: %m");
-
-        return r;
-}
-
 int link_set_neighbors(Link *link) {
         Neighbor *neighbor;
         int r;
@@ -297,7 +303,7 @@ int link_set_neighbors(Link *link) {
         link->neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = neighbor_configure(neighbor, link);
+                r = neighbor_configure(neighbor, link, static_neighbor_configure_handler, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set neighbor: %m");
         }
