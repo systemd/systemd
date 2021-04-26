@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-event.h"
+
 #include "networkd-link.h"
 
 typedef struct Address Address;
@@ -88,4 +90,4 @@ static inline int link_request_routing_policy_rule(
         return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, take_object, netlink_handler, after_configure_handler);
 }
 
-int manager_process_request_queue(Manager *manager);
+int manager_process_requests(sd_event_source *s, void *userdata);
