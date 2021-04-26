@@ -41,6 +41,7 @@
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
+#include "socket-bind.h"
 #include "sparse-endian.h"
 #include "special.h"
 #include "specifier.h"
@@ -56,6 +57,9 @@
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
+#if BPF_FRAMEWORK
+#include "bpf-link.h"
+#endif
 
 /* Thresholds for logging at INFO level about resource consumption */
 #define MENTIONWORTHY_CPU_NSEC (1 * NSEC_PER_SEC)
@@ -662,6 +666,13 @@ Unit* unit_free(Unit *u) {
 
         if (u->on_console)
                 manager_unref_console(u->manager);
+
+
+        fdset_free(u->initial_socket_bind_link_fds);
+#if BPF_FRAMEWORK
+        bpf_link_free(u->ipv4_socket_bind_link);
+        bpf_link_free(u->ipv6_socket_bind_link);
+#endif
 
         unit_release_cgroup(u);
 
