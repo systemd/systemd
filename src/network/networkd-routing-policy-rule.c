@@ -574,45 +574,23 @@ static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *ma
         return 0;
 }
 
-static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
+static int routing_policy_rule_configure(
+                const RoutingPolicyRule *rule,
+                int family,
+                Link *link,
+                link_netlink_message_handler_t callback,
+                RoutingPolicyRule **ret) {
 
-        assert(rtnl);
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-        assert(link->routing_policy_rule_messages > 0);
-
-        link->routing_policy_rule_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not add routing policy rule");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->routing_policy_rule_messages == 0) {
-                log_link_debug(link, "Routing policy rule configured");
-                link->routing_policy_rules_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
-static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule, int family, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(rule);
+        assert(IN_SET(family, AF_INET, AF_INET6));
         assert(link);
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+        assert(callback);
 
         log_routing_policy_rule_debug(rule, family, "Configuring", link, link->manager);
 
@@ -624,8 +602,7 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               routing_policy_rule_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -633,32 +610,11 @@ static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule,
         link_ref(link);
         link->routing_policy_rule_messages++;
 
-        r = routing_policy_rule_add(link->manager, rule, family, NULL);
+        r = routing_policy_rule_add(link->manager, rule, family, ret);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add rule: %m");
 
         return r;
-}
-
-static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
-        int r;
-
-        if (IN_SET(rule->family, AF_INET, AF_INET6))
-                return routing_policy_rule_configure_internal(rule, rule->family, link);
-
-        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)) {
-                r = routing_policy_rule_configure_internal(rule, AF_INET, link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) {
-                r = routing_policy_rule_configure_internal(rule, AF_INET6, link);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
 }
 
 static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
@@ -735,6 +691,57 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
         return r;
 }
 
+static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+        assert(link->routing_policy_rule_messages > 0);
+
+        link->routing_policy_rule_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not add routing policy rule");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        if (link->routing_policy_rule_messages == 0) {
+                log_link_debug(link, "Routing policy rule configured");
+                link->routing_policy_rules_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+static int static_routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
+        int r;
+
+        if (IN_SET(rule->family, AF_INET, AF_INET6))
+                return routing_policy_rule_configure(rule, rule->family, link, static_routing_policy_rule_configure_handler, NULL);
+
+        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)) {
+                r = routing_policy_rule_configure(rule, AF_INET, link, static_routing_policy_rule_configure_handler, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) {
+                r = routing_policy_rule_configure(rule, AF_INET6, link, static_routing_policy_rule_configure_handler, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_set_routing_policy_rules(Link *link) {
         RoutingPolicyRule *rule;
         int r;
@@ -750,7 +757,7 @@ int link_set_routing_policy_rules(Link *link) {
         link->routing_policy_rules_configured = false;
 
         HASHMAP_FOREACH(rule, link->network->rules_by_section) {
-                r = routing_policy_rule_configure(rule, link);
+                r = static_routing_policy_rule_configure(rule, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
         }
