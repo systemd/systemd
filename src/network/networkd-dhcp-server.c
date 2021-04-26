@@ -356,7 +356,7 @@ int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
 
-        r = sd_dhcp_server_set_agent_circuit_id(link->dhcp_server, link->network->agent_circuit_id);
+        r = sd_dhcp_server_set_relay_agent_circuit_id(link->dhcp_server, link->network->agent_circuit_id);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set agent circuit id for DHCP server: %m");
 

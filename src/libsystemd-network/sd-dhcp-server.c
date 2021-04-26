@@ -1363,7 +1363,7 @@ int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr
         return 1;
 }
 
-int sd_dhcp_server_set_agent_circuit_id(
+int sd_dhcp_server_set_relay_agent_circuit_id(
                 sd_dhcp_server *server,
                 const char *agent_circuit_id) {
         assert_return(server, -EINVAL);
