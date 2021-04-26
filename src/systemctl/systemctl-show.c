@@ -1424,7 +1424,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (n < 0)
                                 return log_oom();
 
-                        bus_print_property_value(name, expected_value, value, h);
+                        if (all || !isempty(h))
+                                bus_print_property_value(name, expected_value, value, h);
 
                         return 1;
 
@@ -1625,7 +1626,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (!affinity)
                                 return log_oom();
 
-                        bus_print_property_value(name, expected_value, value, affinity);
+                        if (all || !isempty(affinity))
+                                bus_print_property_value(name, expected_value, value, affinity);
 
                         return 1;
                 } else if (streq(name, "MountImages")) {
