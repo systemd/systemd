@@ -77,8 +77,7 @@ int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_
 
 int request_process_route(Request *req);
 
-int link_set_routes(Link *link);
-int link_set_routes_with_gateway(Link *link);
+int link_request_static_routes(Link *link);
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 

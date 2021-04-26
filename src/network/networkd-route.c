@@ -1231,6 +1231,81 @@ int route_configure(
         return k;
 }
 
+static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->static_route_messages > 0);
+
+        link->static_route_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set route");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        if (link->static_route_messages == 0) {
+                log_link_debug(link, "Routes set");
+                link->static_routes_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+/*
+static bool route_has_gateway(const Route *route) {
+        assert(route);
+
+        if (in_addr_is_set(route->gw_family, &route->gw))
+                return true;
+
+        if (!ordered_set_isempty(route->multipath_routes))
+                return true;
+
+        if (route->nexthop_id > 0)
+                return true;
+
+        return false;
+}
+*/
+
+int link_request_static_routes(Link *link) {
+        Route *route;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        link->static_routes_configured = false;
+
+        HASHMAP_FOREACH(route, link->network->routes_by_section) {
+                if (route->gateway_from_dhcp_or_ra)
+                        continue;
+
+                r = link_request_route(link, route, false, static_route_handler, NULL);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set routes: %m");
+
+                link->static_route_messages++;
+        }
+
+        if (link->static_route_messages == 0) {
+                link->static_routes_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Requesting routes");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 0;
+}
+
 int request_process_route(Request *req) {
         Route *ret = NULL;
         int r;
@@ -1258,165 +1333,6 @@ int request_process_route(Request *req) {
         }
 
         return 1;
-}
-
-static int route_handler_with_gateway(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->route_messages > 0);
-
-        link->route_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set route with gateway");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->route_messages == 0) {
-                log_link_debug(link, "Routes with gateway set");
-                link->static_routes_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
-static int route_handler_without_gateway(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->route_messages > 0);
-
-        link->route_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set route without gateway");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->route_messages == 0) {
-                log_link_debug(link, "Routes set without gateway");
-                /* Now, we can talk to gateways, let's configure nexthops. */
-                r = link_set_nexthops(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static bool route_has_gateway(const Route *route) {
-        assert(route);
-
-        if (in_addr_is_set(route->gw_family, &route->gw))
-                return true;
-
-        if (!ordered_set_isempty(route->multipath_routes))
-                return true;
-
-        if (route->nexthop_id > 0)
-                return true;
-
-        return false;
-}
-
-static int link_set_routes_internal(Link *link, bool with_gateway) {
-        Route *rt;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                if (rt->gateway_from_dhcp_or_ra)
-                        continue;
-
-                if (route_has_gateway(rt) != with_gateway)
-                        continue;
-
-                r = route_configure(rt, link, with_gateway ? route_handler_with_gateway : route_handler_without_gateway, NULL);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set routes: %m");
-
-                link->route_messages++;
-        }
-
-        return 0;
-}
-
-int link_set_routes_with_gateway(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                /* During configuring addresses, the link lost its carrier. As networkd is dropping
-                 * the addresses now, let's not configure the routes either. */
-                return 0;
-
-        /* Finally, add routes that needs a gateway. */
-        r = link_set_routes_internal(link, true);
-        if (r < 0)
-                return r;
-
-        if (link->route_messages == 0) {
-                link->static_routes_configured = true;
-                link_check_ready(link);
-        } else {
-                log_link_debug(link, "Setting routes with gateway");
-                link_set_state(link, LINK_STATE_CONFIGURING);
-        }
-
-        return 0;
-}
-
-int link_set_routes(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->state != _LINK_STATE_INVALID);
-
-        link->static_routes_configured = false;
-
-        if (!link->addresses_ready)
-                return 0;
-
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                /* During configuring addresses, the link lost its carrier. As networkd is dropping
-                 * the addresses now, let's not configure the routes either. */
-                return 0;
-
-        if (link->route_messages != 0) {
-                log_link_debug(link, "Static routes are configuring.");
-                return 0;
-        }
-
-        /* First, add the routes that enable us to talk to gateways. */
-        r = link_set_routes_internal(link, false);
-        if (r < 0)
-                return r;
-
-        if (link->route_messages == 0)
-                /* If no route is configured, then configure nexthops. */
-                return link_set_nexthops(link);
-
-        log_link_debug(link, "Setting routes without gateway");
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        return 0;
 }
 
 static int process_route_one(Manager *manager, Link *link, uint16_t type, const Route *tmp, const MultipathRoute *m) {
