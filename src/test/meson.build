@@ -611,3 +611,12 @@ tests += [
          [libudev],
          [threads]],
 ]
+
+tests += [
+         [['src/test/test-socket-bind.c'],
+          [libcore,
+          libshared],
+         [libbpf],
+         core_includes,
+         'BPF_FRAMEWORK'],
+]
