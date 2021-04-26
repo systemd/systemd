@@ -12,6 +12,7 @@
 #include "ip-protocol-list.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "parse-util.h"
@@ -770,6 +771,37 @@ int link_set_routing_policy_rules(Link *link) {
         }
 
         return 0;
+}
+
+int request_process_routing_policy_rule(Request *req) {
+        RoutingPolicyRule *ret;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->rule);
+        assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
+
+        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (req->link->routing_policy_rule_remove_messages > 0)
+                return 0;
+
+        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
+                return 0;
+
+        r = routing_policy_rule_configure(req->rule, req->rule->family, req->link, req->netlink_handler, &ret);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure_handler) {
+                r = req->after_configure_handler(req->link, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 static const RoutingPolicyRule kernel_rules[] = {
