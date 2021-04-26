@@ -491,11 +491,11 @@ static int write_to_syslog(
                 if (n < 0)
                         return -errno;
 
-                if (!syslog_is_stream ||
-                    (size_t) n >= IOVEC_TOTAL_SIZE(iovec, ELEMENTSOF(iovec)))
+                if (!syslog_is_stream)
                         break;
 
-                IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n);
+                if (IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n))
+                        break;
         }
 
         return 1;
