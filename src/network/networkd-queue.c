@@ -87,36 +87,47 @@ int link_queue_request(
         return 0;
 }
 
-int manager_process_request_queue(Manager *manager) {
-        Request *req;
+int manager_process_requests(sd_event_source *s, void *userdata) {
+        Manager *manager = userdata;
         int r;
 
-        ORDERED_SET_FOREACH(req, manager->request_queue) {
-                switch(req->type) {
-                case REQUEST_TYPE_ADDRESS:
-                        r = request_process_address(req);
-                        break;
-                case REQUEST_TYPE_NEIGHBOR:
-                        r = request_process_neighbor(req);
-                        break;
-                case REQUEST_TYPE_NEXTHOP:
-                        r = request_process_nexthop(req);
-                        break;
-                case REQUEST_TYPE_ROUTE:
-                        r = request_process_route(req);
-                        break;
-                case REQUEST_TYPE_ROUTING_POLICY_RULE:
-                        r = request_process_routing_policy_rule(req);
-                        break;
-                default:
-                        return -EINVAL;
+        assert(manager);
+
+        for (;;) {
+                bool processed = false;
+                Request *req;
+
+                ORDERED_SET_FOREACH(req, manager->request_queue) {
+                        switch(req->type) {
+                        case REQUEST_TYPE_ADDRESS:
+                                r = request_process_address(req);
+                                break;
+                        case REQUEST_TYPE_NEIGHBOR:
+                                r = request_process_neighbor(req);
+                                break;
+                        case REQUEST_TYPE_NEXTHOP:
+                                r = request_process_nexthop(req);
+                                break;
+                        case REQUEST_TYPE_ROUTE:
+                                r = request_process_route(req);
+                                break;
+                        case REQUEST_TYPE_ROUTING_POLICY_RULE:
+                                r = request_process_routing_policy_rule(req);
+                                break;
+                        default:
+                                return -EINVAL;
+                        }
+                        if (r < 0)
+                                link_enter_failed(req->link);
+                        if (r > 0) {
+                                ordered_set_remove(manager->request_queue, req);
+                                request_free(req);
+                                processed = true;
+                        }
                 }
-                if (r < 0)
-                        link_enter_failed(req->link);
-                if (r > 0) {
-                        ordered_set_remove(manager->request_queue, req);
-                        request_free(req);
-                }
+
+                if (!processed)
+                        break;
         }
 
         return 0;
