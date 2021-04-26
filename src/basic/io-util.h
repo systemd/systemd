@@ -33,14 +33,17 @@ static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, size_t n) {
         return r;
 }
 
-static inline size_t IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
-        size_t j;
+static inline bool IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
+        /* Returns true if there is nothing else to send (bytes written cover all of the iovec),
+         * false if there's still work to do. */
 
-        for (j = 0; j < n; j++) {
+        for (size_t j = 0; j < n; j++) {
                 size_t sub;
 
-                if (_unlikely_(k <= 0))
-                        break;
+                if (i[j].iov_len == 0)
+                        continue;
+                if (k == 0)
+                        return false;
 
                 sub = MIN(i[j].iov_len, k);
                 i[j].iov_len -= sub;
@@ -48,7 +51,9 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
                 k -= sub;
         }
 
-        return k;
+        assert(k == 0); /* Anything else would mean that we wrote more bytes than available,
+                         * or the kernel reported writing more bytes than sent. */
+        return true;
 }
 
 static inline bool FILE_SIZE_VALID(uint64_t l) {
