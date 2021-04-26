@@ -8,12 +8,36 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-queue.h"
 
+static void request_free_object(RequestType type, void *object) {
+        switch(type) {
+        case REQUEST_TYPE_ADDRESS:
+                address_free(object);
+                break;
+        case REQUEST_TYPE_NEIGHBOR:
+                neighbor_free(object);
+                break;
+        case REQUEST_TYPE_NEXTHOP:
+                nexthop_free(object);
+                break;
+        case REQUEST_TYPE_ROUTE:
+                route_free(object);
+                break;
+        case REQUEST_TYPE_ROUTING_POLICY_RULE:
+                routing_policy_rule_free(object);
+                break;
+        default:
+                assert_not_reached("invalid request type.");
+        }
+}
+
 Request *request_free(Request *req) {
         if (!req)
                 return NULL;
 
-        if (req->link)
+        if (req->link && req->link->manager)
                 set_remove(req->link->manager->request_queue, req);
+        if (req->take_object)
+                request_free_object(req->type, req->object);
         link_unref(req->link);
 
         return mfree(req);
@@ -24,7 +48,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_free);
 int link_queue_request(
                 Link *link,
                 RequestType type,
-                const void *object,
+                void *object,
+                bool take_object,
                 link_netlink_message_handler_t netlink_handler,
                 link_after_configure_handler_t after_configure_handler) {
 
@@ -37,13 +62,17 @@ int link_queue_request(
         assert(object);
 
         req = new(Request, 1);
-        if (!req)
+        if (!req) {
+                if (take_object)
+                        request_free_object(type, object);
                 return -ENOMEM;
+        }
 
         *req = (Request) {
                 .link = link,
                 .type = type,
                 .object = object,
+                .take_object = take_object,
                 .netlink_handler = netlink_handler,
                 .after_configure_handler = after_configure_handler,
         };
@@ -84,8 +113,10 @@ int manager_process_request_queue(Manager *manager) {
                 }
                 if (r < 0)
                         link_enter_failed(req->link);
-                if (r > 0)
+                if (r > 0) {
                         set_remove(manager->request_queue, req);
+                        request_free(req);
+                }
         }
 
         return 0;

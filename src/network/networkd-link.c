@@ -877,7 +877,11 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_neighbors(link);
+        r = link_request_static_neighbors(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routing_policy_rules(link);
         if (r < 0)
                 return r;
 
