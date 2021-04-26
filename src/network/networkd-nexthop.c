@@ -10,6 +10,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -660,6 +661,37 @@ int link_drop_nexthops(Link *link) {
                 r = k;
 
         return r;
+}
+
+int request_process_nexthop(Request *req) {
+        NextHop *ret;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->nexthop);
+        assert(req->type == REQUEST_TYPE_NEXTHOP);
+
+        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (req->link->nexthop_remove_messages > 0)
+                return 0;
+
+        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
+                return 0;
+
+        r = nexthop_configure(req->nexthop, req->link, req->netlink_handler, &ret);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure_handler) {
+                r = req->after_configure_handler(req->link, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
