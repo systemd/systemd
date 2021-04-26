@@ -615,6 +615,7 @@ static void unit_done(Unit *u) {
 }
 
 Unit* unit_free(Unit *u) {
+        Unit *slice;
         char *t;
 
         if (!u)
@@ -662,8 +663,9 @@ Unit* unit_free(Unit *u) {
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
          * detach the unit from slice tree in order to eliminate its effect on controller masks. */
-        if (UNIT_ISSET(u->slice))
-                unit_add_family_to_cgroup_realize_queue(UNIT_DEREF(u->slice));
+        slice = UNIT_GET_SLICE(u);
+        if (slice)
+                unit_add_family_to_cgroup_realize_queue(slice);
 
         if (u->on_console)
                 manager_unref_console(u->manager);
@@ -1397,6 +1399,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_slice_dependencies(Unit *u) {
+        Unit *slice;
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1407,8 +1410,9 @@ static int unit_add_slice_dependencies(Unit *u) {
            relationship). */
         UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
-        if (UNIT_ISSET(u->slice))
-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT_DEREF(u->slice), true, mask);
+        slice = UNIT_GET_SLICE(u);
+        if (slice)
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, slice, true, mask);
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
@@ -3124,11 +3128,11 @@ int unit_set_slice(Unit *u, Unit *slice) {
             !unit_has_name(slice, SPECIAL_ROOT_SLICE))
                 return -EPERM;
 
-        if (UNIT_DEREF(u->slice) == slice)
+        if (UNIT_GET_SLICE(u) == slice)
                 return 0;
 
         /* Disallow slice changes if @u is already bound to cgroups */
-        if (UNIT_ISSET(u->slice) && u->cgroup_realized)
+        if (UNIT_GET_SLICE(u) && u->cgroup_realized)
                 return -EBUSY;
 
         unit_ref_set(&u->slice, u, slice);
@@ -3142,7 +3146,7 @@ int unit_set_default_slice(Unit *u) {
 
         assert(u);
 
-        if (UNIT_ISSET(u->slice))
+        if (UNIT_GET_SLICE(u))
                 return 0;
 
         if (u->instance) {
@@ -3185,12 +3189,14 @@ int unit_set_default_slice(Unit *u) {
 }
 
 const char *unit_slice_name(Unit *u) {
+        Unit *slice;
         assert(u);
 
-        if (!UNIT_ISSET(u->slice))
+        slice = UNIT_GET_SLICE(u);
+        if (!slice)
                 return NULL;
 
-        return UNIT_DEREF(u->slice)->id;
+        return slice->id;
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
