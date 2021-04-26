@@ -4,12 +4,10 @@
 #include <inttypes.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
-#include <stdio.h>
 
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-util.h"
-#include "set.h"
 
 typedef struct Link Link;
 typedef struct Manager Manager;
