@@ -486,16 +486,16 @@ static int nexthop_configure(
                 }
         }
 
+        r = nexthop_add(link, nexthop, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add nexthop: %m");
+
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
-
-        r = nexthop_add(link, nexthop, ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add nexthop: %m");
 
         return r;
 }
@@ -504,9 +504,9 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         int r;
 
         assert(link);
-        assert(link->nexthop_messages > 0);
+        assert(link->static_nexthop_messages > 0);
 
-        link->nexthop_messages--;
+        link->static_nexthop_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -518,19 +518,16 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
                 return 1;
         }
 
-        if (link->nexthop_messages == 0) {
+        if (link->static_nexthop_messages == 0) {
                 log_link_debug(link, "Nexthops set");
                 link->static_nexthops_configured = true;
-                /* Now all nexthops are configured. Let's configure remaining routes. */
-                r = link_set_routes_with_gateway(link);
-                if (r < 0)
-                        link_enter_failed(link);
+                link_check_ready(link);
         }
 
         return 1;
 }
 
-int link_set_nexthops(Link *link) {
+int link_request_static_nexthops(Link *link) {
         enum {
                 PHASE_ID,         /* First phase: Nexthops with ID */
                 PHASE_WITHOUT_ID, /* Second phase: Nexthops without ID */
@@ -542,11 +539,6 @@ int link_set_nexthops(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (link->nexthop_messages != 0) {
-                log_link_debug(link, "Nexthops are configuring.");
-                return 0;
-        }
-
         link->static_nexthops_configured = false;
 
         for (phase = PHASE_ID; phase < _PHASE_MAX; phase++)
@@ -554,21 +546,20 @@ int link_set_nexthops(Link *link) {
                         if ((nh->id > 0) != (phase == PHASE_ID))
                                 continue;
 
-                        r = nexthop_configure(nh, link, static_nexthop_handler, NULL);
+                        r = link_request_nexthop(link, nh, false, static_nexthop_handler, NULL);
                         if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not set nexthop: %m");
+                                return log_link_warning_errno(link, r, "Could not request nexthop: %m");
 
-                        link->nexthop_messages++;
+                        link->static_nexthop_messages++;
                 }
 
-        if (link->nexthop_messages == 0) {
+        if (link->static_nexthop_messages == 0) {
                 link->static_nexthops_configured = true;
-                /* Finally, configure routes with gateways. */
-                return link_set_routes_with_gateway(link);
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Requesting nexthops");
+                link_set_state(link, LINK_STATE_CONFIGURING);
         }
-
-        log_link_debug(link, "Setting nexthops");
-        link_set_state(link, LINK_STATE_CONFIGURING);
 
         return 0;
 }
