@@ -16,6 +16,7 @@
 
 typedef struct Manager Manager;
 typedef struct Network Network;
+typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 
 typedef struct Address {
@@ -69,6 +70,8 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address);
 void ipv4_dad_unref(Link *link);
 int ipv4_dad_stop(Link *link);
 int ipv4_dad_update_mac(Link *link);
+
+int request_process_address(Request *req);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
