@@ -56,7 +56,7 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
 void network_drop_invalid_routing_policy_rules(Network *network);
 
-int link_set_routing_policy_rules(Link *link);
+int link_request_static_routing_policy_rules(Link *link);
 
 int request_process_routing_policy_rule(Request *req);
 
