@@ -743,18 +743,37 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         return 0;
 }
 
-static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
+        assert(link);
+        assert(link->route_remove_messages > 0);
 
-        /* Note that link may be NULL. */
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        link->route_remove_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
                 log_link_message_warning_errno(link, m, r, "Could not drop route, ignoring");
+
+        return 1;
+}
+
+static int manager_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Manager *manager) {
+        int r;
+
+        assert(m);
+        assert(manager);
+        assert(manager->route_remove_messages > 0);
+
+        manager->route_remove_messages--;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ESRCH)
+                log_message_warning_errno(m, r, "Could not drop route, ignoring");
 
         return 1;
 }
@@ -772,9 +791,10 @@ int route_remove(
         assert(link || manager);
         assert(IN_SET(route->family, AF_INET, AF_INET6));
 
+        /* link may be NULL! */
+
         if (!manager)
                 manager = link->manager;
-        /* link may be NULL! */
 
         log_route_debug(route, "Removing", link, manager);
 
@@ -803,13 +823,22 @@ int route_remove(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(manager->rtnl, NULL, req,
-                               callback ?: route_remove_handler,
-                               link_netlink_destroy_callback, link);
+        if (link)
+                r = netlink_call_async(manager->rtnl, NULL, req,
+                                       callback ?: link_route_remove_handler,
+                                       link_netlink_destroy_callback, link);
+        else
+                r = netlink_call_async(manager->rtnl, NULL, req,
+                                       manager_route_remove_handler,
+                                       NULL, manager);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link); /* link may be NULL, link_ref() is OK with that */
+        if (link)
+                link->route_remove_messages++;
+        else
+                manager->route_remove_messages++;
 
         return 0;
 }
@@ -1236,13 +1265,10 @@ int request_process_route(Request *req) {
         assert(req->route);
         assert(req->type == REQUEST_TYPE_ROUTE);
 
-        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(req->link))
                 return 0;
 
         if (req->link->route_remove_messages > 0)
-                return 0;
-
-        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
                 return 0;
 
         r = route_configure(req->route, req->link, req->netlink_handler,
