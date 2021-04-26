@@ -271,17 +271,16 @@ static int neighbor_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
+        r = neighbor_add(link, neighbor, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add neighbor: %m");
+
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
-        link->neighbor_messages++;
         link_ref(link);
-
-        r = neighbor_add(link, neighbor, ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add neighbor: %m");
 
         return r;
 }
@@ -291,9 +290,9 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
 
         assert(m);
         assert(link);
-        assert(link->neighbor_messages > 0);
+        assert(link->static_neighbor_messages > 0);
 
-        link->neighbor_messages--;
+        link->static_neighbor_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -305,9 +304,9 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
                 return 1;
         }
 
-        if (link->neighbor_messages == 0) {
+        if (link->static_neighbor_messages == 0) {
                 log_link_debug(link, "Neighbors set");
-                link->neighbors_configured = true;
+                link->static_neighbors_configured = true;
                 link_check_ready(link);
         }
 
@@ -322,19 +321,21 @@ int link_request_static_neighbors(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        link->neighbors_configured = false;
+        link->static_neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
                 r = link_request_neighbor(link, neighbor, false, static_neighbor_configure_handler, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request neighbor: %m");
+
+                link->static_neighbor_messages++;
         }
 
-        if (link->neighbor_messages == 0) {
-                link->neighbors_configured = true;
+        if (link->static_neighbor_messages == 0) {
+                link->static_neighbors_configured = true;
                 link_check_ready(link);
         } else {
-                log_link_debug(link, "Setting neighbors");
+                log_link_debug(link, "Requesting neighbors");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
