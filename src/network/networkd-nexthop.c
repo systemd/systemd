@@ -684,57 +684,14 @@ int link_drop_nexthops(Link *link) {
         return r;
 }
 
-static bool nexthop_is_ready_to_configure_one(const NextHop *nexthop, const Route *route) {
-        assert(nexthop);
-        assert(route);
-
-        if (route->family != nexthop->family)
-                return false;
-
-        if (!in_addr_is_set(route->family, &route->dst))
-                return false;
-
-        return in_addr_prefix_intersect(
-                        route->family,
-                        &route->dst,
-                        route->dst_prefixlen,
-                        &nexthop->gw,
-                        FAMILY_ADDRESS_SIZE(nexthop->family) * 8) > 0;
-}
-
 static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         assert(link);
         assert(nexthop);
 
-        if (nexthop->onlink <= 0 && in_addr_is_set(nexthop->family, &nexthop->gw)) {
-                Route *route;
-                Link *l;
-
-                SET_FOREACH(route, link->routes_foreign) {
-                        if (nexthop_is_ready_to_configure_one(nexthop, route))
-                                return true;
-                }
-                SET_FOREACH(route, link->routes) {
-                        if (nexthop_is_ready_to_configure_one(nexthop, route))
-                                return true;
-                }
-
-                HASHMAP_FOREACH(l, link->manager->links) {
-                        if (l == link)
-                                continue;
-
-                        SET_FOREACH(route, l->routes_foreign) {
-                                if (nexthop_is_ready_to_configure_one(nexthop, route))
-                                        return true;
-                        }
-                        SET_FOREACH(route, l->routes) {
-                                if (nexthop_is_ready_to_configure_one(nexthop, route))
-                                        return true;
-                        }
-                }
-
+        if (nexthop->onlink <= 0 &&
+            in_addr_is_set(nexthop->family, &nexthop->gw) &&
+            !gateway_is_accessible(nexthop->family, &nexthop->gw, link))
                 return false;
-        }
 
         return true;
 }
