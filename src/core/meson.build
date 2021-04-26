@@ -105,6 +105,8 @@ libcore_sources = '''
         slice.h
         smack-setup.c
         smack-setup.h
+        socket-bind.c
+        socket-bind.h
         socket.c
         socket.h
         swap.c
@@ -157,6 +159,7 @@ libcore = static_library(
         include_directories : includes,
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libpam,
