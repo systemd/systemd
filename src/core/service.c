@@ -3480,7 +3480,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (control_pid_good(s) <= 0)
                                         service_enter_stop(s, f);
 
-                                /* Otherwise need to wait untill the operation is done. */
+                                /* Otherwise need to wait until the operation is done. */
                                 break;
 
                         case SERVICE_STOP:
