@@ -535,10 +535,14 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
         return 0;
 }
 
-static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Manager *manager) {
         int r;
 
         assert(m);
+        assert(manager);
+        assert(manager->routing_policy_rule_remove_messages > 0);
+
+        manager->routing_policy_rule_remove_messages--;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
@@ -566,11 +570,13 @@ static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *ma
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(manager->rtnl, NULL, m,
-                                  routing_policy_rule_remove_handler,
-                                  NULL, NULL, 0, __func__);
+        r = netlink_call_async(manager->rtnl, NULL, m,
+                               routing_policy_rule_remove_handler,
+                               NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
+
+        manager->routing_policy_rule_remove_messages++;
 
         return 0;
 }
@@ -782,13 +788,10 @@ int request_process_routing_policy_rule(Request *req) {
         assert(req->rule);
         assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
 
-        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(req->link))
                 return 0;
 
-        if (req->link->routing_policy_rule_remove_messages > 0)
-                return 0;
-
-        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
+        if (req->link->manager->routing_policy_rule_remove_messages > 0)
                 return 0;
 
         r = routing_policy_rule_configure(req->rule, req->rule->family, req->link, req->netlink_handler, &ret);

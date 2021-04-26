@@ -349,6 +349,9 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
 
         assert(m);
         assert(link);
+        assert(link->neighbor_remove_messages > 0);
+
+        link->neighbor_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -388,6 +391,7 @@ static int neighbor_remove(Neighbor *neighbor, Link *link) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+        link->neighbor_remove_messages++;
 
         return 0;
 }
@@ -452,13 +456,10 @@ int request_process_neighbor(Request *req) {
         assert(req->neighbor);
         assert(req->type == REQUEST_TYPE_NEIGHBOR);
 
-        if (!IN_SET(req->link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(req->link))
                 return 0;
 
         if (req->link->neighbor_remove_messages > 0)
-                return 0;
-
-        if (!link_has_carrier(req->link) && !req->link->network->configure_without_carrier)
                 return 0;
 
         r = neighbor_configure(req->neighbor, req->link, req->netlink_handler, &ret);

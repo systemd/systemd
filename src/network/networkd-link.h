@@ -88,7 +88,6 @@ typedef struct Link {
         unsigned nexthop_messages;
         unsigned nexthop_remove_messages;
         unsigned routing_policy_rule_messages;
-        unsigned routing_policy_rule_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
@@ -202,6 +201,8 @@ typedef struct Link {
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
+
+bool link_is_ready_to_configure(Link *link);
 
 void link_ntp_settings_clear(Link *link);
 void link_dns_settings_clear(Link *link);
