@@ -63,7 +63,7 @@
 
 static char **arg_property = NULL;
 static bool arg_all = false;
-static bool arg_value = false;
+static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -89,7 +89,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
 
 static OutputFlags get_output_flags(void) {
         return
-                arg_all * OUTPUT_SHOW_ALL |
+                FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
                 (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                 colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
@@ -689,7 +689,7 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_value, arg_all, NULL);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_print_flags, NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -1002,7 +1002,7 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_value, arg_all, NULL);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_print_flags, NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -2673,15 +2673,16 @@ static int parse_argv(int argc, char *argv[]) {
                         /* If the user asked for a particular
                          * property, show it to them, even if it is
                          * empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case 'a':
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         arg_all = true;
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case 'l':

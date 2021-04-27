@@ -75,7 +75,7 @@ bool arg_no_wtmp = false;
 bool arg_no_sync = false;
 bool arg_no_wall = false;
 bool arg_no_reload = false;
-bool arg_value = false;
+BusPrintPropertyFlags arg_print_flags = 0;
 bool arg_show_types = false;
 int arg_check_inhibitors = -1;
 bool arg_dry_run = false;
@@ -541,7 +541,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'P':
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         _fallthrough_;
 
                 case 'p':
@@ -566,11 +566,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                         /* If the user asked for a particular property, show it, even if it is empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
 
                         break;
 
                 case 'a':
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         arg_all = true;
                         break;
 
@@ -593,7 +594,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case ARG_JOB_MODE:
