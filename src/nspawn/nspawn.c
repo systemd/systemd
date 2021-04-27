@@ -194,7 +194,7 @@ static char **arg_property = NULL;
 static sd_bus_message *arg_property_message = NULL;
 static UserNamespaceMode arg_userns_mode = USER_NAMESPACE_NO;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
-static bool arg_userns_chown = false;
+static UserNamespaceOwnership arg_userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID;
 static int arg_kill_signal = 0;
 static CGroupUnified arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_UNKNOWN;
 static SettingsMask arg_settings_mask = 0;
@@ -352,7 +352,9 @@ static int help(void) {
                "  -U --private-users=pick   Run within user namespace, autoselect UID/GID range\n"
                "     --private-users[=UIDBASE[:NUIDS]]\n"
                "                            Similar, but with user configured UID/GID range\n"
-               "     --private-users-chown  Adjust OS tree ownership to private UID/GID range\n\n"
+               "     --private-users-ownership=MODE\n"
+               "                            Adjust ('chown') or map ('map') OS tree ownership\n"
+               "                            to private UID/GID range\n\n"
                "%3$sNetworking:%4$s\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
@@ -449,10 +451,10 @@ static int custom_mount_check_all(void) {
                 CustomMount *m = &arg_custom_mounts[i];
 
                 if (path_equal(m->destination, "/") && arg_userns_mode != USER_NAMESPACE_NO) {
-                        if (arg_userns_chown)
+                        if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_OFF)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--private-users-chown may not be combined with custom root mounts.");
-                        else if (arg_uid_shift == UID_INVALID)
+                                                       "--private-users-ownership=own not be combined with custom root mounts.");
+                        if (arg_uid_shift == UID_INVALID)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--private-users with automatic UID shift may not be combined with custom root mounts.");
                 }
@@ -685,6 +687,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CHDIR,
                 ARG_PIVOT_ROOT,
                 ARG_PRIVATE_USERS_CHOWN,
+                ARG_PRIVATE_USERS_OWNERSHIP,
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
@@ -752,7 +755,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "port",                   required_argument, NULL, 'p'                        },
                 { "property",               required_argument, NULL, ARG_PROPERTY               },
                 { "private-users",          optional_argument, NULL, ARG_PRIVATE_USERS          },
-                { "private-users-chown",    optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN    },
+                { "private-users-chown",    optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN    }, /* obsolete */
+                { "private-users-ownership",required_argument, NULL, ARG_PRIVATE_USERS_OWNERSHIP},
                 { "kill-signal",            required_argument, NULL, ARG_KILL_SIGNAL            },
                 { "settings",               required_argument, NULL, ARG_SETTINGS               },
                 { "chdir",                  required_argument, NULL, ARG_CHDIR                  },
@@ -1217,8 +1221,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_range = UINT32_C(0x10000);
                         } else if (streq(optarg, "pick")) {
                                 /* pick: User namespacing on, UID range is picked randomly */
-                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_chown = true,
-                                                                        * is implied by USER_NAMESPACE_PICK,
+                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
+                                                                        * implied by USER_NAMESPACE_PICK
                                                                         * further down. */
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
@@ -1267,8 +1271,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'U':
                         if (userns_supported()) {
-                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_chown = true,
-                                                                        * is implied by USER_NAMESPACE_PICK,
+                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
+                                                                        * implied by USER_NAMESPACE_PICK
                                                                         * further down. */
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
@@ -1279,7 +1283,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRIVATE_USERS_CHOWN:
-                        arg_userns_chown = true;
+                        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+
+                        arg_settings_mask |= SETTING_USERNS;
+                        break;
+
+                case ARG_PRIVATE_USERS_OWNERSHIP:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
+                                return 0;
+                        }
+
+                        arg_userns_ownership = user_namespace_ownership_from_string(optarg);
+                        if (arg_userns_ownership < 0)
+                                return log_error_errno(arg_userns_ownership, "Cannot parse --user-namespace-ownership= value: %s", optarg);
 
                         arg_settings_mask |= SETTING_USERNS;
                         break;
@@ -1715,8 +1732,10 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--boot cannot be used without namespacing.");
         }
 
-        if (arg_userns_mode == USER_NAMESPACE_PICK)
-                arg_userns_chown = true;
+        if (arg_userns_ownership < 0)
+                arg_userns_ownership =
+                        arg_userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_CHOWN :
+                                                                 USER_NAMESPACE_OWNERSHIP_OFF;
 
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
@@ -1750,15 +1769,15 @@ static int verify_arguments(void) {
         if (arg_userns_mode != USER_NAMESPACE_NO && !userns_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--private-users= is not supported, kernel compiled without user namespace support.");
 
-        if (arg_userns_chown && arg_read_only)
+        if (arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_CHOWN && arg_read_only)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--read-only and --private-users-chown may not be combined.");
+                                       "--read-only and --private-users-ownership=chown may not be combined.");
 
-        /* We don't support --private-users-chown together with any of the volatile modes since we couldn't
-         * change the read-only part of the tree (i.e. /usr) anyway, or because it would trigger a massive
-         * copy-up (in case of overlay) making the entire exercise pointless. */
-        if (arg_userns_chown && arg_volatile_mode != VOLATILE_NO)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--volatile= and --private-users-chown may not be combined.");
+        /* We don't support --private-users-ownership=chown together with any of the volatile modes since we
+         * couldn't change the read-only part of the tree (i.e. /usr) anyway, or because it would trigger a
+         * massive copy-up (in case of overlay) making the entire exercise pointless. */
+        if (arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_CHOWN && arg_volatile_mode != VOLATILE_NO)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--volatile= and --private-users-ownership=chown may not be combined.");
 
         /* If --network-namespace-path is given with any other network-related option (except --private-network),
          * we need to error out, to avoid conflicts between different network options. */
@@ -2795,7 +2814,7 @@ static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
 
         assert(directory);
 
-        if (arg_userns_mode == USER_NAMESPACE_NO || !arg_userns_chown)
+        if (arg_userns_mode == USER_NAMESPACE_NO || arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_CHOWN)
                 return 0;
 
         r = path_patch_uid(directory, arg_uid_shift, arg_uid_range);
@@ -4240,7 +4259,7 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_userns_mode = settings->userns_mode;
                         arg_uid_shift = settings->uid_shift;
                         arg_uid_range = settings->uid_range;
-                        arg_userns_chown = settings->userns_chown;
+                        arg_userns_ownership = settings->userns_ownership;
                 }
         }
 
