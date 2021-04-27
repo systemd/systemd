@@ -980,8 +980,8 @@ static int dhcp4_address_ready_callback(Address *address) {
         return 0;
 }
 
-static int dhcp4_after_address_configure(Link *link, void *userdata) {
-        Address *address = userdata;
+static int dhcp4_after_address_configure(Link *link, void *object) {
+        Address *address = object;
         int r;
 
         assert(address);

@@ -1393,42 +1393,51 @@ bool manager_address_is_accessible(Manager *manager, int family, const union in_
         return false;
 }
 
-static int route_is_ready_to_configure(const Route *route, Manager *manager) {
+static int route_is_ready_to_configure(const Route *route, Link *link) {
         MultipathRoute *m;
+        NextHop *nh = NULL;
         int r;
 
         assert(route);
-        assert(manager);
+        assert(link);
+
+        if (route->nexthop_id > 0 &&
+            manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh) < 0)
+                return false;
+
+        if (route_type_is_reject(route) || (nh && nh->blackhole)) {
+                if (link->manager->route_remove_messages > 0)
+                        return false;
+        } else {
+                if (link->route_remove_messages > 0)
+                        return false;
+        }
+
+        if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
+                r = manager_has_address(link->manager, route->family, &route->prefsrc, true);
+                if (r <= 0)
+                        return r;
+        }
 
         if (route->gateway_onlink <= 0 &&
             in_addr_is_set(route->gw_family, &route->gw) > 0 &&
-            !manager_address_is_accessible(manager, route->gw_family, &route->gw))
+            !manager_address_is_accessible(link->manager, route->gw_family, &route->gw))
                 return false;
 
         ORDERED_SET_FOREACH(m, route->multipath_routes) {
                 union in_addr_union a = m->gateway.address;
 
                 if (route->gateway_onlink <= 0 &&
-                    !manager_address_is_accessible(manager, m->gateway.family, &a))
+                    !manager_address_is_accessible(link->manager, m->gateway.family, &a))
                         return false;
 
                 if (m->ifname) {
-                        r = resolve_interface(&manager->rtnl, m->ifname);
+                        r = resolve_interface(&link->manager->rtnl, m->ifname);
                         if (r < 0)
                                 return false;
                         m->ifindex = r;
                 }
         }
-
-        if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
-                r = manager_has_address(manager, route->family, &route->prefsrc, true);
-                if (r <= 0)
-                        return r;
-        }
-
-        if (route->nexthop_id > 0 &&
-            manager_get_nexthop_by_id(manager, route->nexthop_id, NULL) < 0)
-                return false;
 
         return true;
 }
@@ -1445,10 +1454,7 @@ int request_process_route(Request *req) {
         if (!link_is_ready_to_configure(req->link))
                 return 0;
 
-        if (req->link->route_remove_messages > 0)
-                return 0;
-
-        r = route_is_ready_to_configure(req->route, req->link->manager);
+        r = route_is_ready_to_configure(req->route, req->link);
         if (r <= 0)
                 return r;
 
