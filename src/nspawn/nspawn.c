@@ -3699,11 +3699,9 @@ static int outer_child(
                 return r;
 
         /* Make sure we always have a mount that we can move to root later on. */
-        if (!path_is_mount_point(directory, NULL, 0)) {
-                r = mount_nofollow_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0)
-                        return r;
-        }
+        r = make_mount_point(directory);
+        if (r < 0)
+                return r;
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
