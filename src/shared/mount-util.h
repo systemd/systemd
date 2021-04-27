@@ -105,3 +105,5 @@ int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char
 int mount_image_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options);
 
 int make_mount_point(const char *path);
+
+int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range);
