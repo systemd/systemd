@@ -986,3 +986,23 @@ int mount_image_in_namespace(
 
         return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, true);
 }
+
+int make_mount_point(const char *path) {
+        int r;
+
+        assert(path);
+
+        /* If 'path' is already a mount point, does nothing and returns 0. If it is not it makes it one, and returns 1. */
+
+        r = path_is_mount_point(path, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether '%s' is a mount point: %m", path);
+        if (r > 0)
+                return 0;
+
+        r = mount_nofollow_verbose(LOG_ERR, path, path, NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
