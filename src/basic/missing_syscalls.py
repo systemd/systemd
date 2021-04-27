@@ -75,8 +75,9 @@ DEF_TEMPLATE = '''
 #    else
 #      define systemd_NR_{syscall} {nr_x86_64}
 #    endif
-#  else
-#    warning "{syscall}() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
