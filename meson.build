@@ -937,6 +937,25 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
+want_bpf_framework = get_option('bpf-framework')
+bpf_framework_required = want_bpf_framework == 'true'
+
+libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
+conf.set10('HAVE_LIBBPF', libbpf.found())
+
+if want_bpf_framework == 'false'
+        conf.set10('BPF_FRAMEWORK', 0)
+else
+        clang = find_program('clang', required : bpf_framework_required)
+        llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
+        bpftool = find_program('bpftool', required : bpf_framework_required)
+        bpf_arches = ['x86_64']
+        deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
+        # Can build BPF program from source code in restricted C
+        conf.set10('BPF_FRAMEWORK',
+                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
+endif
+
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
@@ -1604,6 +1623,7 @@ conf.set10('ENABLE_EFI', have)
 
 ############################################################
 
+build_bpf_skel_py = find_program('tools/build-bpf-skel.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -1696,6 +1716,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
+                        libbpf,
                         libcap,
                         libblkid,
                         libmount,
@@ -3766,6 +3787,7 @@ foreach tuple : [
         ['elfutils'],
         ['gcrypt'],
         ['gnutls'],
+        ['libbpf'],
         ['libcryptsetup'],
         ['libcurl'],
         ['libfdisk'],
@@ -3792,6 +3814,7 @@ foreach tuple : [
         # components
         ['backlight'],
         ['binfmt'],
+        ['bpf-framework',         conf.get('BPF_FRAMEWORK') == 1],
         ['coredump'],
         ['environment.d'],
         ['efi'],
