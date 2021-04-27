@@ -464,8 +464,8 @@ int request_process_neighbor(Request *req) {
         if (r < 0)
                 return r;
 
-        if (req->after_configure_handler) {
-                r = req->after_configure_handler(req->link, ret);
+        if (req->after_configure) {
+                r = req->after_configure(req, ret);
                 if (r < 0)
                         return r;
         }
