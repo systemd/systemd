@@ -34,10 +34,12 @@ Request *request_free(Request *req) {
         if (!req)
                 return NULL;
 
+        if (req->on_free)
+                req->on_free(req);
+        if (req->consume_object)
+                request_free_object(req->type, req->object);
         if (req->link && req->link->manager)
                 ordered_set_remove(req->link->manager->request_queue, req);
-        if (req->take_object)
-                request_free_object(req->type, req->object);
         link_unref(req->link);
 
         return mfree(req);
@@ -49,9 +51,9 @@ int link_queue_request(
                 Link *link,
                 RequestType type,
                 void *object,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler) {
+                Request **ret) {
 
         _cleanup_(request_freep) Request *req = NULL;
         int r;
@@ -60,10 +62,11 @@ int link_queue_request(
         assert(link->manager);
         assert(type >= 0 && type < _REQUEST_TYPE_MAX);
         assert(object);
+        assert(netlink_handler);
 
         req = new(Request, 1);
         if (!req) {
-                if (take_object)
+                if (consume_object)
                         request_free_object(type, object);
                 return -ENOMEM;
         }
@@ -72,9 +75,8 @@ int link_queue_request(
                 .link = link,
                 .type = type,
                 .object = object,
-                .take_object = take_object,
+                .consume_object = consume_object,
                 .netlink_handler = netlink_handler,
-                .after_configure_handler = after_configure_handler,
         };
 
         link_ref(link);
@@ -82,6 +84,9 @@ int link_queue_request(
         r = ordered_set_ensure_put(&link->manager->request_queue, NULL, req);
         if (r < 0)
                 return r;
+
+        if (ret)
+                *ret = req;
 
         TAKE_PTR(req);
         return 0;

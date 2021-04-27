@@ -996,12 +996,17 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-static int static_address_after_configure_handler(Link *link, void *object) {
+static int static_address_after_configure(Request *req, void *object) {
         Address *address = object;
+        Link *link;
         int r;
 
-        assert(link);
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_ADDRESS);
         assert(address);
+
+        link = req->link;
 
         r = set_ensure_put(&link->static_addresses, &address_hash_ops, address);
         if (r < 0)
@@ -1021,15 +1026,20 @@ int link_request_static_addresses(Link *link) {
         link->static_addresses_configured = false;
 
         ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
-                r = link_request_address(link, a, false, static_address_handler, static_address_after_configure_handler);
+                Request *req;
+
+                r = link_request_address(link, a, false, static_address_handler, &req);
                 if (r < 0)
                         return r;
+
+                req->after_configure = static_address_after_configure;
 
                 link->static_address_messages++;
         }
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                 _cleanup_(address_freep) Address *address = NULL;
+                Request *req;
 
                 if (!p->assign)
                         continue;
@@ -1048,9 +1058,11 @@ int link_request_static_addresses(Link *link) {
 
                 address->family = AF_INET6;
                 address->route_metric = p->route_metric;
-                r = link_request_address(link, TAKE_PTR(address), true, static_address_handler, static_address_after_configure_handler);
+                r = link_request_address(link, TAKE_PTR(address), true, static_address_handler, &req);
                 if (r < 0)
                         return r;
+
+                req->after_configure = static_address_after_configure;
 
                 link->static_address_messages++;
         }
@@ -1085,8 +1097,8 @@ int request_process_address(Request *req) {
         if (r < 0)
                 return r;
 
-        if (req->after_configure_handler) {
-                r = req->after_configure_handler(req->link, ret);
+        if (req->after_configure) {
+                r = req->after_configure(req, ret);
                 if (r < 0)
                         return r;
         }
