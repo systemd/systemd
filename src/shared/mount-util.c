@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include <linux/loop.h>
+#include <linux/fs.h>
 
 #include "alloc-util.h"
 #include "dissect-image.h"
@@ -16,6 +17,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "libmount-util.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1005,4 +1007,85 @@ int make_mount_point(const char *path) {
                 return r;
 
         return 1;
+}
+
+static int make_userns(uid_t uid_shift, uid_t uid_range) {
+        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -1;
+        int r;
+
+        /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
+         * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+                _exit(EXIT_FAILURE);
+        }
+
+        xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range);
+
+        xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
+        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write UID map: %m");
+
+        /* We always assign the same UID and GID ranges */
+        xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
+        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write GID map: %m");
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(userns_fd);
+}
+
+int remount_idmap(
+                const char *p,
+                uid_t uid_shift,
+                uid_t uid_range) {
+
+        _cleanup_close_ int mount_fd = -1, userns_fd = -1;
+        int r;
+
+        assert(p);
+
+        if (!userns_shift_range_valid(uid_shift, uid_range))
+                return -EINVAL;
+
+        /* Clone the mount point */
+        mount_fd = open_tree(-1, p, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
+
+        /* Create a user namespace mapping */
+        userns_fd = make_userns(uid_shift, uid_range);
+        if (userns_fd < 0)
+                return userns_fd;
+
+        /* Set the user namespace mapping attribute on the cloned mount point */
+        if (mount_setattr(mount_fd, "", AT_EMPTY_PATH | AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = MOUNT_ATTR_IDMAP,
+                                  .userns_fd = userns_fd,
+                          }, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to change bind mount attributes for '%s': %m", p);
+
+        /* Remove the old mount point */
+        r = umount_verbose(LOG_DEBUG, p, UMOUNT_NOFOLLOW);
+        if (r < 0)
+                return r;
+
+        /* And place the cloned version in its place */
+        if (move_mount(mount_fd, "", -1, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
+
+        return 0;
 }
