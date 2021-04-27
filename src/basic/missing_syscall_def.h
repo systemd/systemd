@@ -28,6 +28,8 @@
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_bpf 361
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_bpf 280
 #  elif defined(__s390__)
 #    define systemd_NR_bpf 351
 #  elif defined(__sparc__)
@@ -38,8 +40,9 @@
 #    else
 #      define systemd_NR_bpf 321
 #    endif
-#  else
-#    warning "bpf() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -84,6 +87,8 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_close_range 436
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_close_range 436
 #  elif defined(__s390__)
 #    define systemd_NR_close_range 436
 #  elif defined(__sparc__)
@@ -94,8 +99,9 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    else
 #      define systemd_NR_close_range 436
 #    endif
-#  else
-#    warning "close_range() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -140,6 +146,8 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_copy_file_range 379
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_copy_file_range 285
 #  elif defined(__s390__)
 #    define systemd_NR_copy_file_range 375
 #  elif defined(__sparc__)
@@ -150,8 +158,9 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    else
 #      define systemd_NR_copy_file_range 326
 #    endif
-#  else
-#    warning "copy_file_range() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -196,6 +205,8 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_getrandom 359
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_getrandom 278
 #  elif defined(__s390__)
 #    define systemd_NR_getrandom 349
 #  elif defined(__sparc__)
@@ -206,8 +217,9 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #    else
 #      define systemd_NR_getrandom 318
 #    endif
-#  else
-#    warning "getrandom() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -252,6 +264,8 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_memfd_create 360
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_memfd_create 279
 #  elif defined(__s390__)
 #    define systemd_NR_memfd_create 350
 #  elif defined(__sparc__)
@@ -262,8 +276,9 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    else
 #      define systemd_NR_memfd_create 319
 #    endif
-#  else
-#    warning "memfd_create() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -308,6 +323,8 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_name_to_handle_at 345
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_name_to_handle_at 264
 #  elif defined(__s390__)
 #    define systemd_NR_name_to_handle_at 335
 #  elif defined(__sparc__)
@@ -318,8 +335,9 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    else
 #      define systemd_NR_name_to_handle_at 303
 #    endif
-#  else
-#    warning "name_to_handle_at() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -364,6 +382,8 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_pidfd_open 434
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_pidfd_open 434
 #  elif defined(__s390__)
 #    define systemd_NR_pidfd_open 434
 #  elif defined(__sparc__)
@@ -374,8 +394,9 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    else
 #      define systemd_NR_pidfd_open 434
 #    endif
-#  else
-#    warning "pidfd_open() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -420,6 +441,8 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_pidfd_send_signal 424
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__s390__)
 #    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__sparc__)
@@ -430,8 +453,9 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    else
 #      define systemd_NR_pidfd_send_signal 424
 #    endif
-#  else
-#    warning "pidfd_send_signal() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -476,6 +500,8 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_pkey_mprotect 386
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_pkey_mprotect 288
 #  elif defined(__s390__)
 #    define systemd_NR_pkey_mprotect 384
 #  elif defined(__sparc__)
@@ -486,8 +512,9 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    else
 #      define systemd_NR_pkey_mprotect 329
 #    endif
-#  else
-#    warning "pkey_mprotect() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -532,6 +559,8 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_renameat2 357
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_renameat2 276
 #  elif defined(__s390__)
 #    define systemd_NR_renameat2 347
 #  elif defined(__sparc__)
@@ -542,8 +571,9 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    else
 #      define systemd_NR_renameat2 316
 #    endif
-#  else
-#    warning "renameat2() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -588,6 +618,8 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_setns 350
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_setns 268
 #  elif defined(__s390__)
 #    define systemd_NR_setns 339
 #  elif defined(__sparc__)
@@ -598,8 +630,9 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    else
 #      define systemd_NR_setns 308
 #    endif
-#  else
-#    warning "setns() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -644,6 +677,8 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_statx 383
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_statx 291
 #  elif defined(__s390__)
 #    define systemd_NR_statx 379
 #  elif defined(__sparc__)
@@ -654,8 +689,9 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    else
 #      define systemd_NR_statx 332
 #    endif
-#  else
-#    warning "statx() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
@@ -700,6 +736,8 @@ assert_cc(__NR_statx == systemd_NR_statx);
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_epoll_pwait2 441
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_epoll_pwait2 441
 #  elif defined(__s390__)
 #    define systemd_NR_epoll_pwait2 441
 #  elif defined(__sparc__)
@@ -710,8 +748,9 @@ assert_cc(__NR_statx == systemd_NR_statx);
 #    else
 #      define systemd_NR_epoll_pwait2 441
 #    endif
-#  else
-#    warning "epoll_pwait2() syscall number is unknown for your architecture"
+#  elif !defined(systemd_warned_syscall)
+#    warning "syscall numbers are unknown for your architecture"
+#    define systemd_warned_syscall 1
 #  endif
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
