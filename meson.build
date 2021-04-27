@@ -476,11 +476,14 @@ conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('((struct timex *)0)->freq', prefix : 
 
 decl_headers = '''
 #include <uchar.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
+#include <linux/fs.h>
 '''
 
 foreach decl : ['char16_t',
                 'char32_t',
+                'struct mount_attr',
                 'struct statx',
                ]
 
@@ -551,6 +554,9 @@ foreach ident : [
         ['execveat',          '''#include <unistd.h>'''],
         ['close_range',       '''#include <unistd.h>'''],
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],
+        ['mount_setattr',     '''#include <sys/mount.h>'''],
+        ['move_mount',        '''#include <sys/mount.h>'''],
+        ['open_tree',         '''#include <sys/mount.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
