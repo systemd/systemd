@@ -125,12 +125,17 @@ static void dhcp4_check_ready(Link *link) {
         link_check_ready(link);
 }
 
-static int dhcp4_after_route_configure(Link *link, void *object) {
+static int dhcp4_after_route_configure(Request *req, void *object) {
         Route *route = object;
+        Link *link;
         int r;
 
-        assert(link);
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_ROUTE);
         assert(route);
+
+        link = req->link;
 
         r = set_ensure_put(&link->dhcp_routes, &route_hash_ops, route);
         if (r < 0)
@@ -183,14 +188,17 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 }
 
 static int dhcp_request_route(Route *route, Link *link) {
+        Request *req;
         int r;
 
         assert(route);
         assert(link);
 
-        r = link_request_route(link, TAKE_PTR(route), true, dhcp4_route_handler, dhcp4_after_route_configure);
+        r = link_request_route(link, TAKE_PTR(route), true, dhcp4_route_handler, &req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set DHCPv4 route: %m");
+                return log_link_error_errno(link, r, "Failed to request DHCPv4 route: %m");
+
+        req->after_configure = dhcp4_after_route_configure;
 
         link->dhcp4_messages++;
 
@@ -980,11 +988,17 @@ static int dhcp4_address_ready_callback(Address *address) {
         return 0;
 }
 
-static int dhcp4_after_address_configure(Link *link, void *object) {
+static int dhcp4_after_address_configure(Request *req, void *object) {
         Address *address = object;
+        Link *link;
         int r;
 
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_ADDRESS);
         assert(address);
+
+        link = req->link;
 
         if (!address_equal(link->dhcp_address, address)) {
                 if (link->dhcp_address_old &&
@@ -1037,6 +1051,7 @@ static int dhcp4_update_address(Link *link, bool announce) {
         uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
         struct in_addr address, netmask;
         unsigned prefixlen;
+        Request *req;
         int r;
 
         assert(link);
@@ -1106,9 +1121,11 @@ static int dhcp4_update_address(Link *link, bool announce) {
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
         addr->route_metric = link->network->dhcp_route_metric;
 
-        r = link_request_address(link, TAKE_PTR(addr), true, dhcp4_address_handler, dhcp4_after_address_configure);
+        r = link_request_address(link, TAKE_PTR(addr), true, dhcp4_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
+
+        req->after_configure = dhcp4_after_address_configure;
 
         return 0;
 }
