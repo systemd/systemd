@@ -165,6 +165,7 @@ typedef enum ForkFlags {
         FORK_RLIMIT_NOFILE_SAFE = 1 << 10, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
         FORK_STDOUT_TO_STDERR   = 1 << 11, /* Make stdout a copy of stderr */
         FORK_FLUSH_STDIO        = 1 << 12, /* fflush() stdout (and stderr) before forking */
+        FORK_NEW_USERNS         = 1 << 13, /* Run child in its own user namespace */
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
