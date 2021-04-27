@@ -452,12 +452,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>PrivateUsersChown=</varname></term>
+        <term><varname>PrivateUsersOwnership=</varname></term>
 
-        <listitem><para>Configures whether the ownership of the files and directories in the container tree shall be
-        adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is equivalent to the
-        <option>--private-users-chown</option> command line switch. This option is privileged (see
-        above). </para></listitem>
+        <listitem><para>Configures whether the ownership of the files and directories in the container tree
+        shall be adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is
+        equivalent to the <option>--private-users-ownership=</option> command line switch. This option is
+        privileged (see above).</para></listitem>
       </varlistentry>
 
     </variablelist>
