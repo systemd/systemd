@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/*
+ * Copyright © 2021 Canonical Ltd
+ *
+ */
+
+static const char sbat[]
+__attribute__((section (".sbat")))
+__attribute__((__used__))
+__attribute__((aligned(512))) = ""
+"sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n"
+"@sbat_project@,1,systemd EFI boot,@sbat_project@,@PROJECT_VERSION@,@PROJECT_URL@\n"
+"@sbat_project@.@sbat_distro@,@sbat_distro_generation@,@sbat_distro_summary@,@sbat_distro_pkgname@,@sbat_distro_version@,@sbat_distro_url@";
