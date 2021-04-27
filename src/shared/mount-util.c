@@ -1001,7 +1001,7 @@ int make_mount_point(const char *path) {
         if (r > 0)
                 return 0;
 
-        r = mount_nofollow_verbose(LOG_ERR, path, path, NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, path, path, NULL, MS_BIND|MS_REC, NULL);
         if (r < 0)
                 return r;
 
