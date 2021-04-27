@@ -728,3 +728,69 @@ assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
 #    endif
 #  endif
 #endif
+
+#ifndef __IGNORE_mount_setattr
+#  if defined(__x86_64__)
+#    define systemd_NR_mount_setattr 442
+#  else
+#    warning "mount_setattr() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_mount_setattr && __NR_mount_setattr >= 0
+#    if defined systemd_NR_mount_setattr
+assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
+#    endif
+#  else
+#    if defined __NR_mount_setattr
+#      undef __NR_mount_setattr
+#    endif
+#    if defined systemd_NR_mount_setattr && systemd_NR_mount_setattr >= 0
+#      define __NR_mount_setattr systemd_NR_mount_setattr
+#    endif
+#  endif
+#endif
+
+#ifndef __IGNORE_open_tree
+#  if defined(__x86_64__)
+#    define systemd_NR_open_tree 428
+#  else
+#    warning "open_tree() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_open_tree && __NR_open_tree >= 0
+#    if defined systemd_NR_open_tree
+assert_cc(__NR_open_tree == systemd_NR_open_tree);
+#    endif
+#  else
+#    if defined __NR_open_tree
+#      undef __NR_open_tree
+#    endif
+#    if defined systemd_NR_open_tree && systemd_NR_open_tree >= 0
+#      define __NR_open_tree systemd_NR_open_tree
+#    endif
+#  endif
+#endif
+
+#ifndef __IGNORE_move_mount
+#  if defined(__x86_64__)
+#    define systemd_NR_move_mount 429
+#  else
+#    warning "move_mount() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_move_mount && __NR_move_mount >= 0
+#    if defined systemd_NR_move_mount
+assert_cc(__NR_move_mount == systemd_NR_move_mount);
+#    endif
+#  else
+#    if defined __NR_move_mount
+#      undef __NR_move_mount
+#    endif
+#    if defined systemd_NR_move_mount && systemd_NR_move_mount >= 0
+#      define __NR_move_mount systemd_NR_move_mount
+#    endif
+#  endif
+#endif
