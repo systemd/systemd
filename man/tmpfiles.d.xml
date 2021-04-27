@@ -585,9 +585,30 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <para>The age of a file system entry is determined from its last
       modification timestamp (mtime), its last access timestamp (atime),
       and (except for directories) its last status change timestamp
-      (ctime). Any of these three (or two) values will prevent cleanup
-      if it is more recent than the current time minus the age
-      field.</para>
+      (ctime). By default, any of these three (or two) values will
+      prevent cleanup if it is more recent than the current time minus
+      the age field. To restrict the deletion based on a particular type
+      of file timestamp, the age-by argument can be used.</para>
+
+      <para>The age-by argument, when (optionally) specified along
+      with age will check if the file system entry has aged by the
+      type of file timestamp provided. It can be set by appending a
+      colon character <literal>:</literal> to the age argument
+      followed by the type of file timestamp, i.e.,
+      <literal><replaceable>cleanup-age</replaceable>:<replaceable>age-by</replaceable></literal>.
+      The argument can be one of:
+      <constant>atime</constant>,
+      <constant>btime</constant>,
+      <constant>ctime</constant>, or
+      <constant>mtime</constant>,
+      indicating access, creation, last status change, and last
+      modification times of a file respectively (see
+      <citerefentry project='man-pages'><refentrytitle>statx</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      file timestamp fields for more details).</para>
+
+      <para>For example:<programlisting>
+# Only files that were created a minute ago are subject to time-based cleanup
+d /tmp/foo/bar - - - - 1m:btime -</programlisting></para>
 
       <para>Note that while the aging algorithm is run a 'shared' BSD file lock (see <citerefentry
       project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) is
