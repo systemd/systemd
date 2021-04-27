@@ -136,6 +136,44 @@ if have_gnu_efi
         endif
 endif
 
+sbat_substs = configuration_data()
+sbat_substs.set('sbat_project', meson.project_name())
+sbat_substs.set('PROJECT_VERSION', substs.get('PROJECT_VERSION'))
+sbat_substs.set('PROJECT_URL', substs.get('PROJECT_URL'))
+sbat_substs.set('sbat_distro_generation', get_option('sbat_distro_generation'))
+sbatvars = [['sbat_distro', 'ID'],
+            ['sbat_distro_summary', 'NAME'],
+            ['sbat_distro_url', 'BUG_REPORT_URL']]
+foreach sbatvar : sbatvars
+        value = get_option(sbatvar[0])
+        if value == ''
+                value = run_command('sed', '-n', 's/^' + sbatvar[1] + '=//p', '/etc/os-release').stdout().strip()
+        endif
+        if value != ''
+                sbat_substs.set(sbatvar[0], value)
+        endif
+endforeach
+
+sbatvars = [['sbat_distro_pkgname', meson.project_name()],
+            ['sbat_distro_version', get_option('version-tag')]]
+foreach sbatvar : sbatvars
+       value = get_option(sbatvar[0])
+       if value == ''
+               value = sbatvar[1]
+       endif
+       sbat_substs.set(sbatvar[0], value)
+endforeach
+if sbat_substs.get('sbat_distro_version') == ''
+       sbat_substs.set('sbat_distro_version', substs.get('PROJECT_VERSION'))
+endif
+
+
+if efi_arch == 'x86_64' and sbat_substs.get('sbat_distro', '') != ''
+        have_sbat = true
+else
+        have_sbat = false
+endif
+
 if have_gnu_efi
         compile_args = ['-Wall',
                         '-Wextra',
@@ -160,6 +198,10 @@ if have_gnu_efi
                                  '-mno-mmx',
                                  '-DEFI_FUNCTION_WRAPPER',
                                  '-DGNU_EFI_USE_MS_ABI']
+                # currently no distro packaged gnu-efi support .sbat
+                if have_sbat
+                        efi_lds = join_paths(meson.current_source_dir(), 'lds', 'elf_x86_64_efi.lds')
+                endif
         elif efi_arch == 'ia32'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
@@ -216,6 +258,37 @@ if have_gnu_efi
                 endif
         endforeach
 
+        if have_sbat
+                sbat_csv_name = 'sbat@0@.csv'.format(EFI_MACHINE_TYPE_NAME)
+                sbat_csv = configure_file(
+                         input : 'sbat.csv.in',
+                         output : sbat_csv_name,
+                         configuration : sbat_substs,
+                         install_dir : bootlibdir)
+
+                sbat_tmp = custom_target(
+                       'sbat.o.tmp',
+                       output : 'sbat.o.tmp',
+                       command : [ efi_cc, '-x', 'c', '-c', '-o', '@OUTPUT@', '/dev/null']
+                       )
+
+                sbat_o_name = 'sbat@0@.o'.format(EFI_MACHINE_TYPE_NAME)
+                sbat_o = custom_target(
+                       sbat_o_name,
+                       input : [sbat_csv, sbat_tmp],
+                       output : sbat_o_name,
+                       command : [
+                               objcopy,
+                               '--add-section',
+                               '.sbat=@INPUT0@',
+                               '--set-section-flags',
+                               '.sbat=contents,alloc,load,readonly,data',
+                               '@INPUT1@', '@OUTPUT@'],
+                       install : true,
+                       install_dir : bootlibdir)
+                systemd_boot_objects += sbat_o
+        endif
+
         libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
         stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
@@ -244,6 +317,7 @@ if have_gnu_efi
                         command : [objcopy,
                                    '-j', '.text',
                                    '-j', '.sdata',
+                                   '-j', '.sbat',
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',

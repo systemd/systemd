@@ -1,0 +1,3 @@
+sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+@sbat_project@,1,systemd EFI boot,@sbat_project@,@PROJECT_VERSION@,@PROJECT_URL@
+@sbat_project@.@sbat_distro@,@sbat_distro_generation@,@sbat_distro_summary@,@sbat_distro_pkgname@,@sbat_distro_version@,@sbat_distro_url@
