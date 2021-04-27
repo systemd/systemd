@@ -689,7 +689,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
         if (nexthop->onlink <= 0 &&
             in_addr_is_set(nexthop->family, &nexthop->gw) &&
-            !gateway_is_accessible(nexthop->family, &nexthop->gw, link))
+            !manager_address_is_accessible(link->manager, nexthop->family, &nexthop->gw))
                 return false;
 
         return true;

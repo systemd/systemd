@@ -499,17 +499,21 @@ static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
                 if (rt->gw_family != AF_INET)
                         continue;
 
-                rt->gw.in = router[0];
-                if (!rt->protocol_set)
-                        rt->protocol = RTPROT_DHCP;
-                if (!rt->priority_set)
-                        rt->priority = link->network->dhcp_route_metric;
-                if (!rt->table_set)
-                        rt->table = link_get_dhcp_route_table(link);
-                if (rt->mtu == 0)
-                        rt->mtu = link->network->dhcp_route_mtu;
+                r = static_route_dup(rt, &route);
+                if (r < 0)
+                        return r;
 
-                r = dhcp_request_route(rt, link);
+                route->gw.in = router[0];
+                if (!rt->protocol_set)
+                        route->protocol = RTPROT_DHCP;
+                if (!rt->priority_set)
+                        route->priority = link->network->dhcp_route_metric;
+                if (!rt->table_set)
+                        route->table = link_get_dhcp_route_table(link);
+                if (rt->mtu == 0)
+                        route->mtu = link->network->dhcp_route_mtu;
+
+                r = dhcp_request_route(TAKE_PTR(route), link);
                 if (r < 0)
                         return r;
         }
