@@ -36,6 +36,15 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -EINVAL,
 } UserNamespaceMode;
 
+typedef enum UserNamespaceOwnership {
+        USER_NAMESPACE_OWNERSHIP_OFF,
+        USER_NAMESPACE_OWNERSHIP_CHOWN,
+        USER_NAMESPACE_OWNERSHIP_MAP,
+        USER_NAMESPACE_OWNERSHIP_AUTO,
+        _USER_NAMESPACE_OWNERSHIP_MAX,
+        _USER_NAMESPACE_OWNERSHIP_INVALID = -1,
+} UserNamespaceOwnership;
+
 typedef enum ResolvConfMode {
         RESOLV_CONF_OFF,
         RESOLV_CONF_COPY_HOST,     /* /etc/resolv.conf */
@@ -185,7 +194,7 @@ typedef struct Settings {
         VolatileMode volatile_mode;
         CustomMount *custom_mounts;
         size_t n_custom_mounts;
-        int userns_chown;
+        UserNamespaceOwnership userns_ownership;
 
         /* [Network] */
         int private_network;
@@ -255,12 +264,17 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+CONFIG_PARSER_PROTOTYPE(config_parse_userns_chown);
+CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 
 const char *resolv_conf_mode_to_string(ResolvConfMode a) _const_;
 ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
 
 const char *timezone_mode_to_string(TimezoneMode a) _const_;
 TimezoneMode timezone_mode_from_string(const char *s) _pure_;
+
+const char *user_namespace_ownership_to_string(UserNamespaceOwnership a) _const_;
+UserNamespaceOwnership user_namespace_ownership_from_string(const char *s) _pure_;
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
 

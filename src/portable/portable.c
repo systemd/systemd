@@ -426,7 +426,7 @@ static int portable_extract_by_path(
                 if (r == 0) {
                         seq[0] = safe_close(seq[0]);
 
-                        r = dissected_image_mount(m, tmpdir, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
+                        r = dissected_image_mount(m, tmpdir, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to mount dissected image: %m");
                                 goto child_finish;
