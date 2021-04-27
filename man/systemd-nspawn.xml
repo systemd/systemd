@@ -696,32 +696,41 @@
           number of host UIDs/GIDs to assign to the container. If the second parameter is omitted, 65536 UIDs/GIDs are
           assigned.</para></listitem>
 
-          <listitem><para>If the parameter is omitted, or true, user namespacing is turned on. The UID/GID range to
-          use is determined automatically from the file ownership of the root directory of the container's directory
-          tree. To use this option, make sure to prepare the directory tree in advance, and ensure that all files and
-          directories in it are owned by UIDs/GIDs in the range you'd like to use. Also, make sure that used file ACLs
-          exclusively reference UIDs/GIDs in the appropriate range. If this mode is used the number of UIDs/GIDs
-          assigned to the container for use is 65536, and the UID/GID of the root directory must be a multiple of
-          65536.</para></listitem>
+          <listitem><para>If the parameter is <literal>yes</literal>, user namespacing is turned on. The
+          UID/GID range to use is determined automatically from the file ownership of the root directory of
+          the container's directory tree. To use this option, make sure to prepare the directory tree in
+          advance, and ensure that all files and directories in it are owned by UIDs/GIDs in the range you'd
+          like to use. Also, make sure that used file ACLs exclusively reference UIDs/GIDs in the appropriate
+          range. In this mode, the number of UIDs/GIDs assigned to the container is 65536, and the owner
+          UID/GID of the root directory must be a multiple of 65536.</para></listitem>
 
-          <listitem><para>If the parameter is false, user namespacing is turned off. This is the default.</para>
+          <listitem><para>If the parameter is <literal>no</literal>, user namespacing is turned off. This is
+          the default.</para>
           </listitem>
 
-          <listitem><para>The special value <literal>pick</literal> turns on user namespacing. In this case the UID/GID
-          range is automatically chosen. As first step, the file owner of the root directory of the container's
-          directory tree is read, and it is checked that it is currently not used by the system otherwise (in
-          particular, that no other container is using it). If this check is successful, the UID/GID range determined
-          this way is used, similar to the behavior if "yes" is specified. If the check is not successful (and thus
-          the UID/GID range indicated in the root directory's file owner is already used elsewhere) a new – currently
-          unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host UID/GIDs of 524288 and
-          1878982656, always starting at a multiple of 65536, and, if possible, consistently hashed from the machine
-          name. This setting implies
-          <option>--private-users-chown</option> (see below), which has the effect that the files and directories in
-          the container's directory tree will be owned by the appropriate users of the range picked. Using this option
-          makes user namespace behavior fully automatic. Note that the first invocation of a previously unused
-          container image might result in picking a new UID/GID range for it, and thus in the (possibly expensive) file
-          ownership adjustment operation. However, subsequent invocations of the container will be cheap (unless of
-          course the picked UID/GID range is assigned to a different use by then).</para></listitem>
+          <listitem><para>If the parameter is <literal>identity</literal>, user namespacing is employed with
+          an identity mapping for the first 65536 UIDs/GIDs. This is mostly equivalent to
+          <option>--private-users=0:65536</option>. While it does not provide UID/GID isolation, since all
+          host and container UIDs/GIDs are chosen identically it does provide process capability isolation,
+          and hence is often a good choice if proper user namespacing with distinct UID maps is not
+          appropriate.</para></listitem>
+
+          <listitem><para>The special value <literal>pick</literal> turns on user namespacing. In this case
+          the UID/GID range is automatically chosen. As first step, the file owner UID/GID of the root
+          directory of the container's directory tree is read, and it is checked that no other container is
+          currently using it. If this check is successful, the UID/GID range determined this way is used,
+          similar to the behavior if <literal>yes</literal> is specified. If the check is not successful (and
+          thus the UID/GID range indicated in the root directory's file owner is already used elsewhere) a
+          new – currently unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host
+          UID/GIDs of 524288 and 1878982656, always starting at a multiple of 65536, and, if possible,
+          consistently hashed from the machine name. This setting implies
+          <option>--private-users-ownership=auto</option> (see below), which possibly has the effect that the
+          files and directories in the container's directory tree will be owned by the appropriate users of
+          the range picked. Using this option makes user namespace behavior fully automatic. Note that the
+          first invocation of a previously unused container image might result in picking a new UID/GID range
+          for it, and thus in the (possibly expensive) file ownership adjustment operation. However,
+          subsequent invocations of the container will be cheap (unless of course the picked UID/GID range is
+          assigned to a different use by then).</para></listitem>
         </orderedlist>
 
         <para>It is recommended to assign at least 65536 UIDs/GIDs to each container, so that the usable UID/GID range in the
@@ -747,31 +756,44 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--private-users-chown</option></term>
+        <term><option>--private-users-ownership=</option></term>
 
-        <listitem><para>If specified, all files and directories in the container's directory tree will be
-        adjusted so that they are owned by the appropriate UIDs/GIDs selected for the container (see above).
-        This operation is potentially expensive, as it involves iterating through the full directory tree of
-        the container. Besides actual file ownership, file ACLs are adjusted as well.</para>
+        <listitem><para>Controls how to adjust the container image's UIDs and GIDs to match the UID/GID range
+        chosen with <option>--private-users=</option>, see above. Takes one of <literal>off</literal> (to
+        leave the image as is), <literal>chown</literal> (to recursively <function>chown()</function> the
+        container's directory tree as needed), <literal>map</literal> (in order to use transparent ID mapping
+        mounts) or <literal>auto</literal> for automatically using <literal>map</literal> where available and
+        <literal>chown</literal> where not.</para>
 
-        <para>This option is implied if <option>--private-users=pick</option> is used. This option has no effect if
-        user namespacing is not used.</para></listitem>
+        <para>If <literal>chown</literal> is selected, all files and directories in the container's directory
+        tree will be adjusted so that they are owned by the appropriate UIDs/GIDs selected for the container
+        (see above).  This operation is potentially expensive, as it involves iterating through the full
+        directory tree of the container. Besides actual file ownership, file ACLs are adjusted as
+        well.</para>
+
+        <para>Typically <literal>map</literal> is the best choice, since it transparently maps UIDs/GIDs in
+        memory as needed without modifying the image, and without requiring an expensive recursive adjustment
+        operation. However, it is not available for all file systems, currently.</para>
+
+        <para>The <option>--private-users-ownership=auto</option> option is implied if
+        <option>--private-users=pick</option> is used. This option has no effect if user namespacing is not
+        used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-U</option></term>
 
         <listitem><para>If the kernel supports the user namespaces feature, equivalent to
-        <option>--private-users=pick --private-users-chown</option>, otherwise equivalent to
+        <option>--private-users=pick --private-users-ownership=auto</option>, otherwise equivalent to
         <option>--private-users=no</option>.</para>
 
         <para>Note that <option>-U</option> is the default if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
 
-        <para>Note: it is possible to undo the effect of <option>--private-users-chown</option> (or
+        <para>Note: it is possible to undo the effect of <option>--private-users-ownership=chown</option> (or
         <option>-U</option>) on the file system by redoing the operation with the first UID of 0:</para>
 
-        <programlisting>systemd-nspawn … --private-users=0 --private-users-chown</programlisting>
+        <programlisting>systemd-nspawn … --private-users=0 --private-users-ownership=chown</programlisting>
         </listitem>
       </varlistentry>
 
