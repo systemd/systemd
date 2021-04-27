@@ -39,6 +39,8 @@ typedef enum UserNamespaceMode {
 typedef enum UserNamespaceOwnership {
         USER_NAMESPACE_OWNERSHIP_OFF,
         USER_NAMESPACE_OWNERSHIP_CHOWN,
+        USER_NAMESPACE_OWNERSHIP_MAP,
+        USER_NAMESPACE_OWNERSHIP_AUTO,
         _USER_NAMESPACE_OWNERSHIP_MAX,
         _USER_NAMESPACE_OWNERSHIP_INVALID = -1,
 } UserNamespaceOwnership;

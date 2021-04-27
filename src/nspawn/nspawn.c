@@ -1733,7 +1733,7 @@ static int verify_arguments(void) {
 
         if (arg_userns_ownership < 0)
                 arg_userns_ownership =
-                        arg_userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_CHOWN :
+                        arg_userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_AUTO :
                                                                  USER_NAMESPACE_OWNERSHIP_OFF;
 
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
@@ -3065,6 +3065,18 @@ static int determine_uid_shift(const char *directory) {
                                                "UID and GID base of %s don't match.", directory);
 
                 arg_uid_range = UINT32_C(0x10000);
+
+                if (arg_uid_shift != 0) {
+                        /* If the image is shifted already, then we'll fall back to classic chowning, for
+                         * compatibility (and simplicity), or refuse if mapping is explicitly requested.  */
+
+                        if (arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_AUTO) {
+                                log_debug("UID base of %s is non-zero, not using UID mapping.", directory);
+                                arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+                        } else if (arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_MAP)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "UID base of %s is not zero, UID mapping not supported.", directory);
+                }
         }
 
         if (!userns_shift_range_valid(arg_uid_shift, arg_uid_range))
@@ -3558,6 +3570,7 @@ static int outer_child(
 
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         _cleanup_close_ int fd = -1;
+        bool idmap = false;
         const char *p;
         pid_t pid;
         ssize_t l;
@@ -3661,6 +3674,32 @@ static int outer_child(
                 directory = "/run/systemd/nspawn-root";
         }
 
+        if (arg_userns_mode != USER_NAMESPACE_NO &&
+            IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
+            arg_uid_shift != 0) {
+                r = make_mount_point(directory);
+                if (r < 0)
+                        return r;
+
+                r = remount_idmap(directory, arg_uid_shift, arg_uid_range);
+                if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
+                        /* This might fail because the kernel or file system doesn't support idmapping. We
+                         * can't really distinguish this nicely, nor do we have any guarantees about the
+                         * error codes we see, could be EOPNOTSUPP or EINVAL. */
+                        if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "ID mapped mounts are apparently not available, sorry.");
+
+                        log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
+                        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
+                else {
+                        log_debug("ID mapped mounts available, making use of them.");
+                        idmap = true;
+                }
+        }
+
         r = setup_pivot_root(
                         directory,
                         arg_pivot_root_new,
@@ -3701,7 +3740,8 @@ static int outer_child(
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS));
+                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS)|
+                                (idmap ? DISSECT_IMAGE_MOUNT_IDMAPPED : 0));
                 if (r == -EUCLEAN)
                         return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
