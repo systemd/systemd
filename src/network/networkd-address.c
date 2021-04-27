@@ -485,6 +485,49 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
         return address_get(link, a, NULL) >= 0;
 }
 
+int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+        Link *link;
+        int r;
+
+        assert(manager);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (family == AF_INET)
+                HASHMAP_FOREACH(link, manager->links) {
+                        Address *a;
+
+                        SET_FOREACH(a, link->addresses)
+                                if (a->family == family &&
+                                    in_addr_equal(family, &a->in_addr, address) > 0 &&
+                                    (!check_ready || address_is_ready(a)))
+                                        return true;
+                        SET_FOREACH(a, link->addresses_foreign)
+                                if (a->family == family &&
+                                    in_addr_equal(family, &a->in_addr, address) > 0 &&
+                                    (!check_ready || address_is_ready(a)))
+                                        return true;
+                }
+        else {
+                _cleanup_(address_freep) Address *a = NULL;
+                Address *b;
+
+                r = address_new(&a);
+                if (r < 0)
+                        return r;
+
+                a->family = family;
+                a->in_addr = *address;
+
+                HASHMAP_FOREACH(link, manager->links)
+                        if (address_get(link, a, &b) >= 0 &&
+                            (!check_ready || address_is_ready(b)))
+                                return true;
+        }
+
+        return false;
+}
+
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *addr = NULL, *peer = NULL;
         char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
