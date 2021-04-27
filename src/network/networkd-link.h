@@ -77,6 +77,7 @@ typedef struct Link {
         LinkAddressState address_state;
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
+        LinkOnlineState online_state;
 
         unsigned address_messages;
         unsigned address_remove_messages;
