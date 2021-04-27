@@ -1,6 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * This file is generated. Do not edit! */
 
+/* Note: if this code looks strange, this is because it is derived from the same
+ * template as the per-syscall blocks below. */
+#  if defined(__aarch64__)
+#  elif defined(__alpha__)
+#  elif defined(__arc__) || defined(__tilegx__)
+#  elif defined(__arm__)
+#  elif defined(__i386__)
+#  elif defined(__ia64__)
+#  elif defined(__m68k__)
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#  elif defined(__s390__)
+#  elif defined(__sparc__)
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#    else
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "Current architecture is missing from the template"
+#    define missing_arch_template 1
+#  endif
+
 #ifndef __IGNORE_bpf
 #  if defined(__aarch64__)
 #    define systemd_NR_bpf 280
@@ -38,7 +66,7 @@
 #    else
 #      define systemd_NR_bpf 321
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "bpf() syscall number is unknown for your architecture"
 #  endif
 
@@ -94,7 +122,7 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    else
 #      define systemd_NR_close_range 436
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "close_range() syscall number is unknown for your architecture"
 #  endif
 
@@ -150,7 +178,7 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    else
 #      define systemd_NR_copy_file_range 326
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "copy_file_range() syscall number is unknown for your architecture"
 #  endif
 
@@ -206,7 +234,7 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #    else
 #      define systemd_NR_getrandom 318
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "getrandom() syscall number is unknown for your architecture"
 #  endif
 
@@ -262,7 +290,7 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    else
 #      define systemd_NR_memfd_create 319
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "memfd_create() syscall number is unknown for your architecture"
 #  endif
 
@@ -318,7 +346,7 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    else
 #      define systemd_NR_name_to_handle_at 303
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "name_to_handle_at() syscall number is unknown for your architecture"
 #  endif
 
@@ -374,7 +402,7 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    else
 #      define systemd_NR_pidfd_open 434
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "pidfd_open() syscall number is unknown for your architecture"
 #  endif
 
@@ -430,7 +458,7 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    else
 #      define systemd_NR_pidfd_send_signal 424
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "pidfd_send_signal() syscall number is unknown for your architecture"
 #  endif
 
@@ -486,7 +514,7 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    else
 #      define systemd_NR_pkey_mprotect 329
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "pkey_mprotect() syscall number is unknown for your architecture"
 #  endif
 
@@ -542,7 +570,7 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    else
 #      define systemd_NR_renameat2 316
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "renameat2() syscall number is unknown for your architecture"
 #  endif
 
@@ -598,7 +626,7 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    else
 #      define systemd_NR_setns 308
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "setns() syscall number is unknown for your architecture"
 #  endif
 
@@ -654,7 +682,7 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    else
 #      define systemd_NR_statx 332
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "statx() syscall number is unknown for your architecture"
 #  endif
 
@@ -710,7 +738,7 @@ assert_cc(__NR_statx == systemd_NR_statx);
 #    else
 #      define systemd_NR_epoll_pwait2 441
 #    endif
-#  else
+#  elif !defined(missing_arch_template)
 #    warning "epoll_pwait2() syscall number is unknown for your architecture"
 #  endif
 
