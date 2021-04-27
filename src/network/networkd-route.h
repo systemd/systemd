@@ -77,12 +77,6 @@ int static_route_dup(const Route *src, Route **ret);
 int route_configure(const Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
-int link_request_static_route(
-                Link *link,
-                Route *route,
-                bool always_copy,
-                link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure);
 int link_request_static_routes(Link *link);
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);

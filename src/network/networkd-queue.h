@@ -12,7 +12,10 @@ typedef struct NextHop NextHop;
 typedef struct Route Route;
 typedef struct RoutingPolicyRule RoutingPolicyRule;
 
-typedef int (*link_after_configure_handler_t)(Link*, void *);
+typedef struct Request Request;
+
+typedef int (*request_after_configure_handler_t)(Request*, void*);
+typedef int (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
         REQUEST_TYPE_ADDRESS,
@@ -27,7 +30,7 @@ typedef enum RequestType {
 typedef struct Request {
         Link *link;
         RequestType type;
-        bool take_object;
+        bool consume_object;
         union {
                 Address *address;
                 Neighbor *neighbor;
@@ -36,8 +39,10 @@ typedef struct Request {
                 RoutingPolicyRule *rule;
                 void *object;
         };
+        void *userdata;
         link_netlink_message_handler_t netlink_handler;
-        link_after_configure_handler_t after_configure_handler;
+        request_after_configure_handler_t after_configure;
+        request_on_free_handler_t on_free;
 } Request;
 
 Request *request_free(Request *req);
@@ -46,48 +51,48 @@ int link_queue_request(
                 Link *link,
                 RequestType type,
                 void *object,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler);
+                Request **ret);
 static inline int link_request_address(
                 Link *link,
                 Address *address,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, take_object, netlink_handler, after_configure_handler);
+                Request **ret) {
+        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object, netlink_handler, ret);
 }
 static inline int link_request_neighbor(
                 Link *link,
                 Neighbor *neighbor,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_NEIGHBOR, neighbor, take_object, netlink_handler, after_configure_handler);
+                Request **ret) {
+        return link_queue_request(link, REQUEST_TYPE_NEIGHBOR, neighbor, consume_object, netlink_handler, ret);
 }
 static inline int link_request_nexthop(
                 Link *link,
                 NextHop *nexthop,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, take_object, netlink_handler, after_configure_handler);
+                Request **ret) {
+        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, consume_object, netlink_handler, ret);
 }
 static inline int link_request_route(
                 Link *link,
                 Route *route,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, take_object, netlink_handler, after_configure_handler);
+                Request **ret) {
+        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, consume_object, netlink_handler, ret);
 }
 static inline int link_request_routing_policy_rule(
                 Link *link,
                 RoutingPolicyRule *rule,
-                bool take_object,
+                bool consume_object,
                 link_netlink_message_handler_t netlink_handler,
-                link_after_configure_handler_t after_configure_handler) {
-        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, take_object, netlink_handler, after_configure_handler);
+                Request **ret) {
+        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, consume_object, netlink_handler, ret);
 }
 
 int manager_process_requests(sd_event_source *s, void *userdata);
