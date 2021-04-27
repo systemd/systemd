@@ -872,6 +872,8 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership
 static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
         [USER_NAMESPACE_OWNERSHIP_OFF] = "off",
         [USER_NAMESPACE_OWNERSHIP_CHOWN] = "chown",
+        [USER_NAMESPACE_OWNERSHIP_MAP] = "map",
+        [USER_NAMESPACE_OWNERSHIP_AUTO] = "auto",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_namespace_ownership, UserNamespaceOwnership);
