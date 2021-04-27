@@ -688,6 +688,14 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         assert(link);
         assert(nexthop);
 
+        if (nexthop->blackhole) {
+                if (link->manager->nexthop_remove_messages > 0)
+                        return false;
+        } else {
+                if (link->nexthop_remove_messages > 0)
+                        return false;
+        }
+
         if (nexthop->onlink <= 0 &&
             in_addr_is_set(nexthop->family, &nexthop->gw) &&
             !manager_address_is_accessible(link->manager, nexthop->family, &nexthop->gw))
@@ -706,9 +714,6 @@ int request_process_nexthop(Request *req) {
         assert(req->type == REQUEST_TYPE_NEXTHOP);
 
         if (!link_is_ready_to_configure(req->link))
-                return 0;
-
-        if (req->link->nexthop_remove_messages > 0)
                 return 0;
 
         if (!nexthop_is_ready_to_configure(req->link, req->nexthop))
