@@ -5,6 +5,7 @@
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "hostname-util.h"
+#include "namespace-util.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
@@ -611,7 +612,7 @@ int config_parse_private_users(
                         range++;
 
                         r = safe_atou32(range, &rn);
-                        if (r < 0 || rn <= 0) {
+                        if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
                                 return 0;
                         }
@@ -623,6 +624,11 @@ int config_parse_private_users(
                 r = parse_uid(shift, &sh);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        return 0;
+                }
+
+                if (!userns_shift_range_valid(sh, rn)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "UID/GID shift and range combination invalid, ignoring: %s", range);
                         return 0;
                 }
 
