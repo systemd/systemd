@@ -69,6 +69,8 @@ DEF_TEMPLATE_B = '''\
 #    endif
 #  elif defined(__powerpc__)
 #    define systemd_NR_{syscall} {nr_powerpc}
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_{syscall} {nr_riscv64}
 #  elif defined(__s390__)
 #    define systemd_NR_{syscall} {nr_s390}
 #  elif defined(__sparc__)

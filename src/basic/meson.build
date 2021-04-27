@@ -358,6 +358,7 @@ arch_list = [
         'mipso32',
         'powerpc',
         'powerpc64',
+        'riscv64',
         's390',
         's390x',
         'sparc',
