@@ -425,3 +425,90 @@ static inline int missing_epoll_pwait2(
 
 #  define epoll_pwait2 missing_epoll_pwait2
 #endif
+
+/* ======================================================================= */
+
+#if !HAVE_MOUNT_SETATTR
+
+struct mount_attr {
+        uint64_t attr_set;
+        uint64_t attr_clr;
+        uint64_t propagation;
+        uint64_t userns_fd;
+};
+
+#ifndef MOUNT_ATTR_IDMAP
+#define MOUNT_ATTR_IDMAP 0x00100000
+#endif
+
+static inline int missing_mount_setattr(
+                int dfd,
+                const char *path,
+                unsigned flags,
+                struct mount_attr *attr,
+                size_t size) {
+
+#  if defined __NR_mount_setattr && __NR_mount_setattr >= 0
+        return syscall(__NR_mount_setattr, dfd, path, flags, attr, size);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define mount_setattr missing_mount_setattr
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_OPEN_TREE
+
+#ifndef OPEN_TREE_CLONE
+#define OPEN_TREE_CLONE 1
+#endif
+
+#ifndef OPEN_TREE_CLOEXEC
+#define OPEN_TREE_CLOEXEC O_CLOEXEC
+#endif
+
+static inline int missing_open_tree(
+                int dfd,
+                const char *filename,
+                unsigned flags) {
+
+#  if defined __NR_open_tree && __NR_open_tree >= 0
+        return syscall(__NR_open_tree, dfd, filename, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define open_tree missing_open_tree
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_MOVE_MOUNT
+
+#ifndef MOVE_MOUNT_F_EMPTY_PATH
+#define MOVE_MOUNT_F_EMPTY_PATH 0x00000004 /* Empty from path permitted */
+#endif
+
+static inline int missing_move_mount(
+                int from_dfd,
+                const char *from_pathname,
+                int to_dfd,
+                const char *to_pathname,
+                unsigned flags) {
+
+#  if defined __NR_move_mount && __NR_move_mount >= 0
+        return syscall(__NR_move_mount, from_dfd, from_pathname, to_dfd, to_pathname, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define move_mount missing_move_mount
+#endif

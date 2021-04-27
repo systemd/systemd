@@ -77,7 +77,7 @@ static void* thread_func(void *ptr) {
                 assert_se(dissected->partitions[PARTITION_HOME].found);
                 assert_se(dissected->partitions[PARTITION_HOME].node);
 
-                r = dissected_image_mount(dissected, mounted, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
+                r = dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
                 log_notice_errno(r, "Mounted %s → %s: %m", loop->node, mounted);
                 assert_se(r >= 0);
 
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
         /* This first (writable) mount will initialize the mount point dirs, so that the subsequent read-only ones can work */
-        assert_se(dissected_image_mount(dissected, mounted, UID_INVALID, 0) >= 0);
+        assert_se(dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, 0) >= 0);
 
         assert_se(umount_recursive(mounted, 0) >= 0);
         loop = loop_device_unref(loop);
