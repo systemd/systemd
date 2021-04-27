@@ -37,7 +37,8 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 
-#define ONBOARD_INDEX_MAX (16*1024-1)
+#define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
+#define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
 enum netname_type{
         NET_UNDEF,
@@ -162,6 +163,16 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
         return 0;
 }
 
+static bool is_valid_onboard_index(unsigned long idx) {
+        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
+         * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
+         * pick some arbitrary cut-off, which is somewhere beyond the realistic number of physical network
+         * interface a system might have. Ideally the kernel would already filter this crap for us, but it
+         * doesn't currently. The initial cut-off value (2^14-1) was too conservative for s390 PCI which
+         * allows for index values up 2^16-1 which is now enabled with the NAMING_16BIT_INDEX naming flag. */
+        return idx <= (naming_scheme_has(NAMING_16BIT_INDEX) ? ONBOARD_16BIT_INDEX_MAX : ONBOARD_14BIT_INDEX_MAX);
+}
+
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         unsigned long idx, dev_port = 0;
@@ -184,12 +195,7 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
                 return -EINVAL;
 
-        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
-         * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
-         * pick some arbitrary cut-off, which is somewhere beyond the realistic number of physical network
-         * interface a system might have. Ideally the kernel would already filter this crap for us, but it
-         * doesn't currently. */
-        if (idx > ONBOARD_INDEX_MAX)
+        if (!is_valid_onboard_index(idx))
                 return -ENOENT;
 
         /* kernel provided port index for multiple ports on a single PCI function */
