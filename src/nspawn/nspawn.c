@@ -1259,11 +1259,10 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse UID \"%s\": %m", optarg);
 
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
-                        }
 
-                        if (arg_uid_range <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "UID range cannot be 0.");
+                                if (!userns_shift_range_valid(arg_uid_shift, arg_uid_range))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID range cannot be empty or go beyond " UID_FMT ".", UID_INVALID);
+                        }
 
                         arg_settings_mask |= SETTING_USERNS;
                         break;
@@ -3068,9 +3067,8 @@ static int determine_uid_shift(const char *directory) {
                 arg_uid_range = UINT32_C(0x10000);
         }
 
-        if (arg_uid_shift > UID_INVALID - arg_uid_range)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "UID base too high for UID range.");
+        if (!userns_shift_range_valid(arg_uid_shift, arg_uid_range))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID base too high for UID range.");
 
         return 0;
 }
