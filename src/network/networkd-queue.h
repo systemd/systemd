@@ -15,7 +15,7 @@ typedef struct RoutingPolicyRule RoutingPolicyRule;
 typedef struct Request Request;
 
 typedef int (*request_after_configure_handler_t)(Request*, void*);
-typedef int (*request_on_free_handler_t)(Request*);
+typedef void (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
         REQUEST_TYPE_ADDRESS,
