@@ -132,10 +132,6 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set state: %m");
 
-        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_REPLACE);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set flags: %m");
-
         r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
