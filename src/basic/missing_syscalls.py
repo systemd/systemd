@@ -37,8 +37,12 @@ def parse_syscall_tables(filenames):
     return {filename.split('-')[-1][:-4]: parse_syscall_table(filename)
             for filename in filenames}
 
-DEF_TEMPLATE = '''
+DEF_TEMPLATE_A = '''\
+
 #ifndef __IGNORE_{syscall}
+'''
+
+DEF_TEMPLATE_B = '''\
 #  if defined(__aarch64__)
 #    define systemd_NR_{syscall} {nr_arm64}
 #  elif defined(__alpha__)
@@ -75,9 +79,12 @@ DEF_TEMPLATE = '''
 #    else
 #      define systemd_NR_{syscall} {nr_x86_64}
 #    endif
-#  else
-#    warning "{syscall}() syscall number is unknown for your architecture"
+#  elif !defined(missing_arch_template)
+%s
 #  endif
+'''
+
+DEF_TEMPLATE_C = '''\
 
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_{syscall} && __NR_{syscall} >= 0
@@ -92,20 +99,33 @@ assert_cc(__NR_{syscall} == systemd_NR_{syscall});
 #      define __NR_{syscall} systemd_NR_{syscall}
 #    endif
 #  endif
-#endif
-'''
+#endif'''
+
+DEF_TEMPLATE = (DEF_TEMPLATE_A +
+                DEF_TEMPLATE_B % '#    warning "{syscall}() syscall number is unknown for your architecture"' +
+                DEF_TEMPLATE_C)
+
+ARCH_CHECK = '''\
+# Note: if this code looks strange, this is because it is derived from the same
+# template as the per-syscall blocks below.
+''' + '\n'.join(line for line in DEF_TEMPLATE_B.splitlines()
+                       if ' define ' not in line) % '''\
+#    warning "Current architecture is missing from the template"
+#    define missing_arch_template 1'''
 
 def print_syscall_def(syscall, tables, out):
     mappings = {f'nr_{arch}':t.get(syscall, -1)
                 for arch, t in tables.items()}
     print(DEF_TEMPLATE.format(syscall=syscall, **mappings),
-          file=out, end='')
+          file=out)
 
 def print_syscall_defs(syscalls, tables, out):
     print('''\
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * This file is generated. Do not edit! */
-''' , file=out, end='')
+''',
+          file=out)
+    print(ARCH_CHECK, file=out)
     for syscall in syscalls:
         print_syscall_def(syscall, tables, out)
 
