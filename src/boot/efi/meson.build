@@ -102,6 +102,42 @@ if have_gnu_efi
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 
+        if get_option('sbat-distro') != ''
+                efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
+                efi_conf.set_quoted('PROJECT_VERSION', substs.get('PROJECT_VERSION'))
+                efi_conf.set_quoted('PROJECT_URL', substs.get('PROJECT_URL'))
+                if get_option('sbat-distro-generation') < 1
+                       error('SBAT Distro Generation must be a positive integer')
+                endif
+                efi_conf.set('SBAT_DISTRO_GENERATION', get_option('sbat-distro-generation'))
+                sbatvars = [['sbat-distro', 'ID'],
+                            ['sbat-distro-summary', 'NAME'],
+                            ['sbat-distro-url', 'BUG_REPORT_URL']]
+                foreach sbatvar : sbatvars
+                        value = get_option(sbatvar[0])
+                        if value == '' or value == 'auto'
+                                value = run_command('sh', '-c', 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $' + sbatvar[1]).stdout().strip()
+                        endif
+                        if value == ''
+                                error('Required @0@ option not set and autodetection failed'.format(sbatvar[0]))
+                        endif
+                        efi_conf.set_quoted(sbatvar[0].underscorify().to_upper(), value)
+                endforeach
+
+                pkgname = get_option('sbat-distro-pkgname')
+                if pkgname == ''
+                        pkgname = meson.project_name()
+                endif
+                efi_conf.set_quoted('SBAT_DISTRO_PKGNAME', pkgname)
+
+                pkgver = get_option('sbat-distro-version')
+                if pkgver == ''
+                        efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
+                else
+                        efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
+                endif
+        endif
+
         efi_config_h = configure_file(
                 output : 'efi_config.h',
                 configuration : efi_conf)
@@ -244,6 +280,7 @@ if have_gnu_efi
                         command : [objcopy,
                                    '-j', '.text',
                                    '-j', '.sdata',
+                                   '-j', '.sbat',
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
