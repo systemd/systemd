@@ -1195,28 +1195,40 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRIVATE_USERS: {
-                        int boolean = -1;
+                        int boolean;
 
                         if (!optarg)
                                 boolean = true;
                         else if (!in_charset(optarg, DIGITS))
                                 /* do *not* parse numbers as booleans */
                                 boolean = parse_boolean(optarg);
+                        else
+                                boolean = -1;
 
-                        if (boolean == false) {
+                        if (boolean == 0) {
                                 /* no: User namespacing off */
                                 arg_userns_mode = USER_NAMESPACE_NO;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
-                        } else if (boolean == true) {
+                        } else if (boolean > 0) {
                                 /* yes: User namespacing on, UID range is read from root dir */
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
                         } else if (streq(optarg, "pick")) {
                                 /* pick: User namespacing on, UID range is picked randomly */
-                                arg_userns_mode = USER_NAMESPACE_PICK;
+                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_chown = true,
+                                                                        * is implied by USER_NAMESPACE_PICK,
+                                                                        * further down. */
                                 arg_uid_shift = UID_INVALID;
+                                arg_uid_range = UINT32_C(0x10000);
+
+                        } else if (streq(optarg, "identity")) {
+                                /* identitiy: User namespaces on, UID range is map the 0…0xFFFF range to
+                                 * itself, i.e. we don't actually map anything, but do take benefit of
+                                 * isolation of capability sets. */
+                                arg_userns_mode = USER_NAMESPACE_FIXED;
+                                arg_uid_shift = 0;
                                 arg_uid_range = UINT32_C(0x10000);
                         } else {
                                 _cleanup_free_ char *buffer = NULL;
@@ -1255,7 +1267,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'U':
                         if (userns_supported()) {
-                                arg_userns_mode = USER_NAMESPACE_PICK;
+                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_chown = true,
+                                                                        * is implied by USER_NAMESPACE_PICK,
+                                                                        * further down. */
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
 
