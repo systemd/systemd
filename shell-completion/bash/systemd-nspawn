@@ -63,14 +63,14 @@ _systemd_nspawn() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system
-                      --keep-unit -n --network-veth -j -x --ephemeral -a --as-pid2 --private-users-chown -U'
+                      --keep-unit -n --network-veth -j -x --ephemeral -a --as-pid2 -U'
         [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro
                       -M --machine -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context
                       --register --network-interface --network-bridge --personality -i --image --tmpfs
                       --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash --chdir
-                      --pivot-root --property --private-users --network-namespace-path --network-ipvlan
-                      --network-veth-extra --network-zone -p --port --system-call-filter --overlay --overlay-ro
-                      --settings --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity
+                      --pivot-root --property --private-users --private-users-ownership --network-namespace-path
+                      --network-ipvlan --network-veth-extra --network-zone -p --port --system-call-filter --overlay
+                      --overlay-ro --settings --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity
                       --resolv-conf --timezone --root-hash-sig'
     )
 
