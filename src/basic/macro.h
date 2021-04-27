@@ -18,8 +18,6 @@
 #  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
 #endif
 #define _sentinel_ __attribute__((__sentinel__))
-#define _section_(x) __attribute__((__section__(x)))
-#define _used_ __attribute__((__used__))
 #define _destructor_ __attribute__((__destructor__))
 #define _deprecated_ __attribute__((__deprecated__))
 #define _packed_ __attribute__((__packed__))
@@ -30,7 +28,6 @@
 #define _public_ __attribute__((__visibility__("default")))
 #define _hidden_ __attribute__((__visibility__("hidden")))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
-#define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(__alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
 #if __GNUC__ >= 7
@@ -137,9 +134,6 @@
 
 /* automake test harness */
 #define EXIT_TEST_SKIP 77
-
-#define XSTRINGIFY(x) #x
-#define STRINGIFY(x) XSTRINGIFY(x)
 
 /* builtins */
 #if __SIZEOF_INT__ == 4
