@@ -288,7 +288,7 @@ Route *route_free(Route *route) {
                 set_remove(route->manager->routes_foreign, route);
         }
 
-        ordered_set_free_free(route->multipath_routes);
+        ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
 
         sd_event_source_unref(route->expire);
 
@@ -510,6 +510,46 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, c
         }
 }
 
+int static_route_dup(const Route *src, Route **ret) {
+        _cleanup_(route_freep) Route *dest = NULL;
+        MultipathRoute *m;
+        int r;
+
+        assert(src);
+        assert(ret);
+
+        r = route_new(&dest);
+        if (r < 0)
+                return r;
+
+        route_copy(dest, src, NULL, NULL);
+
+        dest->flags = src->flags;
+        dest->gateway_onlink = src->gateway_onlink;
+        dest->pref = src->pref;
+        dest->ttl_propagate = src->ttl_propagate;
+        dest->mtu = src->mtu;
+        dest->quickack = src->quickack;
+        dest->fast_open_no_cookie = src->fast_open_no_cookie;
+
+        ORDERED_SET_FOREACH(m, src->multipath_routes) {
+                _cleanup_(multipath_route_freep) MultipathRoute *n = NULL;
+
+                r = multipath_route_dup(m, &n);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_ensure_put(&dest->multipath_routes, NULL, n);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(n);
+        }
+
+        *ret = TAKE_PTR(dest);
+        return 0;
+}
+
 static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
         int r;
@@ -645,7 +685,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
 
         /* link may be NULL */
 
-        if (in_addr_is_set(route->gw_family, &route->gw)) {
+        if (in_addr_is_set(route->gw_family, &route->gw) && route->nexthop_id == 0) {
                 if (route->gw_family == route->family) {
                         r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->gw_family, &route->gw);
                         if (r < 0)
@@ -1112,8 +1152,8 @@ int route_configure(
                 Route **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r, k = 0;
         Route *nr;
+        int r, k;
 
         assert(link);
         assert(link->manager);
@@ -1209,6 +1249,7 @@ int route_configure(
 
                 assert(!ret);
 
+                k = 0;
                 ORDERED_SET_FOREACH(m, route->multipath_routes) {
                         r = route_add_and_setup_timer(link, route, m, NULL);
                         if (r < 0)
@@ -1258,23 +1299,6 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return 1;
 }
 
-/*
-static bool route_has_gateway(const Route *route) {
-        assert(route);
-
-        if (in_addr_is_set(route->gw_family, &route->gw))
-                return true;
-
-        if (!ordered_set_isempty(route->multipath_routes))
-                return true;
-
-        if (route->nexthop_id > 0)
-                return true;
-
-        return false;
-}
-*/
-
 int link_request_static_routes(Link *link) {
         Route *route;
         int r;
@@ -1290,7 +1314,7 @@ int link_request_static_routes(Link *link) {
 
                 r = link_request_route(link, route, false, static_route_handler, NULL);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set routes: %m");
+                        return r;
 
                 link->static_route_messages++;
         }
@@ -1306,10 +1330,10 @@ int link_request_static_routes(Link *link) {
         return 0;
 }
 
-static bool gateway_is_accessible_one(int family, const union in_addr_union *gw, Route *route) {
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(gw);
+static bool route_address_is_accessible(const Route *route, int family, const union in_addr_union *address) {
         assert(route);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
 
         if (route->family != family)
                 return false;
@@ -1321,106 +1345,67 @@ static bool gateway_is_accessible_one(int family, const union in_addr_union *gw,
                         route->family,
                         &route->dst,
                         route->dst_prefixlen,
-                        gw,
+                        address,
                         FAMILY_ADDRESS_SIZE(family) * 8) > 0;
 }
 
-bool gateway_is_accessible(int family, const union in_addr_union *gw, Link *link) {
-        Route *route;
-        Link *l;
+bool manager_address_is_accessible(Manager *manager, int family, const union in_addr_union *address) {
+        Link *link;
 
+        assert(manager);
         assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(gw);
-        assert(link);
+        assert(address);
 
-        SET_FOREACH(route, link->routes_foreign)
-                if (gateway_is_accessible_one(family, gw, route))
-                        return true;
-        SET_FOREACH(route, link->routes)
-                if (gateway_is_accessible_one(family, gw, route))
-                        return true;
+        HASHMAP_FOREACH(link, manager->links) {
+                Route *route;
 
-        HASHMAP_FOREACH(l, link->manager->links) {
-                if (l == link)
-                        continue;
-                SET_FOREACH(route, l->routes_foreign)
-                        if (gateway_is_accessible_one(family, gw, route))
+                SET_FOREACH(route, link->routes)
+                        if (route_address_is_accessible(route, family, address))
                                 return true;
-                SET_FOREACH(route, l->routes)
-                        if (gateway_is_accessible_one(family, gw, route))
+                SET_FOREACH(route, link->routes_foreign)
+                        if (route_address_is_accessible(route, family, address))
                                 return true;
         }
 
         return false;
 }
 
-static int prefsrc_exists(int family, const union in_addr_union *prefsrc, Link *link) {
-        Link *l;
+static int route_is_ready_to_configure(const Route *route, Manager *manager) {
+        MultipathRoute *m;
         int r;
 
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(prefsrc);
-        assert(link);
-
-        if (family == AF_INET) {
-                Address *address;
-
-                SET_FOREACH(address, link->addresses)
-                        if (address->family == family &&
-                            in_addr_equal(family, &address->in_addr, prefsrc) > 0)
-                                return true;
-                SET_FOREACH(address, link->addresses_foreign)
-                        if (address->family == family &&
-                            in_addr_equal(family, &address->in_addr, prefsrc) > 0)
-                                return true;
-
-                HASHMAP_FOREACH(l, link->manager->links) {
-                        if (l == link)
-                                continue;
-
-                        SET_FOREACH(address, l->addresses)
-                                if (address->family == family &&
-                                    in_addr_equal(family, &address->in_addr, prefsrc) > 0)
-                                        return true;
-                        SET_FOREACH(address, l->addresses_foreign)
-                                if (address->family == family &&
-                                    in_addr_equal(family, &address->in_addr, prefsrc) > 0)
-                                        return true;
-                }
-        } else {
-                _cleanup_(address_freep) Address *address = NULL;
-
-                r = address_new(&address);
-                if (r < 0)
-                        return r;
-
-                address->family = family;
-                address->in_addr = *prefsrc;
-
-                HASHMAP_FOREACH(l, link->manager->links)
-                        if (address_get(link, address, NULL) >= 0)
-                                return true;
-        }
-
-        return false;
-}
-
-static int route_is_ready_to_configure(const Route *route, Link *link) {
-        int r;
-
-        assert(link);
         assert(route);
+        assert(manager);
 
         if (route->gateway_onlink <= 0 &&
             in_addr_is_set(route->gw_family, &route->gw) > 0 &&
-            !gateway_is_accessible(route->gw_family, &route->gw, link))
+            !manager_address_is_accessible(manager, route->gw_family, &route->gw))
                 return false;
 
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                union in_addr_union a = m->gateway.address;
+
+                if (route->gateway_onlink <= 0 &&
+                    !manager_address_is_accessible(manager, m->gateway.family, &a))
+                        return false;
+
+                if (m->ifname) {
+                        r = resolve_interface(&manager->rtnl, m->ifname);
+                        if (r < 0)
+                                return false;
+                        m->ifindex = r;
+                }
+        }
+
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
-                r = prefsrc_exists(route->family, &route->prefsrc, link);
+                r = manager_has_address(manager, route->family, &route->prefsrc, true);
                 if (r <= 0)
                         return r;
         }
+
+        if (route->nexthop_id > 0 &&
+            manager_get_nexthop_by_id(manager, route->nexthop_id, NULL) < 0)
+                return false;
 
         return true;
 }
@@ -1440,7 +1425,7 @@ int request_process_route(Request *req) {
         if (req->link->route_remove_messages > 0)
                 return 0;
 
-        r = route_is_ready_to_configure(req->route, req->link);
+        r = route_is_ready_to_configure(req->route, req->link->manager);
         if (r <= 0)
                 return r;
 
@@ -2528,13 +2513,14 @@ int config_parse_multipath_route(
                 void *data,
                 void *userdata) {
 
+        _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         _cleanup_free_ char *word = NULL, *buf = NULL;
-        _cleanup_free_ MultipathRoute *m = NULL;
         Network *network = userdata;
-        const char *p, *ip, *dev;
         union in_addr_union a;
         int family, r;
+        const char *p;
+        char *dev;
 
         assert(filename);
         assert(section);
@@ -2552,7 +2538,7 @@ int config_parse_multipath_route(
         }
 
         if (isempty(rvalue)) {
-                n->multipath_routes = ordered_set_free_free(n->multipath_routes);
+                n->multipath_routes = ordered_set_free_with_destructor(n->multipath_routes, multipath_route_free);
                 return 0;
         }
 
@@ -2572,15 +2558,14 @@ int config_parse_multipath_route(
 
         dev = strchr(word, '@');
         if (dev) {
-                buf = strndup(word, dev - word);
-                if (!buf)
-                        return log_oom();
-                ip = buf;
-                dev++;
-        } else
-                ip = word;
+                *dev++ = '\0';
 
-        r = in_addr_from_string_auto(ip, &family, &a);
+                m->ifname = strdup(dev);
+                if (!m->ifname)
+                        return log_oom();
+        }
+
+        r = in_addr_from_string_auto(word, &family, &a);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
@@ -2588,16 +2573,6 @@ int config_parse_multipath_route(
         }
         m->gateway.address = a;
         m->gateway.family = family;
-
-        if (dev) {
-                r = resolve_interface(NULL, dev);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid interface name or index, ignoring assignment: %s", dev);
-                        return 0;
-                }
-                m->ifindex = r;
-        }
 
         if (!isempty(p)) {
                 r = safe_atou32(p, &m->weight);
@@ -2817,7 +2792,8 @@ static int route_section_verify(Route *route, Network *network) {
         if (route->family == AF_INET6 && route->priority == 0)
                 route->priority = IP6_RT_PRIO_USER;
 
-        if (route->gateway_onlink < 0 && in_addr_is_set(route->gw_family, &route->gw) &&
+        if (route->gateway_onlink < 0 &&
+            (in_addr_is_set(route->gw_family, &route->gw) || !ordered_set_isempty(route->multipath_routes)) &&
             ordered_hashmap_isempty(network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
