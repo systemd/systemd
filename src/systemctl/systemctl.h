@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "bus-print-properties.h"
 #include "bus-util.h"
 #include "install.h"
 #include "output-mode.h"
@@ -58,7 +59,7 @@ extern bool arg_no_wtmp;
 extern bool arg_no_sync;
 extern bool arg_no_wall;
 extern bool arg_no_reload;
-extern bool arg_value;
+extern BusPrintPropertyFlags arg_print_flags;
 extern bool arg_show_types;
 extern int arg_check_inhibitors;
 extern bool arg_dry_run;

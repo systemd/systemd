@@ -34,8 +34,7 @@ static char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 static bool arg_monitor = false;
 static char **arg_property = NULL;
-static bool arg_value = false;
-static bool arg_all = false;
+static BusPrintPropertyFlags arg_print_flags = 0;
 
 typedef struct StatusInfo {
         usec_t time;
@@ -210,8 +209,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
                                      "/org/freedesktop/timedate1",
                                      NULL,
                                      arg_property,
-                                     arg_value,
-                                     arg_all,
+                                     arg_print_flags,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -702,7 +700,7 @@ static int show_timesync_status(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char type;
         const char *contents;
         int r;
@@ -728,7 +726,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         if (i.packet_count == 0)
                                 return 1;
 
-                        if (!value) {
+                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE)) {
                                 fputs(name, stdout);
                                 fputc('=', stdout);
                         }
@@ -767,8 +765,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                         if (r < 0)
                                 return r;
 
-                        if (arg_all || !isempty(str))
-                                bus_print_property_value(name, expected_value, value, str);
+                        bus_print_property_value(name, expected_value, flags, str);
 
                         return 1;
                 }
@@ -789,8 +786,7 @@ static int show_timesync(int argc, char **argv, void *userdata) {
                                      "/org/freedesktop/timesync1",
                                      print_timesync_property,
                                      arg_property,
-                                     arg_value,
-                                     arg_all,
+                                     arg_print_flags,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -997,16 +993,16 @@ static int parse_argv(int argc, char *argv[]) {
                         /* If the user asked for a particular
                          * property, show it to them, even if it is
                          * empty. */
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
                 }
 
                 case 'a':
-                        arg_all = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case ARG_VALUE:
-                        arg_value = true;
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case '?':
