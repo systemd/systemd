@@ -1094,7 +1094,7 @@ int request_process_address(Request *req) {
         assert(req->address);
         assert(req->type == REQUEST_TYPE_ADDRESS);
 
-        if (!link_is_ready_to_configure(req->link))
+        if (!link_is_ready_to_configure(req->link, false))
                 return 0;
 
         if (req->link->address_remove_messages > 0)
