@@ -1416,11 +1416,12 @@ static int mount_partition(
                 const char *where,
                 const char *directory,
                 uid_t uid_shift,
+                uid_t uid_range,
                 DissectImageFlags flags) {
 
         _cleanup_free_ char *chased = NULL, *options = NULL;
         const char *p, *node, *fstype;
-        bool rw;
+        bool rw, remap_uid_gid = false;
         int r;
 
         assert(m);
@@ -1480,14 +1481,18 @@ static int mount_partition(
                         return -ENOMEM;
         }
 
-        if (uid_is_valid(uid_shift) && uid_shift != 0 && fstype_can_uid_gid(fstype)) {
-                _cleanup_free_ char *uid_option = NULL;
+        if (uid_is_valid(uid_shift) && uid_shift != 0) {
 
-                if (asprintf(&uid_option, "uid=" UID_FMT ",gid=" GID_FMT, uid_shift, (gid_t) uid_shift) < 0)
-                        return -ENOMEM;
+                if (fstype_can_uid_gid(fstype)) {
+                        _cleanup_free_ char *uid_option = NULL;
 
-                if (!strextend_with_separator(&options, ",", uid_option))
-                        return -ENOMEM;
+                        if (asprintf(&uid_option, "uid=" UID_FMT ",gid=" GID_FMT, uid_shift, (gid_t) uid_shift) < 0)
+                                return -ENOMEM;
+
+                        if (!strextend_with_separator(&options, ",", uid_option))
+                                return -ENOMEM;
+                } else if (FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_IDMAPPED))
+                        remap_uid_gid = true;
         }
 
         if (!isempty(m->mount_options))
@@ -1519,6 +1524,12 @@ static int mount_partition(
         if (r < 0)
                 return r;
 
+        if (remap_uid_gid) {
+                r = remount_idmap(p, uid_shift, uid_range);
+                if (r < 0)
+                        return r;
+        }
+
         return 1;
 }
 
@@ -1548,7 +1559,13 @@ static int mount_root_tmpfs(const char *where, uid_t uid_shift, DissectImageFlag
         return 1;
 }
 
-int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
+int dissected_image_mount(
+                DissectedImage *m,
+                const char *where,
+                uid_t uid_shift,
+                uid_t uid_range,
+                DissectImageFlags flags) {
+
         int r, xbootldr_mounted;
 
         assert(m);
@@ -1572,14 +1589,14 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 
                 /* First mount the root fs. If there's none we use a tmpfs. */
                 if (m->partitions[PARTITION_ROOT].found)
-                        r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, flags);
+                        r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, uid_range, flags);
                 else
                         r = mount_root_tmpfs(where, uid_shift, flags);
                 if (r < 0)
                         return r;
 
                 /* For us mounting root always means mounting /usr as well */
-                r = mount_partition(m->partitions + PARTITION_USR, where, "/usr", uid_shift, flags);
+                r = mount_partition(m->partitions + PARTITION_USR, where, "/usr", uid_shift, uid_range, flags);
                 if (r < 0)
                         return r;
 
@@ -1600,23 +1617,23 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
                 return 0;
 
-        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, flags);
+        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", uid_shift, flags);
+        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_VAR, where, "/var", uid_shift, flags);
+        r = mount_partition(m->partitions + PARTITION_VAR, where, "/var", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, flags);
+        r = mount_partition(m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        xbootldr_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, flags);
+        xbootldr_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, flags);
         if (xbootldr_mounted < 0)
                 return xbootldr_mounted;
 
@@ -1642,7 +1659,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                                                 return r;
                                 } else if (dir_is_empty(p) > 0) {
                                         /* It exists and is an empty directory. Let's mount the ESP there. */
-                                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, flags);
+                                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, uid_range, flags);
                                         if (r < 0)
                                                 return r;
 
@@ -1654,7 +1671,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 if (!esp_done) {
                         /* OK, let's mount the ESP now to /efi (possibly creating the dir if missing) */
 
-                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/efi", uid_shift, flags);
+                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/efi", uid_shift, uid_range, flags);
                         if (r < 0)
                                 return r;
                 }
@@ -1663,13 +1680,19 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         return 0;
 }
 
-int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
+int dissected_image_mount_and_warn(
+                DissectedImage *m,
+                const char *where,
+                uid_t uid_shift,
+                uid_t uid_range,
+                DissectImageFlags flags) {
+
         int r;
 
         assert(m);
         assert(where);
 
-        r = dissected_image_mount(m, where, uid_shift, flags);
+        r = dissected_image_mount(m, where, uid_shift, uid_range, flags);
         if (r == -ENXIO)
                 return log_error_errno(r, "Not root file system found in image.");
         if (r == -EMEDIUMTYPE)
@@ -2464,6 +2487,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                 m,
                                 t,
                                 UID_INVALID,
+                                UID_INVALID,
                                 DISSECT_IMAGE_READ_ONLY|
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
                                 DISSECT_IMAGE_VALIDATE_OS|
@@ -2752,7 +2776,7 @@ int mount_image_privately_interactively(
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, flags);
+        r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, UID_INVALID, flags);
         if (r < 0)
                 return r;
 
@@ -2858,7 +2882,7 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
 
-        r = dissected_image_mount(dissected_image, dest, UID_INVALID, dissect_image_flags);
+        r = dissected_image_mount(dissected_image, dest, UID_INVALID, UID_INVALID, dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image: %m");
 
