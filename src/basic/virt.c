@@ -21,6 +21,14 @@
 #include "string-util.h"
 #include "virt.h"
 
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+enum {
+      SMBIOS_VM_BIT_SET,
+      SMBIOS_VM_BIT_UNSET,
+      SMBIOS_VM_BIT_UNKNOWN,
+};
+#endif
+
 #if defined(__i386__) || defined(__x86_64__)
 static const char *const vm_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_XEN]       = "XenVMMXenVMM",
@@ -134,9 +142,7 @@ static int detect_vm_device_tree(void) {
 #endif
 }
 
-static int detect_vm_dmi(void) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-
+static int detect_vm_dmi_vendor(void) {
         static const char *const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
@@ -149,6 +155,7 @@ static int detect_vm_dmi(void) {
                 int id;
         } dmi_vendor_table[] = {
                 { "KVM",                 VIRTUALIZATION_KVM       },
+                { "Amazon EC2",          VIRTUALIZATION_AMAZON    },
                 { "QEMU",                VIRTUALIZATION_QEMU      },
                 { "VMware",              VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
                 { "VMW",                 VIRTUALIZATION_VMWARE    },
@@ -180,8 +187,64 @@ static int detect_vm_dmi(void) {
                                 return dmi_vendor_table[j].id;
                         }
         }
-#endif
+        return VIRTUALIZATION_NONE;
+}
 
+static int detect_vm_smbios(void) {
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+        /* The SMBIOS BIOS Charateristics Extension Byte 2 (Section 2.1.2.2 of
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf), specifies that
+         * the 4th bit being set indicates a VM. The BIOS Characteristics table is exposed via the kernel in
+         * /sys/firmware/dmi/entries/0-0. Note that in the general case, this bit being unset should not
+         * imply that the system is running on bare-metal.  For example, QEMU 3.1.0 (with or without KVM)
+         * with SeaBIOS does not set this bit. */
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int r;
+
+        r = read_full_virtual_file("/sys/firmware/dmi/entries/0-0/raw", &s, &readsize);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read /sys/firmware/dmi/entries/0-0/raw, ignoring: %m");
+                return SMBIOS_VM_BIT_UNKNOWN;
+        }
+        if (readsize < 20 || s[1] < 20) {
+                /* The spec indicates that byte 1 contains the size of the table, 0x12 + the number of
+                 * extension bytes. The data we're interested in is in extension byte 2, which would be at
+                 * 0x13. If we didn't read that much data, or if the BIOS indicates that we don't have that
+                 * much data, we don't infer anything from the SMBIOS. */
+                log_debug("Only read %zu bytes from /sys/firmware/dmi/entries/0-0/raw (expected 20)", readsize);
+                return SMBIOS_VM_BIT_UNKNOWN;
+        }
+
+        uint8_t byte = (uint8_t) s[19];
+        if (byte & (1U<<4)) {
+                log_debug("DMI BIOS Extension table indicates virtualization");
+                return SMBIOS_VM_BIT_SET;
+        }
+        log_debug("DMI BIOS Extension table does not indicate virtualization");
+        return SMBIOS_VM_BIT_UNSET;
+#else
+        return SMBIOS_VM_BIT_UNKNOWN;
+#endif
+}
+
+static int detect_vm_dmi(void) {
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+
+        int r;
+        r = detect_vm_dmi_vendor();
+
+        /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between Amazon EC2
+         * virtual machines and bare-metal instances, so we need to look at SMBIOS. */
+        if (r == VIRTUALIZATION_AMAZON && detect_vm_smbios() == SMBIOS_VM_BIT_UNSET)
+                return VIRTUALIZATION_NONE;
+
+        /* If we haven't identified a VM, but the firmware indicates that there is one, indicate as much. We
+         * have no further information about what it is. */
+        if (r == VIRTUALIZATION_NONE && detect_vm_smbios() == SMBIOS_VM_BIT_SET)
+                return VIRTUALIZATION_VM_OTHER;
+        return r;
+#endif
         log_debug("No virtualization found in DMI");
 
         return VIRTUALIZATION_NONE;
@@ -344,8 +407,9 @@ int detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox, even if it uses KVM, as well as Xen even if it cloaks as Microsoft
-         *   Hyper-V. Attempt to detect uml at this stage also since it runs as a user-process nested inside other VMs.
+         * → First, try to detect Oracle Virtualbox and Amazon EC2 Nitro, even if they use KVM, as well as Xen even if
+         *   it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also since it runs as a user-process
+         *   nested inside other VMs.
          *
          * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if info in DMI is
          *   overwritten.
@@ -353,7 +417,7 @@ int detect_vm(void) {
          * → Third, try to detect from DMI. */
 
         dmi = detect_vm_dmi();
-        if (IN_SET(dmi, VIRTUALIZATION_ORACLE, VIRTUALIZATION_XEN)) {
+        if (IN_SET(dmi, VIRTUALIZATION_ORACLE, VIRTUALIZATION_XEN, VIRTUALIZATION_AMAZON)) {
                 r = dmi;
                 goto finish;
         }
@@ -914,6 +978,7 @@ bool has_cpu_with_flag(const char *flag) {
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_NONE] = "none",
         [VIRTUALIZATION_KVM] = "kvm",
+        [VIRTUALIZATION_AMAZON] = "amazon",
         [VIRTUALIZATION_QEMU] = "qemu",
         [VIRTUALIZATION_BOCHS] = "bochs",
         [VIRTUALIZATION_XEN] = "xen",
