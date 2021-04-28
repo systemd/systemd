@@ -1145,7 +1145,7 @@ static int append_nexthops(const Route *route, sd_netlink_message *req) {
         return 0;
 }
 
-int route_configure(
+static int route_configure(
                 const Route *route,
                 Link *link,
                 link_netlink_message_handler_t callback,
