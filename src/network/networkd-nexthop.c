@@ -725,7 +725,7 @@ int request_process_nexthop(Request *req) {
         assert(req->nexthop);
         assert(req->type == REQUEST_TYPE_NEXTHOP);
 
-        if (!link_is_ready_to_configure(req->link))
+        if (!link_is_ready_to_configure(req->link, false))
                 return 0;
 
         if (!nexthop_is_ready_to_configure(req->link, req->nexthop))

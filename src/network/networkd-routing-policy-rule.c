@@ -807,7 +807,7 @@ int request_process_routing_policy_rule(Request *req) {
         assert(req->rule);
         assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
 
-        if (!link_is_ready_to_configure(req->link))
+        if (!link_is_ready_to_configure(req->link, false))
                 return 0;
 
         if (req->link->manager->routing_policy_rule_remove_messages > 0)
