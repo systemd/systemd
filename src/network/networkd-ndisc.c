@@ -558,7 +558,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (!route_gw->protocol_set)
                         route_gw->protocol = RTPROT_RA;
                 if (!route_gw->pref_set)
-                        route->pref = preference;
+                        route_gw->pref = preference;
                 route_gw->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
                 if (route_gw->mtu == 0)
                         route_gw->mtu = mtu;
