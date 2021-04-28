@@ -885,11 +885,11 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_static_nexthops(link);
+        r = link_request_static_nexthops(link, false);
         if (r < 0)
                 return r;
 
-        r = link_request_static_routes(link);
+        r = link_request_static_routes(link, false);
         if (r < 0)
                 return r;
 
