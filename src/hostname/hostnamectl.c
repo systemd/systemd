@@ -18,6 +18,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
@@ -30,6 +31,7 @@ static char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
+static char *arg_os_release_field = NULL;
 
 typedef struct StatusInfo {
         const char *hostname;
@@ -321,10 +323,6 @@ static int show_status(int argc, char **argv, void *userdata) {
         if (arg_pretty || arg_static || arg_transient) {
                 const char *attr;
 
-                if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Cannot query more than one name type at a time");
-
                 attr = arg_pretty ? "PrettyHostname" :
                         arg_static ? "StaticHostname" : "Hostname";
 
@@ -463,6 +461,25 @@ static int set_location(int argc, char **argv, void *userdata) {
         return set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
+static int show_os_release_field(void) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(arg_os_release_field);
+
+        r = parse_os_release(NULL, arg_os_release_field, &v, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read os-release file: %m");
+
+        if (!v)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "Field \"%s\" not found in os-release file or empty.",
+                                       arg_os_release_field);
+
+        puts(v);
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -481,14 +498,15 @@ static int help(void) {
                "  set-deployment NAME    Set deployment environment for host\n"
                "  set-location NAME      Set location for host\n"
                "\nOptions:\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on local container\n"
-               "     --transient         Only set transient hostname\n"
-               "     --static            Only set static hostname\n"
-               "     --pretty            Only set pretty hostname\n"
+               "  -h --help                  Show this help\n"
+               "     --version               Show package version\n"
+               "     --no-ask-password       Do not prompt for password\n"
+               "  -H --host=[USER@]HOST      Operate on remote host\n"
+               "  -M --machine=CONTAINER     Operate on local container\n"
+               "     --transient             Only set transient hostname\n"
+               "     --static                Only set static hostname\n"
+               "     --pretty                Only set pretty hostname\n"
+               "     --os-release-field=NAME Show the value of an os-release field\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -509,18 +527,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_TRANSIENT,
                 ARG_STATIC,
-                ARG_PRETTY
+                ARG_PRETTY,
+                ARG_OS_RELEASE_FIELD,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "transient",       no_argument,       NULL, ARG_TRANSIENT       },
-                { "static",          no_argument,       NULL, ARG_STATIC          },
-                { "pretty",          no_argument,       NULL, ARG_PRETTY          },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "help",             no_argument,       NULL, 'h'                  },
+                { "version",          no_argument,       NULL, ARG_VERSION          },
+                { "transient",        no_argument,       NULL, ARG_TRANSIENT        },
+                { "static",           no_argument,       NULL, ARG_STATIC           },
+                { "pretty",           no_argument,       NULL, ARG_PRETTY           },
+                { "host",             required_argument, NULL, 'H'                  },
+                { "machine",          required_argument, NULL, 'M'                  },
+                { "no-ask-password",  no_argument,       NULL, ARG_NO_ASK_PASSWORD  },
+                { "os-release-field", required_argument, NULL, ARG_OS_RELEASE_FIELD },
                 {}
         };
 
@@ -565,12 +585,26 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
+                case ARG_OS_RELEASE_FIELD:
+                        arg_os_release_field = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (arg_static + arg_pretty + arg_transient > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot query more than one name type at a time.");
+        if (arg_os_release_field && argv[optind] && !STRPTR_IN_SET(argv[optind], "status", "help"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--os-release-field= is only allowed with the status verb.");
+        if (arg_os_release_field && (arg_transient || arg_static || arg_pretty || arg_host))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--os-release-field= is not allowed --transient/--static/--pretty/--host=/-machine=.");
 
         return 1;
 }
@@ -601,6 +635,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_os_release_field)
+                return show_os_release_field();
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0)
