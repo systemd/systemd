@@ -9,16 +9,20 @@ SYSCALLS = [
     'bpf',
     'close_range',
     'copy_file_range',
+    'epoll_pwait2',
     'getrandom',
     'memfd_create',
+    'mount_setattr',
+    'move_mount',
     'name_to_handle_at',
+    'open_tree',
     'pidfd_open',
     'pidfd_send_signal',
     'pkey_mprotect',
     'renameat2',
     'setns',
     'statx',
-    'epoll_pwait2']
+]
 
 def dictify(f):
     def wrap(*args, **kwargs):

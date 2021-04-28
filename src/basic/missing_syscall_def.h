@@ -202,6 +202,64 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #  endif
 #endif
 
+#ifndef __IGNORE_epoll_pwait2
+#  if defined(__aarch64__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__alpha__)
+#    define systemd_NR_epoll_pwait2 551
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__arm__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__i386__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__ia64__)
+#    define systemd_NR_epoll_pwait2 1465
+#  elif defined(__m68k__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_epoll_pwait2 4441
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_epoll_pwait2 6441
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_epoll_pwait2 5441
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__s390__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__sparc__)
+#    define systemd_NR_epoll_pwait2 441
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_epoll_pwait2 (441 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_epoll_pwait2 441
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "epoll_pwait2() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_epoll_pwait2 && __NR_epoll_pwait2 >= 0
+#    if defined systemd_NR_epoll_pwait2
+assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
+#    endif
+#  else
+#    if defined __NR_epoll_pwait2
+#      undef __NR_epoll_pwait2
+#    endif
+#    if defined systemd_NR_epoll_pwait2 && systemd_NR_epoll_pwait2 >= 0
+#      define __NR_epoll_pwait2 systemd_NR_epoll_pwait2
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_getrandom
 #  if defined(__aarch64__)
 #    define systemd_NR_getrandom 278
@@ -318,6 +376,122 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #  endif
 #endif
 
+#ifndef __IGNORE_mount_setattr
+#  if defined(__aarch64__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__alpha__)
+#    define systemd_NR_mount_setattr 552
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__arm__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__i386__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__ia64__)
+#    define systemd_NR_mount_setattr 1466
+#  elif defined(__m68k__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_mount_setattr 4442
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_mount_setattr 6442
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_mount_setattr 5442
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__s390__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__sparc__)
+#    define systemd_NR_mount_setattr 442
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_mount_setattr (442 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_mount_setattr 442
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "mount_setattr() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_mount_setattr && __NR_mount_setattr >= 0
+#    if defined systemd_NR_mount_setattr
+assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
+#    endif
+#  else
+#    if defined __NR_mount_setattr
+#      undef __NR_mount_setattr
+#    endif
+#    if defined systemd_NR_mount_setattr && systemd_NR_mount_setattr >= 0
+#      define __NR_mount_setattr systemd_NR_mount_setattr
+#    endif
+#  endif
+#endif
+
+#ifndef __IGNORE_move_mount
+#  if defined(__aarch64__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__alpha__)
+#    define systemd_NR_move_mount 539
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__arm__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__i386__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__ia64__)
+#    define systemd_NR_move_mount 1453
+#  elif defined(__m68k__)
+#    define systemd_NR_move_mount 429
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_move_mount 4429
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_move_mount 6429
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_move_mount 5429
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__s390__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__sparc__)
+#    define systemd_NR_move_mount 429
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_move_mount (429 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_move_mount 429
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "move_mount() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_move_mount && __NR_move_mount >= 0
+#    if defined systemd_NR_move_mount
+assert_cc(__NR_move_mount == systemd_NR_move_mount);
+#    endif
+#  else
+#    if defined __NR_move_mount
+#      undef __NR_move_mount
+#    endif
+#    if defined systemd_NR_move_mount && systemd_NR_move_mount >= 0
+#      define __NR_move_mount systemd_NR_move_mount
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_name_to_handle_at
 #  if defined(__aarch64__)
 #    define systemd_NR_name_to_handle_at 264
@@ -372,6 +546,64 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    endif
 #    if defined systemd_NR_name_to_handle_at && systemd_NR_name_to_handle_at >= 0
 #      define __NR_name_to_handle_at systemd_NR_name_to_handle_at
+#    endif
+#  endif
+#endif
+
+#ifndef __IGNORE_open_tree
+#  if defined(__aarch64__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__alpha__)
+#    define systemd_NR_open_tree 538
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__arm__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__i386__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__ia64__)
+#    define systemd_NR_open_tree 1452
+#  elif defined(__m68k__)
+#    define systemd_NR_open_tree 428
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_open_tree 4428
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_open_tree 6428
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_open_tree 5428
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__powerpc__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__riscv) && defined(__LP64__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__s390__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__sparc__)
+#    define systemd_NR_open_tree 428
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_open_tree (428 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_open_tree 428
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "open_tree() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_open_tree && __NR_open_tree >= 0
+#    if defined systemd_NR_open_tree
+assert_cc(__NR_open_tree == systemd_NR_open_tree);
+#    endif
+#  else
+#    if defined __NR_open_tree
+#      undef __NR_open_tree
+#    endif
+#    if defined systemd_NR_open_tree && systemd_NR_open_tree >= 0
+#      define __NR_open_tree systemd_NR_open_tree
 #    endif
 #  endif
 #endif
@@ -720,64 +952,6 @@ assert_cc(__NR_statx == systemd_NR_statx);
 #    endif
 #    if defined systemd_NR_statx && systemd_NR_statx >= 0
 #      define __NR_statx systemd_NR_statx
-#    endif
-#  endif
-#endif
-
-#ifndef __IGNORE_epoll_pwait2
-#  if defined(__aarch64__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__alpha__)
-#    define systemd_NR_epoll_pwait2 551
-#  elif defined(__arc__) || defined(__tilegx__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__arm__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__i386__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__ia64__)
-#    define systemd_NR_epoll_pwait2 1465
-#  elif defined(__m68k__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(_MIPS_SIM)
-#    if _MIPS_SIM == _MIPS_SIM_ABI32
-#      define systemd_NR_epoll_pwait2 4441
-#    elif _MIPS_SIM == _MIPS_SIM_NABI32
-#      define systemd_NR_epoll_pwait2 6441
-#    elif _MIPS_SIM == _MIPS_SIM_ABI64
-#      define systemd_NR_epoll_pwait2 5441
-#    else
-#      error "Unknown MIPS ABI"
-#    endif
-#  elif defined(__powerpc__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__s390__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__sparc__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__x86_64__)
-#    if defined(__ILP32__)
-#      define systemd_NR_epoll_pwait2 (441 | /* __X32_SYSCALL_BIT */ 0x40000000)
-#    else
-#      define systemd_NR_epoll_pwait2 441
-#    endif
-#  elif !defined(missing_arch_template)
-#    warning "epoll_pwait2() syscall number is unknown for your architecture"
-#  endif
-
-/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
-#  if defined __NR_epoll_pwait2 && __NR_epoll_pwait2 >= 0
-#    if defined systemd_NR_epoll_pwait2
-assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
-#    endif
-#  else
-#    if defined __NR_epoll_pwait2
-#      undef __NR_epoll_pwait2
-#    endif
-#    if defined systemd_NR_epoll_pwait2 && systemd_NR_epoll_pwait2 >= 0
-#      define __NR_epoll_pwait2 systemd_NR_epoll_pwait2
 #    endif
 #  endif
 #endif
