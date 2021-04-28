@@ -574,6 +574,37 @@ static int property_get_default_hostname(
         return sd_bus_message_append(reply, "s", hn);
 }
 
+static void context_determine_hostname_source(Context *c) {
+        char hostname[HOST_NAME_MAX + 1] = {};
+        _cleanup_free_ char *fallback = NULL;
+        int r;
+
+        assert(c);
+
+        if (c->hostname_source >= 0)
+                return;
+
+        (void) get_hostname_filtered(hostname);
+
+        if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME]))
+                c->hostname_source = HOSTNAME_STATIC;
+        else {
+                /* If the hostname was not set by us, try to figure out where it came from. If we set it to
+                 * the default hostname, the file will tell us. We compare the string because it is possible
+                 * that the hostname was set by an older version that had a different fallback, in the
+                 * initramfs or before we reexecuted. */
+
+                r = read_one_line_file("/run/systemd/default-hostname", &fallback);
+                if (r < 0 && r != -ENOENT)
+                        log_warning_errno(r, "Failed to read /run/systemd/default-hostname, ignoring: %m");
+
+                if (streq_ptr(fallback, hostname))
+                        c->hostname_source = HOSTNAME_DEFAULT;
+                else
+                        c->hostname_source = HOSTNAME_TRANSIENT;
+        }
+}
+
 static int property_get_hostname_source(
                 sd_bus *bus,
                 const char *path,
@@ -584,36 +615,10 @@ static int property_get_hostname_source(
                 sd_bus_error *error) {
 
         Context *c = userdata;
-        int r;
         assert(c);
 
         context_read_etc_hostname(c);
-
-        if (c->hostname_source < 0) {
-                char hostname[HOST_NAME_MAX + 1] = {};
-                _cleanup_free_ char *fallback = NULL;
-
-                (void) get_hostname_filtered(hostname);
-
-                if (streq_ptr(hostname, c->data[PROP_STATIC_HOSTNAME]))
-                        c->hostname_source = HOSTNAME_STATIC;
-
-                else {
-                        /* If the hostname was not set by us, try to figure out where it came from. If we set
-                         * it to the default hostname, the file will tell us. We compare the string because
-                         * it is possible that the hostname was set by an older version that had a different
-                         * fallback, in the initramfs or before we reexecuted. */
-
-                        r = read_one_line_file("/run/systemd/default-hostname", &fallback);
-                        if (r < 0 && r != -ENOENT)
-                                log_warning_errno(r, "Failed to read /run/systemd/default-hostname, ignoring: %m");
-
-                        if (streq_ptr(fallback, hostname))
-                                c->hostname_source = HOSTNAME_DEFAULT;
-                        else
-                                c->hostname_source = HOSTNAME_TRANSIENT;
-                }
-        }
+        context_determine_hostname_source(c);
 
         return sd_bus_message_append(reply, "s", hostname_source_to_string(c->hostname_source));
 }
