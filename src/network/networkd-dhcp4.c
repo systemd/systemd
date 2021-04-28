@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
+#include "errno-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "parse-util.h"
@@ -1070,7 +1071,9 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 if (link->network->dhcp_send_release) {
                                         r = sd_dhcp_client_send_release(client);
                                         if (r < 0)
-                                                log_link_warning_errno(link, r, "Failed to send DHCP RELEASE, ignoring: %m");
+                                                log_link_full_errno(link,
+                                                                    ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING,
+                                                                    r, "Failed to send DHCP RELEASE, ignoring: %m");
                                 }
 
                                 r = dhcp_lease_lost(link);
