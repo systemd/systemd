@@ -938,18 +938,6 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         assert(m);
         assert(c);
 
-        r = id128_get_product(&uuid);
-        if (r < 0) {
-                if (r == -EADDRNOTAVAIL)
-                        log_debug_errno(r, "DMI product UUID is all 0x00 or all 0xFF, ignoring.");
-                else
-                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to read product UUID, ignoring: %m");
-
-                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID,
-                                        "Failed to read product UUID from firmware.");
-        }
-
         r = sd_bus_message_read(m, "b", &interactive);
         if (r < 0)
                 return r;
@@ -967,6 +955,18 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = id128_get_product(&uuid);
+        if (r < 0) {
+                if (r == -EADDRNOTAVAIL)
+                        log_debug_errno(r, "DMI product UUID is all 0x00 or all 0xFF, ignoring.");
+                else
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to read product UUID, ignoring: %m");
+
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID,
+                                        "Failed to read product UUID from firmware.");
+        }
 
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
