@@ -34,6 +34,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
+#include "networkd-queue.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
@@ -406,6 +407,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_post(m->event, NULL, manager_process_requests, m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_rtnl(m);
         if (r < 0)
                 return r;
@@ -445,6 +450,8 @@ Manager* manager_free(Manager *m) {
 
         HASHMAP_FOREACH(link, m->links)
                 (void) link_stop_engines(link, true);
+
+        m->request_queue = ordered_set_free_with_destructor(m->request_queue, request_free);
 
         m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
         m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);

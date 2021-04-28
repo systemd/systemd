@@ -33,6 +33,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
@@ -131,6 +132,18 @@ bool link_ipv6_enabled(Link *link) {
                 return true;
 
         return false;
+}
+
+bool link_is_ready_to_configure(Link *link) {
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                return false;
+
+        return true;
 }
 
 static bool link_is_enslaved(Link *link) {
@@ -764,11 +777,8 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return;
 
-        if (!link->addresses_configured)
+        if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
-
-        if (!link->neighbors_configured)
-                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
         SET_FOREACH(a, link->addresses)
                 if (!address_is_ready(a)) {
@@ -778,13 +788,16 @@ void link_check_ready(Link *link) {
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
-        if (!link->static_routes_configured)
-                return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
+        if (!link->static_neighbors_configured)
+                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
         if (!link->static_nexthops_configured)
                 return (void) log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
 
-        if (!link->routing_policy_rules_configured)
+        if (!link->static_routes_configured)
+                return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
+
+        if (!link->static_routing_policy_rules_configured)
                 return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
 
         if (!link->tc_configured)
@@ -848,15 +861,6 @@ static int link_set_static_configs(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        /* Reset all *_configured flags we are configuring. */
-        link->request_static_addresses = false;
-        link->addresses_configured = false;
-        link->addresses_ready = false;
-        link->neighbors_configured = false;
-        link->static_routes_configured = false;
-        link->static_nexthops_configured = false;
-        link->routing_policy_rules_configured = false;
-
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
@@ -865,11 +869,7 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_neighbors(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_addresses(link);
+        r = link_set_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
 
@@ -877,8 +877,23 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        /* now that we can figure out a default address for the dhcp server, start it */
-        r = dhcp4_server_configure(link);
+        r = link_request_static_addresses(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_neighbors(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_nexthops(link, false);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routes(link, false);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routing_policy_rules(link);
         if (r < 0)
                 return r;
 
@@ -2010,17 +2025,17 @@ static int link_drop_foreign_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_foreign_addresses(link);
-
-        k = link_drop_foreign_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_foreign_routes(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        r = link_drop_foreign_routes(link);
 
         k = link_drop_foreign_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_foreign_addresses(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_foreign_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -2037,17 +2052,17 @@ static int link_drop_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_addresses(link);
-
-        k = link_drop_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_routes(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        r = link_drop_routes(link);
 
         k = link_drop_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_addresses(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -2058,6 +2073,17 @@ static int link_drop_config(Link *link) {
         ndisc_flush(link);
 
         return r;
+}
+
+static void link_drop_requests(Link *link) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+
+        ORDERED_SET_FOREACH(req, link->manager->request_queue)
+                if (req->link == link)
+                        request_free(req);
 }
 
 int link_configure(Link *link) {
@@ -2212,6 +2238,8 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         r = link_stop_engines(link, false);
         if (r < 0)
                 return r;
+
+        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -2589,6 +2617,12 @@ static int link_carrier_gained(Link *link) {
                 r = link_set_static_configs(link);
                 if (r < 0)
                         return r;
+
+                if (link->static_addresses_configured && !link->dhcp_server) {
+                        r = dhcp4_server_configure(link);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = link_handle_bound_by_list(link);
@@ -2636,6 +2670,8 @@ static int link_carrier_lost(Link *link) {
                 link_enter_failed(link);
                 return r;
         }
+
+        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
