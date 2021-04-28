@@ -432,7 +432,6 @@ static int device_wait_for_initialization_harder(
                 usec_t deadline,
                 sd_device **ret) {
 
-        _cleanup_free_ char *uevent = NULL;
         usec_t start, left, retrigger_timeout;
         int r;
 
@@ -444,7 +443,8 @@ static int device_wait_for_initialization_harder(
                 const char *sn = NULL;
 
                 (void) sd_device_get_sysname(device, &sn);
-                log_debug("Waiting for device '%s' to initialize for %s.", strna(sn), format_timespan(buf, sizeof(buf), left, 0));
+                log_device_debug(device,
+                                 "Waiting for device '%s' to initialize for %s.", strna(sn), format_timespan(buf, sizeof(buf), left, 0));
         }
 
         if (left != USEC_INFINITY)
@@ -475,33 +475,24 @@ static int device_wait_for_initialization_harder(
                         const char *sn = NULL;
 
                         (void) sd_device_get_sysname(device, &sn);
-                        log_debug("Successfully waited for device '%s' to initialize for %s.", strna(sn), format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
+                        log_device_debug(device,
+                                         "Successfully waited for device '%s' to initialize for %s.",
+                                         strna(sn),
+                                         format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
 
                 }
                 if (r != -ETIMEDOUT || last_try)
                         return r;
 
-                if (!uevent) {
-                        const char *syspath;
-
-                        r = sd_device_get_syspath(device, &syspath);
-                        if (r < 0)
-                                return r;
-
-                        uevent = path_join(syspath, "uevent");
-                        if (!uevent)
-                                return -ENOMEM;
-                }
-
                 if (DEBUG_LOGGING) {
                         char buf[FORMAT_TIMESPAN_MAX];
 
-                        log_debug("Device didn't initialize within %s, assuming lost event. Retriggering device through %s.",
-                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
-                                  uevent);
+                        log_device_debug(device,
+                                         "Device didn't initialize within %s, assuming lost event. Retriggering device.",
+                                         format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
                 }
 
-                r = write_string_file(uevent, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+                r = sd_device_trigger(device, SD_DEVICE_CHANGE);
                 if (r < 0)
                         return r;
         }
