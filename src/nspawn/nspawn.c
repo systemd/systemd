@@ -3044,7 +3044,6 @@ static int chase_symlinks_and_update(char **p, unsigned flags) {
 }
 
 static int determine_uid_shift(const char *directory) {
-        int r;
 
         if (arg_userns_mode == USER_NAMESPACE_NO) {
                 arg_uid_shift = 0;
@@ -3054,8 +3053,9 @@ static int determine_uid_shift(const char *directory) {
         if (arg_uid_shift == UID_INVALID) {
                 struct stat st;
 
-                r = stat(directory, &st);
-                if (r < 0)
+                /* Read the UID shift off the image. Maybe we can reuse this to avoid chowning. */
+
+                if (stat(directory, &st) < 0)
                         return log_error_errno(errno, "Failed to determine UID base of %s: %m", directory);
 
                 arg_uid_shift = st.st_uid & UINT32_C(0xffff0000);
