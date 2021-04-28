@@ -487,25 +487,20 @@ static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
         return 0;
 }
 
-static int link_set_dns_routes(Link *link, const struct in_addr *gw) {
+static int link_set_routes_to_servers(
+                Link *link,
+                const struct in_addr *servers,
+                size_t n_servers,
+                const struct in_addr *gw) {
+
         _cleanup_(route_freep) Route *route = NULL;
-        const struct in_addr *dns;
-        int n, r;
+        int r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(link->network);
+        assert(servers || n_servers == 0);
         assert(gw);
-
-        if (!link->network->dhcp_use_dns ||
-            !link->network->dhcp_routes_to_dns)
-                return 0;
-
-        n = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
-        if (IN_SET(n, 0, -ENODATA))
-                return 0;
-        if (n < 0)
-                return n;
 
         r = route_new(&route);
         if (r < 0)
@@ -518,11 +513,11 @@ static int link_set_dns_routes(Link *link, const struct in_addr *gw) {
         route->table = link_get_dhcp_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
-        for (int i = 0; i < n; i ++) {
-                if (in4_addr_is_null(&dns[i]))
+        for (size_t i = 0; i < n_servers; i++) {
+                if (in4_addr_is_null(&servers[i]))
                         continue;
 
-                route->dst.in = dns[i];
+                route->dst.in = servers[i];
 
                 r = dhcp_route_configure_auto(route, link, gw);
                 if (r < 0)
@@ -530,6 +525,50 @@ static int link_set_dns_routes(Link *link, const struct in_addr *gw) {
         }
 
         return 0;
+}
+
+static int link_set_routes_to_dns(Link *link, const struct in_addr *gw) {
+        const struct in_addr *dns;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+        assert(gw);
+
+        if (!link->network->dhcp_use_dns ||
+            !link->network->dhcp_routes_to_dns)
+                return 0;
+
+        r = sd_dhcp_lease_get_dns(link->dhcp_lease, &dns);
+        if (IN_SET(r, 0, -ENODATA))
+                return 0;
+        if (r < 0)
+                return r;
+
+        return link_set_routes_to_servers(link, dns, r, gw);
+}
+
+static int link_set_routes_to_ntp(Link *link, const struct in_addr *gw) {
+        const struct in_addr *ntp;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(link->network);
+        assert(gw);
+
+        if (!link->network->dhcp_use_ntp ||
+            !link->network->dhcp_routes_to_ntp)
+                return 0;
+
+        r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &ntp);
+        if (IN_SET(r, 0, -ENODATA))
+                return 0;
+        if (r < 0)
+                return r;
+
+        return link_set_routes_to_servers(link, ntp, r, gw);
 }
 
 static int link_set_dhcp_routes(Link *link) {
@@ -571,9 +610,13 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "DHCP error: Could not set gateway: %m");
         }
 
-        r = link_set_dns_routes(link, &gw);
+        r = link_set_routes_to_dns(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set routes to DNS servers: %m");
+
+        r = link_set_routes_to_ntp(link, &gw);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not set routes to NTP servers: %m");
 
         return 0;
 }
