@@ -403,6 +403,7 @@ int unit_file_build_name_map(
         /* Let's also put the names in the reverse db. */
         const char *dummy, *src;
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
+                _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
                 const char *dst;
 
                 r = unit_ids_map_get(ids, src, &dst);
@@ -412,15 +413,31 @@ int unit_file_build_name_map(
                 if (null_or_empty_path(dst) != 0)
                         continue;
 
-                /* Do not treat instance symlinks that point to the template as aliases */
-                if (unit_name_is_valid(basename(dst), UNIT_NAME_TEMPLATE) &&
-                    unit_name_is_valid(src, UNIT_NAME_INSTANCE))
-                        continue;
+                dst = basename(dst);
 
-                r = string_strv_hashmap_put(&names, basename(dst), src);
+                /* If we have an symlink from an instance name to a template name, it is an alias just for
+                 * this specific instance, foo@id.service ↔ template@id.service. */
+                if (unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
+                        UnitNameFlags t = unit_name_to_instance(src, &inst);
+                        if (t < 0)
+                                return log_error_errno(t, "Failed to extract instance part from %s: %m", src);
+                        if (t == UNIT_NAME_INSTANCE) {
+                                r = unit_name_replace_instance(dst, inst, &dst_inst);
+                                if (r < 0) {
+                                        /* This might happen e.g. if the combined length is too large.
+                                         * Let's not make too much of a fuss. */
+                                        log_debug_errno(r, "Failed to build alias name (%s + %s), ignoring: %m",
+                                                        dst, inst);
+                                        continue;
+                                }
+
+                                dst = dst_inst;
+                        }
+                }
+
+                r = string_strv_hashmap_put(&names, dst, src);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m",
-                                                 basename(dst), src);
+                        return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m", dst, src);
         }
 
         if (cache_timestamp_hash)
@@ -434,6 +451,88 @@ int unit_file_build_name_map(
         return 1;
 }
 
+static int add_name(
+                const char *unit_name,
+                Set **names,
+                const char *name) {
+        int r;
+
+        assert(names);
+        assert(name);
+
+        r = set_put_strdup(names, name);
+        if (r < 0)
+                return r;
+        if (r > 0 && !streq(unit_name, name))
+                log_debug("Unit %s has alias %s.", unit_name, name);
+        return r;
+}
+
+static int add_names(
+                Hashmap *unit_ids_map,
+                Hashmap *unit_name_map,
+                const char *unit_name,
+                const char *fragment_basename,  /* Only set when adding additional names based on fragment path */
+                UnitNameFlags name_type,
+                const char *instance,
+                Set **names,
+                const char *name) {
+
+        char **aliases, **alias;
+        int r;
+
+        assert(name_type == UNIT_NAME_PLAIN || instance);
+
+        /* The unit has its own name if it's not a template. If we're looking at a fragment, the fragment
+         * name (possibly with instance inserted), is also always one of the unit names. */
+        if (name_type != UNIT_NAME_TEMPLATE) {
+                r = add_name(unit_name, names, name);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Add any aliases of the name to the set of names.
+         *
+         * We don't even need to know which fragment we will use. The unit_name_map should return the same
+         * set of names for any of the aliases. */
+        aliases = hashmap_get(unit_name_map, name);
+        STRV_FOREACH(alias, aliases) {
+                if (name_type == UNIT_NAME_INSTANCE && unit_name_is_valid(*alias, UNIT_NAME_TEMPLATE)) {
+                        _cleanup_free_ char *inst = NULL;
+                        const char *inst_fragment = NULL;
+
+                        r = unit_name_replace_instance(*alias, instance, &inst);
+                        if (r < 0)
+                                return log_debug_errno(r, "Cannot build instance name %s + %s: %m",
+                                                       *alias, instance);
+
+                        /* Exclude any aliases that point in some other direction.
+                         *
+                         * See https://github.com/systemd/systemd/pull/13119#discussion_r308145418. */
+                        r = unit_ids_map_get(unit_ids_map, inst, &inst_fragment);
+                        if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                                return log_debug_errno(r, "Cannot find instance fragment %s: %m", inst);
+
+                        if (inst_fragment &&
+                            !streq(basename(inst_fragment), fragment_basename)) {
+                                log_debug("Instance %s has fragment %s and is not an alias of %s.",
+                                          inst, inst_fragment, unit_name);
+                                continue;
+                        }
+
+                        r = set_consume(*names, TAKE_PTR(inst));
+                        if (r > 0)
+                                log_debug("Unit %s has alias %s.", unit_name, inst);
+                } else
+                        r = add_name(unit_name, names, *alias);
+
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int unit_file_find_fragment(
                 Hashmap *unit_ids_map,
                 Hashmap *unit_name_map,
@@ -443,9 +542,8 @@ int unit_file_find_fragment(
 
         const char *fragment = NULL;
         _cleanup_free_ char *template = NULL, *instance = NULL;
-        _cleanup_set_free_free_ Set *names = NULL;
-        char **t, **nnn;
-        int r, name_type;
+        _cleanup_set_free_ Set *names = NULL;
+        int r;
 
         /* Finds a fragment path, and returns the set of names:
          * if we have …/foo.service and …/foo-alias.service→foo.service,
@@ -461,52 +559,18 @@ int unit_file_find_fragment(
          * foo-alias@inst.service → …/foo@inst.service, {foo@inst.service, foo-alias@inst.service}.
          */
 
-        name_type = unit_name_to_instance(unit_name, &instance);
+        UnitNameFlags name_type = unit_name_to_instance(unit_name, &instance);
         if (name_type < 0)
                 return name_type;
 
-        names = set_new(&string_hash_ops);
-        if (!names)
-                return -ENOMEM;
-
-        /* The unit always has its own name if it's not a template. */
-        if (IN_SET(name_type, UNIT_NAME_PLAIN, UNIT_NAME_INSTANCE)) {
-                r = set_put_strdup(&names, unit_name);
-                if (r < 0)
-                        return r;
-        }
+        r = add_names(unit_ids_map, unit_name_map, unit_name, NULL, name_type, instance, &names, unit_name);
+        if (r < 0)
+                return r;
 
         /* First try to load fragment under the original name */
         r = unit_ids_map_get(unit_ids_map, unit_name, &fragment);
         if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 return log_debug_errno(r, "Cannot load unit %s: %m", unit_name);
-
-        if (fragment) {
-                /* Add any aliases of the original name to the set of names */
-                nnn = hashmap_get(unit_name_map, basename(fragment));
-                STRV_FOREACH(t, nnn) {
-                        if (name_type == UNIT_NAME_INSTANCE && unit_name_is_valid(*t, UNIT_NAME_TEMPLATE)) {
-                                char *inst;
-
-                                r = unit_name_replace_instance(*t, instance, &inst);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Cannot build instance name %s+%s: %m", *t, instance);
-
-                                if (!streq(unit_name, inst))
-                                        log_debug("%s: %s has alias %s", __func__, unit_name, inst);
-
-                                log_info("%s: %s+%s → %s", __func__, *t, instance, inst);
-                                r = set_consume(names, inst);
-                        } else {
-                                if (!streq(unit_name, *t))
-                                        log_debug("%s: %s has alias %s", __func__, unit_name, *t);
-
-                                r = set_put_strdup(&names, *t);
-                        }
-                        if (r < 0)
-                                return r;
-                }
-        }
 
         if (!fragment && name_type == UNIT_NAME_INSTANCE) {
                 /* Look for a fragment under the template name */
@@ -518,43 +582,22 @@ int unit_file_find_fragment(
                 r = unit_ids_map_get(unit_ids_map, template, &fragment);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_debug_errno(r, "Cannot load template %s: %m", template);
+        }
 
-                if (fragment) {
-                        /* Add any aliases of the original name to the set of names */
-                        nnn = hashmap_get(unit_name_map, basename(fragment));
-                        STRV_FOREACH(t, nnn) {
-                                _cleanup_free_ char *inst = NULL;
-                                const char *inst_fragment = NULL;
+        if (fragment) {
+                const char *fragment_basename = basename(fragment);
 
-                                r = unit_name_replace_instance(*t, instance, &inst);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Cannot build instance name %s+%s: %m", template, instance);
-
-                                /* Exclude any aliases that point in some other direction. */
-                                r = unit_ids_map_get(unit_ids_map, inst, &inst_fragment);
-                                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
-                                        return log_debug_errno(r, "Cannot find instance fragment %s: %m", inst);
-
-                                if (inst_fragment &&
-                                    !streq(basename(inst_fragment), basename(fragment))) {
-                                        log_debug("Instance %s has fragment %s and is not an alias of %s.",
-                                                  inst, inst_fragment, unit_name);
-                                        continue;
-                                }
-
-                                if (!streq(unit_name, inst))
-                                        log_debug("%s: %s has alias %s", __func__, unit_name, inst);
-                                r = set_consume(names, TAKE_PTR(inst));
-                                if (r < 0)
-                                        return r;
-                        }
+                if (!streq(fragment_basename, unit_name)) {
+                        /* Add names based on the fragment name to the set of names */
+                        r = add_names(unit_ids_map, unit_name_map, unit_name, fragment_basename, name_type, instance, &names, fragment_basename);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         *ret_fragment_path = fragment;
         *ret_names = TAKE_PTR(names);
 
-        // FIXME: if instance, consider any unit names with different template name
         return 0;
 }
 
