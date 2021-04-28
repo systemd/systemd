@@ -383,9 +383,9 @@ static void ndisc_request_on_free(Request *req) {
         sd_ndisc_router_unref(req->userdata);
 }
 
-static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
+static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
+        _cleanup_(route_freep) Route *route = in;
         Request *req;
-        bool is_new;
         int r;
 
         assert(route);
@@ -395,20 +395,17 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         r = link_has_route(link, route);
         if (r < 0)
                 return r;
+        if (r == 0)
+                link->ndisc_routes_configured = false;
 
-        is_new = !r;
-
-        r = link_request_route(link, TAKE_PTR(route), true, ndisc_route_handler, &req);
+        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_routes_messages,
+                               ndisc_route_handler, &req);
         if (r < 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
         req->after_configure = ndisc_after_route_configure;
         req->on_free = ndisc_request_on_free;
-
-        if (is_new)
-                link->ndisc_routes_configured = false;
-        link->ndisc_routes_messages++;
 
         return 0;
 }
@@ -508,28 +505,26 @@ static int ndisc_after_address_configure(Request *req, void *object) {
         return 0;
 }
 
-static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
+static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
+        _cleanup_(address_freep) Address *address = in;
         Request *req;
-        bool is_new;
         int r;
 
         assert(address);
         assert(link);
         assert(rt);
 
-        is_new = address_get(link, address, NULL) < 0;
+        if (address_get(link, address, NULL) < 0)
+                link->ndisc_addresses_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(address), true, ndisc_address_handler, &req);
+        r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_addresses_messages,
+                                 ndisc_address_handler, &req);
         if (r < 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
         req->after_configure = ndisc_after_address_configure;
         req->on_free = ndisc_request_on_free;
-
-        if (is_new)
-                link->ndisc_addresses_configured = false;
-        link->ndisc_addresses_messages++;
 
         return 0;
 }
