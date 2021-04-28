@@ -2438,15 +2438,18 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RelayAgentCircuitId=</varname></term>
         <listitem>
-          <para>Specifies value for Agent Circuit ID sub-option of Relay Agent Information Option. Takes a string.
-          Defaults to unset. Ignored if <varname>RelayTarget=</varname> is not specified.</para>
+          <para>Specifies value for Agent Circuit ID sub-option of Relay Agent Information Option.
+          Takes a string, which must be in the format <literal>string:%s</literal>,
+          where <literal>%s</literal> should be replaced with the value of the suboption.
+          Defaults to unset(no suboption is generated). Ignored if <varname>RelayTarget=</varname> is not specified.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RelayAgentRemoteId=</varname></term>
         <listitem>
-          <para>Specifies value for Agent Remote ID sub-option of Relay Agent Information Option. Takes a string.
-          Defaults to unset. Ignored if <varname>RelayTarget=</varname> is not specified.</para>
+          <para>Specifies value for Agent Remote ID sub-option of Relay Agent Information Option.
+          Takes a string, which must be in the format "string:%s", where %s will be a value of the suboption.
+          Defaults to unset(no suboption is generated). Ignored if <varname>RelayTarget=</varname> is not specified.</para>
         </listitem>
       </varlistentry>
 
