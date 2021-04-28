@@ -385,11 +385,18 @@ static void ndisc_request_on_free(Request *req) {
 
 static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         Request *req;
+        bool is_new;
         int r;
 
         assert(route);
         assert(link);
         assert(rt);
+
+        r = link_has_route(link, route);
+        if (r < 0)
+                return r;
+
+        is_new = !r;
 
         r = link_request_route(link, TAKE_PTR(route), true, ndisc_route_handler, &req);
         if (r < 0)
@@ -399,7 +406,8 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         req->after_configure = ndisc_after_route_configure;
         req->on_free = ndisc_request_on_free;
 
-        link->ndisc_routes_configured = false;
+        if (is_new)
+                link->ndisc_routes_configured = false;
         link->ndisc_routes_messages++;
 
         return 0;
@@ -502,11 +510,14 @@ static int ndisc_after_address_configure(Request *req, void *object) {
 
 static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
         Request *req;
+        bool is_new;
         int r;
 
         assert(address);
         assert(link);
         assert(rt);
+
+        is_new = address_get(link, address, NULL) < 0;
 
         r = link_request_address(link, TAKE_PTR(address), true, ndisc_address_handler, &req);
         if (r < 0)
@@ -516,7 +527,8 @@ static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *
         req->after_configure = ndisc_after_address_configure;
         req->on_free = ndisc_request_on_free;
 
-        link->ndisc_addresses_configured = false;
+        if (is_new)
+                link->ndisc_addresses_configured = false;
         link->ndisc_addresses_messages++;
 
         return 0;
@@ -1318,11 +1330,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (link->ndisc_addresses_configured && link->ndisc_routes_configured)
-                link_check_ready(link);
-        else
+        if (!link->ndisc_addresses_configured || !link->ndisc_routes_configured)
                 link_set_state(link, LINK_STATE_CONFIGURING);
 
+        link_check_ready(link);
         return 0;
 }
 
