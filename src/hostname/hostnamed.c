@@ -40,6 +40,8 @@
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
 
+/* Properties we cache are indexed by an enum, to make invalidation easy and systematic (as we can iterate
+ * through them all, and they are uniformly strings). */
 enum {
         /* Read from /etc/hostname */
         PROP_STATIC_HOSTNAME,
@@ -50,9 +52,6 @@ enum {
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
-
-        PROP_HARDWARE_VENDOR,
-        PROP_HARDWARE_MODEL,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
