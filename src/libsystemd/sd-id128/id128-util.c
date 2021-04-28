@@ -210,3 +210,20 @@ sd_id128_t id128_make_v4_uuid(sd_id128_t id) {
 }
 
 DEFINE_HASH_OPS(id128_hash_ops, sd_id128_t, id128_hash_func, id128_compare_func);
+
+int id128_get_product(sd_id128_t *ret) {
+        sd_id128_t uuid;
+        int r;
+
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &uuid);
+        if (r == -ENOENT)
+                r = id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, &uuid);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(uuid) || sd_id128_is_allf(uuid))
+                return -EADDRNOTAVAIL; /* Recognizable error */
+
+        *ret = uuid;
+        return 0;
+}
