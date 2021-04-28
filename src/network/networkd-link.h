@@ -78,13 +78,16 @@ typedef struct Link {
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
 
-        unsigned address_messages;
+        unsigned static_address_messages;
         unsigned address_remove_messages;
         unsigned address_label_messages;
-        unsigned neighbor_messages;
-        unsigned route_messages;
-        unsigned nexthop_messages;
-        unsigned routing_policy_rule_messages;
+        unsigned static_neighbor_messages;
+        unsigned neighbor_remove_messages;
+        unsigned static_route_messages;
+        unsigned route_remove_messages;
+        unsigned static_nexthop_messages;
+        unsigned nexthop_remove_messages;
+        unsigned static_routing_policy_rule_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
@@ -118,13 +121,11 @@ typedef struct Link {
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
 
-        bool request_static_addresses:1;
-        bool addresses_configured:1;
-        bool addresses_ready:1;
-        bool neighbors_configured:1;
-        bool static_routes_configured:1;
+        bool static_addresses_configured:1;
+        bool static_neighbors_configured:1;
         bool static_nexthops_configured:1;
-        bool routing_policy_rules_configured:1;
+        bool static_routes_configured:1;
+        bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
         bool setting_mtu:1;
@@ -197,6 +198,8 @@ typedef struct Link {
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
+
+bool link_is_ready_to_configure(Link *link, bool allow_unmanaged);
 
 void link_ntp_settings_clear(Link *link);
 void link_dns_settings_clear(Link *link);
