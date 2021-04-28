@@ -897,11 +897,6 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        /* now that we can figure out a default address for the dhcp server, start it */
-        r = dhcp4_server_configure(link);
-        if (r < 0)
-                return r;
-
         return 0;
 }
 
@@ -2609,6 +2604,12 @@ static int link_carrier_gained(Link *link) {
                 r = link_set_static_configs(link);
                 if (r < 0)
                         return r;
+
+                if (link->static_addresses_configured && !link->dhcp_server) {
+                        r = dhcp4_server_configure(link);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = link_handle_bound_by_list(link);
