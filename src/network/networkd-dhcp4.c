@@ -996,8 +996,6 @@ static int dhcp4_address_ready_callback(Address *address) {
         /* Do not call this again. */
         address->callback = NULL;
 
-        log_link_info(address->link, "DHCPv4 address becomes ready.");
-
         dhcp4_check_ready(address->link);
         return 0;
 }
