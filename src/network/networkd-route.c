@@ -1384,7 +1384,7 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return 1;
 }
 
-int link_request_static_routes(Link *link) {
+int link_request_static_routes(Link *link, bool only_ipv4) {
         Route *route;
         int r;
 
@@ -1395,6 +1395,9 @@ int link_request_static_routes(Link *link) {
 
         HASHMAP_FOREACH(route, link->network->routes_by_section) {
                 if (route->gateway_from_dhcp_or_ra)
+                        continue;
+
+                if (only_ipv4 && route->family != AF_INET)
                         continue;
 
                 r = link_request_route(link, route, false, static_route_handler, NULL);
