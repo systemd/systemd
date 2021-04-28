@@ -485,6 +485,28 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
         return address_get(link, a, NULL) >= 0;
 }
 
+static int link_get_ipv4_address(Set *addresses, const struct in_addr *address, Address **ret) {
+        Address *a;
+
+        assert(addresses);
+        assert(address);
+
+        SET_FOREACH(a, addresses) {
+                if (a->family != AF_INET)
+                        continue;
+
+                if (!in4_addr_equal(&a->in_addr.in, address))
+                        continue;
+
+                if (ret)
+                        *ret = a;
+
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
         Link *link;
         int r;
@@ -497,32 +519,25 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
                 HASHMAP_FOREACH(link, manager->links) {
                         Address *a;
 
-                        SET_FOREACH(a, link->addresses)
-                                if (a->family == family &&
-                                    in_addr_equal(family, &a->in_addr, address) > 0 &&
-                                    (!check_ready || address_is_ready(a)))
-                                        return true;
-                        SET_FOREACH(a, link->addresses_foreign)
-                                if (a->family == family &&
-                                    in_addr_equal(family, &a->in_addr, address) > 0 &&
-                                    (!check_ready || address_is_ready(a)))
-                                        return true;
+                        if (link_get_ipv4_address(link->addresses, &address->in, &a) >= 0)
+                                return !check_ready || address_is_ready(a);
+                        if (link_get_ipv4_address(link->addresses_foreign, &address->in, &a) >= 0)
+                                return !check_ready || address_is_ready(a);
                 }
         else {
-                _cleanup_(address_freep) Address *a = NULL;
-                Address *b;
+                _cleanup_(address_freep) Address *tmp = NULL;
+                Address *a;
 
-                r = address_new(&a);
+                r = address_new(&tmp);
                 if (r < 0)
                         return r;
 
-                a->family = family;
-                a->in_addr = *address;
+                tmp->family = family;
+                tmp->in_addr = *address;
 
                 HASHMAP_FOREACH(link, manager->links)
-                        if (address_get(link, a, &b) >= 0 &&
-                            (!check_ready || address_is_ready(b)))
-                                return true;
+                        if (address_get(link, tmp, &a) >= 0)
+                                return !check_ready || address_is_ready(a);
         }
 
         return false;
