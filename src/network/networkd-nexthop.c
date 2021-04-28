@@ -529,12 +529,7 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-int link_request_static_nexthops(Link *link) {
-        enum {
-                PHASE_ID,         /* First phase: Nexthops with ID */
-                PHASE_WITHOUT_ID, /* Second phase: Nexthops without ID */
-                _PHASE_MAX,
-        } phase;
+int link_request_static_nexthops(Link *link, bool only_ipv4) {
         NextHop *nh;
         int r;
 
@@ -543,17 +538,16 @@ int link_request_static_nexthops(Link *link) {
 
         link->static_nexthops_configured = false;
 
-        for (phase = PHASE_ID; phase < _PHASE_MAX; phase++)
-                HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
-                        if ((nh->id > 0) != (phase == PHASE_ID))
-                                continue;
+        HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
+                if (only_ipv4 && nh->family != AF_INET)
+                        continue;
 
-                        r = link_request_nexthop(link, nh, false, static_nexthop_handler, NULL);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not request nexthop: %m");
+                r = link_request_nexthop(link, nh, false, static_nexthop_handler, NULL);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not request nexthop: %m");
 
-                        link->static_nexthop_messages++;
-                }
+                link->static_nexthop_messages++;
+        }
 
         if (link->static_nexthop_messages == 0) {
                 link->static_nexthops_configured = true;
