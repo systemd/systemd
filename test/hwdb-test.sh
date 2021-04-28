@@ -11,10 +11,10 @@ set -e
 
 export SYSTEMD_LOG_LEVEL=info
 ROOTDIR=$(dirname $(dirname $(readlink -f $0)))
-SYSTEMD_HWDB=./systemd-hwdb
+SYSTEMD_HWDB="${1:?missing argument}"
 
 if [ ! -x "$SYSTEMD_HWDB" ]; then
-    echo "$SYSTEMD_HWDB does not exist, please build first"
+    echo "$SYSTEMD_HWDB is not executable" >&2
     exit 1
 fi
 
