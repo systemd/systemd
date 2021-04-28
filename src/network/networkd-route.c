@@ -1470,11 +1470,21 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 return false;
 
         if (route_type_is_reject(route) || (nh && nh->blackhole)) {
+                if (nh && link->manager->nexthop_remove_messages > 0)
+                        return false;
                 if (link->manager->route_remove_messages > 0)
                         return false;
         } else {
-                if (link->route_remove_messages > 0)
-                        return false;
+                Link *l;
+
+                HASHMAP_FOREACH(l, link->manager->links) {
+                        if (l->address_remove_messages > 0)
+                                return false;
+                        if (l->nexthop_remove_messages > 0)
+                                return false;
+                        if (l->route_remove_messages > 0)
+                                return false;
+                }
         }
 
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
