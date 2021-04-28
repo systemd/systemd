@@ -932,27 +932,23 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Context *c = userdata;
-        bool has_uuid = false;
         int interactive, r;
         sd_id128_t uuid;
 
         assert(m);
         assert(c);
 
-        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &uuid);
-        if (r == -ENOENT)
-                r = id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, &uuid);
-        if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to read product UUID, ignoring: %m");
-        else if (sd_id128_is_null(uuid) || sd_id128_is_allf(uuid))
-                log_debug("DMI product UUID " SD_ID128_FORMAT_STR " is all 0x00 or all 0xFF, ignoring.", SD_ID128_FORMAT_VAL(uuid));
-        else
-                has_uuid = true;
+        r = id128_get_product(&uuid);
+        if (r < 0) {
+                if (r == -EADDRNOTAVAIL)
+                        log_debug_errno(r, "DMI product UUID is all 0x00 or all 0xFF, ignoring.");
+                else
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to read product UUID, ignoring: %m");
 
-        if (!has_uuid)
                 return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID,
                                         "Failed to read product UUID from firmware.");
+        }
 
         r = sd_bus_message_read(m, "b", &interactive);
         if (r < 0)
