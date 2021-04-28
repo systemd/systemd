@@ -47,11 +47,19 @@ Request *request_free(Request *req) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_free);
 
+void request_drop(Request *req) {
+        if (req->message_counter)
+                (*req->message_counter)--;
+
+        request_free(req);
+}
+
 int link_queue_request(
                 Link *link,
                 RequestType type,
                 void *object,
                 bool consume_object,
+                unsigned *message_counter,
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret) {
 
@@ -76,6 +84,7 @@ int link_queue_request(
                 .type = type,
                 .object = object,
                 .consume_object = consume_object,
+                .message_counter = message_counter,
                 .netlink_handler = netlink_handler,
         };
 
@@ -84,6 +93,9 @@ int link_queue_request(
         r = ordered_set_ensure_put(&link->manager->request_queue, NULL, req);
         if (r < 0)
                 return r;
+
+        if (req->message_counter)
+                (*req->message_counter)++;
 
         if (ret)
                 *ret = req;
