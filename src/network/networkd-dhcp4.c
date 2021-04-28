@@ -77,14 +77,6 @@ static int dhcp4_release_old_lease(Link *link) {
                         r = k;
         }
 
-        r = link_request_static_nexthops(link);
-        if (r < 0)
-                return r;
-
-        r = link_request_static_routes(link);
-        if (r < 0)
-                return r;
-
         return r;
 }
 
@@ -179,6 +171,15 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 r = dhcp4_remove_all(link);
                 if (r < 0)
                         link_enter_failed(link);
+
+                r = link_request_static_nexthops(link);
+                if (r < 0)
+                        link_enter_failed(link);
+
+                r = link_request_static_routes(link);
+                if (r < 0)
+                        link_enter_failed(link);
+
                 return 1;
         }
 
@@ -827,7 +828,18 @@ static int dhcp_lease_lost(Link *link) {
 
         (void) sd_ipv4acd_stop(link->dhcp_acd);
 
-        return r;
+        if (r < 0)
+                return r;
+
+        r = link_request_static_nexthops(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routes(link);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
