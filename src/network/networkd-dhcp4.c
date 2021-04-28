@@ -172,11 +172,11 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 if (r < 0)
                         link_enter_failed(link);
 
-                r = link_request_static_nexthops(link);
+                r = link_request_static_nexthops(link, true);
                 if (r < 0)
                         link_enter_failed(link);
 
-                r = link_request_static_routes(link);
+                r = link_request_static_routes(link, true);
                 if (r < 0)
                         link_enter_failed(link);
 
@@ -831,11 +831,11 @@ static int dhcp_lease_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_static_nexthops(link);
+        r = link_request_static_nexthops(link, true);
         if (r < 0)
                 return r;
 
-        r = link_request_static_routes(link);
+        r = link_request_static_routes(link, true);
         if (r < 0)
                 return r;
 
