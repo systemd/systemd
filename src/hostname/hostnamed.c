@@ -972,7 +972,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append_array(reply, 'y', &uuid, sizeof(uuid));
+        r = sd_bus_message_append_array(reply, 'y', uuid.bytes, sizeof(uuid.bytes));
         if (r < 0)
                 return r;
 
