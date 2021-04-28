@@ -348,14 +348,6 @@ static int ndisc_after_route_configure(Request *req, void *object) {
         link = req->link;
         rt = req->userdata;
 
-        /*
-        r = route_configure(route, link, ndisc_route_handler, &ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set NDisc route: %m");
-        if (r > 0)
-                link->ndisc_routes_configured = false;
-        */
-
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
@@ -407,6 +399,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         req->after_configure = ndisc_after_route_configure;
         req->on_free = ndisc_request_on_free;
 
+        link->ndisc_routes_configured = false;
         link->ndisc_routes_messages++;
 
         return 0;
@@ -478,14 +471,6 @@ static int ndisc_after_address_configure(Request *req, void *object) {
         link = req->link;
         rt = req->userdata;
 
-        /*
-        r = address_configure(address, link, ndisc_address_handler, &ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set NDisc SLAAC address: %m");
-        if (r > 0)
-                link->ndisc_addresses_configured = false;
-        */
-
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
@@ -531,6 +516,7 @@ static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *
         req->after_configure = ndisc_after_address_configure;
         req->on_free = ndisc_request_on_free;
 
+        link->ndisc_addresses_configured = false;
         link->ndisc_addresses_messages++;
 
         return 0;
@@ -1300,11 +1286,11 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
 
                 if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER))
                         /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
-                        r = dhcp6_request_address(link, !(flags & ND_RA_FLAG_MANAGED));
+                        r = dhcp6_request_information(link, !(flags & ND_RA_FLAG_MANAGED));
                 else
                         /* When IPv6AcceptRA.DHCPv6Client=always, start dhcp6 client in managed mode
                          * even if router does not have M or O flag. */
-                        r = dhcp6_request_address(link, false);
+                        r = dhcp6_request_information(link, false);
                 if (r < 0 && r != -EBUSY)
                         return log_link_error_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
                 else
