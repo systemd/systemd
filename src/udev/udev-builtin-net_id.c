@@ -37,7 +37,7 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 
-#define ONBOARD_INDEX_MAX (16*1024-1)
+#define ONBOARD_INDEX_MAX (64*1024-1)
 
 enum netname_type{
         NET_UNDEF,
