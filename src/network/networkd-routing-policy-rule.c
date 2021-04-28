@@ -726,14 +726,11 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
 static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
         int r;
 
-        if (IN_SET(rule->family, AF_INET, AF_INET6)) {
-                r = link_request_routing_policy_rule(link, rule, false, static_routing_policy_rule_configure_handler, NULL);
-                if (r < 0)
-                        return r;
-
-                link->static_routing_policy_rule_messages++;
-                return 0;
-        }
+        if (IN_SET(rule->family, AF_INET, AF_INET6))
+                return link_request_routing_policy_rule(link, rule, false,
+                                                        &link->static_routing_policy_rule_messages,
+                                                        static_routing_policy_rule_configure_handler,
+                                                        NULL);
 
         if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)) {
                 _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
@@ -745,11 +742,12 @@ static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule
                 routing_policy_rule_copy(tmp, rule);
                 tmp->family = AF_INET;
 
-                r = link_request_routing_policy_rule(link, TAKE_PTR(tmp), true, static_routing_policy_rule_configure_handler, NULL);
+                r = link_request_routing_policy_rule(link, TAKE_PTR(tmp), true,
+                                                     &link->static_routing_policy_rule_messages,
+                                                     static_routing_policy_rule_configure_handler,
+                                                     NULL);
                 if (r < 0)
                         return r;
-
-                link->static_routing_policy_rule_messages++;
         }
 
         if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) {
@@ -762,11 +760,12 @@ static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule
                 routing_policy_rule_copy(tmp, rule);
                 tmp->family = AF_INET6;
 
-                r = link_request_routing_policy_rule(link, TAKE_PTR(tmp), true, static_routing_policy_rule_configure_handler, NULL);
+                r = link_request_routing_policy_rule(link, TAKE_PTR(tmp), true,
+                                                     &link->static_routing_policy_rule_messages,
+                                                     static_routing_policy_rule_configure_handler,
+                                                     NULL);
                 if (r < 0)
                         return r;
-
-                link->static_routing_policy_rule_messages++;
         }
 
         return 0;

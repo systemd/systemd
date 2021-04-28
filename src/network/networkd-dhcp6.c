@@ -290,7 +290,6 @@ static int dhcp6_pd_request_route(Link *link, const union in_addr_union *prefix,
         _cleanup_(route_freep) Route *route = NULL;
         Link *assigned_link;
         Request *req;
-        bool is_new;
         int r;
 
         assert(link);
@@ -311,18 +310,15 @@ static int dhcp6_pd_request_route(Link *link, const union in_addr_union *prefix,
         r = link_has_route(link, route);
         if (r < 0)
                 return r;
+        if (r == 0)
+                link->dhcp6_pd_route_configured = false;
 
-        is_new = !r;
-
-        r = link_request_route(link, TAKE_PTR(route), true, dhcp6_pd_route_handler, &req);
+        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp6_pd_route_messages,
+                               dhcp6_pd_route_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set DHCPv6 prefix route: %m");
 
         req->after_configure = dhcp6_pd_after_route_configure;
-
-        if (is_new)
-                link->dhcp6_pd_route_configured = false;
-        link->dhcp6_pd_route_messages++;
 
         assigned_link = dhcp6_pd_get_link_by_prefix(link, prefix);
         if (assigned_link) {
@@ -444,7 +440,6 @@ static int dhcp6_pd_request_address(
 
         _cleanup_(address_freep) Address *address = NULL;
         Request *req;
-        bool is_new;
         int r;
 
         assert(link);
@@ -477,17 +472,15 @@ static int dhcp6_pd_request_address(
 
         log_dhcp6_pd_address(link, address);
 
-        is_new = address_get(link, address, NULL) < 0;
+        if (address_get(link, address, NULL) < 0)
+                link->dhcp6_pd_address_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(address), true, dhcp6_pd_address_handler, &req);
+        r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp6_pd_address_messages,
+                                 dhcp6_pd_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
 
         req->after_configure = dhcp6_pd_after_address_configure;
-
-        if (is_new)
-                link->dhcp6_pd_address_configured = false;
-        link->dhcp6_pd_address_messages++;
 
         return 0;
 }
@@ -884,7 +877,6 @@ static int dhcp6_request_unreachable_route(Link *link, const union in_addr_union
         _cleanup_(route_freep) Route *route = NULL;
         _cleanup_free_ char *buf = NULL;
         Request *req;
-        bool is_new;
         int r;
 
         assert(link);
@@ -912,19 +904,16 @@ static int dhcp6_request_unreachable_route(Link *link, const union in_addr_union
         r = link_has_route(link, route);
         if (r < 0)
                 return r;
+        if (r == 0)
+                link->dhcp6_route_configured = false;
 
-        is_new = !r;
-
-        r = link_request_route(link, TAKE_PTR(route), true, dhcp6_route_handler, &req);
+        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp6_route_messages,
+                               dhcp6_route_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request unreachable route for DHCPv6 delegated subnet %s: %m",
                                             strna(buf));
 
         req->after_configure = dhcp6_after_route_configure;
-
-        if (is_new)
-                link->dhcp6_route_configured = false;
-        link->dhcp6_route_messages++;
 
         return 0;
 }
@@ -1182,7 +1171,6 @@ static int dhcp6_request_address(
         _cleanup_(address_freep) Address *addr = NULL;
         _cleanup_free_ char *buffer = NULL;
         Request *req;
-        bool is_new;
         int r;
 
         r = address_new(&addr);
@@ -1198,17 +1186,15 @@ static int dhcp6_request_address(
 
         log_dhcp6_address(link, addr, &buffer);
 
-        is_new = address_get(link, addr, NULL) < 0;
+        if (address_get(link, addr, NULL) < 0)
+                link->dhcp6_address_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(addr), true, dhcp6_address_handler, &req);
+        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp6_address_messages,
+                                 dhcp6_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s: %m", strna(buffer));
 
         req->after_configure = dhcp6_after_address_configure;
-
-        if (is_new)
-                link->dhcp6_address_configured = false;
-        link->dhcp6_address_messages++;
 
         return 0;
 }

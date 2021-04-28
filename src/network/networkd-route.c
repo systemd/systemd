@@ -1399,11 +1399,10 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
                 if (only_ipv4 && route->family != AF_INET)
                         continue;
 
-                r = link_request_route(link, route, false, static_route_handler, NULL);
+                r = link_request_route(link, route, false, &link->static_route_messages,
+                                       static_route_handler, NULL);
                 if (r < 0)
                         return r;
-
-                link->static_route_messages++;
         }
 
         if (link->static_route_messages == 0) {
