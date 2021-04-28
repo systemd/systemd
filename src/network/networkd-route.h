@@ -77,7 +77,7 @@ int static_route_dup(const Route *src, Route **ret);
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_has_route(Link *link, const Route *route);
-int link_request_static_routes(Link *link);
+int link_request_static_routes(Link *link, bool only_ipv4);
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 
