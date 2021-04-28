@@ -542,11 +542,10 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
                 if (only_ipv4 && nh->family != AF_INET)
                         continue;
 
-                r = link_request_nexthop(link, nh, false, static_nexthop_handler, NULL);
+                r = link_request_nexthop(link, nh, false, &link->static_nexthop_messages,
+                                         static_nexthop_handler, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request nexthop: %m");
-
-                link->static_nexthop_messages++;
         }
 
         if (link->static_nexthop_messages == 0) {

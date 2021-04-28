@@ -1035,13 +1035,12 @@ int link_request_static_addresses(Link *link) {
         ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
                 Request *req;
 
-                r = link_request_address(link, a, false, static_address_handler, &req);
+                r = link_request_address(link, a, false, &link->static_address_messages,
+                                         static_address_handler, &req);
                 if (r < 0)
                         return r;
 
                 req->after_configure = static_address_after_configure;
-
-                link->static_address_messages++;
         }
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
@@ -1065,13 +1064,13 @@ int link_request_static_addresses(Link *link) {
 
                 address->family = AF_INET6;
                 address->route_metric = p->route_metric;
-                r = link_request_address(link, TAKE_PTR(address), true, static_address_handler, &req);
+
+                r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
+                                         static_address_handler, &req);
                 if (r < 0)
                         return r;
 
                 req->after_configure = static_address_after_configure;
-
-                link->static_address_messages++;
         }
 
         if (link->static_address_messages == 0) {

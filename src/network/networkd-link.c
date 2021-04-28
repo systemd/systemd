@@ -2108,7 +2108,7 @@ static void link_drop_requests(Link *link) {
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue)
                 if (req->link == link)
-                        request_free(req);
+                        request_drop(req);
 }
 
 int link_configure(Link *link) {
