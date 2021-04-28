@@ -75,6 +75,18 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s);
 #define ORDERED_SET_FOREACH(e, s) \
         _ORDERED_SET_FOREACH(e, s, UNIQ_T(i, UNIQ))
 
+#define ordered_set_clear_with_destructor(_s, _f)               \
+        ({                                                      \
+                void *_item;                                    \
+                while ((_item = ordered_set_steal_first(_s)))   \
+                        _f(_item);                              \
+        })
+#define ordered_set_free_with_destructor(_s, _f)                \
+        ({                                                      \
+                ordered_set_clear_with_destructor(_s, _f);      \
+                ordered_set_free(_s);                           \
+        })
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free_free);
 
