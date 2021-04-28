@@ -1483,10 +1483,18 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                         return false;
 
                 if (m->ifname) {
+                        Link *l;
+
                         r = resolve_interface(&link->manager->rtnl, m->ifname);
                         if (r < 0)
                                 return false;
                         m->ifindex = r;
+
+                        if (link_get(link->manager, m->ifindex, &l) < 0)
+                                return false;
+
+                        if (!link_is_ready_to_configure(l, true))
+                                return false;
                 }
         }
 
@@ -1502,7 +1510,7 @@ int request_process_route(Request *req) {
         assert(req->route);
         assert(req->type == REQUEST_TYPE_ROUTE);
 
-        if (!link_is_ready_to_configure(req->link))
+        if (!link_is_ready_to_configure(req->link, false))
                 return 0;
 
         r = route_is_ready_to_configure(req->route, req->link);
