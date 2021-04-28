@@ -2093,6 +2093,17 @@ static int link_drop_config(Link *link) {
         return r;
 }
 
+static void link_drop_requests(Link *link) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+
+        ORDERED_SET_FOREACH(req, link->manager->request_queue)
+                if (req->link == link)
+                        request_free(req);
+}
+
 int link_configure(Link *link) {
         int r;
 
@@ -2246,6 +2257,8 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         r = link_stop_engines(link, false);
         if (r < 0)
                 return r;
+
+        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -2684,6 +2697,8 @@ static int link_carrier_lost(Link *link) {
                 link_enter_failed(link);
                 return r;
         }
+
+        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
