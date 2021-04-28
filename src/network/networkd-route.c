@@ -717,10 +717,6 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                 }
         }
 
-        r = sd_rtnl_message_route_set_type(req, route->type);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set route type: %m");
-
         if (!route_type_is_reject(route) && route->nexthop_id == 0) {
                 assert(link); /* Those routes must be attached to a specific link */
 
@@ -769,6 +765,7 @@ int route_remove(
                 link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        unsigned char type;
         int r;
 
         assert(link || manager);
@@ -785,6 +782,21 @@ int route_remove(
                                       route->protocol);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_DELROUTE message: %m");
+
+        if (route->family == AF_INET && route->nexthop_id > 0 && route->type == RTN_BLACKHOLE)
+                /* When IPv4 route has nexthop id and the nexthop type is blackhole, even though kernel
+                 * sends RTM_NEWROUTE netlink message with blackhole type, kernel's internal route type
+                 * fib_rt_info::type may not be blackhole. Thus, we cannot know the internal value.
+                 * Moreover, on route removal, the matching is done with the hidden value if we set
+                 * non-zero type in RTM_DELROUTE message. Note, sd_rtnl_message_new_route() sets
+                 * RTN_UNICAST by default. So, we need to clear the type here. */
+                type = RTN_UNSPEC;
+        else
+                type = route->type;
+
+        r = sd_rtnl_message_route_set_type(req, type);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set route type: %m");
 
         r = route_set_netlink_message(route, req, link);
         if (r < 0)
@@ -1105,6 +1117,10 @@ int route_configure(
                                       route->protocol);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWROUTE message: %m");
+
+        r = sd_rtnl_message_route_set_type(req, route->type);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set route type: %m");
 
         r = route_set_netlink_message(route, req, link);
         if (r < 0)
