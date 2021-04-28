@@ -551,6 +551,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         m,
                                         p,
                                         UID_INVALID,
+                                        UID_INVALID,
                                         flags);
                         if (r < 0)
                                 return r;

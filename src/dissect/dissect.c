@@ -582,7 +582,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return r;
 
-        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -628,7 +628,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 

@@ -112,6 +112,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_READ_ONLY           = DISSECT_IMAGE_DEVICE_READ_ONLY |
                                             DISSECT_IMAGE_MOUNT_READ_ONLY,
         DISSECT_IMAGE_GROWFS              = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
+        DISSECT_IMAGE_MOUNT_IDMAPPED      = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file sytem type doesn't support uid=/gid= */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -169,8 +170,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags, DecryptedImage **ret);
-int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, DissectImageFlags flags);
-int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags);
+int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m);
 
