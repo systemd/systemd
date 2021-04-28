@@ -969,7 +969,7 @@ static bool links_have_static_route(const Manager *manager, const Route *route, 
                 if (link == except)
                         continue;
 
-                if (link_has_route(link, route))
+                if (link_has_static_route(link, route))
                         return true;
         }
 
