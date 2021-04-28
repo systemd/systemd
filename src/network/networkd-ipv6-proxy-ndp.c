@@ -77,7 +77,7 @@ static int ipv6_proxy_ndp_set(Link *link) {
 
         assert(link);
 
-        if (!socket_ipv6_is_supported())
+        if (!socket_ipv6_is_supported() || streq_ptr(link->kind, "can"))
                 return 0;
 
         v = ipv6_proxy_ndp_is_needed(link);
