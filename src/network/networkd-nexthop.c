@@ -686,8 +686,16 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 if (link->manager->nexthop_remove_messages > 0)
                         return false;
         } else {
-                if (link->nexthop_remove_messages > 0)
-                        return false;
+                Link *l;
+
+                HASHMAP_FOREACH(l, link->manager->links) {
+                        if (l->address_remove_messages > 0)
+                                return false;
+                        if (l->nexthop_remove_messages > 0)
+                                return false;
+                        if (l->route_remove_messages > 0)
+                                return false;
+                }
         }
 
         if (nexthop->id == 0) {
