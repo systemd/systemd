@@ -52,6 +52,7 @@ typedef struct Route {
         bool protocol_set:1;
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
+        bool removing:1;
 
         union in_addr_union gw;
         union in_addr_union dst;

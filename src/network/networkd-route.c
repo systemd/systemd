@@ -854,6 +854,9 @@ static int manager_drop_routes_internal(Manager *manager, bool foreign, const Li
 
         routes = foreign ? manager->routes_foreign : manager->routes;
         SET_FOREACH(route, routes) {
+                if (route->removing)
+                        continue;
+
                 /* Do not touch routes managed by the kernel. */
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
@@ -867,6 +870,8 @@ static int manager_drop_routes_internal(Manager *manager, bool foreign, const Li
                 k = route_remove(route, manager, NULL, NULL);
                 if (k < 0 && r >= 0)
                         r = k;
+
+                route->removing = true;
         }
 
         return r;
