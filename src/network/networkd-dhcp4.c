@@ -26,7 +26,7 @@
 #include "sysctl-util.h"
 #include "web-util.h"
 
-static int dhcp4_update_address(Link *link, bool announce);
+static int dhcp4_request_address_and_routes(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
 
 void network_adjust_dhcp4(Network *network) {
@@ -187,12 +187,19 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int dhcp_request_route(Route *route, Link *link) {
+static int dhcp4_request_route(Route *route, Link *link) {
         Request *req;
+        bool is_new;
         int r;
 
         assert(route);
         assert(link);
+
+        r = link_has_route(link, route);
+        if (r < 0)
+                return r;
+
+        is_new = !r;
 
         r = link_request_route(link, TAKE_PTR(route), true, dhcp4_route_handler, &req);
         if (r < 0)
@@ -200,6 +207,8 @@ static int dhcp_request_route(Route *route, Link *link) {
 
         req->after_configure = dhcp4_after_route_configure;
 
+        if (is_new)
+                link->dhcp4_configured = false;
         link->dhcp4_messages++;
 
         return 0;
@@ -211,7 +220,7 @@ static bool link_prefixroute(Link *link) {
                 link->manager->dhcp4_prefix_root_cannot_set_table;
 }
 
-static int link_set_dhcp_prefix_route(Link *link) {
+static int dhcp4_request_prefix_route(Link *link) {
         _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address, netmask;
         int r;
@@ -244,10 +253,10 @@ static int link_set_dhcp_prefix_route(Link *link) {
         route->table = link_get_dhcp_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
-        return dhcp_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(TAKE_PTR(route), link);
 }
 
-static int link_set_dhcp_route_to_gateway(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) {
         _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address;
         int r;
@@ -274,10 +283,10 @@ static int link_set_dhcp_route_to_gateway(Link *link, const struct in_addr *gw) 
         route->table = link_get_dhcp_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
-        return dhcp_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(TAKE_PTR(route), link);
 }
 
-static int dhcp_request_route_auto(
+static int dhcp4_request_route_auto(
                 Route *in,
                 Link *link,
                 const struct in_addr *gw) {
@@ -348,7 +357,7 @@ static int dhcp_request_route_auto(
                         return 0;
                 }
 
-                r = link_set_dhcp_route_to_gateway(link, gw);
+                r = dhcp4_request_route_to_gateway(link, gw);
                 if (r < 0)
                         return r;
 
@@ -358,10 +367,10 @@ static int dhcp_request_route_auto(
                 route->prefsrc.in = address;
         }
 
-        return dhcp_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(TAKE_PTR(route), link);
 }
 
-static int link_set_dhcp_static_routes(Link *link, struct in_addr *ret_default_gw) {
+static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_gw) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         bool classless_route = false, static_route = false;
         struct in_addr default_gw = {};
@@ -437,7 +446,7 @@ static int link_set_dhcp_static_routes(Link *link, struct in_addr *ret_default_g
                     in4_addr_is_null(&default_gw))
                         default_gw = gw;
 
-                r = dhcp_request_route_auto(TAKE_PTR(route), link, &gw);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
                 if (r < 0)
                         return r;
         }
@@ -446,7 +455,7 @@ static int link_set_dhcp_static_routes(Link *link, struct in_addr *ret_default_g
         return classless_route;
 }
 
-static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
+static int dhcp4_request_gateway(Link *link, struct in_addr *ret_gw) {
         _cleanup_(route_freep) Route *route = NULL;
         const struct in_addr *router;
         struct in_addr address;
@@ -478,7 +487,7 @@ static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
 
         /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
          * so that we can route no matter the netmask or existing kernel route tables. */
-        r = link_set_dhcp_route_to_gateway(link, &router[0]);
+        r = dhcp4_request_route_to_gateway(link, &router[0]);
         if (r < 0)
                 return r;
 
@@ -496,7 +505,7 @@ static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
         route->table = link_get_dhcp_route_table(link);
         route->mtu = link->network->dhcp_route_mtu;
 
-        r = dhcp_request_route(TAKE_PTR(route), link);
+        r = dhcp4_request_route(TAKE_PTR(route), link);
         if (r < 0)
                 return r;
 
@@ -521,7 +530,7 @@ static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
                 if (rt->mtu == 0)
                         route->mtu = link->network->dhcp_route_mtu;
 
-                r = dhcp_request_route(TAKE_PTR(route), link);
+                r = dhcp4_request_route(TAKE_PTR(route), link);
                 if (r < 0)
                         return r;
         }
@@ -530,7 +539,7 @@ static int link_set_dhcp_gateway(Link *link, struct in_addr *ret_gw) {
         return 0;
 }
 
-static int link_set_routes_to_servers(
+static int dhcp4_request_routes_to_servers(
                 Link *link,
                 const struct in_addr *servers,
                 size_t n_servers,
@@ -562,7 +571,7 @@ static int link_set_routes_to_servers(
                 route->table = link_get_dhcp_route_table(link);
                 route->mtu = link->network->dhcp_route_mtu;
 
-                r = dhcp_request_route_auto(TAKE_PTR(route), link, gw);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw);
                 if (r < 0)
                         return r;
         }
@@ -570,7 +579,7 @@ static int link_set_routes_to_servers(
         return 0;
 }
 
-static int link_set_routes_to_dns(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_routes_to_dns(Link *link, const struct in_addr *gw) {
         const struct in_addr *dns;
         int r;
 
@@ -589,10 +598,10 @@ static int link_set_routes_to_dns(Link *link, const struct in_addr *gw) {
         if (r < 0)
                 return r;
 
-        return link_set_routes_to_servers(link, dns, r, gw);
+        return dhcp4_request_routes_to_servers(link, dns, r, gw);
 }
 
-static int link_set_routes_to_ntp(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_routes_to_ntp(Link *link, const struct in_addr *gw) {
         const struct in_addr *ntp;
         int r;
 
@@ -611,10 +620,10 @@ static int link_set_routes_to_ntp(Link *link, const struct in_addr *gw) {
         if (r < 0)
                 return r;
 
-        return link_set_routes_to_servers(link, ntp, r, gw);
+        return dhcp4_request_routes_to_servers(link, ntp, r, gw);
 }
 
-static int link_set_dhcp_routes(Link *link) {
+static int dhcp4_request_routes(Link *link) {
         struct in_addr gw = {};
         Route *rt;
         int r;
@@ -630,26 +639,26 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "Failed to store old DHCPv4 route: %m");
         }
 
-        r = link_set_dhcp_prefix_route(link);
+        r = dhcp4_request_prefix_route(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set prefix route: %m");
 
-        r = link_set_dhcp_static_routes(link, &gw);
+        r = dhcp4_request_static_routes(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set static routes: %m");
         if (r == 0) {
                 /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
                  * a Router option, the DHCP client MUST ignore the Router option. */
-                r = link_set_dhcp_gateway(link, &gw);
+                r = dhcp4_request_gateway(link, &gw);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP error: Could not set gateway: %m");
         }
 
-        r = link_set_routes_to_dns(link, &gw);
+        r = dhcp4_request_routes_to_dns(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set routes to DNS servers: %m");
 
-        r = link_set_routes_to_ntp(link, &gw);
+        r = dhcp4_request_routes_to_ntp(link, &gw);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not set routes to NTP servers: %m");
 
@@ -724,7 +733,7 @@ static int dhcp4_remove_route_handler(sd_netlink *rtnl, sd_netlink_message *m, L
                 log_link_message_warning_errno(link, m, r, "Failed to remove DHCPv4 route, ignoring");
 
         if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_update_address(link, false);
+                r = dhcp4_request_address_and_routes(link, false);
                 if (r < 0)
                         link_enter_failed(link);
         }
@@ -753,11 +762,7 @@ static int dhcp4_remove_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_update_address(link, false);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                r = link_set_dhcp_routes(link);
+                r = dhcp4_request_address_and_routes(link, false);
                 if (r < 0)
                         link_enter_failed(link);
         }
@@ -1046,12 +1051,13 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
-static int dhcp4_update_address(Link *link, bool announce) {
+static int dhcp4_request_address(Link *link, bool announce) {
         _cleanup_(address_freep) Address *addr = NULL;
         uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
         struct in_addr address, netmask;
         unsigned prefixlen;
         Request *req;
+        bool is_new;
         int r;
 
         assert(link);
@@ -1059,10 +1065,6 @@ static int dhcp4_update_address(Link *link, bool announce) {
 
         if (!link->dhcp_lease)
                 return 0;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-        link->dhcp4_configured = false;
-        link_check_ready(link);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -1121,11 +1123,41 @@ static int dhcp4_update_address(Link *link, bool announce) {
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
         addr->route_metric = link->network->dhcp_route_metric;
 
+        is_new = address_get(link, addr, NULL) < 0;
+
         r = link_request_address(link, TAKE_PTR(addr), true, dhcp4_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
 
         req->after_configure = dhcp4_after_address_configure;
+
+        if (is_new)
+                link->dhcp4_configured = false;
+
+        return is_new;
+}
+
+static int dhcp4_request_address_and_routes(Link *link, bool announce) {
+        bool is_new;
+        int r;
+
+        assert(link);
+
+        r = dhcp4_request_address(link, announce);
+        if (r < 0)
+                return r;
+        is_new = r;
+
+        r = dhcp4_request_routes(link);
+        if (r < 0)
+                return r;
+
+        if (!is_new && link->dhcp4_messages == 0)
+                link->dhcp4_configured = true;
+        else {
+                link_set_state(link, LINK_STATE_CONFIGURING);
+                link_check_ready(link);
+        }
 
         return 0;
 }
@@ -1145,11 +1177,7 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);
 
-        r = dhcp4_update_address(link, false);
-        if (r < 0)
-                return r;
-
-        return link_set_dhcp_routes(link);
+        return dhcp4_request_address_and_routes(link, false);
 }
 
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
@@ -1214,11 +1242,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                 }
         }
 
-        r = dhcp4_update_address(link, true);
-        if (r < 0)
-                return r;
-
-        return link_set_dhcp_routes(link);
+        return dhcp4_request_address_and_routes(link, true);
 }
 
 static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
