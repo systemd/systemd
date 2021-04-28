@@ -1319,18 +1319,9 @@ static int trigger_device(Manager *m, sd_device *d) {
         }
 
         FOREACH_DEVICE(e, d) {
-                _cleanup_free_ char *t = NULL;
-                const char *p;
-
-                r = sd_device_get_syspath(d, &p);
+                r = sd_device_trigger(d, SD_DEVICE_CHANGE);
                 if (r < 0)
-                        return r;
-
-                t = path_join(p, "uevent");
-                if (!t)
-                        return -ENOMEM;
-
-                (void) write_string_file(t, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+                        log_device_debug_errno(d, r, "Failed to trigger device, ignoring: %m");
         }
 
         return 0;
