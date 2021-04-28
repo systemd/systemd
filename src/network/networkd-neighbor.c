@@ -300,11 +300,10 @@ int link_request_static_neighbors(Link *link) {
         link->static_neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = link_request_neighbor(link, neighbor, false, static_neighbor_configure_handler, NULL);
+                r = link_request_neighbor(link, neighbor, false, &link->static_neighbor_messages,
+                                          static_neighbor_configure_handler, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request neighbor: %m");
-
-                link->static_neighbor_messages++;
         }
 
         if (link->static_neighbor_messages == 0) {
