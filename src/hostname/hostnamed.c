@@ -20,6 +20,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "json.h"
 #include "main-func.h"
 #include "missing_capability.h"
 #include "nscd-flush.h"
@@ -1002,6 +1003,105 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL, *vendor = NULL, *model = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        sd_id128_t product_uuid = SD_ID128_NULL;
+        const char *chassis = NULL;
+        Context *c = userdata;
+        bool privileged;
+        struct utsname u;
+        int r;
+
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.get-product-uuid",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        NULL);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
+         * the product ID which we'll check explicitly. */
+        privileged = r > 0;
+
+        context_read_etc_hostname(c);
+        context_read_machine_info(c);
+        context_read_os_release(c);
+        context_determine_hostname_source(c);
+
+        r = gethostname_strict(&hn);
+        if (r < 0) {
+                if (r != -ENXIO)
+                        return log_error_errno(r, "Failed to read local host name: %m");
+
+                hn = get_default_hostname();
+                if (!hn)
+                        return log_oom();
+        }
+
+        dhn = get_default_hostname();
+        if (!dhn)
+                return log_oom();
+
+        if (isempty(c->data[PROP_ICON_NAME]))
+                in = context_fallback_icon_name(c);
+
+        if (isempty(c->data[PROP_CHASSIS]))
+                chassis = fallback_chassis();
+
+        assert_se(uname(&u) >= 0);
+
+        (void) get_hardware_vendor(&vendor);
+        (void) get_hardware_model(&model);
+
+        if (privileged) /* The product UUID is only available to privileged clients */
+                id128_get_product(&product_uuid);
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("Hostname", JSON_BUILD_STRING(hn)),
+                                       JSON_BUILD_PAIR("StaticHostname", JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
+                                       JSON_BUILD_PAIR("PrettyHostname", JSON_BUILD_STRING(c->data[PROP_PRETTY_HOSTNAME])),
+                                       JSON_BUILD_PAIR("DefaultHostname", JSON_BUILD_STRING(dhn)),
+                                       JSON_BUILD_PAIR("HostnameSource", JSON_BUILD_STRING(hostname_source_to_string(c->hostname_source))),
+                                       JSON_BUILD_PAIR("IconName", JSON_BUILD_STRING(in ?: c->data[PROP_ICON_NAME])),
+                                       JSON_BUILD_PAIR("Chassis", JSON_BUILD_STRING(chassis ?: c->data[PROP_CHASSIS])),
+                                       JSON_BUILD_PAIR("Deployment", JSON_BUILD_STRING(c->data[PROP_DEPLOYMENT])),
+                                       JSON_BUILD_PAIR("Location", JSON_BUILD_STRING(c->data[PROP_LOCATION])),
+                                       JSON_BUILD_PAIR("KernelName", JSON_BUILD_STRING(u.sysname)),
+                                       JSON_BUILD_PAIR("KernelRelease", JSON_BUILD_STRING(u.release)),
+                                       JSON_BUILD_PAIR("KernelVersion", JSON_BUILD_STRING(u.version)),
+                                       JSON_BUILD_PAIR("OperatingSystemPrettyName", JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
+                                       JSON_BUILD_PAIR("OperatingSystemCPEName", JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
+                                       JSON_BUILD_PAIR("OperatingSystemHomeURL", JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
+                                       JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor)),
+                                       JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model)),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
+                                       JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON data: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", text);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -1077,6 +1177,12 @@ static const sd_bus_vtable hostname_vtable[] = {
                                  "ay",
                                  SD_BUS_PARAM(uuid),
                                  method_get_product_uuid,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Describe",
+                                 NULL,,
+                                 "s",
+                                 SD_BUS_PARAM(text),
+                                 method_describe,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END,
