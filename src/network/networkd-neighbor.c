@@ -7,6 +7,7 @@
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
+#include "networkd-queue.h"
 #include "set.h"
 
 Neighbor *neighbor_free(Neighbor *neighbor) {
@@ -213,33 +214,12 @@ static bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
         return neighbor_compare_func(n1, n2) == 0;
 }
 
-static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
+static int neighbor_configure(
+                const Neighbor *neighbor,
+                Link *link,
+                link_netlink_message_handler_t callback,
+                Neighbor **ret) {
 
-        assert(m);
-        assert(link);
-        assert(link->neighbor_messages > 0);
-
-        link->neighbor_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                /* Neighbor may not exist yet. So, do not enter failed state here. */
-                log_link_message_warning_errno(link, m, r, "Could not set neighbor, ignoring");
-
-        if (link->neighbor_messages == 0) {
-                log_link_debug(link, "Neighbors set");
-                link->neighbors_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
-static int neighbor_configure(Neighbor *neighbor, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -248,6 +228,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link) {
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+        assert(callback);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
                                       link->ifindex, neighbor->family);
@@ -266,22 +247,49 @@ static int neighbor_configure(Neighbor *neighbor, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, neighbor_configure_handler,
+        r = neighbor_add(link, neighbor, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add neighbor: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
-        link->neighbor_messages++;
         link_ref(link);
-
-        r = neighbor_add(link, neighbor, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add neighbor: %m");
 
         return r;
 }
 
-int link_set_neighbors(Link *link) {
+static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->static_neighbor_messages > 0);
+
+        link->static_neighbor_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set neighbor");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        if (link->static_neighbor_messages == 0) {
+                log_link_debug(link, "Neighbors set");
+                link->static_neighbors_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+int link_request_static_neighbors(Link *link) {
         Neighbor *neighbor;
         int r;
 
@@ -289,24 +297,21 @@ int link_set_neighbors(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        if (link->neighbor_messages != 0) {
-                log_link_debug(link, "Neighbors are configuring.");
-                return 0;
-        }
-
-        link->neighbors_configured = false;
+        link->static_neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = neighbor_configure(neighbor, link);
+                r = link_request_neighbor(link, neighbor, false, static_neighbor_configure_handler, NULL);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set neighbor: %m");
+                        return log_link_warning_errno(link, r, "Could not request neighbor: %m");
+
+                link->static_neighbor_messages++;
         }
 
-        if (link->neighbor_messages == 0) {
-                link->neighbors_configured = true;
+        if (link->static_neighbor_messages == 0) {
+                link->static_neighbors_configured = true;
                 link_check_ready(link);
         } else {
-                log_link_debug(link, "Setting neighbors");
+                log_link_debug(link, "Requesting neighbors");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
@@ -318,6 +323,9 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
 
         assert(m);
         assert(link);
+        assert(link->neighbor_remove_messages > 0);
+
+        link->neighbor_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -355,6 +363,7 @@ static int neighbor_remove(Neighbor *neighbor, Link *link) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+        link->neighbor_remove_messages++;
 
         return 0;
 }
@@ -408,6 +417,34 @@ int link_drop_neighbors(Link *link) {
         }
 
         return r;
+}
+
+int request_process_neighbor(Request *req) {
+        Neighbor *ret;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->neighbor);
+        assert(req->type == REQUEST_TYPE_NEIGHBOR);
+
+        if (!link_is_ready_to_configure(req->link))
+                return 0;
+
+        if (req->link->neighbor_remove_messages > 0)
+                return 0;
+
+        r = neighbor_configure(req->neighbor, req->link, req->netlink_handler, &ret);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure) {
+                r = req->after_configure(req, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, union lladdr_union *lladdr, size_t *size, char **str) {
