@@ -453,7 +453,7 @@ int request_process_neighbor(Request *req) {
         assert(req->neighbor);
         assert(req->type == REQUEST_TYPE_NEIGHBOR);
 
-        if (!link_is_ready_to_configure(req->link))
+        if (!link_is_ready_to_configure(req->link, false))
                 return 0;
 
         if (req->link->neighbor_remove_messages > 0)
