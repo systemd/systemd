@@ -449,6 +449,41 @@ static int context_write_data_machine_info(Context *c) {
         return 0;
 }
 
+static int get_dmi_data(const char *database_key, const char *regular_key, char **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *b = NULL;
+        const char *s = NULL;
+        int r;
+
+        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
+
+        if (database_key)
+                (void) sd_device_get_property_value(device, database_key, &s);
+        if (!s && regular_key)
+                (void) sd_device_get_property_value(device, regular_key, &s);
+
+        if (s) {
+                b = strdup(s);
+                if (!b)
+                        return -ENOMEM;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(b);
+
+        return !!s;
+}
+
+static int get_hardware_vendor(char **ret) {
+        return get_dmi_data("ID_VENDOR_FROM_DATABASE", "ID_VENDOR", ret);
+}
+
+static int get_hardware_model(char **ret) {
+        return get_dmi_data("ID_MODEL_FROM_DATABASE", "ID_MODEL", ret);
+}
+
 static int property_get_hardware_vendor(
                 sd_bus *bus,
                 const char *path,
@@ -457,20 +492,11 @@ static int property_get_hardware_vendor(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *hardware_vendor = NULL;
-        int r;
 
-        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
-        if (r < 0) {
-                log_warning_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
-                return sd_bus_message_append(reply, "s", NULL);
-        }
+        _cleanup_free_ char *vendor = NULL;
 
-        if (sd_device_get_property_value(device, "ID_VENDOR_FROM_DATABASE", &hardware_vendor) < 0)
-                (void) sd_device_get_property_value(device, "ID_VENDOR", &hardware_vendor);
-
-        return sd_bus_message_append(reply, "s", hardware_vendor);
+        (void) get_hardware_vendor(&vendor);
+        return sd_bus_message_append(reply, "s", vendor);
 }
 
 static int property_get_hardware_model(
@@ -481,20 +507,11 @@ static int property_get_hardware_model(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *hardware_model = NULL;
-        int r;
 
-        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
-        if (r < 0) {
-                log_warning_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
-                return sd_bus_message_append(reply, "s", NULL);
-        }
+        _cleanup_free_ char *model = NULL;
 
-        if (sd_device_get_property_value(device, "ID_MODEL_FROM_DATABASE", &hardware_model) < 0)
-                (void) sd_device_get_property_value(device, "ID_MODEL", &hardware_model);
-
-        return sd_bus_message_append(reply, "s", hardware_model);
+        (void) get_hardware_model(&model);
+        return sd_bus_message_append(reply, "s", model);
 }
 
 static int property_get_hostname(
@@ -548,7 +565,9 @@ static int property_get_default_hostname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *hn = get_default_hostname();
+        _cleanup_free_ char *hn = NULL;
+
+        hn = get_default_hostname();
         if (!hn)
                 return log_oom();
 
