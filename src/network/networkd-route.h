@@ -74,7 +74,6 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 
 int static_route_dup(const Route *src, Route **ret);
 
-int route_configure(const Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_request_static_routes(Link *link);
