@@ -73,9 +73,9 @@ static inline bool section_is_invalid(NetworkConfigSection *section) {
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
-static inline int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
-        const char *err_msg = NULL;
-
-        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
-}
+int log_message_full_errno(sd_netlink_message *m, int level, int err, const char *msg);
+#define log_message_error_errno(m, err, msg)   log_message_full_errno(m, LOG_ERR, err, msg)
+#define log_message_warning_errno(m, err, msg) log_message_full_errno(m, LOG_WARNING, err, msg)
+#define log_message_notice_errno(m, err, msg)  log_message_full_errno(m, LOG_NOTICE, err, msg)
+#define log_message_info_errno(m, err, msg)    log_message_full_errno(m, LOG_INFO, err, msg)
+#define log_message_debug_errno(m, err, msg)   log_message_full_errno(m, LOG_DEBUG, err, msg)

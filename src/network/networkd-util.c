@@ -223,3 +223,14 @@ unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
 
         return n + 1;
 }
+
+int log_message_full_errno(sd_netlink_message *m, int level, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_full_errno(level, err, "%s: %s%s%s%m",
+                              msg,
+                              strempty(err_msg),
+                              err_msg && !endswith(err_msg, ".") ? "." : "",
+                              err_msg ? " " : "");
+}
