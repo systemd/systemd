@@ -862,7 +862,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
 
 static int ipv4_dad_configure(Address *address);
 
-int address_configure(
+static int address_configure(
                 const Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback,
@@ -1079,7 +1079,7 @@ int link_request_static_addresses(Link *link) {
 }
 
 int request_process_address(Request *req) {
-        Address *ret;
+        Address *ret = NULL;  /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(req);
