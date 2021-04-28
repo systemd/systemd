@@ -86,6 +86,11 @@ static void dhcp4_check_ready(Link *link) {
         if (link->network->dhcp_send_decline && !link->dhcp4_address_bind)
                 return;
 
+        if (link->dhcp4_messages > 0) {
+                log_link_debug(link, "%s(): DHCPv4 address and routes are not set.", __func__);
+                return;
+        }
+
         if (!link->dhcp_address) {
                 log_link_debug(link, "%s(): DHCPv4 address is not set.", __func__);
                 return;
@@ -93,11 +98,6 @@ static void dhcp4_check_ready(Link *link) {
 
         if (!address_is_ready(link->dhcp_address)) {
                 log_link_debug(link, "%s(): DHCPv4 address is not ready.", __func__);
-                return;
-        }
-
-        if (link->dhcp4_messages > 0) {
-                log_link_debug(link, "%s(): DHCPv4 routes are not set.", __func__);
                 return;
         }
 
@@ -188,9 +188,9 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int dhcp4_request_route(Route *route, Link *link) {
+static int dhcp4_request_route(Route *in, Link *link) {
+        _cleanup_(route_freep) Route *route = in;
         Request *req;
-        bool is_new;
         int r;
 
         assert(route);
@@ -199,18 +199,15 @@ static int dhcp4_request_route(Route *route, Link *link) {
         r = link_has_route(link, route);
         if (r < 0)
                 return r;
+        if (r == 0)
+                link->dhcp4_configured = false;
 
-        is_new = !r;
-
-        r = link_request_route(link, TAKE_PTR(route), true, dhcp4_route_handler, &req);
+        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
+                               dhcp4_route_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 route: %m");
 
         req->after_configure = dhcp4_after_route_configure;
-
-        if (is_new)
-                link->dhcp4_configured = false;
-        link->dhcp4_messages++;
 
         return 0;
 }
@@ -1041,6 +1038,9 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         int r;
 
         assert(link);
+        assert(link->dhcp4_messages > 0);
+
+        link->dhcp4_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -1069,7 +1069,6 @@ static int dhcp4_request_address(Link *link, bool announce) {
         struct in_addr address, netmask;
         unsigned prefixlen;
         Request *req;
-        bool is_new;
         int r;
 
         assert(link);
@@ -1135,22 +1134,20 @@ static int dhcp4_request_address(Link *link, bool announce) {
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
         addr->route_metric = link->network->dhcp_route_metric;
 
-        is_new = address_get(link, addr, NULL) < 0;
+        if (address_get(link, addr, NULL) < 0)
+                link->dhcp4_configured = false;
 
-        r = link_request_address(link, TAKE_PTR(addr), true, dhcp4_address_handler, &req);
+        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp4_messages,
+                                 dhcp4_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
 
         req->after_configure = dhcp4_after_address_configure;
 
-        if (is_new)
-                link->dhcp4_configured = false;
-
-        return is_new;
+        return 0;
 }
 
 static int dhcp4_request_address_and_routes(Link *link, bool announce) {
-        bool is_new;
         int r;
 
         assert(link);
@@ -1158,18 +1155,13 @@ static int dhcp4_request_address_and_routes(Link *link, bool announce) {
         r = dhcp4_request_address(link, announce);
         if (r < 0)
                 return r;
-        is_new = r;
 
         r = dhcp4_request_routes(link);
         if (r < 0)
                 return r;
 
-        if (!is_new && link->dhcp4_messages == 0)
-                link->dhcp4_configured = true;
-        else {
-                link_set_state(link, LINK_STATE_CONFIGURING);
-                link_check_ready(link);
-        }
+        link_set_state(link, LINK_STATE_CONFIGURING);
+        link_check_ready(link);
 
         return 0;
 }
