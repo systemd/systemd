@@ -696,6 +696,17 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                         return false;
         }
 
+        if (nexthop->id == 0) {
+                Request *req;
+
+                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
+                        if (req->type != REQUEST_TYPE_NEXTHOP)
+                                continue;
+                        if (req->nexthop->id != 0)
+                                return false; /* first configure nexthop with id. */
+                }
+        }
+
         if (nexthop->onlink <= 0 &&
             in_addr_is_set(nexthop->family, &nexthop->gw) &&
             !manager_address_is_accessible(link->manager, nexthop->family, &nexthop->gw))
