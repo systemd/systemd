@@ -2544,7 +2544,7 @@ int config_parse_multipath_route(
 
         _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        _cleanup_free_ char *word = NULL, *buf = NULL;
+        _cleanup_free_ char *word = NULL;
         Network *network = userdata;
         union in_addr_union a;
         int family, r;
