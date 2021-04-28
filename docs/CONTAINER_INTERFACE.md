@@ -140,7 +140,7 @@ manager, please consider supporting the following interfaces.
    `$CREDENTIALS_DIRECTORY` environment variable. If the container managers
    does this, the credentials passed to the service manager can be propagated
    to services via `LoadCredential=` (see ...). The container manager can
-   choose any path, but `/run/host/credentials` is recommended."
+   choose any path, but `/run/host/credentials` is recommended.
 
 ## Advanced Integration
 
@@ -328,6 +328,17 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    already, if network namespacing is used. Thus it is OK to mount the relevant
    sub-directories of `/sys/` writable, but make sure to leave the root of
    `/sys/` read-only.)
+
+8. Do not pass the `CAP_AUDIT_CONTROL`, `CAP_AUDIT_READ`, `CAP_AUDIT_WRITE`
+   capabilities to the container, in particular not to those making use of user
+   namespaces. The kernel's audit subsystem is still not virtualized for
+   containers, and passing these credentials is pointless hence, given the
+   actual attempt to make use of the audit subsystem will fail. Note that
+   systemd's audit support is partially conditioned on these capabilities, thus
+   by dropping them you ensure that you get an entirely clean boot, as systemd
+   will make not attempt to use it. If you pass the capabilites to the payload
+   systemd will assume that audit is available and works, and some components
+   will subsequently fail in various ways.
 
 ## Fully Unprivileged Container Payload
 
