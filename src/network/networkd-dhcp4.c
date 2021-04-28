@@ -358,7 +358,7 @@ static int link_set_dhcp_static_routes(Link *link, struct in_addr *ret_default_g
         /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
          * the DHCP client MUST ignore the Static Routes option. */
         if (classless_route && static_route)
-                log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option");
+                log_link_debug(link, "Classless static routes received from DHCP server: ignoring static-route option");
 
         r = route_new(&route);
         if (r < 0)
