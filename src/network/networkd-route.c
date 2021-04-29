@@ -1312,10 +1312,12 @@ static int route_configure(
                 const Route *route,
                 Link *link,
                 link_netlink_message_handler_t callback,
-                Route **ret) {
+                unsigned *ret_n_routes,
+                Route ***ret_routes) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        Route *nr;
+        _cleanup_free_ Route **routes = NULL;
+        unsigned n_routes = 0;  /* avoid false maybe-uninitialized warning */
         int r, k;
 
         assert(link);
@@ -1324,6 +1326,7 @@ static int route_configure(
         assert(link->ifindex > 0);
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
+        assert(!!ret_n_routes == !!ret_routes);
 
         if (route_get(link->manager, link, route, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
@@ -1406,21 +1409,36 @@ static int route_configure(
         if (route->nexthop_id != 0 ||
             in_addr_is_set(route->gw_family, &route->gw) ||
             ordered_set_isempty(route->multipath_routes)) {
-                k = route_add_and_setup_timer(link, route, NULL, &nr);
+
+                if (ret_routes) {
+                        n_routes = 1;
+                        routes = new(Route*, n_routes);
+                        if (!routes)
+                                return log_oom();
+                }
+
+                k = route_add_and_setup_timer(link, route, NULL, routes);
                 if (k < 0)
                         return k;
         } else {
                 MultipathRoute *m;
+                Route **p;
 
                 r = append_nexthops(route, req);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
 
-                assert(!ret);
+                if (ret_routes) {
+                        n_routes = ordered_set_size(route->multipath_routes);
+                        routes = new(Route*, n_routes);
+                        if (!routes)
+                                return log_oom();
+                }
 
                 k = 0;
+                p = routes;
                 ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                        r = route_add_and_setup_timer(link, route, m, NULL);
+                        r = route_add_and_setup_timer(link, route, m, ret_routes ? p++ : NULL);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -1435,8 +1453,10 @@ static int route_configure(
 
         link_ref(link);
 
-        if (ret)
-                *ret = nr;
+        if (ret_routes) {
+                *ret_n_routes = n_routes;
+                *ret_routes = TAKE_PTR(routes);
+        }
 
         return k;
 }
@@ -1580,7 +1600,8 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
 }
 
 int request_process_route(Request *req) {
-        Route *ret = NULL;
+        _cleanup_free_ Route **routes = NULL;
+        unsigned n_routes;
         int r;
 
         assert(req);
@@ -1596,14 +1617,19 @@ int request_process_route(Request *req) {
                 return r;
 
         r = route_configure(req->route, req->link, req->netlink_handler,
-                            ordered_set_isempty(req->route->multipath_routes) ? &ret : NULL);
+                            req->after_configure ? &n_routes : NULL,
+                            req->after_configure ? &routes : NULL);
         if (r < 0)
                 return r;
 
         if (req->after_configure) {
-                r = req->after_configure(req, ret);
-                if (r < 0)
-                        return r;
+                assert(n_routes > 0);
+
+                for (unsigned i = 0; i < n_routes; i++) {
+                        r = req->after_configure(req, routes[i]);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 1;
