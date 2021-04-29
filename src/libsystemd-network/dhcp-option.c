@@ -122,27 +122,27 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
         }
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
                 sd_dhcp_server *server = (sd_dhcp_server *) optval;
-                size_t *current_offset = offset + 2;
+                size_t current_offset = *offset + 2;
 
                 if (server->agent_circuit_id) {
                         size_t length = strlen(server->agent_circuit_id);
                         int subcode = SD_DHCP_RELAY_AGENT_CIRCUIT_ID;
-                        r = dhcp_option_append_tlv(options, size, current_offset, subcode, length, server->agent_circuit_id);
+                        r = dhcp_option_append_tlv(options, size, &current_offset, subcode, length, server->agent_circuit_id);
                         if (r < 0)
                                 return r;
                 }
                 if (server->agent_remote_id) {
                         size_t length = strlen(server->agent_remote_id);
                         int subcode = SD_DHCP_RELAY_AGENT_REMOTE_ID;
-                        r = dhcp_option_append_tlv(options, size, current_offset, subcode, length, server->agent_remote_id);
+                        r = dhcp_option_append_tlv(options, size, &current_offset, subcode, length, server->agent_remote_id);
                         if (r < 0)
                                 return r;
                 }
 
                 options[*offset] = code;
-                options[*offset + 1] = current_offset - offset;
+                options[*offset + 1] = current_offset - *offset;
                 assert(options[*offset + 1] <= 255);
-                offset = current_offset;
+                *offset = current_offset;
                 break;
         }
         default:
