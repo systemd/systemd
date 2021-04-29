@@ -204,6 +204,7 @@ DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
 
+int link_up(Link *link);
 int link_down(Link *link, link_netlink_message_handler_t callback);
 
 void link_enter_failed(Link *link);
