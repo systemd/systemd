@@ -1,9 +1,9 @@
 [Match]
 Name=client-peer
 [Network]
-Address=192.168.6.2/24
+Address=192.168.236.2/24
 DHCPServer=yes
 IPForward=ipv4
 [DHCPServer]
-RelayTarget=192.168.5.1
+RelayTarget=192.168.235.1
 BindToInterface=no

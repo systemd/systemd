@@ -1,5 +1,5 @@
 [Match]
 Name=server-peer
 [Network]
-Address=192.168.5.2/24
+Address=192.168.235.2/24
 IPForward=ipv4
