@@ -1363,10 +1363,11 @@ int sd_dhcp_server_set_relay_agent_circuit_id(
                 const char *agent_circuit_id) {
         assert_return(server, -EINVAL);
 
-        if (strstr(agent_circuit_id, "string:") != 0)
-                return -EINVAL;
-        agent_circuit_id += strlen("string:");
-
+        if (agent_circuit_id) {
+                if (strstr(agent_circuit_id, "string:") != agent_circuit_id)
+                        return -EINVAL;
+                agent_circuit_id += strlen("string:");
+        }
         if (relay_agent_suboptions_length(agent_circuit_id, server->agent_remote_id) > 255)
                 return -ENOBUFS;
 
@@ -1378,10 +1379,11 @@ int sd_dhcp_server_set_agent_remote_id(
                 const char *agent_remote_id) {
         assert_return(server, -EINVAL);
 
-        if (strstr(agent_remote_id, "string:") != 0)
-                return -EINVAL;
-        agent_remote_id += strlen("string:");
-
+        if (agent_remote_id) {
+                if (strstr(agent_remote_id, "string:") != agent_remote_id)
+                        return -EINVAL;
+                agent_remote_id += strlen("string:");
+        }
         if (relay_agent_suboptions_length(server->agent_circuit_id, agent_remote_id) > 255)
                 return -ENOBUFS;
 
