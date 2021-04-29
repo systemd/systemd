@@ -4,7 +4,10 @@ Name=server
 Address=192.168.5.1/24
 IPForward=ipv4
 DHCPServer=yes
+
 [DHCPServer]
 BindToInterface=no
 PoolOffset=150
 PoolSize=1
+DNS=192.168.5.1
+NTP=192.168.5.1
