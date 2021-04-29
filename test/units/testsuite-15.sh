@@ -118,7 +118,7 @@ EOF
     check_ok test15-b ExecCondition "/bin/echo test15-b"
     rm -rf /usr/lib/systemd/system/service.d
 
-    clear_services test15-a test15-b test15-c
+    clear_services test15-a test15-b test15-c test15-c1
 }
 
 test_linked_units () {
