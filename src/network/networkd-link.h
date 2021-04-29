@@ -131,6 +131,7 @@ typedef struct Link {
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;
         bool bridge_mdb_configured:1;
+        bool can_configured:1;
         bool activated:1;
 
         sd_dhcp_server *dhcp_server;
