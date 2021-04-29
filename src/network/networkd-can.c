@@ -57,13 +57,17 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
         assert(link);
 
-        log_link_debug(link, "Set link");
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Failed to configure CAN link");
                 link_enter_failed(link);
+                return 1;
         }
+
+        log_link_debug(link, "Link set");
 
         return 1;
 }
