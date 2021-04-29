@@ -69,6 +69,9 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
         log_link_debug(link, "Link set");
 
+        link->can_configured = true;
+        link_check_ready(link);
+
         return 1;
 }
 
@@ -268,6 +271,9 @@ int link_configure_can(Link *link) {
                         return r;
                 }
         }
+
+        link->can_configured = true;
+        link_check_ready(link);
 
         return 0;
 }

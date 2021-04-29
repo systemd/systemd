@@ -764,6 +764,15 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return;
 
+        if (link->iftype == ARPHRD_CAN) {
+                /* let's shortcut things for CAN which doesn't need most of checks below. */
+                if (!link->can_configured)
+                        return (void) log_link_debug(link, "%s(): CAN device is not configured.", __func__);
+
+                link_enter_configured(link);
+                return;
+        }
+
         if (!link->addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
@@ -2076,6 +2085,7 @@ int link_configure(Link *link) {
                 return r;
 
         if (link->iftype == ARPHRD_CAN)
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return link_configure_can(link);
 
         r = link_set_sysctl(link);
@@ -2567,6 +2577,10 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (link->iftype == ARPHRD_CAN)
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
+                return link_handle_bound_by_list(link);
+
         r = wifi_get_info(link);
         if (r < 0)
                 return r;
@@ -2624,6 +2638,10 @@ static int link_carrier_lost(Link *link) {
 
         if (link->network && link->network->ignore_carrier_loss)
                 return 0;
+
+        if (link->iftype == ARPHRD_CAN)
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
+                return link_handle_bound_by_list(link);
 
         /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
          * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
