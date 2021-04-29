@@ -2193,6 +2193,41 @@ if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
+
+        if have_standalone_binaries
+                public_programs += executable(
+                        'bootctl.standalone',
+                        'src/boot/bootctl.c',
+                        include_directories : includes,
+                        link_with : [libshared_static,
+                                     libbasic,
+                                     libsystemd],
+                        dependencies : [libblkid],
+                        install_rpath : rootlibexecdir,
+                        install : true)
+
+                public_programs += executable(
+                        'systemd-bless-boot.standalone',
+                        'src/boot/bless-boot.c',
+                        include_directories : includes,
+                        link_with : [libshared_static,
+                                     libbasic,
+                                     libsystemd],
+                        dependencies : [libblkid],
+                        install_rpath : rootlibexecdir,
+                        install : true,
+                        install_dir : rootlibexecdir)
+
+                executable(
+                        'systemd-bless-boot-generator.standalone',
+                        'src/boot/bless-boot-generator.c',
+                        include_directories : includes,
+                        link_with : [libshared_static,
+                                     libbasic],
+                        install_rpath : rootlibexecdir,
+                        install : true,
+                        install_dir : systemgeneratordir)
+        endif
 endif
 
 executable(
