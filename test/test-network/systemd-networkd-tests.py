@@ -3707,8 +3707,10 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         ]
 
     def setUp(self):
+        print(check_output('journalctl -u systemd-networkd -n 20'))
         remove_links(self.links)
-        stop_networkd(show_logs=False)
+        print(check_output('journalctl -u systemd-networkd -n 20'))
+        stop_networkd(show_logs=True)
 
     def tearDown(self):
         remove_links(self.links)
@@ -3717,8 +3719,11 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
     def test_relay_agent(self):
         copy_unit_to_networkd_unit_path(*self.units)
+        print(check_output('journalctl -u systemd-networkd -n 20'))
         start_networkd()
 
+
+        print(check_output('journalctl -u systemd-networkd -n 20'))
         self.wait_online(['client:routable'])
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'client', env=env)
