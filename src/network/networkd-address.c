@@ -1036,6 +1036,22 @@ static int static_address_after_configure(Request *req, void *object) {
         return 0;
 }
 
+int link_request_address(
+                Link *link,
+                Address *address,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
+
+        assert(link);
+        assert(address);
+
+        log_address_debug(address, "Requesting", link);
+        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object,
+                                  message_counter, netlink_handler, ret);
+}
+
 int link_request_static_addresses(Link *link) {
         Address *a;
         Prefix *p;

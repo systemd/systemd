@@ -1384,6 +1384,23 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return 1;
 }
 
+int link_request_route(
+                Link *link,
+                Route *route,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
+
+        assert(link);
+        assert(link->manager);
+        assert(route);
+
+        log_route_debug(route, "Requesting", link, link->manager);
+        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, consume_object,
+                                  message_counter, netlink_handler, ret);
+}
+
 int link_request_static_routes(Link *link, bool only_ipv4) {
         Route *route;
         int r;
