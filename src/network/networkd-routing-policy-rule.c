@@ -723,6 +723,23 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
         return 1;
 }
 
+static int link_request_routing_policy_rule(
+                Link *link,
+                RoutingPolicyRule *rule,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
+
+        assert(link);
+        assert(link->manager);
+        assert(rule);
+
+        log_routing_policy_rule_debug(rule, "Requesting", link, link->manager);
+        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, consume_object,
+                                  message_counter, netlink_handler, ret);
+}
+
 static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
         int r;
 

@@ -312,6 +312,22 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
         return 1;
 }
 
+static int link_request_neighbor(
+                Link *link,
+                Neighbor *neighbor,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
+
+        assert(link);
+        assert(neighbor);
+
+        log_neighbor_debug(neighbor, "Requesting", link);
+        return link_queue_request(link, REQUEST_TYPE_NEIGHBOR, neighbor, consume_object,
+                                  message_counter, netlink_handler, ret);
+}
+
 int link_request_static_neighbors(Link *link) {
         Neighbor *neighbor;
         int r;
