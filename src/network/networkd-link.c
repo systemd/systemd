@@ -2735,6 +2735,10 @@ static int link_admin_state_down(Link *link) {
                 return 0;
 
         if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+                if (streq_ptr(link->kind, "can") && !link->can_configured)
+                        /* CAN device needs to be down on configure. */
+                        return 0;
+
                 log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
                 return link_up(link);
         }
