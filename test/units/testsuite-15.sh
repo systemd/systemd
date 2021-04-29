@@ -32,12 +32,9 @@ create_service () {
 Description=$SERVICE_NAME unit
 
 [Service]
-ExecStart=/bin/sleep 100000
+ExecStart=sleep 100000
 EOF
-    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.d
-    mkdir -p /etc/systemd/system/"$SERVICE_NAME".service.{wants,requires}
-    mkdir -p /run/systemd/system/"$SERVICE_NAME".service.{wants,requires}
-    mkdir -p /usr/lib/systemd/system/"$SERVICE_NAME".service.{wants,requires}
+    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.{d,wants,requires}
 }
 
 create_services () {
@@ -47,12 +44,10 @@ create_services () {
 }
 
 check_ok () {
-    [ $# -eq 3 ] || return
-
-    x="$(systemctl show --value -p "$2" "$1")"
+    x="$(systemctl show --value -p "${2:?}" "${1:?}")"
     case "$x" in
-        *$3*) return 0 ;;
-        *)    return 1 ;;
+        *${3:?}*) return 0 ;;
+        *)        return 1 ;;
     esac
 }
 
