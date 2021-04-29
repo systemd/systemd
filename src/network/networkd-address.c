@@ -486,37 +486,38 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
+        _cleanup_free_ char *addr = NULL, *peer = NULL;
+        char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
+        const char *valid_str = NULL, *preferred_str = NULL;
+        bool has_peer;
+
         assert(address);
         assert(str);
         assert(link);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *addr = NULL, *peer = NULL;
-                char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
-                const char *valid_str = NULL, *preferred_str = NULL;
-                bool has_peer;
+        if (!DEBUG_LOGGING)
+                return;
 
-                (void) in_addr_to_string(address->family, &address->in_addr, &addr);
-                has_peer = in_addr_is_set(address->family, &address->in_addr_peer);
-                if (has_peer)
-                        (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
+        (void) in_addr_to_string(address->family, &address->in_addr, &addr);
+        has_peer = in_addr_is_set(address->family, &address->in_addr_peer);
+        if (has_peer)
+                (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
 
-                if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                                    address->cinfo.ifa_valid * USEC_PER_SEC,
-                                                    USEC_PER_SEC);
+        if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
+                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                            address->cinfo.ifa_valid * USEC_PER_SEC,
+                                            USEC_PER_SEC);
 
-                if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
-                        preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
-                                                        address->cinfo.ifa_prefered * USEC_PER_SEC,
-                                                        USEC_PER_SEC);
+        if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
+                preferred_str = format_timespan(preferred_buf, FORMAT_TIMESPAN_MAX,
+                                                address->cinfo.ifa_prefered * USEC_PER_SEC,
+                                                USEC_PER_SEC);
 
-                log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s)",
-                               str, strnull(addr), has_peer ? " peer " : "",
-                               has_peer ? strnull(peer) : "", address->prefixlen,
-                               valid_str ? "for " : "forever", strempty(valid_str),
-                               preferred_str ? "for " : "forever", strempty(preferred_str));
-        }
+        log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s, preferred %s%s)",
+                       str, strnull(addr), has_peer ? " peer " : "",
+                       has_peer ? strnull(peer) : "", address->prefixlen,
+                       valid_str ? "for " : "forever", strempty(valid_str),
+                       preferred_str ? "for " : "forever", strempty(preferred_str));
 }
 
 static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
