@@ -52,48 +52,6 @@ int config_parse_can_bitrate(
         return 0;
 }
 
-static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                /* we warn but don't fail the link, as it may be brought up later */
-                log_link_message_warning_errno(link, m, r, "Could not bring up interface");
-
-        return 1;
-}
-
-static int link_up_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Bringing CAN link up");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
 static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -252,7 +210,7 @@ static int link_set_can(Link *link) {
         link_ref(link);
 
         if (!(link->flags & IFF_UP))
-                return link_up_can(link);
+                return link_up(link);
 
         return 0;
 }
@@ -304,7 +262,7 @@ int link_configure_can(Link *link) {
         }
 
         if (!(link->flags & IFF_UP)) {
-                r = link_up_can(link);
+                r = link_up(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
