@@ -44,7 +44,7 @@ static void context_clear(Context *c) {
 #endif
 }
 
-static usec_t get_startup_time(Context *c) {
+static usec_t get_startup_monotonic_time(Context *c) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         usec_t t = 0;
         int r;
@@ -56,7 +56,7 @@ static usec_t get_startup_time(Context *c) {
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "UserspaceTimestamp",
+                        "UserspaceTimestampMonotonic",
                         &error,
                         't', &t);
         if (r < 0) {
@@ -115,6 +115,7 @@ static int get_current_runlevel(Context *c) {
 static int on_reboot(Context *c) {
         int r = 0, q;
         usec_t t;
+        usec_t boottime;
 
         assert(c);
 
@@ -130,9 +131,15 @@ static int on_reboot(Context *c) {
 
         /* If this call fails it will return 0, which
          * utmp_put_reboot() will then fix to the current time */
-        t = get_startup_time(c);
+        t = get_startup_monotonic_time(c);
+        boottime = map_clock_usec(t, CLOCK_MONOTONIC, CLOCK_REALTIME);
+        /* We query the recorded monotonic time here (instead of the system clock CLOCK_REALTIME),
+         * even though we actually want the system clock time. That's because there's a likely
+         * chance that the system clock wasn't set right during early boot. By manually converting
+         * the monotonic clock to the system clock here we can compensate
+         * for incorrectly set clocks during early boot. */
 
-        q = utmp_put_reboot(t);
+        q = utmp_put_reboot(boottime);
         if (q < 0)
                 r = log_error_errno(q, "Failed to write utmp record: %m");
 
