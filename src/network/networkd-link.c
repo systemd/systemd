@@ -764,6 +764,14 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return;
 
+        if (link->iftype == ARPHRD_CAN) {
+                if (!link->can_configured)
+                        return (void) log_link_debug(link, "%s(): CAN device is not configured.", __func__);
+
+                link_enter_configured(link);
+                return;
+        }
+
         if (!link->addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
@@ -1376,7 +1384,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int link_up(Link *link) {
+int link_up(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -1771,7 +1779,7 @@ static void link_drop(Link *link) {
         link_detach_from_manager(link);
 }
 
-static int link_joined(Link *link) {
+int link_activate(Link *link) {
         int r;
 
         assert(link);
@@ -1789,10 +1797,8 @@ static int link_joined(Link *link) {
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_UP:
                 r = link_up(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 break;
         case ACTIVATION_POLICY_DOWN:
                 if (link->activated)
@@ -1800,15 +1806,26 @@ static int link_joined(Link *link) {
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_DOWN:
                 r = link_down(link, NULL);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 break;
         default:
                 break;
         }
         link->activated = true;
+
+        return 0;
+}
+
+static int link_joined(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        r = link_activate(link);
+        if (r < 0)
+                return r;
 
         if (link->network->bridge) {
                 r = link_set_bridge(link);
@@ -2567,6 +2584,9 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (link->iftype == ARPHRD_CAN)
+                return link_handle_bound_by_list(link);
+
         r = wifi_get_info(link);
         if (r < 0)
                 return r;
@@ -2624,6 +2644,9 @@ static int link_carrier_lost(Link *link) {
 
         if (link->network && link->network->ignore_carrier_loss)
                 return 0;
+
+        if (link->iftype == ARPHRD_CAN)
+                return link_handle_bound_by_list(link);
 
         /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
          * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
@@ -2712,6 +2735,10 @@ static int link_admin_state_down(Link *link) {
                 return 0;
 
         if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+                if (streq_ptr(link->kind, "can") && !link->can_configured)
+                        /* CAN device needs to be down on configure. */
+                        return 0;
+
                 log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
                 return link_up(link);
         }
