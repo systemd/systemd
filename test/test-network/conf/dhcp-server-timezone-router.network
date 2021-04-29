@@ -11,3 +11,5 @@ PoolOffset=10
 PoolSize=50
 EmitRouter=yes
 Timezone=Europe/Berlin
+DNS=192.168.5.1
+NTP=192.168.5.1
