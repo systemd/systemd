@@ -605,35 +605,36 @@ static bool route_type_is_reject(const Route *route) {
 }
 
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *m) {
+        _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
+                *table = NULL, *scope = NULL, *proto = NULL;
+
         assert(route);
         assert(str);
         assert(m);
 
         /* link may be NULL. */
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
-                        *table = NULL, *scope = NULL, *proto = NULL;
+        if (!DEBUG_LOGGING)
+                return;
 
-                if (in_addr_is_set(route->family, &route->dst))
-                        (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
-                if (in_addr_is_set(route->family, &route->src))
-                        (void) in_addr_to_string(route->family, &route->src, &src);
-                if (in_addr_is_set(route->gw_family, &route->gw))
-                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
-                if (in_addr_is_set(route->family, &route->prefsrc))
-                        (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
-                (void) route_scope_to_string_alloc(route->scope, &scope);
-                (void) manager_get_route_table_to_string(m, route->table, &table);
-                (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
+        if (in_addr_is_set(route->family, &route->dst))
+                (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
+        if (in_addr_is_set(route->family, &route->src))
+                (void) in_addr_to_string(route->family, &route->src, &src);
+        if (in_addr_is_set(route->gw_family, &route->gw))
+                (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
+        if (in_addr_is_set(route->family, &route->prefsrc))
+                (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
+        (void) route_scope_to_string_alloc(route->scope, &scope);
+        (void) manager_get_route_table_to_string(m, route->table, &table);
+        (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
 
-                log_link_debug(link,
-                               "%s route: dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32,
-                               str, strna(dst), strna(src), strna(gw), strna(prefsrc),
-                               strna(scope), strna(table), strna(proto),
-                               strna(route_type_to_string(route->type)),
-                               route->nexthop_id, route->priority);
-        }
+        log_link_debug(link,
+                       "%s route: dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32,
+                       str, strna(dst), strna(src), strna(gw), strna(prefsrc),
+                       strna(scope), strna(table), strna(proto),
+                       strna(route_type_to_string(route->type)),
+                       route->nexthop_id, route->priority);
 }
 
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {

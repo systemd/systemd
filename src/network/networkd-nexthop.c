@@ -336,23 +336,24 @@ set_manager:
 }
 
 static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *str, const Link *link) {
+        _cleanup_free_ char *gw = NULL;
+
         assert(nexthop);
         assert(str);
 
         /* link may be NULL. */
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *gw = NULL;
+        if (!DEBUG_LOGGING)
+                return;
 
-                (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
+        (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
 
-                if (nexthop->id == id)
-                        log_link_debug(link, "%s nexthop: id: %"PRIu32", gw: %s, blackhole: %s",
-                                       str, nexthop->id, strna(gw), yes_no(nexthop->blackhole));
-                else
-                        log_link_debug(link, "%s nexthop: id: %"PRIu32"→%"PRIu32", gw: %s, blackhole: %s",
-                                       str, nexthop->id, id, strna(gw), yes_no(nexthop->blackhole));
-        }
+        if (nexthop->id == id)
+                log_link_debug(link, "%s nexthop: id: %"PRIu32", gw: %s, blackhole: %s",
+                               str, nexthop->id, strna(gw), yes_no(nexthop->blackhole));
+        else
+                log_link_debug(link, "%s nexthop: id: %"PRIu32"→%"PRIu32", gw: %s, blackhole: %s",
+                               str, nexthop->id, id, strna(gw), yes_no(nexthop->blackhole));
 }
 
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
