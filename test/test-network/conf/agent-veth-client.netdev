@@ -1,8 +1,8 @@
 [NetDev]
 Name=client
 Kind=veth
-MACAddress=12:34:56:78:9a:bc
+MACAddress=12:34:56:23:9a:bc
 
 [Peer]
 Name=client-peer
-MACAddress=12:34:56:78:9a:bd
+MACAddress=12:34:56:23:9a:bd
