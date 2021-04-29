@@ -17,7 +17,9 @@
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "json.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
@@ -30,6 +32,7 @@ static char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 typedef struct StatusInfo {
         const char *hostname;
@@ -317,6 +320,37 @@ static int show_all_names(sd_bus *bus) {
 
 static int show_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
+        int r;
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                const char *text = NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.hostname1",
+                                "/org/freedesktop/hostname1",
+                                "org.freedesktop.hostname1",
+                                "Describe",
+                                &error,
+                                &reply,
+                                NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get description: %s", bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "s", &text);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_parse(text, 0, &v, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON: %m");
+
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                return 0;
+        }
 
         if (arg_pretty || arg_static || arg_transient) {
                 const char *attr;
@@ -489,6 +523,8 @@ static int help(void) {
                "     --transient         Only set transient hostname\n"
                "     --static            Only set static hostname\n"
                "     --pretty            Only set pretty hostname\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -509,7 +545,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_TRANSIENT,
                 ARG_STATIC,
-                ARG_PRETTY
+                ARG_PRETTY,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -521,10 +558,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "json",            required_argument, NULL, ARG_JSON            },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -563,6 +601,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '?':
