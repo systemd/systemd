@@ -191,119 +191,151 @@ struct sd_bus_vtable {
 #define _SD_ECHO(X) X
 #define _SD_CONCAT(X) #X "\0"
 
-#define _SD_VARARGS_FOREACH_EVEN_01(FN, X, ...)
-#define _SD_VARARGS_FOREACH_EVEN_02(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_01(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_03(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_02(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_04(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_03(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_05(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_04(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_06(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_05(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_07(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_06(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_08(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_07(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_09(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_08(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_10(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_09(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_11(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_10(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_12(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_11(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_13(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_12(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_14(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_13(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_15(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_14(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_16(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_15(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_17(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_16(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_18(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_17(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_19(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_18(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_20(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_19(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_21(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_20(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_22(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_21(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_23(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_22(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_24(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_23(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_25(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_24(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_26(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_25(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_27(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_26(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_28(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_27(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_29(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_28(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_30(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_29(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_31(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_30(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_32(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_31(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_33(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_32(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_34(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_33(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_35(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_34(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_36(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_35(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_37(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_36(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_38(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_37(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_39(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_38(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_40(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_39(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_41(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_40(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_42(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_41(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_43(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_42(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_44(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_43(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_45(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_44(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_46(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_45(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_47(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_46(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_48(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_47(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_49(FN, X, ...)       _SD_VARARGS_FOREACH_EVEN_48(FN, __VA_ARGS__)
-#define _SD_VARARGS_FOREACH_EVEN_50(FN, X, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_49(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_SEQ(_01, _02, _03, _04, _05, _06, _07, _08, _09, _10, \
+                                _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, \
+                                _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, \
+                                _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, \
+                                _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, \
+                                NAME, ...) NAME
 
-#define _SD_VARARGS_FOREACH_EVEN_SEQ(_01, _02, _03, _04, _05, _06, _07, _08, _09, _10, \
-                                     _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, \
-                                     _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, \
-                                     _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, \
-                                     _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, \
-                                     NAME, ...) NAME
+#define _SD_VARARGS_FOREACH_EVEN_01(FN, X)         FN(X)
+#define _SD_VARARGS_FOREACH_EVEN_02(FN, X, Y)      FN(X)
+#define _SD_VARARGS_FOREACH_EVEN_04(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_02(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_06(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_04(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_08(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_06(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_10(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_08(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_12(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_10(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_14(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_12(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_16(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_14(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_18(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_16(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_20(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_18(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_22(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_20(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_24(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_22(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_26(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_24(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_28(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_26(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_30(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_28(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_32(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_30(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_34(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_32(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_36(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_34(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_38(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_36(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_40(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_38(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_42(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_40(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_44(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_42(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_46(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_44(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_48(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_46(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN_50(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_48(FN, __VA_ARGS__)
 
-#define _SD_VARARGS_FOREACH_EVEN(FN, ...)                                                      \
-        _SD_VARARGS_FOREACH_EVEN_SEQ(__VA_ARGS__,                                              \
-                                     _SD_VARARGS_FOREACH_EVEN_50, _SD_VARARGS_FOREACH_EVEN_49, \
-                                     _SD_VARARGS_FOREACH_EVEN_48, _SD_VARARGS_FOREACH_EVEN_47, \
-                                     _SD_VARARGS_FOREACH_EVEN_46, _SD_VARARGS_FOREACH_EVEN_45, \
-                                     _SD_VARARGS_FOREACH_EVEN_44, _SD_VARARGS_FOREACH_EVEN_43, \
-                                     _SD_VARARGS_FOREACH_EVEN_42, _SD_VARARGS_FOREACH_EVEN_41, \
-                                     _SD_VARARGS_FOREACH_EVEN_40, _SD_VARARGS_FOREACH_EVEN_39, \
-                                     _SD_VARARGS_FOREACH_EVEN_38, _SD_VARARGS_FOREACH_EVEN_37, \
-                                     _SD_VARARGS_FOREACH_EVEN_36, _SD_VARARGS_FOREACH_EVEN_35, \
-                                     _SD_VARARGS_FOREACH_EVEN_34, _SD_VARARGS_FOREACH_EVEN_33, \
-                                     _SD_VARARGS_FOREACH_EVEN_32, _SD_VARARGS_FOREACH_EVEN_31, \
-                                     _SD_VARARGS_FOREACH_EVEN_30, _SD_VARARGS_FOREACH_EVEN_29, \
-                                     _SD_VARARGS_FOREACH_EVEN_28, _SD_VARARGS_FOREACH_EVEN_27, \
-                                     _SD_VARARGS_FOREACH_EVEN_26, _SD_VARARGS_FOREACH_EVEN_25, \
-                                     _SD_VARARGS_FOREACH_EVEN_24, _SD_VARARGS_FOREACH_EVEN_23, \
-                                     _SD_VARARGS_FOREACH_EVEN_22, _SD_VARARGS_FOREACH_EVEN_21, \
-                                     _SD_VARARGS_FOREACH_EVEN_20, _SD_VARARGS_FOREACH_EVEN_19, \
-                                     _SD_VARARGS_FOREACH_EVEN_18, _SD_VARARGS_FOREACH_EVEN_17, \
-                                     _SD_VARARGS_FOREACH_EVEN_16, _SD_VARARGS_FOREACH_EVEN_15, \
-                                     _SD_VARARGS_FOREACH_EVEN_14, _SD_VARARGS_FOREACH_EVEN_13, \
-                                     _SD_VARARGS_FOREACH_EVEN_12, _SD_VARARGS_FOREACH_EVEN_11, \
-                                     _SD_VARARGS_FOREACH_EVEN_10, _SD_VARARGS_FOREACH_EVEN_09, \
-                                     _SD_VARARGS_FOREACH_EVEN_08, _SD_VARARGS_FOREACH_EVEN_07, \
-                                     _SD_VARARGS_FOREACH_EVEN_06, _SD_VARARGS_FOREACH_EVEN_05, \
-                                     _SD_VARARGS_FOREACH_EVEN_04, _SD_VARARGS_FOREACH_EVEN_03, \
-                                     _SD_VARARGS_FOREACH_EVEN_02, _SD_VARARGS_FOREACH_EVEN_01) \
-                                     (FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_EVEN(FN, ...)                                                 \
+        _SD_VARARGS_FOREACH_SEQ(__VA_ARGS__,                                              \
+                                _SD_VARARGS_FOREACH_EVEN_50, _SD_VARARGS_FOREACH_EVEN_49, \
+                                _SD_VARARGS_FOREACH_EVEN_48, _SD_VARARGS_FOREACH_EVEN_47, \
+                                _SD_VARARGS_FOREACH_EVEN_46, _SD_VARARGS_FOREACH_EVEN_45, \
+                                _SD_VARARGS_FOREACH_EVEN_44, _SD_VARARGS_FOREACH_EVEN_43, \
+                                _SD_VARARGS_FOREACH_EVEN_42, _SD_VARARGS_FOREACH_EVEN_41, \
+                                _SD_VARARGS_FOREACH_EVEN_40, _SD_VARARGS_FOREACH_EVEN_39, \
+                                _SD_VARARGS_FOREACH_EVEN_38, _SD_VARARGS_FOREACH_EVEN_37, \
+                                _SD_VARARGS_FOREACH_EVEN_36, _SD_VARARGS_FOREACH_EVEN_35, \
+                                _SD_VARARGS_FOREACH_EVEN_34, _SD_VARARGS_FOREACH_EVEN_33, \
+                                _SD_VARARGS_FOREACH_EVEN_32, _SD_VARARGS_FOREACH_EVEN_31, \
+                                _SD_VARARGS_FOREACH_EVEN_30, _SD_VARARGS_FOREACH_EVEN_29, \
+                                _SD_VARARGS_FOREACH_EVEN_28, _SD_VARARGS_FOREACH_EVEN_27, \
+                                _SD_VARARGS_FOREACH_EVEN_26, _SD_VARARGS_FOREACH_EVEN_25, \
+                                _SD_VARARGS_FOREACH_EVEN_24, _SD_VARARGS_FOREACH_EVEN_23, \
+                                _SD_VARARGS_FOREACH_EVEN_22, _SD_VARARGS_FOREACH_EVEN_21, \
+                                _SD_VARARGS_FOREACH_EVEN_20, _SD_VARARGS_FOREACH_EVEN_19, \
+                                _SD_VARARGS_FOREACH_EVEN_18, _SD_VARARGS_FOREACH_EVEN_17, \
+                                _SD_VARARGS_FOREACH_EVEN_16, _SD_VARARGS_FOREACH_EVEN_15, \
+                                _SD_VARARGS_FOREACH_EVEN_14, _SD_VARARGS_FOREACH_EVEN_13, \
+                                _SD_VARARGS_FOREACH_EVEN_12, _SD_VARARGS_FOREACH_EVEN_11, \
+                                _SD_VARARGS_FOREACH_EVEN_10, _SD_VARARGS_FOREACH_EVEN_09, \
+                                _SD_VARARGS_FOREACH_EVEN_08, _SD_VARARGS_FOREACH_EVEN_07, \
+                                _SD_VARARGS_FOREACH_EVEN_06, _SD_VARARGS_FOREACH_EVEN_05, \
+                                _SD_VARARGS_FOREACH_EVEN_04, _SD_VARARGS_FOREACH_EVEN_03, \
+                                _SD_VARARGS_FOREACH_EVEN_02, _SD_VARARGS_FOREACH_EVEN_01) \
+                                (FN, __VA_ARGS__)
+
+#define _SD_VARARGS_FOREACH_ODD_01(FN, X)
+#define _SD_VARARGS_FOREACH_ODD_02(FN, X, Y)      FN(Y)
+#define _SD_VARARGS_FOREACH_ODD_04(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_02(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_06(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_04(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_08(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_06(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_10(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_08(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_12(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_10(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_14(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_12(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_16(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_14(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_18(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_16(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_20(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_18(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_22(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_20(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_24(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_22(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_26(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_24(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_28(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_26(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_30(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_28(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_32(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_30(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_34(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_32(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_36(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_34(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_38(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_36(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_40(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_38(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_42(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_40(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_44(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_42(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_46(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_44(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_48(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_46(FN, __VA_ARGS__)
+#define _SD_VARARGS_FOREACH_ODD_50(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_48(FN, __VA_ARGS__)
+
+#define _SD_VARARGS_FOREACH_ODD(FN, ...)                                                \
+        _SD_VARARGS_FOREACH_SEQ(__VA_ARGS__,                                            \
+                                _SD_VARARGS_FOREACH_ODD_50, _SD_VARARGS_FOREACH_ODD_49, \
+                                _SD_VARARGS_FOREACH_ODD_48, _SD_VARARGS_FOREACH_ODD_47, \
+                                _SD_VARARGS_FOREACH_ODD_46, _SD_VARARGS_FOREACH_ODD_45, \
+                                _SD_VARARGS_FOREACH_ODD_44, _SD_VARARGS_FOREACH_ODD_43, \
+                                _SD_VARARGS_FOREACH_ODD_42, _SD_VARARGS_FOREACH_ODD_41, \
+                                _SD_VARARGS_FOREACH_ODD_40, _SD_VARARGS_FOREACH_ODD_39, \
+                                _SD_VARARGS_FOREACH_ODD_38, _SD_VARARGS_FOREACH_ODD_37, \
+                                _SD_VARARGS_FOREACH_ODD_36, _SD_VARARGS_FOREACH_ODD_35, \
+                                _SD_VARARGS_FOREACH_ODD_34, _SD_VARARGS_FOREACH_ODD_33, \
+                                _SD_VARARGS_FOREACH_ODD_32, _SD_VARARGS_FOREACH_ODD_31, \
+                                _SD_VARARGS_FOREACH_ODD_30, _SD_VARARGS_FOREACH_ODD_29, \
+                                _SD_VARARGS_FOREACH_ODD_28, _SD_VARARGS_FOREACH_ODD_27, \
+                                _SD_VARARGS_FOREACH_ODD_26, _SD_VARARGS_FOREACH_ODD_25, \
+                                _SD_VARARGS_FOREACH_ODD_24, _SD_VARARGS_FOREACH_ODD_23, \
+                                _SD_VARARGS_FOREACH_ODD_22, _SD_VARARGS_FOREACH_ODD_21, \
+                                _SD_VARARGS_FOREACH_ODD_20, _SD_VARARGS_FOREACH_ODD_19, \
+                                _SD_VARARGS_FOREACH_ODD_18, _SD_VARARGS_FOREACH_ODD_17, \
+                                _SD_VARARGS_FOREACH_ODD_16, _SD_VARARGS_FOREACH_ODD_15, \
+                                _SD_VARARGS_FOREACH_ODD_14, _SD_VARARGS_FOREACH_ODD_13, \
+                                _SD_VARARGS_FOREACH_ODD_12, _SD_VARARGS_FOREACH_ODD_11, \
+                                _SD_VARARGS_FOREACH_ODD_10, _SD_VARARGS_FOREACH_ODD_09, \
+                                _SD_VARARGS_FOREACH_ODD_08, _SD_VARARGS_FOREACH_ODD_07, \
+                                _SD_VARARGS_FOREACH_ODD_06, _SD_VARARGS_FOREACH_ODD_05, \
+                                _SD_VARARGS_FOREACH_ODD_04, _SD_VARARGS_FOREACH_ODD_03, \
+                                _SD_VARARGS_FOREACH_ODD_02, _SD_VARARGS_FOREACH_ODD_01) \
+                                (FN, __VA_ARGS__)
 
 #define SD_BUS_ARGS(...) __VA_ARGS__
 #define SD_BUS_RESULT(...) __VA_ARGS__
 
-#define SD_BUS_NO_ARGS SD_BUS_ARGS(NULL,)
-#define SD_BUS_NO_RESULT SD_BUS_RESULT(NULL,)
+#define SD_BUS_NO_ARGS SD_BUS_ARGS(NULL)
+#define SD_BUS_NO_RESULT SD_BUS_RESULT(NULL)
 
 #define SD_BUS_METHOD_WITH_ARGS(_member, _args, _result, _handler, _flags)                 \
         SD_BUS_METHOD_WITH_NAMES(_member,                                                  \
-                                _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _args),                 \
-                                _SD_VARARGS_FOREACH_EVEN(_SD_CONCAT, _args, ""),           \
-                                _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _result),               \
-                                _SD_VARARGS_FOREACH_EVEN(_SD_CONCAT, _result, ""),         \
-                                _handler, _flags)
+                                 _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _args),                \
+                                 _SD_VARARGS_FOREACH_ODD(_SD_CONCAT, _args),               \
+                                 _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _result),              \
+                                 _SD_VARARGS_FOREACH_ODD(_SD_CONCAT, _result) "\0",        \
+                                 _handler, _flags)
 
 #define SD_BUS_METHOD_WITH_ARGS_OFFSET(_member, _args, _result, _handler, _offset, _flags) \
         SD_BUS_METHOD_WITH_NAMES_OFFSET(_member,                                           \
                                         _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _args),         \
-                                        _SD_VARARGS_FOREACH_EVEN(_SD_CONCAT, _args, ""),   \
+                                        _SD_VARARGS_FOREACH_ODD(_SD_CONCAT, _args),        \
                                         _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _result),       \
-                                        _SD_VARARGS_FOREACH_EVEN(_SD_CONCAT, _result, ""), \
+                                        _SD_VARARGS_FOREACH_ODD(_SD_CONCAT, _result) "\0", \
                                         _handler, _offset, _flags)
 
 #define SD_BUS_SIGNAL_WITH_ARGS(_member, _args, _flags)                                    \
         SD_BUS_SIGNAL_WITH_NAMES(_member,                                                  \
                                  _SD_VARARGS_FOREACH_EVEN(_SD_ECHO, _args),                \
-                                 _SD_VARARGS_FOREACH_EVEN(_SD_CONCAT, _args, ""),          \
+                                 _SD_VARARGS_FOREACH_ODD(_SD_CONCAT, _args) "\0",          \
                                  _flags)
 
 _SD_END_DECLARATIONS;
