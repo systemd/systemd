@@ -1134,8 +1134,7 @@ check_result_common() {
     local ret
 
     if [ -s "$workspace/failed" ]; then
-        # …/failed only counts if non-empty
-        ls -l "$workspace/failed"
+        # Non-empty …/failed has highest priority
         cp -a "$workspace/failed" "${TESTDIR:?}/"
         ret=1
     elif [ -e "$workspace/testok" ]; then
@@ -1147,24 +1146,28 @@ check_result_common() {
         cat "$workspace/skipped"
         ret=0
     elif [ -n "$TIMED_OUT" ]; then
-        echo "${TESTNAME:?} timed out!"
+        echo "(timeout)" >"${TESTDIR:?}/failed"
         ret=2
     else
-        echo "${TESTNAME:?} did not report a result!"
+        echo "(failed; see logs)" >"${TESTDIR:?}/failed"
+        ret=3
     fi
 
     save_journal "$workspace/var/log/journal"
 
-    check_asan_reports "$workspace" || ret=3
+    check_asan_reports "$workspace" || ret=4
 
     if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f "$workspace/strace.out" ]; then
         cp "$workspace/strace.out" "${ARTIFACT_DIRECTORY}/"
     fi
 
-    [ -f "$TESTDIR/failed" ] && cat "$TESTDIR/failed"
+    if [ ${ret:?} != 0 ] && [ -f "$TESTDIR/failed" ]; then
+        echo -n "${TESTNAME:?}: "
+        cat "$TESTDIR/failed"
+    fi
     echo "${JOURNAL_LIST:-"No journals were saved"}"
 
-    return $ret
+    return ${ret:?}
 }
 
 check_result_nspawn() {
