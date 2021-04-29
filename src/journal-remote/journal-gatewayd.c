@@ -18,6 +18,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glob-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "logs-show.h"
@@ -36,7 +37,10 @@
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
+static bool arg_merge = false;
+static int arg_journal_type = 0;
 static const char *arg_directory = NULL;
+static char **arg_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
@@ -110,9 +114,11 @@ static int open_journal(RequestMeta *m) {
                 return 0;
 
         if (arg_directory)
-                return sd_journal_open_directory(&m->journal, arg_directory, 0);
+                return sd_journal_open_directory(&m->journal, arg_directory, arg_journal_type);
+        else if (arg_file)
+                return sd_journal_open_files(&m->journal, (const char**) arg_file, 0);
         else
-                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
+                return sd_journal_open(&m->journal, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
@@ -860,7 +866,11 @@ static int help(void) {
                "     --cert=CERT.PEM  Server certificate in PEM format\n"
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
+               "     --system         Serve system journal\n"
+               "     --user           Serve the user journal for the current user\n"
+               "  -m --merge          Serve all available journals\n"
                "  -D --directory=PATH Serve journal files in directory\n"
+               "     --file=PATH      Serve this journal file\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -874,6 +884,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY,
                 ARG_CERT,
                 ARG_TRUST,
+                ARG_USER,
+                ARG_SYSTEM,
+                ARG_MERGE,
+                ARG_FILE,
         };
 
         int r, c;
@@ -884,7 +898,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key",       required_argument, NULL, ARG_KEY       },
                 { "cert",      required_argument, NULL, ARG_CERT      },
                 { "trust",     required_argument, NULL, ARG_TRUST     },
+                { "user",      no_argument,       NULL, ARG_USER      },
+                { "system",    no_argument,       NULL, ARG_SYSTEM    },
+                { "merge",     no_argument,       NULL, 'm'           },
                 { "directory", required_argument, NULL, 'D'           },
+                { "file",      required_argument, NULL, ARG_FILE      },
                 {}
         };
 
@@ -947,8 +965,27 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Option --trust= is not available.");
 #endif
+
+                case ARG_SYSTEM:
+                        arg_journal_type |= SD_JOURNAL_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
+                        break;
+
+                case 'm':
+                        arg_merge = true;
+                        break;
+
                 case 'D':
                         arg_directory = optarg;
+                        break;
+
+                case ARG_FILE:
+                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
                 case '?':
