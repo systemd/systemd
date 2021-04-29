@@ -4318,24 +4318,21 @@ static int exec_child(
         r = find_executable_full(command->path, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-                        log_struct_errno(LOG_INFO, r,
-                                         "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                         LOG_UNIT_ID(unit),
-                                         LOG_UNIT_INVOCATION_ID(unit),
-                                         LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
-                                                          command->path),
-                                         "EXECUTABLE=%s", command->path);
+                        log_unit_struct_errno(unit, LOG_INFO, r,
+                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                              LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
+                                                               command->path),
+                                              "EXECUTABLE=%s", command->path);
                         return 0;
                 }
 
                 *exit_status = EXIT_EXEC;
-                return log_struct_errno(LOG_INFO, r,
-                                        "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                        LOG_UNIT_ID(unit),
-                                        LOG_UNIT_INVOCATION_ID(unit),
-                                        LOG_UNIT_MESSAGE(unit, "Failed to locate executable %s: %m",
-                                                         command->path),
-                                        "EXECUTABLE=%s", command->path);
+
+                return log_unit_struct_errno(unit, LOG_INFO, r,
+                                             "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                             LOG_UNIT_MESSAGE(unit, "Failed to locate executable %s: %m",
+                                                              command->path),
+                                             "EXECUTABLE=%s", command->path);
         }
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, executable_fd, &executable_fd);
@@ -4643,11 +4640,9 @@ static int exec_child(
 
                 line = exec_command_line(final_argv);
                 if (line)
-                        log_struct(LOG_DEBUG,
-                                   "EXECUTABLE=%s", executable,
-                                   LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
-                                   LOG_UNIT_ID(unit),
-                                   LOG_UNIT_INVOCATION_ID(unit));
+                        log_unit_struct(unit, LOG_DEBUG,
+                                        "EXECUTABLE=%s", executable,
+                                        LOG_UNIT_MESSAGE(unit, "Executing: %s", line));
         }
 
         if (exec_fd >= 0) {
@@ -4739,14 +4734,12 @@ int exec_spawn(Unit *unit,
            and, until the next SELinux policy changes, we save further reloads in future children. */
         mac_selinux_maybe_reload();
 
-        log_struct(LOG_DEBUG,
-                   LOG_UNIT_MESSAGE(unit, "About to execute %s", line),
-                   "EXECUTABLE=%s", command->path, /* We won't know the real executable path until we create
-                                                      the mount namespace in the child, but we want to log
-                                                      from the parent, so we need to use the (possibly
-                                                      inaccurate) path here. */
-                   LOG_UNIT_ID(unit),
-                   LOG_UNIT_INVOCATION_ID(unit));
+        log_unit_struct(unit, LOG_DEBUG,
+                        LOG_UNIT_MESSAGE(unit, "About to execute %s", line),
+                        "EXECUTABLE=%s", command->path); /* We won't know the real executable path until we create
+                                                            the mount namespace in the child, but we want to log
+                                                            from the parent, so we need to use the (possibly
+                                                            inaccurate) path here. */
 
         if (params->cgroup_path) {
                 r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
@@ -4790,13 +4783,11 @@ int exec_spawn(Unit *unit,
                                 exit_status_to_string(exit_status,
                                                       EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
 
-                        log_struct_errno(LOG_ERR, r,
-                                         "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                         LOG_UNIT_ID(unit),
-                                         LOG_UNIT_INVOCATION_ID(unit),
-                                         LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
-                                                          status, command->path),
-                                         "EXECUTABLE=%s", command->path);
+                        log_unit_struct_errno(unit, LOG_ERR, r,
+                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                              LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
+                                                               status, command->path),
+                                              "EXECUTABLE=%s", command->path);
                 }
 
                 _exit(exit_status);
