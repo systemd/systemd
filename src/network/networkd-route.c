@@ -713,15 +713,23 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         /* link may be NULL. */
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
+                _cleanup_free_ char *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
                         *table = NULL, *scope = NULL, *proto = NULL;
+                const char *gw = NULL;
 
                 if (in_addr_is_set(route->family, &route->dst))
                         (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
                 if (in_addr_is_set(route->family, &route->src))
                         (void) in_addr_to_string(route->family, &route->src, &src);
-                if (in_addr_is_set(route->gw_family, &route->gw))
-                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
+                if (in_addr_is_set(route->gw_family, &route->gw)) {
+                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
+                        gw = gw_alloc;
+                } else if (route->gateway_from_dhcp_or_ra) {
+                        if (route->gw_family == AF_INET)
+                                gw = "_dhcp4";
+                        else if (route->gw_family == AF_INET6)
+                                gw = "_ipv6ra";
+                }
                 if (in_addr_is_set(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
                 (void) route_scope_to_string_alloc(route->scope, &scope);
