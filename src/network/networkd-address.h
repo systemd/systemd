@@ -60,6 +60,13 @@ int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
+int link_request_address(
+                Link *link,
+                Address *address,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret);
 int link_request_static_addresses(Link *link);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);

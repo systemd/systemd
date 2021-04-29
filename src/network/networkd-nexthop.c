@@ -529,6 +529,22 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
+static int link_request_nexthop(
+                Link *link,
+                NextHop *nexthop,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
+
+        assert(link);
+        assert(nexthop);
+
+        log_nexthop_debug(nexthop, nexthop->id, "Requesting", link);
+        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, consume_object,
+                                  message_counter, netlink_handler, ret);
+}
+
 int link_request_static_nexthops(Link *link, bool only_ipv4) {
         NextHop *nh;
         int r;

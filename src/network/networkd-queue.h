@@ -57,55 +57,5 @@ int link_queue_request(
                 unsigned *message_counter,
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret);
-static inline int link_request_address(
-                Link *link,
-                Address *address,
-                bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-        return link_queue_request(link, REQUEST_TYPE_ADDRESS, address, consume_object,
-                                  message_counter, netlink_handler, ret);
-}
-static inline int link_request_neighbor(
-                Link *link,
-                Neighbor *neighbor,
-                bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-        return link_queue_request(link, REQUEST_TYPE_NEIGHBOR, neighbor, consume_object,
-                                  message_counter, netlink_handler, ret);
-}
-static inline int link_request_nexthop(
-                Link *link,
-                NextHop *nexthop,
-                bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, consume_object,
-                                  message_counter, netlink_handler, ret);
-}
-static inline int link_request_route(
-                Link *link,
-                Route *route,
-                bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, consume_object,
-                                  message_counter, netlink_handler, ret);
-}
-static inline int link_request_routing_policy_rule(
-                Link *link,
-                RoutingPolicyRule *rule,
-                bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-        return link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, rule, consume_object,
-                                  message_counter, netlink_handler, ret);
-}
 
 int manager_process_requests(sd_event_source *s, void *userdata);
