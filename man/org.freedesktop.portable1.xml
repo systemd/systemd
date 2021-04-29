@@ -40,7 +40,7 @@ node /org/freedesktop/portable1 {
     methods:
       GetImage(in  s image,
                out o object);
-      ListImages(out a(ssbtttso) UNNAMED);
+      ListImages(out a(ssbtttso) images);
       GetImageOSRelease(in  s image,
                         out a{ss} os_release);
       GetImageMetadata(in  s image,
@@ -249,12 +249,12 @@ node /org/freedesktop/portable1 {
 node /org/freedesktop/portable1 {
   interface org.freedesktop.portable1.Image {
     methods:
-      GetOSRelease(out a{ss} UNNAMED);
+      GetOSRelease(out a{ss} os_release);
       GetMetadata(in  as matches,
                   out s image,
                   out ay os_release,
                   out a{say} units);
-      GetState(out s UNNAMED);
+      GetState(out s state);
       Attach(in  as matches,
              in  s profile,
              in  b runtime,
