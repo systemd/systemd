@@ -1780,7 +1780,7 @@ static void link_drop(Link *link) {
         link_detach_from_manager(link);
 }
 
-static int link_joined(Link *link) {
+int link_activate(Link *link) {
         int r;
 
         assert(link);
@@ -1798,10 +1798,8 @@ static int link_joined(Link *link) {
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_UP:
                 r = link_up(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 break;
         case ACTIVATION_POLICY_DOWN:
                 if (link->activated)
@@ -1809,15 +1807,26 @@ static int link_joined(Link *link) {
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_DOWN:
                 r = link_down(link, NULL);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 break;
         default:
                 break;
         }
         link->activated = true;
+
+        return 0;
+}
+
+static int link_joined(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        r = link_activate(link);
+        if (r < 0)
+                return r;
 
         if (link->network->bridge) {
                 r = link_set_bridge(link);
