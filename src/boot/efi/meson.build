@@ -136,6 +136,45 @@ if have_gnu_efi
         endif
 endif
 
+sbat_substs = configuration_data()
+sbat_substs.set('sbat_project', meson.project_name())
+sbat_substs.set('PROJECT_VERSION', substs.get('PROJECT_VERSION'))
+sbat_substs.set('PROJECT_URL', substs.get('PROJECT_URL'))
+sbat_substs.set('sbat_distro_generation', get_option('sbat_distro_generation'))
+sbatvars = [['sbat_distro', 'ID'],
+            ['sbat_distro_summary', 'NAME'],
+            ['sbat_distro_url', 'BUG_REPORT_URL']]
+foreach sbatvar : sbatvars
+        value = get_option(sbatvar[0])
+        if value == ''
+                value = run_command('sed', '-n', 's/^' + sbatvar[1] + '=//p', '/etc/os-release').stdout().strip()
+                value = value.strip('"')
+        endif
+        if value != ''
+                sbat_substs.set(sbatvar[0], value)
+        endif
+endforeach
+
+sbatvars = [['sbat_distro_pkgname', meson.project_name()],
+            ['sbat_distro_version', get_option('version-tag')]]
+foreach sbatvar : sbatvars
+       value = get_option(sbatvar[0])
+       if value == ''
+               value = sbatvar[1]
+       endif
+       sbat_substs.set(sbatvar[0], value)
+endforeach
+if sbat_substs.get('sbat_distro_version') == ''
+       sbat_substs.set('sbat_distro_version', substs.get('PROJECT_VERSION'))
+endif
+
+
+if efi_arch == 'x86_64' and sbat_substs.get('sbat_distro', '') != ''
+        have_sbat = true
+else
+        have_sbat = false
+endif
+
 if have_gnu_efi
         compile_args = ['-Wall',
                         '-Wextra',
@@ -216,6 +255,20 @@ if have_gnu_efi
                 endif
         endforeach
 
+        if have_sbat
+                sbat = configure_file(
+                         input : 'sbat.c.in',
+                         output : 'sbat.c',
+                         configuration : sbat_substs)
+                sbat_o = custom_target(
+                       'sbat.o',
+                       input : sbat,
+                       output : 'sbat.o',
+                       command : efi_cc + ['-c', '@INPUT@', '-o', '@OUTPUT@']
+                                 + compile_args)
+                systemd_boot_objects += sbat_o
+        endif
+
         libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
         stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
@@ -244,6 +297,7 @@ if have_gnu_efi
                         command : [objcopy,
                                    '-j', '.text',
                                    '-j', '.sdata',
+                                   '-j', '.sbat',
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
