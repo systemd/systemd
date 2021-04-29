@@ -252,21 +252,13 @@ int link_configure_can(Link *link) {
 
         if (streq_ptr(link->kind, "can")) {
                 /* The CAN interface must be down to configure bitrate, etc... */
-                if ((link->flags & IFF_UP)) {
+                if ((link->flags & IFF_UP))
                         r = link_down(link, link_down_handler);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                } else {
+                else
                         r = link_set_can(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-
-                return 0;
+                if (r < 0)
+                        link_enter_failed(link);
+                return r;
         }
 
         if (!(link->flags & IFF_UP)) {
