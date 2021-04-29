@@ -743,13 +743,14 @@ bool manager_address_is_reachable(Manager *manager, int family, const union in_a
         return false;
 }
 
-static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *m) {
-        _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
+static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
+        _cleanup_free_ char *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL;
+        const char *gw = NULL;
 
         assert(route);
         assert(str);
-        assert(m);
+        assert(manager);
 
         /* link may be NULL. */
 
@@ -760,12 +761,32 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
         if (in_addr_is_set(route->family, &route->src))
                 (void) in_addr_to_string(route->family, &route->src, &src);
-        if (in_addr_is_set(route->gw_family, &route->gw))
-                (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
+        if (in_addr_is_set(route->gw_family, &route->gw)) {
+                (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
+                gw = gw_alloc;
+        } else if (route->gateway_from_dhcp_or_ra) {
+                if (route->gw_family == AF_INET)
+                        gw = "_dhcp4";
+                else if (route->gw_family == AF_INET6)
+                        gw = "_ipv6ra";
+        } else {
+                MultipathRoute *m;
+
+                ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                        _cleanup_free_ char *buf = NULL, *joined = NULL;
+                        union in_addr_union a = m->gateway.address;
+
+                        (void) in_addr_to_string(m->gateway.family, &a, &buf);
+                        joined = strjoin(gw_alloc, gw_alloc ? "," : "", strna(buf), m->ifname ? "@" : "", strempty(m->ifname));
+                        if (joined)
+                                free_and_replace(gw_alloc, joined);
+                }
+                gw = gw_alloc;
+        }
         if (in_addr_is_set(route->family, &route->prefsrc))
                 (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
         (void) route_scope_to_string_alloc(route->scope, &scope);
-        (void) manager_get_route_table_to_string(m, route->table, &table);
+        (void) manager_get_route_table_to_string(manager, route->table, &table);
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
 
         log_link_debug(link,
