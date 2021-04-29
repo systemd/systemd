@@ -436,36 +436,9 @@ int link_drop_neighbors(Link *link) {
         return r;
 }
 
-static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, union lladdr_union *lladdr, size_t *size) {
-        int r;
-
-        assert(message);
-        assert(lladdr);
-        assert(size);
-
-        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->ip.in6), &lladdr->ip.in6);
-        if (r >= 0) {
-                *size = sizeof(lladdr->ip.in6);
-                return r;
-        }
-
-        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->mac), &lladdr->mac);
-        if (r >= 0) {
-                *size = sizeof(lladdr->mac);
-                return r;
-        }
-
-        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->ip.in), &lladdr->ip.in);
-        if (r >= 0) {
-                *size = sizeof(lladdr->ip.in);
-                return r;
-        }
-
-        return r;
-}
-
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
+        _cleanup_free_ void *lladdr = NULL;
         Neighbor *neighbor = NULL;
         uint16_t type, state;
         int ifindex, r;
@@ -535,11 +508,15 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
         }
 
-        r = manager_rtnl_process_neighbor_lladdr(message, &tmp->lladdr, &tmp->lladdr_size);
+        r = sd_netlink_message_read_data(message, NDA_LLADDR, &tmp->lladdr_size, &lladdr);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received neighbor message with invalid lladdr, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: received neighbor message without valid lladdr, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(tmp->lladdr_size, sizeof(struct ether_addr), sizeof(struct in_addr), sizeof(struct in6_addr))) {
+                log_link_warning(link, "rtnl: received neighbor message with invalid lladdr size (%zu), ignoring: %m", tmp->lladdr_size);
                 return 0;
         }
+        memcpy(&tmp->lladdr, lladdr, tmp->lladdr_size);
 
         (void) neighbor_get(link, tmp, &neighbor);
 
