@@ -213,6 +213,29 @@ static bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
         return neighbor_compare_func(n1, n2) == 0;
 }
 
+static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const Link *link) {
+        _cleanup_free_ char *lladdr = NULL, *dst = NULL;
+
+        assert(neighbor);
+        assert(str);
+
+        if (!DEBUG_LOGGING)
+                return;
+
+        if (neighbor->lladdr_size == sizeof(struct ether_addr))
+                (void) ether_addr_to_string_alloc(&neighbor->lladdr.mac, &lladdr);
+        else if (neighbor->lladdr_size == sizeof(struct in_addr))
+                (void) in_addr_to_string(AF_INET, &neighbor->lladdr.ip, &lladdr);
+        else if (neighbor->lladdr_size == sizeof(struct in6_addr))
+                (void) in_addr_to_string(AF_INET6, &neighbor->lladdr.ip, &lladdr);
+
+        (void) in_addr_to_string(neighbor->family, &neighbor->in_addr, &dst);
+
+        log_link_debug(link,
+                       "%s neighbor: lladdr: %s, dst: %s",
+                       str, strna(lladdr), strna(dst));
+}
+
 static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -248,6 +271,8 @@ static int neighbor_configure(Neighbor *neighbor, Link *link) {
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        log_neighbor_debug(neighbor, "Configuring", link);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
                                       link->ifindex, neighbor->family);
@@ -340,6 +365,8 @@ static int neighbor_remove(Neighbor *neighbor, Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        log_neighbor_debug(neighbor, "Removing", link);
+
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_DELNEIGH,
                                       link->ifindex, neighbor->family);
         if (r < 0)
@@ -410,50 +437,9 @@ int link_drop_neighbors(Link *link) {
         return r;
 }
 
-static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, union lladdr_union *lladdr, size_t *size, char **str) {
-        int r;
-
-        assert(message);
-        assert(lladdr);
-        assert(size);
-        assert(str);
-
-        *str = NULL;
-
-        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->ip.in6), &lladdr->ip.in6);
-        if (r >= 0) {
-                *size = sizeof(lladdr->ip.in6);
-                if (in_addr_to_string(AF_INET6, &lladdr->ip, str) < 0)
-                        log_warning_errno(r, "Could not print lower address: %m");
-                return r;
-        }
-
-        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->mac), &lladdr->mac);
-        if (r >= 0) {
-                *size = sizeof(lladdr->mac);
-                *str = new(char, ETHER_ADDR_TO_STRING_MAX);
-                if (!*str) {
-                        log_oom();
-                        return r;
-                }
-                ether_addr_to_string(&lladdr->mac, *str);
-                return r;
-        }
-
-        r = sd_netlink_message_read(message, NDA_LLADDR, sizeof(lladdr->ip.in), &lladdr->ip.in);
-        if (r >= 0) {
-                *size = sizeof(lladdr->ip.in);
-                if (in_addr_to_string(AF_INET, &lladdr->ip, str) < 0)
-                        log_warning_errno(r, "Could not print lower address: %m");
-                return r;
-        }
-
-        return r;
-}
-
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
-        _cleanup_free_ char *addr_str = NULL, *lladdr_str = NULL;
+        _cleanup_free_ void *lladdr = NULL;
         Neighbor *neighbor = NULL;
         uint16_t type, state;
         int ifindex, r;
@@ -523,44 +509,36 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
         }
 
-        if (in_addr_to_string(tmp->family, &tmp->in_addr, &addr_str) < 0)
-                log_link_warning_errno(link, r, "Could not print address: %m");
-
-        r = manager_rtnl_process_neighbor_lladdr(message, &tmp->lladdr, &tmp->lladdr_size, &lladdr_str);
+        r = sd_netlink_message_read_data(message, NDA_LLADDR, &tmp->lladdr_size, &lladdr);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received neighbor message with invalid lladdr, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: received neighbor message without valid lladdr, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(tmp->lladdr_size, sizeof(struct ether_addr), sizeof(struct in_addr), sizeof(struct in6_addr))) {
+                log_link_warning(link, "rtnl: received neighbor message with invalid lladdr size (%zu), ignoring: %m", tmp->lladdr_size);
                 return 0;
         }
+        memcpy(&tmp->lladdr, lladdr, tmp->lladdr_size);
 
         (void) neighbor_get(link, tmp, &neighbor);
 
         switch (type) {
         case RTM_NEWNEIGH:
                 if (neighbor)
-                        log_link_debug(link, "Received remembered neighbor: %s->%s",
-                                       strnull(addr_str), strnull(lladdr_str));
+                        log_neighbor_debug(tmp, "Received remembered", link);
                 else {
-                        /* A neighbor appeared that we did not request */
+                        log_neighbor_debug(tmp, "Remembering foreign", link);
                         r = neighbor_add_foreign(link, tmp, NULL);
                         if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember foreign neighbor %s->%s, ignoring: %m",
-                                                       strnull(addr_str), strnull(lladdr_str));
+                                log_link_warning_errno(link, r, "Failed to remember foreign neighbor, ignoring: %m");
                                 return 0;
-                        } else
-                                log_link_debug(link, "Remembering foreign neighbor: %s->%s",
-                                               strnull(addr_str), strnull(lladdr_str));
+                        }
                 }
 
                 break;
 
         case RTM_DELNEIGH:
-                if (neighbor) {
-                        log_link_debug(link, "Forgetting neighbor: %s->%s",
-                                       strnull(addr_str), strnull(lladdr_str));
-                        (void) neighbor_free(neighbor);
-                } else
-                        log_link_debug(link, "Kernel removed a neighbor we don't remember: %s->%s, ignoring.",
-                                       strnull(addr_str), strnull(lladdr_str));
+                log_neighbor_debug(tmp, neighbor ? "Forgetting" : "Kernel removed unknown", link);
+                neighbor_free(neighbor);
 
                 break;
 

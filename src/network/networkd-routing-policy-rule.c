@@ -391,6 +391,8 @@ static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *ru
 }
 
 static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int family, const char *str, const Link *link, const Manager *m) {
+        _cleanup_free_ char *from = NULL, *to = NULL, *table = NULL;
+
         assert(rule);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(str);
@@ -398,18 +400,17 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int fam
 
         /* link may be NULL. */
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL, *table = NULL;
+        if (!DEBUG_LOGGING)
+                return;
 
-                (void) in_addr_prefix_to_string(family, &rule->from, rule->from_prefixlen, &from);
-                (void) in_addr_prefix_to_string(family, &rule->to, rule->to_prefixlen, &to);
-                (void) manager_get_route_table_to_string(m, rule->table, &table);
+        (void) in_addr_prefix_to_string(family, &rule->from, rule->from_prefixlen, &from);
+        (void) in_addr_prefix_to_string(family, &rule->to, rule->to_prefixlen, &to);
+        (void) manager_get_route_table_to_string(m, rule->table, &table);
 
-                log_link_debug(link,
-                               "%s routing policy rule: priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
-                               str, rule->priority, strna(from), strna(to),
-                               strna(rule->iif), strna(rule->oif), strna(table));
-        }
+        log_link_debug(link,
+                       "%s routing policy rule: priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
+                       str, rule->priority, strna(from), strna(to),
+                       strna(rule->iif), strna(rule->oif), strna(table));
 }
 
 static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
