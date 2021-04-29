@@ -2,6 +2,7 @@
 
 #include "condition.h"
 #include "conf-parser.h"
+#include "networkd-link.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "string-table.h"
@@ -222,4 +223,18 @@ unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
                         n = cs->line;
 
         return n + 1;
+}
+
+int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        /* link may be NULL. */
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_link_full_errno(link, level, err,
+                                   "%s: %s%s%s%m",
+                                   msg,
+                                   strempty(err_msg),
+                                   err_msg && !endswith(err_msg, ".") ? "." : "",
+                                   err_msg ? " " : "");
 }

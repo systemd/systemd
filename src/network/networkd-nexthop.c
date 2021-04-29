@@ -10,6 +10,8 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-queue.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -355,18 +357,37 @@ static void log_nexthop_debug(const NextHop *nexthop, uint32_t id, const char *s
         }
 }
 
-static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
+        assert(link);
+        assert(link->nexthop_remove_messages > 0);
 
-        /* Note that link may be NULL. */
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        link->nexthop_remove_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ENOENT)
                 log_link_message_warning_errno(link, m, r, "Could not drop nexthop, ignoring");
+
+        return 1;
+}
+
+static int manager_nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Manager *manager) {
+        int r;
+
+        assert(m);
+        assert(manager);
+        assert(manager->nexthop_remove_messages > 0);
+
+        manager->nexthop_remove_messages--;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ENOENT)
+                log_message_warning_errno(m, r, "Could not drop nexthop, ignoring");
 
         return 1;
 }
@@ -395,47 +416,31 @@ static int nexthop_remove(const NextHop *nexthop, Manager *manager, Link *link) 
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, req, nexthop_remove_handler,
-                               link_netlink_destroy_callback, link);
+        if (link)
+                r = netlink_call_async(manager->rtnl, NULL, req, link_nexthop_remove_handler,
+                                       link_netlink_destroy_callback, link);
+        else
+                r = netlink_call_async(manager->rtnl, NULL, req, manager_nexthop_remove_handler,
+                                       NULL, manager);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link); /* link may be NULL, link_ref() is OK with that */
 
+        if (link)
+                link->nexthop_remove_messages++;
+        else
+                manager->nexthop_remove_messages++;
+
         return 0;
 }
 
-static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
+static int nexthop_configure(
+                const NextHop *nexthop,
+                Link *link,
+                link_netlink_message_handler_t callback,
+                NextHop **ret) {
 
-        assert(link);
-        assert(link->nexthop_messages > 0);
-
-        link->nexthop_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->nexthop_messages == 0) {
-                log_link_debug(link, "Nexthops set");
-                link->static_nexthops_configured = true;
-                /* Now all nexthops are configured. Let's configure remaining routes. */
-                r = link_set_routes_with_gateway(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int nexthop_configure(const NextHop *nexthop, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -444,6 +449,7 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
         assert(IN_SET(nexthop->family, AF_INET, AF_INET6));
+        assert(callback);
 
         log_nexthop_debug(nexthop, nexthop->id, "Configuring", link);
 
@@ -481,59 +487,89 @@ static int nexthop_configure(const NextHop *nexthop, Link *link) {
                 }
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, nexthop_handler,
+        r = nexthop_add(link, nexthop, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add nexthop: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
-        r = nexthop_add(link, nexthop, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add nexthop: %m");
-
         return r;
 }
 
-int link_set_nexthops(Link *link) {
-        enum {
-                PHASE_ID,         /* First phase: Nexthops with ID */
-                PHASE_WITHOUT_ID, /* Second phase: Nexthops without ID */
-                _PHASE_MAX,
-        } phase;
+static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->static_nexthop_messages > 0);
+
+        link->static_nexthop_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
+                link_enter_failed(link);
+                return 1;
+        }
+
+        if (link->static_nexthop_messages == 0) {
+                log_link_debug(link, "Nexthops set");
+                link->static_nexthops_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+static int link_request_nexthop(
+                Link *link,
+                NextHop *nexthop,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
+
+        assert(link);
+        assert(nexthop);
+
+        log_nexthop_debug(nexthop, nexthop->id, "Requesting", link);
+        return link_queue_request(link, REQUEST_TYPE_NEXTHOP, nexthop, consume_object,
+                                  message_counter, netlink_handler, ret);
+}
+
+int link_request_static_nexthops(Link *link, bool only_ipv4) {
         NextHop *nh;
         int r;
 
         assert(link);
         assert(link->network);
 
-        if (link->nexthop_messages != 0) {
-                log_link_debug(link, "Nexthops are configuring.");
-                return 0;
-        }
-
         link->static_nexthops_configured = false;
 
-        for (phase = PHASE_ID; phase < _PHASE_MAX; phase++)
-                HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
-                        if ((nh->id > 0) != (phase == PHASE_ID))
-                                continue;
+        HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
+                if (only_ipv4 && nh->family != AF_INET)
+                        continue;
 
-                        r = nexthop_configure(nh, link);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not set nexthop: %m");
-
-                        link->nexthop_messages++;
-                }
-
-        if (link->nexthop_messages == 0) {
-                link->static_nexthops_configured = true;
-                /* Finally, configure routes with gateways. */
-                return link_set_routes_with_gateway(link);
+                r = link_request_nexthop(link, nh, false, &link->static_nexthop_messages,
+                                         static_nexthop_handler, NULL);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not request nexthop: %m");
         }
 
-        log_link_debug(link, "Setting nexthops");
-        link_set_state(link, LINK_STATE_CONFIGURING);
+        if (link->static_nexthop_messages == 0) {
+                link->static_nexthops_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Requesting nexthops");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
 
         return 0;
 }
@@ -654,6 +690,73 @@ int link_drop_nexthops(Link *link) {
                 r = k;
 
         return r;
+}
+
+static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
+        assert(link);
+        assert(nexthop);
+
+        if (nexthop->blackhole) {
+                if (link->manager->nexthop_remove_messages > 0)
+                        return false;
+        } else {
+                Link *l;
+
+                HASHMAP_FOREACH(l, link->manager->links) {
+                        if (l->address_remove_messages > 0)
+                                return false;
+                        if (l->nexthop_remove_messages > 0)
+                                return false;
+                        if (l->route_remove_messages > 0)
+                                return false;
+                }
+        }
+
+        if (nexthop->id == 0) {
+                Request *req;
+
+                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
+                        if (req->type != REQUEST_TYPE_NEXTHOP)
+                                continue;
+                        if (req->nexthop->id != 0)
+                                return false; /* first configure nexthop with id. */
+                }
+        }
+
+        if (nexthop->onlink <= 0 &&
+            in_addr_is_set(nexthop->family, &nexthop->gw) &&
+            !manager_address_is_accessible(link->manager, nexthop->family, &nexthop->gw))
+                return false;
+
+        return true;
+}
+
+int request_process_nexthop(Request *req) {
+        NextHop *ret;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->nexthop);
+        assert(req->type == REQUEST_TYPE_NEXTHOP);
+
+        if (!link_is_ready_to_configure(req->link, false))
+                return 0;
+
+        if (!nexthop_is_ready_to_configure(req->link, req->nexthop))
+                return 0;
+
+        r = nexthop_configure(req->nexthop, req->link, req->netlink_handler, &ret);
+        if (r < 0)
+                return r;
+
+        if (req->after_configure) {
+                r = req->after_configure(req, ret);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
