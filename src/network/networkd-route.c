@@ -645,7 +645,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
 
         /* link may be NULL */
 
-        if (in_addr_is_set(route->gw_family, &route->gw)) {
+        if (in_addr_is_set(route->gw_family, &route->gw) && route->nexthop_id == 0) {
                 if (route->gw_family == route->family) {
                         r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->gw_family, &route->gw);
                         if (r < 0)
@@ -1100,8 +1100,8 @@ int route_configure(
                 Route **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r, k = 0;
         Route *nr;
+        int r, k;
 
         assert(link);
         assert(link->manager);
@@ -1188,11 +1188,13 @@ int route_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append RTA_METRICS attribute: %m");
 
-        r = append_nexthops(route, req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
+        if (route->nexthop_id == 0) {
+                r = append_nexthops(route, req);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
+        }
 
-        if (ordered_set_isempty(route->multipath_routes)) {
+        if (ordered_set_isempty(route->multipath_routes) || route->nexthop_id != 0) {
                 k = route_add_and_setup_timer(link, route, NULL, &nr);
                 if (k < 0)
                         return k;
@@ -1201,6 +1203,7 @@ int route_configure(
 
                 assert(!ret);
 
+                k = 0;
                 ORDERED_SET_FOREACH(m, route->multipath_routes) {
                         r = route_add_and_setup_timer(link, route, m, NULL);
                         if (r < 0)
@@ -2767,7 +2770,8 @@ static int route_section_verify(Route *route, Network *network) {
         }
 
         if (route->nexthop_id > 0 &&
-            (in_addr_is_set(route->gw_family, &route->gw) ||
+            (route->gateway_from_dhcp_or_ra ||
+             in_addr_is_set(route->gw_family, &route->gw) ||
              !ordered_set_isempty(route->multipath_routes)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: NextHopId= cannot be specified with Gateway= or MultiPathRoute=. "
