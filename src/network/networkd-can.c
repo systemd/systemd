@@ -69,6 +69,12 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
         log_link_debug(link, "Link set");
 
+        r = link_activate(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 1;
+        }
+
         link->can_configured = true;
         link_check_ready(link);
 
@@ -220,9 +226,6 @@ static int link_set_can(Link *link) {
 
         link_ref(link);
 
-        if (!(link->flags & IFF_UP))
-                return link_up(link);
-
         return 0;
 }
 
@@ -264,13 +267,9 @@ int link_configure_can(Link *link) {
                 return r;
         }
 
-        if (!(link->flags & IFF_UP)) {
-                r = link_up(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return r;
-                }
-        }
+        r = link_activate(link);
+        if (r < 0)
+                return r;
 
         link->can_configured = true;
         link_check_ready(link);
