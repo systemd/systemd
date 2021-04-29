@@ -58,7 +58,7 @@ node /org/freedesktop/hostname1 {
                   in  b interactive);
       GetProductUUID(in  b interactive,
                      out ay uuid);
-      Describe(out s UNNAMED);
+      Describe(out s json);
     properties:
       readonly s Hostname = '...';
       readonly s StaticHostname = '...';
