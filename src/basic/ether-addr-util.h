@@ -35,6 +35,7 @@ char* hw_addr_to_string(const hw_addr_data *addr, char buffer[HW_ADDR_TO_STRING_
 
 #define ETHER_ADDR_TO_STRING_MAX (3*6)
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
+int ether_addr_to_string_alloc(const struct ether_addr *addr, char **ret);
 
 int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b);
 static inline bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
