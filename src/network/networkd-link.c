@@ -2967,15 +2967,3 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
-
-int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg) {
-        const char *err_msg = NULL;
-
-        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_link_full_errno(link, level, err,
-                                   "%s: %s%s%s%m",
-                                   msg,
-                                   strempty(err_msg),
-                                   err_msg && !endswith(err_msg, ".") ? "." : "",
-                                   err_msg ? " " : "");
-}
