@@ -62,7 +62,7 @@ static sd_device *device_free(sd_device *device) {
         free(device->subsystem);
         free(device->driver_subsystem);
         free(device->driver);
-        free(device->id_filename);
+        free(device->device_id);
         free(device->properties_strv);
         free(device->properties_nulstr);
 
@@ -623,7 +623,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 struct ifreq ifr = {};
                 int ifindex;
 
-                r = ifr.ifr_ifindex = parse_ifindex(&id[1]);
+                r = ifr.ifr_ifindex = parse_ifindex(id + 1);
                 if (r < 0)
                         return r;
 
@@ -652,15 +652,14 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case '+': {
-                char subsys[PATH_MAX];
-                char *sysname;
+                char subsys[NAME_MAX+1]; /* NAME_MAX does not include the trailing NUL. */
+                const char *sysname;
 
-                (void) strscpy(subsys, sizeof(subsys), id + 1);
-                sysname = strchr(subsys, ':');
+                sysname = strchr(id + 1, ':');
                 if (!sysname)
                         return -EINVAL;
 
-                sysname[0] = '\0';
+                (void) strnscpy(subsys, sizeof(subsys), id + 1, sysname - id - 1);
                 sysname++;
 
                 return sd_device_new_from_subsystem_sysname(ret, subsys, sysname);
@@ -752,15 +751,34 @@ int device_set_subsystem(sd_device *device, const char *_subsystem) {
         return free_and_replace(device->subsystem, subsystem);
 }
 
-static int device_set_drivers_subsystem(sd_device *device, const char *_subsystem) {
+static int device_set_drivers_subsystem(sd_device *device) {
         _cleanup_free_ char *subsystem = NULL;
+        const char *syspath, *drivers, *p;
         int r;
 
         assert(device);
-        assert(_subsystem);
-        assert(*_subsystem);
 
-        subsystem = strdup(_subsystem);
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        drivers = strstr(syspath, "/drivers/");
+        if (!drivers)
+                return -EINVAL;
+
+        for (p = drivers - 1; p >= syspath; p--)
+                if (*p == '/')
+                        break;
+
+        if (p <= syspath)
+                /* syspath does not start with /sys/ ?? */
+                return -EINVAL;
+        p++;
+        if (p >= drivers)
+                /* refuse duplicated slashes */
+                return -EINVAL;
+
+        subsystem = strndup(p, drivers - p);
         if (!subsystem)
                 return -ENOMEM;
 
@@ -772,60 +790,46 @@ static int device_set_drivers_subsystem(sd_device *device, const char *_subsyste
 }
 
 _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
-        const char *syspath, *drivers = NULL;
         int r;
 
         assert_return(device, -EINVAL);
 
-        r = sd_device_get_syspath(device, &syspath);
-        if (r < 0)
-                return r;
-
         if (!device->subsystem_set) {
                 _cleanup_free_ char *subsystem = NULL;
+                const char *syspath;
                 char *path;
+
+                r = sd_device_get_syspath(device, &syspath);
+                if (r < 0)
+                        return r;
 
                 /* read 'subsystem' link */
                 path = strjoina(syspath, "/subsystem");
                 r = readlink_value(path, &subsystem);
-                if (r >= 0)
+                if (r < 0 && r != -ENOENT)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to read subsystem for %s: %m",
+                                                      device->devpath);
+
+                if (subsystem)
                         r = device_set_subsystem(device, subsystem);
                 /* use implicit names */
                 else if (path_startswith(device->devpath, "/module/"))
                         r = device_set_subsystem(device, "module");
-                else if (!(drivers = strstr(syspath, "/drivers/")) &&
-                         PATH_STARTSWITH_SET(device->devpath, "/subsystem/",
+                else if (strstr(syspath, "/drivers/"))
+                        r = device_set_drivers_subsystem(device);
+                else if (PATH_STARTSWITH_SET(device->devpath, "/subsystem/",
                                                               "/class/",
                                                               "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
-                if (r < 0 && r != -ENOENT)
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for %s: %m", device->devpath);
-
-                device->subsystem_set = true;
-        } else if (!device->driver_subsystem_set)
-                drivers = strstr(syspath, "/drivers/");
-
-        if (!device->driver_subsystem_set) {
-                if (drivers) {
-                        _cleanup_free_ char *subpath = NULL;
-
-                        subpath = strndup(syspath, drivers - syspath);
-                        if (!subpath)
-                                r = -ENOMEM;
-                        else {
-                                const char *subsys;
-
-                                subsys = strrchr(subpath, '/');
-                                if (!subsys)
-                                        r = -EINVAL;
-                                else
-                                        r = device_set_drivers_subsystem(device, subsys + 1);
-                        }
-                        if (r < 0 && r != -ENOENT)
-                                return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for driver %s: %m", device->devpath);
+                else {
+                        device->subsystem_set = true;
+                        r = 0;
                 }
-
-                device->driver_subsystem_set = true;
+                if (r < 0)
+                        return log_device_debug_errno(device, r,
+                                                      "sd-device: Failed to set subsystem for %s: %m",
+                                                      device->devpath);
         }
 
         if (!device->subsystem)
@@ -987,7 +991,7 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
         return 0;
 }
 
-static int device_set_sysname(sd_device *device) {
+static int device_set_sysname_and_sysnum(sd_device *device) {
         _cleanup_free_ char *sysname = NULL;
         const char *sysnum = NULL;
         const char *pos;
@@ -1024,7 +1028,6 @@ static int device_set_sysname(sd_device *device) {
         if (len == 0)
                 sysnum = NULL;
 
-        device->sysname_set = true;
         device->sysnum = sysnum;
         return free_and_replace(device->sysname, sysname);
 }
@@ -1034,13 +1037,11 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
 
         assert_return(device, -EINVAL);
 
-        if (!device->sysname_set) {
-                r = device_set_sysname(device);
+        if (!device->sysname) {
+                r = device_set_sysname_and_sysnum(device);
                 if (r < 0)
                         return r;
         }
-
-        assert_return(device->sysname, -ENOENT);
 
         if (ret)
                 *ret = device->sysname;
@@ -1052,8 +1053,8 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
 
         assert_return(device, -EINVAL);
 
-        if (!device->sysname_set) {
-                r = device_set_sysname(device);
+        if (!device->sysname) {
+                r = device_set_sysname_and_sysnum(device);
                 if (r < 0)
                         return r;
         }
@@ -1237,10 +1238,10 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
 
                 break;
         case 'W':
-                r = safe_atoi(value, &device->watch_handle);
-                if (r < 0)
-                        return r;
-
+                /* Deprecated. Previously, watch handle is both saved in database and /run/udev/watch.
+                 * However, the handle saved in database may not be updated when the handle is updated
+                 * or removed. Moreover, it is not necessary to store the handle within the database,
+                 * as its value becomes meaningless when udevd is restarted. */
                 break;
         case 'V':
                 r = safe_atou(value, &device->database_version);
@@ -1255,11 +1256,11 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         return 0;
 }
 
-int device_get_id_filename(sd_device *device, const char **ret) {
+int device_get_device_id(sd_device *device, const char **ret) {
         assert(device);
         assert(ret);
 
-        if (!device->id_filename) {
+        if (!device->device_id) {
                 _cleanup_free_ char *id = NULL;
                 const char *subsystem;
                 dev_t devnum;
@@ -1296,7 +1297,6 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         if (!subsystem)
                                 return -EINVAL;
 
-
                         if (streq(subsystem, "drivers"))
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real subsystem
                                  * encoded as well */
@@ -1307,10 +1307,13 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                                 return -ENOMEM;
                 }
 
-                device->id_filename = TAKE_PTR(id);
+                if (!filename_is_valid(id))
+                        return -EINVAL;
+
+                device->device_id = TAKE_PTR(id);
         }
 
-        *ret = device->id_filename;
+        *ret = device->device_id;
         return 0;
 }
 
@@ -1407,7 +1410,7 @@ int device_read_db_internal(sd_device *device, bool force) {
         if (device->db_loaded || (!force && device->sealed))
                 return 0;
 
-        r = device_get_id_filename(device, &id);
+        r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
