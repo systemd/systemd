@@ -1117,7 +1117,7 @@ int membershipdb_iterator_get(
         assert(iterator);
 
         for (;;) {
-                /* If we are iteratring through NSS acquire a new group entry if we haven't acquired one yet. */
+                /* If we are iterating through NSS acquire a new group entry if we haven't acquired one yet. */
                 if (!iterator->members_of_group) {
                         struct group *g;
 
