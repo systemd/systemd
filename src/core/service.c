@@ -2277,12 +2277,11 @@ static void service_enter_restart(Service *s) {
         s->n_restarts ++;
         s->flush_n_restarts = false;
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
-                   LOG_UNIT_ID(UNIT(s)),
-                   LOG_UNIT_INVOCATION_ID(UNIT(s)),
-                   LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
-                   "N_RESTARTS=%u", s->n_restarts);
+        log_unit_struct(UNIT(s), LOG_INFO,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
+                        LOG_UNIT_INVOCATION_ID(UNIT(s)),
+                        LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                        "N_RESTARTS=%u", s->n_restarts);
 
         /* Notify clients about changed restart counter */
         unit_add_to_dbus_queue(UNIT(s));
