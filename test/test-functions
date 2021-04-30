@@ -227,10 +227,10 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     QEMU_SMP="${QEMU_SMP:-4}"
 
     # We need to correctly distinguish between gcc's and clang's ASan DSOs.
-    if ASAN_RT_NAME="$(ldd "$SYSTEMD" | awk '/libasan.so/ {x=$1; exit} END {print x; exit x==""}')"; then
+    if ASAN_RT_NAME="$(awk '/libasan.so/ {x=$1; exit} END {print x; exit x==""}' < <(ldd "$SYSTEMD"))"; then
         ASAN_COMPILER=gcc
         ASAN_RT_PATH="$(readlink -f "$(${CC:-gcc} --print-file-name "$ASAN_RT_NAME")")"
-    elif ASAN_RT_NAME="$(ldd "$SYSTEMD" | awk '/libclang_rt.asan/ {x=$1; exit} END {print x; exit x==""}')"; then
+    elif ASAN_RT_NAME="$(awk '/libclang_rt.asan/ {x=$1; exit} END {print x; exit x==""}' < <(ldd "$SYSTEMD"))"; then
         ASAN_COMPILER=clang
         ASAN_RT_PATH="$(readlink -f "$(${CC:-clang} --print-file-name "$ASAN_RT_NAME")")"
 
