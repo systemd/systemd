@@ -1038,28 +1038,21 @@ bool filename_is_valid(const char *p) {
 }
 
 bool path_is_valid(const char *p) {
-
         if (isempty(p))
                 return false;
 
         for (const char *e = p;;) {
-                size_t n;
+                int r;
 
-                /* Skip over slashes */
-                e += strspn(e, "/");
+                r = path_find_first_component(&e, /* accept_dot_dot= */ true, NULL);
+                if (r < 0)
+                        return false;
+
                 if (e - p >= PATH_MAX) /* Already reached the maximum length for a path? (PATH_MAX is counted
                                         * *with* the trailing NUL byte) */
                         return false;
                 if (*e == 0)           /* End of string? Yay! */
                         return true;
-
-                /* Skip over one component */
-                n = strcspn(e, "/");
-                if (n > NAME_MAX)      /* One component larger than NAME_MAX? (NAME_MAX is counted *without* the
-                                        * trailing NUL byte) */
-                        return false;
-
-                e += n;
         }
 }
 
