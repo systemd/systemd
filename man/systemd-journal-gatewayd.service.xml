@@ -80,6 +80,30 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Limit served entries to entries from system
+        services and the kernel, or to entries from services of
+        current user. This has the same meaning as
+        <option>--system</option> and <option>--user</option> options
+        for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
+        neither is specified, all accessible entries are served.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-m</option></term>
+        <term><option>--merge</option></term>
+
+        <listitem><para>Serve entries interleaved from all available
+        journals, including other machines. This has the same meaning
+        as <option>--merge</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-D <replaceable>DIR</replaceable></option></term>
         <term><option>--directory=<replaceable>DIR</replaceable></option></term>
 
@@ -87,6 +111,19 @@
         specified, <command>systemd-journal-gatewayd</command> will serve the
         specified journal directory <replaceable>DIR</replaceable> instead of
         the default runtime and system journal paths.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--file=<replaceable>GLOB</replaceable></option></term>
+
+        <listitem><para>Takes a file glob as an argument. Serve
+        entries from the specified journal files matching
+        <replaceable>GLOB</replaceable> instead of the default runtime
+        and system journal paths. May be specified multiple times, in
+        which case files will be suitably interleaved. This has the same meaning as
+        <option>--file=</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
