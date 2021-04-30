@@ -718,15 +718,14 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t msg_len, size_t size) {
         int r;
         size_t offset;
-        uint8_t *end_option_ptr;
 
         assert(server);
         assert(message);
 
-        end_option_ptr = memrchr(message->options, SD_DHCP_OPTION_END, msg_len - sizeof(DHCPMessage));
-        if (!end_option_ptr)
-                return -EBADMSG;
-        offset = end_option_ptr - message->options;
+        r = dhcp_option_find_option(message->options, msg_len - sizeof(DHCPMessage), SD_DHCP_OPTION_END);
+        if (r < 0)
+                return r;
+        offset = r;
 
         r = dhcp_option_append(message, size, &offset, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, 0, server);
         if (r < 0)

@@ -150,36 +150,55 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
         return 0;
 }
 
+static int option_length(uint8_t *options, size_t length, size_t offset) {
+        assert(options);
+        assert(offset < length);
+
+        if (options[offset] == SD_DHCP_OPTION_PAD || options[offset] == SD_DHCP_OPTION_END)
+                return 1;
+        if (length < offset + 2)
+                return -ENOBUFS;
+
+        //validating that buffer is long enough
+        if (length < offset + 2 + options[offset + 1])
+                return -ENOBUFS;
+
+        return options[offset + 1] + 2;
+}
+
+int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t wanted_code) {
+        assert(options);
+        size_t offset = 0;
+        int r;
+
+        while (offset < length) {
+                if (wanted_code == options[offset])
+                        return offset;
+
+                r = option_length(options, length, offset);
+                if (r < 0)
+                        return r;
+                offset += r;
+        }
+        return offset == length ? -ENOENT : -ENOBUFS;
+}
+
 int dhcp_option_remove_option(uint8_t *options, size_t length, uint8_t option_code) {
+        int r;
+        int s;
+
         assert(options);
 
-        for (size_t offset = 0; offset < length;) {
-                uint8_t code = options[offset ++];
-                size_t len;
+        r = dhcp_option_find_option(options, length, option_code);
+        if (r < 0)
+                return r;
 
-                switch (code) {
-                case SD_DHCP_OPTION_PAD:
-                        continue;
+        s = option_length(options, length, r);
+        if (s < 0)
+                return s;
 
-                case SD_DHCP_OPTION_END:
-                        return -ENOENT;
-                }
-
-                if (length < offset + 1)
-                        return -ENOBUFS;
-
-                len = options[offset ++];
-                if (length < offset + len)
-                        return -ENOBUFS;
-                offset += len;
-
-                if (code == option_code) {
-                        size_t option_offset = offset - len - 2;
-                        memmove(options + option_offset, options + offset, length - offset);
-                        return length - len - 2;
-                }
-        }
-        return -ENOENT;
+        memmove(options + r, options + r + s, length - r - s);
+        return length - s;
 }
 
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
