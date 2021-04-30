@@ -910,8 +910,8 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
                 setgrent();
                 iterator->nss_iterating = true;
-        } if (r < 0)
-                  return r;
+        } else if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(iterator);
         return 0;
