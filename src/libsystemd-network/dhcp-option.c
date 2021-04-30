@@ -139,8 +139,8 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 }
 
                 options[*offset] = code;
-                options[*offset + 1] = current_offset - *offset;
-                assert(current_offset - *offset <= 255);
+                options[*offset + 1] = current_offset - *offset - 2;
+                assert(current_offset - *offset - 2 <= 255);
                 *offset = current_offset;
                 break;
         }
