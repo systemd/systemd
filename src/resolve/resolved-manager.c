@@ -1141,15 +1141,16 @@ void manager_refresh_rrs(Manager *m) {
         m->mdns_host_ipv4_key = dns_resource_key_unref(m->mdns_host_ipv4_key);
         m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
+        HASHMAP_FOREACH(l, m->links)
+                link_add_rrs(l, true);
+
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
                 HASHMAP_FOREACH(s, m->dnssd_services)
                         if (dnssd_update_rrs(s) < 0)
                                 log_warning("Failed to refresh DNS-SD service '%s'", s->name);
 
-        HASHMAP_FOREACH(l, m->links) {
-                link_add_rrs(l, true);
+        HASHMAP_FOREACH(l, m->links)
                 link_add_rrs(l, false);
-        }
 }
 
 static int manager_next_random_name(const char *old, char **ret_new) {
