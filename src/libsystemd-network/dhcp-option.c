@@ -114,9 +114,8 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 options[*offset + 1] = l;
                 *offset += 2;
 
-                ORDERED_SET_FOREACH(p, s) {
+                ORDERED_SET_FOREACH(p, s)
                         assert_se(dhcp_option_append_tlv(options, size, offset, p->option, p->length, p->data) >= 0);
-                }
                 break;
         }
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
