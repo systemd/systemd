@@ -80,6 +80,12 @@
     <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> to configure
     where log data is placed, independently of the existence of <filename>/var/log/journal/</filename>.</para>
 
+    <para>Note that journald will always startup using volatile storage until call to 
+    <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will start 
+    the persistent logging (under the conditions mentioned above). This is done automatically on boot via 
+    <literal>systemd-journal-flush.service</literal>.</para>
+
+
     <para>On systems where <filename>/var/log/journal/</filename> does not exist yet but where persistent logging is
     desired (and the default <filename>journald.conf</filename> is used), it is sufficient to create the directory, and
     ensure it has the correct access modes and ownership:</para>
