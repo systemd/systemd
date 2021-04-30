@@ -4,6 +4,7 @@ import argparse
 import dataclasses
 import glob
 import os
+import pathlib
 import subprocess
 import sys
 try:
@@ -27,6 +28,8 @@ def argument_parser():
     p = argparse.ArgumentParser()
     p.add_argument('-u', '--unsafe', action='store_true',
                    help='run "unsafe" tests too')
+    p.add_argument('-A', '--artifact_directory',
+                   help='store output from failed tests in this dir')
     return p
 
 opts = argument_parser().parse_args()
@@ -35,11 +38,14 @@ tests = glob.glob('/usr/lib/systemd/tests/test-*')
 if opts.unsafe:
     tests += glob.glob('/usr/lib/systemd/tests/unsafe/test-*')
 
+if not opts.artifact_directory and os.getenv('ARTIFACT_DIRECTORY'):
+    opts.artifact_directory = os.getenv('ARTIFACT_DIRECTORY')
+
 total = Total(total=len(tests))
 for test in tests:
     name = os.path.basename(test)
 
-    ex = subprocess.run(test, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ex = subprocess.run(test, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if ex.returncode == 0:
         print(f'{GREEN}PASS: {name}{RESET_ALL}')
         total.good += 1
@@ -50,12 +56,23 @@ for test in tests:
         print(f'{RED}FAIL: {name}{RESET_ALL}')
         total.fail += 1
 
-        # stdout/stderr might not be valid unicode, let's just dump it to the terminal.
-        # Also let's reset the style afterwards, in case our output sets something.
-        sys.stdout.buffer.write(ex.stdout)
-        print(f'{RESET_ALL}{BRIGHT}')
-        sys.stdout.buffer.write(ex.stderr)
-        print(f'{RESET_ALL}')
+        output_file = None
+        if opts.artifact_directory:
+            output_dir = pathlib.Path(opts.artifact_directory) / 'unit-tests'
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_file = output_dir / name
+            output_file.write_bytes(ex.stdout)
+
+        try:
+            print(ex.stdout.decode('utf-8'))
+        except UnicodeDecodeError:
+            print(f'{BRIGHT}Note, some test output shown here is not UTF-8')
+            if output_file:
+                print(f'For actual test output see artifact file {output_file}')
+            print(f'{RESET_ALL}')
+            print(ex.stdout.decode('utf-8', errors='replace'))
+    sys.stdout.flush()
+
 
 print(f'{BRIGHT}OK: {total.good} SKIP: {total.skip} FAIL: {total.fail}{RESET_ALL}')
 sys.exit(total.fail > 0)
