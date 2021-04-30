@@ -9,5 +9,6 @@ typedef struct Link Link;
 
 int dhcp4_server_configure(Link *link);
 
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_relay_agent_suboption);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_relay_target);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_emit);
