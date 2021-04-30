@@ -777,11 +777,11 @@ int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret) {
                         iterator->n_found++;
                         return synthetic_nobody_user_build(ret);
                 }
-        }
 
-        /* if we found at least one entry, then ignore errors and indicate that we reached the end */
-        if (r < 0 && iterator->n_found > 0)
-                return -ESRCH;
+                /* if we found at least one entry, then ignore errors and indicate that we reached the end */
+                if (iterator->n_found > 0)
+                        return -ESRCH;
+        }
 
         return r;
 }
@@ -976,11 +976,11 @@ int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret) {
                         iterator->n_found++;
                         return synthetic_nobody_group_build(ret);
                 }
-        }
 
-        /* if we found at least one entry, then ignore errors and indicate that we reached the end */
-        if (r < 0 && iterator->n_found > 0)
-                return -ESRCH;
+                /* if we found at least one entry, then ignore errors and indicate that we reached the end */
+                if (iterator->n_found > 0)
+                        return -ESRCH;
+        }
 
         return r;
 }
