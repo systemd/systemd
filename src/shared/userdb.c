@@ -2,10 +2,12 @@
 
 #include <sys/auxv.h>
 
+#include "conf-files.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "set.h"
@@ -13,6 +15,7 @@
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"
+#include "userdb-dropin.h"
 #include "userdb.h"
 #include "varlink.h"
 
@@ -31,9 +34,12 @@ struct UserDBIterator {
         Set *links;
         bool nss_covered:1;
         bool nss_iterating:1;
+        bool dropin_covered:1;
         bool synthesize_root:1;
         bool synthesize_nobody:1;
         bool nss_systemd_blocked:1;
+        char **dropins;
+        size_t current_dropin;
         int error;
         unsigned n_found;
         sd_event *event;
@@ -43,7 +49,7 @@ struct UserDBIterator {
         char *found_user_name, *found_group_name; /* when .what == LOOKUP_MEMBERSHIP */
         char **members_of_group;
         size_t index_members_of_group;
-        char *filter_user_name;
+        char *filter_user_name, *filter_group_name;
 };
 
 UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
@@ -51,6 +57,7 @@ UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
                 return NULL;
 
         set_free(iterator->links);
+        strv_free(iterator->dropins);
 
         switch (iterator->what) {
 
@@ -75,6 +82,7 @@ UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
                 free(iterator->found_group_name);
                 strv_free(iterator->members_of_group);
                 free(iterator->filter_user_name);
+                free(iterator->filter_group_name);
 
                 if (iterator->nss_iterating)
                         endgrent();
@@ -425,7 +433,7 @@ static int userdb_start_query(
         }
 
         /* First, let's talk to the multiplexer, if we can */
-        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE)) == 0 &&
+        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE)) == 0 &&
             !strv_contains(except, "io.systemd.Multiplexer") &&
             (!only || strv_contains(only, "io.systemd.Multiplexer"))) {
                 _cleanup_(json_variant_unrefp) JsonVariant *patched_query = json_variant_ref(query);
@@ -437,6 +445,7 @@ static int userdb_start_query(
                 r = userdb_connect(iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, patched_query);
                 if (r >= 0) {
                         iterator->nss_covered = true; /* The multiplexer does NSS */
+                        iterator->dropin_covered = true; /* It also handles drop-in stuff */
                         return 0;
                 }
         }
@@ -452,7 +461,7 @@ static int userdb_start_query(
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_(json_variant_unrefp) JsonVariant *patched_query = NULL;
                 _cleanup_free_ char *p = NULL;
-                bool is_nss;
+                bool is_nss, is_dropin;
 
                 if (streq(de->d_name, "io.systemd.Multiplexer")) /* We already tried this above, don't try this again */
                         continue;
@@ -467,6 +476,11 @@ static int userdb_start_query(
                  * anyway). */
                 is_nss = streq(de->d_name, "io.systemd.NameServiceSwitch");
                 if ((flags & (USERDB_EXCLUDE_NSS|USERDB_AVOID_MULTIPLEXER)) && is_nss)
+                        continue;
+
+                /* Similar for the drop-in service */
+                is_dropin = streq(de->d_name, "io.systemd.DropIn");
+                if ((flags & (USERDB_EXCLUDE_DROPIN|USERDB_AVOID_MULTIPLEXER)) && is_dropin)
                         continue;
 
                 if (strv_contains(except, de->d_name))
@@ -485,9 +499,11 @@ static int userdb_start_query(
                         return log_debug_errno(r, "Unable to set service JSON field: %m");
 
                 r = userdb_connect(iterator, p, method, more, patched_query);
-                if (is_nss && r >= 0) /* Turn off fallback NSS if we found the NSS service and could connect
-                                       * to it */
+                if (is_nss && r >= 0) /* Turn off fallback NSS + dropin if we found the NSS/dropin service
+                                       * and could connect to it */
                         iterator->nss_covered = true;
+                if (is_dropin && r >= 0)
+                        iterator->dropin_covered = true;
 
                 if (ret == 0 && r < 0)
                         ret = r;
@@ -624,6 +640,12 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
                         return r;
         }
 
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !iterator->dropin_covered) {
+                r = dropin_user_record_by_name(name, NULL, flags, ret);
+                if (r >= 0)
+                        return r;
+        }
+
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
                 /* Make sure the NSS lookup doesn't recurse back to us. */
 
@@ -671,6 +693,12 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
                         return r;
         }
 
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !iterator->dropin_covered) {
+                r = dropin_user_record_by_uid(uid, NULL, flags, ret);
+                if (r >= 0)
+                        return r;
+        }
+
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !iterator->nss_covered) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
@@ -694,7 +722,7 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
 
 int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        int r;
+        int r, qr;
 
         assert(ret);
 
@@ -704,17 +732,33 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
         iterator->synthesize_root = iterator->synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE);
 
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", true, NULL, flags);
+        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", true, NULL, flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (r < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
                         return r;
 
                 setpwent();
                 iterator->nss_iterating = true;
-        } else if (r < 0)
-                return r;
+        }
+
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered)) {
+                r = conf_files_list_nulstr(
+                                &iterator->dropins,
+                                ".user",
+                                NULL,
+                                CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                USERDB_DROPIN_DIR_NULSTR("userdb"));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to find user drop-ins, ignoring: %m");
+        }
+
+        /* propagate IPC error, but only if there are no drop-ins */
+        if (qr < 0 &&
+            !iterator->nss_iterating &&
+            strv_isempty(iterator->dropins))
+                return qr;
 
         *ret = TAKE_PTR(iterator);
         return 0;
@@ -772,9 +816,45 @@ int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret) {
                 endpwent();
         }
 
-        r = userdb_process(iterator, ret, NULL, NULL, NULL);
+        for (; iterator->dropins && iterator->dropins[iterator->current_dropin]; iterator->current_dropin++) {
+                const char *i = iterator->dropins[iterator->current_dropin];
+                _cleanup_free_ char *fn = NULL;
+                uid_t uid;
+                char *e;
 
+                /* Next, let's add in the static drop-ins, which are quick to retrieve */
+
+                r = path_extract_filename(i, &fn);
+                if (r < 0)
+                        return r;
+
+                e = endswith(fn, ".user"); /* not actually a .user file? Then skip to next */
+                if (!e)
+                        continue;
+
+                *e = 0; /* Chop off suffix */
+
+                if (parse_uid(fn, &uid) < 0) /* not a UID .user file? Then skip to next */
+                        continue;
+
+                r = dropin_user_record_by_uid(uid, i, iterator->flags, ret);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse user record for UID " UID_FMT ", ignoring: %m", uid);
+                        continue; /* If we failed to parse this record, let's suppress it from enumeration,
+                                   * and continue with the next record. Maybe someone is dropping it files
+                                   * and only partially wrote this one. */
+                }
+
+                iterator->current_dropin++; /* make sure on the next call of userdb_iterator_get() we continue with the next dropin */
+                iterator->n_found++;
+                return 0;
+        }
+
+        /* Then, let's return the users provided by varlink IPC */
+        r = userdb_process(iterator, ret, NULL, NULL, NULL);
         if (r < 0) {
+
+                /* Finally, synthesize root + nobody if not done yet */
                 if (iterator->synthesize_root) {
                         iterator->synthesize_root = false;
                         iterator->n_found++;
@@ -835,6 +915,13 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
                         return r;
         }
 
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !(iterator && iterator->dropin_covered)) {
+                r = dropin_group_record_by_name(name, NULL, flags, ret);
+                if (r >= 0)
+                        return r;
+        }
+
+
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !(iterator && iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
@@ -879,6 +966,12 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
                         return r;
         }
 
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && !(iterator && iterator->dropin_covered)) {
+                r = dropin_group_record_by_gid(gid, NULL, flags, ret);
+                if (r >= 0)
+                        return r;
+        }
+
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && !(iterator && iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r >= 0) {
@@ -901,7 +994,7 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
 
 int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        int r;
+        int r, qr;
 
         assert(ret);
 
@@ -911,17 +1004,32 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
         iterator->synthesize_root = iterator->synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE);
 
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", true, NULL, flags);
+        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", true, NULL, flags);
 
-        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (r < 0 || !iterator->nss_covered)) {
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
                         return r;
 
                 setgrent();
                 iterator->nss_iterating = true;
-        } else if (r < 0)
-                return r;
+        }
+
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered)) {
+                r = conf_files_list_nulstr(
+                                &iterator->dropins,
+                                ".group",
+                                NULL,
+                                CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                USERDB_DROPIN_DIR_NULSTR("userdb"));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to find group drop-ins, ignoring: %m");
+        }
+
+        if (qr < 0 &&
+            !iterator->nss_iterating &&
+            strv_isempty(iterator->dropins))
+                return qr;
 
         *ret = TAKE_PTR(iterator);
         return 0;
@@ -977,6 +1085,36 @@ int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret) {
                 endgrent();
         }
 
+        for (; iterator->dropins && iterator->dropins[iterator->current_dropin]; iterator->current_dropin++) {
+                const char *i = iterator->dropins[iterator->current_dropin];
+                _cleanup_free_ char *fn = NULL;
+                gid_t gid;
+                char *e;
+
+                r = path_extract_filename(i, &fn);
+                if (r < 0)
+                        return r;
+
+                e = endswith(fn, ".group");
+                if (!e)
+                        continue;
+
+                *e = 0; /* Chop off suffix */
+
+                if (parse_gid(fn, &gid) < 0)
+                        continue;
+
+                r = dropin_group_record_by_gid(gid, i, iterator->flags, ret);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse group record for GID " GID_FMT ", ignoring: %m", gid);
+                        continue;
+                }
+
+                iterator->current_dropin++;
+                iterator->n_found++;
+                return 0;
+        }
+
         r = userdb_process(iterator, NULL, ret, NULL, NULL);
         if (r < 0) {
                 if (iterator->synthesize_root) {
@@ -999,10 +1137,23 @@ int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret) {
         return r;
 }
 
+static void discover_membership_dropins(UserDBIterator *i, UserDBFlags flags) {
+        int r;
+
+        r = conf_files_list_nulstr(
+                        &i->dropins,
+                        ".membership",
+                        NULL,
+                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED,
+                        USERDB_DROPIN_DIR_NULSTR("userdb"));
+        if (r < 0)
+                log_debug_errno(r, "Failed to find membership drop-ins, ignoring: %m");
+}
+
 int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *query = NULL;
-        int r;
+        int r, qr;
 
         assert(ret);
 
@@ -1018,34 +1169,37 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if (!iterator)
                 return -ENOMEM;
 
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
-        if ((r >= 0 && iterator->nss_covered) || FLAGS_SET(flags, USERDB_EXCLUDE_NSS))
-                goto finish;
-
-        r = userdb_iterator_block_nss_systemd(iterator);
-        if (r < 0)
-                return r;
-
         iterator->filter_user_name = strdup(name);
         if (!iterator->filter_user_name)
                 return -ENOMEM;
 
-        setgrent();
-        iterator->nss_iterating = true;
+        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
 
-        r = 0;
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r < 0)
+                        return r;
 
-finish:
-        if (r >= 0)
-                *ret = TAKE_PTR(iterator);
-        return r;
+                setgrent();
+                iterator->nss_iterating = true;
+        }
+
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered))
+                discover_membership_dropins(iterator, flags);
+
+        if (qr < 0 &&
+            !iterator->nss_iterating &&
+            strv_isempty(iterator->dropins))
+                return qr;
+
+        *ret = TAKE_PTR(iterator);
+        return 0;
 }
 
 int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *query = NULL;
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        int r;
+        int r, qr;
 
         assert(ret);
 
@@ -1061,40 +1215,49 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if (!iterator)
                 return -ENOMEM;
 
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
-        if ((r >= 0 && iterator->nss_covered) || FLAGS_SET(flags, USERDB_EXCLUDE_NSS))
-                goto finish;
+        iterator->filter_group_name = strdup(name);
+        if (!iterator->filter_group_name)
+                return -ENOMEM;
 
-        r = userdb_iterator_block_nss_systemd(iterator);
-        if (r < 0)
-                return r;
+        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
 
-        /* We ignore all errors here, since the group might be defined by a userdb native service, and we queried them already above. */
-        (void) nss_group_record_by_name(name, false, &gr);
-        if (gr) {
-                iterator->members_of_group = strv_copy(gr->members);
-                if (!iterator->members_of_group)
-                        return -ENOMEM;
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                iterator->index_members_of_group = 0;
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r < 0)
+                        return r;
 
-                iterator->found_group_name = strdup(name);
-                if (!iterator->found_group_name)
-                        return -ENOMEM;
+                /* We ignore all errors here, since the group might be defined by a userdb native service, and we queried them already above. */
+                (void) nss_group_record_by_name(name, false, &gr);
+                if (gr) {
+                        iterator->members_of_group = strv_copy(gr->members);
+                        if (!iterator->members_of_group)
+                                return -ENOMEM;
+
+                        iterator->index_members_of_group = 0;
+
+                        iterator->found_group_name = strdup(name);
+                        if (!iterator->found_group_name)
+                                return -ENOMEM;
+                }
         }
 
-        r = 0;
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered))
+                discover_membership_dropins(iterator, flags);
 
-finish:
-        if (r >= 0)
-                *ret = TAKE_PTR(iterator);
+        if (qr < 0 &&
+            strv_isempty(iterator->members_of_group) &&
+            strv_isempty(iterator->dropins))
+                return qr;
 
-        return r;
+        *ret = TAKE_PTR(iterator);
+        return 0;
 }
 
 int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        int r;
+        int r, qr;
 
         assert(ret);
 
@@ -1102,24 +1265,27 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
         if (!iterator)
                 return -ENOMEM;
 
-        r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, NULL, flags);
-        if ((r >= 0 && iterator->nss_covered) || FLAGS_SET(flags, USERDB_EXCLUDE_NSS))
-                goto finish;
+        qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, NULL, flags);
 
-        r = userdb_iterator_block_nss_systemd(iterator);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r < 0)
+                        return r;
 
-        setgrent();
-        iterator->nss_iterating = true;
+                setgrent();
+                iterator->nss_iterating = true;
+        }
 
-        r = 0;
+        if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered))
+                discover_membership_dropins(iterator, flags);
 
-finish:
-        if (r >= 0)
-                *ret = TAKE_PTR(iterator);
+        if (qr < 0 &&
+            !iterator->nss_iterating &&
+            strv_isempty(iterator->dropins))
+                return qr;
 
-        return r;
+        *ret = TAKE_PTR(iterator);
+        return 0;
 }
 
 int membershipdb_iterator_get(
@@ -1203,6 +1369,48 @@ int membershipdb_iterator_get(
 
                 iterator->members_of_group = strv_free(iterator->members_of_group);
                 iterator->found_group_name = mfree(iterator->found_group_name);
+        }
+
+        for (; iterator->dropins && iterator->dropins[iterator->current_dropin]; iterator->current_dropin++) {
+                const char *i = iterator->dropins[iterator->current_dropin], *e, *c;
+                _cleanup_free_ char *un = NULL, *gn = NULL;
+
+                e = endswith(i, ".membership");
+                if (!e)
+                        continue;
+
+                c = memchr(i, ':', e - i);
+                if (!c)
+                        continue;
+
+                un = strndup(i, c - i);
+                if (!un)
+                        return -ENOMEM;
+                if (iterator->filter_user_name) {
+                        if (!streq(un, iterator->filter_user_name))
+                                continue;
+                } else if (!valid_user_group_name(un, VALID_USER_RELAX))
+                        continue;
+
+                c++; /* skip over ':' */
+                gn = strndup(c, e - c);
+                if (!gn)
+                        return -ENOMEM;
+                if (iterator->filter_group_name) {
+                        if (!streq(gn, iterator->filter_group_name))
+                                continue;
+                } else if (!valid_user_group_name(gn, VALID_USER_RELAX))
+                        continue;
+
+                iterator->current_dropin++;
+                iterator->n_found++;
+
+                if (ret_user)
+                        *ret_user = TAKE_PTR(un);
+                if (ret_group)
+                        *ret_group = TAKE_PTR(gn);
+
+                return 0;
         }
 
         r = userdb_process(iterator, NULL, NULL, ret_user, ret_group);
