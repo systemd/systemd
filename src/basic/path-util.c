@@ -1057,17 +1057,10 @@ bool path_is_valid_full(const char *p, bool accept_dot_dot) {
 }
 
 bool path_is_normalized(const char *p) {
-
-        if (!path_is_valid(p))
+        if (!path_is_safe(p))
                 return false;
 
-        if (dot_or_dot_dot(p))
-                return false;
-
-        if (startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
-                return false;
-
-        if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
                 return false;
 
         if (strstr(p, "//"))
