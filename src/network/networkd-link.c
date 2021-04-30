@@ -33,6 +33,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
@@ -131,6 +132,25 @@ bool link_ipv6_enabled(Link *link) {
                 return true;
 
         return false;
+}
+
+bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
+        assert(link);
+
+        if (!link->network || link->network->unmanaged) {
+                if (!allow_unmanaged)
+                        return false;
+
+                return link_has_carrier(link);
+        }
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                return false;
+
+        return true;
 }
 
 static bool link_is_enslaved(Link *link) {
@@ -764,11 +784,17 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return;
 
-        if (!link->addresses_configured)
-                return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
+        if (link->iftype == ARPHRD_CAN) {
+                /* let's shortcut things for CAN which doesn't need most of checks below. */
+                if (!link->can_configured)
+                        return (void) log_link_debug(link, "%s(): CAN device is not configured.", __func__);
 
-        if (!link->neighbors_configured)
-                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
+                link_enter_configured(link);
+                return;
+        }
+
+        if (!link->static_addresses_configured)
+                return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
         SET_FOREACH(a, link->addresses)
                 if (!address_is_ready(a)) {
@@ -778,13 +804,16 @@ void link_check_ready(Link *link) {
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
-        if (!link->static_routes_configured)
-                return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
+        if (!link->static_neighbors_configured)
+                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
         if (!link->static_nexthops_configured)
                 return (void) log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
 
-        if (!link->routing_policy_rules_configured)
+        if (!link->static_routes_configured)
+                return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
+
+        if (!link->static_routing_policy_rules_configured)
                 return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
 
         if (!link->tc_configured)
@@ -848,15 +877,6 @@ static int link_set_static_configs(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        /* Reset all *_configured flags we are configuring. */
-        link->request_static_addresses = false;
-        link->addresses_configured = false;
-        link->addresses_ready = false;
-        link->neighbors_configured = false;
-        link->static_routes_configured = false;
-        link->static_nexthops_configured = false;
-        link->routing_policy_rules_configured = false;
-
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
@@ -865,11 +885,7 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_neighbors(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_addresses(link);
+        r = link_set_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
 
@@ -877,8 +893,23 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        /* now that we can figure out a default address for the dhcp server, start it */
-        r = dhcp4_server_configure(link);
+        r = link_request_static_addresses(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_neighbors(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_nexthops(link, false);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routes(link, false);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_routing_policy_rules(link);
         if (r < 0)
                 return r;
 
@@ -1376,7 +1407,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int link_up(Link *link) {
+int link_up(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -1771,7 +1802,7 @@ static void link_drop(Link *link) {
         link_detach_from_manager(link);
 }
 
-static int link_joined(Link *link) {
+int link_activate(Link *link) {
         int r;
 
         assert(link);
@@ -1789,10 +1820,8 @@ static int link_joined(Link *link) {
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_UP:
                 r = link_up(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 break;
         case ACTIVATION_POLICY_DOWN:
                 if (link->activated)
@@ -1800,15 +1829,26 @@ static int link_joined(Link *link) {
                 _fallthrough_;
         case ACTIVATION_POLICY_ALWAYS_DOWN:
                 r = link_down(link, NULL);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
                 break;
         default:
                 break;
         }
         link->activated = true;
+
+        return 0;
+}
+
+static int link_joined(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        r = link_activate(link);
+        if (r < 0)
+                return r;
 
         if (link->network->bridge) {
                 r = link_set_bridge(link);
@@ -2010,17 +2050,17 @@ static int link_drop_foreign_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_foreign_addresses(link);
-
-        k = link_drop_foreign_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_foreign_routes(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        r = link_drop_foreign_routes(link);
 
         k = link_drop_foreign_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_foreign_addresses(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_foreign_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -2037,17 +2077,17 @@ static int link_drop_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_addresses(link);
-
-        k = link_drop_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_routes(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        r = link_drop_routes(link);
 
         k = link_drop_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_addresses(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -2058,6 +2098,17 @@ static int link_drop_config(Link *link) {
         ndisc_flush(link);
 
         return r;
+}
+
+static void link_drop_requests(Link *link) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+
+        ORDERED_SET_FOREACH(req, link->manager->request_queue)
+                if (req->link == link)
+                        request_drop(req);
 }
 
 int link_configure(Link *link) {
@@ -2076,6 +2127,7 @@ int link_configure(Link *link) {
                 return r;
 
         if (link->iftype == ARPHRD_CAN)
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return link_configure_can(link);
 
         r = link_set_sysctl(link);
@@ -2212,6 +2264,8 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         r = link_stop_engines(link, false);
         if (r < 0)
                 return r;
+
+        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -2567,6 +2621,10 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (link->iftype == ARPHRD_CAN)
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
+                return link_handle_bound_by_list(link);
+
         r = wifi_get_info(link);
         if (r < 0)
                 return r;
@@ -2589,6 +2647,12 @@ static int link_carrier_gained(Link *link) {
                 r = link_set_static_configs(link);
                 if (r < 0)
                         return r;
+
+                if (link->static_addresses_configured && !link->dhcp_server) {
+                        r = dhcp4_server_configure(link);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = link_handle_bound_by_list(link);
@@ -2625,6 +2689,10 @@ static int link_carrier_lost(Link *link) {
         if (link->network && link->network->ignore_carrier_loss)
                 return 0;
 
+        if (link->iftype == ARPHRD_CAN)
+                /* let's shortcut things for CAN which doesn't need most of what's done below. */
+                return link_handle_bound_by_list(link);
+
         /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
          * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
          * configuration and stop the clients as well. */
@@ -2636,6 +2704,8 @@ static int link_carrier_lost(Link *link) {
                 link_enter_failed(link);
                 return r;
         }
+
+        link_drop_requests(link);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -2712,6 +2782,10 @@ static int link_admin_state_down(Link *link) {
                 return 0;
 
         if (link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
+                if (streq_ptr(link->kind, "can") && !link->can_configured)
+                        /* CAN device needs to be down on configure. */
+                        return 0;
+
                 log_link_info(link, "ActivationPolicy is \"always-on\", forcing link up");
                 return link_up(link);
         }
