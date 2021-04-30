@@ -1022,14 +1022,14 @@ bool filename_is_valid(const char *p) {
         return true;
 }
 
-bool path_is_valid(const char *p) {
+bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         if (isempty(p))
                 return false;
 
         for (const char *e = p;;) {
                 int r;
 
-                r = path_get_first_component_full(&e, true, NULL);
+                r = path_get_first_component_full(&e, accept_dot_dot, NULL);
                 if (r < 0)
                         return false;
 
