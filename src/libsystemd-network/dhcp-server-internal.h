@@ -40,8 +40,6 @@ typedef struct DHCPLease {
 
 struct sd_dhcp_server {
         struct in_addr relay_target;
-        char *agent_circuit_id;
-        char *agent_remote_id;
 
         unsigned n_ref;
 
@@ -79,6 +77,9 @@ struct sd_dhcp_server {
 
         sd_dhcp_server_callback_t callback;
         void *callback_userdata;
+
+        char *agent_circuit_id;
+        char *agent_remote_id;
 };
 
 typedef struct DHCPRequest {

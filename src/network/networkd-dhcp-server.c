@@ -354,7 +354,7 @@ int dhcp4_server_configure(Link *link) {
                 return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
 
         bind_to_interface = sd_dhcp_server_is_in_relay_mode(link->dhcp_server) ? false : link->network->dhcp_server_bind_to_interface;
-        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, link->network->dhcp_server_bind_to_interface);
+        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, bind_to_interface);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
 
@@ -425,15 +425,25 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *userdata) {
 
         char **suboption_value = data;
+        char* p;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        if (!startswith(rvalue, "string:"))
-                return -EINVAL;
 
-        return free_and_strdup(suboption_value, rvalue + strlen("string:"));
+        if (isempty(rvalue)) {
+                *suboption_value = mfree(*suboption_value);
+                return 0;
+        }
+
+        p = startswith(rvalue, "string:");
+        if (!p) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);
+                return 0;
+        }
+        return free_and_strdup(suboption_value, empty_to_null(p));
 }
 
 int config_parse_dhcp_server_relay_target(
