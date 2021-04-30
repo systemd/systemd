@@ -808,6 +808,90 @@ char* dirname_malloc(const char *path) {
         return dir2;
 }
 
+static const char *skip_slash_or_dot(const char *p) {
+        for (; !isempty(p); p++) {
+                if (*p == '/')
+                        continue;
+                if (startswith(p, "./")) {
+                        p++;
+                        continue;
+                }
+                break;
+        }
+        return p;
+}
+
+int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret) {
+        const char *q, *first, *end_first, *next;
+        size_t len;
+
+        assert(p);
+
+        /* When a path is input, then returns the pointer to the first component and its length, and
+         * move the input pointer to the next component or nul. This skips both over any '/'
+         * immediately *before* and *after* the first component before returning.
+         *
+         * Examples
+         *   Input:  p: "//.//aaa///bbbbb/cc"
+         *   Output: p: "bbbbb///cc"
+         *           ret: "aaa///bbbbb/cc"
+         *           return value: 3 (== strlen("aaa"))
+         *
+         *   Input:  p: "aaa//"
+         *   Output: p: (pointer to NUL)
+         *           ret: "aaa//"
+         *           return value: 3 (== strlen("aaa"))
+         *
+         *   Input:  p: "/", ".", ""
+         *   Output: p: (pointer to NUL)
+         *           ret: NULL
+         *           return value: 0
+         *
+         *   Input:  p: NULL
+         *   Output: p: NULL
+         *           ret: NULL
+         *           return value: 0
+         *
+         *   Input:  p: "(too long component)"
+         *   Output: return value: -EINVAL
+         *
+         *   (when accept_dot_dot is false)
+         *   Input:  p: "//..//aaa///bbbbb/cc"
+         *   Output: return value: -EINVAL
+         */
+
+        q = *p;
+
+        first = skip_slash_or_dot(q);
+        if (isempty(first)) {
+                *p = first;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+        if (streq(first, ".")) {
+                *p = first + 1;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        end_first = strchrnul(first, '/');
+        len = end_first - first;
+
+        if (len > NAME_MAX)
+                return -EINVAL;
+        if (!accept_dot_dot && len == 2 && first[0] == '.' && first[1] == '.')
+                return -EINVAL;
+
+        next = skip_slash_or_dot(end_first);
+
+        *p = next + streq(next, ".");
+        if (ret)
+                *ret = first;
+        return len;
+}
+
 const char *last_path_component(const char *path) {
 
         /* Finds the last component of the path, preserving the optional trailing slash that signifies a directory.
