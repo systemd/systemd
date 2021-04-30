@@ -115,8 +115,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 2;
 
                 ORDERED_SET_FOREACH(p, s) {
-                        r = dhcp_option_append_tlv(options, size, offset, p->option, p->length, p->data);
-                        assert(r >= 0);
+                        assert_se(dhcp_option_append_tlv(options, size, offset, p->option, p->length, p->data) >= 0);
                 }
                 break;
         }
