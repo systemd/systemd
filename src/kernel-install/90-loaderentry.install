@@ -28,21 +28,26 @@ if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
 fi
 
-if ! [[ -d "$ENTRY_DIR_ABS" ]]; then
+# Only continue if the parent of the target directory
+# (usually $ESP/$MACHINE_ID) exists – this is an administrative decision.
+if ! [ -d "${ENTRY_DIR_ABS%/*}" ]; then
     exit 0
 fi
 
-MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
+MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
+BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-BOOT_ROOT=${ENTRY_DIR_ABS%/$MACHINE_ID/$KERNEL_VERSION}
-BOOT_MNT=$(stat -c %m $BOOT_ROOT)
-if [[ $BOOT_MNT == '/' ]]; then
-    ENTRY_DIR=$ENTRY_DIR_ABS
+BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+if [[ "$BOOT_MNT" == '/' ]]; then
+    ENTRY_DIR="$ENTRY_DIR_ABS"
 else
-    ENTRY_DIR=${ENTRY_DIR_ABS#$BOOT_MNT}
+    ENTRY_DIR="${ENTRY_DIR_ABS#$BOOT_MNT}"
 fi
 
 if [[ $COMMAND == remove ]]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
+    rm -rf "$ENTRY_DIR_ABS"
+
     rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
     rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
     exit 0
@@ -92,12 +97,17 @@ else
     LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
 fi
 
-cp "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" &&
-    chown root:root "$ENTRY_DIR_ABS/linux" &&
-    chmod 0644 "$ENTRY_DIR_ABS/linux" || {
-        echo "Could not copy '$KERNEL_IMAGE to '$ENTRY_DIR_ABS/linux'." >&2
-        exit 1
-    }
+if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
+    echo "+mkdir -v -p $ENTRY_DIR_ABS"
+    mkdir -v -p "$ENTRY_DIR_ABS"
+else
+    mkdir -p "$ENTRY_DIR_ABS"
+fi
+
+install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
+    echo "Could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
+    exit 1
+}
 
 INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
 
@@ -106,12 +116,10 @@ for initrd in "${INITRD_OPTIONS[@]}"; do
         initrd_basename="$(basename ${initrd})"
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Installing $ENTRY_DIR_ABS/${initrd_basename}"
-        cp "${initrd}" "$ENTRY_DIR_ABS/${initrd_basename}" &&
-            chown root:root "$ENTRY_DIR_ABS/${initrd_basename}" &&
-            chmod 0644 "$ENTRY_DIR_ABS/${initrd_basename}" || {
-                echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
-                exit 1
-            }
+        install -g root -o root -m 0644 "${initrd}" "$ENTRY_DIR_ABS/${initrd_basename}" || {
+            echo "Could not copy '${initrd}' to '$ENTRY_DIR_ABS/${initrd_basename}'." >&2
+            exit 1
+        }
     fi
 done
 
