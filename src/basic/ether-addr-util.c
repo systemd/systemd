@@ -43,6 +43,22 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
         return buffer;
 }
 
+int ether_addr_to_string_alloc(const struct ether_addr *addr, char **ret) {
+        char *buf;
+
+        assert(addr);
+        assert(ret);
+
+        buf = new(char, ETHER_ADDR_TO_STRING_MAX);
+        if (!buf)
+                return -ENOMEM;
+
+        ether_addr_to_string(addr, buf);
+
+        *ret = buf;
+        return 0;
+}
+
 int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b) {
         return memcmp(a, b, ETH_ALEN);
 }
