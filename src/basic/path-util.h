@@ -155,7 +155,13 @@ int path_extract_filename(const char *p, char **ret);
 int path_extract_directory(const char *p, char **ret);
 
 bool filename_is_valid(const char *p) _pure_;
-bool path_is_valid(const char *p) _pure_;
+bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
+static inline bool path_is_valid(const char *p) {
+        return path_is_valid_full(p, true);
+}
+static inline bool path_is_safe(const char *p) {
+        return path_is_valid_full(p, false);
+}
 bool path_is_normalized(const char *p) _pure_;
 
 char *file_in_same_dir(const char *path, const char *filename);

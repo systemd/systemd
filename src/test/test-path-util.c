@@ -806,36 +806,48 @@ static void test_filename_is_valid(void) {
         assert_se(filename_is_valid("o.o"));
 }
 
-static void test_path_is_valid(void) {
+static void test_path_is_valid_and_safe_one(const char *p, bool ret) {
+        log_debug("/* %s(\"%s\")*/", __func__, strnull(p));
+
+        assert_se(path_is_valid(p) == ret);
+        if (ret)
+                ret = !streq(p, "..") &&
+                        !startswith(p, "../") &&
+                        !endswith(p, "/..") &&
+                        !strstr(p, "/../");
+        assert_se(path_is_safe(p) == ret);
+}
+
+static void test_path_is_valid_and_safe(void) {
         char foo[PATH_MAX+2];
         const char *c;
 
         log_info("/* %s */", __func__);
 
-        assert_se(!path_is_valid(""));
-        assert_se(path_is_valid("/bar/foo"));
-        assert_se(path_is_valid("/bar/foo/"));
-        assert_se(path_is_valid("/bar/foo/"));
-        assert_se(path_is_valid("//bar//foo//"));
-        assert_se(path_is_valid("/"));
-        assert_se(path_is_valid("/////"));
-        assert_se(path_is_valid("/////.///.////...///..//."));
-        assert_se(path_is_valid("."));
-        assert_se(path_is_valid(".."));
-        assert_se(path_is_valid("bar/foo"));
-        assert_se(path_is_valid("bar/foo/"));
-        assert_se(path_is_valid("bar//"));
+        test_path_is_valid_and_safe_one("", false);
+        test_path_is_valid_and_safe_one("/bar/foo", true);
+        test_path_is_valid_and_safe_one("/bar/foo/", true);
+        test_path_is_valid_and_safe_one("/bar/foo/", true);
+        test_path_is_valid_and_safe_one("//bar//foo//", true);
+        test_path_is_valid_and_safe_one("/", true);
+        test_path_is_valid_and_safe_one("/////", true);
+        test_path_is_valid_and_safe_one("/////.///.////...///..//.", true);
+        test_path_is_valid_and_safe_one(".", true);
+        test_path_is_valid_and_safe_one("..", true);
+        test_path_is_valid_and_safe_one("bar/foo", true);
+        test_path_is_valid_and_safe_one("bar/foo/", true);
+        test_path_is_valid_and_safe_one("bar//", true);
 
         memset(foo, 'a', sizeof(foo) -1);
         char_array_0(foo);
 
-        assert_se(!path_is_valid(foo));
+        test_path_is_valid_and_safe_one(foo, false);
 
         c = strjoina("/xxx/", foo, "/yyy");
-        assert_se(!path_is_valid(c));
+        test_path_is_valid_and_safe_one(c, false);
 
-        assert_se(path_is_valid("foo_bar-333"));
-        assert_se(path_is_valid("o.o"));
+        test_path_is_valid_and_safe_one("foo_bar-333", true);
+        test_path_is_valid_and_safe_one("o.o", true);
 }
 
 static void test_hidden_or_backup_file(void) {
@@ -983,7 +995,7 @@ int main(int argc, char **argv) {
         test_path_extract_filename();
         test_path_extract_directory();
         test_filename_is_valid();
-        test_path_is_valid();
+        test_path_is_valid_and_safe();
         test_hidden_or_backup_file();
         test_skip_dev_prefix();
         test_empty_or_root();
