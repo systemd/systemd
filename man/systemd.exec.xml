@@ -2651,7 +2651,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
         of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
-        of the processes belonging to this unit, sent via any supported logging protocol. The filtering is applied
+        of the processes belonging to this unit, as well as any log messages written by the system manager process
+        (PID 1) in reference to this unit, sent via any supported logging protocol. The filtering is applied
         early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
         through this filter successfully might still be dropped by filters applied at a later stage in the logging
         subsystem. For example, <varname>MaxLevelStore=</varname> configured in

@@ -99,6 +99,11 @@ cmp /expected /output
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_PID | sort -u | grep -c "^.*$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=MESSAGE | grep -Pc "^(This will|usually fail|and be truncated)$") -eq 3 ]]
 
+# test that LogLevelMax can also suppress logging about services, not only by services
+systemctl start silent-success
+journalctl --sync
+[[ -z `journalctl -b -q -u silent-success.service` ]]
+
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
 
