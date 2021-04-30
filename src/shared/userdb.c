@@ -751,6 +751,8 @@ int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret) {
 
                         if (ret)
                                 (*ret)->incomplete = incomplete;
+
+                        iterator->n_found++;
                         return r;
                 }
 
@@ -949,6 +951,8 @@ int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret) {
 
                         if (ret)
                                 (*ret)->incomplete = incomplete;
+
+                        iterator->n_found++;
                         return r;
                 }
 
