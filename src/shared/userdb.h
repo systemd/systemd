@@ -18,6 +18,7 @@ typedef enum UserDBFlags {
         /* The main sources */
         USERDB_EXCLUDE_NSS          = 1 << 0,  /* don't do client-side nor server-side NSS */
         USERDB_EXCLUDE_VARLINK      = 1 << 1,  /* don't talk to any varlink services */
+        USERDB_EXCLUDE_DROPIN       = 1 << 2,  /* don't load drop-in user/group definitions */
 
         /* Modifications */
         USERDB_SUPPRESS_SHADOW      = 1 << 3,  /* don't do client-side shadow calls (server side might happen though) */
@@ -26,8 +27,16 @@ typedef enum UserDBFlags {
         USERDB_DONT_SYNTHESIZE      = 1 << 6,  /* don't synthesize root/nobody */
 
         /* Combinations */
-        USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE,
+        USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE,
 } UserDBFlags;
+
+/* Well-known errors we'll return here:
+ *
+ *      -ESRCH: No such user/group
+ *      -ELINK: Varlink logic turned off (and no other source available)
+ * -EOPNOTSUPP: Enumeration not supported
+ *  -ETIMEDOUT: Time-out
+ */
 
 int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret);
 int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret);

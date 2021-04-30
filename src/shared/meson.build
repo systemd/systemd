@@ -262,6 +262,8 @@ shared_sources = files('''
         user-record.h
         userdb.c
         userdb.h
+        userdb-dropin.c
+        userdb-dropin.h
         utmp-wtmp.h
         varlink.c
         varlink.h
