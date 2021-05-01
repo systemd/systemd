@@ -430,7 +430,7 @@ int path_simplify_and_warn(
         return 0;
 }
 
-char* path_startswith(const char *path, const char *prefix) {
+char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) {
         assert(path);
         assert(prefix);
 
@@ -448,28 +448,25 @@ char* path_startswith(const char *path, const char *prefix) {
                 return NULL;
 
         for (;;) {
-                size_t a, b;
+                const char *p, *q;
+                int r, k;
 
-                path += strspn(path, "/");
-                prefix += strspn(prefix, "/");
-
-                if (*prefix == 0)
-                        return (char*) path;
-
-                if (*path == 0)
+                r = path_find_first_component(&path, accept_dot_dot, &p);
+                if (r < 0)
                         return NULL;
 
-                a = strcspn(path, "/");
-                b = strcspn(prefix, "/");
-
-                if (a != b)
+                k = path_find_first_component(&prefix, accept_dot_dot, &q);
+                if (k < 0)
                         return NULL;
 
-                if (memcmp(path, prefix, a) != 0)
+                if (k == 0)
+                        return (char*) (p ?: path);
+
+                if (r != k)
                         return NULL;
 
-                path += a;
-                prefix += b;
+                if (!strneq(p, q, r))
+                        return NULL;
         }
 }
 

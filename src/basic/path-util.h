@@ -57,7 +57,10 @@ char* path_make_absolute(const char *p, const char *prefix);
 int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
 int path_make_relative(const char *from_dir, const char *to_path, char **_r);
-char* path_startswith(const char *path, const char *prefix) _pure_;
+char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
+static inline char* path_startswith(const char *path, const char *prefix) {
+        return path_startswith_full(path, prefix, true);
+}
 int path_compare(const char *a, const char *b) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
