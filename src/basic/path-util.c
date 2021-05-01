@@ -474,7 +474,7 @@ char *path_startswith_full(const char *path, const char *prefix, bool accept_dot
 }
 
 int path_compare(const char *a, const char *b) {
-        int d;
+        int r;
 
         assert(a);
         assert(b);
@@ -482,40 +482,45 @@ int path_compare(const char *a, const char *b) {
         /* A relative path and an absolute path must not compare as equal.
          * Which one is sorted before the other does not really matter.
          * Here a relative path is ordered before an absolute path. */
-        d = (a[0] == '/') - (b[0] == '/');
-        if (d != 0)
-                return d;
+        r = CMP(path_is_absolute(a), path_is_absolute(b));
+        if (r != 0)
+                return r;
 
         for (;;) {
-                size_t j, k;
+                const char *aa, *bb;
+                int j, k;
 
-                a += strspn(a, "/");
-                b += strspn(b, "/");
+                j = path_find_first_component(&a, true, &aa);
+                k = path_find_first_component(&b, true, &bb);
 
-                if (*a == 0 && *b == 0)
-                        return 0;
+                if (j < 0 || k < 0) {
+                        /* When one of paths is invalid, order invalid path after valid one. */
+                        r = CMP(j < 0, k < 0);
+                        if (r != 0)
+                                return r;
+
+                        /* fallback to use strcmp() if both paths are invalid. */
+                        return strcmp(a, b);
+                }
 
                 /* Order prefixes first: "/foo" before "/foo/bar" */
-                if (*a == 0)
+                if (j == 0) {
+                        if (k == 0)
+                                return 0;
                         return -1;
-                if (*b == 0)
+                }
+                if (k == 0)
                         return 1;
 
-                j = strcspn(a, "/");
-                k = strcspn(b, "/");
-
                 /* Alphabetical sort: "/foo/aaa" before "/foo/b" */
-                d = memcmp(a, b, MIN(j, k));
-                if (d != 0)
-                        return (d > 0) - (d < 0); /* sign of d */
+                r = memcmp(aa, bb, MIN(j, k));
+                if (r != 0)
+                        return r;
 
                 /* Sort "/foo/a" before "/foo/aaa" */
-                d = (j > k) - (j < k);  /* sign of (j - k) */
-                if (d != 0)
-                        return d;
-
-                a += j;
-                b += k;
+                r = CMP(j, k);
+                if (r != 0)
+                        return r;
         }
 }
 
