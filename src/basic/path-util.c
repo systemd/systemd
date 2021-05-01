@@ -107,93 +107,96 @@ int path_make_absolute_cwd(const char *p, char **ret) {
         return 0;
 }
 
-int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
-        char *f, *t, *r, *p;
-        unsigned n_parents = 0;
+int path_make_relative(const char *from, const char *to, char **ret) {
+        _cleanup_free_ char *result = NULL;
+        unsigned n_parents;
+        const char *f, *t;
+        int r, k;
+        char *p;
 
-        assert(from_dir);
-        assert(to_path);
-        assert(_r);
+        assert(from);
+        assert(to);
+        assert(ret);
 
         /* Strips the common part, and adds ".." elements as necessary. */
 
-        if (!path_is_absolute(from_dir) || !path_is_absolute(to_path))
+        if (!path_is_absolute(from) || !path_is_absolute(to))
                 return -EINVAL;
 
-        f = strdupa(from_dir);
-        t = strdupa(to_path);
-
-        path_simplify(f, true);
-        path_simplify(t, true);
-
-        /* Skip the common part. */
         for (;;) {
-                size_t a, b;
+                r = path_find_first_component(&from, true, &f);
+                if (r < 0)
+                        return r;
 
-                f += *f == '/';
-                t += *t == '/';
+                k = path_find_first_component(&to, true, &t);
+                if (k < 0)
+                        return k;
 
-                if (!*f) {
-                        if (!*t)
-                                /* from_dir equals to_path. */
-                                r = strdup(".");
-                        else
-                                /* from_dir is a parent directory of to_path. */
-                                r = strdup(t);
-                        if (!r)
-                                return -ENOMEM;
+                if (r == 0) {
+                        /* end of 'from' */
+                        if (k == 0) {
+                                /* from and to are equivalent. */
+                                result = strdup(".");
+                                if (!result)
+                                        return -ENOMEM;
+                        } else {
+                                /* 'to' is inside of 'from'. */
+                                result = strdup(t);
+                                if (!result)
+                                        return -ENOMEM;
 
-                        *_r = r;
+                                path_simplify(result, true);
+
+                                if (!path_is_valid(result))
+                                        return -EINVAL;
+                        }
+
+                        *ret = TAKE_PTR(result);
                         return 0;
                 }
 
-                if (!*t)
+                if (r != k || !strneq(f, t, r))
                         break;
-
-                a = strcspn(f, "/");
-                b = strcspn(t, "/");
-
-                if (a != b || memcmp(f, t, a) != 0)
-                        break;
-
-                f += a;
-                t += b;
         }
 
         /* If we're here, then "from_dir" has one or more elements that need to
          * be replaced with "..". */
 
-        /* Count the number of necessary ".." elements. */
-        for (; *f;) {
-                size_t w;
-
-                w = strcspn(f, "/");
-
-                /* If this includes ".." we can't do a simple series of "..", refuse */
-                if (w == 2 && f[0] == '.' && f[1] == '.')
-                        return -EINVAL;
-
-                /* Count number of elements */
-                n_parents++;
-
-                f += w;
-                f += *f == '/';
+        for (n_parents = 1;; n_parents++) {
+                /* If this includes ".." we can't do a simple series of "..". */
+                r = path_find_first_component(&from, false, &f);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
         }
 
-        r = new(char, n_parents * 3 + strlen(t) + 1);
-        if (!r)
+        if (isempty(t) && n_parents * 3 > PATH_MAX)
+                /* PATH_MAX is counted *with* the trailing NUL byte */
+                return -EINVAL;
+
+        result = new(char, n_parents * 3 + !isempty(t) + strlen_ptr(t));
+        if (!result)
                 return -ENOMEM;
 
-        for (p = r; n_parents > 0; n_parents--)
+        for (p = result; n_parents > 0; n_parents--)
                 p = mempcpy(p, "../", 3);
 
-        if (*t)
-                strcpy(p, t);
-        else
-                /* Remove trailing slash */
-                *(--p) = 0;
+        if (isempty(t)) {
+                /* Remove trailing slash and terminate string. */
+                *(--p) = '\0';
+                *ret = TAKE_PTR(result);
+                return 0;
+        }
 
-        *_r = r;
+        strcpy(p, t);
+
+        path_simplify(result, true);
+
+        if (!path_is_valid(result))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(result);
         return 0;
 }
 

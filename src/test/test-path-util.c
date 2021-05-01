@@ -420,29 +420,32 @@ static void test_fsck_exists(void) {
         assert_se(fsck_exists("/../bin/") == 0);
 }
 
-static void test_make_relative(void) {
-        char *result;
+static void test_path_make_relative_one(const char *from, const char *to, const char *expected) {
+        _cleanup_free_ char *z = NULL;
+        int r;
 
+        log_info("/* %s(%s, %s) */", __func__, from, to);
+
+        r = path_make_relative(from, to, &z);
+        assert_se((r >= 0) == !!expected);
+        assert_se(streq_ptr(z, expected));
+}
+
+static void test_make_relative(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(path_make_relative("some/relative/path", "/some/path", &result) < 0);
-        assert_se(path_make_relative("/some/path", "some/relative/path", &result) < 0);
-        assert_se(path_make_relative("/some/dotdot/../path", "/some/path", &result) < 0);
+        test_path_make_relative_one("some/relative/path", "/some/path", NULL);
+        test_path_make_relative_one("/some/path", "some/relative/path", NULL);
+        test_path_make_relative_one("/some/dotdot/../path", "/some/path", NULL);
 
-#define test(from_dir, to_path, expected) {                \
-                _cleanup_free_ char *z = NULL;             \
-                path_make_relative(from_dir, to_path, &z); \
-                assert_se(streq(z, expected));             \
-        }
-
-        test("/", "/", ".");
-        test("/", "/some/path", "some/path");
-        test("/some/path", "/some/path", ".");
-        test("/some/path", "/some/path/in/subdir", "in/subdir");
-        test("/some/path", "/", "../..");
-        test("/some/path", "/some/other/path", "../other/path");
-        test("/some/path/./dot", "/some/further/path", "../../further/path");
-        test("//extra.//.//./.slashes//./won't////fo.ol///anybody//", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
+        test_path_make_relative_one("/", "/", ".");
+        test_path_make_relative_one("/", "/some/path", "some/path");
+        test_path_make_relative_one("/some/path", "/some/path", ".");
+        test_path_make_relative_one("/some/path", "/some/path/in/subdir", "in/subdir");
+        test_path_make_relative_one("/some/path", "/", "../..");
+        test_path_make_relative_one("/some/path", "/some/other/path", "../other/path");
+        test_path_make_relative_one("/some/path/./dot", "/some/further/path", "../../further/path");
+        test_path_make_relative_one("//extra.//.//./.slashes//./won't////fo.ol///anybody//", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
 }
 
 static void test_strv_resolve(void) {
