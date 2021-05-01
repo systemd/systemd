@@ -147,12 +147,22 @@ int fsck_exists(const char *fstype);
         })
 
 char* dirname_malloc(const char *path);
+int path_get_first_component_full(const char **p, bool accept_dot_dot, const char **ret);
+static inline int path_get_first_component(const char **p, const char **ret) {
+        return path_get_first_component_full(p, false, ret);
+}
 const char *last_path_component(const char *path);
 int path_extract_filename(const char *p, char **ret);
 int path_extract_directory(const char *p, char **ret);
 
 bool filename_is_valid(const char *p) _pure_;
-bool path_is_valid(const char *p) _pure_;
+bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
+static inline bool path_is_valid(const char *p) {
+        return path_is_valid_full(p, true);
+}
+static inline bool path_is_safe(const char *p) {
+        return path_is_valid_full(p, false);
+}
 bool path_is_normalized(const char *p) _pure_;
 
 char *file_in_same_dir(const char *path, const char *filename);
