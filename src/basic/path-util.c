@@ -430,7 +430,7 @@ int path_simplify_and_warn(
         return 0;
 }
 
-char* path_startswith(const char *path, const char *prefix) {
+char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) {
         assert(path);
         assert(prefix);
 
@@ -448,28 +448,25 @@ char* path_startswith(const char *path, const char *prefix) {
                 return NULL;
 
         for (;;) {
-                size_t a, b;
+                const char *p, *q;
+                int r, s;
 
-                path += strspn(path, "/");
-                prefix += strspn(prefix, "/");
-
-                if (*prefix == 0)
-                        return (char*) path;
-
-                if (*path == 0)
+                r = path_get_first_component_full(&path, accept_dot_dot, &p);
+                if (r < 0)
                         return NULL;
 
-                a = strcspn(path, "/");
-                b = strcspn(prefix, "/");
-
-                if (a != b)
+                s = path_get_first_component_full(&prefix, accept_dot_dot, &q);
+                if (s < 0)
                         return NULL;
 
-                if (memcmp(path, prefix, a) != 0)
+                if (s == 0)
+                        return (char*) (p ?: path);
+
+                if (r != s)
                         return NULL;
 
-                path += a;
-                prefix += b;
+                if (!strneq(p, q, r))
+                        return NULL;
         }
 }
 
@@ -794,6 +791,89 @@ char* dirname_malloc(const char *path) {
         return dir2;
 }
 
+static const char *drop_slash_or_dot(const char *p) {
+        for (; !isempty(p); p++) {
+                if (*p == '/')
+                        continue;
+                if (startswith(p, "./")) {
+                        p++;
+                        continue;
+                }
+                break;
+        }
+        return p;
+}
+
+int path_get_first_component_full(const char **p, bool accept_dot_dot, const char **ret) {
+        const char *q, *first, *end_first, *next;
+        size_t len;
+
+        assert(p);
+
+        /* When a path is input, then returns the pointer to the first component and its length, and
+         * move the input pointer to the next component or nul.
+         *
+         * Examples
+         *   Input:  p: "//.//aaa///bbbbb/cc"
+         *   Output: p: "bbbbb///cc"
+         *           ret: "aaa///bbbbb/cc"
+         *           return value: 3 (== strlen("aaa"))
+         *
+         *   Input:  p: "aaa//"
+         *   Output: p: (pointer to NUL)
+         *           ret: "aaa//"
+         *           return value: 3 (== strlen("aaa"))
+         *
+         *   Input:  p: "/", ".", ""
+         *   Output: p: (pointer to NUL)
+         *           ret: NULL
+         *           return value: 0
+         *
+         *   Input:  p: NULL
+         *   Output: p: NULL
+         *           ret: NULL
+         *           return value: 0
+         *
+         *   Input:  p: "(too long component)"
+         *   Output: return value: -EINVAL
+         *
+         *   (when accept_dot_dot is false)
+         *   Input:  p: "//..//aaa///bbbbb/cc"
+         *   Output: return value: -EINVAL
+         */
+
+        q = *p;
+
+        first = drop_slash_or_dot(q);
+        if (isempty(first)) {
+                *p = first;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+        if (streq(first, ".")) {
+                *p = first + 1;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        end_first = strchrnul(first, '/');
+        len = end_first - first;
+
+        if (len > NAME_MAX)
+                return -EINVAL;
+        if (!accept_dot_dot && len == 2 && strneq(first, "..", 2))
+                return -EINVAL;
+
+        next = drop_slash_or_dot(end_first);
+
+        *p = next + streq(next, ".");
+        if (ret)
+                *ret = first;
+        return len;
+}
+
 const char *last_path_component(const char *path) {
 
         /* Finds the last component of the path, preserving the optional trailing slash that signifies a directory.
@@ -939,44 +1019,30 @@ bool filename_is_valid(const char *p) {
         return true;
 }
 
-bool path_is_valid(const char *p) {
-
+bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         if (isempty(p))
                 return false;
 
         for (const char *e = p;;) {
-                size_t n;
+                int r;
 
-                /* Skip over slashes */
-                e += strspn(e, "/");
+                r = path_get_first_component_full(&e, accept_dot_dot, NULL);
+                if (r < 0)
+                        return false;
+
                 if (e - p >= PATH_MAX) /* Already reached the maximum length for a path? (PATH_MAX is counted
                                         * *with* the trailing NUL byte) */
                         return false;
                 if (*e == 0)           /* End of string? Yay! */
                         return true;
-
-                /* Skip over one component */
-                n = strcspn(e, "/");
-                if (n > NAME_MAX)      /* One component larger than NAME_MAX? (NAME_MAX is counted *without* the
-                                        * trailing NUL byte) */
-                        return false;
-
-                e += n;
         }
 }
 
 bool path_is_normalized(const char *p) {
-
-        if (!path_is_valid(p))
+        if (!path_is_safe(p))
                 return false;
 
-        if (dot_or_dot_dot(p))
-                return false;
-
-        if (startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
-                return false;
-
-        if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
                 return false;
 
         if (strstr(p, "//"))
