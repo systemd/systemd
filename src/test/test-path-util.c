@@ -473,49 +473,42 @@ static void test_strv_resolve(void) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
-static void test_path_startswith(void) {
-        const char *p;
+static void test_path_startswith_one(const char *path, const char *prefix, const char *skipped, const char *expected) {
+        const char *p, *q;
 
+        log_debug("/* %s(%s, %s) */", __func__, path, prefix);
+
+        p = path_startswith(path, prefix);
+        assert_se(streq_ptr(p, expected));
+        if (p) {
+                q = strjoina(skipped, p);
+                assert_se(streq(q, path));
+                assert_se(p == path + strlen(skipped));
+        }
+}
+
+static void test_path_startswith(void) {
         log_info("/* %s */", __func__);
 
-        p = path_startswith("/foo/bar/barfoo/", "/foo");
-        assert_se(streq_ptr(p, "bar/barfoo/"));
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo", "/foo/", "bar/barfoo/");
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/", "/foo/", "bar/barfoo/");
+        test_path_startswith_one("/foo/bar/barfoo/", "/", "/", "foo/bar/barfoo/");
+        test_path_startswith_one("/foo/bar/barfoo/", "////", "/",  "foo/bar/barfoo/");
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo//bar/////barfoo///", "/foo/bar/barfoo/", "");
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfoo////", "/foo/bar/barfoo/", "");
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar///barfoo/", "/foo/bar/barfoo/", "");
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo////bar/barfoo/", "/foo/bar/barfoo/", "");
+        test_path_startswith_one("/foo/bar/barfoo/", "////foo/bar/barfoo/", "/foo/bar/barfoo/", "");
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfoo", "/foo/bar/barfoo/", "");
 
-        p = path_startswith("/foo/bar/barfoo/", "/foo/");
-        assert_se(streq_ptr(p, "bar/barfoo/"));
-
-        p = path_startswith("/foo/bar/barfoo/", "/");
-        assert_se(streq_ptr(p, "foo/bar/barfoo/"));
-
-        p = path_startswith("/foo/bar/barfoo/", "////");
-        assert_se(streq_ptr(p, "foo/bar/barfoo/"));
-
-        p = path_startswith("/foo/bar/barfoo/", "/foo//bar/////barfoo///");
-        assert_se(streq_ptr(p, ""));
-
-        p = path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo////");
-        assert_se(streq_ptr(p, ""));
-
-        p = path_startswith("/foo/bar/barfoo/", "/foo/bar///barfoo/");
-        assert_se(streq_ptr(p, ""));
-
-        p = path_startswith("/foo/bar/barfoo/", "/foo////bar/barfoo/");
-        assert_se(streq_ptr(p, ""));
-
-        p = path_startswith("/foo/bar/barfoo/", "////foo/bar/barfoo/");
-        assert_se(streq_ptr(p, ""));
-
-        p = path_startswith("/foo/bar/barfoo/", "/foo/bar/barfoo");
-        assert_se(streq_ptr(p, ""));
-
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa/"));
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfooa"));
-        assert_se(!path_startswith("/foo/bar/barfoo/", ""));
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/bar/foo"));
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/f/b/b/"));
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/barfo"));
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/foo/bar/bar"));
-        assert_se(!path_startswith("/foo/bar/barfoo/", "/fo"));
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfooa/", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfooa", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "/bar/foo", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "/f/b/b/", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfo", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/bar", NULL, NULL);
+        test_path_startswith_one("/foo/bar/barfoo/", "/fo", NULL, NULL);
 }
 
 static void test_prefix_root_one(const char *r, const char *p, const char *expected) {
