@@ -107,93 +107,96 @@ int path_make_absolute_cwd(const char *p, char **ret) {
         return 0;
 }
 
-int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
-        char *f, *t, *r, *p;
-        unsigned n_parents = 0;
+int path_make_relative(const char *from, const char *to, char **ret) {
+        _cleanup_free_ char *result = NULL;
+        unsigned n_parents;
+        const char *f, *t;
+        int r, s;
+        char *p;
 
-        assert(from_dir);
-        assert(to_path);
-        assert(_r);
+        assert(from);
+        assert(to);
+        assert(ret);
 
         /* Strips the common part, and adds ".." elements as necessary. */
 
-        if (!path_is_absolute(from_dir) || !path_is_absolute(to_path))
+        if (!path_is_absolute(from) || !path_is_absolute(to))
                 return -EINVAL;
 
-        f = strdupa(from_dir);
-        t = strdupa(to_path);
-
-        path_simplify(f, true);
-        path_simplify(t, true);
-
-        /* Skip the common part. */
         for (;;) {
-                size_t a, b;
+                r = path_get_first_component_full(&from, true, &f);
+                if (r < 0)
+                        return r;
 
-                f += *f == '/';
-                t += *t == '/';
+                s = path_get_first_component_full(&to, true, &t);
+                if (s < 0)
+                        return s;
 
-                if (!*f) {
-                        if (!*t)
-                                /* from_dir equals to_path. */
-                                r = strdup(".");
-                        else
-                                /* from_dir is a parent directory of to_path. */
-                                r = strdup(t);
-                        if (!r)
-                                return -ENOMEM;
+                if (r == 0) {
+                        /* end of 'from' */
+                        if (s == 0) {
+                                /* from and to are equivalent. */
+                                result = strdup(".");
+                                if (!result)
+                                        return -ENOMEM;
+                        } else {
+                                /* 'to' is inside of 'from'. */
+                                result = strdup(t);
+                                if (!result)
+                                        return -ENOMEM;
 
-                        *_r = r;
+                                path_simplify(result, true);
+
+                                if (!path_is_valid(result))
+                                        return -EINVAL;
+                        }
+
+                        *ret = TAKE_PTR(result);
                         return 0;
                 }
 
-                if (!*t)
+                if (r != s || !strneq(f, t, r))
                         break;
-
-                a = strcspn(f, "/");
-                b = strcspn(t, "/");
-
-                if (a != b || memcmp(f, t, a) != 0)
-                        break;
-
-                f += a;
-                t += b;
         }
 
         /* If we're here, then "from_dir" has one or more elements that need to
          * be replaced with "..". */
 
-        /* Count the number of necessary ".." elements. */
-        for (; *f;) {
-                size_t w;
-
-                w = strcspn(f, "/");
-
-                /* If this includes ".." we can't do a simple series of "..", refuse */
-                if (w == 2 && f[0] == '.' && f[1] == '.')
-                        return -EINVAL;
-
-                /* Count number of elements */
-                n_parents++;
-
-                f += w;
-                f += *f == '/';
+        for (n_parents = 1;; n_parents++) {
+                /* If this includes ".." we can't do a simple series of "..". */
+                r = path_get_first_component_full(&from, false, &f);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
         }
 
-        r = new(char, n_parents * 3 + strlen(t) + 1);
-        if (!r)
+        if (isempty(t) && n_parents * 3 > PATH_MAX)
+                /* PATH_MAX is counted *with* the trailing NUL byte */
+                return -EINVAL;
+
+        result = new(char, n_parents * 3 + !isempty(t) + strlen_ptr(t));
+        if (!result)
                 return -ENOMEM;
 
-        for (p = r; n_parents > 0; n_parents--)
+        for (p = result; n_parents > 0; n_parents--)
                 p = mempcpy(p, "../", 3);
 
-        if (*t)
-                strcpy(p, t);
-        else
-                /* Remove trailing slash */
-                *(--p) = 0;
+        if (isempty(t)) {
+                /* Remove trailing slash and terminate string. */
+                *(--p) = '\0';
+                *ret = TAKE_PTR(result);
+                return 0;
+        }
 
-        *_r = r;
+        strcpy(p, t);
+
+        path_simplify(result, true);
+
+        if (!path_is_valid(result))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(result);
         return 0;
 }
 
@@ -430,7 +433,7 @@ int path_simplify_and_warn(
         return 0;
 }
 
-char* path_startswith(const char *path, const char *prefix) {
+char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) {
         assert(path);
         assert(prefix);
 
@@ -448,33 +451,30 @@ char* path_startswith(const char *path, const char *prefix) {
                 return NULL;
 
         for (;;) {
-                size_t a, b;
+                const char *p, *q;
+                int r, s;
 
-                path += strspn(path, "/");
-                prefix += strspn(prefix, "/");
-
-                if (*prefix == 0)
-                        return (char*) path;
-
-                if (*path == 0)
+                r = path_get_first_component_full(&path, accept_dot_dot, &p);
+                if (r < 0)
                         return NULL;
 
-                a = strcspn(path, "/");
-                b = strcspn(prefix, "/");
-
-                if (a != b)
+                s = path_get_first_component_full(&prefix, accept_dot_dot, &q);
+                if (s < 0)
                         return NULL;
 
-                if (memcmp(path, prefix, a) != 0)
+                if (s == 0)
+                        return (char*) (p ?: path);
+
+                if (r != s)
                         return NULL;
 
-                path += a;
-                prefix += b;
+                if (!strneq(p, q, r))
+                        return NULL;
         }
 }
 
 int path_compare(const char *a, const char *b) {
-        int d;
+        int r;
 
         assert(a);
         assert(b);
@@ -482,40 +482,39 @@ int path_compare(const char *a, const char *b) {
         /* A relative path and an absolute path must not compare as equal.
          * Which one is sorted before the other does not really matter.
          * Here a relative path is ordered before an absolute path. */
-        d = (a[0] == '/') - (b[0] == '/');
-        if (d != 0)
-                return d;
+        r = CMP(path_is_absolute(a), path_is_absolute(b));
+        if (r != 0)
+                return r;
 
         for (;;) {
-                size_t j, k;
+                const char *aa, *bb;
+                int j, k;
 
-                a += strspn(a, "/");
-                b += strspn(b, "/");
+                j = path_get_first_component_full(&a, true, &aa);
+                k = path_get_first_component_full(&b, true, &bb);
 
-                if (*a == 0 && *b == 0)
-                        return 0;
+                /* fallback to use strcmp() if one of paths is invalid. */
+                if (j < 0 || k < 0)
+                        return strcmp(a, b);
 
                 /* Order prefixes first: "/foo" before "/foo/bar" */
-                if (*a == 0)
+                if (j == 0) {
+                        if (k == 0)
+                                return 0;
                         return -1;
-                if (*b == 0)
+                }
+                if (k == 0)
                         return 1;
 
-                j = strcspn(a, "/");
-                k = strcspn(b, "/");
-
                 /* Alphabetical sort: "/foo/aaa" before "/foo/b" */
-                d = memcmp(a, b, MIN(j, k));
-                if (d != 0)
-                        return (d > 0) - (d < 0); /* sign of d */
+                r = memcmp(aa, bb, MIN(j, k));
+                if (r != 0)
+                        return r;
 
                 /* Sort "/foo/a" before "/foo/aaa" */
-                d = (j > k) - (j < k);  /* sign of (j - k) */
-                if (d != 0)
-                        return d;
-
-                a += j;
-                b += k;
+                r = CMP(j, k);
+                if (r != 0)
+                        return r;
         }
 }
 
@@ -794,6 +793,89 @@ char* dirname_malloc(const char *path) {
         return dir2;
 }
 
+static const char *drop_slash_or_dot(const char *p) {
+        for (; !isempty(p); p++) {
+                if (*p == '/')
+                        continue;
+                if (startswith(p, "./")) {
+                        p++;
+                        continue;
+                }
+                break;
+        }
+        return p;
+}
+
+int path_get_first_component_full(const char **p, bool accept_dot_dot, const char **ret) {
+        const char *q, *first, *end_first, *next;
+        size_t len;
+
+        assert(p);
+
+        /* When a path is input, then returns the pointer to the first component and its length, and
+         * move the input pointer to the next component or nul.
+         *
+         * Examples
+         *   Input:  p: "//.//aaa///bbbbb/cc"
+         *   Output: p: "bbbbb///cc"
+         *           ret: "aaa///bbbbb/cc"
+         *           return value: 3 (== strlen("aaa"))
+         *
+         *   Input:  p: "aaa//"
+         *   Output: p: (pointer to NUL)
+         *           ret: "aaa//"
+         *           return value: 3 (== strlen("aaa"))
+         *
+         *   Input:  p: "/", ".", ""
+         *   Output: p: (pointer to NUL)
+         *           ret: NULL
+         *           return value: 0
+         *
+         *   Input:  p: NULL
+         *   Output: p: NULL
+         *           ret: NULL
+         *           return value: 0
+         *
+         *   Input:  p: "(too long component)"
+         *   Output: return value: -EINVAL
+         *
+         *   (when accept_dot_dot is false)
+         *   Input:  p: "//..//aaa///bbbbb/cc"
+         *   Output: return value: -EINVAL
+         */
+
+        q = *p;
+
+        first = drop_slash_or_dot(q);
+        if (isempty(first)) {
+                *p = first;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+        if (streq(first, ".")) {
+                *p = first + 1;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        end_first = strchrnul(first, '/');
+        len = end_first - first;
+
+        if (len > NAME_MAX)
+                return -EINVAL;
+        if (!accept_dot_dot && len == 2 && strneq(first, "..", 2))
+                return -EINVAL;
+
+        next = drop_slash_or_dot(end_first);
+
+        *p = next + streq(next, ".");
+        if (ret)
+                *ret = first;
+        return len;
+}
+
 const char *last_path_component(const char *path) {
 
         /* Finds the last component of the path, preserving the optional trailing slash that signifies a directory.
@@ -939,44 +1021,30 @@ bool filename_is_valid(const char *p) {
         return true;
 }
 
-bool path_is_valid(const char *p) {
-
+bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         if (isempty(p))
                 return false;
 
         for (const char *e = p;;) {
-                size_t n;
+                int r;
 
-                /* Skip over slashes */
-                e += strspn(e, "/");
+                r = path_get_first_component_full(&e, accept_dot_dot, NULL);
+                if (r < 0)
+                        return false;
+
                 if (e - p >= PATH_MAX) /* Already reached the maximum length for a path? (PATH_MAX is counted
                                         * *with* the trailing NUL byte) */
                         return false;
                 if (*e == 0)           /* End of string? Yay! */
                         return true;
-
-                /* Skip over one component */
-                n = strcspn(e, "/");
-                if (n > NAME_MAX)      /* One component larger than NAME_MAX? (NAME_MAX is counted *without* the
-                                        * trailing NUL byte) */
-                        return false;
-
-                e += n;
         }
 }
 
 bool path_is_normalized(const char *p) {
-
-        if (!path_is_valid(p))
+        if (!path_is_safe(p))
                 return false;
 
-        if (dot_or_dot_dot(p))
-                return false;
-
-        if (startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
-                return false;
-
-        if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
                 return false;
 
         if (strstr(p, "//"))
