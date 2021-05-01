@@ -67,7 +67,7 @@ struct sd_device {
         char *driver_subsystem; /* only set for the 'drivers' subsystem */
         char *driver;
 
-        char *id_filename;
+        char *device_id;
 
         usec_t usec_initialized;
 
@@ -84,9 +84,7 @@ struct sd_device {
         bool property_tags_outdated:1; /* need to update TAGS= or CURRENT_TAGS= property */
         bool property_devlinks_outdated:1; /* need to update DEVLINKS= property */
         bool properties_buf_outdated:1; /* need to reread hashmap */
-        bool sysname_set:1; /* don't reread sysname */
         bool subsystem_set:1; /* don't reread subsystem */
-        bool driver_subsystem_set:1; /* don't reread subsystem */
         bool driver_set:1; /* don't reread driver */
         bool uevent_loaded:1; /* don't reread uevent */
         bool db_loaded; /* don't reread db */
