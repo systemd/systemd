@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 249:
+
+         * systemd-logind now ignores by default closing of the lid when the
+           machine is connected to external power. It previously defaulted to
+           the value of HandleLidSwitch which is suspend.
+
 CHANGES WITH 248:
 
         * A concept of system extension images is introduced. Such images may
