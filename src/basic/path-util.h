@@ -56,7 +56,7 @@ int path_split_and_make_absolute(const char *p, char ***ret);
 char* path_make_absolute(const char *p, const char *prefix);
 int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
-int path_make_relative(const char *from_dir, const char *to_path, char **_r);
+int path_make_relative(const char *from, const char *to, char **ret);
 char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
 static inline char* path_startswith(const char *path, const char *prefix) {
         return path_startswith_full(path, prefix, true);
