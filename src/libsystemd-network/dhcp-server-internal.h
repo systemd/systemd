@@ -92,6 +92,7 @@ typedef struct DHCPRequest {
         be32_t server_id;
         be32_t requested_ip;
         uint32_t lifetime;
+        const uint8_t *agent_info_option;
 } DHCPRequest;
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,

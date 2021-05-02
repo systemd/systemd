@@ -395,12 +395,11 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         if (r < 0)
                 return r;
 
-        r = dhcp_option_find_option(req->message->options, req->max_optlen, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
-        if (r >= 0) {
-                size_t opt_full_length = req->message->options[r + 1] + 2;
+        if (req->agent_info_option) {
+                size_t opt_full_length = *(req->agent_info_option + 1) + 2;
                 //there must be space left for SD_DHCP_OPTION_END also
                 if (optoffset + opt_full_length + 1 <= req->max_optlen) {
-                        memcpy(packet->dhcp.options + optoffset, req->message->options + r, opt_full_length);
+                        memcpy(packet->dhcp.options + optoffset, req->agent_info_option, opt_full_length);
                         optoffset += opt_full_length;
                 }
         }
@@ -662,6 +661,10 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
 
                 if (len == 2 && unaligned_read_be16(option) >= sizeof(DHCPPacket))
                         req->max_optlen = unaligned_read_be16(option) - sizeof(DHCPPacket);
+
+                break;
+        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
+                req->agent_info_option = option;
 
                 break;
         }
