@@ -664,7 +664,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
 
                 break;
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
-                req->agent_info_option = option;
+                req->agent_info_option = (uint8_t*)option - 2;
 
                 break;
         }
