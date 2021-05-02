@@ -56,8 +56,11 @@ int path_split_and_make_absolute(const char *p, char ***ret);
 char* path_make_absolute(const char *p, const char *prefix);
 int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
-int path_make_relative(const char *from_dir, const char *to_path, char **_r);
-char* path_startswith(const char *path, const char *prefix) _pure_;
+int path_make_relative(const char *from, const char *to, char **ret);
+char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
+static inline char* path_startswith(const char *path, const char *prefix) {
+        return path_startswith_full(path, prefix, true);
+}
 int path_compare(const char *a, const char *b) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
@@ -147,12 +150,22 @@ int fsck_exists(const char *fstype);
         })
 
 char* dirname_malloc(const char *path);
+int path_get_first_component_full(const char **p, bool accept_dot_dot, const char **ret);
+static inline int path_get_first_component(const char **p, const char **ret) {
+        return path_get_first_component_full(p, false, ret);
+}
 const char *last_path_component(const char *path);
 int path_extract_filename(const char *p, char **ret);
 int path_extract_directory(const char *p, char **ret);
 
 bool filename_is_valid(const char *p) _pure_;
-bool path_is_valid(const char *p) _pure_;
+bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
+static inline bool path_is_valid(const char *p) {
+        return path_is_valid_full(p, true);
+}
+static inline bool path_is_safe(const char *p) {
+        return path_is_valid_full(p, false);
+}
 bool path_is_normalized(const char *p) _pure_;
 
 char *file_in_same_dir(const char *path, const char *filename);
@@ -178,7 +191,7 @@ static inline const char *skip_dev_prefix(const char *p) {
         return e ?: p;
 }
 
-bool empty_or_root(const char *root);
+bool empty_or_root(const char *path);
 static inline const char *empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
