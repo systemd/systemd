@@ -385,6 +385,7 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         assert(server);
         assert(req);
         assert(req->max_optlen);
+        assert(req->message);
         assert(optoffset <= req->max_optlen);
         assert(packet);
 
@@ -393,6 +394,17 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                                4, &server->address);
         if (r < 0)
                 return r;
+
+        r = dhcp_option_find_option(req->message->options, req->max_optlen, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r >= 0) {
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_RELAY_AGENT_INFORMATION,
+                                       req->message->options[r + 1], req->message->options + 2);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
