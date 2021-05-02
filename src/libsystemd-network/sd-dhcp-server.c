@@ -399,11 +399,12 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         if (r < 0 && r != -ENOENT)
                 return r;
         if (r >= 0) {
-                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_RELAY_AGENT_INFORMATION,
-                                       req->message->options[r + 1], req->message->options + 2);
-                if (r < 0)
-                        return r;
+                size_t opt_full_length = req->message->options[r + 1] + 2;
+                //there must be space left for SD_DHCP_OPTION_END also
+                if (optoffset + opt_full_length + 1 <= req->max_optlen) {
+                        memcpy(packet->dhcp.options + optoffset, req->message->options + r, opt_full_length);
+                        optoffset += opt_full_length;
+                }
         }
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
