@@ -332,7 +332,7 @@ static void test_chase_symlinks(void) {
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
 
-        /* Test CHASE_ONE */
+        /* Test CHASE_STEP */
 
         p = strjoina(temp, "/start");
         r = chase_symlinks(p, NULL, CHASE_STEP, &result, NULL);
@@ -343,7 +343,7 @@ static void test_chase_symlinks(void) {
 
         r = chase_symlinks(p, NULL, CHASE_STEP, &result, NULL);
         assert_se(r == 0);
-        p = strjoina(temp, "/top/./dotdota");
+        p = strjoina(temp, "/top/dotdota");
         assert_se(streq(p, result));
         result = mfree(result);
 
