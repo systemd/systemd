@@ -775,9 +775,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
+        bool exists = true, append_trail_slash = false;
         struct stat previous_stat;
-        bool exists = true;
-        char *todo;
+        const char *todo;
         int r;
 
         assert(path);
@@ -885,84 +885,51 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (fd < 0)
                 return -errno;
 
-        if (flags & CHASE_SAFE) {
+        if (flags & CHASE_SAFE)
                 if (fstat(fd, &previous_stat) < 0)
                         return -errno;
-        }
+
+        if (flags & CHASE_TRAIL_SLASH)
+                append_trail_slash = endswith(buffer, "/") || endswith(buffer, "/.");
 
         if (root) {
-                _cleanup_free_ char *absolute = NULL;
-                const char *e;
-
                 /* If we are operating on a root directory, let's take the root directory as it is. */
 
-                e = path_startswith(buffer, root);
-                if (!e)
+                todo = path_startswith(buffer, root);
+                if (!todo)
                         return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
                                               SYNTHETIC_ERRNO(ECHRNG),
                                               "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
                                               path, root);
 
                 done = strdup(root);
-                if (!done)
-                        return -ENOMEM;
-
-                /* Make sure "todo" starts with a slash */
-                absolute = strjoin("/", e);
-                if (!absolute)
-                        return -ENOMEM;
-
-                free_and_replace(buffer, absolute);
+        } else {
+                todo = buffer;
+                done = strdup("/");
         }
 
-        todo = buffer;
         for (;;) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -1;
                 struct stat st;
-                size_t n, m;
+                const char *e;
 
-                /* Determine length of first component in the path */
-                n = strspn(todo, "/");                  /* The slashes */
-
-                if (n > 1) {
-                        /* If we are looking at more than a single slash then skip all but one, so that when
-                         * we are done with everything we have a normalized path with only single slashes
-                         * separating the path components. */
-                        todo += n - 1;
-                        n = 1;
+                r = path_find_first_component(&todo, true, &e);
+                if (r < 0)
+                        return r;
+                if (r == 0) { /* We reached the end. */
+                        if (append_trail_slash)
+                                if (!strextend(&done, "/"))
+                                        return -ENOMEM;
+                        break;
                 }
 
-                m = n + strcspn(todo + n, "/");         /* The entire length of the component */
-
-                /* Extract the first component. */
-                first = strndup(todo, m);
+                first = strndup(e, r);
                 if (!first)
                         return -ENOMEM;
 
-                todo += m;
-
-                /* Empty? Then we reached the end. */
-                if (isempty(first))
-                        break;
-
-                /* Just a single slash? Then we reached the end. */
-                if (path_equal(first, "/")) {
-                        /* Preserve the trailing slash */
-
-                        if (flags & CHASE_TRAIL_SLASH)
-                                if (!strextend(&done, "/"))
-                                        return -ENOMEM;
-
-                        break;
-                }
-
-                /* Just a dot? Then let's eat this up. */
-                if (path_equal(first, "/."))
-                        continue;
-
                 /* Two dots? Then chop off the last bit of what we already found out. */
-                if (path_equal(first, "/..")) {
+                if (path_equal(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -1;
 
@@ -1007,22 +974,16 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 }
 
                 /* Otherwise let's see what this is. */
-                child = openat(fd, first + n, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                child = openat(fd, first, O_CLOEXEC|O_NOFOLLOW|O_PATH);
                 if (child < 0) {
-
                         if (errno == ENOENT &&
                             (flags & CHASE_NONEXISTENT) &&
-                            (isempty(todo) || path_is_normalized(todo))) {
+                            (isempty(todo) || path_is_safe(todo))) {
+                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then
+                                 * that's OK, return what we got so far. But don't allow this if the
+                                 * remaining path contains "../" or something else weird. */
 
-                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then that's OK, return
-                                 * what we got so far. But don't allow this if the remaining path contains "../ or "./"
-                                 * or something else weird. */
-
-                                /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
-                                if (streq_ptr(done, "/"))
-                                        *done = '\0';
-
-                                if (!strextend(&done, first, todo))
+                                if (!path_extend(&done, first, todo))
                                         return -ENOMEM;
 
                                 exists = false;
@@ -1045,15 +1006,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         return log_autofs_mount_point(child, path, flags);
 
                 if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
-                        char *joined;
                         _cleanup_free_ char *destination = NULL;
 
-                        /* This is a symlink, in this case read the destination. But let's make sure we don't follow
-                         * symlinks without bounds. */
+                        /* This is a symlink, in this case read the destination. But let's make sure we
+                         * don't follow symlinks without bounds. */
                         if (--max_follow <= 0)
                                 return -ELOOP;
 
-                        r = readlinkat_malloc(fd, first + n, &destination);
+                        r = readlinkat_malloc(fd, first, &destination);
                         if (r < 0)
                                 return r;
                         if (isempty(destination))
@@ -1079,27 +1039,19 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         previous_stat = st;
                                 }
 
-                                free(done);
-
                                 /* Note that we do not revalidate the root, we take it as is. */
-                                if (isempty(root))
-                                        done = NULL;
-                                else {
-                                        done = strdup(root);
-                                        if (!done)
-                                                return -ENOMEM;
-                                }
+                                r = free_and_strdup(&done, empty_to_root(root));
+                                if (r < 0)
+                                        return r;
+                        }
 
-                                /* Prefix what's left to do with what we just read, and start the loop again, but
-                                 * remain in the current directory. */
-                                joined = path_join(destination, todo);
-                        } else
-                                joined = path_join("/", destination, todo);
-                        if (!joined)
+                        /* Prefix what's left to do with what we just read, and start the loop again, but
+                         * remain in the current directory. */
+                        if (!path_extend(&destination, todo))
                                 return -ENOMEM;
 
-                        free(buffer);
-                        todo = buffer = joined;
+                        free_and_replace(buffer, destination);
+                        todo = buffer;
 
                         if (flags & CHASE_STEP)
                                 goto chased_one;
@@ -1108,27 +1060,12 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 }
 
                 /* If this is not a symlink, then let's just add the name we read to what we already verified. */
-                if (!done)
-                        done = TAKE_PTR(first);
-                else {
-                        /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
-                        if (streq(done, "/"))
-                                *done = '\0';
-
-                        if (!strextend(&done, first))
-                                return -ENOMEM;
-                }
+                if (!path_extend(&done, first))
+                        return -ENOMEM;
 
                 /* And iterate again, but go one directory further down. */
                 safe_close(fd);
                 fd = TAKE_FD(child);
-        }
-
-        if (!done) {
-                /* Special case, turn the empty string into "/", to indicate the root directory. */
-                done = strdup("/");
-                if (!done)
-                        return -ENOMEM;
         }
 
         if (ret_path)
@@ -1149,13 +1086,23 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
 chased_one:
         if (ret_path) {
-                char *c;
+                const char *e;
 
-                c = strjoin(strempty(done), todo);
-                if (!c)
-                        return -ENOMEM;
+                /* todo may contain slashes at the beginning. */
+                r = path_find_first_component(&todo, true, &e);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        *ret_path = TAKE_PTR(done);
+                else {
+                        char *c;
 
-                *ret_path = c;
+                        c = path_join(done, e);
+                        if (!c)
+                                return -ENOMEM;
+
+                        *ret_path = c;
+                }
         }
 
         return 0;
