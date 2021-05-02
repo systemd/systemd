@@ -396,8 +396,6 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                 return r;
 
         r = dhcp_option_find_option(req->message->options, req->max_optlen, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
-        if (r < 0 && r != -ENOENT)
-                return r;
         if (r >= 0) {
                 size_t opt_full_length = req->message->options[r + 1] + 2;
                 //there must be space left for SD_DHCP_OPTION_END also
