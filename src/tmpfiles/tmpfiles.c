@@ -3185,6 +3185,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
+        _cleanup_free_ char *pp = NULL;
         unsigned v = 0;
         FILE *f;
         ItemArray *ia;
@@ -3197,7 +3198,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f, &pp);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
@@ -3206,7 +3207,9 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
 
                         return log_error_errno(r, "Failed to open '%s': %m", fn);
                 }
-                log_debug("Reading config file \"%s\"…", fn);
+
+                log_debug("Reading config file \"%s\"…", pp);
+                fn = pp;
                 f = _f;
         }
 
