@@ -897,6 +897,109 @@ int path_find_first_component(const char **p, bool accept_dot_dot, const char **
         return len;
 }
 
+static const char *skip_slash_or_dot_backward(const char *path, const char *q) {
+        assert(path);
+
+        for (; q >= path; q--) {
+                if (*q == '/')
+                        continue;
+                if (q > path && strneq(q - 1, "/.", 2))
+                        continue;
+                break;
+        }
+        return q;
+}
+
+int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret) {
+        const char *q, *last_end, *last_begin;
+        size_t len;
+
+        /* Similar to path_find_first_component(), but search components from the end.
+        *
+        * Examples
+        *   Input:  path: "//.//aaa///bbbbb/cc//././"
+        *           next: NULL
+        *   Output: next: "/cc//././"
+        *           ret: "cc//././"
+        *           return value: 2 (== strlen("cc"))
+        *
+        *   Input:  path: "//.//aaa///bbbbb/cc//././"
+        *           next: "/cc//././"
+        *   Output: next: "///bbbbb/cc//././"
+        *           ret: "bbbbb/cc//././"
+        *           return value: 5 (== strlen("bbbbb"))
+        *
+        *   Input:  path: "/", ".", "", or NULL
+        *   Output: next: equivalent to path
+        *           ret: NULL
+        *           return value: 0
+        *
+        *   Input:  path: "(too long component)"
+        *   Output: return value: -EINVAL
+        *
+        *   (when accept_dot_dot is false)
+        *   Input:  path: "//..//aaa///bbbbb/cc/..//"
+        *   Output: return value: -EINVAL
+        */
+
+        if (isempty(path)) {
+                if (next)
+                        *next = path;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        if (next && *next) {
+                if (*next < path || *next > path + strlen(path))
+                        return -EINVAL;
+                if (*next == path) {
+                        if (ret)
+                                *ret = NULL;
+                        return 0;
+                }
+                if (!IN_SET(**next, '\0', '/'))
+                        return -EINVAL;
+                q = *next - 1;
+        } else
+                q = path + strlen(path) - 1;
+
+        q = skip_slash_or_dot_backward(path, q);
+        if ((q < path) || /* the root directory */
+            (q == path && *q == '.')) { /* path is "." or "./" */
+                if (next)
+                        *next = path;
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        last_end = q + 1;
+
+        while (q >= path && *q != '/')
+                q--;
+
+        last_begin = q + 1;
+        len = last_end - last_begin;
+
+        if (len > NAME_MAX)
+                return -EINVAL;
+        if (!accept_dot_dot && len == 2 && strneq(last_begin, "..", 2))
+                return -EINVAL;
+
+        if (next) {
+                q = skip_slash_or_dot_backward(path, q);
+                if (q < path)
+                        *next = path;
+                else
+                        *next = q + 1;
+        }
+
+        if (ret)
+                *ret = last_begin;
+        return len;
+}
+
 const char *last_path_component(const char *path) {
 
         /* Finds the last component of the path, preserving the optional trailing slash that signifies a directory.
