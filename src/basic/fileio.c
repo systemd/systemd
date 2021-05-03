@@ -914,12 +914,19 @@ int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **r
         return 0;
 }
 
-static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
+static int search_and_fopen_internal(
+                const char *path,
+                const char *mode,
+                const char *root,
+                char **search,
+                FILE **ret,
+                char **ret_path) {
+
         char **i;
 
         assert(path);
         assert(mode);
-        assert(_f);
+        assert(ret);
 
         if (!path_strv_resolve_uniq(search, root))
                 return -ENOMEM;
@@ -934,7 +941,10 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
 
                 f = fopen(p, mode);
                 if (f) {
-                        *_f = f;
+                        if (ret_path)
+                                *ret_path = path_simplify(TAKE_PTR(p), true);
+
+                        *ret = f;
                         return 0;
                 }
 
@@ -945,52 +955,84 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
         return -ENOENT;
 }
 
-int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f) {
+int search_and_fopen(
+                const char *filename,
+                const char *mode,
+                const char *root,
+                const char **search,
+                FILE **ret,
+                char **ret_path) {
+
         _cleanup_strv_free_ char **copy = NULL;
 
-        assert(path);
+        assert(filename);
         assert(mode);
-        assert(_f);
+        assert(ret);
 
-        if (path_is_absolute(path)) {
-                FILE *f;
+        if (path_is_absolute(filename)) {
+                _cleanup_fclose_ FILE *f = NULL;
 
-                f = fopen(path, mode);
-                if (f) {
-                        *_f = f;
-                        return 0;
+                f = fopen(filename, mode);
+                if (!f)
+                        return -errno;
+
+                if (ret_path) {
+                        char *p;
+
+                        p = strdup(filename);
+                        if (!p)
+                                return -ENOMEM;
+
+                        *ret_path = path_simplify(p, true);
                 }
 
-                return -errno;
+                *ret = TAKE_PTR(f);
+                return 0;
         }
 
         copy = strv_copy((char**) search);
         if (!copy)
                 return -ENOMEM;
 
-        return search_and_fopen_internal(path, mode, root, copy, _f);
+        return search_and_fopen_internal(filename, mode, root, copy, ret, ret_path);
 }
 
-int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f) {
+int search_and_fopen_nulstr(
+                const char *filename,
+                const char *mode,
+                const char *root,
+                const char *search,
+                FILE **ret,
+                char **ret_path) {
+
         _cleanup_strv_free_ char **s = NULL;
 
-        if (path_is_absolute(path)) {
-                FILE *f;
+        if (path_is_absolute(filename)) {
+                _cleanup_fclose_ FILE *f = NULL;
 
-                f = fopen(path, mode);
-                if (f) {
-                        *_f = f;
-                        return 0;
+                f = fopen(filename, mode);
+                if (!f)
+                        return -errno;
+
+                if (ret_path) {
+                        char *p;
+
+                        p = strdup(filename);
+                        if (!p)
+                                return -ENOMEM;
+
+                        *ret_path = path_simplify(p, true);
                 }
 
-                return -errno;
+                *ret = TAKE_PTR(f);
+                return 0;
         }
 
         s = strv_split_nulstr(search);
         if (!s)
                 return -ENOMEM;
 
-        return search_and_fopen_internal(path, mode, root, s, _f);
+        return search_and_fopen_internal(filename, mode, root, s, ret, ret_path);
 }
 
 int chase_symlinks_and_fopen_unlocked(

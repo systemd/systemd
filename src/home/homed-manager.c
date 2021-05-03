@@ -1327,7 +1327,7 @@ static int manager_load_key_pair(Manager *m) {
                 m->private_key = NULL;
         }
 
-        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f);
+        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

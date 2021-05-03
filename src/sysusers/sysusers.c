@@ -1728,6 +1728,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
         _cleanup_fclose_ FILE *rf = NULL;
+        _cleanup_free_ char *pp = NULL;
         FILE *f = NULL;
         unsigned v = 0;
         int r = 0;
@@ -1737,7 +1738,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf, &pp);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
@@ -1746,6 +1747,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 }
 
                 f = rf;
+                fn = pp;
         }
 
         for (;;) {

@@ -15,6 +15,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -525,69 +526,93 @@ static void test_load_env_file_pairs(void) {
 }
 
 static void test_search_and_fopen(void) {
-        const char *dirs[] = {"/tmp/foo/bar", "/tmp", NULL};
-
+        static const char* const dirs[] = {
+                "/tmp/foo/bar",
+                "/tmp",
+                NULL
+        };
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";
-        int fd, r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *e;
+        int r;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        close(fd);
+        fd = safe_close(fd);
 
-        r = search_and_fopen(basename(name), "r", NULL, dirs, &f);
+        r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r >= 0);
-        fclose(f);
+        assert_se(e = path_startswith(p, "/tmp/"));
+        assert_se(streq(basename(name), e));
+        f = safe_fclose(f);
+        p = mfree(p);
 
-        r = search_and_fopen(name, "r", NULL, dirs, &f);
+        r = search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r >= 0);
-        fclose(f);
+        assert_se(path_equal(name, p));
+        f = safe_fclose(f);
+        p = mfree(p);
 
-        r = search_and_fopen(basename(name), "r", "/", dirs, &f);
+        r = search_and_fopen(basename(name), "re", "/", (const char**) dirs, &f, &p);
         assert_se(r >= 0);
-        fclose(f);
+        assert_se(e = path_startswith(p, "/tmp/"));
+        assert_se(streq(basename(name), e));
+        f = safe_fclose(f);
+        p = mfree(p);
 
-        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
-        r = search_and_fopen("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
+        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "r", NULL, (const char**) dirs, &f, &p);
+        assert_se(r == -ENOENT);
+        r = search_and_fopen("afilewhichdoesnotexistiguess", "r", NULL, (const char**) dirs, &f, &p);
+        assert_se(r == -ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen(basename(name), "r", NULL, dirs, &f);
-        assert_se(r < 0);
+        r = search_and_fopen(basename(name), "r", NULL, (const char**) dirs, &f, &p);
+        assert_se(r == -ENOENT);
 }
 
 static void test_search_and_fopen_nulstr(void) {
-        const char dirs[] = "/tmp/foo/bar\0/tmp\0";
+        static const char dirs[] =
+                "/tmp/foo/bar\0"
+                "/tmp\0";
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-search_and_fopen.XXXXXX";
-        int fd, r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *e;
+        int r;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        close(fd);
+        fd = safe_close(fd);
 
-        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f);
+        r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
         assert_se(r >= 0);
-        fclose(f);
+        assert_se(e = path_startswith(p, "/tmp/"));
+        assert_se(streq(basename(name), e));
+        f = safe_fclose(f);
+        p = mfree(p);
 
-        r = search_and_fopen_nulstr(name, "r", NULL, dirs, &f);
+        r = search_and_fopen_nulstr(name, "re", NULL, dirs, &f, &p);
         assert_se(r >= 0);
-        fclose(f);
+        assert_se(path_equal(name, p));
+        f = safe_fclose(f);
+        p = mfree(p);
 
-        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
-        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f);
-        assert_se(r < 0);
+        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f, &p);
+        assert_se(r == -ENOENT);
+        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f, &p);
+        assert_se(r == -ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f);
-        assert_se(r < 0);
+        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f, &p);
+        assert_se(r == -ENOENT);
 }
 
 static void test_writing_tmpfile(void) {
