@@ -1264,15 +1264,15 @@ bool dot_or_dot_dot(const char *path) {
         return path[2] == 0;
 }
 
-bool empty_or_root(const char *root) {
+bool empty_or_root(const char *path) {
 
         /* For operations relative to some root directory, returns true if the specified root directory is redundant,
          * i.e. either / or NULL or the empty string or any equivalent. */
 
-        if (!root)
+        if (isempty(path))
                 return true;
 
-        return root[strspn(root, "/")] == 0;
+        return path_equal(path, "/");
 }
 
 bool path_strv_contains(char **l, const char *path) {
