@@ -3864,6 +3864,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
+        self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'isolated'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_fast_leave'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
         self.assertEqual(read_bridge_port_attr('bridge99', 'dummy98', 'multicast_flood'), '0')

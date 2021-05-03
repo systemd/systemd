@@ -8,6 +8,7 @@ Bridge=bridge99
 [Bridge]
 Cost=400
 HairPin = true
+Isolated = true
 FastLeave = true
 UnicastFlood = true
 MulticastFlood = false

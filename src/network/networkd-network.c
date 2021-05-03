@@ -437,6 +437,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .use_bpdu = -1,
                 .hairpin = -1,
+                .isolated = -1,
                 .fast_leave = -1,
                 .allow_port_to_be_root = -1,
                 .unicast_flood = -1,

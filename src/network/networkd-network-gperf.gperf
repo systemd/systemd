@@ -308,6 +308,7 @@ DHCPServerStaticLease.MACAddress,            config_parse_dhcp_static_lease_hwad
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                              config_parse_tristate,                                    0,                             offsetof(Network, hairpin)
+Bridge.Isolated,                             config_parse_tristate,                                    0,                             offsetof(Network, isolated)
 Bridge.FastLeave,                            config_parse_tristate,                                    0,                             offsetof(Network, fast_leave)
 Bridge.AllowPortToBeRoot,                    config_parse_tristate,                                    0,                             offsetof(Network, allow_port_to_be_root)
 Bridge.UnicastFlood,                         config_parse_tristate,                                    0,                             offsetof(Network, unicast_flood)

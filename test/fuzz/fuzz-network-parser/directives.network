@@ -2,6 +2,7 @@
 Cost=
 UseBPDU=
 HairPin=
+Isolated=
 UnicastFlood=
 FastLeave=
 Priority=

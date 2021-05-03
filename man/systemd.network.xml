@@ -2961,6 +2961,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Isolated=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether this port is isolated or not. Within a bridge,
+            isolated ports can only communicate with non-isolated ports. When set to true, this port can only
+            communicate with other ports whose Isolated setting is false.  When set to false, this port
+            can communicate with any other ports. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>UseBPDU=</varname></term>
           <listitem>
             <para>Takes a boolean. Configures whether STP Bridge Protocol Data Units will be
