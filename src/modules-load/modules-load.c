@@ -67,7 +67,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         assert(ctx);
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f, NULL);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
