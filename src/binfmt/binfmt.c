@@ -69,7 +69,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, NULL);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
