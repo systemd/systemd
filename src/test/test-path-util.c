@@ -665,6 +665,85 @@ static void test_path_find_first_component(void) {
         test_path_find_first_component_one(hoge, true, STRV_MAKE("a", "b", "c"), -EINVAL);
 }
 
+static void test_path_find_last_component_one(
+                const char *path,
+                bool accept_dot_dot,
+                char **expected,
+                int ret) {
+
+        log_debug("/* %s(\"%s\", accept_dot_dot=%s) */", __func__, strnull(path), yes_no(accept_dot_dot));
+
+        for (const char *next = NULL;;) {
+                const char *e;
+                int r;
+
+                r = path_find_last_component(path, accept_dot_dot, &next, &e);
+                if (r <= 0) {
+                        if (r == 0) {
+                                assert_se(next == path);
+                                assert_se(!e);
+                        }
+                        assert_se(r == ret);
+                        assert_se(strv_isempty(expected));
+                        return;
+                }
+
+                assert_se(e);
+                assert_se(strcspn(e, "/") == (size_t) r);
+                assert_se(strlen_ptr(*expected) == (size_t) r);
+                assert_se(strneq(e, *expected++, r));
+        }
+}
+
+static void test_path_find_last_component(void) {
+        _cleanup_free_ char *hoge = NULL;
+        char foo[NAME_MAX * 2];
+
+        log_info("/* %s */", __func__);
+
+        test_path_find_last_component_one(NULL, false, NULL, 0);
+        test_path_find_last_component_one("", false, NULL, 0);
+        test_path_find_last_component_one("/", false, NULL, 0);
+        test_path_find_last_component_one(".", false, NULL, 0);
+        test_path_find_last_component_one("./", false, NULL, 0);
+        test_path_find_last_component_one("./.", false, NULL, 0);
+        test_path_find_last_component_one("..", false, NULL, -EINVAL);
+        test_path_find_last_component_one("/..", false, NULL, -EINVAL);
+        test_path_find_last_component_one("./..", false, NULL, -EINVAL);
+        test_path_find_last_component_one("////./././//.", false, NULL, 0);
+        test_path_find_last_component_one("a/b/c", false, STRV_MAKE("c", "b", "a"), 0);
+        test_path_find_last_component_one("././//.///aa./.bbb//./ccc/././/", false, STRV_MAKE("ccc", ".bbb", "aa."), 0);
+        test_path_find_last_component_one("././//.///aa/../.../bbb//./ccc/.", false, STRV_MAKE("ccc", "bbb", "..."), -EINVAL);
+        test_path_find_last_component_one("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.", false, STRV_MAKE("..eeee", "d.dd", "c."), -EINVAL);
+
+        test_path_find_last_component_one(NULL, true, NULL, 0);
+        test_path_find_last_component_one("", true, NULL, 0);
+        test_path_find_last_component_one("/", true, NULL, 0);
+        test_path_find_last_component_one(".", true, NULL, 0);
+        test_path_find_last_component_one("./", true, NULL, 0);
+        test_path_find_last_component_one("./.", true, NULL, 0);
+        test_path_find_last_component_one("..", true, STRV_MAKE(".."), 0);
+        test_path_find_last_component_one("/..", true, STRV_MAKE(".."), 0);
+        test_path_find_last_component_one("./..", true, STRV_MAKE(".."), 0);
+        test_path_find_last_component_one("////./././//.", true, NULL, 0);
+        test_path_find_last_component_one("a/b/c", true, STRV_MAKE("c", "b", "a"), 0);
+        test_path_find_last_component_one("././//.///aa./.bbb//./ccc/././/", true, STRV_MAKE("ccc", ".bbb", "aa."), 0);
+        test_path_find_last_component_one("././//.///aa/../.../bbb//./ccc/.", true, STRV_MAKE("ccc", "bbb", "...", "..", "aa"), 0);
+        test_path_find_last_component_one("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.", true, STRV_MAKE("..eeee", "d.dd", "c.", "..", ".bbb", "aaa"), 0);
+
+        memset(foo, 'a', sizeof(foo) -1);
+        char_array_0(foo);
+
+        test_path_find_last_component_one(foo, false, NULL, -EINVAL);
+        test_path_find_last_component_one(foo, true, NULL, -EINVAL);
+
+        hoge = strjoin(foo, "/a/b/c/");
+        assert_se(hoge);
+
+        test_path_find_last_component_one(hoge, false, STRV_MAKE("c", "b", "a"), -EINVAL);
+        test_path_find_last_component_one(hoge, true, STRV_MAKE("c", "b", "a"), -EINVAL);
+}
+
 static void test_last_path_component(void) {
         assert_se(last_path_component(NULL) == NULL);
         assert_se(streq(last_path_component("a/b/c"), "c"));
@@ -996,6 +1075,7 @@ int main(int argc, char **argv) {
         test_prefix_root();
         test_file_in_same_dir();
         test_path_find_first_component();
+        test_path_find_last_component();
         test_last_path_component();
         test_path_extract_filename();
         test_path_extract_directory();
