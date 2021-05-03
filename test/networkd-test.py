@@ -273,6 +273,7 @@ Priority=0
 [Bridge]
 UnicastFlood=true
 HairPin=true
+Isolated=true
 UseBPDU=true
 FastLeave=true
 AllowPortToBeRoot=true
@@ -286,6 +287,7 @@ Priority=23
 
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '23')
         self.assertEqual(self.read_attr('port2', 'brport/hairpin_mode'), '1')
+        self.assertEqual(self.read_attr('port2', 'brport/isolated'), '1')
         self.assertEqual(self.read_attr('port2', 'brport/path_cost'), '555')
         self.assertEqual(self.read_attr('port2', 'brport/multicast_fast_leave'), '1')
         self.assertEqual(self.read_attr('port2', 'brport/unicast_flood'), '1')

@@ -303,6 +303,12 @@ static int link_configure_fill_message(
                                 return r;
                 }
 
+                if (link->network->isolated >= 0) {
+                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_ISOLATED, link->network->isolated);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (link->network->fast_leave >= 0) {
                         r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
                         if (r < 0)
