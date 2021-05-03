@@ -555,6 +555,7 @@ foreach ident : [
                                  #include <signal.h>
                                  #include <sys/wait.h>'''],
         ['mallinfo',          '''#include <malloc.h>'''],
+        ['mallinfo2',         '''#include <malloc.h>'''],
         ['execveat',          '''#include <unistd.h>'''],
         ['close_range',       '''#include <unistd.h>'''],
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],
