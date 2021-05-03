@@ -244,6 +244,7 @@ struct Network {
         /* Bridge Support */
         int use_bpdu;
         int hairpin;
+        int isolated;
         int fast_leave;
         int allow_port_to_be_root;
         int unicast_flood;
