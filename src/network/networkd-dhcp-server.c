@@ -11,6 +11,7 @@
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp-server-bus.h"
+#include "networkd-dhcp-static-lease.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -250,6 +251,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
+        DHCPStaticLease *static_lease;
         Link *uplink = NULL;
         Address *address;
         int r;
@@ -389,6 +391,17 @@ int dhcp4_server_configure(Link *link) {
                         continue;
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
+        }
+
+        ORDERED_HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
+                /* Static lease with an empty or omitted address is a valid entry,
+                * it removes any static lease with the specified mac address. */
+                if (sd_dhcp_static_lease_is_address_set(static_lease->static_lease) == 1)
+                        r = sd_dhcp_server_remove_static_lease(link->dhcp_server, static_lease->static_lease);
+                else
+                        r = sd_dhcp_server_add_static_lease(link->dhcp_server, static_lease->static_lease);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
 
         if (!sd_dhcp_server_is_running(link->dhcp_server)) {
