@@ -27,6 +27,7 @@ typedef enum LookupWhat {
 
 struct UserDBIterator {
         LookupWhat what;
+        UserDBFlags flags;
         Set *links;
         bool nss_covered:1;
         bool nss_iterating:1;
@@ -92,7 +93,7 @@ UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
         return mfree(iterator);
 }
 
-static UserDBIterator* userdb_iterator_new(LookupWhat what) {
+static UserDBIterator* userdb_iterator_new(LookupWhat what, UserDBFlags flags) {
         UserDBIterator *i;
 
         assert(what >= 0);
@@ -104,6 +105,7 @@ static UserDBIterator* userdb_iterator_new(LookupWhat what) {
 
         *i = (UserDBIterator) {
                 .what = what,
+                .flags = flags,
         };
 
         return i;
@@ -608,7 +610,7 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        iterator = userdb_iterator_new(LOOKUP_USER);
+        iterator = userdb_iterator_new(LOOKUP_USER, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -655,7 +657,7 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        iterator = userdb_iterator_new(LOOKUP_USER);
+        iterator = userdb_iterator_new(LOOKUP_USER, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -693,7 +695,7 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
         assert(ret);
 
-        iterator = userdb_iterator_new(LOOKUP_USER);
+        iterator = userdb_iterator_new(LOOKUP_USER, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -738,10 +740,15 @@ int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret) {
                         if (pw->pw_uid == UID_NOBODY)
                                 iterator->synthesize_nobody = false;
 
-                        r = nss_spwd_for_passwd(pw, &spwd, &buffer);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to acquire shadow entry for user %s, ignoring: %m", pw->pw_name);
-                                incomplete = ERRNO_IS_PRIVILEGE(r);
+                        if (!FLAGS_SET(iterator->flags, USERDB_AVOID_SHADOW)) {
+                                r = nss_spwd_for_passwd(pw, &spwd, &buffer);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to acquire shadow entry for user %s, ignoring: %m", pw->pw_name);
+                                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                                }
+                        } else {
+                                r = -EUCLEAN;
+                                incomplete = true;
                         }
 
                         r = nss_passwd_to_user_record(pw, r >= 0 ? &spwd : NULL, ret);
@@ -814,7 +821,7 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
         if (r < 0)
                 return r;
 
-        iterator = userdb_iterator_new(LOOKUP_GROUP);
+        iterator = userdb_iterator_new(LOOKUP_GROUP, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -858,7 +865,7 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
         if (r < 0)
                 return r;
 
-        iterator = userdb_iterator_new(LOOKUP_GROUP);
+        iterator = userdb_iterator_new(LOOKUP_GROUP, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -895,7 +902,7 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
         assert(ret);
 
-        iterator = userdb_iterator_new(LOOKUP_GROUP);
+        iterator = userdb_iterator_new(LOOKUP_GROUP, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -938,10 +945,15 @@ int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret) {
                         if (gr->gr_gid == GID_NOBODY)
                                 iterator->synthesize_nobody = false;
 
-                        r = nss_sgrp_for_group(gr, &sgrp, &buffer);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to acquire shadow entry for group %s, ignoring: %m", gr->gr_name);
-                                incomplete = ERRNO_IS_PRIVILEGE(r);
+                        if (!FLAGS_SET(iterator->flags, USERDB_AVOID_SHADOW)) {
+                                r = nss_sgrp_for_group(gr, &sgrp, &buffer);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to acquire shadow entry for group %s, ignoring: %m", gr->gr_name);
+                                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                                }
+                        } else {
+                                r = -EUCLEAN;
+                                incomplete = true;
                         }
 
                         r = nss_group_to_group_record(gr, r >= 0 ? &sgrp : NULL, ret);
@@ -999,7 +1011,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if (r < 0)
                 return r;
 
-        iterator = userdb_iterator_new(LOOKUP_MEMBERSHIP);
+        iterator = userdb_iterator_new(LOOKUP_MEMBERSHIP, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -1042,7 +1054,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if (r < 0)
                 return r;
 
-        iterator = userdb_iterator_new(LOOKUP_MEMBERSHIP);
+        iterator = userdb_iterator_new(LOOKUP_MEMBERSHIP, flags);
         if (!iterator)
                 return -ENOMEM;
 
@@ -1083,7 +1095,7 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
         assert(ret);
 
-        iterator = userdb_iterator_new(LOOKUP_MEMBERSHIP);
+        iterator = userdb_iterator_new(LOOKUP_MEMBERSHIP, flags);
         if (!iterator)
                 return -ENOMEM;
 
