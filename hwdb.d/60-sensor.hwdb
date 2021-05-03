@@ -537,6 +537,13 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX:pnVISION004:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# Mediacom
+#########################################
+# Mediacom Winpad 7.0 W700
+sensor:modalias:acpi:BMA250*:dmi:*svnMEDIACOM*:pnWinPad7W10-WPW700:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
 # Medion
 #########################################
 # Medion Akoya E2228T MD61900
