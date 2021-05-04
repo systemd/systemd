@@ -1278,8 +1278,8 @@ int get_timezones(char ***ret) {
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
         if (f) {
                 for (;;) {
-                        _cleanup_free_ char *line = NULL;
-                        char *p, *w;
+                        _cleanup_free_ char *line = NULL, *w = NULL;
+                        char *p;
                         size_t k;
 
                         r = read_line(f, LONG_LINE_MAX, &line);
@@ -1310,12 +1310,10 @@ int get_timezones(char ***ret) {
                         if (!w)
                                 return -ENOMEM;
 
-                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2)) {
-                                free(w);
+                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2))
                                 return -ENOMEM;
-                        }
 
-                        zones[n_zones++] = w;
+                        zones[n_zones++] = TAKE_PTR(w);
                         zones[n_zones] = NULL;
                 }
 
