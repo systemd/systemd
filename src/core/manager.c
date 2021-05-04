@@ -688,7 +688,8 @@ static int manager_setup_prefix(Manager *m) {
         for (ExecDirectoryType i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
                 r = sd_path_lookup(p[i].type, p[i].suffix, &m->prefix[i]);
                 if (r < 0)
-                        return r;
+                        return log_warning_errno(r, "Failed to lookup %s path: %m",
+                                                 exec_directory_type_to_string(i));
         }
 
         return 0;
