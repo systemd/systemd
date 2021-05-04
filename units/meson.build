@@ -82,6 +82,8 @@ units = [
         ['sound.target',                        ''],
         ['suspend.target',                      ''],
         ['swap.target',                         ''],
+        ['sys-firmware-efi-efivars.mount',      'not ENABLE_EFI',
+         'sysinit.target.wants/'],
         ['sys-fs-fuse-connections.mount',       '',
          'sysinit.target.wants/'],
         ['sys-kernel-config.mount',             '',
