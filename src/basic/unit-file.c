@@ -72,7 +72,7 @@ int unit_validate_alias_symlink_and_warn(const char *filename, const char *targe
         const char *src, *dst;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
         UnitType src_unit_type, dst_unit_type;
-        int src_name_type, dst_name_type;
+        UnitNameFlags src_name_type, dst_name_type;
 
         /* Check if the *alias* symlink is valid. This applies to symlinks like
          * /etc/systemd/system/dbus.service → dbus-broker.service, but not to .wants or .requires symlinks

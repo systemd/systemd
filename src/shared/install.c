@@ -1754,12 +1754,12 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
                                                  "Invalid path \"%s\" in alias.", dir);
                 *p = '\0'; /* dir should now be a unit name */
 
-                r = unit_name_classify(dir);
-                if (r < 0)
+                UnitNameFlags type = unit_name_classify(dir);
+                if (type < 0)
                         return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
                                                  "Invalid unit name component \"%s\" in alias.", dir);
 
-                const bool instance_propagation = r == UNIT_NAME_TEMPLATE;
+                const bool instance_propagation = type == UNIT_NAME_TEMPLATE;
 
                 /* That's the name we want to use for verification. */
                 r = unit_symlink_name_compatible(path_alias, i->name, instance_propagation);
@@ -1776,11 +1776,11 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
                 if (unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
                         _cleanup_free_ char *inst = NULL;
 
-                        r = unit_name_to_instance(i->name, &inst);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to extract instance name from %s: %m", i->name);
+                        UnitNameFlags type = unit_name_to_instance(i->name, &inst);
+                        if (type < 0)
+                                return log_error_errno(type, "Failed to extract instance name from %s: %m", i->name);
 
-                        if (r == UNIT_NAME_INSTANCE) {
+                        if (type == UNIT_NAME_INSTANCE) {
                                 r = unit_name_replace_instance(dst, inst, &dst_updated);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to build unit name from %s+%s: %m",
