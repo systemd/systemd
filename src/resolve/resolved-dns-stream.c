@@ -315,15 +315,14 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
             s->write_packet &&
             s->n_written < sizeof(s->write_size) + s->write_packet->size) {
 
-                struct iovec iov[2];
-                ssize_t ss;
+                struct iovec iov[] = {
+                        IOVEC_MAKE(&s->write_size, sizeof(s->write_size)),
+                        IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size),
+                };
 
-                iov[0] = IOVEC_MAKE(&s->write_size, sizeof(s->write_size));
-                iov[1] = IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size);
+                IOVEC_INCREMENT(iov, ELEMENTSOF(iov), s->n_written);
 
-                IOVEC_INCREMENT(iov, 2, s->n_written);
-
-                ss = dns_stream_writev(s, iov, 2, 0);
+                ssize_t ss = dns_stream_writev(s, iov, ELEMENTSOF(iov), 0);
                 if (ss < 0) {
                         if (!IN_SET(-ss, EINTR, EAGAIN))
                                 return dns_stream_complete(s, -ss);
