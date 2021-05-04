@@ -237,6 +237,19 @@
         cannot be written. Currently only applies to random seed operations.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--make-machine-id-directory=yes|no|auto</option></term>
+        <listitem><para>Control creation and deletion of <literal>$ESP/$MACHINE_ID</literal> during
+        <option>install</option> and <option>remove</option>, respectively.
+        <literal>auto</literal> is equivalent to to <literal>yes</literal> if <literal>/etc/machine-id</literal>
+        resides on a filesystem other than tmpfs and <literal>no</literal> otherwise.
+        Defaults to <literal>auto</literal>.</para>
+
+        <para>Overriding this may be desired to hide the machine ID from the (unencrypted) ESP,
+        configure a downstream generator like a <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> script, or,
+        conversely, to commit a machine-id that only appears transient.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="help"/>
       <xi:include href="standard-options.xml" xpointer="version"/>
