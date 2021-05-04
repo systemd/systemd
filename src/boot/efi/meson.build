@@ -102,6 +102,46 @@ if have_gnu_efi
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 
+        if get_option('sbat_distro') != ''
+                efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
+                efi_conf.set_quoted('PROJECT_VERSION', substs.get('PROJECT_VERSION'))
+                efi_conf.set_quoted('PROJECT_URL', substs.get('PROJECT_URL'))
+                efi_conf.set_quoted('SBAT_DISTRO_GENERATION', '@0@'.format(get_option('sbat_distro_generation')))
+                sbatvars = [['sbat_distro', 'ID'],
+                            ['sbat_distro_summary', 'NAME'],
+                            ['sbat_distro_url', 'BUG_REPORT_URL']]
+                foreach sbatvar : sbatvars
+                        value = get_option(sbatvar[0])
+                        if value == '' or value == 'auto'
+                                value = run_command('sh', '-c', '. /etc/os-release && echo $' + sbatvar[1]).stdout().strip()
+                        endif
+                        if value != ''
+                                efi_conf.set_quoted(sbatvar[0].to_upper(), value)
+                        endif
+                endforeach
+
+                sbatvars = [['sbat_distro_pkgname', meson.project_name()],
+                            ['sbat_distro_version', get_option('version-tag')]]
+                foreach sbatvar : sbatvars
+                       value = get_option(sbatvar[0])
+                       if value == ''
+                               value = sbatvar[1]
+                       endif
+                       efi_conf.set_quoted(sbatvar[0].to_upper(), value)
+                endforeach
+                if efi_conf.get('SBAT_DISTRO_VERSION') == '""'
+                       efi_conf.set_quoted('SBAT_DISTRO_VERSION', substs.get('PROJECT_VERSION'))
+                endif
+                required_sbatvars = ['sbat_distro', 'sbat_distro_generation', 'sbat_distro_summary',
+                                     'sbat_distro_pkgname', 'sbat_distro_version', 'sbat_distro_url' ]
+                foreach sbatvar : required_sbatvars
+                       value = efi_conf.get(sbatvar.to_upper())
+                       if value == '' or value == '""' or value == '"auto"'
+                               error('Required @0@ option not set and autodetection failed'.format(sbatvar))
+                       endif
+                endforeach
+        endif
+
         efi_config_h = configure_file(
                 output : 'efi_config.h',
                 configuration : efi_conf)
@@ -244,6 +284,7 @@ if have_gnu_efi
                         command : [objcopy,
                                    '-j', '.text',
                                    '-j', '.sdata',
+                                   '-j', '.sbat',
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
