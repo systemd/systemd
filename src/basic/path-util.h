@@ -155,8 +155,8 @@ char* dirname_malloc(const char *path);
 int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
 const char *last_path_component(const char *path);
-int path_extract_filename(const char *p, char **ret);
-int path_extract_directory(const char *p, char **ret);
+int path_extract_filename(const char *path, char **ret);
+int path_extract_directory(const char *path, char **ret);
 
 bool filename_is_valid(const char *p) _pure_;
 bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
