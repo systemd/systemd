@@ -29,9 +29,6 @@ struct DosFileHeader {
         le32_t ExeHeader;
 } _packed_;
 
-#define PE_HEADER_MACHINE_I386 0x014cU
-#define PE_HEADER_MACHINE_X64  0x8664U
-
 struct PeFileHeader {
         le16_t Machine;
         le16_t NumberOfSections;

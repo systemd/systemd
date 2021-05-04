@@ -31,6 +31,8 @@ struct DosFileHeader {
 #define PE_HEADER_MACHINE_I386          0x014c
 #define PE_HEADER_MACHINE_X64           0x8664
 #define PE_HEADER_MACHINE_ARM64         0xaa64
+#define PE_HEADER_MACHINE_ARM           0x01c2
+#define PE_HEADER_MACHINE_RISCV64       0x5064
 struct PeFileHeader {
         UINT16  Machine;
         UINT16  NumberOfSections;
@@ -76,7 +78,9 @@ EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs
         /* PE32+ Subsystem type */
         if (pe->FileHeader.Machine != PE_HEADER_MACHINE_X64 &&
             pe->FileHeader.Machine != PE_HEADER_MACHINE_ARM64 &&
-            pe->FileHeader.Machine != PE_HEADER_MACHINE_I386)
+            pe->FileHeader.Machine != PE_HEADER_MACHINE_I386 &&
+            pe->FileHeader.Machine != PE_HEADER_MACHINE_ARM &&
+            pe->FileHeader.Machine != PE_HEADER_MACHINE_RISCV64)
                 return EFI_LOAD_ERROR;
 
         if (pe->FileHeader.NumberOfSections > 96)
