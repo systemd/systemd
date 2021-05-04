@@ -471,8 +471,8 @@ static void test_build_parent_slice(void) {
 }
 
 static void test_unit_name_to_instance(void) {
+        UnitNameFlags r;
         char *instance;
-        int r;
 
         log_info("/* %s */", __func__);
 
