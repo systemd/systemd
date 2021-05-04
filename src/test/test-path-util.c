@@ -786,26 +786,28 @@ static void test_path_extract_filename(void) {
         test_path_extract_filename_one("/", NULL, -EADDRNOTAVAIL);
         test_path_extract_filename_one("//", NULL, -EADDRNOTAVAIL);
         test_path_extract_filename_one("///", NULL, -EADDRNOTAVAIL);
-        test_path_extract_filename_one(".", NULL, -EINVAL);
-        test_path_extract_filename_one("./.", NULL, -EINVAL);
-        test_path_extract_filename_one("././", NULL, -EINVAL);
-        test_path_extract_filename_one("././/", NULL, -EINVAL);
+        test_path_extract_filename_one("/.", NULL, -EADDRNOTAVAIL);
+        test_path_extract_filename_one(".", NULL, -EADDRNOTAVAIL);
+        test_path_extract_filename_one("./", NULL, -EADDRNOTAVAIL);
+        test_path_extract_filename_one("./.", NULL, -EADDRNOTAVAIL);
+        test_path_extract_filename_one("././", NULL, -EADDRNOTAVAIL);
+        test_path_extract_filename_one("././/", NULL, -EADDRNOTAVAIL);
         test_path_extract_filename_one("/foo/a", "a", 0);
         test_path_extract_filename_one("/foo/a/", "a", O_DIRECTORY);
         test_path_extract_filename_one("", NULL, -EINVAL);
         test_path_extract_filename_one("a", "a", 0);
         test_path_extract_filename_one("a/", "a", O_DIRECTORY);
+        test_path_extract_filename_one("a/././//.", "a", O_DIRECTORY);
         test_path_extract_filename_one("/a", "a", 0);
         test_path_extract_filename_one("/a/", "a", O_DIRECTORY);
+        test_path_extract_filename_one("/a//./.", "a", O_DIRECTORY);
         test_path_extract_filename_one("/////////////a/////////////", "a", O_DIRECTORY);
-        test_path_extract_filename_one("xx/.", NULL, -EINVAL);
+        test_path_extract_filename_one("//./a/.///b./././.c//./d//.", "d", O_DIRECTORY);
+        test_path_extract_filename_one("xx/.", "xx", O_DIRECTORY);
         test_path_extract_filename_one("xx/..", NULL, -EINVAL);
         test_path_extract_filename_one("..", NULL, -EINVAL);
         test_path_extract_filename_one("/..", NULL, -EINVAL);
         test_path_extract_filename_one("../", NULL, -EINVAL);
-        test_path_extract_filename_one(".", NULL, -EINVAL);
-        test_path_extract_filename_one("/.", NULL, -EADDRNOTAVAIL);
-        test_path_extract_filename_one("./", NULL, -EINVAL);
 }
 
 static void test_path_extract_directory_one(const char *input, const char *output, int ret) {
@@ -844,26 +846,28 @@ static void test_path_extract_directory(void) {
         test_path_extract_directory_one("/", NULL, -EADDRNOTAVAIL);
         test_path_extract_directory_one("//", NULL, -EADDRNOTAVAIL);
         test_path_extract_directory_one("///", NULL, -EADDRNOTAVAIL);
-        test_path_extract_directory_one(".", NULL, -EDESTADDRREQ);
-        test_path_extract_directory_one("./.", ".", 0);
-        test_path_extract_directory_one("././", ".", 0);
-        test_path_extract_directory_one("././/", ".", 0);
+        test_path_extract_directory_one("/.", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one(".", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("./", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("./.", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("././", NULL, -EADDRNOTAVAIL);
+        test_path_extract_directory_one("././/", NULL, -EADDRNOTAVAIL);
         test_path_extract_directory_one("/foo/a", "/foo", 0);
         test_path_extract_directory_one("/foo/a/", "/foo", 0);
         test_path_extract_directory_one("", NULL, -EINVAL);
         test_path_extract_directory_one("a", NULL, -EDESTADDRREQ);
         test_path_extract_directory_one("a/", NULL, -EDESTADDRREQ);
+        test_path_extract_directory_one("a/././//.", NULL, -EDESTADDRREQ);
         test_path_extract_directory_one("/a", "/", 0);
         test_path_extract_directory_one("/a/", "/", 0);
+        test_path_extract_directory_one("/a//./.", "/", 0);
         test_path_extract_directory_one("/////////////a/////////////", "/", 0);
-        test_path_extract_directory_one("xx/.", "xx", 0);
-        test_path_extract_directory_one("xx/..", "xx", 0);
-        test_path_extract_directory_one("..", NULL, -EDESTADDRREQ);
-        test_path_extract_directory_one("/..", "/", 0);
-        test_path_extract_directory_one("../", NULL, -EDESTADDRREQ);
-        test_path_extract_directory_one(".", NULL, -EDESTADDRREQ);
-        test_path_extract_directory_one("/.", NULL, -EADDRNOTAVAIL);
-        test_path_extract_directory_one("./", NULL, -EDESTADDRREQ);
+        test_path_extract_directory_one("//./a/.///b./././.c//./d//.", "/a/b./.c", 0);
+        test_path_extract_directory_one("xx/.", NULL, -EDESTADDRREQ);
+        test_path_extract_directory_one("xx/..", NULL, -EINVAL);
+        test_path_extract_directory_one("..", NULL, -EINVAL);
+        test_path_extract_directory_one("/..", NULL, -EINVAL);
+        test_path_extract_directory_one("../", NULL, -EINVAL);
 }
 
 static void test_filename_is_valid(void) {
