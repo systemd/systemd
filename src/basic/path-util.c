@@ -328,62 +328,52 @@ char **path_strv_resolve_uniq(char **l, const char *root) {
 }
 
 char *path_simplify(char *path) {
-        char *f, *t;
-        bool slash = false, ignore_slash = false, absolute;
+        bool add_slash = false;
+        char *f = path;
+        int r;
 
         assert(path);
 
-        /* Removes redundant inner and trailing slashes. Also removes unnecessary dots
-         * if kill_dots is true. Modifies the passed string in-place.
+        /* Removes redundant inner and trailing slashes. Also removes unnecessary dots.
+         * Modifies the passed string in-place.
          *
-         * ///foo//./bar/.   becomes /foo/./bar/.      (if kill_dots is false)
-         * ///foo//./bar/.   becomes /foo/bar          (if kill_dots is true)
-         * .//./foo//./bar/. becomes ././foo/./bar/.   (if kill_dots is false)
-         * .//./foo//./bar/. becomes foo/bar           (if kill_dots is true)
+         * ///foo//./bar/.   becomes /foo/bar
+         * .//./foo//./bar/. becomes foo/bar
          */
 
         if (isempty(path))
                 return path;
 
-        absolute = path_is_absolute(path);
-
-        f = path;
-        if (*f == '.' && IN_SET(f[1], 0, '/')) {
-                ignore_slash = true;
+        if (path_is_absolute(path))
                 f++;
-        }
 
-        for (t = path; *f; f++) {
+        for (const char *p = f;;) {
+                const char *e;
 
-                if (*f == '/') {
-                        slash = true;
-                        continue;
+                r = path_find_first_component(&p, true, &e);
+                if (r == 0)
+                        break;
+
+                if (add_slash)
+                        *f++ = '/';
+
+                if (r < 0) {
+                        /* if path is invalid, then refuse to simplify remaining part. */
+                        memmove(f, p, strlen(p) + 1);
+                        return path;
                 }
 
-                if (slash) {
-                        if (*f == '.' && IN_SET(f[1], 0, '/'))
-                                continue;
+                memmove(f, e, r);
+                f += r;
 
-                        slash = false;
-                        if (ignore_slash)
-                                ignore_slash = false;
-                        else
-                                *(t++) = '/';
-                }
-
-                *(t++) = *f;
+                add_slash = true;
         }
 
-        /* Special rule, if we stripped everything, we either need a "/" (for the root directory)
-         * or "." for the current directory */
-        if (t == path) {
-                if (absolute)
-                        *(t++) = '/';
-                else
-                        *(t++) = '.';
-        }
+        /* Special rule, if we stripped everything, we need a "." for the current directory. */
+        if (f == path)
+                *f++ = '.';
 
-        *t = 0;
+        *f = '\0';
         return path;
 }
 
