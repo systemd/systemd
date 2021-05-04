@@ -1309,7 +1309,7 @@ install_config_files() {
     : >"$initdir/etc/resolv.conf"
 
     # set the hostname
-    echo systemd-testsuite >"$initdir/etc/hostname"
+    echo 'H' >"$initdir/etc/hostname"
 
     # let's set up just one image with the traditional verbose output
     if [ "${IMAGE_NAME:?}" != "basic" ]; then
