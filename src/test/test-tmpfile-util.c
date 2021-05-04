@@ -26,8 +26,10 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
 }
 
 static void test_tempfn_random(void) {
+        log_info("/* %s */", __func__);
+
         test_tempfn_random_one("", NULL, NULL, -EINVAL);
-        test_tempfn_random_one(".", NULL, NULL, -EINVAL);
+        test_tempfn_random_one(".", NULL, NULL, -EADDRNOTAVAIL);
         test_tempfn_random_one("..", NULL, NULL, -EINVAL);
         test_tempfn_random_one("/", NULL, NULL, -EADDRNOTAVAIL);
 
@@ -68,8 +70,10 @@ static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char 
 }
 
 static void test_tempfn_xxxxxx(void) {
+        log_info("/* %s */", __func__);
+
         test_tempfn_xxxxxx_one("", NULL, NULL, -EINVAL);
-        test_tempfn_xxxxxx_one(".", NULL, NULL, -EINVAL);
+        test_tempfn_xxxxxx_one(".", NULL, NULL, -EADDRNOTAVAIL);
         test_tempfn_xxxxxx_one("..", NULL, NULL, -EINVAL);
         test_tempfn_xxxxxx_one("/", NULL, NULL, -EADDRNOTAVAIL);
 
