@@ -155,17 +155,10 @@ static int print_status_info(StatusInfo *i) {
         }
 
         if (!isempty(i->os_pretty_name)) {
-                _cleanup_free_ char *formatted = NULL;
-                const char *t = i->os_pretty_name;
-
-                if (i->home_url) {
-                        if (terminal_urlify(i->home_url, i->os_pretty_name, &formatted) >= 0)
-                                t = formatted;
-                }
-
                 r = table_add_many(table,
                                    TABLE_STRING, "Operating System:",
-                                   TABLE_STRING, t);
+                                   TABLE_STRING, i->os_pretty_name,
+                                   TABLE_SET_URL, i->home_url);
                 if (r < 0)
                         return table_log_add_error(r);
         }
