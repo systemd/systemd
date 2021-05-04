@@ -327,6 +327,53 @@ char **path_strv_resolve_uniq(char **l, const char *root) {
         return strv_uniq(l);
 }
 
+static char *path_simplify_internal(char *path) {
+        bool add_slash = false;
+        char *f = path;
+        int r;
+
+        assert(path);
+
+        /* Removes redundant inner and trailing slashes. Also removes unnecessary dots.
+         * Modifies the passed string in-place.
+         *
+         * ///foo//./bar/.   becomes /foo/bar
+         * .//./foo//./bar/. becomes foo/bar
+         */
+
+        if (path_is_absolute(path))
+                f++;
+
+        for (const char *p = f;;) {
+                const char *e;
+
+                r = path_get_first_component(&p, true, &e);
+                if (r == 0)
+                        break;
+
+                if (add_slash)
+                        *f++ = '/';
+
+                if (r < 0) {
+                        /* if path is invalid, then refuse to simplify remaining part. */
+                        memmove(f, p, strlen(p) + 1);
+                        return path;
+                }
+
+                memmove(f, e, r);
+                f += r;
+
+                add_slash = true;
+        }
+
+        /* Special rule, if we stripped everything, we need a "." for the current directory. */
+        if (f == path)
+                *f++ = '.';
+
+        *f = '\0';
+        return path;
+}
+
 char *path_simplify(char *path, bool kill_dots) {
         char *f, *t;
         bool slash = false, ignore_slash = false, absolute;
@@ -344,6 +391,9 @@ char *path_simplify(char *path, bool kill_dots) {
 
         if (isempty(path))
                 return path;
+
+        if (kill_dots)
+                return path_simplify_internal(path);
 
         absolute = path_is_absolute(path);
 
