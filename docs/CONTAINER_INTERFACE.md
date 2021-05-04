@@ -336,7 +336,7 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    actual attempt to make use of the audit subsystem will fail. Note that
    systemd's audit support is partially conditioned on these capabilities, thus
    by dropping them you ensure that you get an entirely clean boot, as systemd
-   will make no attempt to use it. If you pass the capabilites to the payload
+   will make no attempt to use it. If you pass the capabilities to the payload
    systemd will assume that audit is available and works, and some components
    will subsequently fail in various ways. Note that once the kernel learnt
    native support for container-virtualized audit, adding the capability to the

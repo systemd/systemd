@@ -18,7 +18,7 @@
  * are matched by ports.
  * nr_ports and port_min fields specify a set of ports to match a user port
  * with.
- * If nr_ports is 0, maching by port is bypassed, making that rule applicable
+ * If nr_ports is 0, matching by port is bypassed, making that rule applicable
  * for all possible ports, e.g. [1, 65535] range. Thus a rule with
  * address_family and nr_ports equal to AF_UNSPEC and 0 correspondingly forms
  * 'allow any' or 'deny any' cases.
