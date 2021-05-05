@@ -25,9 +25,9 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
 char *utf8_escape_invalid(const char *s);
-char *utf8_escape_non_printable_full(const char *str, size_t console_width);
+char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
 static inline char *utf8_escape_non_printable(const char *str) {
-        return utf8_escape_non_printable_full(str, SIZE_MAX);
+        return utf8_escape_non_printable_full(str, SIZE_MAX, false);
 }
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);

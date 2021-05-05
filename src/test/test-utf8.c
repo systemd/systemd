@@ -136,32 +136,29 @@ static void test_utf8_escape_non_printable(void) {
 static void test_utf8_escape_non_printable_full(void) {
         log_info("/* %s */", __func__);
 
-        for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
+        const char *s;
+        FOREACH_STRING(s,
+                       "goo goo goo",       /* ASCII */
+                       "\001 \019\20\a",    /* control characters */
+                       "\xef\xbf\x30\x13")  /* misplaced continuation bytes followed by a digit and cc */
+                for (size_t cw = 0; cw < 22; cw++) {
+                        _cleanup_free_ char *p, *q;
+                        size_t ew;
 
-                p = utf8_escape_non_printable_full("goo goo goo", i);
-                puts(p);
-                assert_se(utf8_is_valid(p));
-                assert_se(utf8_console_width(p) <= i);
-        }
+                        p = utf8_escape_non_printable_full(s, cw, false);
+                        ew = utf8_console_width(p);
+                        log_debug("%02zu \"%s\" (%zu wasted)", cw, p, cw - ew);
+                        assert_se(utf8_is_valid(p));
+                        assert_se(ew <= cw);
 
-        for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
-
-                p = utf8_escape_non_printable_full("\001 \019\20\a", i);
-                puts(p);
-                assert_se(utf8_is_valid(p));
-                assert_se(utf8_console_width(p) <= i);
-        }
-
-        for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
-
-                p = utf8_escape_non_printable_full("\xef\xbf\x30\x13", i);
-                puts(p);
-                assert_se(utf8_is_valid(p));
-                assert_se(utf8_console_width(p) <= i);
-        }
+                        q = utf8_escape_non_printable_full(s, cw, true);
+                        ew = utf8_console_width(q);
+                        log_debug("   \"%s\" (%zu wasted)", q, cw - ew);
+                        assert_se(utf8_is_valid(q));
+                        assert_se(ew <= cw);
+                        if (cw > 0)
+                                assert_se(endswith(q, "…"));
+                }
 }
 
 static void test_utf16_to_utf8(void) {
