@@ -20,7 +20,7 @@
 
 static const struct passwd root_passwd = {
         .pw_name = (char*) "root",
-        .pw_passwd = (char*) "x", /* see shadow file */
+        .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
         .pw_uid = 0,
         .pw_gid = 0,
         .pw_gecos = (char*) "Super User",
@@ -30,7 +30,7 @@ static const struct passwd root_passwd = {
 
 static const struct passwd nobody_passwd = {
         .pw_name = (char*) NOBODY_USER_NAME,
-        .pw_passwd = (char*) "*", /* locked */
+        .pw_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
         .pw_uid = UID_NOBODY,
         .pw_gid = GID_NOBODY,
         .pw_gecos = (char*) "User Nobody",
@@ -41,14 +41,14 @@ static const struct passwd nobody_passwd = {
 static const struct group root_group = {
         .gr_name = (char*) "root",
         .gr_gid = 0,
-        .gr_passwd = (char*) "x", /* see shadow file */
+        .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
         .gr_mem = (char*[]) { NULL },
 };
 
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
         .gr_gid = GID_NOBODY,
-        .gr_passwd = (char*) "*", /* locked */
+        .gr_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
         .gr_mem = (char*[]) { NULL },
 };
 
