@@ -970,6 +970,22 @@ static void test_strverscmp_improved(void) {
         assert_se(strverscmp_improved("123_aa2-67.89", "123aa+2-67.89") == 0);
 }
 
+static void test_strextendf(void) {
+        _cleanup_free_ char *p = NULL;
+
+        assert_se(strextendf(&p, "<%i>", 77) >= 0);
+        assert_se(streq(p, "<77>"));
+
+        assert_se(strextendf(&p, "<%i>", 99) >= 0);
+        assert_se(streq(p, "<77><99>"));
+
+        assert_se(strextendf(&p, "<%80i>", 88) >= 0);
+        assert_se(streq(p, "<77><99><                                                                              88>"));
+
+        assert_se(strextendf(&p, "<%08x>", 0x1234) >= 0);
+        assert_se(streq(p, "<77><99><                                                                              88><00001234>"));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -1008,6 +1024,7 @@ int main(int argc, char *argv[]) {
         test_string_contains_word_strv();
         test_string_contains_word();
         test_strverscmp_improved();
+        test_strextendf();
 
         return 0;
 }
