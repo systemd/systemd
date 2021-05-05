@@ -1114,16 +1114,6 @@ ieee1394:ven0000A07Emo00000001sp0000A02Dver00014001
   IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
-# Node with single unit for video function.
-#
-
-ieee1394:node:ven0x0002f0units0x00a02d:0x000100
-ieee1394:ven000002F0mo00000000sp0000A02Dver00000100
-  ID_VENDOR_FROM_DATABASE=Cool Stream
-  ID_MODEL_FROM_DATABASE=iSweet
-  IEEE1394_UNIT_FUNCTION_VIDEO=1
-
-#
 # Point Grey cameras.
 #
 
