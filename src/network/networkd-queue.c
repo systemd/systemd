@@ -10,8 +10,17 @@
 
 static void request_free_object(RequestType type, void *object) {
         switch(type) {
+        case REQUEST_TYPE_ADDRESS:
+                address_free(object);
+                break;
         case REQUEST_TYPE_NEIGHBOR:
                 neighbor_free(object);
+                break;
+        case REQUEST_TYPE_NEXTHOP:
+                nexthop_free(object);
+                break;
+        case REQUEST_TYPE_ROUTE:
+                route_free(object);
                 break;
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_free(object);
@@ -107,8 +116,17 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
 
                 ORDERED_SET_FOREACH(req, manager->request_queue) {
                         switch(req->type) {
+                        case REQUEST_TYPE_ADDRESS:
+                                r = request_process_address(req);
+                                break;
                         case REQUEST_TYPE_NEIGHBOR:
                                 r = request_process_neighbor(req);
+                                break;
+                        case REQUEST_TYPE_NEXTHOP:
+                                r = request_process_nexthop(req);
+                                break;
+                        case REQUEST_TYPE_ROUTE:
+                                r = request_process_route(req);
                                 break;
                         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                                 r = request_process_routing_policy_rule(req);

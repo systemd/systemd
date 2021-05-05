@@ -15,6 +15,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-queue.h"
 #include "networkd-state-file.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -325,24 +326,23 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int ndisc_route_configure(Route *route, Link *link, sd_ndisc_router *rt) {
+static int ndisc_after_route_configure(Request *req, void *object) {
         _cleanup_free_ NDiscRoute *nr = NULL;
         NDiscRoute *nr_exist;
         struct in6_addr router;
-        Route *ret;
+        Route *route = object;
+        sd_ndisc_router *rt;
+        Link *link;
         int r;
 
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_ROUTE);
+        assert(req->userdata);
         assert(route);
-        assert(link);
-        assert(rt);
 
-        r = route_configure(route, link, ndisc_route_handler, &ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set NDisc route: %m");
-        if (r > 0)
-                link->ndisc_routes_configured = false;
-
-        link->ndisc_routes_messages++;
+        link = req->link;
+        rt = req->userdata;
 
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
@@ -354,7 +354,7 @@ static int ndisc_route_configure(Route *route, Link *link, sd_ndisc_router *rt) 
 
         *nr = (NDiscRoute) {
                 .router = router,
-                .route = ret,
+                .route = route,
         };
 
         nr_exist = set_get(link->ndisc_routes, nr);
@@ -369,6 +369,39 @@ static int ndisc_route_configure(Route *route, Link *link, sd_ndisc_router *rt) 
                 return log_link_error_errno(link, r, "Failed to store NDisc SLAAC route: %m");
         assert(r > 0);
         TAKE_PTR(nr);
+
+        return 0;
+}
+
+static void ndisc_request_on_free(Request *req) {
+        assert(req);
+
+        sd_ndisc_router_unref(req->userdata);
+}
+
+static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
+        _cleanup_(route_freep) Route *route = in;
+        Request *req;
+        int r;
+
+        assert(route);
+        assert(link);
+        assert(rt);
+
+        r = link_has_route(link, route);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                link->ndisc_routes_configured = false;
+
+        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_routes_messages,
+                               ndisc_route_handler, &req);
+        if (r < 0)
+                return r;
+
+        req->userdata = sd_ndisc_router_ref(rt);
+        req->after_configure = ndisc_after_route_configure;
+        req->on_free = ndisc_request_on_free;
 
         return 0;
 }
@@ -414,24 +447,23 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
-static int ndisc_address_configure(Address *address, Link *link, sd_ndisc_router *rt) {
+static int ndisc_after_address_configure(Request *req, void *object) {
         _cleanup_free_ NDiscAddress *na = NULL;
         NDiscAddress *na_exist;
         struct in6_addr router;
-        Address *ret;
+        sd_ndisc_router *rt;
+        Address *address = object;
+        Link *link;
         int r;
 
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_ADDRESS);
+        assert(req->userdata);
         assert(address);
-        assert(link);
-        assert(rt);
 
-        r = address_configure(address, link, ndisc_address_handler, &ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set NDisc SLAAC address: %m");
-        if (r > 0)
-                link->ndisc_addresses_configured = false;
-
-        link->ndisc_addresses_messages++;
+        link = req->link;
+        rt = req->userdata;
 
         r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
@@ -443,7 +475,7 @@ static int ndisc_address_configure(Address *address, Link *link, sd_ndisc_router
 
         *na = (NDiscAddress) {
                 .router = router,
-                .address = ret,
+                .address = address,
         };
 
         na_exist = set_get(link->ndisc_addresses, na);
@@ -458,6 +490,30 @@ static int ndisc_address_configure(Address *address, Link *link, sd_ndisc_router
                 return log_link_error_errno(link, r, "Failed to store NDisc SLAAC address: %m");
         assert(r > 0);
         TAKE_PTR(na);
+
+        return 0;
+}
+
+static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
+        _cleanup_(address_freep) Address *address = in;
+        Request *req;
+        int r;
+
+        assert(address);
+        assert(link);
+        assert(rt);
+
+        if (address_get(link, address, NULL) < 0)
+                link->ndisc_addresses_configured = false;
+
+        r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_addresses_messages,
+                                 ndisc_address_handler, &req);
+        if (r < 0)
+                return r;
+
+        req->userdata = sd_ndisc_router_ref(rt);
+        req->after_configure = ndisc_after_address_configure;
+        req->on_free = ndisc_request_on_free;
 
         return 0;
 }
@@ -526,9 +582,9 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
         route->mtu = mtu;
 
-        r = ndisc_route_configure(route, link, rt);
+        r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set default route: %m");
+                return log_link_error_errno(link, r, "Could not request default route: %m");
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
@@ -538,22 +594,26 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (route_gw->gw_family != AF_INET6)
                         continue;
 
-                route_gw->gw.in6 = gateway;
-                if (!route_gw->table_set)
-                        route_gw->table = table;
-                if (!route_gw->priority_set)
-                        route_gw->priority = link->network->ipv6_accept_ra_route_metric;
-                if (!route_gw->protocol_set)
-                        route_gw->protocol = RTPROT_RA;
-                if (!route_gw->pref_set)
-                        route_gw->pref = preference;
-                route_gw->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
-                if (route_gw->mtu == 0)
-                        route_gw->mtu = mtu;
-
-                r = ndisc_route_configure(route_gw, link, rt);
+                r = route_dup(route_gw, &route);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set gateway: %m");
+                        return r;
+
+                route->gw.in6 = gateway;
+                if (!route->table_set)
+                        route->table = table;
+                if (!route->priority_set)
+                        route->priority = link->network->ipv6_accept_ra_route_metric;
+                if (!route->protocol_set)
+                        route->protocol = RTPROT_RA;
+                if (!route->pref_set)
+                        route->pref = preference;
+                route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
+                if (route->mtu == 0)
+                        route->mtu = mtu;
+
+                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not request gateway: %m");
         }
 
         return 0;
@@ -697,7 +757,6 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
         _cleanup_set_free_free_ Set *addresses = NULL;
-        _cleanup_(address_freep) Address *address = NULL;
         struct in6_addr addr, *a;
         unsigned prefixlen;
         usec_t time_now;
@@ -734,18 +793,18 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (r < 0)
                 return r;
 
-        r = address_new(&address);
-        if (r < 0)
-                return log_oom();
-
-        address->family = AF_INET6;
-        address->prefixlen = prefixlen;
-        address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-        address->cinfo.ifa_prefered = lifetime_preferred;
-
         SET_FOREACH(a, addresses) {
+                _cleanup_(address_freep) Address *address = NULL;
                 Address *existing_address;
 
+                r = address_new(&address);
+                if (r < 0)
+                        return log_oom();
+
+                address->family = AF_INET6;
+                address->prefixlen = prefixlen;
+                address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
+                address->cinfo.ifa_prefered = lifetime_preferred;
                 address->in_addr.in6 = *a;
 
                 /* see RFC4862 section 5.5.3.e */
@@ -766,9 +825,9 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 if (address->cinfo.ifa_valid == 0)
                         continue;
 
-                r = ndisc_address_configure(address, link, rt);
+                r = ndisc_request_address(TAKE_PTR(address), link, rt);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set SLAAC address: %m");
+                        return log_link_error_errno(link, r, "Could not request SLAAC address: %m");
         }
 
         return 0;
@@ -812,9 +871,9 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-        r = ndisc_route_configure(route, link, rt);
+        r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set prefix route: %m");;
+                return log_link_error_errno(link, r, "Could not request prefix route: %m");;
 
         return 0;
 }
@@ -896,9 +955,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->dst_prefixlen = prefixlen;
         route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
 
-        r = ndisc_route_configure(route, link, rt);
+        r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set additional route: %m");
+                return log_link_error_errno(link, r, "Could not request additional route: %m");
 
         return 0;
 }
@@ -1223,11 +1282,11 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
 
                 if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER))
                         /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
-                        r = dhcp6_request_address(link, !(flags & ND_RA_FLAG_MANAGED));
+                        r = dhcp6_request_information(link, !(flags & ND_RA_FLAG_MANAGED));
                 else
                         /* When IPv6AcceptRA.DHCPv6Client=always, start dhcp6 client in managed mode
                          * even if router does not have M or O flag. */
-                        r = dhcp6_request_address(link, false);
+                        r = dhcp6_request_information(link, false);
                 if (r < 0 && r != -EBUSY)
                         return log_link_error_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
                 else
@@ -1255,11 +1314,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (link->ndisc_addresses_configured && link->ndisc_routes_configured)
-                link_check_ready(link);
-        else
+        if (!link->ndisc_addresses_configured || !link->ndisc_routes_configured)
                 link_set_state(link, LINK_STATE_CONFIGURING);
 
+        link_check_ready(link);
         return 0;
 }
 
