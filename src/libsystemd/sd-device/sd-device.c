@@ -249,29 +249,31 @@ _public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum)
 }
 
 _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *subsystem, const char *sysname) {
-        char *name, *syspath;
-        size_t len = 0;
+        char syspath[PATH_MAX], *name;
 
         assert_return(ret, -EINVAL);
         assert_return(subsystem, -EINVAL);
         assert_return(sysname, -EINVAL);
+        assert_return(strlen(sysname) < PATH_MAX - strlen("/sys/bus/"), -ENAMETOOLONG);
 
         if (streq(subsystem, "subsystem")) {
-                syspath = strjoina("/sys/subsystem/", sysname);
-                if (access(syspath, F_OK) >= 0)
+                if (snprintf_ok(syspath, sizeof syspath, "/sys/subsystem/%s", sysname) &&
+                    access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
 
-                syspath = strjoina("/sys/bus/", sysname);
-                if (access(syspath, F_OK) >= 0)
+                if (snprintf_ok(syspath, sizeof syspath, "/sys/bus/%s", sysname) &&
+                    access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
 
-                syspath = strjoina("/sys/class/", sysname);
-                if (access(syspath, F_OK) >= 0)
+                if (snprintf_ok(syspath, sizeof syspath, "/sys/class/%s", sysname) &&
+                    access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
+
         } else  if (streq(subsystem, "module")) {
-                syspath = strjoina("/sys/module/", sysname);
-                if (access(syspath, F_OK) >= 0)
+                if (snprintf_ok(syspath, sizeof syspath, "/sys/module/%s", sysname) &&
+                    access(syspath, F_OK) >= 0)
                         return sd_device_new_from_syspath(ret, syspath);
+
         } else if (streq(subsystem, "drivers")) {
                 char subsys[PATH_MAX];
                 char *driver;
@@ -282,39 +284,37 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                         driver[0] = '\0';
                         driver++;
 
-                        syspath = strjoina("/sys/subsystem/", subsys, "/drivers/", driver);
-                        if (access(syspath, F_OK) >= 0)
+                        if (snprintf_ok(syspath, sizeof syspath, "/sys/subsystem/%s/drivers/%s", subsys, driver) &&
+                            access(syspath, F_OK) >= 0)
                                 return sd_device_new_from_syspath(ret, syspath);
 
-                        syspath = strjoina("/sys/bus/", subsys, "/drivers/", driver);
-                        if (access(syspath, F_OK) >= 0)
+                        if (snprintf_ok(syspath, sizeof syspath, "/sys/bus/%s/drivers/%s", subsys, driver) &&
+                            access(syspath, F_OK) >= 0)
                                 return sd_device_new_from_syspath(ret, syspath);
                 }
         }
 
         /* translate sysname back to sysfs filename */
         name = strdupa(sysname);
-        while (name[len] != '\0') {
-                if (name[len] == '/')
-                        name[len] = '!';
 
-                len++;
-        }
+        for (size_t i = 0; name[i]; i++)
+                if (name[i] == '/')
+                        name[i] = '!';
 
-        syspath = strjoina("/sys/subsystem/", subsystem, "/devices/", name);
-        if (access(syspath, F_OK) >= 0)
+        if (snprintf_ok(syspath, sizeof syspath, "/sys/subsystem/%s/devices/%s", subsystem, name) &&
+            access(syspath, F_OK) >= 0)
                 return sd_device_new_from_syspath(ret, syspath);
 
-        syspath = strjoina("/sys/bus/", subsystem, "/devices/", name);
-        if (access(syspath, F_OK) >= 0)
+        if (snprintf_ok(syspath, sizeof syspath, "/sys/bus/%s/devices/%s", subsystem, name) &&
+            access(syspath, F_OK) >= 0)
                 return sd_device_new_from_syspath(ret, syspath);
 
-        syspath = strjoina("/sys/class/", subsystem, "/", name);
-        if (access(syspath, F_OK) >= 0)
+        if (snprintf_ok(syspath, sizeof syspath, "/sys/class/%s/%s", subsystem, name) &&
+            access(syspath, F_OK) >= 0)
                 return sd_device_new_from_syspath(ret, syspath);
 
-        syspath = strjoina("/sys/firmware/", subsystem, "/", sysname);
-        if (access(syspath, F_OK) >= 0)
+        if (snprintf_ok(syspath, sizeof syspath, "/sys/firmware/%s/%s", subsystem, sysname) &&
+            access(syspath, F_OK) >= 0)
                 return sd_device_new_from_syspath(ret, syspath);
 
         return -ENODEV;
