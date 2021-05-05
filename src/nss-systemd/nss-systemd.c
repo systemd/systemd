@@ -333,7 +333,7 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
         _l = pthread_mutex_lock_assert(&getgrent_data.mutex);
 
         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
-        getpwent_data.by_membership = false;
+        getgrent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
         r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
