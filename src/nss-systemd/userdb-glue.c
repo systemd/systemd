@@ -295,7 +295,7 @@ enum nss_status userdb_getgrnam(
         }
 
         r = membershipdb_by_group_strv(name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &members);
-        if (r < 0) {
+        if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
         }
@@ -388,7 +388,7 @@ enum nss_status userdb_getgrgid(
                 from_nss = false;
 
         r = membershipdb_by_group_strv(g->group_name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &members);
-        if (r < 0) {
+        if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
         }
