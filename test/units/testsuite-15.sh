@@ -32,12 +32,9 @@ create_service () {
 Description=$SERVICE_NAME unit
 
 [Service]
-ExecStart=/bin/sleep 100000
+ExecStart=sleep 100000
 EOF
-    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.d
-    mkdir -p /etc/systemd/system/"$SERVICE_NAME".service.{wants,requires}
-    mkdir -p /run/systemd/system/"$SERVICE_NAME".service.{wants,requires}
-    mkdir -p /usr/lib/systemd/system/"$SERVICE_NAME".service.{wants,requires}
+    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.{d,wants,requires}
 }
 
 create_services () {
@@ -47,12 +44,10 @@ create_services () {
 }
 
 check_ok () {
-    [ $# -eq 3 ] || return
-
-    x="$(systemctl show --value -p "$2" "$1")"
+    x="$(systemctl show --value -p "${2:?}" "${1:?}")"
     case "$x" in
-        *$3*) return 0 ;;
-        *)    return 1 ;;
+        *${3:?}*) return 0 ;;
+        *)        return 1 ;;
     esac
 }
 
@@ -123,7 +118,7 @@ EOF
     check_ok test15-b ExecCondition "/bin/echo test15-b"
     rm -rf /usr/lib/systemd/system/service.d
 
-    clear_services test15-a test15-b test15-c
+    clear_services test15-a test15-b test15-c test15-c1
 }
 
 test_linked_units () {
@@ -151,6 +146,32 @@ test_linked_units () {
 
     rm /test15-a@.scope
     clear_services test15-a test15-b
+}
+
+test_template_alias() {
+    echo "Testing instance alias..."
+    echo "*** forward"
+
+    create_service test15-a@
+    ln -s test15-a@inst.service /etc/systemd/system/test15-b@inst.service  # alias
+
+    check_ok test15-a@inst Names test15-a@inst.service
+    check_ok test15-a@inst Names test15-b@inst.service
+
+    check_ok test15-a@other Names test15-a@other.service
+    check_ko test15-a@other Names test15-b@other.service
+
+    echo "*** reverse"
+
+    systemctl daemon-reload
+
+    check_ok test15-b@inst Names test15-a@inst.service
+    check_ok test15-b@inst Names test15-b@inst.service
+
+    check_ko test15-b@other Names test15-a@other.service
+    check_ok test15-b@other Names test15-b@other.service
+
+    clear_services test15-a@ test15-b@
 }
 
 test_hierarchical_dropins () {
@@ -495,6 +516,7 @@ test_invalid_dropins () {
 
 test_basic_dropins
 test_linked_units
+test_template_alias
 test_hierarchical_dropins
 test_template_dropins
 test_alias_dropins

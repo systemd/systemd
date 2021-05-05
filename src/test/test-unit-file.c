@@ -92,6 +92,7 @@ static void test_runlevel_to_target(void) {
 }
 
 int main(int argc, char **argv) {
+        log_show_color(true);
         test_setup_logging(LOG_DEBUG);
 
         test_unit_validate_alias_symlink_and_warn();
