@@ -301,7 +301,7 @@ def print_summary(fname, groups):
         error('{}: no matches or props'.format(fname))
 
 if __name__ == '__main__':
-    args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[67][0-9]-*.hwdb'))
+    args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb'))
 
     for fname in args:
         groups = parse(fname)
