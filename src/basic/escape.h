@@ -54,12 +54,16 @@ static inline int cunescape(const char *s, UnescapeFlags flags, char **ret) {
 }
 int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
 
-char* xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits);
+typedef enum XEscapeFlags {
+        XESCAPE_8_BIT          = 1 << 0,
+} XEscapeFlags;
+
+char* xescape_full(const char *s, const char *bad, size_t console_width, XEscapeFlags flags);
 static inline char* xescape(const char *s, const char *bad) {
-        return xescape_full(s, bad, SIZE_MAX, false);
+        return xescape_full(s, bad, SIZE_MAX, 0);
 }
 char* octescape(const char *s, size_t len);
-char* escape_non_printable_full(const char *str, size_t console_width, bool eight_bit);
+char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags);
 
 char* shell_escape(const char *s, const char *bad);
 char* shell_maybe_quote(const char *s, ShellEscapeFlags flags);

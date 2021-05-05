@@ -24,11 +24,12 @@ static void test_xescape_full(bool eight_bits) {
                 "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb" :
                 "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\177\234\313";
         const unsigned full_fit = !eight_bits ? 55 : 46;
+        XEscapeFlags flags = eight_bits * XESCAPE_8_BIT;
 
         for (unsigned i = 0; i < 60; i++) {
                 _cleanup_free_ char *t;
 
-                assert_se(t = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, eight_bits));
+                assert_se(t = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, flags));
 
                 log_info("%02d: %s", i, t);
 
