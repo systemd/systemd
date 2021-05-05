@@ -68,7 +68,6 @@ static void test_random_u64_range_one(unsigned mod) {
 
                 x = random_u64_range(mod);
 
-                log_trace("%05u: %"PRIu64, i, x);
                 count[x]++;
                 max = MAX(max, count[x]);
         }
