@@ -150,7 +150,7 @@ typedef struct OciHook {
 } OciHook;
 
 typedef struct Settings {
-        /* [Run] */
+        /* [Exec] */
         StartMode start_mode;
         bool ephemeral;
         char **parameters;
@@ -181,7 +181,7 @@ typedef struct Settings {
         bool link_journal_try;
         TimezoneMode timezone;
 
-        /* [Image] */
+        /* [Files] */
         int read_only;
         VolatileMode volatile_mode;
         CustomMount *custom_mounts;
