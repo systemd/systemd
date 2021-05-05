@@ -426,7 +426,7 @@ enum nss_status _nss_systemd_getgrent_r(
                         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
 
                         r = membershipdb_all(nss_glue_userdb_flags(), &getgrent_data.iterator);
-                        if (r < 0) {
+                        if (r < 0 && r != -ESRCH) {
                                 UNPROTECT_ERRNO;
                                 *errnop = -r;
                                 return NSS_STATUS_UNAVAIL;
@@ -439,7 +439,7 @@ enum nss_status _nss_systemd_getgrent_r(
                         return NSS_STATUS_UNAVAIL;
                 } else if (!STR_IN_SET(gr->group_name, root_group.gr_name, nobody_group.gr_name)) {
                         r = membershipdb_by_group_strv(gr->group_name, nss_glue_userdb_flags(), &members);
-                        if (r < 0) {
+                        if (r < 0 && r != -ESRCH) {
                                 UNPROTECT_ERRNO;
                                 *errnop = -r;
                                 return NSS_STATUS_UNAVAIL;
@@ -449,6 +449,9 @@ enum nss_status _nss_systemd_getgrent_r(
 
         if (getgrent_data.by_membership) {
                 _cleanup_(_nss_systemd_unblockp) bool blocked = false;
+
+                if (!getgrent_data.iterator)
+                        return NSS_STATUS_NOTFOUND;
 
                 for (;;) {
                         _cleanup_free_ char *user_name = NULL, *group_name = NULL;
