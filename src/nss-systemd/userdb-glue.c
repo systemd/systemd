@@ -79,7 +79,7 @@ enum nss_status userdb_getpwnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_name(name, nss_glue_userdb_flags(), &hr);
+        r = userdb_by_name(name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -112,7 +112,7 @@ enum nss_status userdb_getpwuid(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_uid(uid, nss_glue_userdb_flags(), &hr);
+        r = userdb_by_uid(uid, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -209,13 +209,13 @@ enum nss_status userdb_getgrnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = groupdb_by_name(name, nss_glue_userdb_flags(), &g);
+        r = groupdb_by_name(name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &g);
         if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
         }
 
-        r = membershipdb_by_group_strv(name, nss_glue_userdb_flags(), &members);
+        r = membershipdb_by_group_strv(name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &members);
         if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
@@ -277,7 +277,7 @@ enum nss_status userdb_getgrgid(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = groupdb_by_gid(gid, nss_glue_userdb_flags(), &g);
+        r = groupdb_by_gid(gid, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &g);
         if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
@@ -308,7 +308,7 @@ enum nss_status userdb_getgrgid(
         } else
                 from_nss = false;
 
-        r = membershipdb_by_group_strv(g->group_name, nss_glue_userdb_flags(), &members);
+        r = membershipdb_by_group_strv(g->group_name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &members);
         if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
