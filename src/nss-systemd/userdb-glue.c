@@ -6,6 +6,7 @@
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-record.h"
+#include "user-util.h"
 #include "userdb-glue.h"
 #include "userdb.h"
 
@@ -50,7 +51,7 @@ int nss_pack_user_record(
                 .pw_name = buffer,
                 .pw_uid = hr->uid,
                 .pw_gid = user_record_gid(hr),
-                .pw_passwd = (char*) "x", /* means: see shadow file */
+                .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
         };
 
         assert(buffer);
@@ -184,7 +185,7 @@ int nss_pack_group_record(
         *gr = (struct group) {
                 .gr_name = strcpy(p, g->group_name),
                 .gr_gid = g->gid,
-                .gr_passwd = (char*) "x", /* means: see shadow file */
+                .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
                 .gr_mem = array,
         };
 
