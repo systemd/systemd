@@ -5670,11 +5670,11 @@ int config_parse_cgroup_socket_bind(
                 void *data,
                 void *userdata) {
         _cleanup_free_ CGroupSocketBindItem *item = NULL;
-        const char *address_family = NULL, *user_port;
+        const char *user_port;
         uint16_t nr_ports = 0, port_min = 0;
         CGroupSocketBindItem **head = data;
         _cleanup_free_ char *word = NULL;
-        int af = AF_UNSPEC, r;
+        int af, r;
 
         if (isempty(rvalue)) {
                 cgroup_context_remove_socket_bind(head);
@@ -5684,21 +5684,27 @@ int config_parse_cgroup_socket_bind(
         r = extract_first_word(&rvalue, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Unable to parse %s assignment, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
 
-        if (rvalue)
-                address_family = word;
-
-        if (address_family) {
-                if (streq(address_family, "IPv4"))
+        if (rvalue) {
+                if (streq(word, "IPv4"))
                         af = AF_INET;
-                else if (streq(address_family, "IPv6"))
+                else if (streq(word, "IPv6"))
                         af = AF_INET6;
                 else
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Only IPv4 or IPv6 protocols are supported, ignoring");
+                                                 "Only IPv4 or IPv6 protocols are supported, ignoring.");
+
+                user_port = rvalue;
+        } else {
+                af = AF_UNSPEC;
+                user_port = word;
         }
 
-        user_port = rvalue ?: word;
         if (!streq(user_port, "any")) {
                 uint16_t port_max;
 
