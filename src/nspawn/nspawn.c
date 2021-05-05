@@ -76,6 +76,7 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "nspawn.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "pager.h"
@@ -1818,7 +1819,7 @@ static int verify_arguments(void) {
         return 0;
 }
 
-static int userns_lchown(const char *p, uid_t uid, gid_t gid) {
+int userns_lchown(const char *p, uid_t uid, gid_t gid) {
         assert(p);
 
         if (arg_userns_mode == USER_NAMESPACE_NO)
@@ -1847,7 +1848,7 @@ static int userns_lchown(const char *p, uid_t uid, gid_t gid) {
         return 0;
 }
 
-static int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
+int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
         const char *q;
         int r;
 
