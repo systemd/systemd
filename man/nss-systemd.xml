@@ -47,11 +47,13 @@
     for resolving users and groups, but also works without the service running.</para>
 
     <para>To activate the NSS module, add <literal>systemd</literal> to the lines starting with
-    <literal>passwd:</literal> and <literal>group:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
+    <literal>passwd:</literal>, <literal>group:</literal>, <literal>shadow:</literal> and
+    <literal>gshadow:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
     <para>It is recommended to place <literal>systemd</literal> after the <literal>files</literal> or
     <literal>compat</literal> entry of the <filename>/etc/nsswitch.conf</filename> lines so that
-    <filename>/etc/passwd</filename> and <filename>/etc/group</filename> based mappings take precedence.</para>
+    <filename>/etc/passwd</filename>, <filename>/etc/group</filename>, <filename>/etc/shadow</filename> and
+    <filename>/etc/gshadow</filename> based mappings take precedence.</para>
   </refsect1>
 
   <refsect1>
@@ -63,7 +65,8 @@
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
     <programlisting>passwd:         compat <command>systemd</command>
 group:          compat [SUCCESS=merge] <command>systemd</command>
-shadow:         compat
+shadow:         compat <command>systemd</command>
+gshadow:        files <command>systemd</command>
 
 hosts:          mymachines resolve [!UNAVAIL=return] files myhostname dns
 networks:       files

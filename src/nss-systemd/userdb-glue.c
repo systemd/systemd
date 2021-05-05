@@ -32,7 +32,7 @@ int nss_pack_user_record(
         assert(hr);
         assert(pwd);
 
-        assert_se(hr->user_name);
+        assert(hr->user_name);
         required = strlen(hr->user_name) + 1;
 
         assert_se(rn = user_record_real_name(hr));
@@ -129,6 +129,85 @@ enum nss_status userdb_getpwuid(
         return NSS_STATUS_SUCCESS;
 }
 
+int nss_pack_user_record_shadow(
+                UserRecord *hr,
+                struct spwd *spwd,
+                char *buffer,
+                size_t buflen) {
+
+        const char *hashed;
+        size_t required;
+
+        assert(hr);
+        assert(spwd);
+
+        assert(hr->user_name);
+        required = strlen(hr->user_name) + 1;
+
+        assert_se(hashed = strv_isempty(hr->hashed_password) ? PASSWORD_LOCKED_AND_INVALID : hr->hashed_password[0]);
+        required += strlen(hashed) + 1;
+
+        if (buflen < required)
+                return -ERANGE;
+
+        *spwd = (struct spwd) {
+                .sp_namp = buffer,
+                .sp_lstchg = hr->last_password_change_usec == 0 ? 1 :               /* map 0 to 1, since 0 means please change pasword on next login */
+                             hr->last_password_change_usec == UINT64_MAX ? -1 :
+                             (long int) (hr->last_password_change_usec / USEC_PER_DAY),
+                .sp_min = hr->password_change_min_usec != UINT64_MAX ? (long int) (hr->password_change_min_usec / USEC_PER_DAY) : -1,
+                .sp_max = hr->password_change_max_usec != UINT64_MAX ? (long int) (hr->password_change_max_usec / USEC_PER_DAY) : -1,
+                .sp_warn = hr->password_change_warn_usec != UINT64_MAX ? (long int) (hr->password_change_warn_usec / USEC_PER_DAY) : -1,
+                .sp_inact = hr->password_change_inactive_usec != UINT64_MAX ? (long int) (hr->password_change_inactive_usec / USEC_PER_DAY) : -1,
+                .sp_expire = hr->locked > 0 || hr->not_after_usec == 0 ? 1 : /* already expired/locked */
+                             hr->not_after_usec == UINT64_MAX ? -1 :
+                             (long int) (hr->not_after_usec / USEC_PER_DAY),
+                .sp_flag = ULONG_MAX,
+        };
+
+        assert(buffer);
+
+        spwd->sp_pwdp = stpcpy(spwd->sp_namp, hr->user_name) + 1;
+        strcpy(spwd->sp_pwdp, hashed);
+
+        return 0;
+}
+
+enum nss_status userdb_getspnam(
+                const char *name,
+                struct spwd *spwd,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        int r;
+
+        assert(spwd);
+        assert(errnop);
+
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
+
+        r = userdb_by_name(name, nss_glue_userdb_flags(), &hr);
+        if (r == -ESRCH)
+                return NSS_STATUS_NOTFOUND;
+        if (r < 0) {
+                *errnop = -r;
+                return NSS_STATUS_UNAVAIL;
+        }
+
+        if (hr->incomplete) /* protected records missing? */
+                return NSS_STATUS_NOTFOUND;
+
+        r = nss_pack_user_record_shadow(hr, spwd, buffer, buflen);
+        if (r < 0) {
+                *errnop = -r;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        return NSS_STATUS_SUCCESS;
+}
+
 int nss_pack_group_record(
                 GroupRecord *g,
                 char **extra_members,
@@ -142,7 +221,7 @@ int nss_pack_group_record(
         assert(g);
         assert(gr);
 
-        assert_se(g->group_name);
+        assert(g->group_name);
         required = strlen(g->group_name) + 1;
 
         STRV_FOREACH(m, g->members) {
@@ -320,6 +399,74 @@ enum nss_status userdb_getgrgid(
                 return NSS_STATUS_NOTFOUND;
 
         r = nss_pack_group_record(g, members, gr, buffer, buflen);
+        if (r < 0) {
+                *errnop = -r;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        return NSS_STATUS_SUCCESS;
+}
+
+int nss_pack_group_record_shadow(
+                GroupRecord *hr,
+                struct sgrp *sgrp,
+                char *buffer,
+                size_t buflen) {
+
+        const char *hashed;
+        size_t required;
+
+        assert(hr);
+        assert(sgrp);
+
+        assert(hr->group_name);
+        required = strlen(hr->group_name) + 1;
+
+        assert_se(hashed = strv_isempty(hr->hashed_password) ? PASSWORD_LOCKED_AND_INVALID : hr->hashed_password[0]);
+        required += strlen(hashed) + 1;
+
+        if (buflen < required)
+                return -ERANGE;
+
+        *sgrp = (struct sgrp) {
+                .sg_namp = buffer,
+        };
+
+        assert(buffer);
+
+        sgrp->sg_passwd = stpcpy(sgrp->sg_namp, hr->group_name) + 1;
+        strcpy(sgrp->sg_passwd, hashed);
+
+        return 0;
+}
+
+enum nss_status userdb_getsgnam(
+                const char *name,
+                struct sgrp *sgrp,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        _cleanup_(group_record_unrefp) GroupRecord *hr = NULL;
+        int r;
+
+        assert(sgrp);
+        assert(errnop);
+
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
+
+        r = groupdb_by_name(name, nss_glue_userdb_flags(), &hr);
+        if (r == -ESRCH)
+                return NSS_STATUS_NOTFOUND;
+        if (r < 0) {
+                *errnop = -r;
+                return NSS_STATUS_UNAVAIL;
+        }
+
+        if (hr->incomplete) /* protected records missing? */
+                return NSS_STATUS_NOTFOUND;
+
+        r = nss_pack_group_record_shadow(hr, sgrp, buffer, buflen);
         if (r < 0) {
                 *errnop = -r;
                 return NSS_STATUS_TRYAGAIN;

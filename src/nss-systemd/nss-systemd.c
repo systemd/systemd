@@ -28,6 +28,18 @@ static const struct passwd root_passwd = {
         .pw_shell = (char*) "/bin/sh",
 };
 
+static const struct spwd root_spwd = {
+        .sp_namp = (char*) "root",
+        .sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID,
+        .sp_lstchg = -1,
+        .sp_min = -1,
+        .sp_max = -1,
+        .sp_warn = -1,
+        .sp_inact = -1,
+        .sp_expire = -1,
+        .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
+};
+
 static const struct passwd nobody_passwd = {
         .pw_name = (char*) NOBODY_USER_NAME,
         .pw_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
@@ -38,6 +50,18 @@ static const struct passwd nobody_passwd = {
         .pw_shell = (char*) NOLOGIN,
 };
 
+static const struct spwd nobody_spwd = {
+        .sp_namp = (char*) NOBODY_USER_NAME,
+        .sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID,
+        .sp_lstchg = -1,
+        .sp_min = -1,
+        .sp_max = -1,
+        .sp_warn = -1,
+        .sp_inact = -1,
+        .sp_expire = -1,
+        .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
+};
+
 static const struct group root_group = {
         .gr_name = (char*) "root",
         .gr_gid = 0,
@@ -45,11 +69,21 @@ static const struct group root_group = {
         .gr_mem = (char*[]) { NULL },
 };
 
+static const struct sgrp root_sgrp = {
+        .sg_namp = (char*) "root",
+        .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
+};
+
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
         .gr_gid = GID_NOBODY,
         .gr_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
         .gr_mem = (char*[]) { NULL },
+};
+
+static const struct sgrp nobody_sgrp = {
+        .sg_namp = (char*) NOBODY_GROUP_NAME,
+        .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
 };
 
 typedef struct GetentData {
@@ -66,11 +100,19 @@ typedef struct GetentData {
 } GetentData;
 
 static GetentData getpwent_data = {
-        .mutex = PTHREAD_MUTEX_INITIALIZER
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
 static GetentData getgrent_data = {
-        .mutex = PTHREAD_MUTEX_INITIALIZER
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+};
+
+static GetentData getspent_data = {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+};
+
+static GetentData getsgent_data = {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 
 static void setup_logging(void) {
@@ -88,9 +130,13 @@ static void setup_logging_once(void) {
         setup_logging_once()
 
 NSS_GETPW_PROTOTYPES(systemd);
+NSS_GETSP_PROTOTYPES(systemd);
 NSS_GETGR_PROTOTYPES(systemd);
+NSS_GETSG_PROTOTYPES(systemd);
 NSS_PWENT_PROTOTYPES(systemd);
+NSS_SPENT_PROTOTYPES(systemd);
 NSS_GRENT_PROTOTYPES(systemd);
+NSS_SGENT_PROTOTYPES(systemd);
 NSS_INITGROUPS_PROTOTYPE(systemd);
 
 enum nss_status _nss_systemd_getpwnam_r(
@@ -182,6 +228,54 @@ enum nss_status _nss_systemd_getpwuid_r(
                 return NSS_STATUS_NOTFOUND;
 
         status = userdb_getpwuid(uid, pwd, buffer, buflen, &e);
+        if (IN_SET(status, NSS_STATUS_UNAVAIL, NSS_STATUS_TRYAGAIN)) {
+                UNPROTECT_ERRNO;
+                *errnop = e;
+                return status;
+        }
+
+        return status;
+}
+
+enum nss_status _nss_systemd_getspnam_r(
+                const char *name,
+                struct spwd *spwd,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        enum nss_status status;
+        int e;
+
+        PROTECT_ERRNO;
+        NSS_ENTRYPOINT_BEGIN;
+
+        assert(name);
+        assert(spwd);
+        assert(errnop);
+
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
+                return NSS_STATUS_NOTFOUND;
+
+        /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
+        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+
+                if (streq(name, root_spwd.sp_namp)) {
+                        *spwd = root_spwd;
+                        return NSS_STATUS_SUCCESS;
+                }
+
+                if (streq(name, nobody_spwd.sp_namp)) {
+                        if (!synthesize_nobody())
+                                return NSS_STATUS_NOTFOUND;
+
+                        *spwd = nobody_spwd;
+                        return NSS_STATUS_SUCCESS;
+                }
+
+        } else if (STR_IN_SET(name, root_spwd.sp_namp, nobody_spwd.sp_namp))
+                return NSS_STATUS_NOTFOUND;
+
+        status = userdb_getspnam(name, spwd, buffer, buflen, &e);
         if (IN_SET(status, NSS_STATUS_UNAVAIL, NSS_STATUS_TRYAGAIN)) {
                 UNPROTECT_ERRNO;
                 *errnop = e;
@@ -288,6 +382,54 @@ enum nss_status _nss_systemd_getgrgid_r(
         return status;
 }
 
+enum nss_status _nss_systemd_getsgnam_r(
+                const char *name,
+                struct sgrp *sgrp,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        enum nss_status status;
+        int e;
+
+        PROTECT_ERRNO;
+        NSS_ENTRYPOINT_BEGIN;
+
+        assert(name);
+        assert(sgrp);
+        assert(errnop);
+
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
+                return NSS_STATUS_NOTFOUND;
+
+        /* Synthesize records for root and nobody, in case they are missing from /etc/group */
+        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+
+                if (streq(name, root_sgrp.sg_namp)) {
+                        *sgrp = root_sgrp;
+                        return NSS_STATUS_SUCCESS;
+                }
+
+                if (streq(name, nobody_sgrp.sg_namp)) {
+                        if (!synthesize_nobody())
+                                return NSS_STATUS_NOTFOUND;
+
+                        *sgrp = nobody_sgrp;
+                        return NSS_STATUS_SUCCESS;
+                }
+
+        } else if (STR_IN_SET(name, root_sgrp.sg_namp, nobody_sgrp.sg_namp))
+                return NSS_STATUS_NOTFOUND;
+
+        status = userdb_getsgnam(name, sgrp, buffer, buflen, &e);
+        if (IN_SET(status, NSS_STATUS_UNAVAIL, NSS_STATUS_TRYAGAIN)) {
+                UNPROTECT_ERRNO;
+                *errnop = e;
+                return status;
+        }
+
+        return status;
+}
+
 static enum nss_status nss_systemd_endent(GetentData *p) {
         PROTECT_ERRNO;
         NSS_ENTRYPOINT_BEGIN;
@@ -307,8 +449,16 @@ enum nss_status _nss_systemd_endpwent(void) {
         return nss_systemd_endent(&getpwent_data);
 }
 
+enum nss_status _nss_systemd_endspent(void) {
+        return nss_systemd_endent(&getspent_data);
+}
+
 enum nss_status _nss_systemd_endgrent(void) {
         return nss_systemd_endent(&getgrent_data);
+}
+
+enum nss_status _nss_systemd_endsgent(void) {
+        return nss_systemd_endent(&getsgent_data);
 }
 
 enum nss_status _nss_systemd_setpwent(int stayopen) {
@@ -352,6 +502,46 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
         r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
+        return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
+}
+
+enum nss_status _nss_systemd_setspent(int stayopen) {
+        int r;
+
+        PROTECT_ERRNO;
+        NSS_ENTRYPOINT_BEGIN;
+
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
+
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = pthread_mutex_lock_assert(&getspent_data.mutex);
+        (void) _l; /* make llvm shut up about _l not being used. */
+
+        getspent_data.iterator = userdb_iterator_free(getspent_data.iterator);
+        getspent_data.by_membership = false;
+
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
+        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getspent_data.iterator);
+        return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
+}
+
+enum nss_status _nss_systemd_setsgent(int stayopen) {
+        int r;
+
+        PROTECT_ERRNO;
+        NSS_ENTRYPOINT_BEGIN;
+
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
+
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = pthread_mutex_lock_assert(&getsgent_data.mutex);
+        (void) _l; /* make llvm shut up about _l not being used. */
+
+        getsgent_data.iterator = userdb_iterator_free(getsgent_data.iterator);
+        getsgent_data.by_membership = false;
+
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
+        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getsgent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -518,6 +708,110 @@ enum nss_status _nss_systemd_getgrent_r(
         }
 
         r = nss_pack_group_record(gr, members, result, buffer, buflen);
+        if (r < 0) {
+                UNPROTECT_ERRNO;
+                *errnop = -r;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        return NSS_STATUS_SUCCESS;
+}
+
+enum nss_status _nss_systemd_getspent_r(
+                struct spwd *result,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        int r;
+
+        PROTECT_ERRNO;
+        NSS_ENTRYPOINT_BEGIN;
+
+        assert(result);
+        assert(errnop);
+
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
+
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = pthread_mutex_lock_assert(&getspent_data.mutex);
+        (void) _l; /* make llvm shut up about _l not being used. */
+
+        if (!getspent_data.iterator) {
+                UNPROTECT_ERRNO;
+                *errnop = EHOSTDOWN;
+                return NSS_STATUS_UNAVAIL;
+        }
+
+        for (;;) {
+                r = userdb_iterator_get(getspent_data.iterator, &ur);
+                if (r == -ESRCH)
+                        return NSS_STATUS_NOTFOUND;
+                if (r < 0) {
+                        UNPROTECT_ERRNO;
+                        *errnop = -r;
+                        return NSS_STATUS_UNAVAIL;
+                }
+
+                if (!ur->incomplete) /* don't synthesize shadow records for records where we couldn't read shadow data */
+                        break;
+
+                ur = user_record_unref(ur);
+        }
+
+        r = nss_pack_user_record_shadow(ur, result, buffer, buflen);
+        if (r < 0) {
+                UNPROTECT_ERRNO;
+                *errnop = -r;
+                return NSS_STATUS_TRYAGAIN;
+        }
+
+        return NSS_STATUS_SUCCESS;
+}
+
+enum nss_status _nss_systemd_getsgent_r(
+                struct sgrp *result,
+                char *buffer, size_t buflen,
+                int *errnop) {
+
+        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+        int r;
+
+        PROTECT_ERRNO;
+        NSS_ENTRYPOINT_BEGIN;
+
+        assert(result);
+        assert(errnop);
+
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
+
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = pthread_mutex_lock_assert(&getsgent_data.mutex);
+        (void) _l; /* make llvm shut up about _l not being used. */
+
+        if (!getsgent_data.iterator) {
+                UNPROTECT_ERRNO;
+                *errnop = EHOSTDOWN;
+                return NSS_STATUS_UNAVAIL;
+        }
+
+        for (;;) {
+                r = groupdb_iterator_get(getsgent_data.iterator, &gr);
+                if (r == -ESRCH)
+                        return NSS_STATUS_NOTFOUND;
+                if (r < 0) {
+                        UNPROTECT_ERRNO;
+                        *errnop = -r;
+                        return NSS_STATUS_UNAVAIL;
+                }
+
+                if (!gr->incomplete) /* don't synthesize shadow records for records where we couldn't read shadow data */
+                        break;
+
+                gr = group_record_unref(gr);
+        }
+
+        r = nss_pack_group_record_shadow(gr, result, buffer, buflen);
         if (r < 0) {
                 UNPROTECT_ERRNO;
                 *errnop = -r;
