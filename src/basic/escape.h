@@ -56,6 +56,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
 
 typedef enum XEscapeFlags {
         XESCAPE_8_BIT          = 1 << 0,
+        XESCAPE_FORCE_ELLIPSIS = 1 << 1,
 } XEscapeFlags;
 
 char* xescape_full(const char *s, const char *bad, size_t console_width, XEscapeFlags flags);

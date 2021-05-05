@@ -368,7 +368,8 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
          * reversed with cunescape(). If XESCAPE_8_BIT is specified, characters >= 127 are let through
          * unchanged. This corresponds to non-ASCII printable characters in pre-unicode encodings.
          *
-         * If console_width is reached, output is truncated and "..." is appended. */
+         * If console_width is reached, or XESCAPE_FORCE_ELLIPSIS is set, output is truncated and "..." is
+         * appended. */
 
         if (console_width == 0)
                 return strdup("");
@@ -380,10 +381,15 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
         memset(ans, '_', MIN(strlen(s), console_width) * 4);
         ans[MIN(strlen(s), console_width) * 4] = 0;
 
+        bool force_ellipsis = FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS);
+
         for (f = s, t = prev = prev2 = ans; ; f++) {
                 char *tmp_t = t;
 
                 if (!*f) {
+                        if (force_ellipsis)
+                                break;
+
                         *t = 0;
                         return ans;
                 }
@@ -391,7 +397,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
                 if ((unsigned char) *f < ' ' ||
                     (!FLAGS_SET(flags, XESCAPE_8_BIT) && (unsigned char) *f >= 127) ||
                     *f == '\\' || strchr(bad, *f)) {
-                        if ((size_t) (t - ans) + 4 > console_width)
+                        if ((size_t) (t - ans) + 4 + 3 * force_ellipsis > console_width)
                                 break;
 
                         *(t++) = '\\';
@@ -399,7 +405,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
                 } else {
-                        if ((size_t) (t - ans) + 1 > console_width)
+                        if ((size_t) (t - ans) + 1 + 3 * force_ellipsis > console_width)
                                 break;
 
                         *(t++) = *f;
@@ -432,7 +438,9 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
         if (FLAGS_SET(flags, XESCAPE_8_BIT))
                 return xescape_full(str, "", console_width, flags);
         else
-                return utf8_escape_non_printable_full(str, console_width);
+                return utf8_escape_non_printable_full(str,
+                                                      console_width,
+                                                      FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS));
 }
 
 char* octescape(const char *s, size_t len) {
