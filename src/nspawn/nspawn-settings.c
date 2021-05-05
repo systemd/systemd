@@ -132,6 +132,7 @@ Settings* settings_free(Settings *s) {
         rlimit_free_all(s->rlimit);
         free(s->hostname);
         cpu_set_reset(&s->cpu_set);
+        strv_free(s->bind_user);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -905,5 +906,53 @@ int config_parse_userns_chown(
         }
 
         *ownership = r ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
+        return 0;
+}
+
+int config_parse_bind_user(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***bind_user = data;
+        int r;
+
+        assert(rvalue);
+        assert(bind_user);
+
+        if (isempty(rvalue)) {
+                *bind_user = strv_free(*bind_user);
+                return 0;
+        }
+
+        for (const char* p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUser= list, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (!valid_user_group_name(word, 0)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "User name '%s' not valid, ignoring.", word);
+                        return 0;
+                }
+
+                if (strv_consume(bind_user, TAKE_PTR(word)) < 0)
+                        return log_oom();
+        }
+
         return 0;
 }
