@@ -1124,6 +1124,34 @@ ieee1394:ven000002F0mo00000000sp0000A02Dver00000100
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
+# Point Grey cameras.
+#
+
+# IIDC v1.04 compatible.
+ieee1394:node:ven0x00b09dmo*units0x00b09d:0x000100
+ieee1394:ven0000B09Dmo*spec0000B09Dver00000100
+ ID_VENDOR_FROM_DATABASE=Point Grey Research
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+# IIDC v1.20 compatible.
+ieee1394:node:ven0x00b09dmo*units0x00b09d:0x000101
+ieee1394:ven0000B09Dmo*spec0000B09Dver00000101
+ ID_VENDOR_FROM_DATABASE=Point Grey Research
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+# IIDC v1.30/v1.31/v1.32 compatible.
+ieee1394:node:ven0x00b09dmo*units0x00b09d:0x000102
+ieee1394:ven0000B09Dmo*spec0000B09Dver00000102
+ ID_VENDOR_FROM_DATABASE=Point Grey Research
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+# Unique protocol.
+ieee1394:node:ven0x00b09dmo*units0x00b09d:0x000114
+ieee1394:ven0000B09Dmo*spec0000B09Dver00000114
+ ID_VENDOR_FROM_DATABASE=Point Grey Research
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
 # Digital Everywhere FloppyDTV and FireDtv series.
 #
 
