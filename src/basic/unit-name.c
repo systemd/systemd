@@ -139,7 +139,7 @@ int unit_name_to_prefix(const char *n, char **ret) {
         return 0;
 }
 
-int unit_name_to_instance(const char *n, char **ret) {
+UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
         const char *p, *d;
 
         assert(n);
