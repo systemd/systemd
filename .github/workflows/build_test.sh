@@ -13,6 +13,7 @@ ARGS=(
     "--optimization=3 -Db_lto=true"
     "--optimization=3 -Db_lto=false"
     "--optimization=3 -Ddns-over-tls=openssl"
+    "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
 )
 PACKAGES=(
@@ -25,6 +26,7 @@ PACKAGES=(
     itstool
     kbd
     libblkid-dev
+    libbpf-dev
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -42,6 +44,7 @@ PACKAGES=(
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
+    linux-tools-$(uname -r)
     mount
     net-tools
     perl
