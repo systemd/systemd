@@ -400,7 +400,6 @@ enum nss_status _nss_systemd_getsgnam_r(
 
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return NSS_STATUS_NOTFOUND;
-
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
