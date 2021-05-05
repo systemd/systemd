@@ -922,20 +922,20 @@ static int process_root_args(void) {
                 return r;
 
         if (arg_root_password && arg_root_password_is_hashed) {
-                password = "x";
+                password = PASSWORD_SEE_SHADOW;
                 hashed_password = arg_root_password;
         } else if (arg_root_password) {
                 r = hash_password(arg_root_password, &_hashed_password);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hash password: %m");
 
-                password = "x";
+                password = PASSWORD_SEE_SHADOW;
                 hashed_password = _hashed_password;
 
         } else if (arg_delete_root_password)
-                password = hashed_password = "";
+                password = hashed_password = PASSWORD_NONE;
         else
-                password = hashed_password = "!";
+                password = hashed_password = PASSWORD_LOCKED_AND_INVALID;
 
         r = write_root_passwd(etc_passwd, password, arg_root_shell);
         if (r < 0)
