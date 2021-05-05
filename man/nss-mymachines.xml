@@ -57,7 +57,8 @@
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
     <programlisting>passwd:         compat systemd
 group:          compat [SUCCESS=merge] systemd
-shadow:         compat
+shadow:         compat systemd
+gshadow:        files systemd
 
 hosts:          <command>mymachines</command> resolve [!UNAVAIL=return] files myhostname dns
 networks:       files
