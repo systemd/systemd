@@ -17,7 +17,7 @@ static int print_variable(const char *s) {
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Invalid environment block");
 
-        esc = shell_maybe_quote(sep + 1, ESCAPE_POSIX);
+        esc = shell_maybe_quote(sep + 1, SHELL_ESCAPE_POSIX);
         if (!esc)
                 return log_oom();
 

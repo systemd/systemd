@@ -33,15 +33,13 @@ typedef enum UnescapeFlags {
         UNESCAPE_ACCEPT_NUL = 1 << 1,
 } UnescapeFlags;
 
-typedef enum EscapeStyle {
-        ESCAPE_BACKSLASH         = 1,  /* Add shell quotes ("") so the shell will consider this a single
-                                          argument, possibly multiline. Tabs and newlines are not escaped. */
-        ESCAPE_BACKSLASH_ONELINE = 2,  /* Similar to ESCAPE_BACKSLASH, but always produces a single-line
-                                          string instead. Shell escape sequences are produced for tabs and
-                                          newlines. */
-        ESCAPE_POSIX             = 3,  /* Similar to ESCAPE_BACKSLASH_ONELINE, but uses POSIX shell escape
-                                        * syntax (a string enclosed in $'') instead of plain quotes. */
-} EscapeStyle;
+typedef enum ShellEscapeFlags {
+        /* The default is to add shell quotes ("") so the shell will consider this a single argument.
+         * Tabs and newlines are escaped. */
+
+        SHELL_ESCAPE_POSIX = 1 << 1, /* Use POSIX shell escape syntax (a string enclosed in $'') instead of plain quotes. */
+        SHELL_ESCAPE_EMPTY = 1 << 2, /* Format empty arguments as "". */
+} ShellEscapeFlags;
 
 char* cescape(const char *s);
 char* cescape_length(const char *s, size_t n);
@@ -56,12 +54,17 @@ static inline int cunescape(const char *s, UnescapeFlags flags, char **ret) {
 }
 int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
 
-char* xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits);
+typedef enum XEscapeFlags {
+        XESCAPE_8_BIT          = 1 << 0,
+        XESCAPE_FORCE_ELLIPSIS = 1 << 1,
+} XEscapeFlags;
+
+char* xescape_full(const char *s, const char *bad, size_t console_width, XEscapeFlags flags);
 static inline char* xescape(const char *s, const char *bad) {
-        return xescape_full(s, bad, SIZE_MAX, false);
+        return xescape_full(s, bad, SIZE_MAX, 0);
 }
 char* octescape(const char *s, size_t len);
-char* escape_non_printable_full(const char *str, size_t console_width, bool eight_bit);
+char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags);
 
 char* shell_escape(const char *s, const char *bad);
-char* shell_maybe_quote(const char *s, EscapeStyle style);
+char* shell_maybe_quote(const char *s, ShellEscapeFlags flags);
