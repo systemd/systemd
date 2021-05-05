@@ -5600,7 +5600,7 @@ int config_parse_bpf_foreign_program(
         r = extract_first_word(&rvalue, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0) {
+        if (r <= 0 || isempty(rvalue)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse foreign BPF program, ignoring: %s", rvalue);
                 return 0;
         }
