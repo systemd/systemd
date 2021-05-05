@@ -2896,6 +2896,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(rc, 0)
         time.sleep(1)
 
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
         output = check_output('ip nexthop list dev veth99')
         print(output)
         self.assertEqual(output, '')
@@ -2908,6 +2910,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         rc = call(*networkctl_cmd, 'reload', env=env)
         self.assertEqual(rc, 0)
         time.sleep(1)
+
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         rc = call('ip link del veth99')
         self.assertEqual(rc, 0)
