@@ -25,6 +25,7 @@ PACKAGES=(
     itstool
     kbd
     libblkid-dev
+    libbpf-dev
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -42,6 +43,7 @@ PACKAGES=(
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
+    linux-tools-$(uname -r)
     mount
     net-tools
     perl
