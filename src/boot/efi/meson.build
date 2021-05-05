@@ -224,6 +224,7 @@ if have_gnu_efi
                        '-Bsymbolic',
                        '-nostdlib',
                        '-znocombreloc',
+                       '--build-id=sha1',
                        '-L', efi_libdir,
                        efi_crt0]
         if ['aarch64', 'arm', 'riscv64'].contains(efi_arch)
