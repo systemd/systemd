@@ -2213,14 +2213,14 @@ int config_parse_service_sockets(
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Trailing garbage in sockets, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = unit_name_printf(UNIT(s), word, &k);
                 if (r < 0) {
@@ -2488,14 +2488,14 @@ int config_parse_user_group_strv_compat(
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax: %s", rvalue);
                         return -ENOEXEC;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = unit_full_printf(u, word, &k);
                 if (r < 0) {
@@ -2654,8 +2654,6 @@ int config_parse_environ(
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -2663,6 +2661,8 @@ int config_parse_environ(
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 if (u) {
                         r = unit_full_printf(u, word, &resolved);
@@ -2719,8 +2719,6 @@ int config_parse_pass_environ(
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -2728,6 +2726,8 @@ int config_parse_pass_environ(
                                    "Trailing garbage in %s, ignoring: %s", lvalue, rvalue);
                         break;
                 }
+                if (r == 0)
+                        break;
 
                 if (u) {
                         r = unit_full_printf(u, word, &k);
@@ -2794,8 +2794,6 @@ int config_parse_unset_environ(
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -2803,6 +2801,8 @@ int config_parse_unset_environ(
                                    "Trailing garbage in %s, ignoring: %s", lvalue, rvalue);
                         break;
                 }
+                if (r == 0)
+                        break;
 
                 if (u) {
                         r = unit_full_printf(u, word, &k);
@@ -2868,14 +2868,14 @@ int config_parse_log_extra_fields(
                 const char *eq;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = unit_full_printf(u, word, &k);
                 if (r < 0) {
@@ -3080,8 +3080,6 @@ int config_parse_unit_requires_mounts_for(
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -3089,6 +3087,8 @@ int config_parse_unit_requires_mounts_for(
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = unit_full_printf(u, word, &resolved);
                 if (r < 0) {
@@ -3218,8 +3218,6 @@ int config_parse_syscall_filter(
                 int num;
 
                 r = extract_first_word(&p, &word, NULL, 0);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -3227,6 +3225,8 @@ int config_parse_syscall_filter(
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = parse_syscall_and_errno(word, &name, &num);
                 if (r < 0) {
@@ -3304,14 +3304,14 @@ int config_parse_syscall_log(
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = seccomp_parse_syscall_filter(
                                 word, -1, c->syscall_log,
@@ -3349,8 +3349,6 @@ int config_parse_syscall_archs(
                 uint32_t a;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -3358,6 +3356,8 @@ int config_parse_syscall_archs(
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 r = seccomp_arch_from_string(word, &a);
                 if (r < 0) {
@@ -3463,8 +3463,6 @@ int config_parse_address_families(
                 int af;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -3472,6 +3470,8 @@ int config_parse_address_families(
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 af = af_from_name(word);
                 if (af < 0) {
@@ -3821,14 +3821,14 @@ int config_parse_delegate(
                         CGroupController cc;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                        if (r == 0)
-                                break;
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                                 return 0;
                         }
+                        if (r == 0)
+                                break;
 
                         cc = cgroup_controller_from_string(word);
                         if (cc < 0) {
@@ -3954,13 +3954,8 @@ int config_parse_device_allow(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to extract device path and rights from '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -4025,13 +4020,8 @@ int config_parse_io_device_weight(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to extract device path and weight from '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -4099,13 +4089,8 @@ int config_parse_io_device_latency(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to extract device path and latency from '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -4174,13 +4159,8 @@ int config_parse_io_limit(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -4265,13 +4245,8 @@ int config_parse_blockio_device_weight(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to extract device node and weight from '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -4343,13 +4318,8 @@ int config_parse_blockio_bandwidth(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r == 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -4751,14 +4721,14 @@ int config_parse_namespace_path_strv(
                 bool ignore_enoent = false, shall_prefix = false;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to extract first word, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        break;
 
                 w = word;
                 if (startswith(w, "-")) {
@@ -4828,14 +4798,14 @@ int config_parse_temporary_filesystems(
                 const char *w;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to extract first word, ignoring: %s", rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        return 0;
 
                 w = word;
                 r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
@@ -4902,14 +4872,14 @@ int config_parse_bind_paths(
                 bool rbind = true, ignore_enoent = false;
 
                 r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r == 0)
-                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
                         return 0;
                 }
+                if (r == 0)
+                        break;
 
                 r = unit_full_printf(u, source, &sresolved);
                 if (r < 0) {
@@ -5630,7 +5600,7 @@ int config_parse_bpf_foreign_program(
         r = extract_first_word(&rvalue, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
+        if (r <= 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse foreign BPF program, ignoring: %s", rvalue);
                 return 0;
         }
@@ -5670,11 +5640,11 @@ int config_parse_cgroup_socket_bind(
                 void *data,
                 void *userdata) {
         _cleanup_free_ CGroupSocketBindItem *item = NULL;
-        const char *address_family = NULL, *user_port;
+        const char *user_port;
         uint16_t nr_ports = 0, port_min = 0;
         CGroupSocketBindItem **head = data;
         _cleanup_free_ char *word = NULL;
-        int af = AF_UNSPEC, r;
+        int af, r;
 
         if (isempty(rvalue)) {
                 cgroup_context_remove_socket_bind(head);
@@ -5684,21 +5654,27 @@ int config_parse_cgroup_socket_bind(
         r = extract_first_word(&rvalue, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Unable to parse %s assignment, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
 
-        if (rvalue)
-                address_family = word;
-
-        if (address_family) {
-                if (streq(address_family, "IPv4"))
+        if (rvalue) {
+                if (streq(word, "IPv4"))
                         af = AF_INET;
-                else if (streq(address_family, "IPv6"))
+                else if (streq(word, "IPv6"))
                         af = AF_INET6;
                 else
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "Only IPv4 or IPv6 protocols are supported, ignoring");
+                                                 "Only IPv4 or IPv6 protocols are supported, ignoring.");
+
+                user_port = rvalue;
+        } else {
+                af = AF_UNSPEC;
+                user_port = word;
         }
 
-        user_port = rvalue ?: word;
         if (!streq(user_port, "any")) {
                 uint16_t port_max;
 
