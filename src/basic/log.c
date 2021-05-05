@@ -1431,10 +1431,10 @@ int log_syntax_invalid_utf8_internal(
         if (rvalue)
                 p = utf8_escape_invalid(rvalue);
 
-        log_syntax_internal(unit, level, config_file, config_line, 0, file, line, func,
-                            "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
-
-        return -EINVAL;
+        return log_syntax_internal(unit, level, config_file, config_line,
+                                   SYNTHETIC_ERRNO(EINVAL),
+                                   file, line, func,
+                                   "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
 }
 
 void log_set_upgrade_syslog_to_journal(bool b) {
