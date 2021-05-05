@@ -38,6 +38,49 @@
 # preferable.
 
 #
+# General entry for:
+# * 1394-based Digital Camera Specification Version 1.04 (Aug. 9, 1996, 1394 Trading Association)
+#
+
+ieee1394:node:ven*units0x00a02d:0x000100
+ieee1394:ven*sp0000A02Dver00000100
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
+# General entry for:
+# * 1394-based Digital Camera Specification Version 1.20 (Jul. 23, 1998, 1394 Trading Association)
+#
+
+ieee1394:node:ven*units0x00a02d:0x000101
+ieee1394:ven*sp0000A02Dver00000101
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
+# General entry for:
+# * IIDC Digital Camera Control Specification Ver.1.30 (Jul. 25, 2000, 1394 Trading Association)
+# * IIDC Digital Camera Control Specification Ver.1.31 (Feb. 2, 2004, 1394 Trading Association, TA
+#   Document 2003017)
+# * IIDC Digital Camera Control Specification Ver.1.32 (Jul. 24, 2008, 1394 Trading Association,
+#   Document number 2007009)
+#
+
+ieee1394:node:ven*units0x00a02d:0x000102
+ieee1394:ven*sp0000A02Dver00000102
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
+# General entry for:
+# * IIDC2 Digital Camera Control Specification Ver.1.0.0 (Jan 26th, 2012, 1394 Trading Association,
+#   TS2011001)
+# * IIDC2 Digital Camera Control Specification Ver.1.1.0 (May 19th, 2015, 1394 Trading Association,
+#   TS2015001)
+#
+
+ieee1394:node:ven*units0x00a02d:0x000110
+ieee1394:ven*sp0000A02Dver00000110
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
 # BridgeCo. Enhancement BreakOut Box (BeBoB) for DM1000, DM1100, and DM1500 ASICs.
 #
 
