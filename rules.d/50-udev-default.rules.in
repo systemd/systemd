@@ -49,11 +49,6 @@ SUBSYSTEM=="sound", GROUP="audio", \
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
 
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
-
 SUBSYSTEM=="firewire", TEST=="units", TEST=="model", \
   IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}mo$attr{model}units$attr{units}'"
 
