@@ -259,18 +259,19 @@ int dhcp4_server_configure(Link *link) {
         if (!link_dhcp4_server_enabled(link))
                 return 0;
 
-        if (!(link->flags & IFF_UP))
+        if (!link_has_carrier(link))
                 return 0;
 
-        if (!link->dhcp_server) {
-                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
-                if (r < 0)
-                        return r;
+        if (link->dhcp_server)
+                return -EBUSY;
 
-                r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
+        if (r < 0)
+                return r;
 
         r = sd_dhcp_server_set_callback(link->dhcp_server, dhcp_server_callback, link);
         if (r < 0)
