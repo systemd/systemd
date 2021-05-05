@@ -114,6 +114,8 @@ static UserDBIterator* userdb_iterator_new(LookupWhat what, UserDBFlags flags) {
         *i = (UserDBIterator) {
                 .what = what,
                 .flags = flags,
+                .synthesize_root = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE),
+                .synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE),
         };
 
         return i;
