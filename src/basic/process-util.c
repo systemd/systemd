@@ -175,7 +175,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
 
         bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
 
-        ans = escape_non_printable_full(t, max_columns, eight_bit);
+        ans = escape_non_printable_full(t, max_columns, eight_bit * XESCAPE_8_BIT);
         if (!ans)
                 return -ENOMEM;
 

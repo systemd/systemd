@@ -360,13 +360,13 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
         return t - r;
 }
 
-char* xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits) {
+char* xescape_full(const char *s, const char *bad, size_t console_width, XEscapeFlags flags) {
         char *ans, *t, *prev, *prev2;
         const char *f;
 
         /* Escapes all chars in bad, in addition to \ and all special chars, in \xFF style escaping. May be
-         * reversed with cunescape(). If eight_bits is true, characters >= 127 are let through unchanged.
-         * This corresponds to non-ASCII printable characters in pre-unicode encodings.
+         * reversed with cunescape(). If XESCAPE_8_BIT is specified, characters >= 127 are let through
+         * unchanged. This corresponds to non-ASCII printable characters in pre-unicode encodings.
          *
          * If console_width is reached, output is truncated and "..." is appended. */
 
@@ -388,7 +388,8 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
                         return ans;
                 }
 
-                if ((unsigned char) *f < ' ' || (!eight_bits && (unsigned char) *f >= 127) ||
+                if ((unsigned char) *f < ' ' ||
+                    (!FLAGS_SET(flags, XESCAPE_8_BIT) && (unsigned char) *f >= 127) ||
                     *f == '\\' || strchr(bad, *f)) {
                         if ((size_t) (t - ans) + 4 > console_width)
                                 break;
@@ -427,9 +428,9 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
         return ans;
 }
 
-char* escape_non_printable_full(const char *str, size_t console_width, bool eight_bit) {
-        if (eight_bit)
-                return xescape_full(str, "", console_width, true);
+char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags) {
+        if (FLAGS_SET(flags, XESCAPE_8_BIT))
+                return xescape_full(str, "", console_width, flags);
         else
                 return utf8_escape_non_printable_full(str, console_width);
 }
