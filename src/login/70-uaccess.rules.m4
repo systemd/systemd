@@ -37,9 +37,7 @@ SUBSYSTEM=="firewire", ENV{ID_FFADO}=="1", TAG+="uaccess"
 SUBSYSTEM=="video4linux", TAG+="uaccess"
 SUBSYSTEM=="dvb", TAG+="uaccess"
 
-# AV/C devices: camcorders, set-top boxes, TV sets, audio devices, and more
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="uaccess"
-
+# industrial cameras, some webcams, camcorders, set-top boxes, TV sets, audio devices, and more
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_MIDI}=="1", TAG+="uaccess"
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_AUDIO}=="1", TAG+="uaccess"
 SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_VIDEO}=="1", TAG+="uaccess"
