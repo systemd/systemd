@@ -152,6 +152,8 @@ char *strextend_with_separator_internal(char **x, const char *separator, ...) _s
 #define strextend_with_separator(x, separator, ...) strextend_with_separator_internal(x, separator, __VA_ARGS__, NULL)
 #define strextend(x, ...) strextend_with_separator_internal(x, NULL, __VA_ARGS__, NULL)
 
+int strextendf(char **x, const char *format, ...) _printf_(2,3);
+
 char *strrep(const char *s, unsigned n);
 
 int split_pair(const char *s, const char *sep, char **l, char **r);

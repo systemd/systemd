@@ -2967,19 +2967,17 @@ static int determine_names(void) {
         if (!arg_machine) {
                 if (arg_directory && path_equal(arg_directory, "/"))
                         arg_machine = gethostname_malloc();
-                else {
-                        if (arg_image) {
-                                char *e;
+                else if (arg_image) {
+                        char *e;
 
-                                arg_machine = strdup(basename(arg_image));
+                        arg_machine = strdup(basename(arg_image));
 
-                                /* Truncate suffix if there is one */
-                                e = endswith(arg_machine, ".raw");
-                                if (e)
-                                        *e = 0;
-                        } else
-                                arg_machine = strdup(basename(arg_directory));
-                }
+                        /* Truncate suffix if there is one */
+                        e = endswith(arg_machine, ".raw");
+                        if (e)
+                                *e = 0;
+                } else
+                        arg_machine = strdup(basename(arg_directory));
                 if (!arg_machine)
                         return log_oom();
 
@@ -2987,20 +2985,11 @@ static int determine_names(void) {
                 if (!hostname_is_valid(arg_machine, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine machine name automatically, please use -M.");
 
-                if (arg_ephemeral) {
-                        char *b;
-
-                        /* Add a random suffix when this is an
-                         * ephemeral machine, so that we can run many
-                         * instances at once without manually having
-                         * to specify -M each time. */
-
-                        if (asprintf(&b, "%s-%016" PRIx64, arg_machine, random_u64()) < 0)
+                /* Add a random suffix when this is an ephemeral machine, so that we can run many
+                 * instances at once without manually having to specify -M each time. */
+                if (arg_ephemeral)
+                        if (strextendf(&arg_machine, "-%016" PRIx64, random_u64()) < 0)
                                 return log_oom();
-
-                        free(arg_machine);
-                        arg_machine = b;
-                }
         }
 
         return 0;
