@@ -228,8 +228,6 @@ Features:
 
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
-* port selinux code from mallinfo() to mallinfo2() once added to glibc
-
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
 
