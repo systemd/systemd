@@ -9,8 +9,8 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-queue.h"
 #include "networkd-route.h"
-#include "networkd-routing-policy-rule.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
@@ -887,7 +887,10 @@ int link_route_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
 
         assert(m);
         assert(link);
+        assert(link->route_remove_messages > 0);
         assert(error_msg);
+
+        link->route_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
@@ -907,6 +910,10 @@ static int manager_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m,
         int r;
 
         assert(m);
+        assert(manager);
+        assert(manager->route_remove_messages > 0);
+
+        manager->route_remove_messages--;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
@@ -966,12 +973,15 @@ int route_remove(
                         return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
                 link_ref(link);
+                link->route_remove_messages++;
         } else {
                 r = netlink_call_async(manager->rtnl, NULL, req,
                                        manager_route_remove_handler,
                                        NULL, manager);
                 if (r < 0)
                         return log_error_errno(r, "Could not send rtnetlink message: %m");
+
+                manager->route_remove_messages++;
         }
 
         return 0;
@@ -1277,7 +1287,7 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         return 1;
 }
 
-int route_configure(
+static int route_configure(
                 const Route *route,
                 Link *link,
                 link_netlink_message_handler_t callback,
@@ -1410,20 +1420,20 @@ int route_configure(
         return k;
 }
 
-static int route_handler_with_gateway(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
-        assert(link->route_messages > 0);
+        assert(link->static_route_messages > 0);
 
-        link->route_messages--;
+        link->static_route_messages--;
 
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set route with gateway");
+        r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
         if (r <= 0)
                 return r;
 
-        if (link->route_messages == 0) {
-                log_link_debug(link, "Routes with gateway set");
+        if (link->static_route_messages == 0) {
+                log_link_debug(link, "Routes set");
                 link->static_routes_configured = true;
                 link_check_ready(link);
         }
@@ -1431,151 +1441,151 @@ static int route_handler_with_gateway(sd_netlink *rtnl, sd_netlink_message *m, L
         return 1;
 }
 
-static int route_handler_without_gateway(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
+int link_request_route(
+                Link *link,
+                Route *route,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret) {
 
         assert(link);
-        assert(link->route_messages > 0);
-
-        link->route_messages--;
-
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set route without gateway");
-        if (r <= 0)
-                return r;
-
-        if (link->route_messages == 0) {
-                log_link_debug(link, "Routes set without gateway");
-                /* Now, we can talk to gateways, let's configure nexthops. */
-                r = link_set_nexthops(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static bool route_has_gateway(const Route *route) {
+        assert(link->manager);
         assert(route);
 
-        if (in_addr_is_set(route->gw_family, &route->gw))
-                return true;
-
-        if (!ordered_set_isempty(route->multipath_routes))
-                return true;
-
-        if (route->nexthop_id > 0)
-                return true;
-
-        return false;
+        log_route_debug(route, "Requesting", link, link->manager);
+        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, consume_object,
+                                  message_counter, netlink_handler, ret);
 }
 
-static int link_set_routes_internal(Link *link, bool with_gateway) {
+int link_request_static_routes(Link *link, bool only_ipv4) {
         Route *route;
         int r;
 
         assert(link);
         assert(link->network);
 
-        HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                bool multipath_ok = true;
-                MultipathRoute *m;
+        link->static_routes_configured = false;
 
+        HASHMAP_FOREACH(route, link->network->routes_by_section) {
                 if (route->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (route_has_gateway(route) != with_gateway)
+                if (only_ipv4 && route->family != AF_INET)
                         continue;
 
-                ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                        if (isempty(m->ifname))
-                                continue;
-
-                        r = resolve_interface(&link->manager->rtnl, m->ifname);
-                        if (r < 0) {
-                                log_link_debug_errno(link, r,
-                                                     "Failed to resolve interface name '%s' for multipath route, "
-                                                     "ignoring the route: %m", m->ifname);
-                                multipath_ok = false;
-                                break;
-                        }
-
-                        m->ifindex = r;
-                }
-                if (!multipath_ok)
-                        continue;
-
-                r = route_configure(route, link, with_gateway ? route_handler_with_gateway : route_handler_without_gateway, NULL);
+                r = link_request_route(link, route, false, &link->static_route_messages,
+                                       static_route_handler, NULL);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set routes: %m");
-
-                link->route_messages++;
+                        return r;
         }
 
-        return 0;
-}
-
-int link_set_routes_with_gateway(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                /* During configuring addresses, the link lost its carrier. As networkd is dropping
-                 * the addresses now, let's not configure the routes either. */
-                return 0;
-
-        /* Finally, add routes that needs a gateway. */
-        r = link_set_routes_internal(link, true);
-        if (r < 0)
-                return r;
-
-        if (link->route_messages == 0) {
+        if (link->static_route_messages == 0) {
                 link->static_routes_configured = true;
                 link_check_ready(link);
         } else {
-                log_link_debug(link, "Setting routes with gateway");
+                log_link_debug(link, "Requesting routes");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
         return 0;
 }
 
-int link_set_routes(Link *link) {
+static int route_is_ready_to_configure(const Route *route, Link *link) {
+        MultipathRoute *m;
+        NextHop *nh = NULL;
         int r;
 
+        assert(route);
         assert(link);
-        assert(link->network);
-        assert(link->state != _LINK_STATE_INVALID);
 
-        link->static_routes_configured = false;
+        if (route->nexthop_id > 0 &&
+            manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh) < 0)
+                return false;
 
-        if (!link->addresses_ready)
-                return 0;
+        if (route_type_is_reject(route) || (nh && nh->blackhole)) {
+                if (nh && link->manager->nexthop_remove_messages > 0)
+                        return false;
+                if (link->manager->route_remove_messages > 0)
+                        return false;
+        } else {
+                Link *l;
 
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                /* During configuring addresses, the link lost its carrier. As networkd is dropping
-                 * the addresses now, let's not configure the routes either. */
-                return 0;
-
-        if (link->route_messages != 0) {
-                log_link_debug(link, "Static routes are configuring.");
-                return 0;
+                HASHMAP_FOREACH(l, link->manager->links) {
+                        if (l->address_remove_messages > 0)
+                                return false;
+                        if (l->nexthop_remove_messages > 0)
+                                return false;
+                        if (l->route_remove_messages > 0)
+                                return false;
+                }
         }
 
-        /* First, add the routes that enable us to talk to gateways. */
-        r = link_set_routes_internal(link, false);
+        if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
+                r = manager_has_address(link->manager, route->family, &route->prefsrc, route->family == AF_INET6);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (route->gateway_onlink <= 0 &&
+            in_addr_is_set(route->gw_family, &route->gw) > 0 &&
+            !manager_address_is_reachable(link->manager, route->gw_family, &route->gw))
+                return false;
+
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                union in_addr_union a = m->gateway.address;
+
+                if (route->gateway_onlink <= 0 &&
+                    !manager_address_is_reachable(link->manager, m->gateway.family, &a))
+                        return false;
+
+                if (m->ifname) {
+                        Link *l;
+
+                        r = resolve_interface(&link->manager->rtnl, m->ifname);
+                        if (r < 0)
+                                return false;
+                        m->ifindex = r;
+
+                        if (link_get(link->manager, m->ifindex, &l) < 0)
+                                return false;
+
+                        if (!link_is_ready_to_configure(l, true))
+                                return false;
+                }
+        }
+
+        return true;
+}
+
+int request_process_route(Request *req) {
+        Route *ret = NULL;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->route);
+        assert(req->type == REQUEST_TYPE_ROUTE);
+
+        if (!link_is_ready_to_configure(req->link, false))
+                return 0;
+
+        r = route_is_ready_to_configure(req->route, req->link);
+        if (r <= 0)
+                return r;
+
+        r = route_configure(req->route, req->link, req->netlink_handler,
+                            ordered_set_isempty(req->route->multipath_routes) ? &ret : NULL);
         if (r < 0)
                 return r;
 
-        if (link->route_messages == 0)
-                /* If no route is configured, then configure nexthops. */
-                return link_set_nexthops(link);
+        if (req->after_configure) {
+                r = req->after_configure(req, ret);
+                if (r < 0)
+                        return r;
+        }
 
-        log_link_debug(link, "Setting routes without gateway");
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        return 0;
+        return 1;
 }
 
 static int process_route_one(Manager *manager, Link *link, uint16_t type, const Route *tmp, const MultipathRoute *m) {

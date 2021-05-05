@@ -8,39 +8,55 @@
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
+
+static int address_new_from_ipv4ll(Link *link, Address **ret) {
+        _cleanup_(address_freep) Address *address = NULL;
+        struct in_addr addr;
+        int r;
+
+        assert(link);
+        assert(link->ipv4ll);
+        assert(ret);
+
+        r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
+        if (r < 0)
+                return r;
+
+        r = address_new(&address);
+        if (r < 0)
+                return -ENOMEM;
+
+        address->family = AF_INET;
+        address->in_addr.in = addr;
+        address->prefixlen = 16;
+        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> address->prefixlen);
+        address->scope = RT_SCOPE_LINK;
+        address->route_metric = IPV4LL_ROUTE_METRIC;
+
+        *ret = TAKE_PTR(address);
+        return 0;
+}
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_(address_freep) Address *address = NULL;
-        struct in_addr addr;
         int r;
 
         assert(link);
 
         link->ipv4ll_address_configured = false;
 
-        r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
-        if (r < 0)
+        r = address_new_from_ipv4ll(link, &address);
+        if (r == -ENOENT)
                 return 0;
-
-        log_link_debug(link, "IPv4 link-local release "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(addr));
-
-        r = address_new(&address);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate address: %m");
-
-        address->family = AF_INET;
-        address->in_addr.in = addr;
-        address->prefixlen = 16;
-        address->scope = RT_SCOPE_LINK;
-
-        r = address_remove(address, link, NULL);
         if (r < 0)
                 return r;
 
-        link_check_ready(link);
+        log_link_debug(link, "IPv4 link-local release "IPV4_ADDRESS_FMT_STR,
+                       IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
-        return 0;
+        return address_remove(address, link, NULL);
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -60,8 +76,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 }
 
 static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
-        _cleanup_(address_freep) Address *ll_addr = NULL;
-        struct in_addr address;
+        _cleanup_(address_freep) Address *address = NULL;
         int r;
 
         assert(ll);
@@ -69,31 +84,16 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
 
         link->ipv4ll_address_configured = false;
 
-        r = sd_ipv4ll_get_address(ll, &address);
+        r = address_new_from_ipv4ll(link, &address);
         if (r == -ENOENT)
                 return 0;
-        else if (r < 0)
+        if (r < 0)
                 return r;
 
         log_link_debug(link, "IPv4 link-local claim "IPV4_ADDRESS_FMT_STR,
-                       IPV4_ADDRESS_FMT_VAL(address));
+                       IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
-        r = address_new(&ll_addr);
-        if (r < 0)
-                return r;
-
-        ll_addr->family = AF_INET;
-        ll_addr->in_addr.in = address;
-        ll_addr->prefixlen = 16;
-        ll_addr->broadcast.s_addr = ll_addr->in_addr.in.s_addr | htobe32(0xfffffffflu >> ll_addr->prefixlen);
-        ll_addr->scope = RT_SCOPE_LINK;
-        ll_addr->route_metric = IPV4LL_ROUTE_METRIC;
-
-        r = address_configure(ll_addr, link, ipv4ll_address_handler, NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_request_address(link, TAKE_PTR(address), true, NULL, ipv4ll_address_handler, NULL);
 }
 
 static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {

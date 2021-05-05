@@ -70,10 +70,12 @@ struct Manager {
         Hashmap *nexthops_by_id;
 
         /* Manager stores nexthops without RTA_OIF attribute. */
+        unsigned nexthop_remove_messages;
         Set *nexthops;
         Set *nexthops_foreign;
 
         /* Manager stores routes without RTA_OIF attribute. */
+        unsigned route_remove_messages;
         Set *routes;
         Set *routes_foreign;
 

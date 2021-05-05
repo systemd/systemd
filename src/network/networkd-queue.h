@@ -5,7 +5,10 @@
 
 #include "networkd-link.h"
 
+typedef struct Address Address;
 typedef struct Neighbor Neighbor;
+typedef struct NextHop NextHop;
+typedef struct Route Route;
 typedef struct RoutingPolicyRule RoutingPolicyRule;
 
 typedef struct Request Request;
@@ -14,7 +17,10 @@ typedef int (*request_after_configure_handler_t)(Request*, void*);
 typedef void (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
+        REQUEST_TYPE_ADDRESS,
         REQUEST_TYPE_NEIGHBOR,
+        REQUEST_TYPE_NEXTHOP,
+        REQUEST_TYPE_ROUTE,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
         _REQUEST_TYPE_MAX,
         _REQUEST_TYPE_INVALID = -EINVAL,
@@ -25,7 +31,10 @@ typedef struct Request {
         RequestType type;
         bool consume_object;
         union {
+                Address *address;
                 Neighbor *neighbor;
+                NextHop *nexthop;
+                Route *route;
                 RoutingPolicyRule *rule;
                 void *object;
         };
