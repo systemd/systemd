@@ -271,20 +271,17 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                         return sd_device_new_from_syspath(ret, syspath);
 
         } else if (streq(subsystem, "drivers")) {
-                char subsys[PATH_MAX];
-                char *driver;
+                const char *subsys, *sep;
 
-                strscpy(subsys, sizeof(subsys), sysname);
-                driver = strchr(subsys, ':');
-                if (driver) {
-                        driver[0] = '\0';
-                        driver++;
+                sep = strchr(sysname, ':');
+                if (sep) {
+                        subsys = memdupa_suffix0(sysname, sep - sysname);
 
-                        if (snprintf_ok(syspath, sizeof syspath, "/sys/subsystem/%s/drivers/%s", subsys, driver) &&
+                        if (snprintf_ok(syspath, sizeof syspath, "/sys/subsystem/%s/drivers/%s", subsys, sep + 1) &&
                             access(syspath, F_OK) >= 0)
                                 return sd_device_new_from_syspath(ret, syspath);
 
-                        if (snprintf_ok(syspath, sizeof syspath, "/sys/bus/%s/drivers/%s", subsys, driver) &&
+                        if (snprintf_ok(syspath, sizeof syspath, "/sys/bus/%s/drivers/%s", subsys, sep + 1) &&
                             access(syspath, F_OK) >= 0)
                                 return sd_device_new_from_syspath(ret, syspath);
                 }
@@ -652,17 +649,15 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
         }
 
         case '+': {
-                char subsys[NAME_MAX+1]; /* NAME_MAX does not include the trailing NUL. */
-                const char *sysname;
+                const char *subsys, *sep;
 
-                sysname = strchr(id + 1, ':');
-                if (!sysname)
+                sep = strchr(id + 1, ':');
+                if (!sep || sep - id - 1 > NAME_MAX)
                         return -EINVAL;
 
-                (void) strnscpy(subsys, sizeof(subsys), id + 1, sysname - id - 1);
-                sysname++;
+                subsys = memdupa_suffix0(id + 1, sep - id - 1);
 
-                return sd_device_new_from_subsystem_sysname(ret, subsys, sysname);
+                return sd_device_new_from_subsystem_sysname(ret, subsys, sep + 1);
         }
 
         default:
