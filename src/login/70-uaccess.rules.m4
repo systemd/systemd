@@ -30,9 +30,6 @@ SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", TAG+="uaccess
 SUBSYSTEM=="sound", TAG+="uaccess", \
   OPTIONS+="static_node=snd/timer", OPTIONS+="static_node=snd/seq"
 
-# ffado is an userspace driver for firewire sound cards
-SUBSYSTEM=="firewire", ENV{ID_FFADO}=="1", TAG+="uaccess"
-
 # Webcams, frame grabber, TV cards
 SUBSYSTEM=="video4linux", TAG+="uaccess"
 SUBSYSTEM=="dvb", TAG+="uaccess"
