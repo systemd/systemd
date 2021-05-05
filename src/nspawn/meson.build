@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 libnspawn_core_sources = files('''
+        nspawn-bind-user.c
+        nspawn-bind-user.h
         nspawn-cgroup.c
         nspawn-cgroup.h
         nspawn-creds.c
