@@ -100,18 +100,6 @@ Features:
 
 * nspawn: default to 1:1 userns
 
-* Provide a reasonably bespoke solution for mounting host $HOME directories
-  into containers:
-  • add new option --mount-user=$USER for mounting $HOME of the user into the
-    container at the same place
-  • check /etc/passwd for UID or user name clashes. If UID clash pick a different
-    UID in container, and map via userns. If user name clash, refuse. If
-    matching user already exists use that.
-  • otherwise: write user record of specified user into /run/host/passwd or so
-  • in nss-systemd pick up user record from there and make available to system
-  With all that in place if nspawn host and container payload are up-to-date
-  enough we have a very simple way to make host users available in containers.
-
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
 
@@ -237,8 +225,6 @@ Features:
 
 * homed: keep an fd to the homedir open at all times, to keep the fs pinned
   (autofs and such) while user is logged in.
-
-* nss-systemd: also synthesize shadow records for users/groups
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
