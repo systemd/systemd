@@ -312,16 +312,16 @@ enum nss_status _nss_systemd_endgrent(void) {
 }
 
 enum nss_status _nss_systemd_setpwent(int stayopen) {
+        int r;
+
         PROTECT_ERRNO;
         NSS_ENTRYPOINT_BEGIN;
 
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
-        int r;
-
-        _l = pthread_mutex_lock_assert(&getpwent_data.mutex);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l =
+                pthread_mutex_lock_assert(&getpwent_data.mutex);
 
         getpwent_data.iterator = userdb_iterator_free(getpwent_data.iterator);
         getpwent_data.by_membership = false;
@@ -336,16 +336,16 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
 }
 
 enum nss_status _nss_systemd_setgrent(int stayopen) {
+        int r;
+
         PROTECT_ERRNO;
         NSS_ENTRYPOINT_BEGIN;
 
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
-        int r;
-
-        _l = pthread_mutex_lock_assert(&getgrent_data.mutex);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l =
+                pthread_mutex_lock_assert(&getgrent_data.mutex);
 
         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
         getgrent_data.by_membership = false;
@@ -372,9 +372,8 @@ enum nss_status _nss_systemd_getpwent_r(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
-
-        _l = pthread_mutex_lock_assert(&getpwent_data.mutex);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l
+                = pthread_mutex_lock_assert(&getpwent_data.mutex);
 
         if (!getpwent_data.iterator) {
                 UNPROTECT_ERRNO;
@@ -419,9 +418,8 @@ enum nss_status _nss_systemd_getgrent_r(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
-
-        _l = pthread_mutex_lock_assert(&getgrent_data.mutex);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l =
+                pthread_mutex_lock_assert(&getgrent_data.mutex);
 
         if (!getgrent_data.iterator) {
                 UNPROTECT_ERRNO;
