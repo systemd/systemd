@@ -278,7 +278,7 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
                 const char *subsys, *sep;
 
                 sep = strchr(sysname, ':');
-                if (sep) {
+                if (sep && sep[1] != '\0') { /* Require ":" and something non-empty after that. */
                         subsys = memdupa_suffix0(sysname, sep - sysname);
 
                         if (snprintf_ok(syspath, sizeof syspath, "/sys/subsystem/%s/drivers/%s", subsys, sep + 1) &&
