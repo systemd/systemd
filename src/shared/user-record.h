@@ -169,6 +169,9 @@ typedef enum UserRecordLoadFlags {
 
         /* Whether to ignore errors and load what we can */
         USER_RECORD_PERMISSIVE          = 1U << 29,
+
+        /* Whether an empty record is OK */
+        USER_RECORD_EMPTY_OK            = 1U << 30,
 } UserRecordLoadFlags;
 
 static inline UserRecordLoadFlags USER_RECORD_REQUIRE(UserRecordMask m) {
