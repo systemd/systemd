@@ -10,6 +10,7 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
+#include "networkd-queue.h"
 #include "networkd-util.h"
 
 typedef struct Manager Manager;
@@ -71,17 +72,28 @@ extern const struct hash_ops route_hash_ops;
 int route_new(Route **ret);
 Route *route_free(Route *route);
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
+int route_dup(const Route *src, Route **ret);
 
-int route_configure(const Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
-int link_set_routes(Link *link);
-int link_set_routes_with_gateway(Link *link);
+int link_has_route(Link *link, const Route *route);
+bool manager_address_is_reachable(Manager *manager, int family, const union in_addr_union *address);
+
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 
 uint32_t link_get_dhcp_route_table(const Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(const Link *link);
+
+int link_request_route(
+                Link *link,
+                Route *route,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret);
+int link_request_static_routes(Link *link, bool only_ipv4);
+int request_process_route(Request *req);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
