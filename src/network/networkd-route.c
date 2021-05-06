@@ -288,7 +288,7 @@ Route *route_free(Route *route) {
                 set_remove(route->manager->routes_foreign, route);
         }
 
-        ordered_set_free_free(route->multipath_routes);
+        ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
 
         sd_event_source_unref(route->expire);
 
@@ -1299,20 +1299,41 @@ static bool route_has_gateway(const Route *route) {
 }
 
 static int link_set_routes_internal(Link *link, bool with_gateway) {
-        Route *rt;
+        Route *route;
         int r;
 
         assert(link);
         assert(link->network);
 
-        HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                if (rt->gateway_from_dhcp_or_ra)
+        HASHMAP_FOREACH(route, link->network->routes_by_section) {
+                bool multipath_ok = true;
+                MultipathRoute *m;
+
+                if (route->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (route_has_gateway(rt) != with_gateway)
+                if (route_has_gateway(route) != with_gateway)
                         continue;
 
-                r = route_configure(rt, link, with_gateway ? route_handler_with_gateway : route_handler_without_gateway, NULL);
+                ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                        if (isempty(m->ifname))
+                                continue;
+
+                        r = resolve_interface(&link->manager->rtnl, m->ifname);
+                        if (r < 0) {
+                                log_link_debug_errno(link, r,
+                                                     "Failed to resolve interface name '%s' for multipath route, "
+                                                     "ignoring the route: %m", m->ifname);
+                                multipath_ok = false;
+                                break;
+                        }
+
+                        m->ifindex = r;
+                }
+                if (!multipath_ok)
+                        continue;
+
+                r = route_configure(route, link, with_gateway ? route_handler_with_gateway : route_handler_without_gateway, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set routes: %m");
 
@@ -2460,13 +2481,14 @@ int config_parse_multipath_route(
                 void *data,
                 void *userdata) {
 
+        _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        _cleanup_free_ char *word = NULL, *buf = NULL;
-        _cleanup_free_ MultipathRoute *m = NULL;
+        _cleanup_free_ char *word = NULL;
         Network *network = userdata;
-        const char *p, *ip, *dev;
         union in_addr_union a;
         int family, r;
+        const char *p;
+        char *dev;
 
         assert(filename);
         assert(section);
@@ -2484,7 +2506,7 @@ int config_parse_multipath_route(
         }
 
         if (isempty(rvalue)) {
-                n->multipath_routes = ordered_set_free_free(n->multipath_routes);
+                n->multipath_routes = ordered_set_free_with_destructor(n->multipath_routes, multipath_route_free);
                 return 0;
         }
 
@@ -2504,15 +2526,14 @@ int config_parse_multipath_route(
 
         dev = strchr(word, '@');
         if (dev) {
-                buf = strndup(word, dev - word);
-                if (!buf)
-                        return log_oom();
-                ip = buf;
-                dev++;
-        } else
-                ip = word;
+                *dev++ = '\0';
 
-        r = in_addr_from_string_auto(ip, &family, &a);
+                m->ifname = strdup(dev);
+                if (!m->ifname)
+                        return log_oom();
+        }
+
+        r = in_addr_from_string_auto(word, &family, &a);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
@@ -2520,16 +2541,6 @@ int config_parse_multipath_route(
         }
         m->gateway.address = a;
         m->gateway.family = family;
-
-        if (dev) {
-                r = resolve_interface(NULL, dev);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid interface name or index, ignoring assignment: %s", dev);
-                        return 0;
-                }
-                m->ifindex = r;
-        }
 
         if (!isempty(p)) {
                 r = safe_atou32(p, &m->weight);

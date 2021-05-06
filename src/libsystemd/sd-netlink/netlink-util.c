@@ -409,6 +409,15 @@ int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void
         return 0;
 }
 
+MultipathRoute *multipath_route_free(MultipathRoute *m) {
+        if (!m)
+                return NULL;
+
+        free(m->ifname);
+
+        return mfree(m);
+}
+
 int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, OrderedSet **ret) {
         _cleanup_ordered_set_free_free_ OrderedSet *set = NULL;
         int r;
@@ -420,7 +429,7 @@ int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, O
                 return -EBADMSG;
 
         for (; size >= sizeof(struct rtnexthop); ) {
-                _cleanup_free_ MultipathRoute *m = NULL;
+                _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
 
                 if (NLMSG_ALIGN(rtnh->rtnh_len) > size)
                         return -EBADMSG;
