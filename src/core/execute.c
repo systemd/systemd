@@ -5222,7 +5222,7 @@ static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv
         assert(name);
 
         if (!strv_isempty(strv)) {
-                fprintf(f, "%s%s:", name, prefix);
+                fprintf(f, "%s%s:", prefix, name);
                 strv_fprintf(f, strv);
                 fputs("\n", f);
         }
