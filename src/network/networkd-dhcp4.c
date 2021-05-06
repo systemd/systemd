@@ -783,8 +783,7 @@ static int dhcp_lease_lost(Link *link) {
 }
 
 static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        _cleanup_free_ char *pretty = NULL;
-        union in_addr_union address = {};
+        struct in_addr address;
         Link *link;
         int r;
 
@@ -795,23 +794,21 @@ static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
-                log_link_debug(link, "Stopping ACD client for DHCP4...");
+                log_link_debug(link, "Stopping ACD client for DHCPv4 address.");
                 return;
 
         case SD_IPV4ACD_EVENT_BIND:
                 if (DEBUG_LOGGING) {
-                        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
-                        (void) in_addr_to_string(AF_INET, &address, &pretty);
-                        log_link_debug(link, "Successfully claimed DHCP4 address %s", strna(pretty));
+                        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+                        log_link_debug(link, "Successfully claimed DHCPv4 address "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address));
                 }
                 link->dhcp4_address_bind = true;
                 dhcp4_check_ready(link);
                 break;
 
         case SD_IPV4ACD_EVENT_CONFLICT:
-                (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
-                (void) in_addr_to_string(AF_INET, &address, &pretty);
-                log_link_warning(link, "DAD conflict. Dropping DHCP4 address %s", strna(pretty));
+                (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+                log_link_warning(link, "DAD conflict. Dropping DHCPv4 address "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address));
 
                 r = sd_dhcp_client_send_decline(link->dhcp_client);
                 if (r < 0)
@@ -893,8 +890,7 @@ static int dhcp4_dad_update_mac(Link *link) {
 }
 
 static int dhcp4_start_acd(Link *link) {
-        union in_addr_union addr;
-        struct in_addr old;
+        struct in_addr addr, old;
         int r;
 
         if (!link->network->dhcp_send_decline)
@@ -907,7 +903,7 @@ static int dhcp4_start_acd(Link *link) {
 
         link->dhcp4_address_bind = false;
 
-        r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr.in);
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr);
         if (r < 0)
                 return r;
 
@@ -915,7 +911,7 @@ static int dhcp4_start_acd(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_address(link->dhcp_acd, &addr.in);
+        r = sd_ipv4acd_set_address(link->dhcp_acd, &addr);
         if (r < 0)
                 return r;
 
@@ -923,18 +919,10 @@ static int dhcp4_start_acd(Link *link) {
         if (r < 0)
                 return r;
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *pretty = NULL;
+        log_link_debug(link, "Starting IPv4ACD client. Probing DHCPv4 address "IPV4_ADDRESS_FMT_STR,
+                       IPV4_ADDRESS_FMT_VAL(addr));
 
-                (void) in_addr_to_string(AF_INET, &addr, &pretty);
-                log_link_debug(link, "Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
-        }
-
-        r = sd_ipv4acd_start(link->dhcp_acd, !in4_addr_equal(&addr.in, &old));
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_ipv4acd_start(link->dhcp_acd, !in4_addr_equal(&addr, &old));
 }
 
 static int dhcp4_address_ready_callback(Address *address) {
