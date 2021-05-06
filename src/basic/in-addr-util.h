@@ -73,7 +73,13 @@ int in_addr_prefix_range(
                 union in_addr_union *ret_start,
                 union in_addr_union *ret_end);
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
+static inline int in6_addr_to_string(const struct in6_addr *u, char **ret) {
+        return in_addr_to_string(AF_INET6, (const union in_addr_union*) u, ret);
+}
 int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret);
+static inline int in6_addr_prefix_to_string(const struct in6_addr *u, unsigned prefixlen, char **ret) {
+        return in_addr_prefix_to_string(AF_INET6, (const union in_addr_union*) u, prefixlen, ret);
+}
 int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u, uint16_t port, int ifindex, const char *server_name, char **ret);
 static inline int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret) {
         return in_addr_port_ifindex_name_to_string(family, u, 0, ifindex, NULL, ret);
