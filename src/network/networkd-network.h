@@ -228,7 +228,7 @@ struct Network {
         bool dhcp6_pd_manage_temporary_address;
         int64_t dhcp6_pd_subnet_id;
         uint32_t dhcp6_pd_route_metric;
-        union in_addr_union dhcp6_pd_token;
+        struct in6_addr dhcp6_pd_token;
 
         /* Bridge Support */
         int use_bpdu;

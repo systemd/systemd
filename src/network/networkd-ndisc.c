@@ -89,6 +89,7 @@ static int ndisc_address_callback(Address *address) {
 
         assert(address);
         assert(address->link);
+        assert(address->family == AF_INET6);
 
         SET_FOREACH(n, address->link->ndisc_addresses)
                 if (n->address == address) {
@@ -99,7 +100,7 @@ static int ndisc_address_callback(Address *address) {
         if (in6_addr_is_null(&router)) {
                 _cleanup_free_ char *buf = NULL;
 
-                (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
+                (void) in6_addr_prefix_to_string(&address->in_addr.in6, address->prefixlen, &buf);
                 log_link_debug(address->link, "%s is called for %s, but it is already removed, ignoring.",
                                __func__, strna(buf));
                 return 0;
@@ -107,7 +108,7 @@ static int ndisc_address_callback(Address *address) {
 
         /* Make this called only once */
         SET_FOREACH(n, address->link->ndisc_addresses)
-                if (IN6_ARE_ADDR_EQUAL(&n->router, &router))
+                if (in6_addr_equal(&n->router, &router))
                         n->address->callback = NULL;
 
         return ndisc_remove_old_one(address->link, &router, true);
@@ -131,7 +132,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
                         return 0;
 
                 SET_FOREACH(na, link->ndisc_addresses)
-                        if (!na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router)) {
+                        if (!na->marked && in6_addr_equal(&na->router, router)) {
                                 set_callback = true;
                                 break;
                         }
@@ -145,13 +146,13 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 
                 if (set_callback) {
                         SET_FOREACH(na, link->ndisc_addresses)
-                                if (!na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router))
+                                if (!na->marked && in6_addr_equal(&na->router, router))
                                         na->address->callback = ndisc_address_callback;
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *buf = NULL;
 
-                                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) router, &buf);
+                                (void) in6_addr_to_string(router, &buf);
                                 log_link_debug(link, "No SLAAC address obtained from %s is ready. "
                                                "The old NDisc information will be removed later.",
                                                strna(buf));
@@ -163,32 +164,32 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf = NULL;
 
-                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) router, &buf);
+                (void) in6_addr_to_string(router, &buf);
                 log_link_debug(link, "Removing old NDisc information obtained from %s.", strna(buf));
         }
 
         SET_FOREACH(na, link->ndisc_addresses)
-                if (na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router)) {
+                if (na->marked && in6_addr_equal(&na->router, router)) {
                         k = address_remove(na->address, link, NULL);
                         if (k < 0)
                                 r = k;
                 }
 
         SET_FOREACH(nr, link->ndisc_routes)
-                if (nr->marked && IN6_ARE_ADDR_EQUAL(&nr->router, router)) {
+                if (nr->marked && in6_addr_equal(&nr->router, router)) {
                         k = route_remove(nr->route, NULL, link, NULL);
                         if (k < 0)
                                 r = k;
                 }
 
         SET_FOREACH(rdnss, link->ndisc_rdnss)
-                if (rdnss->marked && IN6_ARE_ADDR_EQUAL(&rdnss->router, router)) {
+                if (rdnss->marked && in6_addr_equal(&rdnss->router, router)) {
                         free(set_remove(link->ndisc_rdnss, rdnss));
                         updated = true;
                 }
 
         SET_FOREACH(dnssl, link->ndisc_dnssl)
-                if (dnssl->marked && IN6_ARE_ADDR_EQUAL(&dnssl->router, router)) {
+                if (dnssl->marked && in6_addr_equal(&dnssl->router, router)) {
                         free(set_remove(link->ndisc_dnssl, dnssl));
                         updated = true;
                 }
@@ -476,7 +477,7 @@ static int ndisc_address_configure(Address *address, Link *link, sd_ndisc_router
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        union in_addr_union gateway;
+        struct in6_addr gateway;
         uint16_t lifetime;
         unsigned preference;
         uint32_t table, mtu;
@@ -493,17 +494,17 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (lifetime == 0) /* not a default router */
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &gateway.in6);
+        r = sd_ndisc_router_get_address(rt, &gateway);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_has_ipv6_address(link, &gateway.in6) > 0) {
+        if (link_has_ipv6_address(link, &gateway) > 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buffer = NULL;
 
-                        (void) in_addr_to_string(AF_INET6, &gateway, &buffer);
+                        (void) in6_addr_to_string(&gateway, &buffer);
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       strnull(buffer));
+                                       strna(buffer));
                 }
                 return 0;
         }
@@ -534,7 +535,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw_family = AF_INET6;
-        route->gw = gateway;
+        route->gw.in6 = gateway;
         route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
         route->mtu = mtu;
 
@@ -550,7 +551,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (route_gw->gw_family != AF_INET6)
                         continue;
 
-                route_gw->gw = gateway;
+                route_gw->gw.in6 = gateway;
                 if (!route_gw->table_set)
                         route_gw->table = table;
                 if (!route_gw->priority_set)
@@ -650,7 +651,7 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
-                    && (in6_addr_is_null(&j->prefix) || IN6_ARE_ADDR_EQUAL(&j->prefix, address))) {
+                    && (in6_addr_is_null(&j->prefix) || in6_addr_equal(&j->prefix, address))) {
                         /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
                          * does not actually attempt Duplicate Address Detection; the counter will be incremented
                          * only when the address generation algorithm produces an invalid address, and the loop
@@ -833,7 +834,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        union in_addr_union gateway, dst;
+        struct in6_addr gateway, dst;
         uint32_t lifetime;
         unsigned preference, prefixlen;
         usec_t time_now;
@@ -848,35 +849,35 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (lifetime == 0)
                 return 0;
 
-        r = sd_ndisc_router_route_get_address(rt, &dst.in6);
+        r = sd_ndisc_router_route_get_address(rt, &dst);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route address: %m");
 
         if ((!set_isempty(link->network->ndisc_allow_listed_route_prefix) &&
-             !set_contains(link->network->ndisc_allow_listed_route_prefix, &dst.in6)) ||
-            set_contains(link->network->ndisc_deny_listed_route_prefix, &dst.in6)) {
+             !set_contains(link->network->ndisc_allow_listed_route_prefix, &dst)) ||
+            set_contains(link->network->ndisc_deny_listed_route_prefix, &dst)) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
-                        (void) in_addr_to_string(AF_INET6, &dst, &buf);
+                        (void) in6_addr_to_string(&dst, &buf);
                         if (!set_isempty(link->network->ndisc_allow_listed_route_prefix))
-                                log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring", strnull(buf));
+                                log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring", strna(buf));
                         else
-                                log_link_debug(link, "Route prefix '%s' is in deny list, ignoring", strnull(buf));
+                                log_link_debug(link, "Route prefix '%s' is in deny list, ignoring", strna(buf));
                 }
                 return 0;
         }
 
-        r = sd_ndisc_router_get_address(rt, &gateway.in6);
+        r = sd_ndisc_router_get_address(rt, &gateway);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_has_ipv6_address(link, &gateway.in6) > 0) {
+        if (link_has_ipv6_address(link, &gateway) > 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
-                        (void) in_addr_to_string(AF_INET6, &gateway, &buf);
-                        log_link_debug(link, "Advertised route gateway, %s, is local to the link, ignoring route", strnull(buf));
+                        (void) in6_addr_to_string(&gateway, &buf);
+                        log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route", strna(buf));
                 }
                 return 0;
         }
@@ -902,9 +903,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->priority = link->network->ipv6_accept_ra_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
-        route->gw = gateway;
+        route->gw.in6 = gateway;
         route->gw_family = AF_INET6;
-        route->dst = dst;
+        route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
         route->lifetime = usec_add(time_now, lifetime * USEC_PER_SEC);
 
@@ -959,7 +960,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, n, "Failed to get RDNSS addresses: %m");
 
         SET_FOREACH(rdnss, link->ndisc_rdnss)
-                if (IN6_ARE_ADDR_EQUAL(&rdnss->router, &router))
+                if (in6_addr_equal(&rdnss->router, &router))
                         rdnss->marked = true;
 
         if (lifetime == 0)
@@ -1053,7 +1054,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get DNSSL addresses: %m");
 
         SET_FOREACH(dnssl, link->ndisc_dnssl)
-                if (IN6_ARE_ADDR_EQUAL(&dnssl->router, &router))
+                if (in6_addr_equal(&dnssl->router, &router))
                         dnssl->marked = true;
 
         if (lifetime == 0)
@@ -1119,20 +1120,20 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                 switch (type) {
 
                 case SD_NDISC_OPTION_PREFIX_INFORMATION: {
-                        union in_addr_union a;
+                        struct in6_addr a;
                         uint8_t flags;
 
-                        r = sd_ndisc_router_prefix_get_address(rt, &a.in6);
+                        r = sd_ndisc_router_prefix_get_address(rt, &a);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
                         if ((!set_isempty(link->network->ndisc_allow_listed_prefix) &&
-                             !set_contains(link->network->ndisc_allow_listed_prefix, &a.in6)) ||
-                            set_contains(link->network->ndisc_deny_listed_prefix, &a.in6)) {
+                             !set_contains(link->network->ndisc_allow_listed_prefix, &a)) ||
+                            set_contains(link->network->ndisc_deny_listed_prefix, &a)) {
                                 if (DEBUG_LOGGING) {
                                         _cleanup_free_ char *b = NULL;
 
-                                        (void) in_addr_to_string(AF_INET6, &a, &b);
+                                        (void) in6_addr_to_string(&a, &b);
                                         if (!set_isempty(link->network->ndisc_allow_listed_prefix))
                                                 log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
                                         else
@@ -1187,7 +1188,7 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
-        union in_addr_union router;
+        struct in6_addr router;
         uint64_t flags;
         NDiscAddress *na;
         NDiscRoute *nr;
@@ -1198,17 +1199,17 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         assert(link->manager);
         assert(rt);
 
-        r = sd_ndisc_router_get_address(rt, &router.in6);
+        r = sd_ndisc_router_get_address(rt, &router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
         if ((!set_isempty(link->network->ndisc_allow_listed_router) &&
-             !set_contains(link->network->ndisc_allow_listed_router, &router.in6)) ||
-            set_contains(link->network->ndisc_deny_listed_router, &router.in6)) {
+             !set_contains(link->network->ndisc_allow_listed_router, &router)) ||
+            set_contains(link->network->ndisc_deny_listed_router, &router)) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
-                        (void) in_addr_to_string(AF_INET6, &router, &buf);
+                        (void) in6_addr_to_string(&router, &buf);
                         if (!set_isempty(link->network->ndisc_allow_listed_router))
                                 log_link_debug(link, "Router '%s' is not in allow list, ignoring", strna(buf));
                         else
@@ -1218,11 +1219,11 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         }
 
         SET_FOREACH(na, link->ndisc_addresses)
-                if (IN6_ARE_ADDR_EQUAL(&na->router, &router.in6))
+                if (in6_addr_equal(&na->router, &router))
                         na->marked = true;
 
         SET_FOREACH(nr, link->ndisc_routes)
-                if (IN6_ARE_ADDR_EQUAL(&nr->router, &router.in6))
+                if (in6_addr_equal(&nr->router, &router))
                         nr->marked = true;
 
         r = sd_ndisc_router_get_flags(rt, &flags);
