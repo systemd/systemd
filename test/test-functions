@@ -1131,6 +1131,10 @@ save_journal() {
         rm -r "$j"
     done
 
+    if [ -n "${SUDO_USER}" ]; then
+        setfacl -m "user:${SUDO_USER:?}:r-X" "$dest"*
+    fi
+
     # we want to print this sometime later, so save this in a variable
     JOURNAL_LIST="$(ls -l "$dest"*)"
 }
@@ -1142,6 +1146,9 @@ check_result_common() {
     if [ -s "$workspace/failed" ]; then
         # Non-empty …/failed has highest priority
         cp -a "$workspace/failed" "${TESTDIR:?}/"
+        if [ -n "${SUDO_USER}" ]; then
+            setfacl -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}/"failed
+        fi
         ret=1
     elif [ -e "$workspace/testok" ]; then
         # …/testok always counts (but with lower priority than …/failed)
@@ -2477,7 +2484,6 @@ do_test() {
     if [ -n "${SUDO_USER}" ]; then
         ddebug "Making ${TESTDIR:?} readable for ${SUDO_USER} (acquired from sudo)"
         setfacl -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}"
-        setfacl -d -m "user:${SUDO_USER:?}:r-X" "${TESTDIR:?}"
     fi
 
     testname="$(basename "$PWD")"
