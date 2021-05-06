@@ -1737,7 +1737,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf, NULL);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;

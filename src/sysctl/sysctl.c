@@ -187,7 +187,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, NULL);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;

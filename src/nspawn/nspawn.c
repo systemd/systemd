@@ -63,6 +63,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"
+#include "nspawn-bind-user.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-creds.h"
 #include "nspawn-def.h"
@@ -76,6 +77,7 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "nspawn.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "pager.h"
@@ -225,6 +227,7 @@ static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
 static Credential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
+static char **arg_bind_user = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -257,6 +260,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
 STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 
 static int handle_arg_console(const char *arg) {
         if (streq(arg, "help")) {
@@ -420,7 +424,9 @@ static int help(void) {
                "                            Create an overlay mount from the host to \n"
                "                            the container\n"
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
-               "                            Similar, but creates a read-only overlay mount\n\n"
+               "                            Similar, but creates a read-only overlay mount\n"
+               "     --bind-user=NAME       Bind specified user home directory from host, \n"
+               "                            including user record\n\n"
                "%3$sInput/Output:%4$s\n"
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
@@ -703,6 +709,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
+                ARG_BIND_USER,
         };
 
         static const struct option options[] = {
@@ -773,6 +780,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
                 { "set-credential",         required_argument, NULL, ARG_SET_CREDENTIAL         },
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
+                { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
                 {}
         };
 
@@ -1625,6 +1633,16 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_BIND_USER:
+                        if (!valid_user_group_name(optarg, 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", optarg);
+
+                        if (strv_extend(&arg_bind_user, optarg) < 0)
+                                return log_oom();
+
+                        arg_settings_mask |= SETTING_BIND_USER;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1779,6 +1797,12 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= setting is not useful for boot mode.");
         }
 
+        if (arg_userns_mode == USER_NAMESPACE_NO && !strv_isempty(arg_bind_user))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--bind-user= requires --private-users");
+
+        /* Drop duplicate --bind-user= entries */
+        strv_uniq(arg_bind_user);
+
         r = custom_mount_check_all();
         if (r < 0)
                 return r;
@@ -1786,7 +1810,7 @@ static int verify_arguments(void) {
         return 0;
 }
 
-static int userns_lchown(const char *p, uid_t uid, gid_t gid) {
+int userns_lchown(const char *p, uid_t uid, gid_t gid) {
         assert(p);
 
         if (arg_userns_mode == USER_NAMESPACE_NO)
@@ -1815,7 +1839,7 @@ static int userns_lchown(const char *p, uid_t uid, gid_t gid) {
         return 0;
 }
 
-static int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
+int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid) {
         const char *q;
         int r;
 
@@ -2967,19 +2991,17 @@ static int determine_names(void) {
         if (!arg_machine) {
                 if (arg_directory && path_equal(arg_directory, "/"))
                         arg_machine = gethostname_malloc();
-                else {
-                        if (arg_image) {
-                                char *e;
+                else if (arg_image) {
+                        char *e;
 
-                                arg_machine = strdup(basename(arg_image));
+                        arg_machine = strdup(basename(arg_image));
 
-                                /* Truncate suffix if there is one */
-                                e = endswith(arg_machine, ".raw");
-                                if (e)
-                                        *e = 0;
-                        } else
-                                arg_machine = strdup(basename(arg_directory));
-                }
+                        /* Truncate suffix if there is one */
+                        e = endswith(arg_machine, ".raw");
+                        if (e)
+                                *e = 0;
+                } else
+                        arg_machine = strdup(basename(arg_directory));
                 if (!arg_machine)
                         return log_oom();
 
@@ -2987,20 +3009,11 @@ static int determine_names(void) {
                 if (!hostname_is_valid(arg_machine, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine machine name automatically, please use -M.");
 
-                if (arg_ephemeral) {
-                        char *b;
-
-                        /* Add a random suffix when this is an
-                         * ephemeral machine, so that we can run many
-                         * instances at once without manually having
-                         * to specify -M each time. */
-
-                        if (asprintf(&b, "%s-%016" PRIx64, arg_machine, random_u64()) < 0)
+                /* Add a random suffix when this is an ephemeral machine, so that we can run many
+                 * instances at once without manually having to specify -M each time. */
+                if (arg_ephemeral)
+                        if (strextendf(&arg_machine, "-%016" PRIx64, random_u64()) < 0)
                                 return log_oom();
-
-                        free(arg_machine);
-                        arg_machine = b;
-                }
         }
 
         return 0;
@@ -3536,6 +3549,7 @@ static int outer_child(
                 FDSet *fds,
                 int netns_fd) {
 
+        _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
         _cleanup_close_ int fd = -1;
         const char *p;
@@ -3655,6 +3669,36 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = bind_user_prepare(
+                        directory,
+                        arg_bind_user,
+                        arg_uid_shift,
+                        arg_uid_range,
+                        &arg_custom_mounts, &arg_n_custom_mounts,
+                        &bind_user_context);
+        if (r < 0)
+                return r;
+
+        if (arg_userns_mode != USER_NAMESPACE_NO && bind_user_context) {
+                /* Send the user maps we determined to the parent, so that it installs it in our user namespace UID map table */
+
+                for (size_t i = 0; i < bind_user_context->n_data; i++)  {
+                        uid_t map[] = {
+                                bind_user_context->data[i].payload_user->uid,
+                                bind_user_context->data[i].host_user->uid,
+                                (uid_t) bind_user_context->data[i].payload_group->gid,
+                                (uid_t) bind_user_context->data[i].host_group->gid,
+                        };
+
+                        l = send(uid_shift_socket, map, sizeof(map), MSG_NOSIGNAL);
+                        if (l < 0)
+                                return log_error_errno(errno, "Failed to send user UID map: %m");
+                        if (l != sizeof(map))
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                                       "Short write while sending user UID map.");
+                }
+        }
+
         r = mount_custom(
                         directory,
                         arg_custom_mounts,
@@ -3768,6 +3812,10 @@ static int outer_child(
                 return r;
 
         r = setup_credentials(directory);
+        if (r < 0)
+                return r;
+
+        r = bind_user_setup(bind_user_context, directory);
         if (r < 0)
                 return r;
 
@@ -3951,21 +3999,96 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
         }
 }
 
-static int setup_uid_map(pid_t pid) {
-        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+static int add_one_uid_map(
+                char **p,
+                uid_t container_uid,
+                uid_t host_uid,
+                uid_t range) {
+
+        return strextendf(p,
+                       UID_FMT " " UID_FMT " " UID_FMT "\n",
+                       container_uid, host_uid, range);
+}
+
+static int make_uid_map_string(
+                const uid_t bind_user_uid[],
+                size_t n_bind_user_uid,
+                size_t offset,
+                char **ret) {
+
+        _cleanup_free_ char *s = NULL;
+        uid_t previous_uid = 0;
+        int r;
+
+        assert(n_bind_user_uid == 0 || bind_user_uid);
+        assert(offset == 0 || offset == 2); /* used to switch between UID and GID map */
+        assert(ret);
+
+        /* The bind_user_uid[] array is a series of 4 uid_t values, for each --bind-user= entry one
+         * quadruplet, consisting of host and container UID + GID. */
+
+        for (size_t i = 0; i < n_bind_user_uid; i++) {
+                uid_t payload_uid = bind_user_uid[i*2+offset],
+                        host_uid = bind_user_uid[i*2+offset+1];
+
+                assert(previous_uid <= payload_uid);
+                assert(payload_uid < arg_uid_range);
+
+                /* Add a range to close the gap to previous entry */
+                if (payload_uid > previous_uid) {
+                        r = add_one_uid_map(&s, previous_uid, arg_uid_shift + previous_uid, payload_uid - previous_uid);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* Map this specific user */
+                r = add_one_uid_map(&s, payload_uid, host_uid, 1);
+                if (r < 0)
+                        return r;
+
+                previous_uid = payload_uid + 1;
+        }
+
+        /* And add a range to close the gap to finish the range */
+        if (arg_uid_range > previous_uid) {
+                r = add_one_uid_map(&s, previous_uid, arg_uid_shift + previous_uid, arg_uid_range - previous_uid);
+                if (r < 0)
+                        return r;
+        }
+
+        assert(s);
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
+static int setup_uid_map(
+                pid_t pid,
+                const uid_t bind_user_uid[],
+                size_t n_bind_user_uid) {
+
+        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1];
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert(pid > 1);
 
+        /* Build the UID map string */
+        if (make_uid_map_string(bind_user_uid, n_bind_user_uid, 0, &s) < 0) /* offset=0 contains the UID pair */
+                return log_oom();
+
         xsprintf(uid_map, "/proc/" PID_FMT "/uid_map", pid);
-        xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, arg_uid_shift, arg_uid_range);
-        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(uid_map, s, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write UID map: %m");
 
-        /* We always assign the same UID and GID ranges */
+        /* And now build the GID map string */
+        s = mfree(s);
+        if (make_uid_map_string(bind_user_uid, n_bind_user_uid, 2, &s) < 0) /* offset=2 contains the GID pair */
+                return log_oom();
+
         xsprintf(uid_map, "/proc/" PID_FMT "/gid_map", pid);
-        r = write_string_file(uid_map, line, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(uid_map, s, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
 
@@ -4241,6 +4364,9 @@ static int merge_settings(Settings *settings, const char *path) {
                 }
         }
 
+        if ((arg_settings_mask & SETTING_BIND_USER) == 0)
+                strv_free_and_replace(arg_bind_user, settings->bind_user);
+
         if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
                 arg_notify_ready = settings->notify_ready;
 
@@ -4507,6 +4633,8 @@ static int run_container(
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ uid_t *bind_user_uid = NULL;
+        size_t n_bind_user_uid = 0;
         ContainerStatus container_status = 0;
         int ifi = 0, r;
         ssize_t l;
@@ -4662,6 +4790,24 @@ static int run_container(
                         if (l != sizeof arg_uid_shift)
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing UID shift.");
                 }
+
+                n_bind_user_uid = strv_length(arg_bind_user);
+                if (n_bind_user_uid > 0) {
+                        /* Right after the UID shift, we'll receive the list of UID mappings for the
+                         * --bind-user= logic. Always a quadruplet of payload and host UID + GID. */
+
+                        bind_user_uid = new(uid_t, n_bind_user_uid*4);
+                        if (!bind_user_uid)
+                                return log_oom();
+
+                        for (size_t i = 0; i < n_bind_user_uid; i++) {
+                                l = recv(uid_shift_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
+                                if (l < 0)
+                                        return log_error_errno(errno, "Failed to read user UID map pair: %m");
+                                if (l != sizeof(uid_t)*4)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading bind user UID pairs.");
+                        }
+                }
         }
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
@@ -4707,7 +4853,7 @@ static int run_container(
                 if (!barrier_place_and_sync(&barrier)) /* #1 */
                         return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
-                r = setup_uid_map(*pid);
+                r = setup_uid_map(*pid, bind_user_uid, n_bind_user_uid);
                 if (r < 0)
                         return r;
 
