@@ -665,6 +665,46 @@ int link_has_route(Link *link, const Route *route) {
         return true;
 }
 
+static bool route_address_is_reachable(const Route *route, int family, const union in_addr_union *address) {
+        assert(route);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (route->family != family)
+                return false;
+
+        if (!in_addr_is_set(route->family, &route->dst))
+                return false;
+
+        return in_addr_prefix_intersect(
+                        route->family,
+                        &route->dst,
+                        route->dst_prefixlen,
+                        address,
+                        FAMILY_ADDRESS_SIZE(family) * 8) > 0;
+}
+
+bool manager_address_is_reachable(Manager *manager, int family, const union in_addr_union *address) {
+        Link *link;
+
+        assert(manager);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        HASHMAP_FOREACH(link, manager->links) {
+                Route *route;
+
+                SET_FOREACH(route, link->routes)
+                        if (route_address_is_reachable(route, family, address))
+                                return true;
+                SET_FOREACH(route, link->routes_foreign)
+                        if (route_address_is_reachable(route, family, address))
+                                return true;
+        }
+
+        return false;
+}
+
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *m) {
         _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL;
