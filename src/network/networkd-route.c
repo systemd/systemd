@@ -510,6 +510,44 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m, c
         }
 }
 
+int route_dup(const Route *src, Route **ret) {
+        _cleanup_(route_freep) Route *dest = NULL;
+        MultipathRoute *m;
+        int r;
+
+        assert(src);
+        assert(ret);
+
+        dest = newdup(Route, src, 1);
+        if (!dest)
+                return -ENOMEM;
+
+        /* Unset all pointers */
+        dest->network = NULL;
+        dest->section = NULL;
+        dest->link = NULL;
+        dest->manager = NULL;
+        dest->multipath_routes = NULL;
+        dest->expire = NULL;
+
+        ORDERED_SET_FOREACH(m, src->multipath_routes) {
+                _cleanup_(multipath_route_freep) MultipathRoute *n = NULL;
+
+                r = multipath_route_dup(m, &n);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_ensure_put(&dest->multipath_routes, NULL, n);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(n);
+        }
+
+        *ret = TAKE_PTR(dest);
+        return 0;
+}
+
 static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
         int r;
