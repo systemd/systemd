@@ -418,6 +418,35 @@ MultipathRoute *multipath_route_free(MultipathRoute *m) {
         return mfree(m);
 }
 
+int multipath_route_dup(const MultipathRoute *m, MultipathRoute **ret) {
+        _cleanup_(multipath_route_freep) MultipathRoute *n = NULL;
+        _cleanup_free_ char *ifname = NULL;
+
+        assert(m);
+        assert(ret);
+
+        if (m->ifname) {
+                ifname = strdup(m->ifname);
+                if (!ifname)
+                        return -ENOMEM;
+        }
+
+        n = new(MultipathRoute, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (MultipathRoute) {
+                .gateway = m->gateway,
+                .weight = m->weight,
+                .ifindex = m->ifindex,
+                .ifname = TAKE_PTR(ifname),
+        };
+
+        *ret = TAKE_PTR(n);
+
+        return 0;
+}
+
 int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, OrderedSet **ret) {
         _cleanup_ordered_set_free_free_ OrderedSet *set = NULL;
         int r;
