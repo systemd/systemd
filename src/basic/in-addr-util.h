@@ -126,3 +126,10 @@ extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in_addr_prefix_hash_ops;
 extern const struct hash_ops in_addr_prefix_hash_ops_free;
 extern const struct hash_ops in6_addr_hash_ops;
+
+#define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
+#define IPV4_ADDRESS_FMT_VAL(address)              \
+        be32toh((address).s_addr) >> 24,           \
+        (be32toh((address).s_addr) >> 16) & 0xFFu, \
+        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
+        be32toh((address).s_addr) & 0xFFu
