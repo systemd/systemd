@@ -181,7 +181,7 @@ int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t code, size_
 
                 if (code == options[offset]) {
                         *ret_offset = offset;
-                        return 0;
+                        return r;
                 }
         }
         return -ENOENT;
@@ -194,10 +194,6 @@ int dhcp_option_remove_option(uint8_t *options, size_t length, uint8_t option_co
         assert(options);
 
         r = dhcp_option_find_option(options, length, option_code, &offset);
-        if (r < 0)
-                return r;
-
-        r = option_length(options, length, offset);
         if (r < 0)
                 return r;
 

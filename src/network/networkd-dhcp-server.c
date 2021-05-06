@@ -358,7 +358,7 @@ int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
 
-        r = sd_dhcp_server_set_relay_agent_information(link->dhcp_server, link->network->agent_circuit_id, link->network->agent_remote_id);
+        r = sd_dhcp_server_set_relay_agent_information(link->dhcp_server, link->network->dhcp_server_relay_agent_circuit_id, link->network->dhcp_server_relay_agent_remote_id);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set agent circuit/remote id for DHCP server: %m");
 

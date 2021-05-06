@@ -190,8 +190,8 @@ struct Network {
         bool dhcp_server;
         bool dhcp_server_bind_to_interface;
         struct in_addr dhcp_server_relay_target;
-        char *agent_circuit_id;
-        char *agent_remote_id;
+        char *dhcp_server_relay_agent_circuit_id;
+        char *dhcp_server_relay_agent_remote_id;
 
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;

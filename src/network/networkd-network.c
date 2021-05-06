@@ -548,8 +548,8 @@ static Network *network_free(Network *network) {
         net_match_clear(&network->match);
         condition_free_list(network->conditions);
 
-        free(network->agent_circuit_id);
-        free(network->agent_remote_id);
+        free(network->dhcp_server_relay_agent_circuit_id);
+        free(network->dhcp_server_relay_agent_remote_id);
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
