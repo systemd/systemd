@@ -1381,13 +1381,17 @@ int sd_dhcp_server_set_relay_agent_information(
         if (relay_agent_information_length(agent_circuit_id, agent_remote_id) > UINT8_MAX)
                 return -ENOBUFS;
 
-        circuit_id_dup = strdup(agent_circuit_id);
-        if (!circuit_id_dup)
-                return -ENOMEM;
+        if (agent_circuit_id) {
+                circuit_id_dup = strdup(agent_circuit_id);
+                if (!circuit_id_dup)
+                        return -ENOMEM;
+        }
 
-        remote_id_dup = strdup(agent_remote_id);
-        if (!remote_id_dup)
-                return -ENOMEM;
+        if (agent_remote_id) {
+                remote_id_dup = strdup(agent_remote_id);
+                if (!remote_id_dup)
+                        return -ENOMEM;
+        }
 
         free_and_replace(server->agent_circuit_id, circuit_id_dup);
         free_and_replace(server->agent_remote_id, remote_id_dup);
