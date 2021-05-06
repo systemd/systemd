@@ -1304,7 +1304,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 }
 
 static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        _cleanup_free_ char *pretty = NULL;
         Address *address;
         Link *link;
         int r;
@@ -1315,22 +1314,26 @@ static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         address = (Address *) userdata;
         link = address->link;
 
-        (void) in_addr_to_string(address->family, &address->in_addr, &pretty);
+        assert(address->family == AF_INET);
+
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
                 log_link_debug(link, "Stopping ACD client...");
                 return;
 
         case SD_IPV4ACD_EVENT_BIND:
-                log_link_debug(link, "Successfully claimed address %s", strna(pretty));
+                log_link_debug(link, "Successfully claimed address "IPV4_ADDRESS_FMT_STR,
+                               IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
                 link_check_ready(link);
                 break;
 
         case SD_IPV4ACD_EVENT_CONFLICT:
-                log_link_warning(link, "DAD conflict. Dropping address %s", strna(pretty));
+                log_link_warning(link, "DAD conflict. Dropping address "IPV4_ADDRESS_FMT_STR,
+                                 IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
                 r = address_remove(address, link, NULL);
                 if (r < 0)
-                        log_link_error_errno(link, r, "Failed to drop DAD conflicted address %s", strna(pretty));;
+                        log_link_error_errno(link, r, "Failed to drop DAD conflicted address "IPV4_ADDRESS_FMT_STR,
+                                             IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
                 link_check_ready(link);
                 break;
@@ -1353,12 +1356,7 @@ static int ipv4_dad_configure(Address *address) {
         if (address->family != AF_INET)
                 return 0;
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *pretty = NULL;
-
-                (void) in_addr_to_string(address->family, &address->in_addr, &pretty);
-                log_link_debug(address->link, "Starting IPv4ACD client. Probing address %s", strna(pretty));
-        }
+        log_address_debug(address, "Starting IPv4ACD client. Probing", address->link);
 
         if (!address->acd) {
                 r = sd_ipv4acd_new(&address->acd);
