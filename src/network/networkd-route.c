@@ -604,6 +604,67 @@ static bool route_type_is_reject(const Route *route) {
         return IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW);
 }
 
+int link_has_route(Link *link, const Route *route) {
+        MultipathRoute *m;
+        int r;
+
+        assert(link);
+        assert(route);
+
+        if (route->nexthop_id > 0) {
+                _cleanup_(route_freep) Route *tmp = NULL;
+                NextHop *nh;
+
+                if (manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh) < 0)
+                        return false;
+
+                r = route_new(&tmp);
+                if (r < 0)
+                        return r;
+
+                route_copy(tmp, route, NULL, nh);
+
+                if (route_type_is_reject(route) || (nh && nh->blackhole))
+                        return route_get(link->manager, NULL, tmp, NULL) >= 0;
+                else
+                        return route_get(NULL, link, tmp, NULL) >= 0;
+        }
+
+        if (ordered_set_isempty(route->multipath_routes)) {
+                if (route_type_is_reject(route))
+                        return route_get(link->manager, NULL, route, NULL) >= 0;
+                else
+                        return route_get(NULL, link, route, NULL) >= 0;
+        }
+
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                _cleanup_(route_freep) Route *tmp = NULL;
+                Link *l;
+
+                if (m->ifname) {
+                        r = resolve_interface(&link->manager->rtnl, m->ifname);
+                        if (r < 0)
+                                return false;
+                        m->ifindex = r;
+
+                        if (link_get(link->manager, m->ifindex, &l) < 0)
+                                return false;
+                } else
+                        l = link;
+
+                r = route_new(&tmp);
+                if (r < 0)
+                        return r;
+
+                route_copy(tmp, route, m, NULL);
+
+                if (route_get(NULL, l, tmp, NULL) < 0)
+                        return false;
+        }
+
+        return true;
+}
+
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *m) {
         _cleanup_free_ char *dst = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL;
@@ -814,7 +875,7 @@ int route_remove(
         return 0;
 }
 
-static bool link_has_route(const Link *link, const Route *route) {
+static bool link_has_static_route(const Link *link, const Route *route) {
         Route *net_route;
 
         assert(link);
@@ -830,7 +891,7 @@ static bool link_has_route(const Link *link, const Route *route) {
         return false;
 }
 
-static bool links_have_route(const Manager *manager, const Route *route, const Link *except) {
+static bool links_have_static_route(const Manager *manager, const Route *route, const Link *except) {
         Link *link;
 
         assert(manager);
@@ -839,7 +900,7 @@ static bool links_have_route(const Manager *manager, const Route *route, const L
                 if (link == except)
                         continue;
 
-                if (link_has_route(link, route))
+                if (link_has_static_route(link, route))
                         return true;
         }
 
@@ -863,7 +924,7 @@ static int manager_drop_routes_internal(Manager *manager, bool foreign, const Li
                         continue;
 
                 /* The route will be configured later, or already configured by a link. */
-                if (links_have_route(manager, route, except))
+                if (links_have_static_route(manager, route, except))
                         continue;
 
                 /* The existing links do not have the route. Let's drop this now. It may be
@@ -915,7 +976,7 @@ int link_drop_foreign_routes(Link *link) {
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
-                if (link_has_route(link, route))
+                if (link_has_static_route(link, route))
                         k = route_add(NULL, link, route, NULL, NULL, NULL);
                 else
                         k = route_remove(route, NULL, link, NULL);
