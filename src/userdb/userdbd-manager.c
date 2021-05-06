@@ -289,6 +289,11 @@ int manager_startup(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
 
+                r = symlink_idempotent("io.systemd.Multiplexer",
+                                       "/run/systemd/userdb/io.systemd.DropIn", false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
+
                 if (listen(m->listen_fd, SOMAXCONN) < 0)
                         return log_error_errno(errno, "Failed to listen on socket: %m");
         }
