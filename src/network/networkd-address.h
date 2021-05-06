@@ -86,10 +86,3 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
-
-#define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
-#define IPV4_ADDRESS_FMT_VAL(address)              \
-        be32toh((address).s_addr) >> 24,           \
-        (be32toh((address).s_addr) >> 16) & 0xFFu, \
-        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
-        be32toh((address).s_addr) & 0xFFu
