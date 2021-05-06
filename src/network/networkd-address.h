@@ -16,6 +16,7 @@
 
 typedef struct Manager Manager;
 typedef struct Network Network;
+typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 
 typedef struct Address {
@@ -51,7 +52,6 @@ typedef struct Address {
 int address_new(Address **ret);
 Address *address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
-int address_configure(const Address *address, Link *link, link_netlink_message_handler_t callback, Address **ret);
 int address_remove(const Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(const Address *a1, const Address *a2);
 bool address_is_ready(const Address *a);
@@ -60,15 +60,25 @@ int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
-int link_set_addresses(Link *link);
+int link_request_address(
+                Link *link,
+                Address *address,
+                bool consume_object,
+                unsigned *message_counter,
+                link_netlink_message_handler_t netlink_handler,
+                Request **ret);
+int link_request_static_addresses(Link *link);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 bool link_address_is_dynamic(const Link *link, const Address *address);
 int link_has_ipv6_address(Link *link, const struct in6_addr *address);
+int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
 void ipv4_dad_unref(Link *link);
 int ipv4_dad_stop(Link *link);
 int ipv4_dad_update_mac(Link *link);
+
+int request_process_address(Request *req);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
@@ -86,10 +96,3 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
-
-#define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
-#define IPV4_ADDRESS_FMT_VAL(address)              \
-        be32toh((address).s_addr) >> 24,           \
-        (be32toh((address).s_addr) >> 16) & 0xFFu, \
-        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
-        be32toh((address).s_addr) & 0xFFu
