@@ -601,6 +601,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -N                         Do not synthesize or include glibc NSS data\n"
                "                             (Same as --synthesize=no --with-nss=no)\n"
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
+               "     --with-dropin=BOOL      Control whether to include drop-in records\n"
+               "     --with-varlink=BOOL     Control whether to talk to services at all\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -618,18 +620,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_OUTPUT,
                 ARG_WITH_NSS,
+                ARG_WITH_DROPIN,
+                ARG_WITH_VARLINK,
                 ARG_SYNTHESIZE,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                { "no-legend",  no_argument,       NULL, ARG_NO_LEGEND  },
-                { "output",     required_argument, NULL, ARG_OUTPUT     },
-                { "service",    required_argument, NULL, 's'            },
-                { "with-nss",   required_argument, NULL, ARG_WITH_NSS   },
-                { "synthesize", required_argument, NULL, ARG_SYNTHESIZE },
+                { "help",         no_argument,       NULL, 'h'             },
+                { "version",      no_argument,       NULL, ARG_VERSION     },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER    },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND   },
+                { "output",       required_argument, NULL, ARG_OUTPUT      },
+                { "service",      required_argument, NULL, 's'             },
+                { "with-nss",     required_argument, NULL, ARG_WITH_NSS    },
+                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN },
+                { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
+                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE  },
                 {}
         };
 
@@ -726,6 +732,22 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_NSS, !r);
+                        break;
+
+                case ARG_WITH_DROPIN:
+                        r = parse_boolean_argument("--with-dropin=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_DROPIN, !r);
+                        break;
+
+                case ARG_WITH_VARLINK:
+                        r = parse_boolean_argument("--with-varlink=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_VARLINK, !r);
                         break;
 
                 case ARG_SYNTHESIZE:
