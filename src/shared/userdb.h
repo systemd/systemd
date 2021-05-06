@@ -24,6 +24,9 @@ typedef enum UserDBFlags {
         USERDB_EXCLUDE_DYNAMIC_USER = 1 << 4,  /* exclude looking up in io.systemd.DynamicUser */
         USERDB_AVOID_MULTIPLEXER    = 1 << 5,  /* exclude looking up via io.systemd.Multiplexer */
         USERDB_DONT_SYNTHESIZE      = 1 << 6,  /* don't synthesize root/nobody */
+
+        /* Combinations */
+        USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE,
 } UserDBFlags;
 
 int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret);
