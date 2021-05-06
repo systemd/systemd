@@ -729,14 +729,14 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
         return be32toh(requested_ip & ~server->netmask) - server->pool_offset;
 }
 
-static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t msg_len, size_t size) {
+static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t size) {
         int r;
         size_t offset;
 
         assert(server);
         assert(message);
 
-        r = dhcp_option_find_option(message->options, msg_len - sizeof(DHCPMessage), SD_DHCP_OPTION_END, &offset);
+        r = dhcp_option_find_option(message->options, opt_length, SD_DHCP_OPTION_END, &offset);
         if (r < 0)
                 return r;
 
@@ -769,7 +769,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                         message->giaddr = server->address;
 
                 if (server->agent_circuit_id || server->agent_remote_id) {
-                        r = append_agent_information_option(server, message, opt_length + sizeof(DHCPMessage), buflen - sizeof(DHCPMessage));
+                        r = append_agent_information_option(server, message, opt_length, buflen - sizeof(DHCPMessage));
                         if (r < 0)
                                 return log_dhcp_server_errno(server, r, "could not append relay option: %m");
                         opt_length = r;
