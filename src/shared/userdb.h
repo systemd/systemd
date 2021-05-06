@@ -28,6 +28,7 @@ typedef enum UserDBFlags {
 
         /* Combinations */
         USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE,
+        USERDB_DROPIN_ONLY = USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE,
 } UserDBFlags;
 
 /* Well-known errors we'll return here:
