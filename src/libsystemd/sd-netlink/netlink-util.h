@@ -19,9 +19,13 @@ typedef struct RouteVia {
 
 typedef struct MultipathRoute {
         RouteVia gateway;
-        int ifindex;
         uint32_t weight;
+        int ifindex;
+        char *ifname;
 } MultipathRoute;
+
+MultipathRoute *multipath_route_free(MultipathRoute *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(MultipathRoute*, multipath_route_free);
 
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret);
 uint32_t rtnl_message_get_serial(sd_netlink_message *m);
