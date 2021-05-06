@@ -584,7 +584,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 /* The group might be defined via traditional NSS only, hence let's do a full look-up without
                  * disabling NSS. This means we are operating recursively here. */
 
-                r = groupdb_by_name(group_name, (nss_glue_userdb_flags() & ~USERDB_AVOID_NSS) | USERDB_AVOID_SHADOW, &g);
+                r = groupdb_by_name(group_name, (nss_glue_userdb_flags() & ~USERDB_EXCLUDE_NSS) | USERDB_SUPPRESS_SHADOW, &g);
                 if (r == -ESRCH)
                         continue;
                 if (r < 0) {
