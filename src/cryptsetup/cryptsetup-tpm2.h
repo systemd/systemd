@@ -23,6 +23,7 @@ int acquire_tpm2_key(
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 
+#if ! HAVE_LIBCRYPTSETUP_PLUGINS
 int find_tpm2_auto_data(
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
@@ -34,6 +35,7 @@ int find_tpm2_auto_data(
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
                 int *ret_token);
+#endif
 
 #else
 
@@ -55,6 +57,7 @@ static inline int acquire_tpm2_key(
                                "TPM2 support not available.");
 }
 
+#if ! HAVE_LIBCRYPTSETUP_PLUGINS
 static inline int find_tpm2_auto_data(
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
@@ -69,6 +72,8 @@ static inline int find_tpm2_auto_data(
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 support not available.");
+#endif
+
 }
 
 #endif
