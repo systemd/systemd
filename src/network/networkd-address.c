@@ -150,7 +150,7 @@ static bool address_may_have_broadcast(const Address *a) {
          * See https://tools.ietf.org/html/rfc3021 */
 
         return a->family == AF_INET &&
-                in_addr_is_null(AF_INET, &a->in_addr_peer) &&
+                in4_addr_is_null(&a->in_addr_peer.in) &&
                 a->prefixlen <= 30;
 }
 
@@ -406,7 +406,7 @@ static int address_update(Address *address, const Address *src) {
                 }
 
                 if (address->family == AF_INET6 &&
-                    in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
+                    in6_addr_is_link_local(&address->in_addr.in6) > 0 &&
                     in6_addr_is_null(&address->link->ipv6ll_address)) {
 
                         r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
@@ -706,7 +706,7 @@ int link_drop_foreign_addresses(Link *link) {
 
         SET_FOREACH(address, link->addresses_foreign) {
                 /* we consider IPv6LL addresses to be managed by the kernel */
-                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1 && link_ipv6ll_enabled(link))
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
@@ -769,7 +769,7 @@ int link_drop_addresses(Link *link) {
 
         SET_FOREACH(address, link->addresses) {
                 /* we consider IPv6LL addresses to be managed by the kernel */
-                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1 && link_ipv6ll_enabled(link))
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
                         continue;
 
                 k = address_remove(address, link, remove_static_address_handler);
