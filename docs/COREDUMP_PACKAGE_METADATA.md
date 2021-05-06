@@ -39,6 +39,9 @@ Implementers working on build tools should strive to use the same key names, for
 consistency. The most common will be listed here. When corresponding to the content of
 os-release, the values should match, again for consistency.
 
+If available, the metadata should also include the debuginfod server URL that can provide
+the original executable, debuginfo and sources, to further facilitate debugging.
+
 * Section header
 
 ```
@@ -58,6 +61,7 @@ Value: a JSON string with the structure described below
      "name":"coreutils",
      "version": "4711.0815.fc13.arm32",
      "osCpe":               # A CPE name for the operating system, `CPE_NAME` from os-release is a good default
+     "debugInfoUrl": "https://debuginfod.fedoraproject.org/"
 }
 ```
 
