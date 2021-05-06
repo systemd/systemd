@@ -252,6 +252,7 @@ int dhcp4_server_configure(Link *link) {
         sd_dhcp_option *p;
         Link *uplink = NULL;
         Address *address;
+        bool bind_to_interface;
         int r;
 
         assert(link);
@@ -344,10 +345,6 @@ int dhcp4_server_configure(Link *link) {
                                                dhcp_lease_server_type_to_string(type));
         }
 
-        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, link->network->dhcp_server_bind_to_interface);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
-
         r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set router emission for DHCP server: %m");
@@ -355,6 +352,15 @@ int dhcp4_server_configure(Link *link) {
         r = sd_dhcp_server_set_relay_target(link->dhcp_server, &link->network->dhcp_server_relay_target);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to set relay target for DHCP server: %m");
+
+        bind_to_interface = sd_dhcp_server_is_in_relay_mode(link->dhcp_server) ? false : link->network->dhcp_server_bind_to_interface;
+        r = sd_dhcp_server_set_bind_to_interface(link->dhcp_server, bind_to_interface);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set interface binding for DHCP server: %m");
+
+        r = sd_dhcp_server_set_relay_agent_information(link->dhcp_server, link->network->dhcp_server_relay_agent_circuit_id, link->network->dhcp_server_relay_agent_remote_id);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set agent circuit/remote id for DHCP server: %m");
 
         if (link->network->dhcp_server_emit_timezone) {
                 _cleanup_free_ char *buffer = NULL;
@@ -400,6 +406,40 @@ int dhcp4_server_configure(Link *link) {
         }
 
         return 0;
+}
+
+int config_parse_dhcp_server_relay_agent_suboption(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **suboption_value = data;
+        char* p;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+
+        if (isempty(rvalue)) {
+                *suboption_value = mfree(*suboption_value);
+                return 0;
+        }
+
+        p = startswith(rvalue, "string:");
+        if (!p) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);
+                return 0;
+        }
+        return free_and_strdup(suboption_value, empty_to_null(p));
 }
 
 int config_parse_dhcp_server_relay_target(
