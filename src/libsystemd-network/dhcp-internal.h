@@ -42,6 +42,8 @@ int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
 
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_t overload,
                        uint8_t code, size_t optlen, const void *optval);
+int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t wanted_code, size_t *ret_offset);
+int dhcp_option_remove_option(uint8_t *options, size_t buflen, uint8_t option_code);
 
 typedef int (*dhcp_option_callback_t)(uint8_t code, uint8_t len,
                                 const void *option, void *userdata);
