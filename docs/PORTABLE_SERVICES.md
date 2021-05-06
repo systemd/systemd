@@ -59,14 +59,14 @@ The "portable service" concept ultimately will not provide a fully isolated
 environment to the payload, like containers mostly intend to. Instead they are
 from the beginning more alike regular system services, can be controlled with
 the same tools, are exposed the same way in all infrastructure and so on. Their
-main difference is that the use a different root directory than the rest of the
+main difference is that they use a different root directory than the rest of the
 system. Hence, the intention is not to run code in a different, isolated world
-from the host — like most containers would do it —, but to run it in the same
+from the host — like most containers would do it — but to run it in the same
 world, but with stricter access controls on what the service can see and do.
 
 As one point of differentiation: as programs run as "portable services" are
 pretty much regular system services, they won't run as PID 1 (like Docker would
-do it), but as normal process. A corollary of that is that they aren't supposed
+do it), but as normal processes. A corollary of that is that they aren't supposed
 to manage anything in their own environment (such as the network) as the
 execution environment is mostly shared with the rest of the system.
 
@@ -77,12 +77,12 @@ focus includes system extensions otherwise sometimes called "super-privileged
 containers".
 
 Note that portable services are only available for system services, not for
-user services. i.e. the functionality cannot be used for the stuff
-bubblewrap/flatpak is focusing on.
+user services (i.e. the functionality cannot be used for the stuff
+bubblewrap/flatpak is focusing on).
 
 ## Mode of Operation
 
-If you have portable service image, maybe in a raw disk image called
+If you have a portable service image, maybe in a raw disk image called
 `foobar_0.7.23.raw`, then attaching the services to the host is as easy as:
 
 ```
@@ -135,7 +135,7 @@ This command does the following:
 
 And that's already it.
 
-Note that the images need to stay around (and the same location) as long as the
+Note that the images need to stay around (and in the same location) as long as the
 portable service is attached. If an image is moved, the `RootImage=` line
 written to the unit drop-in would point to an non-existing place, and break the
 logic.
@@ -144,7 +144,7 @@ The `portablectl detach` command executes the reverse operation: it looks for
 the drop-ins and the unit files associated with the image, and removes them
 again.
 
-Note that `portable attach` won't enable or start any of the units it copies
+Note that `portablectl attach` won't enable or start any of the units it copies
 out. This still has to take place in a second, separate step. (That said We
 might add options to do this automatically later on.).
 
@@ -223,7 +223,7 @@ read-only, immutable images (e.g. squashfs images) all files and directories to
 over-mount must exist already.
 
 Note that as no new image format or metadata is defined, it's very
-straight-forward to define images than can be made use of it a number of
+straightforward to define images than can be made use of in a number of
 different ways. For example, by using `mkosi -b` you can trivially build a
 single, unified image that:
 
