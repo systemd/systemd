@@ -402,6 +402,9 @@ static int userdb_start_query(
         assert(iterator);
         assert(method);
 
+        if (FLAGS_SET(flags, USERDB_EXCLUDE_VARLINK))
+                return -ENOLINK;
+
         e = getenv("SYSTEMD_BYPASS_USERDB");
         if (e) {
                 r = parse_boolean(e);

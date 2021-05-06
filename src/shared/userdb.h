@@ -17,6 +17,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserDBIterator*, userdb_iterator_free);
 typedef enum UserDBFlags {
         /* The main sources */
         USERDB_EXCLUDE_NSS          = 1 << 0,  /* don't do client-side nor server-side NSS */
+        USERDB_EXCLUDE_VARLINK      = 1 << 1,  /* don't talk to any varlink services */
 
         /* Modifications */
         USERDB_SUPPRESS_SHADOW      = 1 << 3,  /* don't do client-side shadow calls (server side might happen though) */
