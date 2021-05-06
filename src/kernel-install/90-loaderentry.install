@@ -28,9 +28,7 @@ if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
 fi
 
-# Only continue if the parent of the target directory
-# (usually $ESP/$MACHINE_ID) exists – this is an administrative decision.
-if ! [ -d "${ENTRY_DIR_ABS%/*}" ]; then
+if [ "$KERNEL_INSTALL_BOOTLOADER_SPEC" = 0 ]; then
     exit 0
 fi
 
@@ -45,9 +43,6 @@ else
 fi
 
 if [[ $COMMAND == remove ]]; then
-    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
-    rm -rf "$ENTRY_DIR_ABS"
-
     rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
     rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
     exit 0
@@ -95,13 +90,6 @@ if [[ -f /etc/kernel/tries ]]; then
     LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+$TRIES.conf"
 else
     LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
-fi
-
-if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
-    echo "+mkdir -v -p $ENTRY_DIR_ABS"
-    mkdir -v -p "$ENTRY_DIR_ABS"
-else
-    mkdir -p "$ENTRY_DIR_ABS"
 fi
 
 install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
