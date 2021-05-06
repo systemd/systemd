@@ -76,6 +76,7 @@ int route_configure(const Route *route, Link *link, link_netlink_message_handler
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_has_route(Link *link, const Route *route);
+bool manager_address_is_reachable(Manager *manager, int family, const union in_addr_union *address);
 
 int link_set_routes(Link *link);
 int link_set_routes_with_gateway(Link *link);
