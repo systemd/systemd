@@ -108,3 +108,18 @@ SECTIONS
 }
 INSERT AFTER .note.gnu.build-id;
 ```
+
+## Well-known keys
+
+The metadata format is intentionally left open, so that vendors can add their own information.
+A set of well-known keys is defined here, and hopefully shared among all vendors.
+
+| Key name     | Key description                                                          | Example value                         |
+|--------------|--------------------------------------------------------------------------|---------------------------------------|
+| type         | The packaging type                                                       | rpm                                   |
+| os           | The OS name, typically corresponding to ID in os-release                 | fedora                                |
+| osVersion    | The OS version, typically corresponding to VERSION_ID in os-release      | 33                                    |
+| name         | The source package name                                                  | coreutils                             |
+| version      | The source package version                                               | 4711.0815.fc13.arm32                  |
+| osCpe        | A CPE name for the OS, typically corresponding to CPE_NAME in os-release | cpe:/o:fedoraproject:fedora:33        |
+| debugInfoUrl | The debuginfod server url, if available                                  | https://debuginfod.fedoraproject.org/ |
