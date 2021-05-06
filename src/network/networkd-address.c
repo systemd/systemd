@@ -485,6 +485,63 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
         return address_get(link, a, NULL) >= 0;
 }
 
+static int link_get_ipv4_address(Set *addresses, const struct in_addr *address, Address **ret) {
+        Address *a;
+
+        assert(address);
+
+        SET_FOREACH(a, addresses) {
+                if (a->family != AF_INET)
+                        continue;
+
+                if (!in4_addr_equal(&a->in_addr.in, address))
+                        continue;
+
+                if (ret)
+                        *ret = a;
+
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+        Link *link;
+        int r;
+
+        assert(manager);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (family == AF_INET)
+                HASHMAP_FOREACH(link, manager->links) {
+                        Address *a;
+
+                        if (link_get_ipv4_address(link->addresses, &address->in, &a) >= 0)
+                                return !check_ready || address_is_ready(a);
+                        if (link_get_ipv4_address(link->addresses_foreign, &address->in, &a) >= 0)
+                                return !check_ready || address_is_ready(a);
+                }
+        else {
+                _cleanup_(address_freep) Address *tmp = NULL;
+                Address *a;
+
+                r = address_new(&tmp);
+                if (r < 0)
+                        return r;
+
+                tmp->family = family;
+                tmp->in_addr = *address;
+
+                HASHMAP_FOREACH(link, manager->links)
+                        if (address_get(link, tmp, &a) >= 0)
+                                return !check_ready || address_is_ready(a);
+        }
+
+        return false;
+}
+
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
         _cleanup_free_ char *addr = NULL, *peer = NULL;
         char valid_buf[FORMAT_TIMESPAN_MAX], preferred_buf[FORMAT_TIMESPAN_MAX];
