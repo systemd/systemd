@@ -109,45 +109,35 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-static int routing_policy_rule_copy(RoutingPolicyRule *dest, const RoutingPolicyRule *src) {
-        _cleanup_free_ char *iif = NULL, *oif = NULL;
+static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRule **ret) {
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *dest = NULL;
 
-        assert(dest);
         assert(src);
+        assert(ret);
+
+        dest = newdup(RoutingPolicyRule, src, 1);
+        if (!dest)
+                return -ENOMEM;
+
+        /* Unset all pointers */
+        dest->manager = NULL;
+        dest->network = NULL;
+        dest->section = NULL;
+        dest->iif = dest->oif = NULL;
 
         if (src->iif) {
-                iif = strdup(src->iif);
-                if (!iif)
+                dest->iif = strdup(src->iif);
+                if (!dest->iif)
                         return -ENOMEM;
         }
 
         if (src->oif) {
-                oif = strdup(src->oif);
-                if (!oif)
+                dest->oif = strdup(src->oif);
+                if (!dest->oif)
                         return -ENOMEM;
         }
 
-        dest->family = src->family;
-        dest->from = src->from;
-        dest->from_prefixlen = src->from_prefixlen;
-        dest->to = src->to;
-        dest->to_prefixlen = src->to_prefixlen;
-        dest->invert_rule = src->invert_rule;
-        dest->tos = src->tos;
-        dest->type = src->type;
-        dest->fwmark = src->fwmark;
-        dest->fwmask = src->fwmask;
-        dest->priority = src->priority;
-        dest->table = src->table;
-        dest->iif = TAKE_PTR(iif);
-        dest->oif = TAKE_PTR(oif);
-        dest->ipproto = src->ipproto;
-        dest->protocol = src->protocol;
-        dest->sport = src->sport;
-        dest->dport = src->dport;
-        dest->uid_range = src->uid_range;
-        dest->suppress_prefixlen = src->suppress_prefixlen;
-
+        *ret = TAKE_PTR(dest);
         return 0;
 }
 
@@ -334,11 +324,7 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, int 
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(in->family == AF_UNSPEC || in->family == family);
 
-        r = routing_policy_rule_new(&rule);
-        if (r < 0)
-                return r;
-
-        r = routing_policy_rule_copy(rule, in);
+        r = routing_policy_rule_dup(in, &rule);
         if (r < 0)
                 return r;
 
@@ -641,11 +627,7 @@ static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyR
                                 /* The case Family=both. */
                                 _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
 
-                                r = routing_policy_rule_new(&tmp);
-                                if (r < 0)
-                                        return r;
-
-                                r = routing_policy_rule_copy(tmp, link_rule);
+                                r = routing_policy_rule_dup(link_rule, &tmp);
                                 if (r < 0)
                                         return r;
 
