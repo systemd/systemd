@@ -803,6 +803,87 @@ char *strextend_with_separator_internal(char **x, const char *separator, ...) {
         return p;
 }
 
+int strextendf(char **x, const char *format, ...) {
+        size_t m, a;
+        va_list ap;
+        int l;
+
+        /* Appends a formatted string to the specified string. Don't use this in inner loops, since then
+         * we'll spend a tonload of time in determining the length of the string passed in, over and over
+         * again. */
+
+        assert(x);
+        assert(format);
+
+        /* Let's try to use the allocated buffer, if there's room at the end still. Otherwise let's extend by 64 chars. */
+        if (*x) {
+                m = strlen(*x);
+                a = malloc_usable_size(*x);
+                assert(a >= m + 1);
+        } else
+                m = a = 0;
+
+        if (a - m < 17) { /* if there's less than 16 chars space, then enlarge the buffer first */
+                char *n;
+
+                if (_unlikely_(m > SIZE_MAX - 64)) /* overflow check */
+                        return -ENOMEM;
+
+                n = realloc(*x, m + 64);
+                if (!n)
+                        return -ENOMEM;
+
+                *x = n;
+                a = malloc_usable_size(*x);
+        }
+
+        /* Now, let's try to format the string into it */
+        va_start(ap, format);
+        l = vsnprintf(*x + m, a - m, format, ap);
+        va_end(ap);
+
+        assert(l >= 0);
+
+        if ((size_t) l < a - m) {
+                char *n;
+
+                /* Nice! This worked. We are done. But first, let's return the extra space we don't
+                 * need. This should be a cheap operation, since we only lower the allocation size here,
+                 * never increase. */
+                n = realloc(*x, m + (size_t) l + 1);
+                if (n)
+                        *x = n;
+        } else {
+                char *n;
+
+                /* Wasn't enough. Then let's allocate exactly what we need. */
+
+                if (_unlikely_((size_t) l > SIZE_MAX - 1)) /* overflow check #1 */
+                        goto oom;
+                if (_unlikely_(m > SIZE_MAX - ((size_t) l + 1))) /* overflow check #2 */
+                        goto oom;
+
+                a = m + (size_t) l + 1;
+                n = realloc(*x, a);
+                if (!n)
+                        goto oom;
+                *x = n;
+
+                va_start(ap, format);
+                l = vsnprintf(*x + m, a - m, format, ap);
+                va_end(ap);
+
+                assert((size_t) l < a - m);
+        }
+
+        return 0;
+
+oom:
+        /* truncate the bytes added after the first vsnprintf() attempt again */
+        (*x)[m] = 0;
+        return -ENOMEM;
+}
+
 char *strrep(const char *s, unsigned n) {
         char *r, *p;
         size_t l;

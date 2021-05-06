@@ -117,9 +117,10 @@ typedef enum SettingsMask {
         SETTING_CLONE_NS_FLAGS    = UINT64_C(1) << 28,
         SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
         SETTING_CREDENTIALS       = UINT64_C(1) << 30,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 31, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (31 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (31 + _RLIMIT_MAX)) -1,
+        SETTING_BIND_USER         = UINT64_C(1) << 31,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 32, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (32 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (32 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -149,7 +150,7 @@ typedef struct OciHook {
 } OciHook;
 
 typedef struct Settings {
-        /* [Run] */
+        /* [Exec] */
         StartMode start_mode;
         bool ephemeral;
         char **parameters;
@@ -180,12 +181,13 @@ typedef struct Settings {
         bool link_journal_try;
         TimezoneMode timezone;
 
-        /* [Image] */
+        /* [Files] */
         int read_only;
         VolatileMode volatile_mode;
         CustomMount *custom_mounts;
         size_t n_custom_mounts;
         int userns_chown;
+        char **bind_user;
 
         /* [Network] */
         int private_network;
@@ -255,6 +257,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
 
 const char *resolv_conf_mode_to_string(ResolvConfMode a) _const_;
 ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;

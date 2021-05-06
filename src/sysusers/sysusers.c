@@ -441,7 +441,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_gecos = i->description,
 
                         /* "x" means the password is stored in the shadow file */
-                        .pw_passwd = (char*) "x",
+                        .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
 
                         /* We default to the root directory as home */
                         .pw_dir = i->home ?: (char*) "/",
@@ -551,7 +551,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!*", /* lock this password, and make it invalid */
+                        .sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID,
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
@@ -682,7 +682,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 struct group n = {
                         .gr_name = i->name,
                         .gr_gid = i->gid,
-                        .gr_passwd = (char*) "x",
+                        .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
                 };
 
                 r = putgrent_with_members(&n, group);
@@ -766,7 +766,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         ORDERED_HASHMAP_FOREACH(i, todo_gids) {
                 struct sgrp n = {
                         .sg_namp = i->name,
-                        .sg_passwd = (char*) "!*",
+                        .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
                 };
 
                 r = putsgent_with_members(&n, gshadow);
@@ -1737,7 +1737,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf, NULL);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
