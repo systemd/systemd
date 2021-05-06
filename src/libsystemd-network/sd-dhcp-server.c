@@ -397,7 +397,7 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 
         if (req->agent_info_option) {
                 size_t opt_full_length = *(req->agent_info_option + 1) + 2;
-                //there must be space left for SD_DHCP_OPTION_END also
+                /* there must be space left for SD_DHCP_OPTION_END also */
                 if (optoffset + opt_full_length + 1 <= req->max_optlen) {
                         memcpy(packet->dhcp.options + optoffset, req->agent_info_option, opt_full_length);
                         optoffset += opt_full_length;
@@ -736,10 +736,9 @@ static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *
         assert(server);
         assert(message);
 
-        r = dhcp_option_find_option(message->options, msg_len - sizeof(DHCPMessage), SD_DHCP_OPTION_END);
+        r = dhcp_option_find_option(message->options, msg_len - sizeof(DHCPMessage), SD_DHCP_OPTION_END, &offset);
         if (r < 0)
                 return r;
-        offset = r;
 
         r = dhcp_option_append(message, size, &offset, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, 0, server);
         if (r < 0)
@@ -1050,7 +1049,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         return 0;
 }
 
-static size_t relay_agent_suboptions_length(const char* agent_circuit_id, const char* agent_remote_id) {
+static size_t relay_agent_information_length(const char* agent_circuit_id, const char* agent_remote_id) {
         size_t sum = 0;
         if (agent_circuit_id)
                 sum += 2 + strlen(agent_circuit_id);
@@ -1084,7 +1083,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         size_t buflen = datagram_size;
         if (sd_dhcp_server_is_in_relay_mode(server))
                 /* Preallocate the additional size for DHCP Relay Agent Information Option if neeeded */
-                buflen += relay_agent_suboptions_length(server->agent_circuit_id, server->agent_remote_id) + 2;
+                buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
 
         message = malloc(buflen);
         if (!message)
@@ -1371,24 +1370,20 @@ int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr
         return 1;
 }
 
-int sd_dhcp_server_set_relay_agent_circuit_id(
+int sd_dhcp_server_set_relay_agent_information(
                 sd_dhcp_server *server,
-                const char *agent_circuit_id) {
-        assert_return(server, -EINVAL);
-
-        if (relay_agent_suboptions_length(agent_circuit_id, server->agent_remote_id) > 255)
-                return -ENOBUFS;
-
-        return free_and_strdup(&server->agent_circuit_id, agent_circuit_id);
-}
-
-int sd_dhcp_server_set_agent_remote_id(
-                sd_dhcp_server *server,
+                const char *agent_circuit_id,
                 const char *agent_remote_id) {
+        int r;
+
         assert_return(server, -EINVAL);
 
-        if (relay_agent_suboptions_length(server->agent_circuit_id, agent_remote_id) > 255)
+        if (relay_agent_information_length(agent_circuit_id, agent_remote_id) > 255)
                 return -ENOBUFS;
+
+        r = free_and_strdup(&server->agent_circuit_id, agent_circuit_id);
+        if (r < 0)
+                return r;
 
         return free_and_strdup(&server->agent_remote_id, agent_remote_id);
 }

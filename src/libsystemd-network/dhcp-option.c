@@ -19,6 +19,8 @@ static int dhcp_option_append_tlv(uint8_t options[], size_t size, size_t *offset
         assert(options);
         assert(size > 0);
         assert(offset);
+        assert(optlen < UINT8_MAX);
+        assert(*offset < size);
 
         if (*offset + 2 + optlen > size)
                 return -ENOBUFS;
@@ -154,51 +156,53 @@ static int option_length(uint8_t *options, size_t length, size_t offset) {
         assert(options);
         assert(offset < length);
 
-        if (options[offset] == SD_DHCP_OPTION_PAD || options[offset] == SD_DHCP_OPTION_END)
+        if (IN_SET(options[offset], SD_DHCP_OPTION_PAD, SD_DHCP_OPTION_END))
                 return 1;
         if (length < offset + 2)
                 return -ENOBUFS;
 
-        //validating that buffer is long enough
+        /* validating that buffer is long enough */
         if (length < offset + 2 + options[offset + 1])
                 return -ENOBUFS;
 
         return options[offset + 1] + 2;
 }
 
-int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t wanted_code) {
-        assert(options);
-        size_t offset = 0;
+int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t code, size_t *ret_offset) {
         int r;
 
-        while (offset < length) {
-                if (wanted_code == options[offset])
-                        return offset;
+        assert(options);
+        assert(ret_offset);
 
+        for (size_t offset = 0; offset < length; offset += r) {
                 r = option_length(options, length, offset);
                 if (r < 0)
                         return r;
-                offset += r;
+
+                if (code == options[offset]) {
+                        *ret_offset = offset;
+                        return 0;
+                }
         }
-        return offset == length ? -ENOENT : -ENOBUFS;
+        return -ENOENT;
 }
 
 int dhcp_option_remove_option(uint8_t *options, size_t length, uint8_t option_code) {
         int r;
-        int s;
+        size_t offset;
 
         assert(options);
 
-        r = dhcp_option_find_option(options, length, option_code);
+        r = dhcp_option_find_option(options, length, option_code, &offset);
         if (r < 0)
                 return r;
 
-        s = option_length(options, length, r);
-        if (s < 0)
-                return s;
+        r = option_length(options, length, offset);
+        if (r < 0)
+                return r;
 
-        memmove(options + r, options + r + s, length - r - s);
-        return length - s;
+        memmove(options + offset, options + offset + r, length - offset - r);
+        return length - r;
 }
 
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,

@@ -2469,7 +2469,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RelayAgentCircuitId=</varname></term>
         <listitem>
-          <para>Specifies value for Agent Circuit ID suboption of Relay Agent Information Option.
+          <para>Specifies value for Agent Circuit ID suboption of Relay Agent Information option.
           Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
           where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
           Defaults to unset (means no Agent Circuit ID suboption is generated).
@@ -2479,7 +2479,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RelayAgentRemoteId=</varname></term>
         <listitem>
-          <para>Specifies value for Agent Remote ID suboption of Relay Agent Information Option.
+          <para>Specifies value for Agent Remote ID suboption of Relay Agent Information option.
           Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
           where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
           Defaults to unset (means no Agent Remote ID suboption is generated).
