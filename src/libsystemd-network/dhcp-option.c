@@ -19,7 +19,7 @@ static int dhcp_option_append_tlv(uint8_t options[], size_t size, size_t *offset
         assert(options);
         assert(size > 0);
         assert(offset);
-        assert(optlen < UINT8_MAX);
+        assert(optlen <= UINT8_MAX);
         assert(*offset < size);
 
         if (*offset + 2 + optlen > size)
@@ -142,7 +142,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
                 options[*offset] = code;
                 options[*offset + 1] = current_offset - *offset - 2;
-                assert(current_offset - *offset - 2 <= 255);
+                assert(current_offset - *offset - 2 <= UINT8_MAX);
                 *offset = current_offset;
                 break;
         }

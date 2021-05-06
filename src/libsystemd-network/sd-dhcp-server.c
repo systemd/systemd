@@ -397,8 +397,8 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 
         if (req->agent_info_option) {
                 size_t opt_full_length = *(req->agent_info_option + 1) + 2;
-                /* there must be space left for SD_DHCP_OPTION_END also */
-                if (optoffset + opt_full_length + 1 <= req->max_optlen) {
+                /* there must be space left for SD_DHCP_OPTION_END */
+                if (optoffset + opt_full_length < req->max_optlen) {
                         memcpy(packet->dhcp.options + optoffset, req->agent_info_option, opt_full_length);
                         optoffset += opt_full_length;
                 }
@@ -1374,16 +1374,22 @@ int sd_dhcp_server_set_relay_agent_information(
                 sd_dhcp_server *server,
                 const char *agent_circuit_id,
                 const char *agent_remote_id) {
-        int r;
+        _cleanup_free_ char *circuit_id_dup = NULL, *remote_id_dup = NULL;
 
         assert_return(server, -EINVAL);
 
-        if (relay_agent_information_length(agent_circuit_id, agent_remote_id) > 255)
+        if (relay_agent_information_length(agent_circuit_id, agent_remote_id) > UINT8_MAX)
                 return -ENOBUFS;
 
-        r = free_and_strdup(&server->agent_circuit_id, agent_circuit_id);
-        if (r < 0)
-                return r;
+        circuit_id_dup = strdup(agent_circuit_id);
+        if (!circuit_id_dup)
+                return -ENOMEM;
 
-        return free_and_strdup(&server->agent_remote_id, agent_remote_id);
+        remote_id_dup = strdup(agent_remote_id);
+        if (!remote_id_dup)
+                return -ENOMEM;
+
+        free_and_replace(server->agent_circuit_id, circuit_id_dup);
+        free_and_replace(server->agent_remote_id, remote_id_dup);
+        return 0;
 }
