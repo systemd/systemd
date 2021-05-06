@@ -119,6 +119,10 @@ ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
+# Administrative decision: if not present, some scripts generate into /boot.
+! [ -d "$BOOT_ROOT/$MACHINE_ID" ]
+export KERNEL_INSTALL_BOOTLOADER_SPEC="$?"
+
 ret=0
 
 readarray -t PLUGINS <<<"$(
@@ -137,6 +141,18 @@ case $COMMAND in
         if [[ ! -f "$KERNEL_IMAGE" ]]; then
             echo "Kernel image argument ${KERNEL_IMAGE} not a file" >&2
             exit 1
+        fi
+
+        # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
+        # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
+        # to serve as the indication to use or to not use the BLS
+        if [ "$KERNEL_INSTALL_BOOTLOADER_SPEC" != 0 ]; then
+            if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
+                echo "+mkdir -v -p $ENTRY_DIR_ABS"
+                mkdir -v -p "$ENTRY_DIR_ABS"
+            else
+                mkdir -p "$ENTRY_DIR_ABS"
+            fi
         fi
 
         for f in "${PLUGINS[@]}"; do
@@ -166,6 +182,11 @@ case $COMMAND in
                 ((ret+=$x))
             fi
         done
+
+        if [ "$x" = "$SKIP_REMAINING" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
+            rm -rf "$ENTRY_DIR_ABS"
+        fi
         ;;
 
     *)
