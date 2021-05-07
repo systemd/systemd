@@ -2272,6 +2272,9 @@ int manager_connect_bus(Manager *m) {
 int _manager_send_changed(Manager *manager, const char *property, ...) {
         assert(manager);
 
+        if (sd_bus_is_ready(manager->bus) <= 0)
+                return 0;
+
         char **l = strv_from_stdarg_alloca(property);
 
         int r = sd_bus_emit_properties_changed_strv(
