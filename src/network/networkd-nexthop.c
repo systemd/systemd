@@ -413,7 +413,7 @@ static int nexthop_configure(
                 NextHop **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
+        int r, k;
 
         assert(link);
         assert(link->manager);
@@ -458,6 +458,10 @@ static int nexthop_configure(
                 }
         }
 
+        k = nexthop_add(link, nexthop, ret);
+        if (k < 0)
+                return log_link_error_errno(link, k, "Could not add nexthop: %m");
+
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
@@ -465,11 +469,7 @@ static int nexthop_configure(
 
         link_ref(link);
 
-        r = nexthop_add(link, nexthop, ret);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add nexthop: %m");
-
-        return r;
+        return k;
 }
 
 static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
