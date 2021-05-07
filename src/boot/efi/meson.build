@@ -188,6 +188,7 @@ if have_gnu_efi
                        '-Bsymbolic',
                        '-nostdlib',
                        '-znocombreloc',
+                       '--build-id=sha1',
                        '-L', efi_libdir,
                        efi_crt0]
         if ['aarch64', 'arm', 'riscv64'].contains(efi_arch)
@@ -218,18 +219,21 @@ if have_gnu_efi
 
         libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
-        stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
+        stub_so_name = 'linux@0@.so.stub'.format(EFI_MACHINE_TYPE_NAME)
+        stub_efi_name = 'linux@0@.elf.stub'.format(EFI_MACHINE_TYPE_NAME)
         no_undefined_symbols = find_program('no-undefined-symbols.sh')
 
-        foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects],
-                         ['stub.so', stub_efi_name, stub_objects]]
+        foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects, 'systemd_boot.so', false],
+                         ['stub.so', stub_efi_name, stub_objects, stub_so_name, true]]
                 so = custom_target(
                         tuple[0],
                         input : tuple[2],
-                        output : tuple[0],
+                        output : tuple[3],
                         command : [efi_ld, '-o', '@OUTPUT@'] +
                                   efi_ldflags + tuple[2] +
-                                  ['-lefi', '-lgnuefi', libgcc_file_name])
+                                  ['-lefi', '-lgnuefi', libgcc_file_name],
+                        install : tuple[4],
+                        install_dir : bootlibdir)
 
                 if want_tests != 'false'
                         test('no-undefined-symbols-' + tuple[0],
