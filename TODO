@@ -36,11 +36,14 @@ Features:
 * journald: support RFC3164 fully for the incoming syslog transport, see
   https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
 
-* nspawn: support uid mapping bind mounts, as defined available in kernel 5.12,
-  for all our disk image needs
-
 * homed: if kernel 5.12 uid mapping mounts exist, use that instead of recursive
   chowns.
+
+* DynamicUser= + StateDirectory= → use uid mapping mounts, too, in order to
+  make dirs appear under right UID.
+
+* nspawn: make --bind= work sanely with --private-users when uid mapping mounts
+  are used.
 
 * cryptsetup: tweak tpm2-device=auto logic, abort quickly if firmware tells us
   there isn't any TPM2 device anyway. that way, we'll wait for the TPM2 device
