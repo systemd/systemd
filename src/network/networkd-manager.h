@@ -62,6 +62,7 @@ struct Manager {
         char* dynamic_hostname;
         char* dynamic_timezone;
 
+        unsigned routing_policy_rule_remove_messages;
         Set *rules;
         Set *rules_foreign;
 

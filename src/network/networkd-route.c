@@ -1563,10 +1563,6 @@ int link_set_routes(Link *link) {
                 return 0;
         }
 
-        r = link_set_routing_policy_rules(link);
-        if (r < 0)
-                return r;
-
         /* First, add the routes that enable us to talk to gateways. */
         r = link_set_routes_internal(link, false);
         if (r < 0)
