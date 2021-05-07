@@ -91,7 +91,9 @@
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
 <programlisting>passwd:         compat systemd
 group:          compat [SUCCESS=merge] systemd
-shadow:         compat
+shadow:         compat systemd
+gshadow:        files systemd
+
 
 # Either (untrusted network, see above):
 hosts:          mymachines resolve [!UNAVAIL=return] files <command>myhostname</command> dns
