@@ -2028,17 +2028,17 @@ static int link_drop_foreign_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_foreign_addresses(link);
-
-        k = link_drop_foreign_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_foreign_routes(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        r = link_drop_foreign_routes(link);
 
         k = link_drop_foreign_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_foreign_addresses(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_foreign_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
@@ -2055,17 +2055,17 @@ static int link_drop_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_addresses(link);
-
-        k = link_drop_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_routes(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        r = link_drop_routes(link);
 
         k = link_drop_nexthops(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_addresses(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = link_drop_neighbors(link);
         if (k < 0 && r >= 0)
                 r = k;
 
