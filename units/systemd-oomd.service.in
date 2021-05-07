@@ -11,8 +11,10 @@
 Description=Userspace Out-Of-Memory (OOM) Killer
 Documentation=man:systemd-oomd.service(8)
 DefaultDependencies=no
+After=dbus.socket
 Before=multi-user.target shutdown.target
 Conflicts=shutdown.target
+Wants=dbus.socket
 ConditionControlGroupController=v2
 ConditionPathExists=/proc/pressure/cpu
 ConditionPathExists=/proc/pressure/io
