@@ -5,6 +5,7 @@
 
 #include "networkd-link.h"
 
+typedef struct Neighbor Neighbor;
 typedef struct RoutingPolicyRule RoutingPolicyRule;
 
 typedef struct Request Request;
@@ -13,6 +14,7 @@ typedef int (*request_after_configure_handler_t)(Request*, void*);
 typedef void (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
+        REQUEST_TYPE_NEIGHBOR,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
         _REQUEST_TYPE_MAX,
         _REQUEST_TYPE_INVALID = -EINVAL,
@@ -23,6 +25,7 @@ typedef struct Request {
         RequestType type;
         bool consume_object;
         union {
+                Neighbor *neighbor;
                 RoutingPolicyRule *rule;
                 void *object;
         };
