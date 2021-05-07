@@ -796,9 +796,6 @@ void link_check_ready(Link *link) {
         if (!link->addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
-        if (!link->neighbors_configured)
-                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
-
         SET_FOREACH(a, link->addresses)
                 if (!address_is_ready(a)) {
                         _cleanup_free_ char *str = NULL;
@@ -806,6 +803,9 @@ void link_check_ready(Link *link) {
                         (void) in_addr_prefix_to_string(a->family, &a->in_addr, a->prefixlen, &str);
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
+
+        if (!link->static_neighbors_configured)
+                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
         if (!link->static_routes_configured)
                 return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
@@ -881,7 +881,6 @@ static int link_set_static_configs(Link *link) {
         link->request_static_addresses = false;
         link->addresses_configured = false;
         link->addresses_ready = false;
-        link->neighbors_configured = false;
         link->static_routes_configured = false;
         link->static_nexthops_configured = false;
 
@@ -897,11 +896,11 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_neighbors(link);
+        r = link_set_addresses(link);
         if (r < 0)
                 return r;
 
-        r = link_set_addresses(link);
+        r = link_request_static_neighbors(link);
         if (r < 0)
                 return r;
 
