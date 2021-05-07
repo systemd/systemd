@@ -19,7 +19,6 @@
 #endif
 #define _sentinel_ __attribute__((__sentinel__))
 #define _section_(x) __attribute__((__section__(x)))
-#define _used_ __attribute__((__used__))
 #define _destructor_ __attribute__((__destructor__))
 #define _deprecated_ __attribute__((__deprecated__))
 #define _packed_ __attribute__((__packed__))
