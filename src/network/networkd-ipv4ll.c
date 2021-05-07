@@ -49,13 +49,9 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         assert(link);
         assert(!link->ipv4ll_address_configured);
 
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "could not set ipv4ll address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_configure_handler_internal(rtnl, m, link, "Could not set ipv4ll address");
+        if (r <= 0)
+                return r;
 
         link->ipv4ll_address_configured = true;
         link_check_ready(link);

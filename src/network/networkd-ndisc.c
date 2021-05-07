@@ -305,15 +305,9 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
         link->ndisc_routes_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_error_errno(link, m, r, "Could not set NDisc route");
-                link_enter_failed(link);
-                return 1;
-        }
+        r = route_configure_handler_internal(rtnl, m, link, "Could not set NDisc route");
+        if (r <= 0)
+                return r;
 
         if (link->ndisc_routes_messages == 0) {
                 log_link_debug(link, "NDisc routes set.");
@@ -402,16 +396,9 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         link->ndisc_addresses_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_error_errno(link, m, r, "Could not set NDisc address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_configure_handler_internal(rtnl, m, link, "Could not set NDisc address");
+        if (r <= 0)
+                return r;
 
         if (link->ndisc_addresses_messages == 0) {
                 log_link_debug(link, "NDisc SLAAC addresses set.");
