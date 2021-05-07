@@ -3197,7 +3197,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f, NULL);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
