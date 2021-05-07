@@ -3577,7 +3577,7 @@ static int outer_child(
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK)|
+                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS)|
                                 (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
@@ -3670,7 +3670,7 @@ static int outer_child(
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK));
+                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS));
                 if (r == -EUCLEAN)
                         return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
