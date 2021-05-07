@@ -229,7 +229,7 @@ int dhcp6_pd_remove(Link *link) {
         return r;
 }
 
-static int dhcp6_pd_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
+static int dhcp6_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -237,15 +237,9 @@ static int dhcp6_pd_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *l
 
         link->dhcp6_pd_route_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Failed to add DHCPv6 Prefix Delegation route");
-                link_enter_failed(link);
-                return 1;
-        }
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to add DHCPv6 Prefix Delegation route");
+        if (r <= 0)
+                return r;
 
         if (link->dhcp6_pd_route_messages == 0) {
                 log_link_debug(link, "DHCPv6 prefix delegation routes set");
@@ -338,16 +332,9 @@ static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 
         link->dhcp6_pd_address_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set DHCPv6 delegated prefix address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv6 delegated prefix address");
+        if (r <= 0)
+                return r;
 
         if (link->dhcp6_pd_address_messages == 0) {
                 log_link_debug(link, "DHCPv6 delegated prefix addresses set");
@@ -784,7 +771,7 @@ static int dhcp6_remove(Link *link) {
         return r;
 }
 
-static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
+static int dhcp6_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -792,15 +779,9 @@ static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link
 
         link->dhcp6_route_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Failed to add unreachable route for DHCPv6 delegated subnet");
-                link_enter_failed(link);
-                return 1;
-        }
+        r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCPv6 delegated subnet");
+        if (r <= 0)
+                return r;
 
         if (link->dhcp6_route_messages == 0) {
                 log_link_debug(link, "Unreachable routes for DHCPv6 delegated subnets set");
@@ -1000,16 +981,9 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         link->dhcp6_address_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set DHCPv6 address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv6 address");
+        if (r <= 0)
+                return r;
 
         if (link->dhcp6_address_messages == 0) {
                 log_link_debug(link, "DHCPv6 addresses set");

@@ -73,7 +73,9 @@ Route *route_free(Route *route);
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 int route_dup(const Route *src, Route **ret);
 
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int route_configure(const Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
+int link_route_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_has_route(Link *link, const Route *route);

@@ -670,21 +670,17 @@ static int dhcp_reset_hostname(Link *link) {
         return 0;
 }
 
-static int dhcp4_remove_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        assert(m);
         assert(link);
         assert(link->dhcp4_remove_messages > 0);
 
         link->dhcp4_remove_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
-                log_link_message_warning_errno(link, m, r, "Failed to remove DHCPv4 route, ignoring");
+        r = link_route_remove_handler_internal(rtnl, m, link, "Failed to remove DHCPv4 route, ignoring");
+        if (r <= 0)
+                return r;
 
         if (link->dhcp4_remove_messages == 0) {
                 r = dhcp4_update_address(link, false);
@@ -695,23 +691,17 @@ static int dhcp4_remove_route_handler(sd_netlink *rtnl, sd_netlink_message *m, L
         return 1;
 }
 
-static int dhcp4_remove_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        assert(m);
         assert(link);
         assert(link->dhcp4_remove_messages > 0);
 
         link->dhcp4_remove_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_message_warning_errno(link, m, r, "Failed to remove DHCPv4 address, ignoring");
-        else
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_remove_handler_internal(rtnl, m, link, "Failed to remove DHCPv4 address, ignoring");
+        if (r <= 0)
+                return r;
 
         if (link->dhcp4_remove_messages == 0) {
                 r = dhcp4_update_address(link, false);
@@ -729,7 +719,7 @@ static int dhcp4_remove_all(Link *link) {
         assert(link);
 
         SET_FOREACH(route, link->dhcp_routes) {
-                k = route_remove(route, NULL, link, dhcp4_remove_route_handler);
+                k = route_remove(route, NULL, link, dhcp4_route_remove_handler);
                 if (k < 0)
                         r = k;
                 else
@@ -737,7 +727,7 @@ static int dhcp4_remove_all(Link *link) {
         }
 
         if (link->dhcp_address) {
-                k = address_remove(link->dhcp_address, link, dhcp4_remove_address_handler);
+                k = address_remove(link->dhcp_address, link, dhcp4_address_remove_handler);
                 if (k < 0)
                         r = k;
                 else
@@ -958,23 +948,14 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv4 address");
+        if (r <= 0)
+                return r;
 
         if (address_is_ready(link->dhcp_address)) {
                 r = dhcp4_address_ready_callback(link->dhcp_address);
-                if (r < 0) {
+                if (r < 0)
                         link_enter_failed(link);
-                        return 1;
-                }
         } else
                 link->dhcp_address->callback = dhcp4_address_ready_callback;
 

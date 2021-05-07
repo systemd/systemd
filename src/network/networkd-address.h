@@ -51,7 +51,9 @@ typedef struct Address {
 int address_new(Address **ret);
 Address *address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
+int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_configure(const Address *address, Link *link, link_netlink_message_handler_t callback, Address **ret);
+int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(const Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(const Address *a1, const Address *a2);
 bool address_is_ready(const Address *a);
