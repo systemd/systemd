@@ -10,7 +10,18 @@
 #define _const_ __attribute__((__const__))
 #define _pure_ __attribute__((__pure__))
 #define _unused_ __attribute__((__unused__))
+#define _used_ __attribute__((__used__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+
+/* LLVM/clang complains if we define a local scope variable with __cleanup__ that we then never actually
+ * reference. (Which typically means we just care for the initializatin and the clean-up, and don't intend to
+ * use it otherwise.) By using __used__ on it, we can supress the complaint, and things just work. However,
+ * gcc then complains about it. Hence we use slightly different definitions here for the two compilers. */
+#ifdef __clang__
+#define _used_cleanup_(x) __attribute__((__used__, __cleanup__(x)))
+#else
+#define _used_cleanup_(x) __attribute__((__cleanup__(x)))
+#endif
 
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
