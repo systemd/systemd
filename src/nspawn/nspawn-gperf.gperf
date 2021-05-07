@@ -68,6 +68,7 @@ Files.Inaccessible,           config_parse_inaccessible,   0,                 0
 Files.Overlay,                config_parse_overlay,        0,                 0
 Files.OverlayReadOnly,        config_parse_overlay,        1,                 0
 Files.PrivateUsersChown,      config_parse_tristate,       0,                 offsetof(Settings, userns_chown)
+Files.BindUser,               config_parse_bind_user,      0,                 offsetof(Settings, bind_user)
 Network.Private,              config_parse_tristate,       0,                 offsetof(Settings, private_network)
 Network.Interface,            config_parse_strv,           0,                 offsetof(Settings, network_interfaces)
 Network.MACVLAN,              config_parse_strv,           0,                 offsetof(Settings, network_macvlan)
