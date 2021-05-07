@@ -4,16 +4,15 @@
 #include <inttypes.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
-#include <stdio.h>
 
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-util.h"
-#include "set.h"
 
-typedef struct Network Network;
 typedef struct Link Link;
 typedef struct Manager Manager;
+typedef struct Network Network;
+typedef struct Request Request;
 
 typedef struct RoutingPolicyRule {
         Manager *manager;
@@ -55,7 +54,8 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
 void network_drop_invalid_routing_policy_rules(Network *network);
 
-int link_set_routing_policy_rules(Link *link);
+int link_request_static_routing_policy_rules(Link *link);
+int request_process_routing_policy_rule(Request *req);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
