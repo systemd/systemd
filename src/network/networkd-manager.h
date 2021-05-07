@@ -91,6 +91,8 @@ struct Manager {
         bool bridge_mdb_on_master_not_supported;
 
         FirewallContext *fw_ctx;
+
+        OrderedSet *request_queue;
 };
 
 int manager_new(Manager **ret);
