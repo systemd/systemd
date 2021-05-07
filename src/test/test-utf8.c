@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -91,15 +92,15 @@ static void test_utf8_escape_invalid(void) {
         log_info("/* %s */", __func__);
 
         p1 = utf8_escape_invalid("goo goo goo");
-        puts(p1);
+        log_debug("\"%s\"", p1);
         assert_se(utf8_is_valid(p1));
 
         p2 = utf8_escape_invalid("\341\204\341\204");
-        puts(p2);
+        log_debug("\"%s\"", p2);
         assert_se(utf8_is_valid(p2));
 
         p3 = utf8_escape_invalid("\341\204");
-        puts(p3);
+        log_debug("\"%s\"", p3);
         assert_se(utf8_is_valid(p3));
 }
 
@@ -109,59 +110,56 @@ static void test_utf8_escape_non_printable(void) {
         log_info("/* %s */", __func__);
 
         p1 = utf8_escape_non_printable("goo goo goo");
-        puts(p1);
+        log_debug("\"%s\"", p1);
         assert_se(utf8_is_valid(p1));
 
         p2 = utf8_escape_non_printable("\341\204\341\204");
-        puts(p2);
+        log_debug("\"%s\"", p2);
         assert_se(utf8_is_valid(p2));
 
         p3 = utf8_escape_non_printable("\341\204");
-        puts(p3);
+        log_debug("\"%s\"", p3);
         assert_se(utf8_is_valid(p3));
 
         p4 = utf8_escape_non_printable("ąę\n가너도루\n1234\n\341\204\341\204\n\001 \019\20\a");
-        puts(p4);
+        log_debug("\"%s\"", p4);
         assert_se(utf8_is_valid(p4));
 
         p5 = utf8_escape_non_printable("\001 \019\20\a");
-        puts(p5);
+        log_debug("\"%s\"", p5);
         assert_se(utf8_is_valid(p5));
 
         p6 = utf8_escape_non_printable("\xef\xbf\x30\x13");
-        puts(p6);
+        log_debug("\"%s\"", p6);
         assert_se(utf8_is_valid(p6));
 }
 
 static void test_utf8_escape_non_printable_full(void) {
         log_info("/* %s */", __func__);
 
-        for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
+        const char *s;
+        FOREACH_STRING(s,
+                       "goo goo goo",       /* ASCII */
+                       "\001 \019\20\a",    /* control characters */
+                       "\xef\xbf\x30\x13")  /* misplaced continuation bytes followed by a digit and cc */
+                for (size_t cw = 0; cw < 22; cw++) {
+                        _cleanup_free_ char *p, *q;
+                        size_t ew;
 
-                p = utf8_escape_non_printable_full("goo goo goo", i);
-                puts(p);
-                assert_se(utf8_is_valid(p));
-                assert_se(utf8_console_width(p) <= i);
-        }
+                        p = utf8_escape_non_printable_full(s, cw, false);
+                        ew = utf8_console_width(p);
+                        log_debug("%02zu \"%s\" (%zu wasted)", cw, p, cw - ew);
+                        assert_se(utf8_is_valid(p));
+                        assert_se(ew <= cw);
 
-        for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
-
-                p = utf8_escape_non_printable_full("\001 \019\20\a", i);
-                puts(p);
-                assert_se(utf8_is_valid(p));
-                assert_se(utf8_console_width(p) <= i);
-        }
-
-        for (size_t i = 0; i < 20; i++) {
-                _cleanup_free_ char *p;
-
-                p = utf8_escape_non_printable_full("\xef\xbf\x30\x13", i);
-                puts(p);
-                assert_se(utf8_is_valid(p));
-                assert_se(utf8_console_width(p) <= i);
-        }
+                        q = utf8_escape_non_printable_full(s, cw, true);
+                        ew = utf8_console_width(q);
+                        log_debug("   \"%s\" (%zu wasted)", q, cw - ew);
+                        assert_se(utf8_is_valid(q));
+                        assert_se(ew <= cw);
+                        if (cw > 0)
+                                assert_se(endswith(q, "…"));
+                }
 }
 
 static void test_utf16_to_utf8(void) {
@@ -235,6 +233,9 @@ static void test_utf8_to_utf16(void) {
 }
 
 int main(int argc, char *argv[]) {
+        log_show_color(true);
+        test_setup_logging(LOG_INFO);
+
         test_utf8_n_is_valid();
         test_utf8_is_valid();
         test_utf8_is_printable();

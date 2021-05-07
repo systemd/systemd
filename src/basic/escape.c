@@ -360,15 +360,16 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
         return t - r;
 }
 
-char* xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits) {
+char* xescape_full(const char *s, const char *bad, size_t console_width, XEscapeFlags flags) {
         char *ans, *t, *prev, *prev2;
         const char *f;
 
         /* Escapes all chars in bad, in addition to \ and all special chars, in \xFF style escaping. May be
-         * reversed with cunescape(). If eight_bits is true, characters >= 127 are let through unchanged.
-         * This corresponds to non-ASCII printable characters in pre-unicode encodings.
+         * reversed with cunescape(). If XESCAPE_8_BIT is specified, characters >= 127 are let through
+         * unchanged. This corresponds to non-ASCII printable characters in pre-unicode encodings.
          *
-         * If console_width is reached, output is truncated and "..." is appended. */
+         * If console_width is reached, or XESCAPE_FORCE_ELLIPSIS is set, output is truncated and "..." is
+         * appended. */
 
         if (console_width == 0)
                 return strdup("");
@@ -380,17 +381,23 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
         memset(ans, '_', MIN(strlen(s), console_width) * 4);
         ans[MIN(strlen(s), console_width) * 4] = 0;
 
+        bool force_ellipsis = FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS);
+
         for (f = s, t = prev = prev2 = ans; ; f++) {
                 char *tmp_t = t;
 
                 if (!*f) {
+                        if (force_ellipsis)
+                                break;
+
                         *t = 0;
                         return ans;
                 }
 
-                if ((unsigned char) *f < ' ' || (!eight_bits && (unsigned char) *f >= 127) ||
+                if ((unsigned char) *f < ' ' ||
+                    (!FLAGS_SET(flags, XESCAPE_8_BIT) && (unsigned char) *f >= 127) ||
                     *f == '\\' || strchr(bad, *f)) {
-                        if ((size_t) (t - ans) + 4 > console_width)
+                        if ((size_t) (t - ans) + 4 + 3 * force_ellipsis > console_width)
                                 break;
 
                         *(t++) = '\\';
@@ -398,7 +405,7 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
                 } else {
-                        if ((size_t) (t - ans) + 1 > console_width)
+                        if ((size_t) (t - ans) + 1 + 3 * force_ellipsis > console_width)
                                 break;
 
                         *(t++) = *f;
@@ -427,11 +434,13 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, bool ei
         return ans;
 }
 
-char* escape_non_printable_full(const char *str, size_t console_width, bool eight_bit) {
-        if (eight_bit)
-                return xescape_full(str, "", console_width, true);
+char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags) {
+        if (FLAGS_SET(flags, XESCAPE_8_BIT))
+                return xescape_full(str, "", console_width, flags);
         else
-                return utf8_escape_non_printable_full(str, console_width);
+                return utf8_escape_non_printable_full(str,
+                                                      console_width,
+                                                      FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS));
 }
 
 char* octescape(const char *s, size_t len) {
@@ -462,88 +471,74 @@ char* octescape(const char *s, size_t len) {
 
 }
 
-static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad, bool escape_tab_nl) {
+static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
 
-        for (; *s; s++) {
-                if (escape_tab_nl && IN_SET(*s, '\n', '\t')) {
-                        *(t++) = '\\';
-                        *(t++) = *s == '\n' ? 'n' : 't';
-                        continue;
+        for (; *s; s++)
+                if (char_is_cc(*s))
+                        t += cescape_char(*s, t);
+                else {
+                        if (*s == '\\' || strchr(bad, *s))
+                                *(t++) = '\\';
+                        *(t++) = *s;
                 }
-
-                if (*s == '\\' || strchr(bad, *s))
-                        *(t++) = '\\';
-
-                *(t++) = *s;
-        }
 
         return t;
 }
 
 char* shell_escape(const char *s, const char *bad) {
-        char *r, *t;
+        char *buf, *t;
 
-        r = new(char, strlen(s)*2+1);
-        if (!r)
+        buf = new(char, strlen(s)*4+1);
+        if (!buf)
                 return NULL;
 
-        t = strcpy_backslash_escaped(r, s, bad, false);
+        t = strcpy_backslash_escaped(buf, s, bad);
         *t = 0;
 
-        return r;
+        return buf;
 }
 
-char* shell_maybe_quote(const char *s, EscapeStyle style) {
+char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         const char *p;
-        char *r, *t;
+        char *buf, *t;
 
         assert(s);
 
-        /* Encloses a string in quotes if necessary to make it OK as a shell
-         * string. Note that we treat benign UTF-8 characters as needing
-         * escaping too, but that should be OK. */
+        /* Encloses a string in quotes if necessary to make it OK as a shell string. */
+
+        if (FLAGS_SET(flags, SHELL_ESCAPE_EMPTY) && isempty(s))
+                return strdup("\"\""); /* We don't use $'' here in the POSIX mode. "" is fine too. */
 
         for (p = s; *p; p++)
-                if (*p <= ' ' ||
-                    *p >= 127 ||
-                    strchr(SHELL_NEED_QUOTES, *p))
+                if (char_is_cc(*p) ||
+                    strchr(WHITESPACE SHELL_NEED_QUOTES, *p))
                         break;
 
         if (!*p)
                 return strdup(s);
 
-        r = new(char, (style == ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
-        if (!r)
+        buf = new(char, FLAGS_SET(flags, SHELL_ESCAPE_POSIX) + 1 + strlen(s)*4 + 1 + 1);
+        if (!buf)
                 return NULL;
 
-        t = r;
-        switch (style) {
-        case ESCAPE_BACKSLASH:
-        case ESCAPE_BACKSLASH_ONELINE:
-                *(t++) = '"';
-                break;
-        case ESCAPE_POSIX:
+        t = buf;
+        if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX)) {
                 *(t++) = '$';
                 *(t++) = '\'';
-                break;
-        default:
-                assert_not_reached("Bad EscapeStyle");
-        }
+        } else
+                *(t++) = '"';
 
         t = mempcpy(t, s, p - s);
 
-        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE,
-                                             style == ESCAPE_BACKSLASH_ONELINE);
-        else
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE_POSIX, true);
+        t = strcpy_backslash_escaped(t, p,
+                                     FLAGS_SET(flags, SHELL_ESCAPE_POSIX) ? SHELL_NEED_ESCAPE_POSIX : SHELL_NEED_ESCAPE);
 
-        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
-                *(t++) = '"';
-        else
+        if (FLAGS_SET(flags, SHELL_ESCAPE_POSIX))
                 *(t++) = '\'';
+        else
+                *(t++) = '"';
         *t = 0;
 
-        return r;
+        return str_realloc(buf);
 }

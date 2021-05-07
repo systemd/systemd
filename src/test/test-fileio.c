@@ -322,6 +322,8 @@ static void test_executable_is_script(void) {
         char *command;
         int r;
 
+        log_info("/* %s */", __func__);
+
         assert_se(fmkostemp_safe(t, "w", &f) == 0);
         fputs("#! /bin/script -a -b \ngoo goo", f);
         fflush(f);
@@ -346,6 +348,8 @@ static void test_status_field(void) {
         _cleanup_free_ char *t = NULL, *p = NULL, *s = NULL, *z = NULL;
         unsigned long long total = 0, buffers = 0;
         int r;
+
+        log_info("/* %s */", __func__);
 
         assert_se(get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t) == 0);
         puts(t);
@@ -378,11 +382,11 @@ static void test_status_field(void) {
 }
 
 static void test_capeff(void) {
-        int pid, p;
+        log_info("/* %s */", __func__);
 
-        for (pid = 0; pid < 2; pid++) {
+        for (int pid = 0; pid < 2; pid++) {
                 _cleanup_free_ char *capeff = NULL;
-                int r;
+                int r, p;
 
                 r = get_process_capeff(0, &capeff);
                 log_info("capeff: '%s' (r=%d)", capeff, r);
@@ -402,6 +406,8 @@ static void test_write_string_stream(void) {
         _cleanup_fclose_ FILE *f = NULL;
         int fd;
         char buf[64];
+
+        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -437,6 +443,8 @@ static void test_write_string_file(void) {
         char buf[64] = {};
         _cleanup_close_ int fd;
 
+        log_info("/* %s */", __func__);
+
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
 
@@ -451,6 +459,8 @@ static void test_write_string_file_no_create(void) {
         _cleanup_close_ int fd;
         char buf[64] = {};
 
+        log_info("/* %s */", __func__);
+
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
 
@@ -464,6 +474,8 @@ static void test_write_string_file_no_create(void) {
 static void test_write_string_file_verify(void) {
         _cleanup_free_ char *buf = NULL, *buf2 = NULL;
         int r;
+
+        log_info("/* %s */", __func__);
 
         r = read_one_line_file("/proc/version", &buf);
         if (ERRNO_IS_PRIVILEGE(r))
@@ -490,6 +502,8 @@ static void test_load_env_file_pairs(void) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **l = NULL;
         char **k, **v;
+
+        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -538,6 +552,8 @@ static void test_search_and_fopen(void) {
         const char *e;
         int r;
 
+        log_info("/* %s */", __func__);
+
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         fd = safe_close(fd);
@@ -578,6 +594,8 @@ static void test_search_and_fopen_nulstr(void) {
         static const char dirs[] =
                 "/tmp/foo/bar\0"
                 "/tmp\0";
+
+        log_info("/* %s */", __func__);
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-search_and_fopen.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
@@ -620,12 +638,15 @@ static void test_writing_tmpfile(void) {
         _cleanup_free_ char *contents = NULL;
         size_t size;
         _cleanup_close_ int fd = -1;
-        struct iovec iov[3];
         int r;
 
-        iov[0] = IOVEC_MAKE_STRING("abc\n");
-        iov[1] = IOVEC_MAKE_STRING(ALPHANUMERICAL "\n");
-        iov[2] = IOVEC_MAKE_STRING("");
+        log_info("/* %s */", __func__);
+
+        struct iovec iov[] = {
+                IOVEC_MAKE_STRING("abc\n"),
+                IOVEC_MAKE_STRING(ALPHANUMERICAL "\n"),
+                IOVEC_MAKE_STRING(""),
+        };
 
         fd = mkostemp_safe(name);
         printf("tmpfile: %s", name);
@@ -641,6 +662,8 @@ static void test_writing_tmpfile(void) {
 
 static void test_tempfn(void) {
         char *ret = NULL, *p;
+
+        log_info("/* %s */", __func__);
 
         assert_se(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret) >= 0);
         assert_se(streq_ptr(ret, "/foo/bar/.#waldoXXXXXX"));
@@ -684,8 +707,7 @@ static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
 
-        f = fmemopen_unlocked((void*) chars, sizeof(chars), "re");
-        assert_se(f);
+        assert_se(f = fmemopen_unlocked((void*) chars, sizeof(chars), "re"));
 
         for (size_t i = 0; i < sizeof(chars); i++) {
                 assert_se(safe_fgetc(f, &c) == 1);
@@ -778,9 +800,9 @@ static void test_read_line_one_file(FILE *f) {
 static void test_read_line(void) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "re");
-        assert_se(f);
+        log_info("/* %s */", __func__);
 
+        assert_se(f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "re"));
         test_read_line_one_file(f);
 }
 
@@ -788,6 +810,8 @@ static void test_read_line2(void) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fileio.XXXXXX";
         int fd;
         _cleanup_fclose_ FILE *f = NULL;
+
+        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -803,6 +827,8 @@ static void test_read_line3(void) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *line = NULL;
         int r;
+
+        log_info("/* %s */", __func__);
 
         f = fopen("/proc/uptime", "re");
         if (!f && IN_SET(errno, ENOENT, EPERM))
@@ -836,10 +862,9 @@ static void test_read_line4(void) {
                 { 6, "foo\n\r\0" },
         };
 
-        size_t i;
         int r;
 
-        for (i = 0; i < ELEMENTSOF(eof_endings); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(eof_endings); i++) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *s = NULL;
 
@@ -863,6 +888,8 @@ static void test_read_nul_string(void) {
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *s = NULL;
+
+        log_info("/* %s */", __func__);
 
         assert_se(f = fmemopen_unlocked((void*) test, sizeof(test)-1, "r"));
 
@@ -953,6 +980,8 @@ static void test_read_full_file_offset_size(void) {
         size_t rbuf_size;
         uint8_t buf[4711];
 
+        log_info("/* %s */", __func__);
+
         random_bytes(buf, sizeof(buf));
 
         assert_se(tempfn_random_child(NULL, NULL, &fn) >= 0);
@@ -990,9 +1019,11 @@ static void test_read_full_file_offset_size(void) {
         rbuf = mfree(rbuf);
 }
 
-static void test_read_full_virtual_file(void) {
+static void test_read_virtual_file(size_t max_size) {
         const char *filename;
         int r;
+
+        log_info("/* %s (max_size=%zu) */", __func__, max_size);
 
         FOREACH_STRING(filename,
                        "/proc/1/cmdline",
@@ -1002,8 +1033,8 @@ static void test_read_full_virtual_file(void) {
                 _cleanup_free_ char *buf = NULL;
                 size_t size = 0;
 
-                r = read_full_virtual_file(filename, &buf, &size);
-                log_info_errno(r, "read_full_virtual_file(\"%s\"): %m (%zu bytes)", filename, size);
+                r = read_virtual_file(filename, max_size, &buf, &size);
+                log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m (%zu bytes)", filename, max_size, size);
                 assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
         }
 }
@@ -1035,7 +1066,9 @@ int main(int argc, char *argv[]) {
         test_read_nul_string();
         test_read_full_file_socket();
         test_read_full_file_offset_size();
-        test_read_full_virtual_file();
+        test_read_virtual_file(20);
+        test_read_virtual_file(4096);
+        test_read_virtual_file(SIZE_MAX);
 
         return 0;
 }
