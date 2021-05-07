@@ -752,7 +752,7 @@ sensor:modalias:acpi:KIOX020A*:dmi:*:svnTECLAST:pnF6Pro:*
 # Teclast Tbook 11 (E5A6)
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnTbooK11:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
- 
+
 # Teclast X4 2-in-1 (G4M6)
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX4:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
