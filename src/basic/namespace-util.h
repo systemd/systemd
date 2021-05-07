@@ -9,3 +9,18 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 int fd_is_ns(int fd, unsigned long nsflag);
 
 int detach_mount_namespace(void);
+
+static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
+        /* Checks that the specified userns range makes sense, i.e. contains at least one UID, and the end
+         * doesn't overflow uid_t. */
+
+        assert_cc((uid_t) -1 > 0); /* verify that uid_t is unsigned */
+
+        if (range <= 0)
+                return false;
+
+        if (shift > (uid_t) -1 - range)
+                return false;
+
+        return true;
+}

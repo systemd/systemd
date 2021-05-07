@@ -1306,8 +1306,10 @@ int safe_fork_full(
                 saved_ssp = &saved_ss;
         }
 
-        if (flags & FORK_NEW_MOUNTNS)
-                pid = raw_clone(SIGCHLD|CLONE_NEWNS);
+        if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS)) != 0)
+                pid = raw_clone(SIGCHLD|
+                                (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
+                                (FLAGS_SET(flags, FORK_NEW_USERNS) ? CLONE_NEWUSER : 0));
         else
                 pid = fork();
         if (pid < 0)
