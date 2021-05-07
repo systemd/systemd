@@ -717,7 +717,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'N':
-                        arg_userdb_flags |= USERDB_AVOID_NSS|USERDB_DONT_SYNTHESIZE;
+                        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE;
                         break;
 
                 case ARG_WITH_NSS:
@@ -725,7 +725,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_NSS, !r);
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_NSS, !r);
                         break;
 
                 case ARG_SYNTHESIZE:
