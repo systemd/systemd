@@ -1545,10 +1545,6 @@ int link_set_routes(Link *link) {
                 return 0;
         }
 
-        r = link_set_routing_policy_rules(link);
-        if (r < 0)
-                return r;
-
         HASHMAP_FOREACH(route, link->network->routes_by_section) {
                 MultipathRoute *m;
 

@@ -84,7 +84,7 @@ typedef struct Link {
         unsigned neighbor_messages;
         unsigned route_messages;
         unsigned nexthop_messages;
-        unsigned routing_policy_rule_messages;
+        unsigned static_routing_policy_rule_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
@@ -124,7 +124,7 @@ typedef struct Link {
         bool neighbors_configured:1;
         bool static_routes_configured:1;
         bool static_nexthops_configured:1;
-        bool routing_policy_rules_configured:1;
+        bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
         bool setting_mtu:1;
