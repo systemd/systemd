@@ -199,6 +199,8 @@ typedef struct Link {
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
 
+bool link_is_ready_to_configure(Link *link, bool allow_unmanaged);
+
 void link_ntp_settings_clear(Link *link);
 void link_dns_settings_clear(Link *link);
 Link *link_unref(Link *link);
