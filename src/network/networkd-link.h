@@ -81,10 +81,11 @@ typedef struct Link {
         unsigned address_messages;
         unsigned address_remove_messages;
         unsigned address_label_messages;
-        unsigned neighbor_messages;
+        unsigned static_neighbor_messages;
         unsigned route_messages;
         unsigned nexthop_messages;
         unsigned static_routing_policy_rule_messages;
+        unsigned neighbor_remove_messages;
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
@@ -121,7 +122,7 @@ typedef struct Link {
         bool request_static_addresses:1;
         bool addresses_configured:1;
         bool addresses_ready:1;
-        bool neighbors_configured:1;
+        bool static_neighbors_configured:1;
         bool static_routes_configured:1;
         bool static_nexthops_configured:1;
         bool static_routing_policy_rules_configured:1;
