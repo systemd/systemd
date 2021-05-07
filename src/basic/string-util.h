@@ -130,7 +130,7 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
 }
 
 static inline bool char_is_cc(char p) {
-        return (p >= 0 && p < ' ') || p == 127;
+        return (uint8_t) p < ' ' || p == 127;
 }
 bool string_has_cc(const char *p, const char *ok) _pure_;
 
