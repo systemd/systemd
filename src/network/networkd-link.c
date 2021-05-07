@@ -813,7 +813,7 @@ void link_check_ready(Link *link) {
         if (!link->static_nexthops_configured)
                 return (void) log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
 
-        if (!link->routing_policy_rules_configured)
+        if (!link->static_routing_policy_rules_configured)
                 return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
 
         if (!link->tc_configured)
@@ -884,13 +884,16 @@ static int link_set_static_configs(Link *link) {
         link->neighbors_configured = false;
         link->static_routes_configured = false;
         link->static_nexthops_configured = false;
-        link->routing_policy_rules_configured = false;
 
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
 
         r = link_set_bridge_mdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_address_labels(link);
         if (r < 0)
                 return r;
 
@@ -902,7 +905,7 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_address_labels(link);
+        r = link_request_static_routing_policy_rules(link);
         if (r < 0)
                 return r;
 

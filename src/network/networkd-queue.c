@@ -10,6 +10,9 @@
 
 static void request_free_object(RequestType type, void *object) {
         switch(type) {
+        case REQUEST_TYPE_ROUTING_POLICY_RULE:
+                routing_policy_rule_free(object);
+                break;
         default:
                 assert_not_reached("invalid request type.");
         }
@@ -101,6 +104,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
 
                 ORDERED_SET_FOREACH(req, manager->request_queue) {
                         switch(req->type) {
+                        case REQUEST_TYPE_ROUTING_POLICY_RULE:
+                                r = request_process_routing_policy_rule(req);
+                                break;
                         default:
                                 return -EINVAL;
                         }

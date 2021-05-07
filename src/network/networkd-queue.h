@@ -5,12 +5,15 @@
 
 #include "networkd-link.h"
 
+typedef struct RoutingPolicyRule RoutingPolicyRule;
+
 typedef struct Request Request;
 
 typedef int (*request_after_configure_handler_t)(Request*, void*);
 typedef void (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
+        REQUEST_TYPE_ROUTING_POLICY_RULE,
         _REQUEST_TYPE_MAX,
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;
@@ -19,7 +22,10 @@ typedef struct Request {
         Link *link;
         RequestType type;
         bool consume_object;
-        void *object;
+        union {
+                RoutingPolicyRule *rule;
+                void *object;
+        };
         void *userdata;
         unsigned *message_counter;
         link_netlink_message_handler_t netlink_handler;
