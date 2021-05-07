@@ -81,6 +81,9 @@ static int dhcp_server_emit_changed(Link *link, const char *property, ...) {
 
         assert(link);
 
+        if (sd_bus_is_ready(link->manager->bus) <= 0)
+                return 0;
+
         path = link_bus_path(link);
         if (!path)
                 return log_oom();
