@@ -882,18 +882,35 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         return 0;
 }
 
-static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+int link_route_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(error_msg);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ESRCH)
+                log_link_message_warning_errno(link, m, r, error_msg);
+
+        return 1;
+}
+
+static int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_route_remove_handler_internal(rtnl, m, link, "Could not drop route, ignoring");
+}
+
+static int manager_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Manager *manager) {
         int r;
 
         assert(m);
 
-        /* Note that link may be NULL. */
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
-                log_link_message_warning_errno(link, m, r, "Could not drop route, ignoring");
+                log_message_warning_errno(m, r, "Could not drop route, ignoring");
 
         return 1;
 }
@@ -913,7 +930,6 @@ int route_remove(
 
         if (!manager)
                 manager = link->manager;
-        /* link may be NULL! */
 
         log_route_debug(route, "Removing", link, manager);
 
@@ -942,13 +958,21 @@ int route_remove(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(manager->rtnl, NULL, req,
-                               callback ?: route_remove_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+        if (link) {
+                r = netlink_call_async(manager->rtnl, NULL, req,
+                                       callback ?: link_route_remove_handler,
+                                       link_netlink_destroy_callback, link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
-        link_ref(link); /* link may be NULL, link_ref() is OK with that */
+                link_ref(link);
+        } else {
+                r = netlink_call_async(manager->rtnl, NULL, req,
+                                       manager_route_remove_handler,
+                                       NULL, manager);
+                if (r < 0)
+                        return log_error_errno(r, "Could not send rtnetlink message: %m");
+        }
 
         return 0;
 }
@@ -1233,6 +1257,26 @@ static int append_nexthops(const Route *route, sd_netlink_message *req) {
         return 0;
 }
 
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(error_msg);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set route with gateway");
+                link_enter_failed(link);
+                return 0;
+        }
+
+        return 1;
+}
+
 int route_configure(
                 const Route *route,
                 Link *link,
@@ -1374,15 +1418,9 @@ static int route_handler_with_gateway(sd_netlink *rtnl, sd_netlink_message *m, L
 
         link->route_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set route with gateway");
-                link_enter_failed(link);
-                return 1;
-        }
+        r = route_configure_handler_internal(rtnl, m, link, "Could not set route with gateway");
+        if (r <= 0)
+                return r;
 
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes with gateway set");
@@ -1401,15 +1439,9 @@ static int route_handler_without_gateway(sd_netlink *rtnl, sd_netlink_message *m
 
         link->route_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set route without gateway");
-                link_enter_failed(link);
-                return 1;
-        }
+        r = route_configure_handler_internal(rtnl, m, link, "Could not set route without gateway");
+        if (r <= 0)
+                return r;
 
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set without gateway");

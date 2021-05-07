@@ -577,25 +577,6 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                        preferred_str ? "for " : "forever", strempty(preferred_str));
 }
 
-static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_message_warning_errno(link, m, r, "Could not drop address");
-        else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
-
-        return 1;
-}
-
 static int address_set_netlink_message(const Address *address, sd_netlink_message *req, Link *link) {
         int r;
 
@@ -625,6 +606,30 @@ static int address_set_netlink_message(const Address *address, sd_netlink_messag
                 return log_link_error_errno(link, r, "Could not append IFA_LOCAL attribute: %m");
 
         return 0;
+}
+
+int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(error_msg);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EADDRNOTAVAIL)
+                log_link_message_warning_errno(link, m, r, error_msg);
+        else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+
+        return 1;
+}
+
+static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return address_remove_handler_internal(rtnl, m, link, "Could not drop address");
 }
 
 int address_remove(
@@ -792,21 +797,14 @@ int link_drop_foreign_addresses(Link *link) {
 static int remove_static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        assert(m);
         assert(link);
-        assert(link->ifname);
         assert(link->address_remove_messages > 0);
 
         link->address_remove_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_message_warning_errno(link, m, r, "Could not drop address");
-        else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_remove_handler_internal(rtnl, m, link, "Could not drop address, ignoring");
+        if (r <= 0)
+                return r;
 
         if (link->address_remove_messages == 0 && link->request_static_addresses) {
                 link_set_state(link, LINK_STATE_CONFIGURING);
@@ -899,6 +897,28 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
                 return -EEXIST;
 
         *ret = TAKE_PTR(na);
+        return 1;
+}
+
+int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(error_msg);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, error_msg);
+                link_enter_failed(link);
+                return 0;
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+
         return 1;
 }
 
@@ -1046,24 +1066,14 @@ static int static_address_ready_callback(Address *address) {
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        assert(rtnl);
-        assert(m);
         assert(link);
-        assert(link->ifname);
         assert(link->address_messages > 0);
 
         link->address_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
+        if (r <= 0)
+                return r;
 
         if (link->address_messages == 0) {
                 Address *a;
