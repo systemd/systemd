@@ -32,7 +32,9 @@
     <para><command>systemd-userdbd</command> is a system service that multiplexes user/group lookups to all
     local services that provide JSON user/group record definitions to the system. In addition it synthesizes
     JSON user/group records from classic UNIX/glibc NSS user/group records in order to provide full backwards
-    compatibility.</para>
+    compatibility. It may also pick up statically defined JSON user/group records from drop-in files in
+    <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
+    <filename>/run/host/userdb/</filename> and <filename>/use/lib/userdb/</filename>.</para>
 
     <para>Most of <command>systemd-userdbd</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -45,16 +47,18 @@
     multiplexes access other services implementing this API, too. It is thus both server and client of this
     API.</para>
 
-    <para>This service provides two distinct <ulink url="https://varlink.org/">Varlink</ulink> services:
+    <para>This service provides three distinct <ulink url="https://varlink.org/">Varlink</ulink> services:
     <constant>io.systemd.Multiplexer</constant> provides a single, unified API for querying JSON user and
     group records. Internally it talks to all other user/group record services running on the system in
     parallel and forwards any information discovered. This simplifies clients substantially since they need
     to talk to a single service only instead of all of them in
-    parallel. <constant>io.systemd.NameServiceSwitch</constant> provides compatibility with classic UNIX/glibc
-    NSS user records, i.e. converts <type>struct passwd</type> and <type>struct group</type> records as
-    acquired with APIs such as <citerefentry
-    project='man-pages'><refentrytitle>getpwnam</refentrytitle><manvolnum>1</manvolnum></citerefentry> to JSON
-    user/group records, thus hiding the differences between the services as much as possible.</para>
+    parallel. <constant>io.systemd.NameServiceSwitch</constant> provides compatibility with classic
+    UNIX/glibc NSS user records, i.e. converts <type>struct passwd</type> and <type>struct group</type>
+    records as acquired with APIs such as <citerefentry
+    project='man-pages'><refentrytitle>getpwnam</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    JSON user/group records, thus hiding the differences between the services as much as
+    possible. <constant>io.systemd.Dropin</constant> makes JSON user/group records from the aforementioned
+    drop-in directories available.</para>
   </refsect1>
 
   <refsect1>
