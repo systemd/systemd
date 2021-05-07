@@ -57,6 +57,49 @@
   </refsect1>
 
   <refsect1>
+    <title>Static Drop-In JSON User/Group Records</title>
+
+    <para>Besides user/group records acquired via the aforementioned Varlink IPC interfaces and the
+    synthesized root and nobody accounts, this module also makes user and group accounts available to the
+    system that are defined in static drop-in files in the <filename>/etc/userdb/</filename>,
+    <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename> and
+    <filename>/usr/lib/userdb/</filename> directories.</para>
+
+    <para>This is a simple mechanism to provide static user and group records via JSON drop-in files. Such
+    user records should be defined in the format described by the <ulink
+    url="https://systemd.io/USER_RECORD">JSON User Record</ulink> specification and be placed in one of the
+    aforementioned directories under a file name composed of the user name suffixed with
+    <filename>.user</filename>, with a world-readable access mode. A symlink named after the user record's
+    UID formatted in decimal and suffixed with <filename>.user</filename> pointing to the primary record file
+    should be created as well, in order to allow both lookups by username and by UID. Privileged user record
+    data (e.g. hashed UNIX passwords) may optionally be provided as well, in a pair of separate companion
+    files with the <filename>.user-privileged</filename> suffix. The data should be stored in a regular file
+    named after the user name, suffixed with <filename>.user-privileged</filename>, and a symlink pointing to
+    it, named after the used numeric UID formatted in decimal with the same suffix. These companion files
+    should not be readable to anyone but root. Example:</para>
+
+    <programlisting>-rw-r--r--. 1 root root  723 May 10 foobar.user
+-rw-------. 1 root root  123 May 10 foobar.user-privileged
+lrwxrwxrwx. 1 root root   19 May 10 4711.user -> foobar.user
+lrwxrwxrwx. 1 root root   19 May 10 4711.user-privileged -> foobar.user-privileged</programlisting>
+
+    <para>Similarly, group records following the format described in <ulink
+    url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> may be defined, using the file suffixes
+    <filename>.group</filename> and <filename>.group-privileged</filename>.</para>
+
+    <para>The primary user/group record files (i.e. those with the <filename>.user</filename> and
+    <filename>.group</filename> suffixes) should not contain the <literal>privileged</literal> section as
+    described in the specifications. The privileged user/group record files (i.e. those with the
+    <filename>.user-privileged</filename> and <filename>.group-privileged</filename> suffixes) should
+    contain this section, exclusively.</para>
+
+    <para>Note that static user/group records generally do not override conflicting records in
+    <filename>/etc/passwd</filename> or <filename>/etc/group</filename> or other account databases. In fact,
+    before dropping in these files a reasonable level of care should be taken to avoid user/group name and
+    UID/GID conflicts.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Configuration in <filename>/etc/nsswitch.conf</filename></title>
 
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
