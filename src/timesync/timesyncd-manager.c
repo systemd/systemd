@@ -607,7 +607,13 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
 
-        (void) sd_bus_emit_properties_changed(m->bus, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", "NTPMessage", NULL);
+        if (sd_bus_is_ready(m->bus) > 0)
+                (void) sd_bus_emit_properties_changed(
+                                m->bus,
+                                "/org/freedesktop/timesync1",
+                                "org.freedesktop.timesync1.Manager",
+                                "NTPMessage",
+                                NULL);
 
         if (!m->good) {
                 _cleanup_free_ char *pretty = NULL;
