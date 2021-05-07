@@ -395,7 +395,8 @@ int local_outbounds(
                         sa.in = (struct sockaddr_in) {
                                 .sin_family = AF_INET,
                                 .sin_addr = gateways[i].address.in,
-                                .sin_port = htobe16(53), /* doesn't really matter which port we pick — we just care about the routing decision */
+                                .sin_port = htobe16(53), /* doesn't really matter which port we pick —
+                                                          * we just care about the routing decision */
                         };
 
                         break;
@@ -427,7 +428,7 @@ int local_outbounds(
                  * good chance this fails. Since 5.7 this restriction was dropped and the first
                  * SO_BINDTOINDEX on a socket may be done without privileges. This one has the benefit of
                  * really influencing the routing decision, i.e. this one definitely works for us — as long
-                 * as we have the privileges for it.*/
+                 * as we have the privileges for it. */
                 r = socket_bind_to_ifindex(fd, gateways[i].ifindex);
                 if (r < 0)
                         log_debug_errno(r, "Failed to bind socket to interface %i, ignoring: %m", gateways[i].ifindex);
@@ -438,7 +439,7 @@ int local_outbounds(
                  * *after* the routing decision and the auto-binding already took place. If so we can still
                  * make use of the binding and return it. Hence, let's not unnecessarily fail early here: we
                  * can still easily detect if the auto-binding worked or not, by comparing the bound IP
-                 * address with zero — which we do below.  */
+                 * address with zero — which we do below. */
                 if (connect(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0)
                         log_debug_errno(errno, "Failed to connect SOCK_DGRAM socket to gateway, ignoring: %m");
 
