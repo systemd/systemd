@@ -13,6 +13,9 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "net-condition.h"
+#include "networkd-dhcp-server.h"
+#include "networkd-dhcp-static-lease.h"
+#include "network-internal.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-common.h"
@@ -239,6 +242,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_traffic_control(network);
         network_drop_invalid_sr_iov(network);
+        network_drop_invalid_static_leases(network);
 
         return 0;
 }
@@ -410,6 +414,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCPv6\0"
                         "DHCPv6PrefixDelegation\0"
                         "DHCPServer\0"
+                        "DHCPServerStaticLease\0"
                         "IPv6AcceptRA\0"
                         "IPv6NDPProxyAddress\0"
                         "Bridge\0"
@@ -600,6 +605,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
+        ordered_hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 

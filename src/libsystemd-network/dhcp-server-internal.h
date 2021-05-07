@@ -69,6 +69,7 @@ struct sd_dhcp_server {
         bool emit_router;
 
         Hashmap *leases_by_client_id;
+        Hashmap *static_leases_by_client_id;
         DHCPLease **bound_leases;
         DHCPLease invalid_lease;
 
