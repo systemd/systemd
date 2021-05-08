@@ -234,4 +234,6 @@ HopPenalty=
 OriginatorIntervalSec=
 GatewayBandwithDown=
 GatewayBandwithUp=
+GatewayBandwidthDown=
+GatewayBandwidthUp=
 RoutingAlgorithm=

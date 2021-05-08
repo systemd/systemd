@@ -10,5 +10,5 @@ DistributedArpTable=1
 Fragmentation=0
 HopPenalty=10
 OriginatorIntervalSec=1000ms
-GatewayBandwithDown=205M
-GatewayBandwithUp=2G
+GatewayBandwidthDown=205M
+GatewayBandwidthUp=2G
