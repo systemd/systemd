@@ -165,6 +165,17 @@ static int access_init(sd_bus_error *error) {
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
         selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
 
+        /* Since libselinux 3.2 avc_open(3) uses the SELinux status page instead of a netlink socket to check
+         * for policy reloads.
+         * The label code in basic/selinux-util.c uses the same status page, see mac_selinux_maybe_reload().
+         * Thus calls to selinux_check_access(3) might consume an update, queried by
+         * selinux_status_updated(3), leaving mac_selinux_maybe_reload() unable to detect a policy reload.
+         * Set a callback to reload the label database. */
+        // FIXME: We might override a libselinux internal callback in case of a netlink socket failback,
+        //        see https://github.com/SELinuxProject/selinux/blob/d9433692c782b65e5397234950c6d9993fbcaa70/libselinux/src/sestatus.c#L333.
+        //        The fallback is enabled in mac_selinux_init() and avc_open(3).
+        selinux_set_callback(SELINUX_CB_POLICYLOAD, (union selinux_callback) mac_selinux_reload);
+
         initialized = true;
         return 1;
 }
