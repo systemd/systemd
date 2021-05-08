@@ -244,6 +244,8 @@ BatmanAdvanced.Fragmentation,             config_parse_bool,                    
 BatmanAdvanced.GatewayMode,               config_parse_batadv_gateway_mode,          0,                             offsetof(BatmanAdvanced, gateway_mode)
 BatmanAdvanced.GatewayBandwithDown,       config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_down)
 BatmanAdvanced.GatewayBandwithUp,         config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_up)
+BatmanAdvanced.GatewayBandwidthDown,      config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_down)
+BatmanAdvanced.GatewayBandwidthUp,        config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_up)
 BatmanAdvanced.HopPenalty,                config_parse_uint8,                        0,                             offsetof(BatmanAdvanced, hop_penalty)
 BatmanAdvanced.OriginatorIntervalSec,     config_parse_sec,                          0,                             offsetof(BatmanAdvanced, originator_interval)
 BatmanAdvanced.RoutingAlgorithm,          config_parse_batadv_routing_algorithm,     0,                             offsetof(BatmanAdvanced, routing_algorithm)
