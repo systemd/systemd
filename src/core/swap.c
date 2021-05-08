@@ -342,7 +342,7 @@ static int swap_add_extras(Swap *s) {
                         return -ENOMEM;
         }
 
-        path_simplify(s->what, false);
+        path_simplify(s->what);
 
         if (!UNIT(s)->description) {
                 r = unit_set_description(UNIT(s), s->what);

@@ -37,8 +37,8 @@ static void test_tempfn_random(void) {
         test_tempfn_random_one("foo", "bar", ".#barfoo", 0);
         test_tempfn_random_one("/tmp/foo", NULL, "/tmp/.#foo", 0);
         test_tempfn_random_one("/tmp/foo", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_random_one("./foo", NULL, "./.#foo", 0);
-        test_tempfn_random_one("./foo", "bar", "./.#barfoo", 0);
+        test_tempfn_random_one("./foo", NULL, ".#foo", 0);
+        test_tempfn_random_one("./foo", "bar", ".#barfoo", 0);
         test_tempfn_random_one("../foo", NULL, "../.#foo", 0);
         test_tempfn_random_one("../foo", "bar", "../.#barfoo", 0);
 
@@ -46,8 +46,8 @@ static void test_tempfn_random(void) {
         test_tempfn_random_one("foo/", "bar", ".#barfoo", 0);
         test_tempfn_random_one("/tmp/foo/", NULL, "/tmp/.#foo", 0);
         test_tempfn_random_one("/tmp/foo/", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_random_one("./foo/", NULL, "./.#foo", 0);
-        test_tempfn_random_one("./foo/", "bar", "./.#barfoo", 0);
+        test_tempfn_random_one("./foo/", NULL, ".#foo", 0);
+        test_tempfn_random_one("./foo/", "bar", ".#barfoo", 0);
         test_tempfn_random_one("../foo/", NULL, "../.#foo", 0);
         test_tempfn_random_one("../foo/", "bar", "../.#barfoo", 0);
 }
@@ -81,8 +81,8 @@ static void test_tempfn_xxxxxx(void) {
         test_tempfn_xxxxxx_one("foo", "bar", ".#barfoo", 0);
         test_tempfn_xxxxxx_one("/tmp/foo", NULL, "/tmp/.#foo", 0);
         test_tempfn_xxxxxx_one("/tmp/foo", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_xxxxxx_one("./foo", NULL, "./.#foo", 0);
-        test_tempfn_xxxxxx_one("./foo", "bar", "./.#barfoo", 0);
+        test_tempfn_xxxxxx_one("./foo", NULL, ".#foo", 0);
+        test_tempfn_xxxxxx_one("./foo", "bar", ".#barfoo", 0);
         test_tempfn_xxxxxx_one("../foo", NULL, "../.#foo", 0);
         test_tempfn_xxxxxx_one("../foo", "bar", "../.#barfoo", 0);
 
@@ -90,8 +90,8 @@ static void test_tempfn_xxxxxx(void) {
         test_tempfn_xxxxxx_one("foo/", "bar", ".#barfoo", 0);
         test_tempfn_xxxxxx_one("/tmp/foo/", NULL, "/tmp/.#foo", 0);
         test_tempfn_xxxxxx_one("/tmp/foo/", "bar", "/tmp/.#barfoo", 0);
-        test_tempfn_xxxxxx_one("./foo/", NULL, "./.#foo", 0);
-        test_tempfn_xxxxxx_one("./foo/", "bar", "./.#barfoo", 0);
+        test_tempfn_xxxxxx_one("./foo/", NULL, ".#foo", 0);
+        test_tempfn_xxxxxx_one("./foo/", "bar", ".#barfoo", 0);
         test_tempfn_xxxxxx_one("../foo/", NULL, "../.#foo", 0);
         test_tempfn_xxxxxx_one("../foo/", "bar", "../.#barfoo", 0);
 }

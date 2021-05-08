@@ -243,7 +243,7 @@ static int run(int argc, char *argv[]) {
                                         if (!j)
                                                 return log_oom();
 
-                                        path_simplify(j, false);
+                                        path_simplify(j);
                                         path = j;
                                 } else
                                         path = root;
