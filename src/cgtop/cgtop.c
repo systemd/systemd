@@ -472,7 +472,7 @@ static int refresh_one(
                 if (!p)
                         return -ENOMEM;
 
-                path_simplify(p, false);
+                path_simplify(p);
 
                 r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
                 if (r < 0)

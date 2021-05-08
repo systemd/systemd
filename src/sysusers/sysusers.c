@@ -1651,7 +1651,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
                                 i->uid_path = TAKE_PTR(resolved_id);
-                                path_simplify(i->uid_path, false);
+                                path_simplify(i->uid_path);
                         } else {
                                 _cleanup_free_ char *uid = NULL, *gid = NULL;
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
@@ -1706,7 +1706,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
                                 i->gid_path = TAKE_PTR(resolved_id);
-                                path_simplify(i->gid_path, false);
+                                path_simplify(i->gid_path);
                         } else {
                                 r = parse_gid(resolved_id, &i->gid);
                                 if (r < 0)

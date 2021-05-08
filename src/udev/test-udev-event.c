@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
         test_event_spawn_cat(false);
 
         assert_se(path_make_absolute_cwd(argv[0], &self) >= 0);
-        path_simplify(self, true);
+        path_simplify(self);
 
         test_event_spawn_self(self, "test1", true);
         test_event_spawn_self(self, "test1", false);

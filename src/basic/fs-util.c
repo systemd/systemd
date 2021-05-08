@@ -866,7 +866,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                  * anyway. Moreover at the end of this function after processing everything we'll always turn
                  * the empty string back to "/". */
                 delete_trailing_chars(root, "/");
-                path_simplify(root, true);
+                path_simplify(root);
 
                 if (flags & CHASE_PREFIX_ROOT) {
                         /* We don't support relative paths in combination with a root directory */

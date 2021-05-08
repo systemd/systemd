@@ -390,7 +390,7 @@ static int bus_socket_set_transient_property(
                                 if (!p->path)
                                         return log_oom();
 
-                                path_simplify(p->path, false);
+                                path_simplify(p->path);
 
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);

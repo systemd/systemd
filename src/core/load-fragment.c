@@ -810,7 +810,7 @@ int config_parse_exec(
                         n[nlen] = NULL;
                 }
 
-                path_simplify(path, false);
+                path_simplify(path);
 
                 while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL, *resolved = NULL;

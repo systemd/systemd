@@ -160,7 +160,7 @@ static int image_new(
         if (!i->path)
                 return -ENOMEM;
 
-        path_simplify(i->path, false);
+        path_simplify(i->path);
 
         *ret = TAKE_PTR(i);
 

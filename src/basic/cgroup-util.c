@@ -506,7 +506,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 if (!t)
                         return -ENOMEM;
 
-                *fs = path_simplify(t, false);
+                *fs = path_simplify(t);
                 return 0;
         }
 
@@ -523,7 +523,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (r < 0)
                 return r;
 
-        path_simplify(*fs, false);
+        path_simplify(*fs);
         return 0;
 }
 
@@ -919,7 +919,7 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
                         if (!path)
                                 return -ENOMEM;
 
-                        path_simplify(path, false);
+                        path_simplify(path);
                 }
 
         } else {
@@ -942,7 +942,7 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
                                     !path_is_absolute(path))
                                         return -EINVAL;
 
-                                path_simplify(path, false);
+                                path_simplify(path);
                         }
 
                 } else {
@@ -979,7 +979,7 @@ int cg_mangle_path(const char *path, char **result) {
                 if (!t)
                         return -ENOMEM;
 
-                *result = path_simplify(t, false);
+                *result = path_simplify(t);
                 return 0;
         }
 
