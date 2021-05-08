@@ -33,7 +33,7 @@ char *sysctl_normalize(char *s) {
                         n = strpbrk(n + 1, "/.");
                 } while (n);
 
-        path_simplify(s, true);
+        path_simplify(s);
 
         /* Kill the leading slash, but keep the first character of the string in the same place. */
         if (*s == '/' && *(s+1))
