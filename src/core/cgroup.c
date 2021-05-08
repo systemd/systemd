@@ -2113,7 +2113,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
                 return -EINVAL;
 
         pp = strjoina("/", pp, suffix_path);
-        path_simplify(pp, false);
+        path_simplify(pp);
 
         r = sd_bus_call_method(u->manager->system_bus,
                                "org.freedesktop.systemd1",

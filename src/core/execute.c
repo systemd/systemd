@@ -1846,7 +1846,7 @@ static int build_environment(
                 if (!x)
                         return -ENOMEM;
 
-                path_simplify(x + 5, true);
+                path_simplify(x + 5);
                 our_env[n_env++] = x;
         }
 
@@ -1867,7 +1867,7 @@ static int build_environment(
                 if (!x)
                         return -ENOMEM;
 
-                path_simplify(x + 6, true);
+                path_simplify(x + 6);
                 our_env[n_env++] = x;
         }
 

@@ -634,7 +634,7 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
-        path_simplify(m->where, false);
+        path_simplify(m->where);
 
         if (!u->description) {
                 r = unit_set_description(u, m->where);
