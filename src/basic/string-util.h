@@ -130,7 +130,12 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
 }
 
 static inline bool char_is_cc(char p) {
-        return (uint8_t) p < ' ' || p == 127;
+        /* char is unsigned on some architectures, e.g. aarch64. So, compiler may warn the condition
+         * p >= 0 is always true. See #19543. Hence, let's cast to unsigned before the comparison. Note
+         * that the cast in the right hand side is redundant, as according to the C standard, compilers
+         * automatically cast a signed value to unsigned when comparing with an unsigned variable. Just
+         * for safety and readability. */
+        return (uint8_t) p < (uint8_t) ' ' || p == 127;
 }
 bool string_has_cc(const char *p, const char *ok) _pure_;
 
