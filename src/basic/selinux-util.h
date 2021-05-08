@@ -21,6 +21,7 @@ bool mac_selinux_enforcing(void);
 
 int mac_selinux_init(void);
 void mac_selinux_maybe_reload(void);
+int mac_selinux_reload(int seqno);
 void mac_selinux_finish(void);
 
 int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);
