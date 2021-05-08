@@ -364,6 +364,9 @@ BindToInterface=
 RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
+[DHCPServerStaticLease]
+MACAddress=
+Address=
 [NextHop]
 Id=
 Gateway=
