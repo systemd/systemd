@@ -32,8 +32,6 @@
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(context_t, context_free, NULL);
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
-static int mac_selinux_reload(int seqno);
-
 static int cached_use = -1;
 static bool initialized = false;
 static int (*enforcing_status_func)(void) = security_getenforce;
@@ -225,10 +223,18 @@ void mac_selinux_finish(void) {
 }
 
 #if HAVE_SELINUX
-static int mac_selinux_reload(int seqno) {
-        log_debug("SELinux reload %d", seqno);
+int mac_selinux_reload(int seqno) {
+        // Do not reload twice in pid 1 with libselinux >= 3.2, since core
+        // uses a callback, cause selinux_status_updated(3) gets called in
+        // selinux_check_access(3), see core/selinux-access.c.
+        static int last_seqno = -1;
 
-        (void) open_label_db();
+        if (seqno > last_seqno) {
+                log_debug("SELinux reload %d - reloading", seqno);
+                (void) open_label_db();
+                last_seqno = seqno;
+        } else
+                log_debug("SELinux reload %d - ignoring", seqno);
 
         return 0;
 }
