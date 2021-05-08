@@ -960,7 +960,7 @@ static int search_and_fopen_internal(
                 f = fopen(p, mode);
                 if (f) {
                         if (ret_path)
-                                *ret_path = path_simplify(TAKE_PTR(p), true);
+                                *ret_path = path_simplify(TAKE_PTR(p));
 
                         *ret = f;
                         return 0;
@@ -1001,7 +1001,7 @@ int search_and_fopen(
                         if (!p)
                                 return -ENOMEM;
 
-                        *ret_path = path_simplify(p, true);
+                        *ret_path = path_simplify(p);
                 }
 
                 *ret = TAKE_PTR(f);
@@ -1039,7 +1039,7 @@ int search_and_fopen_nulstr(
                         if (!p)
                                 return -ENOMEM;
 
-                        *ret_path = path_simplify(p, true);
+                        *ret_path = path_simplify(p);
                 }
 
                 *ret = TAKE_PTR(f);
