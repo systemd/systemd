@@ -662,6 +662,10 @@ sensor:modalias:acpi:SMO8500*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd07/25/201
 sensor:modalias:acpi:BOSC0200*:dmi:*svnONE-NETBOOKTECHNOLOGYCO*:pnOne-Mix3Pro:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+# One-netbook OneMix 3s
+sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.12:*:svnDefaultstring:pnDefaultstring:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
 #########################################
 # Peaq
 #########################################
