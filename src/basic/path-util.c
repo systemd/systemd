@@ -145,7 +145,7 @@ int path_make_relative(const char *from, const char *to, char **ret) {
                                 if (!result)
                                         return -ENOMEM;
 
-                                path_simplify(result, true);
+                                path_simplify(result);
 
                                 if (!path_is_valid(result))
                                         return -EINVAL;
@@ -191,7 +191,7 @@ int path_make_relative(const char *from, const char *to, char **ret) {
 
         strcpy(p, t);
 
-        path_simplify(result, true);
+        path_simplify(result);
 
         if (!path_is_valid(result))
                 return -EINVAL;
@@ -227,7 +227,7 @@ int path_strv_make_absolute_cwd(char **l) {
                 if (r < 0)
                         return r;
 
-                path_simplify(t, false);
+                path_simplify(t);
                 free_and_replace(*s, t);
         }
 
@@ -327,7 +327,7 @@ char **path_strv_resolve_uniq(char **l, const char *root) {
         return strv_uniq(l);
 }
 
-char *path_simplify(char *path, bool kill_dots) {
+char *path_simplify(char *path) {
         char *f, *t;
         bool slash = false, ignore_slash = false, absolute;
 
@@ -348,7 +348,7 @@ char *path_simplify(char *path, bool kill_dots) {
         absolute = path_is_absolute(path);
 
         f = path;
-        if (kill_dots && *f == '.' && IN_SET(f[1], 0, '/')) {
+        if (*f == '.' && IN_SET(f[1], 0, '/')) {
                 ignore_slash = true;
                 f++;
         }
@@ -361,7 +361,7 @@ char *path_simplify(char *path, bool kill_dots) {
                 }
 
                 if (slash) {
-                        if (kill_dots && *f == '.' && IN_SET(f[1], 0, '/'))
+                        if (*f == '.' && IN_SET(f[1], 0, '/'))
                                 continue;
 
                         slash = false;
@@ -418,7 +418,7 @@ int path_simplify_and_warn(
                                           lvalue, fatal ? "" : ", ignoring", path);
         }
 
-        path_simplify(path, true);
+        path_simplify(path);
 
         if (!path_is_valid(path))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
@@ -711,7 +711,7 @@ int find_executable_full(const char *name, bool use_path_envvar, char **ret_file
 
                 /* Found it! */
                 if (ret_filename)
-                        *ret_filename = path_simplify(TAKE_PTR(element), false);
+                        *ret_filename = path_simplify(TAKE_PTR(element));
                 if (ret_fd)
                         *ret_fd = TAKE_FD(fd);
 
@@ -1116,7 +1116,7 @@ int path_extract_directory(const char *path, char **ret) {
         if (!a)
                 return -ENOMEM;
 
-        path_simplify(a, true);
+        path_simplify(a);
 
         if (!path_is_valid(a))
                 return -EINVAL;

@@ -73,7 +73,7 @@ int parse_path_argument(const char *path, bool suppress_root, char **arg) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
 
-        path_simplify(p, false);
+        path_simplify(p);
         if (suppress_root && empty_or_root(p))
                 p = mfree(p);
 

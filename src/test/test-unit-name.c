@@ -129,7 +129,7 @@ static void test_unit_name_from_path(void) {
         test_unit_name_from_path_one("/", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("///", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("/foo/../bar", ".mount", NULL, -EINVAL);
-        test_unit_name_from_path_one("/foo/./bar", ".mount", NULL, -EINVAL);
+        test_unit_name_from_path_one("/foo/./bar", ".mount", "foo-bar.mount", 0);
         test_unit_name_from_path_one("/waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ".mount", NULL, -EINVAL);
 }
 

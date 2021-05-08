@@ -71,7 +71,7 @@ char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
 #define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
-char* path_simplify(char *path, bool kill_dots);
+char* path_simplify(char *path);
 
 enum {
         PATH_CHECK_FATAL    = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
@@ -109,7 +109,7 @@ int fsck_exists(const char *fstype);
  * directory. Excludes the specified directory itself */
 #define PATH_FOREACH_PREFIX(prefix, path)                               \
         for (char *_slash = ({                                          \
-                                path_simplify(strcpy(prefix, path), false); \
+                                path_simplify(strcpy(prefix, path));    \
                                 streq(prefix, "/") ? NULL : strrchr(prefix, '/'); \
                         });                                             \
              _slash && ((*_slash = 0), true);                           \
@@ -118,7 +118,7 @@ int fsck_exists(const char *fstype);
 /* Same as PATH_FOREACH_PREFIX but also includes the specified path itself */
 #define PATH_FOREACH_PREFIX_MORE(prefix, path)                          \
         for (char *_slash = ({                                          \
-                                path_simplify(strcpy(prefix, path), false); \
+                                path_simplify(strcpy(prefix, path));    \
                                 if (streq(prefix, "/"))                 \
                                         prefix[0] = 0;                  \
                                 strrchr(prefix, 0);                     \

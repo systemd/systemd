@@ -1347,7 +1347,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                         goto fail;
                 }
 
-                path_simplify(ep, false);
+                path_simplify(ep);
 
                 r = usbffs_address_create(ep);
                 if (r < 0)
