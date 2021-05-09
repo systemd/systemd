@@ -289,14 +289,14 @@ int unit_file_changes_add(
         if (!p)
                 return -ENOMEM;
 
-        path_simplify(p, false);
+        path_simplify(p);
 
         if (source) {
                 s = strdup(source);
                 if (!s)
                         return -ENOMEM;
 
-                path_simplify(s, false);
+                path_simplify(s);
         }
 
         c[(*n_changes)++] = (UnitFileChange) {
@@ -515,7 +515,7 @@ static int mark_symlink_for_removal(
         if (!n)
                 return -ENOMEM;
 
-        path_simplify(n, false);
+        path_simplify(n);
 
         r = set_consume(*remove_symlinks_to, n);
         if (r == -EEXIST)
@@ -597,7 +597,7 @@ static int remove_marked_symlinks_fd(
                         p = path_make_absolute(de->d_name, path);
                         if (!p)
                                 return -ENOMEM;
-                        path_simplify(p, false);
+                        path_simplify(p);
 
                         q = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &dest, NULL);
                         if (q == -ENOENT)
