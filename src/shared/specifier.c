@@ -124,7 +124,7 @@ int specifier_machine_id(char specifier, const void *data, const void *userdata,
         if (r < 0)
                 return r;
 
-        n = new(char, 33);
+        n = new(char, SD_ID128_STRING_MAX);
         if (!n)
                 return -ENOMEM;
 
@@ -141,7 +141,7 @@ int specifier_boot_id(char specifier, const void *data, const void *userdata, ch
         if (r < 0)
                 return r;
 
-        n = new(char, 33);
+        n = new(char, SD_ID128_STRING_MAX);
         if (!n)
                 return -ENOMEM;
 
