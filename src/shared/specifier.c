@@ -29,9 +29,9 @@
  * and "%" used for escaping. */
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
-int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **_ret) {
+int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **ret) {
         size_t l, allocated = 0;
-        _cleanup_free_ char *ret = NULL;
+        _cleanup_free_ char *result = NULL;
         char *t;
         const char *f;
         bool percent = false;
@@ -41,9 +41,9 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
         assert(table);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(ret, allocated, l + 1))
+        if (!GREEDY_REALLOC(result, allocated, l + 1))
                 return -ENOMEM;
-        t = ret;
+        t = result;
 
         for (f = text; *f; f++, l--)
                 if (percent) {
@@ -64,13 +64,13 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                                         if (r < 0)
                                                 return r;
 
-                                        j = t - ret;
+                                        j = t - result;
                                         k = strlen(w);
 
-                                        if (!GREEDY_REALLOC(ret, allocated, j + k + l + 1))
+                                        if (!GREEDY_REALLOC(result, allocated, j + k + l + 1))
                                                 return -ENOMEM;
-                                        memcpy(ret + j, w, k);
-                                        t = ret + j + k;
+                                        memcpy(result + j, w, k);
+                                        t = result + j + k;
                                 } else if (strchr(POSSIBLE_SPECIFIERS, *f))
                                         /* Oops, an unknown specifier. */
                                         return -EBADSLT;
@@ -92,13 +92,13 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
         *(t++) = 0;
 
         /* Try to deallocate unused bytes, but don't sweat it too much */
-        if ((size_t)(t - ret) < allocated) {
-                t = realloc(ret, t - ret);
+        if ((size_t)(t - result) < allocated) {
+                t = realloc(result, t - result);
                 if (t)
-                        ret = t;
+                        result = t;
         }
 
-        *_ret = TAKE_PTR(ret);
+        *ret = TAKE_PTR(result);
         return 0;
 }
 
