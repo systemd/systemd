@@ -129,7 +129,7 @@ static void test_unit_name_from_path(void) {
         test_unit_name_from_path_one("/", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("///", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("/foo/../bar", ".mount", NULL, -EINVAL);
-        test_unit_name_from_path_one("/foo/./bar", ".mount", NULL, -EINVAL);
+        test_unit_name_from_path_one("/foo/./bar", ".mount", "foo-bar.mount", 0);
         test_unit_name_from_path_one("/waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ".mount", NULL, -EINVAL);
 }
 
@@ -223,13 +223,14 @@ static void test_unit_name_mangle(void) {
 static int test_unit_printf(void) {
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        SpecifierResultType t;
         Unit *u;
         int r;
 
         log_info("/* %s */", __func__);
 
-        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
-        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
+        assert_se(specifier_machine_id('m', NULL, NULL, &t, (void**) &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, &t, (void**) &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(user = uid_to_name(getuid()));
         assert_se(group = gid_to_name(getgid()));
@@ -245,14 +246,14 @@ static int test_unit_printf(void) {
 
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
-                char *e;                                                \
-                _cleanup_free_ char *t = NULL;                          \
-                assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
-                printf("result: %s\nexpect: %s\n", t, expected);        \
-                if ((e = endswith(expected, "*")))                      \
-                        assert_se(strncmp(t, e, e-expected));              \
+                char *_e;                                               \
+                _cleanup_free_ char *_t = NULL;                         \
+                assert_se(unit_full_printf(unit, pattern, &_t) >= 0);   \
+                printf("result: %s\nexpect: %s\n", _t, expected);       \
+                if ((_e = endswith(expected, "*")))                     \
+                        assert_se(strncmp(_t, _e, _e - expected));      \
                 else                                                    \
-                        assert_se(streq(t, expected));                     \
+                        assert_se(streq(_t, expected));                 \
         }
 
         assert_se(u = unit_new(m, sizeof(Service)));

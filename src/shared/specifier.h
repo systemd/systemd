@@ -3,7 +3,23 @@
 
 #include "string-util.h"
 
-typedef int (*SpecifierCallback)(char specifier, const void *data, const void *userdata, char **ret);
+typedef enum SpecifierResultType {
+        SPECIFIER_RESULT_STRING,       /* char*, needs to be freed. */
+        SPECIFIER_RESULT_STRING_CONST, /* const char* */
+        SPECIFIER_RESULT_UID,          /* uid_t */
+        SPECIFIER_RESULT_GID,          /* gid_t */
+        _SPECIFIER_RESULT_TYPE_MAX,
+        _SPECIFIER_RESULT_TYPE_INVALID = -EINVAL,
+} SpecifierResultType;
+
+#define SPECIFIER_ARGUMENTS             \
+        char specifier,                 \
+        const void *data,               \
+        const void *userdata,           \
+        SpecifierResultType *ret_type,  \
+        void **ret
+
+typedef int (*SpecifierCallback)(SPECIFIER_ARGUMENTS);
 
 typedef struct Specifier {
         const char specifier;
@@ -11,32 +27,34 @@ typedef struct Specifier {
         const void *data;
 } Specifier;
 
-int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **ret);
+int specifier_printf(const char *text, size_t max_length, const Specifier table[], const void *userdata, char **ret);
 
-int specifier_string(char specifier, const void *data, const void *userdata, char **ret);
+#define SPECIFIER_PROTOTYPE(name) int specifier_##name(SPECIFIER_ARGUMENTS)
 
-int specifier_machine_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_boot_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_host_name(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_short_host_name(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_kernel_release(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_architecture(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_os_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_os_version_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_os_build_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_os_variant_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_os_image_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_os_image_version(char specifier, const void *data, const void *userdata, char **ret);
+SPECIFIER_PROTOTYPE(string);
 
-int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_group_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_user_name(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_user_id(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_user_home(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_user_shell(char specifier, const void *data, const void *userdata, char **ret);
+SPECIFIER_PROTOTYPE(machine_id);
+SPECIFIER_PROTOTYPE(boot_id);
+SPECIFIER_PROTOTYPE(host_name);
+SPECIFIER_PROTOTYPE(short_host_name);
+SPECIFIER_PROTOTYPE(kernel_release);
+SPECIFIER_PROTOTYPE(architecture);
+SPECIFIER_PROTOTYPE(os_id);
+SPECIFIER_PROTOTYPE(os_version_id);
+SPECIFIER_PROTOTYPE(os_build_id);
+SPECIFIER_PROTOTYPE(os_variant_id);
+SPECIFIER_PROTOTYPE(os_image_id);
+SPECIFIER_PROTOTYPE(os_image_version);
 
-int specifier_tmp_dir(char specifier, const void *data, const void *userdata, char **ret);
-int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata, char **ret);
+SPECIFIER_PROTOTYPE(group_name);
+SPECIFIER_PROTOTYPE(group_id);
+SPECIFIER_PROTOTYPE(user_name);
+SPECIFIER_PROTOTYPE(user_id);
+SPECIFIER_PROTOTYPE(user_home);
+SPECIFIER_PROTOTYPE(user_shell);
+
+SPECIFIER_PROTOTYPE(tmp_dir);
+SPECIFIER_PROTOTYPE(var_tmp_dir);
 
 /* Typically, in places where one of the above specifier is to be resolved the other similar ones are to be
  * resolved, too. Hence let's define common macros for the relevant array entries.

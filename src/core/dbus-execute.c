@@ -1451,7 +1451,7 @@ int bus_set_transient_exec_command(
                         } else
                                 c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 
-                        path_simplify(c->path, false);
+                        path_simplify(c->path);
                         exec_command_append_list(exec_command, c);
                 }
 
@@ -3062,7 +3062,7 @@ int bus_exec_context_set_transient_property(
                         if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
 
-                        path_simplify(i + offset, false);
+                        path_simplify(i + offset);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
