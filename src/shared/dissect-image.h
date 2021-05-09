@@ -112,7 +112,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_READ_ONLY           = DISSECT_IMAGE_DEVICE_READ_ONLY |
                                             DISSECT_IMAGE_MOUNT_READ_ONLY,
         DISSECT_IMAGE_GROWFS              = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
-        DISSECT_IMAGE_MOUNT_IDMAPPED      = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file sytem type doesn't support uid=/gid= */
+        DISSECT_IMAGE_MOUNT_IDMAPPED      = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
 } DissectImageFlags;
 
 struct DissectedImage {
