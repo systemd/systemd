@@ -513,7 +513,7 @@ static void test_install_printf(void) {
                         *_t = NULL,                                     \
                         *_d1 = strdup(i.name),                          \
                         *_d2 = strdup(i.path);                          \
-                assert_se(install_full_printf(&src, pattern, &_t) >= 0 || !result); \
+                assert_se(install_name_printf(&src, pattern, &_t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
                 assert_se(_d1 && _d2);                                  \

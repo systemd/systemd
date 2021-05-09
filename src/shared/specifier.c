@@ -30,7 +30,7 @@
  * and "%" used for escaping. */
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
-int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **ret) {
+int specifier_printf(const char *text, size_t max_length, const Specifier table[], const void *userdata, char **ret) {
         size_t l, allocated = 0;
         _cleanup_free_ char *result = NULL;
         char *t;
@@ -46,7 +46,7 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                 return -ENOMEM;
         t = result;
 
-        for (f = text; *f; f++, l--)
+        for (f = text; *f != '\0'; f++, l--) {
                 if (percent) {
                         if (*f == '%')
                                 *(t++) = '%';
@@ -118,9 +118,16 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                 else
                         *(t++) = *f;
 
+                if (max_length != SIZE_MAX && (size_t) (t - result) > max_length)
+                        return -ENAMETOOLONG;
+        }
+
         /* If string ended with a stray %, also end with % */
-        if (percent)
+        if (percent) {
                 *(t++) = '%';
+                if (max_length != SIZE_MAX && (size_t) (t - result) > max_length)
+                        return -ENAMETOOLONG;
+        }
         *(t++) = 0;
 
         /* Try to deallocate unused bytes, but don't sweat it too much */

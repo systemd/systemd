@@ -27,7 +27,7 @@ typedef struct Specifier {
         const void *data;
 } Specifier;
 
-int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **ret);
+int specifier_printf(const char *text, size_t max_length, const Specifier table[], const void *userdata, char **ret);
 
 #define SPECIFIER_PROTOTYPE(name) int specifier_##name(SPECIFIER_ARGUMENTS)
 
