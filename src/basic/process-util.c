@@ -190,7 +190,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         assert(line);
         assert(pid >= 0);
 
-        /* Retrieve adn format a commandline. See above for discussion of retrieval options.
+        /* Retrieve and format a commandline. See above for discussion of retrieval options.
          *
          * There are two main formatting modes:
          *
