@@ -17,4 +17,4 @@ session optional pam_keyinit.so force revoke
 m4_ifdef(`ENABLE_HOMED',
 -session optional pam_systemd_home.so
 )m4_dnl
-session optional pam_systemd.so
+session optional pam_systemd.so session=0
