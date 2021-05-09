@@ -255,7 +255,7 @@ int config_parse_dnssd_service_name(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, specifier_table, NULL, &name);
+        r = specifier_printf(rvalue, DNS_LABEL_MAX, specifier_table, NULL, &name);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid service instance name template '%s', ignoring assignment: %m", rvalue);

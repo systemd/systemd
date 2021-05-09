@@ -1143,7 +1143,7 @@ static int config_parse_also(
                 if (r == 0)
                         break;
 
-                r = install_full_printf(info, word, &printed);
+                r = install_name_printf(info, word, &printed);
                 if (r < 0)
                         return r;
 
@@ -1190,7 +1190,7 @@ static int config_parse_default_instance(
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                   "DefaultInstance= only makes sense for template units, ignoring.");
 
-        r = install_full_printf(i, rvalue, &printed);
+        r = install_name_printf(i, rvalue, &printed);
         if (r < 0)
                 return r;
 
@@ -1816,7 +1816,7 @@ static int install_info_symlink_alias(
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
 
-                q = install_full_printf(i, *s, &dst);
+                q = install_path_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
 
@@ -1891,7 +1891,7 @@ static int install_info_symlink_wants(
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
-                q = install_full_printf(i, *s, &dst);
+                q = install_name_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
 

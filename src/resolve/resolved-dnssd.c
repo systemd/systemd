@@ -170,7 +170,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         assert(s);
         assert(s->name_template);
 
-        r = specifier_printf(s->name_template, specifier_table, s, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, s, &name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
