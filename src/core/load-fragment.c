@@ -293,15 +293,7 @@ int config_parse_unit_path_printf(
         assert(rvalue);
         assert(u);
 
-        /* Let's not bother with anything that is too long */
-        if (strlen(rvalue) >= PATH_MAX) {
-                log_syntax(unit, fatal ? LOG_ERR : LOG_WARNING, filename, line, 0,
-                           "%s value too long%s.",
-                           lvalue, fatal ? "" : ", ignoring");
-                return fatal ? -ENAMETOOLONG : 0;
-        }
-
-        r = unit_full_printf(u, rvalue, &k);
+        r = unit_path_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, fatal ? LOG_ERR : LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s'%s: %m",
@@ -352,7 +344,7 @@ int config_parse_unit_path_strv_printf(
                         return 0;
                 }
 
-                r = unit_full_printf(u, word, &k);
+                r = unit_path_printf(u, word, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
@@ -433,7 +425,7 @@ int config_parse_socket_listen(
         if (ltype != SOCKET_SOCKET) {
                 _cleanup_free_ char *k = NULL;
 
-                r = unit_full_printf(UNIT(s), rvalue, &k);
+                r = unit_path_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                         return 0;
@@ -455,7 +447,7 @@ int config_parse_socket_listen(
         } else if (streq(lvalue, "ListenNetlink")) {
                 _cleanup_free_ char  *k = NULL;
 
-                r = unit_full_printf(UNIT(s), rvalue, &k);
+                r = unit_path_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                         return 0;
@@ -472,7 +464,7 @@ int config_parse_socket_listen(
         } else {
                 _cleanup_free_ char *k = NULL;
 
-                r = unit_full_printf(UNIT(s), rvalue, &k);
+                r = unit_path_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                         return 0;
@@ -769,7 +761,7 @@ int config_parse_exec(
                         f++;
                 }
 
-                r = unit_full_printf(u, f, &path);
+                r = unit_path_printf(u, f, &path);
                 if (r < 0) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
                                    "Failed to resolve unit specifiers in '%s'%s: %m",
@@ -856,7 +848,7 @@ int config_parse_exec(
                         if (r < 0)
                                 return ignore ? 0 : -ENOEXEC;
 
-                        r = unit_full_printf(u, word, &resolved);
+                        r = unit_path_printf(u, word, &resolved);
                         if (r < 0) {
                                 log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
                                            "Failed to resolve unit specifiers in %s%s: %m",
@@ -956,7 +948,7 @@ int config_parse_exec_input(
         if (n) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = unit_full_printf(u, n, &resolved);
+                r = unit_fd_printf(u, n, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", n);
                         return 0;
@@ -976,7 +968,7 @@ int config_parse_exec_input(
         } else if ((n = startswith(rvalue, "file:"))) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = unit_full_printf(u, n, &resolved);
+                r = unit_path_printf(u, n, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", n);
                         return 0;
@@ -1040,7 +1032,7 @@ int config_parse_exec_input_text(
                 return 0;
         }
 
-        r = unit_full_printf(u, unescaped, &resolved);
+        r = unit_full_printf_full(u, unescaped, EXEC_STDIN_DATA_MAX, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", unescaped);
@@ -1155,7 +1147,7 @@ int config_parse_exec_output(
 
         n = startswith(rvalue, "fd:");
         if (n) {
-                r = unit_full_printf(u, n, &resolved);
+                r = unit_fd_printf(u, n, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s: %m", n);
                         return 0;
@@ -1180,7 +1172,7 @@ int config_parse_exec_output(
 
         } else if ((n = startswith(rvalue, "file:"))) {
 
-                r = unit_full_printf(u, n, &resolved);
+                r = unit_path_printf(u, n, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", n);
                         return 0;
@@ -1194,7 +1186,7 @@ int config_parse_exec_output(
 
         } else if ((n = startswith(rvalue, "append:"))) {
 
-                r = unit_full_printf(u, n, &resolved);
+                r = unit_path_printf(u, n, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", n);
                         return 0;
@@ -1208,7 +1200,7 @@ int config_parse_exec_output(
 
         } else if ((n = startswith(rvalue, "truncate:"))) {
 
-                r = unit_full_printf(u, n, &resolved);
+                r = unit_path_printf(u, n, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", n);
                         return 0;
@@ -2080,7 +2072,7 @@ int config_parse_path_spec(const char *unit,
                 return 0;
         }
 
-        r = unit_full_printf(UNIT(p), rvalue, &k);
+        r = unit_path_printf(UNIT(p), rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
                 return 0;
@@ -2175,7 +2167,7 @@ int config_parse_fdname(
                 return 0;
         }
 
-        r = unit_full_printf(UNIT(s), rvalue, &p);
+        r = unit_fd_printf(UNIT(s), rvalue, &p);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -2264,7 +2256,7 @@ int config_parse_bus_name(
         assert(rvalue);
         assert(u);
 
-        r = unit_full_printf(u, rvalue, &k);
+        r = unit_full_printf_full(u, rvalue, SD_BUS_MAXIMUM_NAME_LENGTH, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
                 return 0;
@@ -2557,7 +2549,7 @@ int config_parse_working_directory(
         } else {
                 _cleanup_free_ char *k = NULL;
 
-                r = unit_full_printf(u, rvalue, &k);
+                r = unit_path_printf(u, rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, missing_ok ? LOG_WARNING : LOG_ERR, filename, line, r,
                                    "Failed to resolve unit specifiers in working directory path '%s'%s: %m",
@@ -2604,7 +2596,7 @@ int config_parse_unit_env_file(const char *unit,
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &n);
+        r = unit_full_printf_full(u, rvalue, PATH_MAX, &n);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -2665,7 +2657,7 @@ int config_parse_environ(
                         return 0;
 
                 if (u) {
-                        r = unit_full_printf(u, word, &resolved);
+                        r = unit_env_printf(u, word, &resolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to resolve unit specifiers in %s, ignoring: %m", word);
@@ -2730,7 +2722,7 @@ int config_parse_pass_environ(
                         break;
 
                 if (u) {
-                        r = unit_full_printf(u, word, &k);
+                        r = unit_env_printf(u, word, &k);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to resolve specifiers in %s, ignoring: %m", word);
@@ -2805,7 +2797,7 @@ int config_parse_unset_environ(
                         break;
 
                 if (u) {
-                        r = unit_full_printf(u, word, &k);
+                        r = unit_env_printf(u, word, &k);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to resolve unit specifiers in %s, ignoring: %m", word);
@@ -2932,7 +2924,7 @@ int config_parse_log_namespace(
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &k);
+        r = unit_full_printf_full(u, rvalue, NAME_MAX, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
                 return 0;
@@ -2985,7 +2977,7 @@ int config_parse_unit_condition_path(
         if (negate)
                 rvalue++;
 
-        r = unit_full_printf(u, rvalue, &p);
+        r = unit_path_printf(u, rvalue, &p);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
                 return 0;
@@ -3090,7 +3082,7 @@ int config_parse_unit_requires_mounts_for(
                 if (r == 0)
                         return 0;
 
-                r = unit_full_printf(u, word, &resolved);
+                r = unit_path_printf(u, word, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
                         continue;
@@ -3960,7 +3952,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, path, &resolved);
+        r = unit_path_printf(userdata, path, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
@@ -4026,7 +4018,7 @@ int config_parse_io_device_weight(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, path, &resolved);
+        r = unit_path_printf(userdata, path, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
@@ -4095,7 +4087,7 @@ int config_parse_io_device_latency(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, path, &resolved);
+        r = unit_path_printf(userdata, path, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
@@ -4165,7 +4157,7 @@ int config_parse_io_limit(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, path, &resolved);
+        r = unit_path_printf(userdata, path, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
@@ -4251,7 +4243,7 @@ int config_parse_blockio_device_weight(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, path, &resolved);
+        r = unit_path_printf(userdata, path, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
@@ -4324,7 +4316,7 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, path, &resolved);
+        r = unit_path_printf(userdata, path, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
@@ -4440,7 +4432,7 @@ int config_parse_exec_directories(
                 if (r == 0)
                         return 0;
 
-                r = unit_full_printf(u, word, &k);
+                r = unit_path_printf(u, word, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
@@ -4503,7 +4495,7 @@ int config_parse_set_credential(
                 return 0;
         }
 
-        r = unit_full_printf(u, word, &k);
+        r = unit_cred_printf(u, word, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
                 return 0;
@@ -4588,7 +4580,7 @@ int config_parse_load_credential(
                 return 0;
         }
 
-        r = unit_full_printf(u, word, &k);
+        r = unit_cred_printf(u, word, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
                 return 0;
@@ -4605,7 +4597,7 @@ int config_parse_load_credential(
                 if (!q)
                         return log_oom();
         } else {
-                r = unit_full_printf(u, p, &q);
+                r = unit_path_printf(u, p, &q);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
                         return 0;
@@ -4740,7 +4732,7 @@ int config_parse_namespace_path_strv(
                         w++;
                 }
 
-                r = unit_full_printf(u, w, &resolved);
+                r = unit_path_printf(u, w, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s: %m", w);
                         continue;
@@ -4820,7 +4812,7 @@ int config_parse_temporary_filesystems(
                         continue;
                 }
 
-                r = unit_full_printf(u, path, &resolved);
+                r = unit_path_printf(u, path, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", path);
                         continue;
@@ -4881,7 +4873,7 @@ int config_parse_bind_paths(
                 if (r == 0)
                         break;
 
-                r = unit_full_printf(u, source, &sresolved);
+                r = unit_full_printf_full(u, source, PATH_MAX, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
@@ -4912,7 +4904,7 @@ int config_parse_bind_paths(
                                 continue;
                         }
 
-                        r = unit_full_printf(u, destination, &dresolved);
+                        r = unit_path_printf(u, destination, &dresolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to resolve specifiers in \"%s\", ignoring: %m", destination);
@@ -5028,7 +5020,7 @@ int config_parse_mount_images(
                         s++;
                 }
 
-                r = unit_full_printf(u, s, &sresolved);
+                r = unit_path_printf(u, s, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", s);
@@ -5044,7 +5036,7 @@ int config_parse_mount_images(
                         continue;
                 }
 
-                r = unit_full_printf(u, second, &dresolved);
+                r = unit_path_printf(u, second, &dresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                         "Failed to resolve specifiers in \"%s\", ignoring: %m", second);
@@ -5187,7 +5179,7 @@ int config_parse_extension_images(
                         s++;
                 }
 
-                r = unit_full_printf(u, s, &sresolved);
+                r = unit_path_printf(u, s, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", s);
@@ -5416,7 +5408,7 @@ int config_parse_pid_file(
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &k);
+        r = unit_path_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -5537,7 +5529,7 @@ int config_parse_ip_filter_bpf_progs(
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &resolved);
+        r = unit_path_printf(u, rvalue, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -5611,7 +5603,7 @@ int config_parse_bpf_foreign_program(
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &resolved);
+        r = unit_path_printf(u, rvalue, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
