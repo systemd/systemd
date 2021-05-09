@@ -3,41 +3,8 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "nulstr-util.h"
-#include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
-
-static void test_specifier_printf(void) {
-        static const Specifier table[] = {
-                { 'X', specifier_string,         (char*) "AAAA" },
-                { 'Y', specifier_string,         (char*) "BBBB" },
-                COMMON_SYSTEM_SPECIFIERS,
-                {}
-        };
-
-        _cleanup_free_ char *w = NULL;
-        int r;
-
-        log_info("/* %s */", __func__);
-
-        r = specifier_printf("xxx a=%X b=%Y yyy", table, NULL, &w);
-        assert_se(r >= 0);
-        assert_se(w);
-
-        puts(w);
-        assert_se(streq(w, "xxx a=AAAA b=BBBB yyy"));
-
-        free(w);
-        r = specifier_printf("machine=%m, boot=%b, host=%H, version=%v, arch=%a", table, NULL, &w);
-        assert_se(r >= 0);
-        assert_se(w);
-        puts(w);
-
-        w = mfree(w);
-        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W", table, NULL, &w);
-        if (w)
-                puts(w);
-}
 
 static void test_str_in_set(void) {
         log_info("/* %s */", __func__);
@@ -1022,7 +989,6 @@ static void test_strv_fnmatch(void) {
 }
 
 int main(int argc, char *argv[]) {
-        test_specifier_printf();
         test_str_in_set();
         test_strptr_in_set();
         test_startswith_set();
