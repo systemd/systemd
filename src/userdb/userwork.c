@@ -393,13 +393,10 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                                                             JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
                         if (r < 0)
                                 return r;
-
-                        free(last_user_name);
-                        free(last_group_name);
                 }
 
-                last_user_name = TAKE_PTR(user_name);
-                last_group_name = TAKE_PTR(group_name);
+                free_and_replace(last_user_name, user_name);
+                free_and_replace(last_group_name, group_name);
         }
 
         if (!last_user_name) {
