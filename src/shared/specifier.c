@@ -14,6 +14,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "os-util.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -57,19 +58,50 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                                                 break;
 
                                 if (i->lookup) {
-                                        _cleanup_free_ char *w = NULL;
+                                        SpecifierResultType s;
                                         size_t k, j;
+                                        void *w;
 
-                                        r = i->lookup(i->specifier, i->data, userdata, &w);
+                                        r = i->lookup(i->specifier, i->data, userdata, &s, &w);
                                         if (r < 0)
                                                 return r;
 
                                         j = t - result;
-                                        k = strlen(w);
+
+                                        switch (s) {
+                                        case SPECIFIER_RESULT_STRING:
+                                        case SPECIFIER_RESULT_STRING_CONST:
+                                                k = strlen_ptr(w);
+                                                break;
+                                        case SPECIFIER_RESULT_UID:
+                                        case SPECIFIER_RESULT_GID:
+                                                k = DECIMAL_STR_MAX(uid_t);
+                                                break;
+                                        default:
+                                                assert_not_reached("invalid specifier result type.");
+                                        }
 
                                         if (!GREEDY_REALLOC(result, allocated, j + k + l + 1))
                                                 return -ENOMEM;
-                                        memcpy(result + j, w, k);
+
+                                        switch (s) {
+                                        case SPECIFIER_RESULT_STRING:
+                                        case SPECIFIER_RESULT_STRING_CONST:
+                                                memcpy_safe(result + j, w, k);
+                                                if (s == SPECIFIER_RESULT_STRING)
+                                                        free(w);
+                                                break;
+                                        case SPECIFIER_RESULT_UID:
+                                        case SPECIFIER_RESULT_GID:
+                                                r = snprintf(result + j, k, UID_FMT, PTR_TO_UID(w));
+                                                if (r < 0)
+                                                        return -EINVAL;
+                                                k = r;
+                                                break;
+                                        default:
+                                                assert_not_reached("invalid specifier result type.");
+                                        }
+
                                         t = result + j + k;
                                 } else if (strchr(POSSIBLE_SPECIFIERS, *f))
                                         /* Oops, an unknown specifier. */
@@ -104,18 +136,13 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
 
 /* Generic handler for simple string replacements */
 
-int specifier_string(char specifier, const void *data, const void *userdata, char **ret) {
-        char *n;
-
-        n = strdup(strempty(data));
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
+int specifier_string(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        *ret_type = SPECIFIER_RESULT_STRING_CONST;
+        *ret = (void*) data;
         return 0;
 }
 
-int specifier_machine_id(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_machine_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         sd_id128_t id;
         char *n;
         int r;
@@ -128,11 +155,12 @@ int specifier_machine_id(char specifier, const void *data, const void *userdata,
         if (!n)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = sd_id128_to_string(id, n);
         return 0;
 }
 
-int specifier_boot_id(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_boot_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         sd_id128_t id;
         char *n;
         int r;
@@ -145,33 +173,36 @@ int specifier_boot_id(char specifier, const void *data, const void *userdata, ch
         if (!n)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = sd_id128_to_string(id, n);
         return 0;
 }
 
-int specifier_host_name(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_host_name(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         char *n;
 
         n = gethostname_malloc();
         if (!n)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = n;
         return 0;
 }
 
-int specifier_short_host_name(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_short_host_name(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         char *n;
 
         n = gethostname_short_malloc();
         if (!n)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = n;
         return 0;
 }
 
-int specifier_kernel_release(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_kernel_release(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         struct utsname uts;
         char *n;
         int r;
@@ -184,155 +215,150 @@ int specifier_kernel_release(char specifier, const void *data, const void *userd
         if (!n)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = n;
         return 0;
 }
 
-int specifier_architecture(char specifier, const void *data, const void *userdata, char **ret) {
-        char *t;
-
-        t = strdup(architecture_to_string(uname_architecture()));
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
+int specifier_architecture(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        *ret_type = SPECIFIER_RESULT_STRING_CONST;
+        *ret = (void*) architecture_to_string(uname_architecture());
         return 0;
 }
 
-static int specifier_os_release_common(const char *field, char **ret) {
+static int specifier_os_release_common(const char *field, SpecifierResultType *ret_type, void **ret) {
         char *t = NULL;
         int r;
 
         r = parse_os_release(NULL, field, &t);
         if (r < 0)
                 return r;
-        if (!t) {
-                /* fields in /etc/os-release might quite possibly be missing, even if everything is entirely
-                 * valid otherwise. Let's hence return "" in that case. */
-                t = strdup("");
-                if (!t)
-                        return -ENOMEM;
-        }
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = t;
         return 0;
 }
 
-int specifier_os_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("ID", ret);
+int specifier_os_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        return specifier_os_release_common("ID", ret_type, ret);
 }
 
-int specifier_os_version_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("VERSION_ID", ret);
+int specifier_os_version_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        return specifier_os_release_common("VERSION_ID", ret_type, ret);
 }
 
-int specifier_os_build_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("BUILD_ID", ret);
+int specifier_os_build_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        return specifier_os_release_common("BUILD_ID", ret_type, ret);
 }
 
-int specifier_os_variant_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("VARIANT_ID", ret);
+int specifier_os_variant_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        return specifier_os_release_common("VARIANT_ID", ret_type, ret);
 }
 
-int specifier_os_image_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("IMAGE_ID", ret);
+int specifier_os_image_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        return specifier_os_release_common("IMAGE_ID", ret_type, ret);
 }
 
-int specifier_os_image_version(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("IMAGE_VERSION", ret);
+int specifier_os_image_version(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        return specifier_os_release_common("IMAGE_VERSION", ret_type, ret);
 }
 
-int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_group_name(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         char *t;
 
         t = gid_to_name(getgid());
         if (!t)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = t;
         return 0;
 }
 
-int specifier_group_id(char specifier, const void *data, const void *userdata, char **ret) {
-        if (asprintf(ret, UID_FMT, getgid()) < 0)
-                return -ENOMEM;
-
+int specifier_group_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        *ret_type = SPECIFIER_RESULT_GID;
+        *ret = GID_TO_PTR(getgid());
         return 0;
 }
 
-int specifier_user_name(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_user_name(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         char *t;
 
-        /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want to be able
-         * to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
+        /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we
+         * want to be able to run this in PID 1, where our user ID is 0, but where NSS lookups are not
+         * allowed.
 
-         * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain consistent with
-         * specifer_user_id() below.
-         */
+         * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain
+         * consistent with specifer_user_id() below. */
 
         t = uid_to_name(getuid());
         if (!t)
                 return -ENOMEM;
 
+        *ret_type = SPECIFIER_RESULT_STRING;
         *ret = t;
         return 0;
 }
 
-int specifier_user_id(char specifier, const void *data, const void *userdata, char **ret) {
-
-        if (asprintf(ret, UID_FMT, getuid()) < 0)
-                return -ENOMEM;
-
+int specifier_user_id(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        *ret_type = SPECIFIER_RESULT_UID;
+        *ret = UID_TO_PTR(getuid());
         return 0;
 }
 
-int specifier_user_home(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_user_home(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        char *s;
+        int r;
 
-        /* On PID 1 (which runs as root) this will not result in NSS,
-         * which is good. See above */
+        /* On PID 1 (which runs as root) this will not result in NSS, which is good. See above. */
 
-        return get_home_dir(ret);
+        r = get_home_dir(&s);
+        if (r < 0)
+                return r;
+
+        *ret_type = SPECIFIER_RESULT_STRING;
+        *ret = s;
+        return 0;
 }
 
-int specifier_user_shell(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_user_shell(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        char *s;
+        int r;
 
-        /* On PID 1 (which runs as root) this will not result in NSS,
-         * which is good. See above */
+        /* On PID 1 (which runs as root) this will not result in NSS, which is good. See above. */
 
-        return get_shell(ret);
+        r = get_shell(&s);
+        if (r < 0)
+                return r;
+
+        *ret_type = SPECIFIER_RESULT_STRING;
+        *ret = s;
+        return 0;
 }
 
-int specifier_tmp_dir(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_tmp_dir(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         const char *p;
-        char *copy;
         int r;
 
         r = tmp_dir(&p);
         if (r < 0)
                 return r;
 
-        copy = strdup(p);
-        if (!copy)
-                return -ENOMEM;
-
-        *ret = copy;
+        *ret_type = SPECIFIER_RESULT_STRING_CONST;
+        *ret = (void*) p;
         return 0;
 }
 
-int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata, char **ret) {
+int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         const char *p;
-        char *copy;
         int r;
 
         r = var_tmp_dir(&p);
         if (r < 0)
                 return r;
 
-        copy = strdup(p);
-        if (!copy)
-                return -ENOMEM;
-
-        *ret = copy;
+        *ret_type = SPECIFIER_RESULT_STRING_CONST;
+        *ret = (void*) p;
         return 0;
 }
 

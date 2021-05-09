@@ -497,9 +497,10 @@ static void test_install_printf(void) {
         UnitFileInstallInfo i4 = { .name = name3, .path = path3, };
 
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
+        SpecifierResultType t;
 
-        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
-        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
+        assert_se(specifier_machine_id('m', NULL, NULL, &t, (void**) &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, &t, (void**) &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(group = gid_to_name(getgid()));
         assert_se(asprintf(&gid, UID_FMT, getgid()) >= 0);
@@ -508,20 +509,21 @@ static void test_install_printf(void) {
 
 #define expect(src, pattern, result)                                    \
         do {                                                            \
-                _cleanup_free_ char *t = NULL;                          \
                 _cleanup_free_ char                                     \
-                        *d1 = strdup(i.name),                           \
-                        *d2 = strdup(i.path);                           \
-                assert_se(install_full_printf(&src, pattern, &t) >= 0 || !result); \
+                        *_t = NULL,                                     \
+                        *_d1 = strdup(i.name),                          \
+                        *_d2 = strdup(i.path);                          \
+                assert_se(install_full_printf(&src, pattern, &_t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
-                assert_se(d1 && d2);                                    \
+                assert_se(_d1 && _d2);                                  \
                 if (result) {                                           \
-                        printf("%s\n", t);                              \
-                        assert_se(streq(t, result));                    \
-                } else assert_se(t == NULL);                            \
-                strcpy(i.name, d1);                                     \
-                strcpy(i.path, d2);                                     \
+                        printf("%s\n", _t);                             \
+                        assert_se(streq(_t, result));                   \
+                } else                                                  \
+                        assert_se(!_t);                                 \
+                strcpy(i.name, _d1);                                    \
+                strcpy(i.path, _d2);                                    \
         } while (false)
 
         expect(i, "%n", "name.service");

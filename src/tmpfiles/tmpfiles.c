@@ -187,8 +187,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
-static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret);
-static int specifier_directory(char specifier, const void *data, const void *userdata, char **ret);
+static SPECIFIER_PROTOTYPE(machine_id_safe);
+static SPECIFIER_PROTOTYPE(directory);
 
 static const Specifier specifier_table[] = {
         { 'a', specifier_architecture,    NULL },
@@ -215,21 +215,20 @@ static const Specifier specifier_table[] = {
         {}
 };
 
-static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         int r;
 
-        /* If /etc/machine_id is missing or empty (e.g. in a chroot environment)
-         * return a recognizable error so that the caller can skip the rule
-         * gracefully. */
+        /* If /etc/machine_id is missing or empty (e.g. in a chroot environment) return a recognizable
+         * error so that the caller can skip the rule gracefully. */
 
-        r = specifier_machine_id(specifier, data, userdata, ret);
+        r = specifier_machine_id(specifier, data, userdata, ret_type, ret);
         if (IN_SET(r, -ENOENT, -ENOMEDIUM))
                 return -ENXIO;
 
         return r;
 }
 
-static int specifier_directory(char specifier, const void *data, const void *userdata, char **ret) {
+static int specifier_directory(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
         struct table_entry {
                 uint64_t type;
                 const char *suffix;
@@ -249,8 +248,10 @@ static int specifier_directory(char specifier, const void *data, const void *use
                 [DIRECTORY_LOGS] =    { SD_PATH_USER_CONFIGURATION, "log" },
         };
 
-        unsigned i;
         const struct table_entry *paths;
+        unsigned i;
+        char *p;
+        int r;
 
         assert_cc(ELEMENTSOF(paths_system) == ELEMENTSOF(paths_user));
         paths = arg_user ? paths_user : paths_system;
@@ -258,7 +259,13 @@ static int specifier_directory(char specifier, const void *data, const void *use
         i = PTR_TO_UINT(data);
         assert(i < ELEMENTSOF(paths_system));
 
-        return sd_path_lookup(paths[i].type, paths[i].suffix, ret);
+        r = sd_path_lookup(paths[i].type, paths[i].suffix, &p);
+        if (r < 0)
+                return r;
+
+        *ret_type = SPECIFIER_RESULT_STRING;
+        *ret = p;
+        return 0;
 }
 
 static int log_unresolvable_specifier(const char *filename, unsigned line) {

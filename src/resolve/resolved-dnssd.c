@@ -135,19 +135,15 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         return 0;
 }
 
-static int specifier_dnssd_host_name(char specifier, const void *data, const void *userdata, char **ret) {
-        DnssdService *s  = (DnssdService *) userdata;
-        char *n;
+static int specifier_dnssd_host_name(char specifier, const void *data, const void *userdata, SpecifierResultType *ret_type, void **ret) {
+        const DnssdService *s = userdata;
 
         assert(s);
         assert(s->manager);
         assert(s->manager->llmnr_hostname);
 
-        n = strdup(s->manager->llmnr_hostname);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
+        *ret_type = SPECIFIER_RESULT_STRING_CONST;
+        *ret = (void*) s->manager->llmnr_hostname;
         return 0;
 }
 
