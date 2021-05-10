@@ -1037,7 +1037,7 @@ void bus_done_private(Manager *m) {
 
         m->private_buses = set_free(m->private_buses);
 
-        m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
+        m->private_listen_event_source = sd_event_source_disable_unref(m->private_listen_event_source);
         m->private_listen_fd = safe_close(m->private_listen_fd);
 }
 
