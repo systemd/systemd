@@ -230,7 +230,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *filename = NULL, *dirname = NULL;
         char name_enc[PATH_MAX];
         const char *id;
-        int i, r, retries;
+        int i, r;
 
         assert(dev);
         assert(slink);
@@ -265,11 +265,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                                 return -errno;
                 }
 
-        /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
-         * will be fixed in the second invocation. */
-        retries = sd_device_get_is_initialized(dev) > 0 ? LINK_UPDATE_MAX_RETRIES : 1;
-
-        for (i = 0; i < retries; i++) {
+        for (i = 0; i < LINK_UPDATE_MAX_RETRIES; i++) {
                 _cleanup_free_ char *target = NULL;
                 struct stat st1 = {}, st2 = {};
 
