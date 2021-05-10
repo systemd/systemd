@@ -747,11 +747,14 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
 
         if (arg_fido2_cid) {
                 if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 mode selected but no key file specified, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
 
                 rp_id = arg_fido2_rp_id;
                 cid = arg_fido2_cid;
                 cid_size = arg_fido2_cid_size;
+
+                required = FIDO2ENROLL_PIN | FIDO2ENROLL_UP; /* For backwards compatibility, PIN+presence is required by default. */
         } else {
                 r = find_fido2_auto_data(
                                 cd,
