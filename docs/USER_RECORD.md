@@ -75,7 +75,11 @@ Records](https://systemd.io/GROUP_RECORD) that encapsulate UNIX groups.
 
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
-[User/Group Lookup API via Varlink](https://systemd.io/USER_GROUP_API).
+[User/Group Lookup API via
+Varlink](https://systemd.io/USER_GROUP_API). User/group records may also be
+dropped in number of drop-in directories as files. See
+[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+for details.
 
 ## Why JSON?
 
