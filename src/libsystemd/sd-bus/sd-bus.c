@@ -12,6 +12,7 @@
 
 #include "sd-bus.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-container.h"
 #include "bus-control.h"
@@ -821,11 +822,8 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
                 return -EINVAL;
 
         if (family) {
-                if (streq(family, "ipv4"))
-                        hints.ai_family = AF_INET;
-                else if (streq(family, "ipv6"))
-                        hints.ai_family = AF_INET6;
-                else
+                hints.ai_family = af_from_ipv4_ipv6(family);
+                if (hints.ai_family == AF_UNSPEC)
                         return -EINVAL;
         }
 

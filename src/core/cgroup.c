@@ -4,6 +4,7 @@
 
 #include "sd-messages.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "bpf-devices.h"
@@ -594,17 +595,18 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
-        const char *family =
-                item->address_family == AF_INET ? "ipv4:" :
-                item->address_family == AF_INET6 ? "ipv6:" : "";
+        const char *family, *colon;
+
+        family = strempty(af_to_ipv4_ipv6(item->address_family));
+        colon = isempty(family) ? "" : ":";
 
         if (item->nr_ports == 0)
-                fprintf(f, " %sany", family);
+                fprintf(f, " %s%sany", family, colon);
         else if (item->nr_ports == 1)
-                fprintf(f, " %s%" PRIu16, family, item->port_min);
+                fprintf(f, " %s%s%" PRIu16, family, colon, item->port_min);
         else {
                 uint16_t port_max = item->port_min + item->nr_ports - 1;
-                fprintf(f, " %s%" PRIu16 "-%" PRIu16, family, item->port_min, port_max);
+                fprintf(f, " %s%s%" PRIu16 "-%" PRIu16, family, colon, item->port_min, port_max);
         }
 }
 
