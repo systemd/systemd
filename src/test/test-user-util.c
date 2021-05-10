@@ -379,7 +379,9 @@ static void test_make_salt(void) {
 
 static void test_in_gid(void) {
         assert(in_gid(getgid()) >= 0);
-        assert(in_gid(getegid()) >= 0);        assert(in_gid(TTY_GID) == 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
+        assert(in_gid(getegid()) >= 0);
+        assert(in_gid(GID_INVALID) < 0);
+        assert(in_gid(TTY_GID) == 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
 }
 
 static void test_gid_lists_ops(void) {
