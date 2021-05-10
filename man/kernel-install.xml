@@ -71,23 +71,22 @@
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
           </para>
 
-          <para>Three default plugins execute the following operations in this case:</para>
+          <para>Two default plugins execute the following operations in this case:</para>
 
           <itemizedlist>
-            <listitem><para><filename>00-entry-directory.install</filename> creates the directory
-            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-            if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/</filename> already exists.
-            </para></listitem>
+            <listitem><para><command>kernel-install</command> initialises
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable></filename>
+            by creating it, if enabled (see <varname>$KERNEL_INSTALL_BOOTLOADER_SPEC=</varname>).</para></listitem>
 
             <listitem><para><filename>50-depmod.install</filename> runs
             <citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry> for the
             <replaceable>KERNEL-VERSION</replaceable>.</para></listitem>
 
-            <listitem><para><filename>90-loaderentry.install</filename> copies <replaceable>KERNEL-IMAGE</replaceable>
-            to
+            <listitem><para><filename>90-loaderentry.install</filename> creates
+            exits if <varname>$KERNEL_INSTALL_BOOTLOADER_SPEC=</varname>0.
+            It then copies <replaceable>KERNEL-IMAGE</replaceable> to
             <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
-            If an <replaceable>INITRD-FILE</replaceable> is provided, it also copies <replaceable>INITRD-FILE</replaceable>
-            to
+            If <replaceable>INITRD-FILE</replaceable>s are provided, it also them to
             <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/<replaceable>INITRD-FILE</replaceable></filename>.
             It also creates a boot loader entry according to the <ulink
             url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> in
@@ -124,6 +123,10 @@
 
             <listitem><para><filename>90-loaderentry.install</filename> removes the file
             <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.</para></listitem>
+
+            <listitem><para><command>kernel-install</command> removes
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable></filename>,
+            if enabled (see <varname>$KERNEL_INSTALL_BOOTLOADER_SPEC=</varname>).</para></listitem>
           </itemizedlist>
 
         </listitem>
@@ -161,8 +164,19 @@
 
   <refsect1>
     <title>Environment variables</title>
+
     <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be set for
     the plugins. They may output additional logs in this case.</para>
+
+    <para>If <varname>MACHINE_ID=</varname> is set and nonempty, it will be used as <replaceable>MACHINE-ID</replaceable>,
+    overriding any automatic detection attempts.</para>
+
+    <para><varname>KERNEL_INSTALL_MACHINE_ID=</varname> is set for the plugins to the desired <replaceable>MACHINE-ID</replaceable>.</para>
+    <para><varname>KERNEL_INSTALL_BOOT_ROOT=</varname> is set for the plugins to the detected EFI system partition mount-point.</para>
+
+    <para><varname>KERNEL_INSTALL_BOOTLOADER_SPEC=0|1</varname> is set for the plugins to configure whether they should operate on the
+    <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> hierarchy.
+    This corresponds to the existence of <filename>$BOOT/<replaceable>MACHINE-ID</replaceable></filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -184,6 +198,7 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/usr/lib/kernel/cmdline</filename>
           <filename>/etc/kernel/cmdline</filename>
           <filename>/proc/cmdline</filename>
         </term>
@@ -212,8 +227,10 @@
         </term>
           <listitem>
             <para>The content of this file specifies the machine identification
-            <replaceable>MACHINE-ID</replaceable>. If it cannot read <filename>/etc/machine-id</filename>,
-            kernel-install will use "Linux" as the machine ID instead.</para>
+            <replaceable>MACHINE-ID</replaceable>. If <filename>/etc/machine-id</filename>
+            cannot be read or is temporary (backed by a file on <constant>tmpfs</constant>),
+            or <filename>$BOOT/Default</filename> exists, <command>kernel-install</command>
+            will use <literal>Default</literal> instead.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -222,7 +239,9 @@
           <filename>/usr/lib/os-release</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the operating system title <replaceable>PRETTY_NAME</replaceable>.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>.
+            If available, <varname>PRETTY_NAME</varname> is read from these files and used as the operating system title.
+            Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be used.</para>
           </listitem>
       </varlistentry>
     </variablelist>
