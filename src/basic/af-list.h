@@ -22,4 +22,7 @@ static inline const char* af_to_name_short(int id) {
         return f + 3;
 }
 
+const char* af_to_ipv4_ipv6(int id);
+int af_from_ipv4_ipv6(const char *af);
+
 int af_max(void);
