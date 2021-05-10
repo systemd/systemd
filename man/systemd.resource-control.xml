@@ -775,7 +775,7 @@ BPFProgram=bind6:/sys/fs/bpf/sock-addr-hook
 
           <para><replaceable>bind-rule</replaceable> := [<replaceable>address-family</replaceable><constant>:</constant>]<replaceable>ip-ports</replaceable></para>
 
-          <para><replaceable>address-family</replaceable> := { <constant>IPv4</constant> | <constant>IPv6</constant> }</para>
+          <para><replaceable>address-family</replaceable> := { <constant>ipv4</constant> | <constant>ipv6</constant> }</para>
 
           <para><replaceable>ip-ports</replaceable> := { <replaceable>ip-port</replaceable> | <replaceable>ip-port-range</replaceable> |
           <constant>any</constant> }</para>
@@ -812,7 +812,7 @@ BPFProgram=bind6:/sys/fs/bpf/sock-addr-hook
           <para>Examples:<programlisting>…
 # Allow binding IPv6 socket addresses with a port greater than or equal to 10000.
 [Service]
-SocketBindAllow=IPv6:10000-65535
+SocketBindAllow=ipv6:10000-65535
 SocketBindDeny=any
 …
 # Allow binding IPv4 and IPv6 socket addresses with 1234 and 4321 ports.
@@ -823,7 +823,7 @@ SocketBindDeny=any
 …
 # Deny binding IPv6 socket addresses.
 [Service]
-SocketBindDeny=IPv6:any
+SocketBindDeny=ipv6:any
 …
 # Deny binding IPv4 and IPv6 socket addresses.
 [Service]
