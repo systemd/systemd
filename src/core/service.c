@@ -1351,7 +1351,7 @@ static int service_allocate_exec_fd_event_source(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
 
-        (void) sd_event_source_set_description(source, "service event_fd");
+        (void) sd_event_source_set_description(source, "service exec_fd");
 
         r = sd_event_source_set_io_fd_own(source, true);
         if (r < 0)
@@ -1433,6 +1433,8 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
+        assert(!s->exec_fd_event_source);
+
         if (flags & EXEC_IS_CONTROL) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
                 if (s->permissions_start_only)
@@ -1458,8 +1460,6 @@ static int service_spawn(
         }
 
         if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
-                assert(!s->exec_fd_event_source);
-
                 r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
                         return r;
@@ -3383,6 +3383,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 clean_mode = EXIT_CLEAN_COMMAND;
         else
                 clean_mode = EXIT_CLEAN_DAEMON;
+
+        if (s->main_pid == pid)
+                /* Clean up the exec_fd event source. The source owns its end of the pipe, so this will close
+                 * that too. */
+                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         if (is_clean_exit(code, status, clean_mode, &s->success_status))
                 f = SERVICE_SUCCESS;
