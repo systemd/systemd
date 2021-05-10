@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "errno-list.h"
 #include "locale-util.h"
 #include "macro.h"
 
@@ -23,6 +24,7 @@ typedef enum UnitType {
         UNIT_SCOPE,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -EINVAL,
+        _UNIT_TYPE_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } UnitType;
 
 typedef enum UnitLoadState {
