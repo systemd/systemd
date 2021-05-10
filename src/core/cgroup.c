@@ -594,8 +594,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
-        const char *family = item->address_family == AF_INET ? "IPv4:" :
-                item->address_family == AF_INET6 ? "IPv6:" : "";
+        const char *family =
+                item->address_family == AF_INET ? "ipv4:" :
+                item->address_family == AF_INET6 ? "ipv6:" : "";
 
         if (item->nr_ports == 0)
                 fprintf(f, " %sany", family);
