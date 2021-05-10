@@ -252,7 +252,7 @@ static void test_udev_resolve_subsys_kernel(void) {
         test_udev_resolve_subsys_kernel_one("hoge", false, -EINVAL, NULL);
         test_udev_resolve_subsys_kernel_one("[hoge", false, -EINVAL, NULL);
         test_udev_resolve_subsys_kernel_one("[hoge/foo", false, -EINVAL, NULL);
-        test_udev_resolve_subsys_kernel_one("[hoge/]", false, -ENODEV, NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge/]", false, -EINVAL, NULL);
 
         test_udev_resolve_subsys_kernel_one("[net/lo]", false, 0, "/sys/devices/virtual/net/lo");
         test_udev_resolve_subsys_kernel_one("[net/lo]/", false, 0, "/sys/devices/virtual/net/lo");
