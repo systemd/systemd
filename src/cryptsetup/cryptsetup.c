@@ -739,7 +739,8 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         int keyslot = arg_key_slot, r;
         const char *rp_id;
         const void *cid;
-        Fido2EnrollFlags required;
+        /*  Initialize for the arg_fido2_cid case, for backward compatibility, to pin + presence */
+        Fido2EnrollFlags required = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
 
         assert(cd);
         assert(name);
