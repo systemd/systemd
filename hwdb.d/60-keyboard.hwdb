@@ -911,6 +911,10 @@ evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90007=mail
  KEYBOARD_KEY_90008=www
 
+# Lenovo Ideapad D330-10IGM
+evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
+ KEYBOARD_KEY_70073=f21                                 # Fn+Supr (Touchpad toggle)
+
 
 ###########################################################
 # Logitech
