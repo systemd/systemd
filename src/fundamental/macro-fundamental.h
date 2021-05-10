@@ -7,10 +7,16 @@
 
 #include "type.h"
 
+#define _align_(x) __attribute__((__aligned__(x)))
 #define _const_ __attribute__((__const__))
 #define _pure_ __attribute__((__pure__))
+#define _section_(x) __attribute__((__section__(x)))
+#define _used_ __attribute__((__used__))
 #define _unused_ __attribute__((__unused__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+
+#define XSTRINGIFY(x) #x
+#define STRINGIFY(x) XSTRINGIFY(x)
 
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
