@@ -78,8 +78,8 @@
         the kernel log buffer, or a syslog socket will still work). Defaults to <literal>auto</literal> in
         the default journal namespace, and <literal>persistent</literal> in all others.</para>
 
-        <para>Note that journald will initially use volatile storage, until a call to 
-        <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause 
+        <para>Note that journald will initially use volatile storage, until a call to
+        <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause
         it to switch to persistent logging (under the conditions mentioned above). This is done automatically
         on boot via <literal>systemd-journal-flush.service</literal>.</para>
 
