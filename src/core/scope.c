@@ -48,7 +48,7 @@ static void scope_done(Unit *u) {
         s->controller = mfree(s->controller);
         s->controller_track = sd_bus_track_unref(s->controller_track);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 }
 
 static int scope_arm_timer(Scope *s, usec_t usec) {
@@ -92,7 +92,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
         s->state = state;
 
         if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         if (IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
                 unit_unwatch_all_pids(UNIT(s));

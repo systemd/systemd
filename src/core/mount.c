@@ -266,7 +266,7 @@ static void mount_done(Unit *u) {
 
         mount_unwatch_control_pid(m);
 
-        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+        m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -718,7 +718,7 @@ static void mount_set_state(Mount *m, MountState state) {
         m->state = state;
 
         if (!MOUNT_STATE_WITH_PROCESS(state)) {
-                m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+                m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
                 mount_unwatch_control_pid(m);
                 m->control_command = NULL;
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
@@ -1787,7 +1787,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 static void mount_shutdown(Manager *m) {
         assert(m);
 
-        m->mount_event_source = sd_event_source_unref(m->mount_event_source);
+        m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
 
         mnt_unref_monitor(m->mount_monitor);
         m->mount_monitor = NULL;
@@ -2127,7 +2127,7 @@ static int mount_clean(Unit *u, ExecCleanMask mask) {
 fail:
         log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         m->clean_result = MOUNT_FAILURE_RESOURCES;
-        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+        m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
         return r;
 }
 

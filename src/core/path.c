@@ -167,7 +167,7 @@ fail:
 void path_spec_unwatch(PathSpec *s) {
         assert(s);
 
-        s->event_source = sd_event_source_unref(s->event_source);
+        s->event_source = sd_event_source_disable_unref(s->event_source);
         s->inotify_fd = safe_close(s->inotify_fd);
 }
 

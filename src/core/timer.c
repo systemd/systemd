@@ -65,8 +65,8 @@ static void timer_done(Unit *u) {
 
         timer_free_values(t);
 
-        t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
-        t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
+        t->monotonic_event_source = sd_event_source_disable_unref(t->monotonic_event_source);
+        t->realtime_event_source = sd_event_source_disable_unref(t->realtime_event_source);
 
         free(t->stamp_path);
 }
@@ -296,8 +296,8 @@ static void timer_set_state(Timer *t, TimerState state) {
         t->state = state;
 
         if (state != TIMER_WAITING) {
-                t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
-                t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
+                t->monotonic_event_source = sd_event_source_disable_unref(t->monotonic_event_source);
+                t->realtime_event_source = sd_event_source_disable_unref(t->realtime_event_source);
                 t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
                 t->next_elapse_realtime = USEC_INFINITY;
         }

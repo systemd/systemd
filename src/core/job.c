@@ -88,7 +88,7 @@ void job_unlink(Job *j) {
                 j->in_gc_queue = false;
         }
 
-        j->timer_event_source = sd_event_source_unref(j->timer_event_source);
+        j->timer_event_source = sd_event_source_disable_unref(j->timer_event_source);
 }
 
 Job* job_free(Job *j) {
@@ -129,7 +129,7 @@ static void job_set_state(Job *j, JobState state) {
                 j->unit->manager->n_running_jobs--;
 
                 if (j->unit->manager->n_running_jobs <= 0)
-                        j->unit->manager->jobs_in_progress_event_source = sd_event_source_unref(j->unit->manager->jobs_in_progress_event_source);
+                        j->unit->manager->jobs_in_progress_event_source = sd_event_source_disable_unref(j->unit->manager->jobs_in_progress_event_source);
         }
 }
 
@@ -1336,7 +1336,7 @@ int job_coldplug(Job *j) {
         if (timeout_time == USEC_INFINITY)
                 return 0;
 
-        j->timer_event_source = sd_event_source_unref(j->timer_event_source);
+        j->timer_event_source = sd_event_source_disable_unref(j->timer_event_source);
 
         r = sd_event_add_time(
                         j->manager->event,
