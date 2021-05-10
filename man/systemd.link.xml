@@ -133,7 +133,10 @@
         <term><varname>Type=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching the device type, as exposed by
-          <command>networkctl status</command>. If the list is prefixed with a "!", the test is inverted.
+          <command>networkctl list</command>. If the list is prefixed with a "!", the test is inverted.
+          Some valid values are <literal>ether</literal>, <literal>loopback</literal>, <literal>wlan</literal>, <literal>wwan</literal>.
+          Valid types are named either from the udev <literal>DEVTYPE</literal> attribute, or
+          <literal>ARPHRD_</literal> macros in <filename>linux/if_arp.h</filename>, so this is not comprehensive.
           </para>
         </listitem>
       </varlistentry>
