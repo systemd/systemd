@@ -25,12 +25,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct socket_bind_bpf *, socket_bind_bpf_free);
 static int update_rules_map(
                 int map_fd, CGroupSocketBindItem *head) {
         CGroupSocketBindItem *item;
-        uint32_t i = 0;
 
         assert(map_fd >= 0);
 
         LIST_FOREACH(socket_bind_items, item, head) {
-                const uint32_t key = i++;
                 struct socket_bind_rule val = {
                         .address_family = (uint32_t) item->address_family,
                         .nr_ports = item->nr_ports,

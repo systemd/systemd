@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
@@ -879,14 +880,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                         address_family = eq ? word : NULL;
                         if (address_family) {
-                                if (!STR_IN_SET(address_family, "IPv4", "IPv6"))
+                                family = af_from_ipv4_ipv6(address_family);
+                                if (family == AF_UNSPEC)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Only IPv4 and IPv6 protocols are supported");
-
-                                if (streq(address_family, "IPv4"))
-                                        family = AF_INET;
-                                else
-                                        family = AF_INET6;
+                                                               "Only \"ipv4\" and \"ipv6\" protocols are supported");
                         }
 
                         user_port = eq ? eq : word;
