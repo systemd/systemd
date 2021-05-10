@@ -1581,7 +1581,7 @@ static bool unit_get_needs_socket_bind(Unit *u) {
         if (!c)
                 return false;
 
-        return c->socket_bind_allow != NULL || c->socket_bind_deny != NULL;
+        return c->socket_bind_allow || c->socket_bind_deny;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
