@@ -239,15 +239,25 @@
 
       <varlistentry>
         <term><option>--make-machine-id-directory=yes|no|auto</option></term>
-        <listitem><para>Control creation and deletion of <literal>$ESP/$MACHINE_ID</literal> during
-        <option>install</option> and <option>remove</option>, respectively.
-        <literal>auto</literal> is equivalent to to <literal>yes</literal> if <literal>/etc/machine-id</literal>
-        resides on a filesystem other than tmpfs and <literal>no</literal> otherwise.
-        Defaults to <literal>auto</literal>.</para>
+        <listitem><para>Control creation and deletion of the top-level machine ID directory on the file
+        system containing boot loader entries (i.e. beneath the file system returned by
+        <command>--print-boot-path</command> above) during <option>install</option> and
+        <option>remove</option>, respectively.  <literal>auto</literal> is equivalent to
+        <literal>yes</literal> if <filename>/etc/machine-id</filename> resides on a filesystem other than
+        tmpfs and <literal>no</literal> otherwise (in the latter case the machine ID is likely transient and
+        hence should not be used persistently in the ESP). Defaults to <literal>auto</literal>. See
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details about the machine ID concept and file.</para>
 
-        <para>Overriding this may be desired to hide the machine ID from the (unencrypted) ESP,
-        configure a <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> script, or,
-        conversely, commit a machine-id that only appears transient.</para></listitem>
+        <para>Overriding this may be desirable to hide the machine ID from the (unencrypted) ESP, configure a
+        <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        script, or, conversely, commit a transient machine ID.</para>
+
+        <para>The top-level machine ID directory is useful to allow smooth multi-boot installations: each
+        installed OS instance will have a different machine ID and thus a separate directory to place its
+        boot-time resources in. If this feature is turned off with this option, care needs to be taken that
+        multiple OS instances do not place conflicting files on the shared ESP and Extended Boot Loader
+        Partitions, or that multiple OS instances are not possible.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
