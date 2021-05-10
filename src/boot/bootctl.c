@@ -684,7 +684,7 @@ static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
                 return false;
         if (!sd_id128_equal(uuid, ouuid))
                 return false;
-        if (!streq_ptr(path, opath))
+        if (!strcaseeq_ptr(path, opath))
                 return false;
 
         return true;
