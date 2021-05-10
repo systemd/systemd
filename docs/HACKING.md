@@ -10,8 +10,8 @@ We welcome all contributions to systemd. If you notice a bug or a missing
 feature, please feel invited to fix it, and submit your work as a GitHub Pull
 Request (PR) at https://github.com/systemd/systemd/pull/new.
 
-Please make sure to follow our [Coding Style](CODING_STYLE.md) when submitting patches.
-Also have a look at our [Contribution Guidelines](CONTRIBUTING.md).
+Please make sure to follow our [Coding Style](CODING_STYLE.md) when submitting
+patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING.md).
 
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
@@ -22,8 +22,8 @@ test executable. For features at a higher level, tests in `src/test/` are very
 strongly recommended. If that is not possible, integration tests in `test/` are
 encouraged.
 
-Please also have a look at our list of [code quality tools](CODE_QUALITY.md) we have setup for systemd,
-to ensure our codebase stays in good shape.
+Please also have a look at our list of [code quality tools](CODE_QUALITY.md) we
+have setup for systemd, to ensure our codebase stays in good shape.
 
 Please always test your work before submitting a PR. For many of the components
 of systemd testing is straight-forward as you can simply compile systemd and
@@ -36,12 +36,12 @@ building clean OS images from an upstream distribution in combination with a
 fresh build of the project in the local working directory. To make use of this,
 please acquire `mkosi` from https://github.com/systemd/mkosi first, unless your
 distribution has packaged it already and you can get it from there. After the
-tool is installed, symlink the settings file for your distribution of choice from
-.mkosi/ to mkosi.default in the project root directory (note that the package
-manager for this distro needs to be installed on your host system). After doing
-that, it is sufficient to type `mkosi` in the systemd project directory to
-generate a disk image `image.raw` you can boot either in `systemd-nspawn` or in
-an UEFI-capable VM:
+tool is installed, symlink the settings file for your distribution of choice
+from .mkosi/ to mkosi.default in the project root directory (note that the
+package manager for this distro needs to be installed on your host system).
+After doing that, it is sufficient to type `mkosi` in the systemd project
+directory to generate a disk image `image.raw` you can boot either in
+`systemd-nspawn` or in an UEFI-capable VM:
 
 ```
 # mkosi boot
