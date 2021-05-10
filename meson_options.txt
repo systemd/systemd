@@ -370,6 +370,18 @@ option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
 option('tpm-pcrindex', type : 'integer', value : 8,
        description : 'TPM PCR register number to use')
+option('sbat-distro', type : 'string',
+       description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
+option('sbat-distro-generation', type : 'integer', value : 1,
+       description : 'SBAT distribution generation')
+option('sbat-distro-summary', type : 'string',
+       description : 'SBAT distribution summary, e.g. Fedora')
+option('sbat-distro-pkgname', type : 'string',
+       description : 'SBAT distribution package name, e.g. systemd')
+option('sbat-distro-version', type : 'string',
+       description : 'SBAT distribution package version, e.g. 248-7.fc34')
+option('sbat-distro-url', type : 'string',
+       description : 'SBAT distribution URL, e.g. https://src.fedoraproject.org/rpms/systemd')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')

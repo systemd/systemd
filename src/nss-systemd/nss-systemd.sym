@@ -10,15 +10,23 @@
 {
 global:
         _nss_systemd_getpwnam_r;
+        _nss_systemd_getspnam_r;
         _nss_systemd_getpwuid_r;
         _nss_systemd_endpwent;
         _nss_systemd_setpwent;
         _nss_systemd_getpwent_r;
+        _nss_systemd_endspent;
+        _nss_systemd_setspent;
+        _nss_systemd_getspent_r;
         _nss_systemd_getgrnam_r;
+        _nss_systemd_getsgnam_r;
         _nss_systemd_getgrgid_r;
         _nss_systemd_endgrent;
         _nss_systemd_setgrent;
         _nss_systemd_getgrent_r;
+        _nss_systemd_endsgent;
+        _nss_systemd_setsgent;
+        _nss_systemd_getsgent_r;
         _nss_systemd_initgroups_dyn;
 
         /* These two are not used by glibc, but can be used by apps to explicitly disable nss-systemd for the calling thread. */
