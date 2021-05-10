@@ -506,8 +506,8 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# IdeaPad D330-10IGM (both 81H3 and 81MD product numbers)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*:cvrLenovoideapadD330-10IGM:*
+# IdeaPad D330-10IGM (both 81H3 and 81MD product names)
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 # IdeaPad Miix 300
