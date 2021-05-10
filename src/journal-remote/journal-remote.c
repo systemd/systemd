@@ -8,6 +8,7 @@
 
 #include "sd-daemon.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "def.h"
 #include "errno-util.h"
@@ -498,7 +499,7 @@ static int accept_connection(
 
                 log_debug("Accepted %s %s connection from %s",
                           type,
-                          socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
+                          af_to_ipv4_ipv6(socket_address_family(addr)),
                           a);
 
                 *hostname = b;

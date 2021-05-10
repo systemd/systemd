@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "af-list.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
