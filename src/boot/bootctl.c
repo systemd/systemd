@@ -684,7 +684,11 @@ static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
                 return false;
         if (!sd_id128_equal(uuid, ouuid))
                 return false;
-        if (!streq_ptr(path, opath))
+
+        /* Some motherboards convert the path to uppercase under certain circumstances
+         * (e.g. after booting into the Boot Menu in the ASUS ROG STRIX B350-F GAMING),
+         * so use case-insensitive checking */
+        if (!strcaseeq_ptr(path, opath))
                 return false;
 
         return true;
