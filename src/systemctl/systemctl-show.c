@@ -1717,7 +1717,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
                         while ((r = sd_bus_message_read(m, "(iqq)", &af, &nr_ports, &port_min)) > 0) {
-                                family = af == AF_INET ? "IPv4:" : af == AF_INET6 ? "IPv6:" : "";
+                                family = af == AF_INET ? "ipv4:" : af == AF_INET6 ? "ipv6:" : "";
                                 if (nr_ports == 0)
                                         bus_print_property_valuef(name, expected_value, flags, "%sany", family);
                                 else if (nr_ports == 1)
