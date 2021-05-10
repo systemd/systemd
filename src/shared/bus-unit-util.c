@@ -879,14 +879,13 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                         address_family = eq ? word : NULL;
                         if (address_family) {
-                                if (!STR_IN_SET(address_family, "IPv4", "IPv6"))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Only IPv4 and IPv6 protocols are supported");
-
-                                if (streq(address_family, "IPv4"))
+                                if (streq(address_family, "ipv4"))
                                         family = AF_INET;
-                                else
+                                else if (streq(address_family, "ipv6"))
                                         family = AF_INET6;
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only \"ipv4\" and \"ipv6\" protocols are supported");
                         }
 
                         user_port = eq ? eq : word;
