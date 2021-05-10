@@ -114,6 +114,8 @@ static UserDBIterator* userdb_iterator_new(LookupWhat what, UserDBFlags flags) {
         *i = (UserDBIterator) {
                 .what = what,
                 .flags = flags,
+                .synthesize_root = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE),
+                .synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE),
         };
 
         return i;
@@ -510,7 +512,7 @@ static int userdb_start_query(
         }
 
         if (set_isempty(iterator->links))
-                return ret; /* propagate last error we saw if we couldn't connect to anything. */
+                return ret < 0 ? ret : -ESRCH; /* propagate last error we saw if we couldn't connect to anything. */
 
         /* We connected to some services, in this case, ignore the ones we failed on */
         return 0;
@@ -729,8 +731,6 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
         iterator = userdb_iterator_new(LOOKUP_USER, flags);
         if (!iterator)
                 return -ENOMEM;
-
-        iterator->synthesize_root = iterator->synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE);
 
         qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", true, NULL, flags);
 
@@ -1001,8 +1001,6 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
         iterator = userdb_iterator_new(LOOKUP_GROUP, flags);
         if (!iterator)
                 return -ENOMEM;
-
-        iterator->synthesize_root = iterator->synthesize_nobody = !FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE);
 
         qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", true, NULL, flags);
 
