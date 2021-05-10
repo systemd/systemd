@@ -202,12 +202,10 @@ void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeig
 }
 
 void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
-        CGroupSocketBindItem *h;
-
         assert(head);
 
         while (*head) {
-                h = *head;
+                CGroupSocketBindItem *h = *head;
                 LIST_REMOVE(socket_bind_items, *head, h);
                 free(h);
         }
@@ -594,8 +592,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
-        const char *family = item->address_family == AF_INET ? "IPv4:" :
-                item->address_family == AF_INET6 ? "IPv6:" : "";
+        const char *family =
+                item->address_family == AF_INET ? "ipv4:" :
+                item->address_family == AF_INET6 ? "ipv6:" : "";
 
         if (item->nr_ports == 0)
                 fprintf(f, " %sany", family);
@@ -1580,7 +1579,7 @@ static bool unit_get_needs_socket_bind(Unit *u) {
         if (!c)
                 return false;
 
-        return c->socket_bind_allow != NULL || c->socket_bind_deny != NULL;
+        return c->socket_bind_allow || c->socket_bind_deny;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
