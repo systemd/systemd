@@ -2784,20 +2784,16 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         expect_up = initial_up
         next_up = not expect_up
 
-        # if initial expected state is down, must wait for setup_state to reach configuring
-        # so systemd-networkd considers it 'activated'
-        setup_state = None if initial_up else 'configuring'
-
         for iteration in range(4):
             with self.subTest(iteration=iteration, expect_up=expect_up):
                 operstate = 'routable' if expect_up else 'off'
+                setup_state = 'configured' if expect_up else None
                 self.wait_operstate('test1', operstate, setup_state=setup_state, setup_timeout=20)
-                setup_state = None
 
                 if expect_up:
                     self.assertIn('UP', check_output('ip link show test1'))
                     self.assertIn('192.168.10.30/24', check_output('ip address show test1'))
-                    self.assertIn('default via 192.168.10.1', check_output('ip route show'))
+                    self.assertIn('default via 192.168.10.1', check_output('ip route show dev test1'))
                 else:
                     self.assertIn('DOWN', check_output('ip link show test1'))
 
@@ -2900,6 +2896,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(rc, 0)
         time.sleep(1)
 
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
         output = check_output('ip nexthop list dev veth99')
         print(output)
         self.assertEqual(output, '')
@@ -2912,6 +2910,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         rc = call(*networkctl_cmd, 'reload', env=env)
         self.assertEqual(rc, 0)
         time.sleep(1)
+
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         rc = call('ip link del veth99')
         self.assertEqual(rc, 0)

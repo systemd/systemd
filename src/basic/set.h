@@ -95,17 +95,16 @@ static inline void *set_steal_first(Set *s) {
         return _hashmap_first_key_and_value(HASHMAP_BASE(s), true, NULL);
 }
 
-#define set_clear_with_destructor(_s, _f)               \
+#define set_clear_with_destructor(s, f)                 \
         ({                                              \
+                Set *_s = (s);                          \
                 void *_item;                            \
                 while ((_item = set_steal_first(_s)))   \
-                        _f(_item);                      \
+                        f(_item);                       \
+                _s;                                     \
         })
-#define set_free_with_destructor(_s, _f)                \
-        ({                                              \
-                set_clear_with_destructor(_s, _f);      \
-                set_free(_s);                           \
-        })
+#define set_free_with_destructor(s, f)                  \
+        set_free(set_clear_with_destructor(s, f))
 
 /* no set_steal_first_key */
 /* no set_first_key */
