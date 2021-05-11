@@ -729,6 +729,7 @@ ShowStatus=
 RebootWatchdogSec=
 ShutdownWatchdogSec=
 KExecWatchdogSec=
+PreTimeoutWatchdogSec=
 SuspendMode=
 SuspendState=
 SystemCallArchitectures=
