@@ -32,6 +32,7 @@
 #RuntimeWatchdogSec=0
 #RebootWatchdogSec=10min
 #KExecWatchdogSec=0
+#PretimeoutWatchdogSec=0
 #WatchdogDevice=
 #CapabilityBoundingSet=
 #NoNewPrivileges=no
