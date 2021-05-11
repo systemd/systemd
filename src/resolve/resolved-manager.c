@@ -1068,17 +1068,26 @@ uint32_t manager_find_mtu(Manager *m) {
         Link *l;
         Iterator i;
 
-        /* If we don't know on which link a DNS packet would be
-         * delivered, let's find the largest MTU that works on all
-         * interfaces we know of */
+        /* If we don't know on which link a DNS packet would be delivered, let's find the largest MTU that
+         * works on all interfaces we know of that have an IP address asociated */
 
         HASHMAP_FOREACH(l, m->links, i) {
-                if (l->mtu <= 0)
+                /* Let's filter out links without IP addresses (e.g. AF_CAN links and suchlike) */
+                if (!l->addresses)
+                        continue;
+
+                /* Safety check: MTU shorter than what we need for the absolutely shortest DNS request? Then
+                 * let's ignore this link. */
+                if (l->mtu < MIN(UDP4_PACKET_HEADER_SIZE + DNS_PACKET_HEADER_SIZE,
+                                 UDP6_PACKET_HEADER_SIZE + DNS_PACKET_HEADER_SIZE))
                         continue;
 
                 if (mtu <= 0 || l->mtu < mtu)
                         mtu = l->mtu;
         }
+
+        if (mtu == 0) /* found nothing? then let's assume the typical Ethernet MTU for lack of anything more precise */
+                return 1500;
 
         return mtu;
 }
