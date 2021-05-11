@@ -114,7 +114,7 @@ sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
         return NULL;
 }
 
-int sd_netlink_message_get_type(const sd_netlink_message *m, uint16_t *type) {
+int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type) {
         assert_return(m, -EINVAL);
         assert_return(type, -EINVAL);
 
@@ -132,7 +132,7 @@ int sd_netlink_message_set_flags(sd_netlink_message *m, uint16_t flags) {
         return 0;
 }
 
-int sd_netlink_message_is_broadcast(const sd_netlink_message *m) {
+int sd_netlink_message_is_broadcast(sd_netlink_message *m) {
         assert_return(m, -EINVAL);
 
         return m->broadcast;
@@ -1235,14 +1235,14 @@ uint32_t rtnl_message_get_serial(sd_netlink_message *m) {
         return m->hdr->nlmsg_seq;
 }
 
-int sd_netlink_message_is_error(const sd_netlink_message *m) {
+int sd_netlink_message_is_error(sd_netlink_message *m) {
         assert_return(m, 0);
         assert_return(m->hdr, 0);
 
         return m->hdr->nlmsg_type == NLMSG_ERROR;
 }
 
-int sd_netlink_message_get_errno(const sd_netlink_message *m) {
+int sd_netlink_message_get_errno(sd_netlink_message *m) {
         struct nlmsgerr *err;
 
         assert_return(m, -EINVAL);
