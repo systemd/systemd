@@ -163,6 +163,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PretimeoutWatchdogSec=</varname></term>
+
+        <listitem><para>Configure the hardware watchdog device pretimeout
+        value. Takes a timeout value in seconds (or in other time units
+        similar to to <varname>RuntimeWatchdogSec=</varname>). If
+        <varname>PretimeoutWatchdogSec=</varname> is set to a non-zero
+        value the watchdog device will be directed to trigger a
+        pretimeout event in the amount of time specified before the
+        value specified by <varname>RuntimeWatchdogSec=</varname>. This
+        setting has no effect if a hardware watchdog is not available
+        or the hardware watchdog does not support a pretimeout.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>WatchdogDevice=</varname></term>
 
         <listitem><para>Configure the hardware watchdog device that the
