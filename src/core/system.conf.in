@@ -30,6 +30,7 @@
 #NUMAPolicy=default
 #NUMAMask=
 #RuntimeWatchdogSec=0
+#RuntimeWatchdogPreSec=0
 #RebootWatchdogSec=10min
 #KExecWatchdogSec=0
 #WatchdogDevice=
