@@ -90,6 +90,9 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     exit 1
 fi
 
+[ -r "/usr/lib/kernel/install.conf" ] && . /usr/lib/kernel/install.conf
+[ -r "/etc/kernel/install.conf" ] && . /etc/kernel/install.conf
+
 [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ] && [ "$(stat -fc %T /etc/machine-id)" != "tmpfs" ] && read -r MACHINE_ID < /etc/machine-id
 [ -z "$MACHINE_ID" ] && MACHINE_ID="Default"
 
@@ -116,9 +119,25 @@ ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 
-# Administrative decision: if not present, some scripts generate into /boot.
-! [ -d "$BOOT_ROOT/$MACHINE_ID" ]
-export KERNEL_INSTALL_BOOTLOADER_SPEC="$?"
+if [ -z "$layout" ]; then
+    # Administrative decision: if not present, some scripts generate into /boot.
+    if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
+        layout="bls-efi"
+    else
+        layout="legacy"
+    fi
+fi
+
+
+ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
+
+export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
+export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
+export KERNEL_INSTALL_LAYOUT="$layout"
+
+[ -z "$no_compat_directories" ] && { [ "$layout" = "legacy" ] || [ "$layout" = "bls-efi" ]; }
+MAKE_EDA=$?
+
 
 ret=0
 
@@ -140,10 +159,10 @@ case $COMMAND in
             exit 1
         fi
 
-        # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
-        # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
-        # to serve as the indication to use or to not use the BLS
-        if [ "$KERNEL_INSTALL_BOOTLOADER_SPEC" != 0 ]; then
+        if [ "$MAKE_EDA" -eq 0 ]; then
+            # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
+            # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
+            # to serve as the indication to use or to not use the BLS
             if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
                 echo "+mkdir -v -p $ENTRY_DIR_ABS"
                 mkdir -v -p "$ENTRY_DIR_ABS"
@@ -180,7 +199,7 @@ case $COMMAND in
             fi
         done
 
-        if [ "$x" != "$SKIP_REMAINING" ]; then
+        if [ "$MAKE_EDA" -eq 0 ]; then
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
             rm -rf "$ENTRY_DIR_ABS"
         fi
