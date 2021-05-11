@@ -152,7 +152,7 @@ int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_famil
         return 0;
 }
 
-int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family_t *family) {
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *family) {
         uint16_t type;
         int r;
 

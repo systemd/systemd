@@ -206,7 +206,7 @@ int sd_dhcp_client_set_fallback_lease_lifetime(
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
 
-int sd_dhcp_client_is_running(const sd_dhcp_client *client);
+int sd_dhcp_client_is_running(sd_dhcp_client *client);
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
