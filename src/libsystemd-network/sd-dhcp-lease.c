@@ -31,7 +31,7 @@
 #include "tmpfile-util.h"
 #include "unaligned.h"
 
-int sd_dhcp_lease_get_address(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -42,7 +42,7 @@ int sd_dhcp_lease_get_address(const sd_dhcp_lease *lease, struct in_addr *addr) 
         return 0;
 }
 
-int sd_dhcp_lease_get_broadcast(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -53,7 +53,7 @@ int sd_dhcp_lease_get_broadcast(const sd_dhcp_lease *lease, struct in_addr *addr
         return 0;
 }
 
-int sd_dhcp_lease_get_lifetime(const sd_dhcp_lease *lease, uint32_t *lifetime) {
+int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime) {
         assert_return(lease, -EINVAL);
         assert_return(lifetime, -EINVAL);
 
@@ -64,7 +64,7 @@ int sd_dhcp_lease_get_lifetime(const sd_dhcp_lease *lease, uint32_t *lifetime) {
         return 0;
 }
 
-int sd_dhcp_lease_get_t1(const sd_dhcp_lease *lease, uint32_t *t1) {
+int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint32_t *t1) {
         assert_return(lease, -EINVAL);
         assert_return(t1, -EINVAL);
 
@@ -75,7 +75,7 @@ int sd_dhcp_lease_get_t1(const sd_dhcp_lease *lease, uint32_t *t1) {
         return 0;
 }
 
-int sd_dhcp_lease_get_t2(const sd_dhcp_lease *lease, uint32_t *t2) {
+int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint32_t *t2) {
         assert_return(lease, -EINVAL);
         assert_return(t2, -EINVAL);
 
@@ -86,7 +86,7 @@ int sd_dhcp_lease_get_t2(const sd_dhcp_lease *lease, uint32_t *t2) {
         return 0;
 }
 
-int sd_dhcp_lease_get_mtu(const sd_dhcp_lease *lease, uint16_t *mtu) {
+int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         assert_return(lease, -EINVAL);
         assert_return(mtu, -EINVAL);
 
@@ -98,7 +98,7 @@ int sd_dhcp_lease_get_mtu(const sd_dhcp_lease *lease, uint16_t *mtu) {
 }
 
 int sd_dhcp_lease_get_servers(
-                const sd_dhcp_lease *lease,
+                sd_dhcp_lease *lease,
                 sd_dhcp_lease_server_type_t what,
                 const struct in_addr **addr) {
 
@@ -114,26 +114,26 @@ int sd_dhcp_lease_get_servers(
         return (int) lease->servers[what].size;
 }
 
-int sd_dhcp_lease_get_dns(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_DNS, addr);
 }
-int sd_dhcp_lease_get_ntp(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP, addr);
 }
-int sd_dhcp_lease_get_sip(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP, addr);
 }
-int sd_dhcp_lease_get_pop3(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_pop3(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_POP3, addr);
 }
-int sd_dhcp_lease_get_smtp(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_smtp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SMTP, addr);
 }
-int sd_dhcp_lease_get_lpr(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_lpr(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_LPR, addr);
 }
 
-int sd_dhcp_lease_get_domainname(const sd_dhcp_lease *lease, const char **domainname) {
+int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
         assert_return(lease, -EINVAL);
         assert_return(domainname, -EINVAL);
 
@@ -144,7 +144,7 @@ int sd_dhcp_lease_get_domainname(const sd_dhcp_lease *lease, const char **domain
         return 0;
 }
 
-int sd_dhcp_lease_get_hostname(const sd_dhcp_lease *lease, const char **hostname) {
+int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname) {
         assert_return(lease, -EINVAL);
         assert_return(hostname, -EINVAL);
 
@@ -155,7 +155,7 @@ int sd_dhcp_lease_get_hostname(const sd_dhcp_lease *lease, const char **hostname
         return 0;
 }
 
-int sd_dhcp_lease_get_root_path(const sd_dhcp_lease *lease, const char **root_path) {
+int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
         assert_return(lease, -EINVAL);
         assert_return(root_path, -EINVAL);
 
@@ -166,7 +166,7 @@ int sd_dhcp_lease_get_root_path(const sd_dhcp_lease *lease, const char **root_pa
         return 0;
 }
 
-int sd_dhcp_lease_get_router(const sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -177,7 +177,7 @@ int sd_dhcp_lease_get_router(const sd_dhcp_lease *lease, const struct in_addr **
         return (int) lease->router_size;
 }
 
-int sd_dhcp_lease_get_netmask(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -188,7 +188,7 @@ int sd_dhcp_lease_get_netmask(const sd_dhcp_lease *lease, struct in_addr *addr) 
         return 0;
 }
 
-int sd_dhcp_lease_get_server_identifier(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -199,7 +199,7 @@ int sd_dhcp_lease_get_server_identifier(const sd_dhcp_lease *lease, struct in_ad
         return 0;
 }
 
-int sd_dhcp_lease_get_next_server(const sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
@@ -214,7 +214,7 @@ int sd_dhcp_lease_get_next_server(const sd_dhcp_lease *lease, struct in_addr *ad
  * The returned routes array must be freed by the caller.
  * Route objects have the same lifetime of the lease and must not be freed.
  */
-int sd_dhcp_lease_get_routes(const sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
+int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
         sd_dhcp_route **ret;
         unsigned i;
 
@@ -235,7 +235,7 @@ int sd_dhcp_lease_get_routes(const sd_dhcp_lease *lease, sd_dhcp_route ***routes
         return (int) lease->static_route_size;
 }
 
-int sd_dhcp_lease_get_search_domains(const sd_dhcp_lease *lease, char ***domains) {
+int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains) {
         size_t r;
 
         assert_return(lease, -EINVAL);
@@ -250,7 +250,7 @@ int sd_dhcp_lease_get_search_domains(const sd_dhcp_lease *lease, char ***domains
         return -ENODATA;
 }
 
-int sd_dhcp_lease_get_vendor_specific(const sd_dhcp_lease *lease, const void **data, size_t *data_len) {
+int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len) {
         assert_return(lease, -EINVAL);
         assert_return(data, -EINVAL);
         assert_return(data_len, -EINVAL);
@@ -868,7 +868,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
-int dhcp_lease_save(const sd_dhcp_lease *lease, const char *lease_file) {
+int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct sd_dhcp_raw_option *option;
@@ -1313,7 +1313,7 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
         return 0;
 }
 
-int sd_dhcp_lease_get_client_id(const sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len) {
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len) {
         assert_return(lease, -EINVAL);
         assert_return(client_id, -EINVAL);
         assert_return(client_id_len, -EINVAL);
@@ -1348,7 +1348,7 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
         return 0;
 }
 
-int sd_dhcp_lease_get_timezone(const sd_dhcp_lease *lease, const char **tz) {
+int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **tz) {
         assert_return(lease, -EINVAL);
         assert_return(tz, -EINVAL);
 
@@ -1359,7 +1359,7 @@ int sd_dhcp_lease_get_timezone(const sd_dhcp_lease *lease, const char **tz) {
         return 0;
 }
 
-int sd_dhcp_route_get_destination(const sd_dhcp_route *route, struct in_addr *destination) {
+int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination) {
         assert_return(route, -EINVAL);
         assert_return(destination, -EINVAL);
 
@@ -1367,7 +1367,7 @@ int sd_dhcp_route_get_destination(const sd_dhcp_route *route, struct in_addr *de
         return 0;
 }
 
-int sd_dhcp_route_get_destination_prefix_length(const sd_dhcp_route *route, uint8_t *length) {
+int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length) {
         assert_return(route, -EINVAL);
         assert_return(length, -EINVAL);
 
@@ -1375,7 +1375,7 @@ int sd_dhcp_route_get_destination_prefix_length(const sd_dhcp_route *route, uint
         return 0;
 }
 
-int sd_dhcp_route_get_gateway(const sd_dhcp_route *route, struct in_addr *gateway) {
+int sd_dhcp_route_get_gateway(sd_dhcp_route *route, struct in_addr *gateway) {
         assert_return(route, -EINVAL);
         assert_return(gateway, -EINVAL);
 
@@ -1383,7 +1383,7 @@ int sd_dhcp_route_get_gateway(const sd_dhcp_route *route, struct in_addr *gatewa
         return 0;
 }
 
-int sd_dhcp_route_get_option(const sd_dhcp_route *route) {
+int sd_dhcp_route_get_option(sd_dhcp_route *route) {
         assert_return(route, -EINVAL);
 
         return route->option;
