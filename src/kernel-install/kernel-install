@@ -118,10 +118,26 @@ ENTRY_DIR_ABS="$BOOT_ROOT/$MACHINE_ID/$KERNEL_VERSION"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
+export KERNEL_INSTALL_FLAVOUR
 
-# Administrative decision: if not present, some scripts generate into /boot.
-! [ -d "$BOOT_ROOT/$MACHINE_ID" ]
-export KERNEL_INSTALL_BOOTLOADER_SPEC="$?"
+[ -r "/etc/kernel/install.conf" ] && . /etc/kernel/install.conf
+
+if [ -z "$KERNEL_INSTALL_FLAVOUR" ]; then
+    # Administrative decision: if not present, some scripts generate into /boot.
+    if [ -d "$BOOT_ROOT/$MACHINE_ID" ]; then
+        KERNEL_INSTALL_FLAVOUR="BLS-EFI"
+    else
+        KERNEL_INSTALL_FLAVOUR="legacy"
+    fi
+fi
+
+case "$KERNEL_INSTALL_FLAVOUR" in
+    legacy|BLS-EFI|BLS-unified|BLS-EBLP) ;;
+    *)
+        echo "Unrecognised KERNEL_INSTALL_FLAVOUR=$KERNEL_INSTALL_FLAVOUR" >&2
+        exit 1
+esac
+
 
 ret=0
 
@@ -143,18 +159,6 @@ case $COMMAND in
             exit 1
         fi
 
-        # Compatibility with earlier versions that used the presence of $BOOT_ROOT/$MACHINE_ID
-        # to signal to 00-entry-directory to create $ENTRY_DIR_ABS
-        # to serve as the indication to use or to not use the BLS
-        if [ "$KERNEL_INSTALL_BOOTLOADER_SPEC" != 0 ]; then
-            if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
-                echo "+mkdir -v -p $ENTRY_DIR_ABS"
-                mkdir -v -p "$ENTRY_DIR_ABS"
-            else
-                mkdir -p "$ENTRY_DIR_ABS"
-            fi
-        fi
-
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
@@ -170,7 +174,8 @@ case $COMMAND in
         ;;
 
     remove)
-        for f in "${PLUGINS[@]}"; do
+        for (( i=${#PLUGINS[@]}-1; i>=0; i-- )) ; do
+            f="${PLUGINS[i]}"
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
                     echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
@@ -182,11 +187,6 @@ case $COMMAND in
                 ((ret+=$x))
             fi
         done
-
-        if [ "$x" != "$SKIP_REMAINING" ]; then
-            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
-            rm -rf "$ENTRY_DIR_ABS"
-        fi
         ;;
 
     *)
