@@ -28,7 +28,7 @@ if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
 fi
 
-if [ "$KERNEL_INSTALL_BOOTLOADER_SPEC" = 0 ]; then
+if [ "$KERNEL_INSTALL_FLAVOUR" != "BLS-EFI" ]; then
     exit 0
 fi
 
@@ -91,6 +91,8 @@ if [[ -f /etc/kernel/tries ]]; then
 else
     LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
 fi
+
+mkdir -vp "$ENTRY_DIR_ABS"
 
 install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
     echo "Could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
