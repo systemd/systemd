@@ -744,7 +744,7 @@ static int chown_terminal(int fd, uid_t uid) {
         }
 
         /* This might fail. What matters are the results. */
-        r = fchmod_and_chown(fd, TTY_MODE, uid, -1);
+        r = fchmod_and_chown(fd, TTY_MODE, uid, GID_INVALID);
         if (r < 0)
                 return r;
 
