@@ -5775,6 +5775,9 @@ void exec_context_free_log_extra_fields(ExecContext *c) {
 }
 
 void exec_context_revert_tty(ExecContext *c) {
+        _cleanup_close_ int fd = -1;
+        const char *path;
+        struct stat st;
         int r;
 
         assert(c);
@@ -5785,17 +5788,33 @@ void exec_context_revert_tty(ExecContext *c) {
         /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
          * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed
          * by whoever passed it to us and thus knows better when and how to chmod()/chown() it back. */
+        if (!exec_context_may_touch_tty(c))
+                return;
 
-        if (exec_context_may_touch_tty(c)) {
-                const char *path;
+        path = exec_context_tty_path(c);
+        if (!path)
+                return;
 
-                path = exec_context_tty_path(c);
-                if (path) {
-                        r = chmod_and_chown(path, TTY_MODE, 0, TTY_GID);
-                        if (r < 0 && r != -ENOENT)
-                                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s, ignoring: %m", path);
-                }
-        }
+        fd = open(path, O_PATH|O_CLOEXEC);
+        if (fd < 0)
+                return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                             "Failed to open TTY inode of '%s' to adjust ownership/access mode, ignoring: %m",
+                                             path);
+
+        if (fstat(fd, &st) < 0)
+                return (void) log_warning_errno(errno, "Failed to stat TTY '%s', ignoring: %m", path);
+
+        /* Let's add a superficial check that we only do this for stuff that looks like a TTY. We only check
+         * if things are a character device, since a proper check either means we'd have to open the TTY and
+         * use isatty(), but we'd rather not do that since opening TTYs comes with all kinds of side-effects
+         * and is slow. Or we'd have to hardcode dev_t major information, which we'd rather avoid. Why bother
+         * with this at all? → https://github.com/systemd/systemd/issues/19213 */
+        if (!S_ISCHR(st.st_mode))
+                return log_warning("Configured TTY '%s' is not actually a character device, ignoring.", path);
+
+        r = fchmod_and_chown(fd, TTY_MODE, 0, TTY_GID);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s, ignoring: %m", path);
 }
 
 int exec_context_get_clean_directories(
