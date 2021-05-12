@@ -184,8 +184,14 @@ static int device_is_partition(
          * available late, hence let's use the property instead, which is available at the moment we see the
          * uevent. */
         r = sd_device_get_property_value(d, "PARTN", &v);
-        if (r == -ENOENT)
+        if (r == -ENOENT) {
                 r = sd_device_get_sysattr_value(d, "partition", &v);
+                if (r == -ENOENT) {
+                        log_device_debug(d, "devtype is \"partition\", but neither PARTN= property in "
+                                         "uevent nor partition sysattr exist, ignoring the device.");
+                        return false;
+                }
+        }
         if (r < 0)
                 return r;
 
@@ -282,6 +288,7 @@ struct wait_data {
         blkid_partition blkidp;
         sd_device *found;
         uint64_t uevent_seqnum_not_before;
+        usec_t timestamp_not_before;
 };
 
 static inline void wait_data_done(struct wait_data *d) {
@@ -326,6 +333,33 @@ finish:
         return sd_event_exit(sd_device_monitor_get_event(monitor), r);
 }
 
+static int timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct wait_data *w = userdata;
+        int r;
+
+        assert(w);
+
+        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, &w->found);
+        return r == -ENXIO ? -ETIMEDOUT : r;
+}
+
+static int retry_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        struct wait_data *w = userdata;
+        int r;
+
+        assert(w);
+
+        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, &w->found);
+        if (r != -ENXIO)
+                return r;
+
+        r = sd_event_source_set_time_relative(s, 500 * USEC_PER_MSEC);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+}
+
 static int wait_for_partition_device(
                 sd_device *parent,
                 blkid_partition pp,
@@ -334,7 +368,7 @@ static int wait_for_partition_device(
                 usec_t timestamp_not_before,
                 sd_device **ret) {
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL, *retry_source = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
@@ -375,6 +409,7 @@ static int wait_for_partition_device(
                 .parent_device = parent,
                 .blkidp = pp,
                 .uevent_seqnum_not_before = uevent_seqnum_not_before,
+                .timestamp_not_before = timestamp_not_before,
         };
 
         r = sd_device_monitor_start(monitor, device_monitor_handler, &w);
@@ -390,10 +425,25 @@ static int wait_for_partition_device(
                 r = sd_event_add_time(
                                 event, &timeout_source,
                                 CLOCK_MONOTONIC, deadline, 0,
-                                NULL, INT_TO_PTR(-ETIMEDOUT));
+                                timeout_handler, &w);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_exit_on_failure(timeout_source, true);
                 if (r < 0)
                         return r;
         }
+
+        r = sd_event_add_time_relative(
+                        event, &retry_source,
+                        CLOCK_MONOTONIC, 500 * USEC_PER_MSEC, 0,
+                        retry_handler, &w);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_exit_on_failure(retry_source, true);
+        if (r < 0)
+                return r;
 
         r = sd_event_loop(event);
         if (r < 0)
