@@ -129,7 +129,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
                 if (!j)
                         return -ENOMEM;
 
-                *ret = path_simplify(j, false);
+                *ret = path_simplify(j);
         } else
                 *ret = TAKE_PTR(nf);
 
@@ -174,7 +174,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
                 if (!j)
                         return -ENOMEM;
 
-                *ret = path_simplify(j, false);
+                *ret = path_simplify(j);
         } else
                 *ret = TAKE_PTR(nf);
 
@@ -219,7 +219,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_simplify(t, false);
+        *ret = path_simplify(t);
         return 0;
 }
 

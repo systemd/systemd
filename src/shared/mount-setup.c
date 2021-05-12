@@ -454,7 +454,7 @@ static int relabel_extra(void) {
                         if (r == 0) /* EOF */
                                 break;
 
-                        path_simplify(line, true);
+                        path_simplify(line);
 
                         if (!path_is_normalized(line)) {
                                 log_warning("Path to relabel is not normalized, ignoring: %s", line);

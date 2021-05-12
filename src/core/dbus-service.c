@@ -475,7 +475,7 @@ static int bus_service_set_transient_property(
                         if (!n)
                                 return -ENOMEM;
 
-                        path_simplify(n, true);
+                        path_simplify(n);
 
                         if (!path_is_normalized(n))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
