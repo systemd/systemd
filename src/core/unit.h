@@ -102,6 +102,16 @@ typedef union UnitDependencyInfo {
         } _packed_;
 } UnitDependencyInfo;
 
+/* Newer LLVM versions don't like implicit casts form large pointer types to smaller enums, hence let's add
+ * explicit type-safe helpers for that. */
+static inline UnitDependency UNIT_DEPENDENCY_FROM_PTR(const void *p) {
+        return PTR_TO_INT(p);
+}
+
+static inline void* UNIT_DEPENDENCY_TO_PTR(UnitDependency d) {
+        return INT_TO_PTR(d);
+}
+
 #include "job.h"
 
 struct UnitRef {
@@ -125,11 +135,13 @@ typedef struct Unit {
 
         Set *aliases; /* All the other names. */
 
-        /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
-         * dependency exists, using the UnitDependencyInfo type */
-        Hashmap *dependencies[_UNIT_DEPENDENCY_MAX];
+        /* For each dependency type we can look up another Hashmap with this, whose key is a Unit* object,
+         * and whose value encodes why the dependency exists, using the UnitDependencyInfo type. i.e. a
+         * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
+        Hashmap *dependencies;
 
-        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the UnitDependencyInfo type */
+        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the
+         * UnitDependencyInfo type */
         Hashmap *requires_mounts_for;
 
         char *description;
@@ -190,8 +202,6 @@ typedef struct Unit {
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
 
-        UnitRef slice;
-
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 
@@ -219,8 +229,14 @@ typedef struct Unit {
         /* Target dependencies queue */
         LIST_FIELDS(Unit, target_deps_queue);
 
-        /* Queue of units with StopWhenUnneeded set that shell be checked for clean-up. */
+        /* Queue of units with StopWhenUnneeded= set that shall be checked for clean-up. */
         LIST_FIELDS(Unit, stop_when_unneeded_queue);
+
+        /* Queue of units that have an Uphold= dependency from some other unit, and should be checked for starting */
+        LIST_FIELDS(Unit, start_when_upheld_queue);
+
+        /* Queue of units that have a BindTo= dependency on some other unit, and should possibly be shut down */
+        LIST_FIELDS(Unit, stop_when_bound_queue);
 
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
@@ -250,8 +266,8 @@ typedef struct Unit {
         int success_action_exit_status, failure_action_exit_status;
         char *reboot_arg;
 
-        /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
-        RateLimit auto_stop_ratelimit;
+        /* Make sure we never enter endless loops with the StopWhenUnneeded=, BindsTo=, Uphold= logic */
+        RateLimit auto_start_stop_ratelimit;
 
         /* Reference to a specific UID/GID */
         uid_t ref_uid;
@@ -324,7 +340,8 @@ typedef struct Unit {
          * ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
 
-        /* How to start OnFailure units */
+        /* How to start OnSuccess=/OnFailure= units */
+        JobMode on_success_job_mode;
         JobMode on_failure_job_mode;
 
         /* Tweaking the GC logic */
@@ -372,6 +389,8 @@ typedef struct Unit {
         bool in_cgroup_oom_queue:1;
         bool in_target_deps_queue:1;
         bool in_stop_when_unneeded_queue:1;
+        bool in_start_when_upheld_queue:1;
+        bool in_stop_when_bound_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -683,8 +702,18 @@ static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
+Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other);
+
+static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
+        return hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
+}
+
 static inline Unit* UNIT_TRIGGER(Unit *u) {
-        return hashmap_first_key(u->dependencies[UNIT_TRIGGERS]);
+        return unit_has_dependency(u, UNIT_ATOM_TRIGGERS, NULL);
+}
+
+static inline Unit *UNIT_GET_SLICE(const Unit *u) {
+        return unit_has_dependency(u, UNIT_ATOM_IN_SLICE, NULL);
 }
 
 Unit* unit_new(Manager *m, size_t size);
@@ -718,6 +747,8 @@ void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
 void unit_add_to_target_deps_queue(Unit *u);
 void unit_submit_to_stop_when_unneeded_queue(Unit *u);
+void unit_submit_to_start_when_upheld_queue(Unit *u);
+void unit_submit_to_stop_when_bound_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
@@ -727,7 +758,7 @@ Unit *unit_follow_merge(Unit *u) _pure_;
 int unit_load_fragment_and_dropin(Unit *u, bool fragment_required);
 int unit_load(Unit *unit);
 
-int unit_set_slice(Unit *u, Unit *slice);
+int unit_set_slice(Unit *u, Unit *slice, UnitDependencyMask mask);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
@@ -807,7 +838,7 @@ bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
-void unit_start_on_failure(Unit *u);
+void unit_start_on_failure(Unit *u, const char *dependency_name, UnitDependencyAtom atom, JobMode job_mode);
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
@@ -847,6 +878,8 @@ bool unit_type_supported(UnitType t);
 bool unit_is_pristine(Unit *u);
 
 bool unit_is_unneeded(Unit *u);
+bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit);
+bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit);
 
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
@@ -990,3 +1023,54 @@ int unit_thaw_vtable_common(Unit *u);
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
+
+typedef struct UnitForEachDependencyData {
+        /* Stores state for the FOREACH macro below for iterating through all deps that have any of the
+         * specified dependency atom bits set */
+        UnitDependencyAtom match_atom;
+        Hashmap *by_type, *by_unit;
+        void *current_type;
+        Iterator by_type_iterator, by_unit_iterator;
+        Unit **current_unit;
+} UnitForEachDependencyData;
+
+/* Iterates through all dependencies that have a specific atom in the dependency type set. This tries to be
+ * smart: if the atom is unique, we'll directly go to right entry. Otherwise we'll iterate through the
+ * per-dependency type hashmap and match all dep that have the right atom set. */
+#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, data)                    \
+        for (UnitForEachDependencyData data = {                         \
+                        .match_atom = (ma),                             \
+                        .by_type = (u)->dependencies,                   \
+                        .by_type_iterator = ITERATOR_FIRST,             \
+                        .current_unit = &(other),                       \
+                };                                                      \
+             ({                                                         \
+                     UnitDependency _dt = _UNIT_DEPENDENCY_INVALID;     \
+                     bool _found;                                       \
+                                                                        \
+                     if (data.by_type && ITERATOR_IS_FIRST(data.by_type_iterator)) { \
+                             _dt = unit_dependency_from_unique_atom(data.match_atom); \
+                             if (_dt >= 0) {                            \
+                                     data.by_unit = hashmap_get(data.by_type, UNIT_DEPENDENCY_TO_PTR(_dt)); \
+                                     data.current_type = UNIT_DEPENDENCY_TO_PTR(_dt); \
+                                     data.by_type = NULL;               \
+                                     _found = !!data.by_unit;           \
+                             }                                          \
+                     }                                                  \
+                     if (_dt < 0)                                       \
+                             _found = hashmap_iterate(data.by_type,     \
+                                                      &data.by_type_iterator, \
+                                                      (void**)&(data.by_unit), \
+                                                      (const void**) &(data.current_type)); \
+                     _found;                                            \
+             }); )                                                      \
+                if ((unit_dependency_to_atom(UNIT_DEPENDENCY_FROM_PTR(data.current_type)) & data.match_atom) != 0) \
+                        for (data.by_unit_iterator = ITERATOR_FIRST;    \
+                                hashmap_iterate(data.by_unit,           \
+                                                &data.by_unit_iterator, \
+                                                NULL,                   \
+                                                (const void**) data.current_unit); )
+
+/* Note: this matches deps that have *any* of the atoms specified in match_atom set */
+#define UNIT_FOREACH_DEPENDENCY(other, u, match_atom) \
+        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, UNIQ_T(data, UNIQ))

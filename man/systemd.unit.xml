@@ -707,6 +707,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Upholds=</varname></term>
+
+        <listitem><para>Configures dependencies similar to <varname>Wants=</varname>, but as long a this unit
+        is up, all units listed in <varname>Upholds=</varname> are started whenever found to be inactive or
+        failed, and no job is queued for them. While a <varname>Wants=</varname> dependency on another unit
+        has a one-time effect when this units started, a <varname>Upholds=</varname> dependency on it has a
+        continuous effect, constantly restarting the unit if necessary. This is an alternative to the
+        <varname>Restart=</varname> setting of service units, to ensure they are kept running whatever
+        happens.</para>
+
+        <para>When <varname>Upholds=b.service</varname> is used on <filename>a.service</filename>, this
+        dependency will show as <varname>UpheldBy=a.service</varname> in the property listing of
+        <filename>b.service</filename>. The <varname>UpheldBy=</varname> dependency cannot be specified
+        directly.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Conflicts=</varname></term>
 
         <listitem><para>A space-separated list of unit names. Configures negative requirement
@@ -774,24 +792,36 @@
       <varlistentry>
         <term><varname>OnFailure=</varname></term>
 
-        <listitem><para>A space-separated list of one or more units
-        that are activated when this unit enters the
-        <literal>failed</literal> state.  A service unit using
-        <varname>Restart=</varname> enters the failed state only after
-        the start limits are reached.</para></listitem>
+        <listitem><para>A space-separated list of one or more units that are activated when this unit enters
+        the <literal>failed</literal> state.  A service unit using <varname>Restart=</varname> enters the
+        failed state only after the start limits are reached.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OnSuccess=</varname></term>
+
+        <listitem><para>A space-separated list of one or more units that are activated when this unit enters
+        the <literal>inactive</literal> state.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>PropagatesReloadTo=</varname></term>
         <term><varname>ReloadPropagatedFrom=</varname></term>
 
-        <listitem><para>A space-separated list of one or more units
-        where reload requests on this unit will be propagated to, or
-        reload requests on the other unit will be propagated to this
-        unit, respectively. Issuing a reload request on a unit will
-        automatically also enqueue a reload request on all units that
-        the reload request shall be propagated to via these two
-        settings.</para></listitem>
+        <listitem><para>A space-separated list of one or more units to which reload requests from this unit
+        shall be propagated to, or units from which reload requests shall be propagated to this unit,
+        respectively. Issuing a reload request on a unit will automatically also enqueue reload requests on
+        all units that are linked to it using these two settings.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PropagatesStopTo=</varname></term>
+        <term><varname>StopPropagatedFrom=</varname></term>
+
+        <listitem><para>A space-separated list of one or more units to which stop requests from this unit
+        shall be propagated to, or units from which stop requests shall be propagated to this unit,
+        respectively. Issuing a stop request on a unit will automatically also enqueue stop requests on all
+        units that are linked to it using these two settings.</para></listitem>
       </varlistentry>
 
       <varlistentry>
