@@ -75,6 +75,13 @@ _hostnamectl_commands() {
     fi
 }
 
+(( $+functions[_hostnamectl_get_json] )) || _hostnamectl_get_json()
+{
+    local -a _json_forms
+    _json_forms=( $(hostnamectl --json=help 2>/dev/null) )
+    _values 'format' $_json_forms
+}
+
 _arguments -s \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
@@ -84,4 +91,5 @@ _arguments -s \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '--json[Shows output formatted as JSON]:format:_hostnamectl_get_json' \
     '*::hostnamectl commands:_hostnamectl_commands'
