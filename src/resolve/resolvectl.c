@@ -92,6 +92,62 @@ typedef struct InterfaceInfo {
         const char *name;
 } InterfaceInfo;
 
+typedef struct LinkInfo {
+        uint64_t scopes_mask;
+        const char *llmnr;
+        const char *mdns;
+        const char *dns_over_tls;
+        const char *dnssec;
+        char *current_dns;
+        char *current_dns_ex;
+        char **dns;
+        char **dns_ex;
+        char **domains;
+        char **ntas;
+        bool dnssec_supported;
+        bool default_route;
+} LinkInfo;
+
+typedef struct GlobalInfo {
+        char *current_dns;
+        char *current_dns_ex;
+        char **dns;
+        char **dns_ex;
+        char **manager_dns;
+        char **fallback_dns;
+        char **fallback_dns_ex;
+        char **domains;
+        char **ntas;
+        const char *llmnr;
+        const char *mdns;
+        const char *dns_over_tls;
+        const char *dnssec;
+        const char *resolv_conf_mode;
+        bool dnssec_supported;
+        bool has_manager_dns;
+} GlobalInfo;
+
+static void link_info_clear(LinkInfo *p) {
+        free(p->current_dns);
+        free(p->current_dns_ex);
+        strv_free(p->dns);
+        strv_free(p->dns_ex);
+        strv_free(p->domains);
+        strv_free(p->ntas);
+}
+
+static void global_info_clear(GlobalInfo *p) {
+        free(p->current_dns);
+        free(p->current_dns_ex);
+        strv_free(p->dns);
+        strv_free(p->dns_ex);
+        strv_free(p->manager_dns);
+        strv_free(p->fallback_dns);
+        strv_free(p->fallback_dns_ex);
+        strv_free(p->domains);
+        strv_free(p->ntas);
+}
+
 static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b) {
         int r;
 
@@ -1176,10 +1232,31 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extended, char **ret) {
+typedef enum ReadDnsServerFlag {
+        READ_DNS_EXTENDED               = 1 << 0,
+        READ_DNS_IFINDEX                = 1 << 1,
+        READ_DNS_IGNORE_NONZERO_IFINDEX = 1 << 2,
+} ReadDnsServerFlag;
+
+static const char *read_dns_server_flag_to_container_string(ReadDnsServerFlag flag) {
+        switch(flag & (READ_DNS_EXTENDED | READ_DNS_IFINDEX)) {
+        case 0:
+                return "iay";
+        case READ_DNS_EXTENDED:
+                return "iayqs";
+        case READ_DNS_IFINDEX:
+                return "iiay";
+        case READ_DNS_EXTENDED | READ_DNS_IFINDEX:
+                return "iiayqs";
+        default:
+                assert_not_reached("Invalid flag");
+        }
+}
+
+static int read_dns_server_one(sd_bus_message *m, ReadDnsServerFlag flag, char **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
-        int ifindex, family, r, k;
+        int ifindex = 0, family, r, k;
         union in_addr_union a;
         const char *name = NULL;
         uint16_t port = 0;
@@ -1187,11 +1264,11 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
         assert(m);
         assert(ret);
 
-        r = sd_bus_message_enter_container(m, 'r', with_ifindex ? (extended ? "iiayqs" : "iiay") : (extended ? "iayqs" : "iay"));
+        r = sd_bus_message_enter_container(m, 'r', read_dns_server_flag_to_container_string(flag));
         if (r <= 0)
                 return r;
 
-        if (with_ifindex) {
+        if (FLAGS_SET(flag, READ_DNS_IFINDEX)) {
                 r = sd_bus_message_read(m, "i", &ifindex);
                 if (r < 0)
                         return r;
@@ -1201,7 +1278,7 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
         if (k < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
                 return k;
 
-        if (extended) {
+        if (FLAGS_SET(flag, READ_DNS_EXTENDED)) {
                 r = sd_bus_message_read(m, "q", &port);
                 if (r < 0)
                         return r;
@@ -1221,10 +1298,16 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
                 return 1;
         }
 
-        if (with_ifindex && ifindex != 0) {
-                /* only show the global ones here */
-                *ret = NULL;
-                return 1;
+        if (ifindex != 0) {
+                if (FLAGS_SET(flag, READ_DNS_IFINDEX | READ_DNS_IGNORE_NONZERO_IFINDEX)) {
+                        /* only show the global ones here */
+                        *ret = NULL;
+                        return 1;
+                }
+
+                /* append ifname only for IPv6 link-local addresses */
+                if (family != AF_INET6 || !in6_addr_is_link_local(&a.in6))
+                        ifindex = 0;
         }
 
         r = in_addr_port_ifindex_name_to_string(family, &a, port, ifindex, name, &pretty);
@@ -1236,23 +1319,22 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
         return 1;
 }
 
-static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool extended) {
-        char ***l = userdata;
+static int map_dns_servers(sd_bus_message *m, ReadDnsServerFlag flag, char ***servers) {
+        const char *str;
         int r;
 
-        assert(bus);
-        assert(member);
         assert(m);
-        assert(l);
+        assert(servers);
 
-        r = sd_bus_message_enter_container(m, 'a', extended ? "(iayqs)" : "(iay)");
+        str = strjoina("(", read_dns_server_flag_to_container_string(flag), ")");
+        r = sd_bus_message_enter_container(m, 'a', str);
         if (r < 0)
                 return r;
 
         for (;;) {
                 _cleanup_free_ char *pretty = NULL;
 
-                r = read_dns_server_one(m, false, extended, &pretty);
+                r = read_dns_server_one(m, flag, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1261,7 +1343,7 @@ static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus
                 if (isempty(pretty))
                         continue;
 
-                r = strv_consume(l, TAKE_PTR(pretty));
+                r = strv_consume(servers, TAKE_PTR(pretty));
                 if (r < 0)
                         return r;
         }
@@ -1274,25 +1356,52 @@ static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus
 }
 
 static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_link_dns_servers_internal(bus, member, m, error, userdata, false);
+        return map_dns_servers(m, 0, userdata);
 }
 
 static int map_link_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_link_dns_servers_internal(bus, member, m, error, userdata, true);
+        return map_dns_servers(m, READ_DNS_EXTENDED, userdata);
 }
 
 static int map_link_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        assert(m);
-        assert(userdata);
-
-        return read_dns_server_one(m, false, false, userdata);
+        return read_dns_server_one(m, 0, userdata);
 }
 
 static int map_link_current_dns_server_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        assert(m);
-        assert(userdata);
+        return read_dns_server_one(m, READ_DNS_EXTENDED, userdata);
+}
 
-        return read_dns_server_one(m, false, true, userdata);
+static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_dns_servers(m, READ_DNS_IFINDEX | READ_DNS_IGNORE_NONZERO_IFINDEX, userdata);
+}
+
+static int map_global_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_dns_servers(m, READ_DNS_EXTENDED | READ_DNS_IFINDEX | READ_DNS_IGNORE_NONZERO_IFINDEX, userdata);
+}
+
+static int map_global_manager_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        GlobalInfo *global_info = userdata;
+
+        assert(global_info);
+
+        global_info->has_manager_dns = true;
+        return map_dns_servers(m, READ_DNS_EXTENDED | READ_DNS_IFINDEX, &global_info->manager_dns);
+}
+
+static int map_global_fallback_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_dns_servers(m, READ_DNS_IFINDEX, userdata);
+}
+
+static int map_global_fallback_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_dns_servers(m, READ_DNS_EXTENDED | READ_DNS_IFINDEX, userdata);
+}
+
+static int map_global_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return read_dns_server_one(m, READ_DNS_IFINDEX, userdata);
+}
+
+static int map_global_current_dns_server_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return read_dns_server_one(m, READ_DNS_EXTENDED | READ_DNS_IFINDEX, userdata);
 }
 
 static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
@@ -1328,23 +1437,20 @@ static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
         return 1;
 }
 
-static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        char ***l = userdata;
+static int map_domains(sd_bus_message *m, bool with_ifindex, char ***domains) {
         int r;
 
-        assert(bus);
-        assert(member);
         assert(m);
-        assert(l);
+        assert(domains);
 
-        r = sd_bus_message_enter_container(m, 'a', "(sb)");
+        r = sd_bus_message_enter_container(m, 'a', with_ifindex ? "(isb)" : "(sb)");
         if (r < 0)
                 return r;
 
         for (;;) {
                 _cleanup_free_ char *pretty = NULL;
 
-                r = read_domain_one(m, false, &pretty);
+                r = read_domain_one(m, with_ifindex, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1353,7 +1459,7 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
                 if (isempty(pretty))
                         continue;
 
-                r = strv_consume(l, TAKE_PTR(pretty));
+                r = strv_consume(domains, TAKE_PTR(pretty));
                 if (r < 0)
                         return r;
         }
@@ -1362,9 +1468,17 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
         if (r < 0)
                 return r;
 
-        strv_sort(*l);
+        strv_sort(*domains);
 
         return 0;
+}
+
+static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_domains(m, false, userdata);
+}
+
+static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        return map_domains(m, true, userdata);
 }
 
 static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) {
@@ -1399,59 +1513,6 @@ static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) 
 
 static int status_print_strv_global(char **p) {
         return status_print_strv_ifindex(0, NULL, p);
-}
-
-typedef struct LinkInfo {
-        uint64_t scopes_mask;
-        const char *llmnr;
-        const char *mdns;
-        const char *dns_over_tls;
-        const char *dnssec;
-        char *current_dns;
-        char *current_dns_ex;
-        char **dns;
-        char **dns_ex;
-        char **domains;
-        char **ntas;
-        bool dnssec_supported;
-        bool default_route;
-} LinkInfo;
-
-typedef struct GlobalInfo {
-        char *current_dns;
-        char *current_dns_ex;
-        char **dns;
-        char **dns_ex;
-        char **fallback_dns;
-        char **fallback_dns_ex;
-        char **domains;
-        char **ntas;
-        const char *llmnr;
-        const char *mdns;
-        const char *dns_over_tls;
-        const char *dnssec;
-        const char *resolv_conf_mode;
-        bool dnssec_supported;
-} GlobalInfo;
-
-static void link_info_clear(LinkInfo *p) {
-        free(p->current_dns);
-        free(p->current_dns_ex);
-        strv_free(p->dns);
-        strv_free(p->dns_ex);
-        strv_free(p->domains);
-        strv_free(p->ntas);
-}
-
-static void global_info_clear(GlobalInfo *p) {
-        free(p->current_dns);
-        free(p->current_dns_ex);
-        strv_free(p->dns);
-        strv_free(p->dns_ex);
-        strv_free(p->fallback_dns);
-        strv_free(p->fallback_dns_ex);
-        strv_free(p->domains);
-        strv_free(p->ntas);
 }
 
 static int dump_list(Table *table, const char *prefix, char * const *l) {
@@ -1703,120 +1764,23 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         return 0;
 }
 
-static int map_global_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool extended) {
-        char ***l = userdata;
-        int r;
-
-        assert(bus);
-        assert(member);
-        assert(m);
-        assert(l);
-
-        r = sd_bus_message_enter_container(m, 'a', extended ? "(iiayqs)" : "(iiay)");
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_free_ char *pretty = NULL;
-
-                r = read_dns_server_one(m, true, extended, &pretty);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (isempty(pretty))
-                        continue;
-
-                r = strv_consume(l, TAKE_PTR(pretty));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_global_dns_servers_internal(bus, member, m, error, userdata, false);
-}
-
-static int map_global_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_global_dns_servers_internal(bus, member, m, error, userdata, true);
-}
-
-static int map_global_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        assert(m);
-        assert(userdata);
-
-        return read_dns_server_one(m, true, false, userdata);
-}
-
-static int map_global_current_dns_server_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        assert(m);
-        assert(userdata);
-
-        return read_dns_server_one(m, true, true, userdata);
-}
-
-static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        char ***l = userdata;
-        int r;
-
-        assert(bus);
-        assert(member);
-        assert(m);
-        assert(l);
-
-        r = sd_bus_message_enter_container(m, 'a', "(isb)");
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_free_ char *pretty = NULL;
-
-                r = read_domain_one(m, true, &pretty);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (isempty(pretty))
-                        continue;
-
-                r = strv_consume(l, TAKE_PTR(pretty));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return r;
-
-        strv_sort(*l);
-
-        return 0;
-}
-
 static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, dns)              },
-                { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, dns_ex)           },
-                { "FallbackDNS",                "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, fallback_dns)     },
-                { "FallbackDNSEx",              "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, fallback_dns_ex)  },
-                { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,    offsetof(GlobalInfo, current_dns)      },
-                { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex, offsetof(GlobalInfo, current_dns_ex)   },
-                { "Domains",                    "a(isb)",    map_global_domains,               offsetof(GlobalInfo, domains)          },
-                { "DNSSECNegativeTrustAnchors", "as",        bus_map_strv_sort,                offsetof(GlobalInfo, ntas)             },
-                { "LLMNR",                      "s",         NULL,                             offsetof(GlobalInfo, llmnr)            },
-                { "MulticastDNS",               "s",         NULL,                             offsetof(GlobalInfo, mdns)             },
-                { "DNSOverTLS",                 "s",         NULL,                             offsetof(GlobalInfo, dns_over_tls)     },
-                { "DNSSEC",                     "s",         NULL,                             offsetof(GlobalInfo, dnssec)           },
-                { "DNSSECSupported",            "b",         NULL,                             offsetof(GlobalInfo, dnssec_supported) },
-                { "ResolvConfMode",             "s",         NULL,                             offsetof(GlobalInfo, resolv_conf_mode) },
+                { "DNS",                        "a(iiay)",   map_global_dns_servers,             offsetof(GlobalInfo, dns)              },
+                { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,          offsetof(GlobalInfo, dns_ex)           },
+                { "GlobalDNS",                  "a(iiayqs)", map_global_manager_dns_servers,     0                                      },
+                { "FallbackDNS",                "a(iiay)",   map_global_fallback_dns_servers,    offsetof(GlobalInfo, fallback_dns)     },
+                { "FallbackDNSEx",              "a(iiayqs)", map_global_fallback_dns_servers_ex, offsetof(GlobalInfo, fallback_dns_ex)  },
+                { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,      offsetof(GlobalInfo, current_dns)      },
+                { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex,   offsetof(GlobalInfo, current_dns_ex)   },
+                { "Domains",                    "a(isb)",    map_global_domains,                 offsetof(GlobalInfo, domains)          },
+                { "DNSSECNegativeTrustAnchors", "as",        bus_map_strv_sort,                  offsetof(GlobalInfo, ntas)             },
+                { "LLMNR",                      "s",         NULL,                               offsetof(GlobalInfo, llmnr)            },
+                { "MulticastDNS",               "s",         NULL,                               offsetof(GlobalInfo, mdns)             },
+                { "DNSOverTLS",                 "s",         NULL,                               offsetof(GlobalInfo, dns_over_tls)     },
+                { "DNSSEC",                     "s",         NULL,                               offsetof(GlobalInfo, dnssec)           },
+                { "DNSSECSupported",            "b",         NULL,                               offsetof(GlobalInfo, dnssec_supported) },
+                { "ResolvConfMode",             "s",         NULL,                               offsetof(GlobalInfo, resolv_conf_mode) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1842,7 +1806,8 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         (void) pager_open(arg_pager_flags);
 
         if (mode == STATUS_DNS)
-                return status_print_strv_global(global_info.dns_ex ?: global_info.dns);
+                return status_print_strv_global(global_info.has_manager_dns ? global_info.manager_dns :
+                                                global_info.dns_ex ?: global_info.dns);
 
         if (mode == STATUS_DOMAIN)
                 return status_print_strv_global(global_info.domains);
@@ -1913,7 +1878,8 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                         return table_log_add_error(r);
         }
 
-        r = dump_list(table, "DNS Servers:", global_info.dns_ex ?: global_info.dns);
+        r = dump_list(table, "DNS Servers:", global_info.has_manager_dns ? global_info.manager_dns :
+                                             global_info.dns_ex ?: global_info.dns);
         if (r < 0)
                 return r;
 

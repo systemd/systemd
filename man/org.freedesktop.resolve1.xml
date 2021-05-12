@@ -507,20 +507,22 @@ node /org/freedesktop/resolve1 {
       <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       but may differ if a conflict is detected on the network.</para>
 
-      <para><varname>DNS</varname> and <varname>DNSEx</varname> contain arrays of all DNS servers currently
-      used by <filename>systemd-resolved</filename>. <varname>DNS</varname> contains information similar to
-      the DNS server data in <filename>/run/systemd/resolve/resolv.conf</filename>. Each structure in the
-      array consists of a numeric network interface index, an address family, and a byte array containing the
-      DNS server address (either 4 bytes in length for IPv4 or 16 bytes in lengths for IPv6).
-      <varname>DNSEx</varname> is similar, but additionally contains the IP port and server name (used for
-      Server Name Indication, SNI). Both arrays contain DNS servers configured system-wide, including those
-      possibly read from a foreign <filename>/etc/resolv.conf</filename> or the <varname>DNS=</varname>
-      setting in <filename>/etc/systemd/resolved.conf</filename>, as well as per-interface DNS server
-      information either retrieved from
+      <para><varname>DNS</varname>, <varname>DNSEx</varname>, and <varname>GlobalDNS</varname> contain
+      arrays of all DNS servers currently used by <filename>systemd-resolved</filename>.
+      <varname>DNS</varname> contains information similar to the DNS server data in
+      <filename>/run/systemd/resolve/resolv.conf</filename>. Each structure in the array consists of a
+      numeric network interface index, an address family, and a byte array containing the DNS server
+      address (either 4 bytes in length for IPv4 or 16 bytes in lengths for IPv6).
+      <varname>DNSEx</varname> and <varname>GlobalDNS</varname> are similar, but additionally contain
+      the IP port and server name (used for Server Name Indication, SNI). These three properties
+      contain DNS servers configured system-wide, including those possibly read from a foreign
+      <filename>/etc/resolv.conf</filename> or the <varname>DNS=</varname> setting in
+      <filename>/etc/systemd/resolved.conf</filename>. <varname>DNS</varname> and
+      <varname>DNSEx</varname> also contain per-interface DNS server information either retrieved from
       <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       or configured by external software via <function>SetLinkDNS()</function> or
-      <function>SetLinkDNSEx()</function> (see above). The network interface index will be 0 for the
-      system-wide configured services and non-zero for the per-link servers.</para>
+      <function>SetLinkDNSEx()</function> (see above). The network interface index will be 0 for
+      servers configured system-wide, and non-zero for per-link servers.</para>
 
       <para><varname>FallbackDNS</varname> and <varname>FallbackDNSEx</varname> contain arrays of all DNS
       servers configured as fallback servers, if any, using the same format as <varname>DNS</varname> and
