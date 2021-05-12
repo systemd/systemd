@@ -240,22 +240,27 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        /* We leave locked terminal attributes untouched, so that
-         * Plymouth may set whatever it wants to set, and we don't
-         * interfere with that. */
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
+        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
+         * and we don't interfere with that. */
 
         /* Disable exclusive mode, just in case */
-        (void) ioctl(fd, TIOCNXCL);
+        if (ioctl(fd, TIOCNXCL) < 0)
+                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
 
         /* Switch to text mode */
         if (switch_to_text)
-                (void) ioctl(fd, KDSETMODE, KD_TEXT);
+                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
+                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
+
 
         /* Set default keyboard mode */
         (void) vt_reset_keyboard(fd);
 
         if (tcgetattr(fd, &termios) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
                 goto finish;
         }
 
@@ -311,14 +316,13 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
+        _cleanup_close_ int fd = -1;
         unsigned c = 0;
-        int fd;
 
         /*
-         * If a TTY is in the process of being closed opening it might
-         * cause EIO. This is horribly awful, but unlikely to be
-         * changed in the kernel. Hence we work around this problem by
-         * retrying a couple of times.
+         * If a TTY is in the process of being closed opening it might cause EIO. This is horribly awful, but
+         * unlikely to be changed in the kernel. Hence we work around this problem by retrying a couple of
+         * times.
          *
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
@@ -338,16 +342,14 @@ int open_terminal(const char *name, int mode) {
                 if (c >= 20)
                         return -errno;
 
-                usleep(50 * USEC_PER_MSEC);
+                (void) usleep(50 * USEC_PER_MSEC);
                 c++;
         }
 
-        if (isatty(fd) <= 0) {
-                safe_close(fd);
-                return -ENOTTY;
-        }
+        if (isatty(fd) < 1)
+                return -errno;
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 int acquire_terminal(
@@ -960,7 +962,8 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
-        _cleanup_free_ char *fn = NULL, *b = NULL;
+        _cleanup_free_ char *fn = NULL;
+        const char *w;
         dev_t devnr;
         int r;
 
@@ -970,42 +973,50 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
 
         r = device_path_make_canonical(S_IFCHR, devnr, &fn);
         if (r < 0) {
+                _cleanup_free_ char *pty = NULL;
+                struct stat st;
+
                 if (r != -ENOENT) /* No symlink for this in /dev/char/? */
                         return r;
 
-                if (major(devnr) == 136) {
-                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't follow the
-                         * Linux device model. This means we have no nice way to match them up against their actual
-                         * device node. Let's hence do the check by the fixed, assigned major number. Normally we try
-                         * to avoid such fixed major/minor matches, but there appears to nother nice way to handle
-                         * this. */
+                /* Maybe this is PTY? PTY devices are not listed in /dev/char/, as they don't follow the
+                 * Linux device model and hence device_path_make_canonical() doesn't work for them. Let's
+                 * assume this is a PTY for a moment, and check if the device node this would then map to in
+                 * /dev/pts/ matches the one we are looking for. This way we don't have to hardcode the major
+                 * number (which is 136 btw), but we still rely on the fact that PTY numbers map directly to
+                 * the minor number of the pty. */
+                if (asprintf(&pty, "/dev/pts/%u", minor(devnr)) < 0)
+                        return -ENOMEM;
 
-                        if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
-                                return -ENOMEM;
-                } else {
-                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's return
-                         * something vaguely useful. */
+                if (stat(pty, &st) < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
 
+                } else if (S_ISCHR(st.st_mode) && devnr == st.st_rdev) /* Bingo! */
+                        fn = TAKE_PTR(pty);
+
+                if (!fn) {
+                        /* Doesn't exist, or not a PTY? Probably something similar to the PTYs which have no
+                         * symlink in /dev/char/. Let's return something vaguely useful. */
                         r = device_path_make_major_minor(S_IFCHR, devnr, &fn);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        if (!b) {
-                const char *w;
+        w = path_startswith(fn, "/dev/");
+        if (!w)
+                return -EINVAL;
 
-                w = path_startswith(fn, "/dev/");
-                if (w) {
-                        b = strdup(w);
-                        if (!b)
-                                return -ENOMEM;
-                } else
-                        b = TAKE_PTR(fn);
-        }
+        if (ret) {
+                _cleanup_free_ char *b = NULL;
 
-        if (ret)
+                b = strdup(w);
+                if (!b)
+                        return -ENOMEM;
+
                 *ret = TAKE_PTR(b);
+        }
 
         if (ret_devnr)
                 *ret_devnr = devnr;
@@ -1326,6 +1337,9 @@ int vt_restore(int fd) {
         };
         int r, q = 0;
 
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
+
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
 
@@ -1358,6 +1372,9 @@ int vt_release(int fd, bool restore) {
         /* This function releases the VT by acknowledging the VT-switch signal
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
+
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;
