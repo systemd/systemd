@@ -318,7 +318,6 @@ static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *rule, Ro
 static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         RoutingPolicyRule *existing;
-        bool is_new = false;
         int r;
 
         assert(m);
@@ -339,7 +338,6 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
 
                 rule->manager = m;
                 existing = TAKE_PTR(rule);
-                is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign rule. */
                 r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
@@ -356,7 +354,7 @@ static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, Rout
 
         if (ret)
                 *ret = existing;
-        return is_new;
+        return 0;
 }
 
 static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *rule) {

@@ -586,7 +586,6 @@ static int route_add_foreign(Manager *manager, Link *link, const Route *in, Rout
 
 static int route_add(Manager *manager, Link *link, const Route *in, const MultipathRoute *m, const NextHop *nh, Route **ret) {
         _cleanup_(route_freep) Route *tmp = NULL;
-        bool is_new = false;
         Route *route;
         int r;
 
@@ -617,7 +616,6 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
                 r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, &route);
                 if (r < 0)
                         return r;
-                is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign route */
                 r = set_ensure_put(link ? &link->routes : &manager->routes, &route_hash_ops, route);
@@ -633,7 +631,7 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
 
         if (ret)
                 *ret = route;
-        return is_new;
+        return 0;
 }
 
 static bool route_type_is_reject(const Route *route) {
@@ -1166,7 +1164,7 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
         NextHop *nh = NULL;
         Route *nr;
-        int r, k;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -1175,9 +1173,9 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
         (void) manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh);
 
         if (route_type_is_reject(route) || (nh && nh->blackhole))
-                k = route_add(link->manager, NULL, route, NULL, nh, &nr);
+                r = route_add(link->manager, NULL, route, NULL, nh, &nr);
         else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
-                k = route_add(NULL, link, route, m, nh, &nr);
+                r = route_add(NULL, link, route, m, nh, &nr);
         else {
                 Link *link_gw;
 
@@ -1185,10 +1183,10 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to get link with ifindex %d: %m", m->ifindex);
 
-                k = route_add(NULL, link_gw, route, m, NULL, &nr);
+                r = route_add(NULL, link_gw, route, m, NULL, &nr);
         }
-        if (k < 0)
-                return log_link_error_errno(link, k, "Could not add route: %m");
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add route: %m");
 
         /* TODO: drop expiration handling once it can be pushed into the kernel */
         if (nr->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
@@ -1204,7 +1202,7 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
         if (ret)
                 *ret = nr;
 
-        return k;
+        return 0;
 }
 
 static int append_nexthop_one(const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
@@ -1318,7 +1316,7 @@ static int route_configure(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_free_ Route **routes = NULL;
         unsigned n_routes = 0;  /* avoid false maybe-uninitialized warning */
-        int r, k;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -1417,9 +1415,9 @@ static int route_configure(
                                 return log_oom();
                 }
 
-                k = route_add_and_setup_timer(link, route, NULL, routes);
-                if (k < 0)
-                        return k;
+                r = route_add_and_setup_timer(link, route, NULL, routes);
+                if (r < 0)
+                        return r;
         } else {
                 MultipathRoute *m;
                 Route **p;
@@ -1435,14 +1433,11 @@ static int route_configure(
                                 return log_oom();
                 }
 
-                k = 0;
                 p = routes;
                 ORDERED_SET_FOREACH(m, route->multipath_routes) {
                         r = route_add_and_setup_timer(link, route, m, ret_routes ? p++ : NULL);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                k = 1;
                 }
         }
 
@@ -1458,7 +1453,7 @@ static int route_configure(
                 *ret_routes = TAKE_PTR(routes);
         }
 
-        return k;
+        return 0;
 }
 
 static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
