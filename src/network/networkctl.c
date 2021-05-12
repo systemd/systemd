@@ -46,6 +46,7 @@
 #include "network-internal.h"
 #include "network-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
@@ -75,6 +76,110 @@ static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+
+static int get_description(JsonVariant **ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        const char *text = NULL;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = bus_call_method(bus, bus_network_mgr, "Describe", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get description: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "s", &text);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = json_parse(text, 0, ret, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON: %m");
+
+        return 0;
+}
+
+static int dump_manager_description(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        r = get_description(&v);
+        if (r < 0)
+                return r;
+
+        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        return 0;
+}
+
+static int dump_link_description(char **patterns) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ bool *matched_patterns = NULL;
+        JsonVariant *i;
+        size_t c = 0;
+        int r;
+
+        r = get_description(&v);
+        if (r < 0)
+                return r;
+
+        matched_patterns = new0(bool, strv_length(patterns));
+        if (!matched_patterns)
+                return log_oom();
+
+        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(v, "Interfaces")) {
+                char ifindex_str[DECIMAL_STR_MAX(intmax_t)];
+                const char *name;
+                intmax_t index;
+                size_t pos;
+
+                name = json_variant_string(json_variant_by_key(i, "Name"));
+                index = json_variant_integer(json_variant_by_key(i, "Index"));
+                xsprintf(ifindex_str, "%ji", index);
+
+                if (!strv_fnmatch_full(patterns, ifindex_str, 0, &pos) &&
+                    !strv_fnmatch_full(patterns, name, 0, &pos)) {
+                        bool match = false;
+                        JsonVariant *a;
+
+                        JSON_VARIANT_ARRAY_FOREACH(a, json_variant_by_key(i, "AlternativeNames"))
+                                if (strv_fnmatch_full(patterns, json_variant_string(a), 0, &pos)) {
+                                        match = true;
+                                        break;
+                                }
+
+                        if (!match)
+                                continue;
+                }
+
+                matched_patterns[pos] = true;
+                json_variant_dump(i, arg_json_format_flags, NULL, NULL);
+                c++;
+        }
+
+        /* Look if we matched all our arguments that are not globs. It is OK for a glob to match
+         * nothing, but not for an exact argument. */
+        for (size_t pos = 0; pos < strv_length(patterns); pos++) {
+                if (matched_patterns[pos])
+                        continue;
+
+                if (string_is_glob(patterns[pos]))
+                        log_debug("Pattern \"%s\" doesn't match any interface, ignoring.",
+                                  patterns[pos]);
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "Interface \"%s\" not found.", patterns[pos]);
+        }
+
+        if (c == 0)
+                log_warning("No interfaces matched.");
+
+        return 0;
+}
 
 static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         if (STRPTR_IN_SET(state, "routable", "enslaved") ||
@@ -673,6 +778,13 @@ static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int c, r;
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                if (arg_all || argc <= 1)
+                        return dump_manager_description();
+                else
+                        return dump_link_description(strv_skip(argv, 1));
+        }
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -2238,6 +2350,13 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
 
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                if (arg_all || argc <= 1)
+                        return dump_manager_description();
+                else
+                        return dump_link_description(strv_skip(argv, 1));
+        }
+
         (void) pager_open(arg_pager_flags);
 
         r = sd_bus_open_system(&bus);
@@ -2728,6 +2847,8 @@ static int help(void) {
                "  -s --stats             Show detailed link statics\n"
                "  -l --full              Do not ellipsize output\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2743,6 +2864,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -2754,10 +2876,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "stats",     no_argument,       NULL, 's'           },
                 { "full",      no_argument,       NULL, 'l'           },
                 { "lines",     required_argument, NULL, 'n'           },
+                { "json",      required_argument, NULL, ARG_JSON      },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -2796,6 +2919,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (safe_atou(optarg, &arg_lines) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse lines '%s'", optarg);
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case '?':

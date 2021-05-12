@@ -33,7 +33,7 @@ _networkctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
         [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats -l --full'
-        [ARG]='-n --lines'
+        [ARG]='-n --lines --json'
     )
 
     local -A VERBS=(
@@ -50,6 +50,19 @@ _networkctl() {
             break
         fi
     done
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --json)
+                comps=$(networkctl --json=help | sort 2>/dev/null)
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
 
     if [[ "$cur" = -* ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
