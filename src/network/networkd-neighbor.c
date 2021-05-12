@@ -171,7 +171,6 @@ static int neighbor_add_internal(Link *link, Set **neighbors, const Neighbor *in
 }
 
 static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
-        bool is_new = false;
         Neighbor *neighbor;
         int r;
 
@@ -181,7 +180,6 @@ static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
                 r = neighbor_add_internal(link, &link->neighbors, in, &neighbor);
                 if (r < 0)
                         return r;
-                is_new = true;
         } else if (r == 0) {
                 /* Neighbor is foreign, claim it as recognized */
                 r = set_ensure_put(&link->neighbors, &neighbor_hash_ops, neighbor);
@@ -197,7 +195,7 @@ static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
 
         if (ret)
                 *ret = neighbor;
-        return is_new;
+        return 0;
 }
 
 static int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret) {
