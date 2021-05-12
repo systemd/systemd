@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "fd-util.h"
+
+#define CREDENTIAL_NAME_MAX FDNAME_MAX
+
 bool credential_name_valid(const char *s);
 
 int get_credentials_dir(const char **ret);

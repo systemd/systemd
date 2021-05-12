@@ -977,7 +977,7 @@ static int config_parse_label(
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
 
-        r = specifier_printf(rvalue, specifier_table, NULL, &resolved);
+        r = specifier_printf(rvalue, GPT_LABEL_MAX, specifier_table, NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
@@ -1142,7 +1142,7 @@ static int config_parse_copy_files(
         if (!isempty(p))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Too many arguments: %s", rvalue);
 
-        r = specifier_printf(source, specifier_table, NULL, &resolved_source);
+        r = specifier_printf(source, PATH_MAX-1, specifier_table, NULL, &resolved_source);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyFiles= source, ignoring: %s", rvalue);
@@ -1153,7 +1153,7 @@ static int config_parse_copy_files(
         if (r < 0)
                 return 0;
 
-        r = specifier_printf(target, specifier_table, NULL, &resolved_target);
+        r = specifier_printf(target, PATH_MAX-1, specifier_table, NULL, &resolved_target);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyFiles= target, ignoring: %s", resolved_target);
@@ -1202,7 +1202,7 @@ static int config_parse_copy_blocks(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, specifier_table, NULL, &d);
+        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, NULL, &d);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CopyBlocks= source path, ignoring: %s", rvalue);
@@ -1250,7 +1250,7 @@ static int config_parse_make_dirs(
                 if (r == 0)
                         return 0;
 
-                r = specifier_printf(word, specifier_table, NULL, &d);
+                r = specifier_printf(word, PATH_MAX-1, specifier_table, NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MakeDirectories= parameter, ignoring: %s", word);

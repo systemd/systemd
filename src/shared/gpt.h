@@ -115,6 +115,9 @@
 #define GPT_FLAG_NO_AUTO   (1ULL << 63)
 #define GPT_FLAG_GROWFS    (1ULL << 59)
 
+/* maximum length of gpt label */
+#define GPT_LABEL_MAX 36
+
 const char *gpt_partition_type_uuid_to_string(sd_id128_t id);
 const char *gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
