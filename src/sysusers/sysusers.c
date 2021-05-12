@@ -1492,7 +1492,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 name = mfree(name);
 
         if (name) {
-                r = specifier_printf(name, specifier_table, NULL, &resolved_name);
+                r = specifier_printf(name, NAME_MAX, specifier_table, NULL, &resolved_name);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, name);
 
@@ -1507,7 +1507,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 id = mfree(id);
 
         if (id) {
-                r = specifier_printf(id, specifier_table, NULL, &resolved_id);
+                r = specifier_printf(id, PATH_MAX-1, specifier_table, NULL, &resolved_id);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, name);
@@ -1518,7 +1518,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 description = mfree(description);
 
         if (description) {
-                r = specifier_printf(description, specifier_table, NULL, &resolved_description);
+                r = specifier_printf(description, LONG_LINE_MAX, specifier_table, NULL, &resolved_description);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, description);
@@ -1534,7 +1534,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 home = mfree(home);
 
         if (home) {
-                r = specifier_printf(home, specifier_table, NULL, &resolved_home);
+                r = specifier_printf(home, PATH_MAX-1, specifier_table, NULL, &resolved_home);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, home);
@@ -1550,7 +1550,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 shell = mfree(shell);
 
         if (shell) {
-                r = specifier_printf(shell, specifier_table, NULL, &resolved_shell);
+                r = specifier_printf(shell, PATH_MAX-1, specifier_table, NULL, &resolved_shell);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, shell);

@@ -2522,7 +2522,7 @@ static int specifier_expansion_from_arg(Item *i) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
 
-                r = specifier_printf(unescaped, specifier_table, NULL, &resolved);
+                r = specifier_printf(unescaped, PATH_MAX-1, specifier_table, NULL, &resolved);
                 if (r < 0)
                         return r;
 
@@ -2532,7 +2532,7 @@ static int specifier_expansion_from_arg(Item *i) {
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:
                 STRV_FOREACH(xattr, i->xattrs) {
-                        r = specifier_printf(*xattr, specifier_table, NULL, &resolved);
+                        r = specifier_printf(*xattr, SIZE_MAX, specifier_table, NULL, &resolved);
                         if (r < 0)
                                 return r;
 
@@ -2706,7 +2706,7 @@ static int parse_line(
         i.append_or_force = append_or_force;
         i.allow_failure = allow_failure;
 
-        r = specifier_printf(path, specifier_table, NULL, &i.path);
+        r = specifier_printf(path, PATH_MAX-1, specifier_table, NULL, &i.path);
         if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {

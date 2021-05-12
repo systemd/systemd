@@ -104,7 +104,7 @@ int gpt_partition_label_valid(const char *s) {
         if (!recoded)
                 return -ENOMEM;
 
-        return char16_strlen(recoded) <= 36;
+        return char16_strlen(recoded) <= GPT_LABEL_MAX;
 }
 
 bool gpt_partition_type_is_root(sd_id128_t id) {
