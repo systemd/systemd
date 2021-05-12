@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "device.h"
 #include "log.h"
@@ -141,6 +142,9 @@ static void device_set_state(Device *d, DeviceState state) {
 
         old_state = d->state;
         d->state = state;
+
+        if (d->state == DEVICE_PLUGGED)
+                d->plugged_once = true;
 
         if (state == DEVICE_DEAD)
                 device_unset_sysfs(d);
@@ -1075,6 +1079,98 @@ bool device_shall_be_bound_by(Unit *device, Unit *u) {
         return DEVICE(device)->bind_mounts;
 }
 
+/**
+ * While booting up it is likely that systemd-udevd is started after a couple of uevents were already
+ * triggered by the kernel and are missed for that reason. To fix that up device_start() is used to
+ * re-trigger the corresponding uevent of the particular device unit.
+ *
+ * The re-trigger is only done in case the device is not following another device, was never in plugged
+ * state before, is in the dead state, but is actually plugged (corresponding sysfs entries are existent).
+ *
+ * Note: This accounts only for device units which are explicitly referenced as dependency by other units
+ *       and are tagged in udev rules (TAG+="systemd").
+ *
+ *       This might only be useful in highly embedded environments, e.g. automotive control units, where
+ *       existent devices and the whole dependency tree are known, the ecosystem is well-defined and startup
+ *       performance matters.
+ *
+ *       For desktop and server environments systemd-udev-trigger.service should still be used.
+ */
+static int device_start(Unit *u) {
+        Device *d = DEVICE(u);
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(d);
+
+        if (device_following(u))
+                return 0;
+
+        if (!(d->state == DEVICE_DEAD))
+                return 0;
+
+        if (d->plugged_once)
+                return 0;
+
+        r = unit_name_to_path(u->id, &path);
+        if (r)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EBADR),
+                                "Failed to get device path from unit: \"%s\" (%d)", u->id, r);
+
+        if (path_startswith(path, "/sys/")) {
+                r = sd_device_new_from_syspath(&dev, path);
+                if (r < 0)
+                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EBADR),
+                                        "Failed to find device in sysfs: \"%s\" (%d)", path, r);
+        } else if (path_startswith(path, "/dev/")) {
+                struct stat st;
+
+                if (stat(path, &st) < 0) {
+                        r = -errno;
+                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EBADR),
+                                        "Failed to find device in devtmpfs: \"%s\" (%d)", path, r);
+                }
+
+                r = sd_device_new_from_stat_rdev(&dev, &st);
+                if (r < 0)
+                        return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EBADR),
+                                        "Failed to find corresponding sysfs entry for: \"%s\" (%d)",
+                                        path, r);
+        } else {
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EBADR),
+                                "Device unit name does not evaluate to either a /sys/ or /dev/ path: \
+                                \"%s\" (%d)", path, r);
+        }
+
+        r = sd_device_trigger(dev, SD_DEVICE_ADD);
+        if (r < 0) {
+                bool ignore = IN_SET(r, -ENODEV);
+                int level = ignore ? LOG_WARNING : LOG_ERR;
+                const char* syspath;
+
+                if (sd_device_get_syspath(dev, &syspath) < 0)
+                        syspath = "";
+
+                log_device_full_errno(dev, level, r, "Failed to write '%s' to '%s/uevent'%s: %m",
+                                      device_action_to_string(SD_DEVICE_ADD),
+                                      syspath, ignore ? ", ignoring" : "");
+
+                /* Return -EBADR instead of the actual error code to prevent ourselfs from messing up the
+                 * error handling in job_run_and_invalidate(). This way we simply report we can't start this
+                 * unit.
+                 */
+                if (!ignore)
+                        return -EBADR;
+        }
+
+        /* By triggering an already existing device (which was missed by systemd-udevd) we created the
+         * prerequisite for the device unit entering plugged state and therefore being considered to be
+         * active, therefore let's consider it being kinda started.
+         */
+        return 0;
+}
+
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),
         .sections =
@@ -1095,6 +1191,8 @@ const UnitVTable device_vtable = {
         .deserialize_item = device_deserialize_item,
 
         .dump = device_dump,
+
+        .start = device_start,
 
         .active_state = device_active_state,
         .sub_state_to_string = device_sub_state_to_string,
