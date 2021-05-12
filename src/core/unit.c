@@ -1674,12 +1674,18 @@ int unit_start(Unit *u) {
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
 
+        /* Units of type UNIT_DEVICE do not actually start anything in start(), but do trigger their
+         * corresponding uevent in case it was sent by the kernel in the time before systemd-udevd was
+         * running.
+         */
+        if (!(u->type == UNIT_DEVICE)) {
+                unit_add_to_dbus_queue(u);
+                unit_cgroup_freezer_action(u, FREEZER_THAW);
+        }
+
         /* We don't suppress calls to ->start() here when we are already starting, to allow this request to
          * be used as a "hurry up" call, for example when the unit is in some "auto restart" state where it
          * waits for a holdoff timer to elapse before it will start again. */
-
-        unit_add_to_dbus_queue(u);
-        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         return UNIT_VTABLE(u)->start(u);
 }
