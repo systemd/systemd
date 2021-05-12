@@ -4,18 +4,21 @@
 import sys
 import collections
 import re
+import concurrent.futures
 from xml_helper import xml_parse, xml_print, tree
-from copy import deepcopy
 
 COLOPHON = '''\
 This index contains {count} entries in {sections} sections,
 referring to {pages} individual manual pages.
 '''
 
-def _extract_directives(directive_groups, formatting, page):
+def _extract_directives(page, names):
+    directive_groups = {name:collections.defaultdict(set) for name in names}
+
     t = xml_parse(page)
     section = t.find('./refmeta/manvolnum').text
     pagename = t.find('./refmeta/refentrytitle').text
+    formatting = {}
 
     storopt = directive_groups['options']
     for variablelist in t.iterfind('.//variablelist'):
@@ -31,7 +34,7 @@ def _extract_directives(directive_groups, formatting, page):
                 if text.startswith('-'):
                     # for options, merge options with and without mandatory arg
                     text = text.partition('=')[0]
-                stor[text].append((pagename, section))
+                stor[text].add((pagename, section))
                 if text not in formatting:
                     # use element as formatted display
                     if name.text[-1] in "= '":
@@ -42,7 +45,7 @@ def _extract_directives(directive_groups, formatting, page):
                     formatting[text] = name
         extra = variablelist.attrib.get('extra-ref')
         if extra:
-            stor[extra].append((pagename, section))
+            stor[extra].add((pagename, section))
             if extra not in formatting:
                 elt = tree.Element("varname")
                 elt.text= extra
@@ -68,13 +71,13 @@ def _extract_directives(directive_groups, formatting, page):
                         name.text = text
                     if text.endswith('/'):
                         text = text[:-1]
-                    storfile[text].append((pagename, section))
+                    storfile[text].add((pagename, section))
                     if text not in formatting:
                         # use element as formatted display
                         formatting[text] = name
             else:
                 text = ' '.join(name.itertext())
-                storfile[text].append((pagename, section))
+                storfile[text].add((pagename, section))
                 formatting[text] = name
 
     storfile = directive_groups['constants']
@@ -84,7 +87,7 @@ def _extract_directives(directive_groups, formatting, page):
         name.tail = ''
         if name.text.startswith('('): # a cast, strip it
             name.text = name.text.partition(' ')[2]
-        storfile[name.text].append((pagename, section))
+        storfile[name.text].add((pagename, section))
         formatting[name.text] = name
 
     storfile = directive_groups['specifiers']
@@ -93,18 +96,30 @@ def _extract_directives(directive_groups, formatting, page):
             continue
         if name.attrib.get('index') == 'false':
             continue
-        storfile[name.text].append((pagename, section))
+        storfile[name.text].add((pagename, section))
         formatting[name.text] = name
     for name in t.iterfind(".//literal[@class='specifiers']"):
-        storfile[name.text].append((pagename, section))
+        storfile[name.text].add((pagename, section))
         formatting[name.text] = name
+
+    # Serialize to allow pickling
+    formatting = {name:xml_print(value) for name, value in formatting.items()}
+
+    return directive_groups, formatting
+
+def extract_directives(arg):
+    page, names = arg
+    try:
+        return _extract_directives(page, names)
+    except Exception:
+        raise ValueError("Failed to process {}".format(page))
 
 def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
     for varname, manpages in sorted(directives.items()):
         entry = tree.SubElement(varlist, 'varlistentry')
         term = tree.SubElement(entry, 'term')
-        display = deepcopy(formatting[varname])
+        display = tree.fromstring(formatting[varname])
         term.append(display)
 
         para = tree.SubElement(tree.SubElement(entry, 'listitem'), 'para')
@@ -154,20 +169,26 @@ def make_page(template_path, xml_files):
     "Extract directives from xml_files and return XML index tree."
     template = xml_parse(template_path)
     names = [vl.get('id') for vl in template.iterfind('.//variablelist')]
-    directive_groups = {name:collections.defaultdict(list)
-                        for name in names}
+
+    with concurrent.futures.ProcessPoolExecutor() as pool:
+        args = ((xml_file, names) for xml_file in xml_files)
+        results = list(pool.map(extract_directives, args))
+
+    directive_groups = {name:collections.defaultdict(set) for name in names}
     formatting = {}
-    for page in xml_files:
-        try:
-            _extract_directives(directive_groups, formatting, page)
-        except Exception:
-            raise ValueError("failed to process " + page)
+    for d_g, f in reversed(results):
+        for group, mapping in d_g.items():
+            for name, value in mapping.items():
+                directive_groups[group][name].update(value)
+
+        formatting.update(f)
 
     return _make_page(template, directive_groups, formatting)
 
-if __name__ == '__main__':
-    with open(sys.argv[1], 'wb') as f:
-        template_path = sys.argv[2]
-        xml_files = sys.argv[3:]
+def main(output, template_path, *xml_files):
+    with open(output, 'wb') as f:
         xml = make_page(template_path, xml_files)
         f.write(xml_print(xml))
+
+if __name__ == '__main__':
+    main(*sys.argv[1:])
