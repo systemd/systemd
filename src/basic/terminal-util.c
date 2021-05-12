@@ -240,9 +240,11 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        /* We leave locked terminal attributes untouched, so that
-         * Plymouth may set whatever it wants to set, and we don't
-         * interfere with that. */
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
+
+        /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
+         * and we don't interfere with that. */
 
         /* Disable exclusive mode, just in case */
         if (ioctl(fd, TIOCNXCL) < 0)
@@ -1329,6 +1331,9 @@ int vt_restore(int fd) {
         };
         int r, q = 0;
 
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
+
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
                 q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
 
@@ -1361,6 +1366,9 @@ int vt_release(int fd, bool restore) {
         /* This function releases the VT by acknowledging the VT-switch signal
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
+
+        if (isatty(fd) < 1)
+                return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
                 return -errno;
