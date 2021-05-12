@@ -646,43 +646,6 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         return 0;
 }
 
-int network_get(Manager *manager, unsigned short iftype, sd_device *device,
-                const char *ifname, char * const *alternative_names, const char *driver,
-                const struct ether_addr *mac, const struct ether_addr *permanent_mac,
-                enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
-                Network **ret) {
-        Network *network;
-
-        assert(manager);
-        assert(ret);
-
-        ORDERED_HASHMAP_FOREACH(network, manager->networks)
-                if (net_match_config(&network->match, device, mac, permanent_mac, driver, iftype,
-                                     ifname, alternative_names, wlan_iftype, ssid, bssid)) {
-                        if (network->match.ifname && device) {
-                                const char *attr;
-                                uint8_t name_assign_type = NET_NAME_UNKNOWN;
-
-                                if (sd_device_get_sysattr_value(device, "name_assign_type", &attr) >= 0)
-                                        (void) safe_atou8(attr, &name_assign_type);
-
-                                if (name_assign_type == NET_NAME_ENUM)
-                                        log_warning("%s: found matching network '%s', based on potentially unpredictable ifname",
-                                                    ifname, network->filename);
-                                else
-                                        log_debug("%s: found matching network '%s'", ifname, network->filename);
-                        } else
-                                log_debug("%s: found matching network '%s'", ifname, network->filename);
-
-                        *ret = network;
-                        return 0;
-                }
-
-        *ret = NULL;
-
-        return -ENOENT;
-}
-
 bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;

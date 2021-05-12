@@ -2226,6 +2226,55 @@ static int link_configure_continue(Link *link) {
         return link_enter_join_netdev(link);
 }
 
+static int link_get_network(Link *link, Network **ret) {
+        Network *network;
+
+        assert(link);
+        assert(link->manager);
+        assert(ret);
+
+        ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
+                bool warn = false;
+
+                if (!net_match_config(
+                                &network->match,
+                                link->sd_device,
+                                &link->hw_addr.addr.ether,
+                                &link->permanent_mac,
+                                link->driver,
+                                link->iftype,
+                                link->ifname,
+                                link->alternative_names,
+                                link->wlan_iftype,
+                                link->ssid,
+                                &link->bssid))
+                        continue;
+
+                if (network->match.ifname && link->sd_device) {
+                        uint8_t name_assign_type = NET_NAME_UNKNOWN;
+                        const char *attr;
+
+                        if (sd_device_get_sysattr_value(link->sd_device, "name_assign_type", &attr) >= 0)
+                                (void) safe_atou8(attr, &name_assign_type);
+
+                        warn = name_assign_type == NET_NAME_ENUM;
+                }
+
+                log_link_full(link, warn ? LOG_WARNING : LOG_DEBUG,
+                              "found matching network '%s'%s.",
+                              network->filename,
+                              warn ? ", based on potentially unpredictable interface name" : "");
+
+                if (network->unmanaged)
+                        return -ENOENT;
+
+                *ret = network;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool force) {
         _cleanup_strv_free_ char **s = NULL;
         Network *network;
@@ -2243,17 +2292,12 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
 
         strv_free_and_replace(link->alternative_names, s);
 
-        r = network_get(link->manager, link->iftype, link->sd_device,
-                        link->ifname, link->alternative_names, link->driver,
-                        &link->hw_addr.addr.ether, &link->permanent_mac,
-                        link->wlan_iftype, link->ssid, &link->bssid, &network);
+        r = link_get_network(link, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
-        } else if (r == 0 && network->unmanaged) {
-                link_enter_unmanaged(link);
-                return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
 
         if (link->network == network && !force)
@@ -2377,17 +2421,12 @@ static int link_initialized_and_synced(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = network_get(link->manager, link->iftype, link->sd_device,
-                                link->ifname, link->alternative_names, link->driver,
-                                &link->hw_addr.addr.ether, &link->permanent_mac,
-                                link->wlan_iftype, link->ssid, &link->bssid, &network);
+                r = link_get_network(link, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;
-                } else if (r == 0 && network->unmanaged) {
-                        link_enter_unmanaged(link);
-                        return 0;
-                } else if (r < 0)
+                }
+                if (r < 0)
                         return r;
 
                 if (link->flags & IFF_LOOPBACK) {
