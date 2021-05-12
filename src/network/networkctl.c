@@ -46,6 +46,7 @@
 #include "network-internal.h"
 #include "network-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
@@ -75,6 +76,114 @@ static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+
+static int dump_manager_description(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *text = NULL;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = bus_call_method(bus, bus_network_mgr, "Describe", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get description: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "s", &text);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = json_parse(text, 0, &v, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON: %m");
+
+        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        return 0;
+}
+
+static int resolve_interfaces(char **names, int **ret) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_free_ int *indices = NULL;
+        size_t n;
+        int r;
+
+        assert(names);
+        assert(ret);
+
+        n = strv_length(names);
+        indices = new(int, n);
+        if (!indices)
+                return log_oom();
+
+        for (size_t i = 0; i < n; i++) {
+                r = resolve_interface_or_warn(&rtnl, names[i]);
+                if (r < 0)
+                        return r;
+
+                assert(r > 0);
+                indices[i] = r;
+        }
+
+        *ret = TAKE_PTR(indices);
+        return n;
+}
+
+static int dump_link_description_one(int ifindex) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *text = NULL;
+        int r;
+
+        assert(ifindex > 0);
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = bus_call_method(bus, bus_network_mgr, "DescribeLink", &error, &reply, "i", ifindex);
+        if (r < 0) {
+                char ifname[IF_NAMESIZE + 1];
+
+                return log_error_errno(r, "Failed to get description for %s: %s",
+                                       format_ifname_full(ifindex, ifname, FORMAT_IFNAME_IFINDEX),
+                                       bus_error_message(&error, r));
+        }
+
+        r = sd_bus_message_read(reply, "s", &text);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = json_parse(text, 0, &v, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse JSON: %m");
+
+        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        return 0;
+}
+
+static int dump_link_description(char **names) {
+        _cleanup_free_ int *indices = NULL;
+        int r, n;
+
+        n = resolve_interfaces(names, &indices);
+        if (n < 0)
+                return n;
+
+        for (int i = 0; i < n; i++) {
+                r = dump_link_description_one(indices[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         if (STRPTR_IN_SET(state, "routable", "enslaved") ||
@@ -2238,6 +2347,13 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
 
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                if (arg_all || argc <= 1)
+                        return dump_manager_description();
+                else
+                        return dump_link_description(strv_skip(argv, 1));
+        }
+
         (void) pager_open(arg_pager_flags);
 
         r = sd_bus_open_system(&bus);
@@ -2728,6 +2844,8 @@ static int help(void) {
                "  -s --stats             Show detailed link statics\n"
                "  -l --full              Do not ellipsize output\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2743,6 +2861,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -2754,10 +2873,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "stats",     no_argument,       NULL, 's'           },
                 { "full",      no_argument,       NULL, 'l'           },
                 { "lines",     required_argument, NULL, 'n'           },
+                { "json",      required_argument, NULL, ARG_JSON      },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -2796,6 +2916,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (safe_atou(optarg, &arg_lines) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse lines '%s'", optarg);
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
                         break;
 
                 case '?':
