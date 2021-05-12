@@ -985,7 +985,7 @@ bool dns_service_name_is_valid(const char *name) {
         l = strlen(name);
         if (l <= 0)
                 return false;
-        if (l > 63)
+        if (l > DNS_LABEL_MAX)
                 return false;
 
         return true;
