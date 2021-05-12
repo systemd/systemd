@@ -715,7 +715,9 @@ static int list_links(int argc, char *argv[], void *userdata) {
                         setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, NULL);
 
-                t = link_get_type_string(links[i].sd_device, links[i].iftype);
+                r = link_get_type_string(links[i].sd_device, links[i].iftype, &t);
+                if (r == -ENOMEM)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_INT, links[i].ifindex,
@@ -1436,7 +1438,9 @@ static int link_status_one(
                         (void) sd_device_get_property_value(info->sd_device, "ID_MODEL", &model);
         }
 
-        t = link_get_type_string(info->sd_device, info->iftype);
+        r = link_get_type_string(info->sd_device, info->iftype, &t);
+        if (r == -ENOMEM)
+                return log_oom();
 
         (void) sd_network_link_get_network_file(info->ifindex, &network);
 

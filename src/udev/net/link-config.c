@@ -273,16 +273,20 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
         LIST_FOREACH(links, link, ctx->links) {
-                if (net_match_config(&link->match, device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL)) {
-                        if (link->match.ifname && !strv_contains(link->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
-                                log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
-                                                   link->filename);
-                        else
-                                log_device_debug(device, "Config file %s is applied", link->filename);
+                r = net_match_config(&link->match, device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
 
-                        *ret = link;
-                        return 0;
-                }
+                if (link->match.ifname && !strv_contains(link->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
+                        log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
+                                           link->filename);
+                else
+                        log_device_debug(device, "Config file %s is applied", link->filename);
+
+                *ret = link;
+                return 0;
         }
 
         return -ENOENT;

@@ -2228,6 +2228,7 @@ static int link_configure_continue(Link *link) {
 
 static int link_get_network(Link *link, Network **ret) {
         Network *network;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -2236,7 +2237,7 @@ static int link_get_network(Link *link, Network **ret) {
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;
 
-                if (!net_match_config(
+                r = net_match_config(
                                 &network->match,
                                 link->sd_device,
                                 &link->hw_addr.addr.ether,
@@ -2247,7 +2248,10 @@ static int link_get_network(Link *link, Network **ret) {
                                 link->alternative_names,
                                 link->wlan_iftype,
                                 link->ssid,
-                                &link->bssid))
+                                &link->bssid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 if (network->match.ifname && link->sd_device) {
