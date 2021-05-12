@@ -252,7 +252,6 @@ static int nexthop_add_foreign(Manager *manager, Link *link, const NextHop *in, 
 }
 
 static int nexthop_add(Link *link, const NextHop *in, NextHop **ret) {
-        bool is_new = false;
         NextHop *nexthop;
         int r;
 
@@ -271,7 +270,6 @@ static int nexthop_add(Link *link, const NextHop *in, NextHop **ret) {
                                          in, &nexthop);
                 if (r < 0)
                         return r;
-                is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign nexthop */
                 r = set_ensure_put(in->blackhole ? &link->manager->nexthops : &link->nexthops,
@@ -288,7 +286,7 @@ static int nexthop_add(Link *link, const NextHop *in, NextHop **ret) {
 
         if (ret)
                 *ret = nexthop;
-        return is_new;
+        return 0;
 }
 
 static int nexthop_update(Manager *manager, Link *link, NextHop *nexthop, const NextHop *in) {
@@ -443,7 +441,7 @@ static int nexthop_configure(
                 NextHop **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r, k;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -488,9 +486,9 @@ static int nexthop_configure(
                 }
         }
 
-        k = nexthop_add(link, nexthop, ret);
-        if (k < 0)
-                return log_link_error_errno(link, k, "Could not add nexthop: %m");
+        r = nexthop_add(link, nexthop, ret);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add nexthop: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
@@ -499,7 +497,7 @@ static int nexthop_configure(
 
         link_ref(link);
 
-        return k;
+        return r;
 }
 
 static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
