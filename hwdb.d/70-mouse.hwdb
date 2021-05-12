@@ -666,6 +666,10 @@ mouse:bluetooth:v0000p0000:name:Surface Mouse:*
 mouse:usb:v045ep0823:name:Microsoft Microsoft?? Classic IntelliMouse??:*
  MOUSE_DPI=3200@1000
 
+# Microsoft Pro Intellimouse
+mouse:usb:v045ep082a:name:Microsoft Microsoft Pro Intellimouse Mouse:*
+ MOUSE_DPI=1600@1000
+
 ##########################################
 # Mionix
 ##########################################
