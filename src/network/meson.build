@@ -79,6 +79,8 @@ sources = files('''
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
         networkd-ipv6-proxy-ndp.h
+        networkd-json.c
+        networkd-json.h
         networkd-link-bus.c
         networkd-link-bus.h
         networkd-link.c

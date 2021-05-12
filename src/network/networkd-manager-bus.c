@@ -8,6 +8,7 @@
 #include "bus-common-errors.h"
 #include "bus-message-util.h"
 #include "bus-polkit.h"
+#include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager-bus.h"
@@ -229,6 +230,39 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int bus_method_describe_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_describe, error);
+}
+
+static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        Manager *manager = userdata;
+        int r;
+
+        assert(message);
+        assert(manager);
+
+        r = manager_build_json(manager, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON data: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", text);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -332,6 +366,16 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_NO_RESULT,
                                 bus_method_reload,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DescribeLink",
+                                SD_BUS_ARGS("i", ifindex),
+                                SD_BUS_RESULT("s", json),
+                                bus_method_describe_link,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Describe",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", json),
+                                bus_method_describe,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END

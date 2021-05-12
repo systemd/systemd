@@ -10,6 +10,7 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
+#include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -678,6 +679,35 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        Link *link = userdata;
+        int r;
+
+        assert(message);
+        assert(link);
+
+        r = link_build_json(link, &v);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to build JSON data: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to format JSON data: %m");
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", text);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -763,6 +793,11 @@ const sd_bus_vtable link_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_NO_RESULT,
                                 bus_link_method_reconfigure,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Describe",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", json),
+                                bus_link_method_describe,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END

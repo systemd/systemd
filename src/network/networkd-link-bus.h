@@ -34,3 +34,4 @@ int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_e
 int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_force_renew(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error);
