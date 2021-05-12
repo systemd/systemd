@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/timex.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -554,6 +555,18 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                 return r;
 
         return 0;
+}
+
+static bool ntp_synced(void) {
+        struct timex txc = {};
+
+        if (adjtimex(&txc) < 0)
+                return false;
+
+        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
+         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
+         * touching the RTC. */
+        return txc.maxerror < 16000000;
 }
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME));
