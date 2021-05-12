@@ -245,17 +245,20 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
          * interfere with that. */
 
         /* Disable exclusive mode, just in case */
-        (void) ioctl(fd, TIOCNXCL);
+        if (ioctl(fd, TIOCNXCL) < 0)
+                log_debug_errno(errno, "TIOCNXCL ioctl failed on TTY, ignoring: %m");
 
         /* Switch to text mode */
         if (switch_to_text)
-                (void) ioctl(fd, KDSETMODE, KD_TEXT);
+                if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
+                        log_debug_errno(errno, "KDSETMODE ioctl for switching to text mode failed on TTY, ignoring: %m");
+
 
         /* Set default keyboard mode */
         (void) vt_reset_keyboard(fd);
 
         if (tcgetattr(fd, &termios) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
                 goto finish;
         }
 
