@@ -184,8 +184,14 @@ static int device_is_partition(
          * available late, hence let's use the property instead, which is available at the moment we see the
          * uevent. */
         r = sd_device_get_property_value(d, "PARTN", &v);
-        if (r == -ENOENT)
+        if (r == -ENOENT) {
                 r = sd_device_get_sysattr_value(d, "partition", &v);
+                if (r == -ENOENT) {
+                        log_device_debug(d, "devtype is \"partition\", but neither PARTN= property in "
+                                         "uevent nor partition sysattr exist, ignoring the device.");
+                        return false;
+                }
+        }
         if (r < 0)
                 return r;
 
