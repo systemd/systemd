@@ -454,7 +454,7 @@ bool fdname_is_valid(const char *s) {
                         return false;
         }
 
-        return p - s < 256;
+        return p - s <= FDNAME_MAX;
 }
 
 int fd_get_path(int fd, char **ret) {
