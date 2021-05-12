@@ -224,6 +224,7 @@ if have_gnu_efi
                        '-Bsymbolic',
                        '-nostdlib',
                        '-znocombreloc',
+                       '--build-id=sha1',
                        '-L', efi_libdir,
                        efi_crt0]
         if ['aarch64', 'arm', 'riscv64'].contains(efi_arch)
@@ -254,24 +255,22 @@ if have_gnu_efi
 
         libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
+        stub_elf_name = 'linux@0@.elf.stub'.format(EFI_MACHINE_TYPE_NAME)
         stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
         no_undefined_symbols = find_program('no-undefined-symbols.sh')
 
-        foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects],
-                         ['stub.so', stub_efi_name, stub_objects]]
+        efi_stubs = []
+        foreach tuple : [['systemd_boot.so', systemd_boot_efi_name, systemd_boot_objects, false],
+                         [stub_elf_name, stub_efi_name, stub_objects, true]]
                 so = custom_target(
                         tuple[0],
                         input : tuple[2],
                         output : tuple[0],
-                        command : [efi_ld, '-o', '@OUTPUT@'] +
-                                  efi_ldflags + tuple[2] +
-                                  ['-lefi', '-lgnuefi', libgcc_file_name])
-
-                if want_tests != 'false'
-                        test('no-undefined-symbols-' + tuple[0],
-                             no_undefined_symbols,
-                             args : [so])
-                endif
+                        command : [efi_ld, '-o', '@OUTPUT@',
+                                   efi_ldflags, tuple[2],
+                                   '-lefi', '-lgnuefi', libgcc_file_name],
+                        install : tuple[3],
+                        install_dir : bootlibdir)
 
                 stub = custom_target(
                         tuple[1],
@@ -284,22 +283,26 @@ if have_gnu_efi
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
-                                   '-j', '.rel*']
-                                  + efi_format +
-                                  ['@INPUT@', '@OUTPUT@'],
+                                   '-j', '.rel*',
+                                   efi_format,
+                                   '@INPUT@', '@OUTPUT@'],
                         install : true,
                         install_dir : bootlibdir)
 
-                set_variable(tuple[0].underscorify(), so)
-                set_variable(tuple[0].underscorify() + '_stub', stub)
+                efi_stubs += [[so, stub]]
+
+                if want_tests != 'false'
+                        test('no-undefined-symbols-' + tuple[0],
+                             no_undefined_symbols,
+                             args : so)
+                endif
         endforeach
 
         ############################################################
 
         test_efi_disk_img = custom_target(
                 'test-efi-disk.img',
-                input : [systemd_boot_so, stub_so_stub],
+                input : [efi_stubs[0][0], efi_stubs[1][1]],
                 output : 'test-efi-disk.img',
-                command : [test_efi_create_disk_sh, '@OUTPUT@',
-                           '@INPUT0@', '@INPUT1@', splash_bmp])
+                command : [test_efi_create_disk_sh, '@OUTPUT@','@INPUT@', splash_bmp])
 endif
