@@ -5653,13 +5653,10 @@ int config_parse_cgroup_socket_bind(
         }
 
         if (rvalue) {
-                if (streq(word, "IPv4"))
-                        af = AF_INET;
-                else if (streq(word, "IPv6"))
-                        af = AF_INET6;
-                else {
+                af = af_from_ipv4_ipv6(word);
+                if (af == AF_UNSPEC) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Only IPv4 and IPv6 protocols are supported, ignoring.");
+                                   "Only \"ipv4\" and \"ipv6\" protocols are supported, ignoring.");
                         return 0;
                 }
 
