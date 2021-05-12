@@ -692,6 +692,8 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 table_set_width(table, 0);
 
         table_set_header(table, arg_legend);
+        if (table_set_empty_string(table, "n/a") < 0)
+                return log_oom();
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_minimum_width(table, cell, 3);
@@ -722,10 +724,10 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 r = table_add_many(table,
                                    TABLE_INT, links[i].ifindex,
                                    TABLE_STRING, links[i].name,
-                                   TABLE_STRING, strna(t),
-                                   TABLE_STRING, strna(operational_state),
+                                   TABLE_STRING, t,
+                                   TABLE_STRING, operational_state,
                                    TABLE_SET_COLOR, on_color_operational,
-                                   TABLE_STRING, strna(setup_state),
+                                   TABLE_STRING, setup_state,
                                    TABLE_SET_COLOR, on_color_setup);
                 if (r < 0)
                         return table_log_add_error(r);
