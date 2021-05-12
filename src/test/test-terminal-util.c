@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -153,6 +154,29 @@ static void test_text(void) {
         }
 }
 
+static void test_get_ctty(void) {
+        _cleanup_free_ char *ctty = NULL;
+        struct stat st;
+        dev_t devnr;
+        int r;
+
+        r = get_ctty(0, &devnr, &ctty);
+        if (r < 0) {
+                log_notice_errno(r, "Apparently called without a controlling TTY, cutting get_ctty() test short: %m");
+                return;
+        }
+
+        /* In almost all cases STDIN will match our controlling TTY. Let's verify that and then compare paths */
+        assert_se(fstat(STDIN_FILENO, &st) >= 0);
+        if (S_ISCHR(st.st_mode) && st.st_rdev == devnr) {
+                _cleanup_free_ char *stdin_name = NULL;
+
+                assert_se(getttyname_malloc(STDIN_FILENO, &stdin_name) >= 0);
+                assert_se(path_equal(stdin_name, ctty));
+        } else
+                log_notice("Not invoked with stdin == ctty, cutting get_ctty() test short");
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -161,6 +185,7 @@ int main(int argc, char *argv[]) {
         test_getttyname_malloc();
         test_colors();
         test_text();
+        test_get_ctty();
 
         return 0;
 }

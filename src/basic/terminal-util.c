@@ -37,6 +37,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -962,7 +963,9 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
-        _cleanup_free_ char *fn = NULL, *b = NULL;
+        char pty[STRLEN("/dev/pts/") + DECIMAL_STR_MAX(dev_t) + 1];
+        _cleanup_free_ char *buf = NULL;
+        const char *fn = NULL, *w;
         dev_t devnr;
         int r;
 
@@ -970,44 +973,53 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
         if (r < 0)
                 return r;
 
-        r = device_path_make_canonical(S_IFCHR, devnr, &fn);
+        r = device_path_make_canonical(S_IFCHR, devnr, &buf);
         if (r < 0) {
+                struct stat st;
+
                 if (r != -ENOENT) /* No symlink for this in /dev/char/? */
                         return r;
 
-                if (major(devnr) == 136) {
-                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't follow the
-                         * Linux device model. This means we have no nice way to match them up against their actual
-                         * device node. Let's hence do the check by the fixed, assigned major number. Normally we try
-                         * to avoid such fixed major/minor matches, but there appears to nother nice way to handle
-                         * this. */
+                /* Maybe this is PTY? PTY devices are not listed in /dev/char/, as they don't follow the
+                 * Linux device model and hence device_path_make_canonical() doesn't work for them. Let's
+                 * assume this is a PTY for a moment, and check if the device node this would then map to in
+                 * /dev/pts/ matches the one we are looking for. This way we don't have to hardcode the major
+                 * number (which is 136 btw), but we still rely on the fact that PTY numbers map directly to
+                 * the minor number of the pty. */
+                xsprintf(pty, "/dev/pts/%u", minor(devnr));
 
-                        if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
-                                return -ENOMEM;
-                } else {
-                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's return
-                         * something vaguely useful. */
+                if (stat(pty, &st) < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
 
-                        r = device_path_make_major_minor(S_IFCHR, devnr, &fn);
+                } else if (S_ISCHR(st.st_mode) && devnr == st.st_rdev) /* Bingo! */
+                        fn = pty;
+
+                if (!fn) {
+                        /* Doesn't exist, or not a PTY? Probably something similar to the PTYs which have no
+                         * symlink in /dev/char/. Let's return something vaguely useful. */
+                        r = device_path_make_major_minor(S_IFCHR, devnr, &buf);
                         if (r < 0)
                                 return r;
+
+                        fn = buf;
                 }
-        }
+        } else
+                fn = buf;
 
-        if (!b) {
-                const char *w;
+        w = path_startswith(fn, "/dev/");
+        if (!w)
+                return -EINVAL;
 
-                w = path_startswith(fn, "/dev/");
-                if (w) {
-                        b = strdup(w);
-                        if (!b)
-                                return -ENOMEM;
-                } else
-                        b = TAKE_PTR(fn);
-        }
+        if (ret) {
+                _cleanup_free_ char *b = NULL;
 
-        if (ret)
+                b = strdup(w);
+                if (!b)
+                        return -ENOMEM;
+
                 *ret = TAKE_PTR(b);
+        }
 
         if (ret_devnr)
                 *ret_devnr = devnr;
