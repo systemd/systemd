@@ -72,3 +72,7 @@ Destination=10.10.10.13
 [Route]
 NextHop=7
 Destination=2001:1234:5:8f62::2
+
+[Route]
+NextHop=21
+Destination=10.10.10.14
