@@ -88,6 +88,11 @@ else
     fatal "Unknown compiler: $COMPILER"
 fi
 
+if [ -n "${RUST}" ]; then
+    PACKAGES+=(rustc)
+    RUST="-Dbuild-rust=true"
+fi
+
 # PPA with some newer build dependencies (like zstd)
 add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
@@ -108,7 +113,7 @@ for args in "${ARGS[@]}"; do
     SECONDS=0
 
     info "Checking build with $args"
-    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror $args build; then
+    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" RUSTFLAGS="--deny warnings" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror ${RUST} -Drust_args="-Clinker-plugin-lto -Copt-level=3" $args build; then
         fatal "meson failed with $args"
     fi
 
