@@ -1216,7 +1216,7 @@ static int append_nexthop_one(const Route *route, const MultipathRoute *m, struc
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
                 .rtnh_ifindex = m->ifindex,
-                .rtnh_hops = m->weight > 0 ? m->weight - 1 : 0,
+                .rtnh_hops = m->weight,
         };
 
         (*rta)->rta_len += sizeof(struct rtnexthop);
@@ -2779,6 +2779,7 @@ int config_parse_multipath_route(
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
                         return 0;
                 }
+                m->weight--;
         }
 
         r = ordered_set_ensure_put(&n->multipath_routes, NULL, m);
