@@ -513,3 +513,6 @@ option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('skip-deps', type : 'boolean', value : false,
        description : 'skip optional dependencies')
+
+option('build-rust', type : 'boolean', value : 'false',
+    description: 'build and link Rust modules')

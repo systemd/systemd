@@ -1978,6 +1978,17 @@ endif
 
 ############################################################
 
+want_rust = get_option('build-rust')
+if want_rust
+        rustc = find_program('rustc', required : want_rust)
+        libstd_rust = dependency('std-rust', required : want_rust)
+        add_languages('rust')
+else
+        conf.set10('BUILD_LEGACY_HELPERS', 1)
+endif
+
+############################################################
+
 config_h = configure_file(
         output : 'config.h',
         configuration : conf)
@@ -2032,6 +2043,7 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
+                     libbasic_rust,
                      libbasic_gcrypt,
                      libbasic_compress],
         link_whole : [libsystemd_static],
@@ -2218,7 +2230,7 @@ test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
         include_directories : includes,
-        link_with : [libbasic],
+        link_with : [libbasic, libbasic_rust],
         dependencies : [libdl],
         build_by_default : want_tests != 'false')
 
@@ -2254,6 +2266,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                                      '-Wl,--version-script=' + version_script_arg],
                         link_with : [libsystemd_static,
                                      libshared_static,
+                                     libbasic_rust,
                                      libbasic],
                         dependencies : [threads,
                                         librt],
@@ -2480,6 +2493,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                 include_directories : resolve_includes,
                 link_with : [libshared,
                              libbasic_gcrypt,
+                             libbasic_rust,
                              libsystemd_resolve_core],
                 dependencies : systemd_resolved_dependencies,
                 install_rpath : rootpkglibdir,
@@ -2492,6 +2506,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                 include_directories : includes,
                 link_with : [libshared,
                              libbasic_gcrypt,
+                             libbasic_rust,
                              libsystemd_resolve_core],
                 dependencies : [threads,
                                 lib_openssl_or_gcrypt,
@@ -2558,7 +2573,8 @@ if conf.get('ENABLE_LOGIND') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + version_script_arg],
                         link_with : [libsystemd_static,
-                                     libshared_static],
+                                     libshared_static,
+                                     libbasic_rust],
                         dependencies : [threads,
                                         libpam,
                                         libpam_misc,
@@ -2848,7 +2864,8 @@ if conf.get('ENABLE_HOMED') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + version_script_arg],
                         link_with : [libsystemd_static,
-                                     libshared_static],
+                                     libshared_static,
+                                     libbasic_rust],
                         dependencies : [threads,
                                         libpam,
                                         libpam_misc,
@@ -3730,6 +3747,7 @@ if enable_sysusers
                         link_with : [libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
+                                     libbasic_rust,
                                      libsystemd_static],
                         dependencies : [versiondep],
                         install : true,
@@ -3774,6 +3792,7 @@ if conf.get('ENABLE_TMPFILES') == 1
                         link_with : [libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
+                                     libbasic_rust,
                                      libsystemd_static],
                         dependencies : [libacl,
                                         versiondep],
@@ -3875,6 +3894,7 @@ if conf.get('ENABLE_REPART') == 1
                         link_with : [libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
+                                     libbasic_rust,
                                      libsystemd_static,
                                      libshared_fdisk],
                         dependencies : [threads,
@@ -3908,6 +3928,7 @@ if have_standalone_binaries
                 c_args : '-DSTANDALONE',
                 link_with : [libshared_static,
                              libbasic,
+                             libbasic_rust,
                              libsystemd_static],
                 dependencies : [libmount,
                                 versiondep],

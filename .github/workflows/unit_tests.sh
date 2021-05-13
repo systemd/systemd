@@ -24,6 +24,9 @@ ADDITIONAL_DEPS=(
     python3-pefile
     python3-pyparsing
     rpm
+    rustc
+    rustfmt
+    rust-clippy
     zstd
 )
 
@@ -54,7 +57,7 @@ for phase in "${PHASES[@]}"; do
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
             pip3 install -r .github/workflows/requirements.txt --require-hashes
             ;;
-        RUN|RUN_GCC|RUN_CLANG|RUN_CLANG_RELEASE)
+        RUN|RUN_GCC|RUN_GCC_RUST|RUN_CLANG|RUN_CLANG_RELEASE|RUN_CLANG_RUST)
             if [[ "$phase" =~ ^RUN_CLANG ]]; then
                 export CC=clang
                 export CXX=clang++
@@ -75,7 +78,10 @@ for phase in "${PHASES[@]}"; do
             # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
             find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
             MESON_ARGS+=(--fatal-meson-warnings)
-            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
+            if [[ "$phase" = "RUN_GCC_RUST" ]] || [[ "$phase" = "RUN_CLANG_RUST" ]]; then
+                MESON_ARGS=(-Dbuild-rust=true)
+            fi
+            run_meson -Drust_args="--deny warnings" -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;
@@ -114,6 +120,17 @@ for phase in "${PHASES[@]}"; do
             # to identify the culprit (since the issue is not reproducible
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
+            (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
+            meson test --timeout-multiplier=3 -C build --print-errorlogs
+	    ;;
+        RUN_CLANG_RUST_CLIPPY)
+            export CC=clang
+            export CXX=clang++
+            export RUSTC=clippy-driver
+
+            find src/ -name '*.rs' -print0 | xargs rustfmt --check
+            meson --werror -Drust_args="--deny warnings" -Dfuzz-tests=true -Dtests=unsafe -Dbuild-rust=true build
+            ninja -C build -v
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
             meson test --timeout-multiplier=3 -C build --print-errorlogs
             ;;

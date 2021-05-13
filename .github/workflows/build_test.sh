@@ -16,6 +16,28 @@ ARGS=(
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
 )
+
+# Note that we cannot use the above array, and also we cannot use -Drust_args= because
+# bash will add quotes around the whole -Drust_args to prevent word splitting, but that
+# means Meson will break. So we use a separate array, and the env var RUSTFLAGS.
+RUST_ARGS=(
+    "--deny=warnings -Copt-level=3"
+    "--deny=warnings -Copt-level=s"
+    "--deny=warnings -Copt-level=3"
+    "--deny=warnings -Copt-level=3"
+    "--deny=warnings -Copt-level=3"
+    "--deny=warnings -Copt-level=3"
+    "--deny=warnings -Cdebug-assertions=off"
+)
+
+if [[ "$COMPILER" == "clang" ]]; then
+      ARGS+=("--optimization=3 -Db_lto=true")
+      RUST_ARGS+=("--deny=warnings -Copt-level=3 -Clinker-plugin-lto")
+else
+      ARGS+=("--optimization=3 -Db_lto=true")
+      RUST_ARGS+=("--deny=warnings -Copt-level=3")
+fi
+
 PACKAGES=(
     cryptsetup-bin
     expect
@@ -105,6 +127,11 @@ else
     fatal "Unknown compiler: $COMPILER"
 fi
 
+if [ -n "${RUST}" ]; then
+    PACKAGES+=(rustc)
+    BUILD_RUST="-Dbuild-rust=true"
+fi
+
 # PPA with some newer build dependencies (like zstd)
 add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
@@ -121,7 +148,7 @@ $CC --version
 meson --version
 ninja --version
 
-for args in "${ARGS[@]}"; do
+for i in "${!ARGS[@]}"; do
     SECONDS=0
 
     # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
@@ -132,27 +159,28 @@ for args in "${ARGS[@]}"; do
     # mold < 1.1 does not support LTO.
     if dpkg --compare-versions "$(dpkg-query --showformat='${Version}' --show mold)" ge 1.1; then
         fatal "Newer mold version detected, please remove this workaround."
-    elif [[ "$args" == *"-Db_lto=true"* ]]; then
+    elif [[ "${ARGS[$i]}" == *"-Db_lto=true"* ]]; then
         LD="gold"
     else
         LD="$LINKER"
     fi
 
-    info "Checking build with $args"
+    info "Checking build with ${ARGS[$i]}"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
          CC="$CC" CC_LD="$LD" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
+         RUSTFLAGS="${RUST_ARGS[$i]}" \
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
-               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" \
-               $args build; then
+               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" ${BUILD_RUST} \
+               ${ARGS[$i]} build; then
 
         cat build/meson-logs/meson-log.txt
-        fatal "meson failed with $args"
+        fatal "meson failed with ${ARGS[$i]}"
     fi
 
     if ! meson compile -C build -v; then
-        fatal "'meson compile' failed with $args"
+        fatal "'meson compile' failed with ${ARGS[$i]}"
     fi
 
     for loader in build/src/boot/efi/*.efi; do
@@ -163,5 +191,5 @@ for args in "${ARGS[@]}"; do
 
     git clean -dxf
 
-    success "Build with $args passed in $SECONDS seconds"
+    success "Build with ${ARGS[$i]} passed in $SECONDS seconds"
 done

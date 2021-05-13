@@ -44,3 +44,4 @@ BuildPackages=
         python-docutils
         python-jinja
         python-lxml
+        rust

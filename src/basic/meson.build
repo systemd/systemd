@@ -468,3 +468,21 @@ libbasic_compress = static_library(
                         liblz4],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
+
+############################################################
+
+# Basic helpers written in Rust. If not available, use the
+# C versions.
+if want_rust
+        basic_rust_sources = files(
+                'string-util.rs')
+
+        # Basic helpers written in Rust.
+        libbasic_rust = static_library(
+                'basic_rust',
+                basic_rust_sources,
+                dependencies: [libstd_rust],
+                rust_crate_type: 'object')
+else
+        libbasic_rust = []
+endif
