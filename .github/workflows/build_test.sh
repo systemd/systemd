@@ -53,6 +53,7 @@ PACKAGES=(
     python3-pyparsing
     python3-setuptools
     quota
+    rustc
     strace
     unifont
     util-linux
