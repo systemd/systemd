@@ -353,7 +353,7 @@ static void boot_entry_file_list(const char *field, const char *root, const char
                 *ret_status = status;
 }
 
-static int boot_entry_show(const BootEntry *e, bool show_as_default) {
+static int boot_entry_show(const BootEntry *e, bool show_as_default, int seq) {
         int status = 0;
 
         /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
@@ -367,6 +367,8 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
 
         if (e->id)
                 printf("           id: %s\n", e->id);
+        if (seq > 0)
+                printf("     short-id: @%d\n", seq);
         if (e->path) {
                 _cleanup_free_ char *link = NULL;
 
@@ -453,7 +455,7 @@ static int status_entries(
         else {
                 printf("Default Boot Loader Entry:\n");
 
-                r = boot_entry_show(config.entries + config.default_entry, false);
+                r = boot_entry_show(config.entries + config.default_entry, false, -1);
                 if (r > 0)
                         /* < 0 is already logged by the function itself, let's just emit an extra warning if
                            the default entry is broken */
@@ -1435,7 +1437,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 printf("Boot Loader Entries:\n");
 
                 for (n = 0; n < config.n_entries; n++) {
-                        r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
+                        r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry, n + 1);
                         if (r < 0)
                                 return r;
 
@@ -1761,6 +1763,58 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
         return EXIT_SUCCESS;
 }
 
+static int search_short_id(size_t n, char **ret) {
+        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_strv_free_ char **efi_entries = NULL;
+        int r;
+
+        if (n < 1)
+            return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter '@%lu' out of range (min: 1)", n);
+
+        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
+         * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
+         * the latter but not the former, hence request the mode, and log about EACCES. */
+
+        r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, NULL);
+        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+                return log_error_errno(r, "Failed to determine ESP: %m");
+        if (r < 0)
+                return r;
+
+        r = acquire_xbootldr(geteuid() != 0, NULL);
+        if (r == -EACCES)
+                return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
+        if (r < 0)
+                return r;
+
+        r = boot_entries_load_config(arg_esp_path, arg_xbootldr_path, &config);
+        if (r < 0)
+                return r;
+
+        r = efi_loader_get_entries(&efi_entries);
+        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                log_debug_errno(r, "Boot loader reported no entries.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
+        else
+                (void) boot_entries_augment_from_loader(&config, efi_entries, false);
+
+        if (config.n_entries == 0)
+                log_info("No boot loader entries found.");
+        else {
+                if (n > config.n_entries)
+                    return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter '@%lu' out of range (max: %ld)", n, config.n_entries);
+                n -= 1;
+                if (!(config.entries + n)->id)
+                    return log_error_errno(SYNTHETIC_ERRNO(ENAVAIL), "No 'id' available");
+                *ret = strdup((config.entries + n)->id);
+                if (!*ret)
+                    return log_oom();
+        }
+
+        return 0;
+}
+
 static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target, size_t *ret_target_size) {
         int r;
         if (streq(arg1, "@current")) {
@@ -1775,6 +1829,17 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
                 r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntryDefault", NULL, (void *) ret_target, ret_target_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
+        } else if (strlen(arg1) > 1 && arg1[0] == '@' && isdigit(arg1[1])) {
+                _cleanup_free_ char *s = NULL;
+                char16_t *encoded = NULL;
+                r = search_short_id(strtoul(arg1+1, NULL, 0), &s);
+                if (r < 0)
+                        return r;
+                encoded = utf8_to_utf16(s, strlen(s));
+                if (!encoded)
+                        return log_oom();
+                *ret_target = encoded;
+                *ret_target_size = char16_strlen(encoded) * 2 + 2;
         } else {
                 char16_t *encoded = NULL;
                 encoded = utf8_to_utf16(arg1, strlen(arg1));
