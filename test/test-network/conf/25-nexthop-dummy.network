@@ -1,0 +1,13 @@
+[Match]
+Name=dummy98
+
+[Network]
+Address=192.168.20.20/24
+
+[NextHop]
+Id=20
+Gateway=192.168.20.1
+
+[NextHop]
+Id=21
+Group=1:3 20:1
