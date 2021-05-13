@@ -1220,7 +1220,7 @@ static int append_nexthop_one(const Route *route, const MultipathRoute *m, struc
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
                 .rtnh_ifindex = m->ifindex,
-                .rtnh_hops = m->weight > 0 ? m->weight - 1 : 0,
+                .rtnh_hops = m->weight,
         };
 
         (*rta)->rta_len += sizeof(struct rtnexthop);
@@ -2779,11 +2779,16 @@ int config_parse_multipath_route(
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
                         return 0;
                 }
+                /* ip command takes weight in the range 1…255, while kernel takes the value in the
+                 * range 0…254. MultiPathRoute= setting also takes weight in the same range which ip
+                 * command uses, then networkd decreases by one and stores it to match the range which
+                 * kernel uses. */
                 if (m->weight == 0 || m->weight > 256) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
                         return 0;
                 }
+                m->weight--;
         }
 
         r = ordered_set_ensure_put(&n->multipath_routes, NULL, m);
