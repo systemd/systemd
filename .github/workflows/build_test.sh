@@ -7,15 +7,21 @@ fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
-    "--optimization=0"
-    "--optimization=2"
-    "--optimization=s"
-    "--optimization=3 -Db_lto=true"
-    "--optimization=3 -Db_lto=false"
-    "--optimization=3 -Ddns-over-tls=openssl"
-    "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
-    "-Db_ndebug=true"
+    "--optimization=0 -Drust_args='--deny warnings -Copt-level=0'"
+    "--optimization=2 -Drust_args='--deny warnings -Copt-level=2'"
+    "--optimization=s -Drust_args='--deny warnings -Copt-level=s'"
+    "--optimization=3 -Db_lto=false -Drust_args='--deny warnings -Copt-level=3'"
+    "--optimization=3 -Ddns-over-tls=openssl -Drust_args='--deny warnings -Copt-level=3'"
+    "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true -Drust_args='--deny warnings -Copt-level=3'"
+    "-Db_ndebug=true -Drust_args='--deny warnings -Cdebug-assertions=off'"
 )
+
+if [[ "$COMPILER" == "clang" ]]; then
+      ARGS+=("--optimization=3 -Db_lto=true -Drust_args='--deny warnings -Copt-level=3 -Clinker-plugin-lto'")
+else
+      ARGS+=("--optimization=3 -Db_lto=true -Drust_args='--deny warnings -Copt-level=3'")
+fi
+
 PACKAGES=(
     cryptsetup-bin
     expect
@@ -88,6 +94,11 @@ else
     fatal "Unknown compiler: $COMPILER"
 fi
 
+if [ -n "${RUST}" ]; then
+    PACKAGES+=(rustc)
+    RUST="-Dbuild-rust=true"
+fi
+
 # PPA with some newer build dependencies (like zstd)
 add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
@@ -108,7 +119,7 @@ for args in "${ARGS[@]}"; do
     SECONDS=0
 
     info "Checking build with $args"
-    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror $args build; then
+    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" eval "meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror ${RUST} $args build"; then
         fatal "meson failed with $args"
     fi
 

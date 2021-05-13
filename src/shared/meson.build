@@ -421,6 +421,7 @@ libshared = shared_library(
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
+                      libbasic_rust,
                       libsystemd_static],
         c_args : ['-fvisibility=default'],
         dependencies : libshared_deps,
