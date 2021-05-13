@@ -1364,9 +1364,9 @@ static int service_allocate_exec_fd_event_source(
 static int service_allocate_exec_fd(
                 Service *s,
                 sd_event_source **ret_event_source,
-                int* ret_exec_fd) {
+                int *ret_exec_fd) {
 
-        _cleanup_close_pair_ int p[2] = { -1, -1 };
+        _cleanup_close_pair_ int p[] = { -1, -1 };
         int r;
 
         assert(s);
@@ -1380,7 +1380,7 @@ static int service_allocate_exec_fd(
         if (r < 0)
                 return r;
 
-        p[0] = -1;
+        TAKE_FD(p[0]);
         *ret_exec_fd = TAKE_FD(p[1]);
 
         return 0;
@@ -1410,7 +1410,7 @@ static int service_spawn(
                 ExecCommand *c,
                 usec_t timeout,
                 ExecFlags flags,
-                pid_t *_pid) {
+                pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = flags,
@@ -1427,7 +1427,7 @@ static int service_spawn(
 
         assert(s);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
@@ -1582,7 +1582,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        *_pid = pid;
+        *ret_pid = pid;
 
         return 0;
 }
@@ -3455,16 +3455,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                     s->type == SERVICE_ONESHOT &&
                     f == SERVICE_SUCCESS) {
 
-                        /* There is another command to *
-                         * execute, so let's do that. */
+                        /* There is another command to execute, so let's do that. */
 
                         log_unit_debug(u, "Running next main command for state %s.", service_state_to_string(s->state));
                         service_run_next_main(s);
 
                 } else {
 
-                        /* The service exited, so the service is officially
-                         * gone. */
+                        /* The service exited, so the service is officially gone. */
                         s->main_command = NULL;
 
                         switch (s->state) {
@@ -3481,8 +3479,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_STOP:
-                                /* Need to wait until the operation is
-                                 * done */
+                                /* Need to wait until the operation is done. */
                                 break;
 
                         case SERVICE_START:

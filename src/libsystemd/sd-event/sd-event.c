@@ -3462,11 +3462,11 @@ static int source_dispatch(sd_event_source *s) {
          * invalidate the event. */
         saved_type = s->type;
 
-        /* Similar, store a reference to the event loop object, so that we can still access it after the
+        /* Similarly, store a reference to the event loop object, so that we can still access it after the
          * callback might have invalidated/disconnected the event source. */
         saved_event = sd_event_ref(s->event);
 
-        /* Check if we hit the ratelimit for this event source, if so, let's disable it. */
+        /* Check if we hit the ratelimit for this event source, and if so, let's disable it. */
         assert(!s->ratelimited);
         if (!ratelimit_below(&s->rate_limit)) {
                 r = event_source_enter_ratelimited(s);
@@ -3485,8 +3485,7 @@ static int source_dispatch(sd_event_source *s) {
         if (s->type != SOURCE_POST) {
                 sd_event_source *z;
 
-                /* If we execute a non-post source, let's mark all
-                 * post sources as pending */
+                /* If we execute a non-post source, let's mark all post sources as pending. */
 
                 SET_FOREACH(z, s->event->post_sources) {
                         if (event_source_is_offline(z))
