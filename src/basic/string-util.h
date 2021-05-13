@@ -236,7 +236,7 @@ static inline char* str_realloc(char *p) {
 char* string_erase(char *x);
 
 int string_truncate_lines(const char *s, size_t n_lines, char **ret);
-int string_extract_line(const char *s, size_t i, char **ret);
+extern int string_extract_line(const char *s, size_t i, char **ret);
 
 int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word);
 static inline int string_contains_word(const char *string, const char *separators, const char *word) {
