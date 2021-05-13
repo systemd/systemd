@@ -2752,6 +2752,12 @@ int config_parse_multipath_route(
         if (dev) {
                 *dev++ = '\0';
 
+                if (!ifname_valid_full(dev, IFNAME_VALID_NUMERIC | IFNAME_VALID_ALTERNATIVE)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid interface name '%s' in %s=, ignoring: %s", dev, lvalue, rvalue);
+                        return 0;
+                }
+
                 m->ifname = strdup(dev);
                 if (!m->ifname)
                         return log_oom();
