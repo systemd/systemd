@@ -1327,7 +1327,7 @@ static int manager_load_key_pair(Manager *m) {
                 m->private_key = NULL;
         }
 
-        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f);
+        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1457,7 +1457,7 @@ int manager_sign_user_record(Manager *m, UserRecord *u, UserRecord **ret, sd_bus
         if (r < 0)
                 return r;
         if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_PRIVATE_KEY, "Can't sign without local key.");
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRIVATE_KEY, "Can't sign without local key.");
 
         return user_record_sign(u, m->private_key, ret);
 }

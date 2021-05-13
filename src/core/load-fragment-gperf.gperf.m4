@@ -234,7 +234,10 @@ $1.ManagedOOMSwap,                       config_parse_managed_oom_mode,         
 $1.ManagedOOMMemoryPressure,             config_parse_managed_oom_mode,               0,                                  offsetof($1, cgroup_context.moom_mem_pressure)
 $1.ManagedOOMMemoryPressureLimit,        config_parse_managed_oom_mem_pressure_limit, 0,                                  offsetof($1, cgroup_context.moom_mem_pressure_limit)
 $1.ManagedOOMPreference,                 config_parse_managed_oom_preference,         0,                                  offsetof($1, cgroup_context.moom_preference)
-$1.NetClass,                             config_parse_warn_compat,                    DISABLED_LEGACY,                    0'
+$1.NetClass,                             config_parse_warn_compat,                    DISABLED_LEGACY,                    0
+$1.BPFProgram,                           config_parse_bpf_foreign_program,            0,                                  offsetof($1, cgroup_context)
+$1.SocketBindAllow,                      config_parse_cgroup_socket_bind,             0,                                  offsetof($1, cgroup_context.socket_bind_allow)
+$1.SocketBindDeny,                       config_parse_cgroup_socket_bind,             0,                                  offsetof($1, cgroup_context.socket_bind_deny)'
 )m4_dnl
 Unit.Description,                        config_parse_unit_string_printf,             0,                                  offsetof(Unit, description)
 Unit.Documentation,                      config_parse_documentation,                  0,                                  offsetof(Unit, documentation)
@@ -294,6 +297,7 @@ Unit.ConditionFileIsExecutable,          config_parse_unit_condition_path,      
 Unit.ConditionNeedsUpdate,               config_parse_unit_condition_path,            CONDITION_NEEDS_UPDATE,             offsetof(Unit, conditions)
 Unit.ConditionFirstBoot,                 config_parse_unit_condition_string,          CONDITION_FIRST_BOOT,               offsetof(Unit, conditions)
 Unit.ConditionArchitecture,              config_parse_unit_condition_string,          CONDITION_ARCHITECTURE,             offsetof(Unit, conditions)
+Unit.ConditionFirmware,                  config_parse_unit_condition_string,          CONDITION_FIRMWARE,                 offsetof(Unit, conditions)
 Unit.ConditionVirtualization,            config_parse_unit_condition_string,          CONDITION_VIRTUALIZATION,           offsetof(Unit, conditions)
 Unit.ConditionHost,                      config_parse_unit_condition_string,          CONDITION_HOST,                     offsetof(Unit, conditions)
 Unit.ConditionKernelCommandLine,         config_parse_unit_condition_string,          CONDITION_KERNEL_COMMAND_LINE,      offsetof(Unit, conditions)
@@ -359,6 +363,7 @@ Service.StartLimitAction,                config_parse_emergency_action,         
 Service.FailureAction,                   config_parse_emergency_action,               0,                                  offsetof(Unit, failure_action)
 Service.RebootArgument,                  config_parse_unit_string_printf,             0,                                  offsetof(Unit, reboot_arg)
 Service.Type,                            config_parse_service_type,                   0,                                  offsetof(Service, type)
+Service.ExitType,                        config_parse_service_exit_type,              0,                                  offsetof(Service, exit_type)
 Service.Restart,                         config_parse_service_restart,                0,                                  offsetof(Service, restart)
 Service.PermissionsStartOnly,            config_parse_bool,                           0,                                  offsetof(Service, permissions_start_only)
 Service.RootDirectoryStartOnly,          config_parse_bool,                           0,                                  offsetof(Service, root_directory_start_only)

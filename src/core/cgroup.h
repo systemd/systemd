@@ -31,6 +31,8 @@ typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
 typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
+typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
+typedef struct CGroupSocketBindItem CGroupSocketBindItem;
 
 typedef enum CGroupDevicePolicy {
         /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
@@ -94,6 +96,19 @@ struct CGroupBlockIODeviceBandwidth {
         uint64_t wbps;
 };
 
+struct CGroupBPFForeignProgram {
+        LIST_FIELDS(CGroupBPFForeignProgram, programs);
+        uint32_t attach_type;
+        char *bpffs_path;
+};
+
+struct CGroupSocketBindItem {
+        LIST_FIELDS(CGroupSocketBindItem, socket_bind_items);
+        int address_family;
+        uint16_t nr_ports;
+        uint16_t port_min;
+};
+
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -142,6 +157,7 @@ struct CGroupContext {
 
         char **ip_filters_ingress;
         char **ip_filters_egress;
+        LIST_HEAD(CGroupBPFForeignProgram, bpf_foreign_programs);
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;
@@ -156,6 +172,9 @@ struct CGroupContext {
 
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
+
+        LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
+        LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
 
         /* Common */
         TasksMax tasks_max;
@@ -195,6 +214,7 @@ usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix);
+void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);
@@ -202,8 +222,11 @@ void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *
 void cgroup_context_free_io_device_latency(CGroupContext *c, CGroupIODeviceLatency *l);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
+void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p);
+void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
 
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 

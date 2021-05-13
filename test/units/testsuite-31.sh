@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-set -e
+set -eux
 set -o pipefail
 
 if journalctl -b -t systemd --grep '\.device: Changed plugged -> dead'; then
     exit 1
 fi
 
-echo OK > /testok
+echo OK >/testok
 exit 0

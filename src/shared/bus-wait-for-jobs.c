@@ -181,10 +181,10 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         assert(service);
 
-        service_shell_quoted = shell_maybe_quote(service, ESCAPE_BACKSLASH);
+        service_shell_quoted = shell_maybe_quote(service, 0);
 
         if (!strv_isempty((char**) extra_args)) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strv_join((char**) extra_args, " ");
                 systemctl = strjoina("systemctl ", t ? : "<args>");
@@ -306,7 +306,8 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                         if (q < 0 && r == 0)
                                 r = q;
 
-                        log_debug_errno(q, "Got result %s/%m for job %s", d->result, d->name);
+                        log_full_errno_zerook(LOG_DEBUG, q,
+                                              "Got result %s/%m for job %s", d->result, d->name);
                 }
 
                 d->name = mfree(d->name);

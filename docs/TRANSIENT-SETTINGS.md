@@ -68,6 +68,7 @@ Most generic unit settings are available for transient units.
 ✓ ConditionKernelCommandLine=
 ✓ ConditionKernelVersion=
 ✓ ConditionArchitecture=
+✓ ConditionFirmware=
 ✓ ConditionVirtualization=
 ✓ ConditionSecurity=
 ✓ ConditionCapability=
@@ -303,6 +304,7 @@ Most service unit settings are available for transient units.
 ✓ ExecStartPre=
 ✓ ExecStop=
 ✓ ExecStopPost=
+✓ ExitType=
 ✓ FileDescriptorStoreMax=
 ✓ GuessMainPID=
 ✓ NonBlocking=

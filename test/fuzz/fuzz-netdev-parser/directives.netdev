@@ -22,6 +22,7 @@ Mode=
 SourceMACAddress=
 [Match]
 Architecture=
+Firmware=
 Host=
 KernelVersion=
 Virtualization=
@@ -233,4 +234,6 @@ HopPenalty=
 OriginatorIntervalSec=
 GatewayBandwithDown=
 GatewayBandwithUp=
+GatewayBandwidthDown=
+GatewayBandwidthUp=
 RoutingAlgorithm=

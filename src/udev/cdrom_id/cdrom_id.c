@@ -302,10 +302,22 @@ static int cd_capability_compat(Context *c) {
 }
 
 static int cd_media_compat(Context *c) {
+        int r;
+
         assert(c);
 
-        if (ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
-                return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
+        r = ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT);
+        if (r < 0)
+                return log_debug_errno(errno, "ioctl(CDROM_DRIVE_STATUS) failed: %m");
+        if (r != CDS_DISC_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "ioctl(CDROM_DRIVE_STATUS) → %d (%s), ignoring.",
+                                       r,
+                                       r == CDS_NO_INFO ? "no info" :
+                                       r == CDS_NO_DISC ? "no disc" :
+                                       r == CDS_TRAY_OPEN ? "tray open" :
+                                       r == CDS_DRIVE_NOT_READY ? "drive not ready" :
+                                       "unknown status");
 
         c->has_media = true;
         return 0;
@@ -327,7 +339,7 @@ static int cd_inquiry(Context *c) {
                 return r;
 
         if ((inq[0] & 0x1F) != 5)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Not an MMC unit");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Not an MMC unit.");
 
         log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
         return 0;
@@ -437,7 +449,7 @@ static int cd_profiles(Context *c) {
         log_debug("GET CONFIGURATION: size of features buffer %zu", len);
 
         if (len > sizeof(features)) {
-                log_debug("cannot get features in a single query, truncating");
+                log_debug("Cannot get features in a single query, truncating.");
                 len = sizeof(features);
         } else if (len <= 8)
                 len = sizeof(features);
@@ -457,7 +469,7 @@ static int cd_profiles(Context *c) {
         log_debug("GET CONFIGURATION: size of features buffer %zu", len);
 
         if (len > sizeof(features)) {
-                log_debug("cannot get features in a single query, truncating");
+                log_debug("Cannot get features in a single query, truncating.");
                 len = sizeof(features);
         }
 
@@ -516,7 +528,7 @@ static int dvd_ram_media_update_state(Context *c) {
 
         if (dvdstruct[4] & 0x02) {
                 c->media_state = MEDIA_STATE_COMPLETE;
-                log_debug("write-protected DVD-RAM media inserted");
+                log_debug("Write-protected DVD-RAM media inserted");
                 return 1;
         }
 
@@ -532,24 +544,24 @@ static int dvd_ram_media_update_state(Context *c) {
         len = format[3];
         if (len & 7 || len < 16)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "invalid format capacities length");
+                                       "Invalid format capacities length.");
 
         switch(format[8] & 3) {
         case 1:
                 /* This means that last format was interrupted or failed, blank dvd-ram discs are
                  * factory formatted. Take no action here as it takes quite a while to reformat a
                  * dvd-ram and it's not automatically started. */
-                log_debug("unformatted DVD-RAM media inserted");
+                log_debug("Unformatted DVD-RAM media inserted.");
                 return 1;
 
         case 2:
-                log_debug("formatted DVD-RAM media inserted");
+                log_debug("Formatted DVD-RAM media inserted.");
                 return 0;
 
         case 3:
                 c->has_media = false;
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                       "format capacities returned no media");
+                                       "Format capacities returned no media.");
         }
 
         return 0;
@@ -586,17 +598,17 @@ static int dvd_media_update_state(Context *c) {
 
         for (size_t offset = 32768; offset < 32768 + 2048; offset++)
                 if (buffer[offset] != 0) {
-                        log_debug("data in block 16, assuming complete");
+                        log_debug("Data in block 16, assuming complete.");
                         return 0;
                 }
 
         for (size_t offset = 0; offset < 2048; offset++)
                 if (buffer[offset] != 0) {
-                        log_debug("data in block 0, assuming complete");
+                        log_debug("Data in block 0, assuming complete.");
                         return 0;
                 }
 
-        log_debug("no data in blocks 0 or 16, assuming blank");
+        log_debug("No data in blocks 0 or 16, assuming blank.");
         c->media_state = MEDIA_STATE_BLANK;
         return 0;
 }
@@ -730,25 +742,23 @@ static int cd_media_toc(Context *c) {
 }
 
 static int open_drive(Context *c) {
-        _cleanup_close_ int fd = -1;
+        int fd;
 
         assert(c);
         assert(c->fd < 0);
 
-        for (int cnt = 0; cnt < 20; cnt++) {
-                if (cnt != 0)
-                        (void) usleep(100 * USEC_PER_MSEC + random_u64() % (100 * USEC_PER_MSEC));
-
+        for (int cnt = 0;; cnt++) {
                 fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
-                if (fd >= 0 || errno != EBUSY)
+                if (fd >= 0)
                         break;
+                if (++cnt >= 20 || errno != EBUSY)
+                        return log_debug_errno(errno, "Unable to open '%s': %m", arg_node);
+
+                (void) usleep(100 * USEC_PER_MSEC + random_u64_range(100 * USEC_PER_MSEC));
         }
-        if (fd < 0)
-                return log_debug_errno(errno, "Unable to open '%s'", arg_node);
 
         log_debug("probing: '%s'", arg_node);
-
-        c->fd = TAKE_FD(fd);
+        c->fd = fd;
         return 0;
 }
 
@@ -820,7 +830,7 @@ static void print_feature(Feature feature, const char *prefix) {
 
         found = typesafe_bsearch(&in, feature_to_string, ELEMENTSOF(feature_to_string), feature_to_string_compare_func);
         if (!found)
-                return (void) log_debug("Unknown feature 0x%02x, ignoring", (unsigned) feature);
+                return (void) log_debug("Unknown feature 0x%02x, ignoring.", (unsigned) feature);
 
         printf("%s_%s=1\n", prefix, found->str);
 }
@@ -939,7 +949,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_node = argv[optind];
         if (!arg_node)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device is specified.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device specified.");
 
         return 1;
 }

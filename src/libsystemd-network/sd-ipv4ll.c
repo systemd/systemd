@@ -49,10 +49,16 @@ struct sd_ipv4ll {
         void* userdata;
 };
 
-#define log_ipv4ll_errno(ll, error, fmt, ...)                           \
-        log_interface_full_errno(sd_ipv4ll_get_ifname(ll), LOG_DEBUG, error, "IPV4LL: " fmt, ##__VA_ARGS__)
+#define log_ipv4ll_errno(ll, error, fmt, ...)           \
+        log_interface_prefix_full_errno(                \
+                "IPv4LL: ",                             \
+                sd_ipv4ll_get_ifname(ll),               \
+                error, fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...)                        \
-        log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
+        log_interface_prefix_full_errno_zerook(         \
+                "IPv4LL: ",                             \
+                sd_ipv4ll_get_ifname(ll),               \
+                0, fmt, ##__VA_ARGS__)
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
@@ -110,6 +116,13 @@ int sd_ipv4ll_get_ifindex(sd_ipv4ll *ll) {
                 return -EINVAL;
 
         return sd_ipv4acd_get_ifindex(ll->acd);
+}
+
+int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *ifname) {
+        assert_return(ll, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        return sd_ipv4acd_set_ifname(ll->acd, ifname);
 }
 
 const char *sd_ipv4ll_get_ifname(sd_ipv4ll *ll) {

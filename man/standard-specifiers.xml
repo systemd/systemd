@@ -4,15 +4,20 @@
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <tbody>
-  <row id='b'>
-    <entry><literal>%b</literal></entry>
-    <entry>Boot ID</entry>
-    <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-  </row>
   <row id='a'>
     <entry><literal>%a</literal></entry>
     <entry>Architecture</entry>
     <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a full list.</entry>
+  </row>
+  <row id='A'>
+    <entry><literal>%A</literal></entry>
+    <entry>Operating system image version</entry>
+    <entry>The operating system image version identifier of the running system, as read from the <varname>IMAGE_VERSION=</varname> field of <filename>/etc/os-release</filename>. If not set, resolves to an empty string. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='b'>
+    <entry><literal>%b</literal></entry>
+    <entry>Boot ID</entry>
+    <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
   </row>
   <row id='B'>
     <entry><literal>%B</literal></entry>
@@ -33,6 +38,11 @@
     <entry><literal>%m</literal></entry>
     <entry>Machine ID</entry>
     <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='M'>
+    <entry><literal>%M</literal></entry>
+    <entry>Operating system image identifier</entry>
+    <entry>The operating system image identifier of the running system, as read from the <varname>IMAGE_ID=</varname> field of <filename>/etc/os-release</filename>. If not set, resolves to an empty string. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
   </row>
   <row id='o'>
     <entry><literal>%o</literal></entry>

@@ -17,7 +17,7 @@ int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *
                 return r;
 
         if (ifindex <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         *ret = ifindex;
 
@@ -62,7 +62,7 @@ int bus_message_read_in_addr_auto(sd_bus_message *message, sd_bus_error *error, 
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
         if (sz != FAMILY_ADDRESS_SIZE(family))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
         if (ret_family)
                 *ret_family = family;
@@ -98,8 +98,11 @@ static int bus_message_read_dns_one(
         if (r < 0)
                 return r;
 
-        if (!dns_server_address_valid(family, &a))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+        if (!dns_server_address_valid(family, &a)) {
+                r = sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                assert(r < 0);
+                return r;
+        }
 
         if (extended) {
                 r = sd_bus_message_read(message, "q", &port);

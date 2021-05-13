@@ -73,12 +73,14 @@ bool link_ipv6_accept_ra_enabled(Link *link);
 void network_adjust_ipv6_accept_ra(Network *network);
 
 int ndisc_configure(Link *link);
+int ndisc_start(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_address_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_generation_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_use_domains);
 
 const char* ipv6_accept_ra_start_dhcp6_client_to_string(IPv6AcceptRAStartDHCP6Client i) _const_;
 IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client_from_string(const char *s) _pure_;

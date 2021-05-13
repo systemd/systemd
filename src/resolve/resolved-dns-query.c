@@ -183,7 +183,7 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         if (c->error_code != 0)
                 return DNS_TRANSACTION_ERRNO;
 
-        SET_FOREACH(t, c->transactions) {
+        SET_FOREACH(t, c->transactions)
 
                 switch (t->state) {
 
@@ -213,7 +213,6 @@ static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
 
                         break;
                 }
-        }
 
         return state;
 }
@@ -232,7 +231,7 @@ static int dns_query_candidate_setup_transactions(DnsQueryCandidate *c) {
 
                 assert(dns_question_size(c->query->question_bypass->question) == 1);
 
-                if (!dns_scope_good_key(c->scope, c->query->question_bypass->question->keys[0]))
+                if (!dns_scope_good_key(c->scope, dns_question_first_key(c->query->question_bypass->question)))
                         return 0;
 
                 r = dns_query_candidate_add_transaction(c, NULL, c->query->question_bypass);
@@ -496,14 +495,14 @@ int dns_query_new(
                         log_debug("Looking up bypass packet for %s.",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));
         } else {
-                /* First dump UTF8  question */
+                /* First dump UTF8 question */
                 DNS_QUESTION_FOREACH(key, question_utf8)
                         log_debug("Looking up RR for %s.",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));
 
                 /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
                 DNS_QUESTION_FOREACH(key, question_idna) {
-                        r = dns_question_contains(question_utf8, key);
+                        r = dns_question_contains_key(question_utf8, key);
                         if (r < 0)
                                 return r;
                         if (r > 0)

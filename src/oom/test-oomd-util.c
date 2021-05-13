@@ -88,9 +88,10 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *cgroup = NULL;
+        ManagedOOMPreference root_pref;
         OomdCGroupContext *c1, *c2;
         bool test_xattrs;
-        int r;
+        int root_xattrs, r;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
@@ -140,10 +141,16 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         ctx = oomd_cgroup_context_free(ctx);
 
         /* Test the root cgroup */
+        /* Root cgroup is live and not made on demand like the cgroup the test runs in. It can have varying
+         * xattrs set already so let's read in the booleans first to get the final preference value. */
+        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_omit");
+        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_OMIT : MANAGED_OOM_PREFERENCE_NONE;
+        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_avoid");
+        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE;
         assert_se(oomd_cgroup_context_acquire("", &ctx) == 0);
         assert_se(streq(ctx->path, "/"));
         assert_se(ctx->current_memory_usage > 0);
-        assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+        assert_se(ctx->preference == root_pref);
 
         /* Test hashmap inserts */
         assert_se(h1 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
@@ -153,9 +160,10 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup) == -EEXIST);
 
          /* make sure certain values from h1 get updated in h2 */
-        c1->pgscan = 5555;
+        c1->pgscan = UINT64_MAX;
         c1->mem_pressure_limit = 6789;
-        c1->last_hit_mem_pressure_limit = 42;
+        c1->mem_pressure_limit_hit_start = 42;
+        c1->last_had_mem_reclaim = 888;
         assert_se(h2 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
         assert_se(oomd_insert_cgroup_context(h1, h2, cgroup) == 0);
         c1 = hashmap_get(h1, cgroup);
@@ -163,9 +171,10 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(c1);
         assert_se(c2);
         assert_se(c1 != c2);
-        assert_se(c2->last_pgscan == 5555);
+        assert_se(c2->last_pgscan == UINT64_MAX);
         assert_se(c2->mem_pressure_limit == 6789);
-        assert_se(c2->last_hit_mem_pressure_limit == 42);
+        assert_se(c2->mem_pressure_limit_hit_start == 42);
+        assert_se(c2->last_had_mem_reclaim == 888); /* assumes the live pgscan is less than UINT64_MAX */
 
         /* Assert that avoid/omit are not set if the cgroup is not owned by root */
         if (test_xattrs) {
@@ -182,20 +191,22 @@ static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
         char **paths = STRV_MAKE("/0.slice",
                                  "/1.slice");
 
-        OomdCGroupContext ctx_old[3] = {
+        OomdCGroupContext ctx_old[2] = {
                 { .path = paths[0],
                   .mem_pressure_limit = 5,
-                  .last_hit_mem_pressure_limit = 777,
+                  .mem_pressure_limit_hit_start = 777,
+                  .last_had_mem_reclaim = 888,
                   .pgscan = 57 },
                 { .path = paths[1],
                   .mem_pressure_limit = 6,
-                  .last_hit_mem_pressure_limit = 888,
+                  .mem_pressure_limit_hit_start = 888,
+                  .last_had_mem_reclaim = 888,
                   .pgscan = 42 },
         };
 
-        OomdCGroupContext ctx_new[3] = {
+        OomdCGroupContext ctx_new[2] = {
                 { .path = paths[0],
-                  .pgscan = 100 },
+                  .pgscan = 57 },
                 { .path = paths[1],
                   .pgscan = 101 },
         };
@@ -214,13 +225,15 @@ static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
         assert_se(c_new = hashmap_get(h_new, "/0.slice"));
         assert_se(c_old->pgscan == c_new->last_pgscan);
         assert_se(c_old->mem_pressure_limit == c_new->mem_pressure_limit);
-        assert_se(c_old->last_hit_mem_pressure_limit == c_new->last_hit_mem_pressure_limit);
+        assert_se(c_old->mem_pressure_limit_hit_start == c_new->mem_pressure_limit_hit_start);
+        assert_se(c_old->last_had_mem_reclaim == c_new->last_had_mem_reclaim);
 
         assert_se(c_old = hashmap_get(h_old, "/1.slice"));
         assert_se(c_new = hashmap_get(h_new, "/1.slice"));
         assert_se(c_old->pgscan == c_new->last_pgscan);
         assert_se(c_old->mem_pressure_limit == c_new->mem_pressure_limit);
-        assert_se(c_old->last_hit_mem_pressure_limit == c_new->last_hit_mem_pressure_limit);
+        assert_se(c_old->mem_pressure_limit_hit_start == c_new->mem_pressure_limit_hit_start);
+        assert_se(c_new->last_had_mem_reclaim > c_old->last_had_mem_reclaim);
 }
 
 static void test_oomd_system_context_acquire(void) {
@@ -283,7 +296,7 @@ static void test_oomd_pressure_above(void) {
         assert_se(oomd_pressure_above(h1, 0 /* duration */, &t1) == 1);
         assert_se(set_contains(t1, &ctx[0]) == true);
         assert_se(c = hashmap_get(h1, "/herp.slice"));
-        assert_se(c->last_hit_mem_pressure_limit > 0);
+        assert_se(c->mem_pressure_limit_hit_start > 0);
 
         /* Low memory pressure */
         assert_se(h2 = hashmap_new(&string_hash_ops));
@@ -291,7 +304,7 @@ static void test_oomd_pressure_above(void) {
         assert_se(oomd_pressure_above(h2, 0 /* duration */, &t2) == 0);
         assert_se(t2 == NULL);
         assert_se(c = hashmap_get(h2, "/derp.slice"));
-        assert_se(c->last_hit_mem_pressure_limit == 0);
+        assert_se(c->mem_pressure_limit_hit_start == 0);
 
         /* High memory pressure w/ multiple cgroups */
         assert_se(hashmap_put(h1, "/derp.slice", &ctx[1]) >= 0);
@@ -299,50 +312,9 @@ static void test_oomd_pressure_above(void) {
         assert_se(set_contains(t3, &ctx[0]) == true);
         assert_se(set_size(t3) == 1);
         assert_se(c = hashmap_get(h1, "/herp.slice"));
-        assert_se(c->last_hit_mem_pressure_limit > 0);
+        assert_se(c->mem_pressure_limit_hit_start > 0);
         assert_se(c = hashmap_get(h1, "/derp.slice"));
-        assert_se(c->last_hit_mem_pressure_limit == 0);
-}
-
-static void test_oomd_memory_reclaim(void) {
-        _cleanup_hashmap_free_ Hashmap *h1 = NULL;
-        char **paths = STRV_MAKE("/0.slice",
-                                 "/1.slice",
-                                 "/2.slice",
-                                 "/3.slice",
-                                 "/4.slice");
-
-        OomdCGroupContext ctx[5] = {
-                { .path = paths[0],
-                  .last_pgscan = 100,
-                  .pgscan = 100 },
-                { .path = paths[1],
-                  .last_pgscan = 100,
-                  .pgscan = 100 },
-                { .path = paths[2],
-                  .last_pgscan = 77,
-                  .pgscan = 33 },
-                { .path = paths[3],
-                  .last_pgscan = UINT64_MAX,
-                  .pgscan = 100 },
-                { .path = paths[4],
-                  .last_pgscan = 100,
-                  .pgscan = UINT64_MAX },
-        };
-
-        assert_se(h1 = hashmap_new(&string_hash_ops));
-        assert_se(hashmap_put(h1, paths[0], &ctx[0]) >= 0);
-        assert_se(hashmap_put(h1, paths[1], &ctx[1]) >= 0);
-        assert_se(oomd_memory_reclaim(h1) == false);
-
-        assert_se(hashmap_put(h1, paths[2], &ctx[2]) >= 0);
-        assert_se(oomd_memory_reclaim(h1) == false);
-
-        assert_se(hashmap_put(h1, paths[4], &ctx[4]) >= 0);
-        assert_se(oomd_memory_reclaim(h1) == true);
-
-        assert_se(hashmap_put(h1, paths[3], &ctx[3]) >= 0);
-        assert_se(oomd_memory_reclaim(h1) == false);
+        assert_se(c->mem_pressure_limit_hit_start == 0);
 }
 
 static void test_oomd_swap_free_below(void) {
@@ -461,7 +433,6 @@ int main(void) {
         test_oomd_update_cgroup_contexts_between_hashmaps();
         test_oomd_system_context_acquire();
         test_oomd_pressure_above();
-        test_oomd_memory_reclaim();
         test_oomd_swap_free_below();
         test_oomd_sort_cgroups();
 

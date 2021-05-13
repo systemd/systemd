@@ -5,13 +5,14 @@
 #include "sd-lldp.h"
 
 #include "hashmap.h"
-#include "log.h"
+#include "log-link.h"
 #include "prioq.h"
 
 struct sd_lldp {
         unsigned n_ref;
 
         int ifindex;
+        char *ifname;
         int fd;
 
         sd_event *event;
@@ -32,8 +33,16 @@ struct sd_lldp {
         struct ether_addr filter_address;
 };
 
-#define log_lldp_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
-#define log_lldp(fmt, ...) log_lldp_errno(0, fmt, ##__VA_ARGS__)
-
 const char* lldp_event_to_string(sd_lldp_event_t e) _const_;
 sd_lldp_event_t lldp_event_from_string(const char *s) _pure_;
+
+#define log_lldp_errno(lldp, error, fmt, ...)           \
+        log_interface_prefix_full_errno(                \
+                "LLDP: ",                               \
+                sd_lldp_get_ifname(lldp),               \
+                error, fmt, ##__VA_ARGS__)
+#define log_lldp(lldp, fmt, ...)                        \
+        log_interface_prefix_full_errno_zerook(         \
+                "LLDP: ",                               \
+                sd_lldp_get_ifname(lldp),               \
+                0, fmt, ##__VA_ARGS__)

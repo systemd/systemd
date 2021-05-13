@@ -1158,7 +1158,7 @@ static int add_matches(sd_journal *j, char **args) {
 
                         if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
                                 if (executable_is_script(p, &interpreter) > 0) {
-                                        _cleanup_free_ char *comm;
+                                        _cleanup_free_ char *comm = NULL;
 
                                         comm = strndup(basename(p), 15);
                                         if (!comm)
@@ -1537,7 +1537,7 @@ static int get_possible_units(
                 char **patterns,
                 Set **units) {
 
-        _cleanup_set_free_free_ Set *found;
+        _cleanup_set_free_free_ Set *found = NULL;
         const char *field;
         int r;
 
@@ -2150,8 +2150,11 @@ int main(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
-                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|
-                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK : DISSECT_IMAGE_READ_ONLY),
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);
@@ -2179,7 +2182,7 @@ int main(int argc, char *argv[]) {
         case ACTION_LIST_CATALOG:
         case ACTION_DUMP_CATALOG:
         case ACTION_UPDATE_CATALOG: {
-                _cleanup_free_ char *database;
+                _cleanup_free_ char *database = NULL;
 
                 database = path_join(arg_root, CATALOG_DATABASE);
                 if (!database) {
@@ -2433,7 +2436,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *filter;
+                _cleanup_free_ char *filter = NULL;
 
                 filter = journal_make_match_string(j);
                 if (!filter)

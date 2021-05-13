@@ -588,7 +588,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
         const char *p;
         struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd;
+        _cleanup_close_ int proc_ns_dir_fd = -1;
 
         p = procfs_file_alloca(pid, "ns");
 
@@ -665,7 +665,7 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
         if (r < 0)
                 return r;
 
-        r = get_process_cmdline(container_pid, SIZE_MAX, 0, cmdline);
+        r = get_process_cmdline(container_pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, cmdline);
         if (r < 0)
                 return r;
 
@@ -703,14 +703,16 @@ static int submit_coredump(
                 struct iovec_wrapper *iovw,
                 int input_fd) {
 
+        _cleanup_(json_variant_unrefp) JsonVariant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
         char *core_message;
+        const char *module_name;
         uint64_t coredump_size = UINT64_MAX;
         bool truncated = false;
+        JsonVariant *module_json;
         int r;
-
         assert(context);
         assert(iovw);
         assert(input_fd >= 0);
@@ -757,7 +759,7 @@ static int submit_coredump(
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
         } else
-                coredump_make_stack_trace(coredump_fd, context->meta[META_EXE], &stacktrace);
+                coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
 log:
@@ -780,6 +782,34 @@ log:
 
         if (truncated)
                 (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+
+        /* If we managed to parse any ELF metadata (build-id, ELF package meta),
+         * attach it as journal metadata. */
+        if (json_metadata) {
+                _cleanup_free_ char *formatted_json = NULL;
+
+                r = json_variant_format(json_metadata, 0, &formatted_json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON package metadata: %m");
+
+                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_JSON=", formatted_json);
+        }
+
+        JSON_VARIANT_OBJECT_FOREACH(module_name, module_json, json_metadata) {
+                JsonVariant *package_name, *package_version;
+
+                /* We only add structured fields for the 'main' ELF module */
+                if (!path_equal_filename(module_name, context->meta[META_EXE]))
+                        continue;
+
+                package_name = json_variant_by_key(module_json, "name");
+                if (package_name)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", json_variant_string(package_name));
+
+                package_version = json_variant_by_key(module_json, "version");
+                if (package_version)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", json_variant_string(package_version));
+        }
 
         /* Optionally store the entire coredump in the journal */
         if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
@@ -1115,7 +1145,7 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         if (sd_pid_get_slice(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
 
-        if (get_process_cmdline(pid, SIZE_MAX, 0, &t) >= 0)
+        if (get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)

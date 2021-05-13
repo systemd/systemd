@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=33
+Release=34
 
 [Packages]
 BuildPackages=
@@ -52,8 +52,6 @@ BuildPackages=
         p11-kit-devel
         pam-devel
         pcre2-devel
-        perl(IPC::SysV)
-        perl(Time::HiRes)
         pkgconfig
         python3-devel
         python3-lxml

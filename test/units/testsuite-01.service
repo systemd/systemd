@@ -1,6 +1,7 @@
 [Unit]
 Description=TEST-01-BASIC
 After=multi-user.target
+Wants=systemd-resolved.service systemd-networkd.service
 
 [Service]
 ExecStartPre=rm -f /failed /testok

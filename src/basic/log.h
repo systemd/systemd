@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 
 #include "macro.h"
@@ -188,20 +189,39 @@ void log_assert_failed_return(
         log_dispatch_internal(level, error, PROJECT_FILE, __LINE__, __func__, NULL, NULL, NULL, NULL, buffer)
 
 /* Logging with level */
-#define log_full_errno(level, error, ...)                               \
+#define log_full_errno_zerook(level, error, ...)                        \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
-                (log_get_max_level() >= LOG_PRI(_level))                \
+                _e = (log_get_max_level() >= LOG_PRI(_level))           \
                         ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
+                _e < 0 ? _e : -ESTRPIPE;                                \
         })
 
-#define log_full(level, ...) (void) log_full_errno((level), 0, __VA_ARGS__)
+#if BUILD_MODE_DEVELOPER && !defined(TEST_CODE)
+#  define ASSERT_NON_ZERO(x) assert((x) != 0)
+#else
+#  define ASSERT_NON_ZERO(x)
+#endif
+
+#define log_full_errno(level, error, ...)                               \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_full_errno_zerook(level, _error, __VA_ARGS__);      \
+        })
+
+#define log_full(level, fmt, ...)                                      \
+        ({                                                             \
+                if (BUILD_MODE_DEVELOPER)                              \
+                        assert(!strstr(fmt, "%m"));                    \
+                (void) log_full_errno_zerook(level, 0, fmt, ##__VA_ARGS__); \
+        })
 
 int log_emergency_level(void);
 
 /* Normal logging */
-#define log_debug(...)     log_full_errno(LOG_DEBUG, 0, __VA_ARGS__)
+#define log_debug(...)     log_full(LOG_DEBUG,   __VA_ARGS__)
 #define log_info(...)      log_full(LOG_INFO,    __VA_ARGS__)
 #define log_notice(...)    log_full(LOG_NOTICE,  __VA_ARGS__)
 #define log_warning(...)   log_full(LOG_WARNING, __VA_ARGS__)

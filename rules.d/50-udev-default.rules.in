@@ -49,10 +49,15 @@ SUBSYSTEM=="sound", GROUP="audio", \
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
 
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00b09d:0x00010*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
-SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
+SUBSYSTEM=="firewire", TEST=="units", TEST=="model", \
+  IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}mo$attr{model}units$attr{units}'"
+
+SUBSYSTEM=="firewire", TEST=="units", TEST!="model", \
+  IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}units$attr{units}'"
+
+SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_MIDI}=="1", GROUP="audio"
+SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_AUDIO}=="1", GROUP="audio"
+SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_VIDEO}=="1", GROUP="video"
 
 KERNEL=="parport[0-9]*", GROUP="lp"
 SUBSYSTEM=="printer", KERNEL=="lp*", GROUP="lp"
@@ -85,6 +90,8 @@ KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 
 # The static_node is required on s390x and ppc (they are using MODULE_ALIAS)
 KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=kvm"
+
+KERNEL=="vfio", MODE="0666", OPTIONS+="static_node=vfio/vfio"
 
 KERNEL=="vsock", MODE="0666"
 KERNEL=="vhost-vsock", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=vhost-vsock"

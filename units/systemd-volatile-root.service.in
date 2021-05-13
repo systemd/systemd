@@ -12,7 +12,7 @@ Description=Enforce Volatile Root File Systems
 Documentation=man:systemd-volatile-root.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=sysroot.mount systemd-repart.service
+After=sysroot.mount sysroot-usr.mount systemd-repart.service
 Before=initrd-root-fs.target shutdown.target
 AssertPathExists=/etc/initrd-release
 

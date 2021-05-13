@@ -103,22 +103,15 @@ static int setup_tests(bool *run_ambient) {
 
         nobody = getpwnam(NOBODY_USER_NAME);
         if (!nobody)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Could not find nobody user: %m");
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find 'nobody' user: %m");
 
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
 
-        *run_ambient = false;
-
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
-
-        /* There's support for PR_CAP_AMBIENT if the prctl() call
-         * succeeded or error code was something else than EINVAL. The
-         * EINVAL check should be good enough to rule out false
-         * positives. */
-
-        if (r >= 0 || errno != EINVAL)
-                *run_ambient = true;
+        /* There's support for PR_CAP_AMBIENT if the prctl() call succeeded or error code was something else
+         * than EINVAL. The EINVAL check should be good enough to rule out false positives. */
+        *run_ambient = r >= 0 || errno != EINVAL;
 
         return 0;
 }
@@ -249,7 +242,7 @@ static void test_ensure_cap_64bit(void) {
 }
 
 int main(int argc, char *argv[]) {
-        bool run_ambient;
+        bool run_ambient = false;  /* avoid false maybe-uninitialized warning */
 
         test_setup_logging(LOG_INFO);
 

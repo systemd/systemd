@@ -17,7 +17,9 @@
 #include "format-table.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "json.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
@@ -30,6 +32,7 @@ static char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 typedef struct StatusInfo {
         const char *hostname;
@@ -155,17 +158,10 @@ static int print_status_info(StatusInfo *i) {
         }
 
         if (!isempty(i->os_pretty_name)) {
-                _cleanup_free_ char *formatted = NULL;
-                const char *t = i->os_pretty_name;
-
-                if (i->home_url) {
-                        if (terminal_urlify(i->home_url, i->os_pretty_name, &formatted) >= 0)
-                                t = formatted;
-                }
-
                 r = table_add_many(table,
                                    TABLE_STRING, "Operating System:",
-                                   TABLE_STRING, t);
+                                   TABLE_STRING, i->os_pretty_name,
+                                   TABLE_SET_URL, i->home_url);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -315,24 +311,59 @@ static int show_all_names(sd_bus *bus) {
         return print_status_info(&info);
 }
 
+static int get_hostname_based_on_flag(sd_bus *bus) {
+        const char *attr;
+
+        if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot query more than one name type at a time");
+
+        attr = arg_pretty ? "PrettyHostname" :
+                arg_static ? "StaticHostname" : "Hostname";
+
+        return get_one_name(bus, attr, NULL);
+}
+
 static int show_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
+        int r;
 
-        if (arg_pretty || arg_static || arg_transient) {
-                const char *attr;
+        if (arg_json_format_flags != JSON_FORMAT_OFF) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                const char *text = NULL;
 
-                if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Cannot query more than one name type at a time");
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.hostname1",
+                                "/org/freedesktop/hostname1",
+                                "org.freedesktop.hostname1",
+                                "Describe",
+                                &error,
+                                &reply,
+                                NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get description: %s", bus_error_message(&error, r));
 
-                attr = arg_pretty ? "PrettyHostname" :
-                        arg_static ? "StaticHostname" : "Hostname";
+                r = sd_bus_message_read(reply, "s", &text);
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
-                return get_one_name(bus, attr, NULL);
+                r = json_parse(text, 0, &v, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON: %m");
+
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                return 0;
         }
+
+        if (arg_pretty || arg_static || arg_transient)
+                return get_hostname_based_on_flag(bus);
 
         return show_all_names(bus);
 }
+
 
 static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *target, const char *method, const char *value) {
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
@@ -447,20 +478,29 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         return ret;
 }
 
-static int set_icon_name(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "icon", "SetIconName", argv[1]);
+static int get_or_set_hostname(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_hostname_based_on_flag(userdata) :
+                           set_hostname(argc, argv, userdata);
 }
 
-static int set_chassis(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
+static int get_or_set_icon_name(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "IconName", NULL) :
+                           set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
-static int set_deployment(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
+static int get_or_set_chassis(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "Chassis", NULL) :
+                           set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
-static int set_location(int argc, char **argv, void *userdata) {
-        return set_simple_string(userdata, "location", "SetLocation", argv[1]);
+static int get_or_set_deployment(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "Deployment", NULL) :
+                           set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
+}
+
+static int get_or_set_location(int argc, char **argv, void *userdata) {
+        return argc == 1 ? get_one_name(userdata, "Location", NULL) :
+                           set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
 static int help(void) {
@@ -475,11 +515,11 @@ static int help(void) {
                "%sQuery or change system hostname.%s\n"
                "\nCommands:\n"
                "  status                 Show current hostname settings\n"
-               "  set-hostname NAME      Set system hostname\n"
-               "  set-icon-name NAME     Set icon name for host\n"
-               "  set-chassis NAME       Set chassis type for host\n"
-               "  set-deployment NAME    Set deployment environment for host\n"
-               "  set-location NAME      Set location for host\n"
+               "  hostname [NAME]        Get/set system hostname\n"
+               "  icon-name [NAME]       Get/set icon name for host\n"
+               "  chassis [NAME]         Get/set chassis type for host\n"
+               "  deployment [NAME]      Get/set deployment environment for host\n"
+               "  location [NAME]        Get/set location for host\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -489,6 +529,8 @@ static int help(void) {
                "     --transient         Only set transient hostname\n"
                "     --static            Only set static hostname\n"
                "     --pretty            Only set pretty hostname\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -509,7 +551,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_TRANSIENT,
                 ARG_STATIC,
-                ARG_PRETTY
+                ARG_PRETTY,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -521,10 +564,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "json",            required_argument, NULL, ARG_JSON            },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -565,6 +609,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -578,13 +629,18 @@ static int parse_argv(int argc, char *argv[]) {
 static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status    },
-                { "set-hostname",   2,        2,        0,            set_hostname   },
-                { "set-icon-name",  2,        2,        0,            set_icon_name  },
-                { "set-chassis",    2,        2,        0,            set_chassis    },
-                { "set-deployment", 2,        2,        0,            set_deployment },
-                { "set-location",   2,        2,        0,            set_location   },
-                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help      }, /* Not documented, but supported since it is created. */
+                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status           },
+                { "hostname",       VERB_ANY, 2,        0,            get_or_set_hostname   },
+                { "set-hostname",   2,        2,        0,            get_or_set_hostname   }, /* obsolete */
+                { "icon-name",      VERB_ANY, 2,        0,            get_or_set_icon_name  },
+                { "set-icon-name",  2,        2,        0,            get_or_set_icon_name  }, /* obsolete */
+                { "chassis",        VERB_ANY, 2,        0,            get_or_set_chassis    },
+                { "set-chassis",    2,        2,        0,            get_or_set_chassis    }, /* obsolete */
+                { "deployment",     VERB_ANY, 2,        0,            get_or_set_deployment },
+                { "set-deployment", 2,        2,        0,            get_or_set_deployment }, /* obsolete */
+                { "location",       VERB_ANY, 2,        0,            get_or_set_location   },
+                { "set-location",   2,        2,        0,            get_or_set_location   }, /* obsolete */
+                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help             }, /* Not documented, but supported since it is created. */
                 {}
         };
 

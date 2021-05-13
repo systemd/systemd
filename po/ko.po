@@ -9,8 +9,8 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-03-23 11:22+0900\n"
-"Last-Translator: Seong-ho Cho <shcho@gnome.org>\n"
+"PO-Revision-Date: 2021-04-15 10:01+0000\n"
+"Last-Translator: simmon <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
 "Language: ko\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Poedit 2.0.6\n"
+"X-Generator: Weblate 4.5.3\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -54,9 +54,7 @@ msgstr "시스템 및 서비스 관리자 환경 변수 설정 또는 설정 해
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
-msgstr ""
-"시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 해제하려면 인증이 필요합"
-"니다."
+msgstr "시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -72,7 +70,7 @@ msgstr "홈 영역 생성"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr "사용자 홈 영역을 만드려면 인증이 필요합니다."
+msgstr "사용자 홈 영역을 만들려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
@@ -132,8 +130,7 @@ msgstr "정적 호스트 이름 설정"
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr ""
-"호스트 이름 형식의 로컬 호스트 이름을 정적으로 설정하려면 인증이 필요합니다."
+msgstr "로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"

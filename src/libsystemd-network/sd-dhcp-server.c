@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "network-common.h"
 #include "ordered-set.h"
 #include "siphash24.h"
 #include "string-util.h"
@@ -113,6 +114,12 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
+int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server) {
+        assert_return(server, -EINVAL);
+
+        return in4_addr_is_set(&server->relay_target);
+}
+
 void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id);
         assert(id->length);
@@ -157,7 +164,12 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         ordered_set_free(server->extra_options);
         ordered_set_free(server->vendor_options);
 
+        free(server->agent_circuit_id);
+        free(server->agent_remote_id);
+
         free(server->bound_leases);
+
+        free(server->ifname);
         return mfree(server);
 }
 
@@ -169,27 +181,47 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
 
-        server = new0(sd_dhcp_server, 1);
+        server = new(sd_dhcp_server, 1);
         if (!server)
                 return -ENOMEM;
 
-        server->n_ref = 1;
-        server->fd_raw = -1;
-        server->fd = -1;
-        server->address = htobe32(INADDR_ANY);
-        server->netmask = htobe32(INADDR_ANY);
-        server->ifindex = ifindex;
+        *server = (sd_dhcp_server) {
+                .n_ref = 1,
+                .fd_raw = -1,
+                .fd = -1,
+                .fd_broadcast = -1,
+                .address = htobe32(INADDR_ANY),
+                .netmask = htobe32(INADDR_ANY),
+                .ifindex = ifindex,
+                .bind_to_interface = true,
+                .default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC),
+                .max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC),
+        };
 
         server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
                 return -ENOMEM;
 
-        server->default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC);
-        server->max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC);
-
         *ret = TAKE_PTR(server);
 
         return 0;
+}
+
+int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname) {
+        assert_return(server, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&server->ifname, ifname);
+}
+
+const char *sd_dhcp_server_get_ifname(sd_dhcp_server *server) {
+        if (!server)
+                return NULL;
+
+        return get_ifname(server->ifindex, &server->ifname);
 }
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority) {
@@ -229,11 +261,12 @@ int sd_dhcp_server_stop(sd_dhcp_server *server) {
         if (!server)
                 return 0;
 
-        server->receive_message =
-                sd_event_source_unref(server->receive_message);
+        server->receive_message = sd_event_source_unref(server->receive_message);
+        server->receive_broadcast = sd_event_source_unref(server->receive_broadcast);
 
         server->fd_raw = safe_close(server->fd_raw);
         server->fd = safe_close(server->fd);
+        server->fd_broadcast = safe_close(server->fd_broadcast);
 
         log_dhcp_server(server, "STOPPED");
 
@@ -282,8 +315,6 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                 .msg_namelen = sizeof(dest.in),
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
         struct in_pktinfo *pktinfo;
@@ -293,22 +324,27 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         assert(message);
         assert(len > sizeof(DHCPMessage));
 
-        cmsg = CMSG_FIRSTHDR(&msg);
-        assert(cmsg);
+        if (server->bind_to_interface) {
+                msg.msg_control = &control;
+                msg.msg_controllen = sizeof(control);
 
-        cmsg->cmsg_level = IPPROTO_IP;
-        cmsg->cmsg_type = IP_PKTINFO;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+                cmsg = CMSG_FIRSTHDR(&msg);
+                assert(cmsg);
 
-        /* we attach source interface and address info to the message
-           rather than binding the socket. This will be mostly useful
-           when we gain support for arbitrary number of server addresses
-         */
-        pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
-        assert(pktinfo);
+                cmsg->cmsg_level = IPPROTO_IP;
+                cmsg->cmsg_type = IP_PKTINFO;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
-        pktinfo->ipi_ifindex = server->ifindex;
-        pktinfo->ipi_spec_dst.s_addr = server->address;
+                /* we attach source interface and address info to the message
+                   rather than binding the socket. This will be mostly useful
+                   when we gain support for arbitrary number of server addresses
+                 */
+                pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                assert(pktinfo);
+
+                pktinfo->ipi_ifindex = server->ifindex;
+                pktinfo->ipi_spec_dst.s_addr = server->address;
+        }
 
         if (sendmsg(server->fd, &msg, 0) < 0)
                 return -errno;
@@ -316,10 +352,27 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         return 0;
 }
 
-static bool requested_broadcast(DHCPRequest *req) {
-        assert(req);
+static bool requested_broadcast(DHCPMessage *message) {
+        assert(message);
+        return message->flags & htobe16(0x8000);
+}
 
-        return req->message->flags & htobe16(0x8000);
+static int dhcp_server_send(sd_dhcp_server *server, be32_t destination, uint16_t destination_port,
+                            DHCPPacket *packet, size_t optoffset, bool l2_broadcast) {
+        if (destination != INADDR_ANY)
+                return dhcp_server_send_udp(server, destination,
+                                            destination_port, &packet->dhcp,
+                                            sizeof(DHCPMessage) + optoffset);
+        else if (l2_broadcast)
+                return dhcp_server_send_udp(server, INADDR_BROADCAST,
+                                            destination_port, &packet->dhcp,
+                                            sizeof(DHCPMessage) + optoffset);
+        else
+                /* we cannot send UDP packet to specific MAC address when the
+                   address is not yet configured, so must fall back to raw
+                   packets */
+                return dhcp_server_send_unicast_raw(server, packet,
+                                                    sizeof(DHCPPacket) + optoffset);
 }
 
 int dhcp_server_send_packet(sd_dhcp_server *server,
@@ -332,6 +385,7 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         assert(server);
         assert(req);
         assert(req->max_optlen);
+        assert(req->message);
         assert(optoffset <= req->max_optlen);
         assert(packet);
 
@@ -340,6 +394,15 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
                                4, &server->address);
         if (r < 0)
                 return r;
+
+        if (req->agent_info_option) {
+                size_t opt_full_length = *(req->agent_info_option + 1) + 2;
+                /* there must be space left for SD_DHCP_OPTION_END */
+                if (optoffset + opt_full_length < req->max_optlen) {
+                        memcpy(packet->dhcp.options + optoffset, req->agent_info_option, opt_full_length);
+                        optoffset += opt_full_length;
+                }
+        }
 
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
@@ -377,20 +440,8 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
         } else if (req->message->ciaddr && type != DHCP_NAK)
                 destination = req->message->ciaddr;
 
-        if (destination != INADDR_ANY)
-                return dhcp_server_send_udp(server, destination,
-                                            destination_port, &packet->dhcp,
-                                            sizeof(DHCPMessage) + optoffset);
-        else if (requested_broadcast(req) || type == DHCP_NAK)
-                return dhcp_server_send_udp(server, INADDR_BROADCAST,
-                                            destination_port, &packet->dhcp,
-                                            sizeof(DHCPMessage) + optoffset);
-        else
-                /* we cannot send UDP packet to specific MAC address when the
-                   address is not yet configured, so must fall back to raw
-                   packets */
-                return dhcp_server_send_unicast_raw(server, packet,
-                                                    sizeof(DHCPPacket) + optoffset);
+        bool l2_broadcast = requested_broadcast(req->message) || type == DHCP_NAK;
+        return dhcp_server_send(server, destination, destination_port, packet, optoffset, l2_broadcast);
 }
 
 static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
@@ -612,6 +663,10 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                         req->max_optlen = unaligned_read_be16(option) - sizeof(DHCPPacket);
 
                 break;
+        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION:
+                req->agent_info_option = (uint8_t*)option - 2;
+
+                break;
         }
 
         return 0;
@@ -672,6 +727,79 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
                 return -ERANGE;
 
         return be32toh(requested_ip & ~server->netmask) - server->pool_offset;
+}
+
+static int append_agent_information_option(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t size) {
+        int r;
+        size_t offset;
+
+        assert(server);
+        assert(message);
+
+        r = dhcp_option_find_option(message->options, opt_length, SD_DHCP_OPTION_END, &offset);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(message, size, &offset, 0, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION, 0, server);
+        if (r < 0)
+                return r;
+
+        r = dhcp_option_append(message, size, &offset, 0, SD_DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
+        return offset;
+}
+
+static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *message, size_t opt_length, size_t buflen) {
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        int r;
+
+        assert(server);
+        assert(message);
+        assert(sd_dhcp_server_is_in_relay_mode(server));
+
+        if (message->op == BOOTREQUEST) {
+                log_dhcp_server(server, "(relay agent) BOOTREQUEST (0x%x)", be32toh(message->xid));
+                if (message->hops >= 16)
+                        return -ETIME;
+                message->hops++;
+
+                /* https://tools.ietf.org/html/rfc1542#section-4.1.1 */
+                if (message->giaddr == 0)
+                        message->giaddr = server->address;
+
+                if (server->agent_circuit_id || server->agent_remote_id) {
+                        r = append_agent_information_option(server, message, opt_length, buflen - sizeof(DHCPMessage));
+                        if (r < 0)
+                                return log_dhcp_server_errno(server, r, "could not append relay option: %m");
+                        opt_length = r;
+                }
+
+                return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
+        } else if (message->op == BOOTREPLY) {
+                log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
+                if (message->giaddr != server->address)
+                        return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(EBADMSG),
+                                                     "(relay agent) BOOTREPLY giaddr mismatch, discarding");
+
+                int message_type = dhcp_option_parse(message, sizeof(DHCPMessage) + opt_length, NULL, NULL, NULL);
+                if (message_type < 0)
+                        return message_type;
+
+                packet = malloc0(sizeof(DHCPPacket) + opt_length);
+                if (!packet)
+                        return -ENOMEM;
+                memcpy(&packet->dhcp, message, sizeof(DHCPMessage) + opt_length);
+
+                r = dhcp_option_remove_option(packet->dhcp.options, opt_length, SD_DHCP_OPTION_RELAY_AGENT_INFORMATION);
+                if (r > 0)
+                        opt_length = r;
+
+                bool l2_broadcast = requested_broadcast(message) || message_type == DHCP_NAK;
+                const be32_t destination = message_type == DHCP_NAK ? INADDR_ANY : message->ciaddr;
+                return dhcp_server_send(server, destination, DHCP_PORT_CLIENT, packet, opt_length, l2_broadcast);
+        }
+        return -EBADMSG;
 }
 
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
@@ -921,6 +1049,15 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         return 0;
 }
 
+static size_t relay_agent_information_length(const char* agent_circuit_id, const char* agent_remote_id) {
+        size_t sum = 0;
+        if (agent_circuit_id)
+                sum += 2 + strlen(agent_circuit_id);
+        if (agent_remote_id)
+                sum += 2 + strlen(agent_remote_id);
+        return sum;
+}
+
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
         _cleanup_free_ DHCPMessage *message = NULL;
@@ -934,20 +1071,25 @@ static int server_receive_message(sd_event_source *s, int fd,
                 .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
-        ssize_t buflen, len;
+        ssize_t datagram_size, len;
         int r;
 
         assert(server);
 
-        buflen = next_datagram_size_fd(fd);
-        if (buflen < 0)
-                return buflen;
+        datagram_size = next_datagram_size_fd(fd);
+        if (datagram_size < 0)
+                return datagram_size;
+
+        size_t buflen = datagram_size;
+        if (sd_dhcp_server_is_in_relay_mode(server))
+                /* Preallocate the additional size for DHCP Relay Agent Information Option if needed */
+                buflen += relay_agent_information_length(server->agent_circuit_id, server->agent_remote_id) + 2;
 
         message = malloc(buflen);
         if (!message)
                 return -ENOMEM;
 
-        iov = IOVEC_MAKE(message, buflen);
+        iov = IOVEC_MAKE(message, datagram_size);
 
         len = recvmsg_safe(fd, &msg, 0);
         if (IN_SET(len, -EAGAIN, -EINTR))
@@ -972,10 +1114,15 @@ static int server_receive_message(sd_event_source *s, int fd,
                 }
         }
 
-        r = dhcp_server_handle_message(server, message, (size_t) len);
-        if (r < 0)
-                log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
-
+        if (sd_dhcp_server_is_in_relay_mode(server)) {
+                r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
+                if (r < 0)
+                        log_dhcp_server_errno(server, r, "Couldn't relay message: %m");
+        } else {
+                r = dhcp_server_handle_message(server, message, (size_t) len);
+                if (r < 0)
+                        log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
+        }
         return 0;
 }
 
@@ -992,36 +1139,55 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         r = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (r < 0) {
                 r = -errno;
-                sd_dhcp_server_stop(server);
-                return r;
+                goto on_error;
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (server->bind_to_interface)
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
+        else
+                r = dhcp_network_bind_udp_socket(0, server->address, DHCP_PORT_SERVER, -1);
+        if (r < 0)
+                goto on_error;
         server->fd = r;
 
         r = sd_event_add_io(server->event, &server->receive_message,
                             server->fd, EPOLLIN,
                             server_receive_message, server);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
-        }
+        if (r < 0)
+                goto on_error;
 
         r = sd_event_source_set_priority(server->receive_message,
                                          server->event_priority);
-        if (r < 0) {
-                sd_dhcp_server_stop(server);
-                return r;
+        if (r < 0)
+                goto on_error;
+
+        if (!server->bind_to_interface) {
+                r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_BROADCAST, DHCP_PORT_SERVER, -1);
+                if (r < 0)
+                        goto on_error;
+
+                server->fd_broadcast = r;
+
+                r = sd_event_add_io(server->event, &server->receive_broadcast,
+                                    server->fd_broadcast, EPOLLIN,
+                                    server_receive_message, server);
+                if (r < 0)
+                        goto on_error;
+
+                r = sd_event_source_set_priority(server->receive_broadcast,
+                                                 server->event_priority);
+                if (r < 0)
+                        goto on_error;
         }
 
         log_dhcp_server(server, "STARTED");
 
         return 0;
+
+on_error:
+    sd_dhcp_server_stop(server);
+    return r;
 }
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
@@ -1046,6 +1212,18 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         }
 
         return r;
+}
+
+int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled) {
+        assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
+
+        if (!!enabled == server->bind_to_interface)
+                return 0;
+
+        server->bind_to_interface = enabled;
+
+        return 1;
 }
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
@@ -1178,5 +1356,44 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
         server->callback = cb;
         server->callback_userdata = userdata;
 
+        return 0;
+}
+
+int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr *address) {
+        assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
+
+        if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
+                return 0;
+
+        server->relay_target = *address;
+        return 1;
+}
+
+int sd_dhcp_server_set_relay_agent_information(
+                sd_dhcp_server *server,
+                const char *agent_circuit_id,
+                const char *agent_remote_id) {
+        _cleanup_free_ char *circuit_id_dup = NULL, *remote_id_dup = NULL;
+
+        assert_return(server, -EINVAL);
+
+        if (relay_agent_information_length(agent_circuit_id, agent_remote_id) > UINT8_MAX)
+                return -ENOBUFS;
+
+        if (agent_circuit_id) {
+                circuit_id_dup = strdup(agent_circuit_id);
+                if (!circuit_id_dup)
+                        return -ENOMEM;
+        }
+
+        if (agent_remote_id) {
+                remote_id_dup = strdup(agent_remote_id);
+                if (!remote_id_dup)
+                        return -ENOMEM;
+        }
+
+        free_and_replace(server->agent_circuit_id, circuit_id_dup);
+        free_and_replace(server->agent_remote_id, remote_id_dup);
         return 0;
 }

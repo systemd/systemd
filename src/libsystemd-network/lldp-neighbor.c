@@ -112,7 +112,7 @@ sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size) {
         return n;
 }
 
-static int parse_string(char **s, const void *q, size_t n) {
+static int parse_string(sd_lldp *lldp, char **s, const void *q, size_t n) {
         const char *p = q;
         char *k;
 
@@ -120,7 +120,7 @@ static int parse_string(char **s, const void *q, size_t n) {
         assert(p || n == 0);
 
         if (*s) {
-                log_lldp("Found duplicate string, ignoring field.");
+                log_lldp(lldp, "Found duplicate string, ignoring field.");
                 return 0;
         }
 
@@ -133,14 +133,14 @@ static int parse_string(char **s, const void *q, size_t n) {
 
         /* Look for inner NULs */
         if (memchr(p, 0, n)) {
-                log_lldp("Found inner NUL in string, ignoring field.");
+                log_lldp(lldp, "Found inner NUL in string, ignoring field.");
                 return 0;
         }
 
         /* Let's escape weird chars, for security reasons */
         k = cescape_length(p, n);
         if (!k)
-                return -ENOMEM;
+                return log_oom_debug();
 
         free(*s);
         *s = k;
@@ -156,27 +156,24 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
         assert(n);
 
-        if (n->raw_size < sizeof(struct ether_header)) {
-                log_lldp("Received truncated packet, ignoring.");
-                return -EBADMSG;
-        }
+        if (n->raw_size < sizeof(struct ether_header))
+                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                      "Received truncated packet, ignoring.");
 
         memcpy(&h, LLDP_NEIGHBOR_RAW(n), sizeof(h));
 
-        if (h.ether_type != htobe16(ETHERTYPE_LLDP)) {
-                log_lldp("Received packet with wrong type, ignoring.");
-                return -EBADMSG;
-        }
+        if (h.ether_type != htobe16(ETHERTYPE_LLDP))
+                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                      "Received packet with wrong type, ignoring.");
 
         if (h.ether_dhost[0] != 0x01 ||
             h.ether_dhost[1] != 0x80 ||
             h.ether_dhost[2] != 0xc2 ||
             h.ether_dhost[3] != 0x00 ||
             h.ether_dhost[4] != 0x00 ||
-            !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e)) {
-                log_lldp("Received packet with wrong destination address, ignoring.");
-                return -EBADMSG;
-        }
+            !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e))
+                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                      "Received packet with wrong destination address, ignoring.");
 
         memcpy(&n->source_address, h.ether_shost, sizeof(struct ether_addr));
         memcpy(&n->destination_address, h.ether_dhost, sizeof(struct ether_addr));
@@ -188,27 +185,24 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 uint8_t type;
                 uint16_t length;
 
-                if (left < 2) {
-                        log_lldp("TLV lacks header, ignoring.");
-                        return -EBADMSG;
-                }
+                if (left < 2)
+                        return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                              "TLV lacks header, ignoring.");
 
                 type = p[0] >> 1;
                 length = p[1] + (((uint16_t) (p[0] & 1)) << 8);
                 p += 2, left -= 2;
 
-                if (left < length) {
-                        log_lldp("TLV truncated, ignoring datagram.");
-                        return -EBADMSG;
-                }
+                if (left < length)
+                        return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                              "TLV truncated, ignoring datagram.");
 
                 switch (type) {
 
                 case SD_LLDP_TYPE_END:
-                        if (length != 0) {
-                                log_lldp("End marker TLV not zero-sized, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length != 0)
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "End marker TLV not zero-sized, ignoring datagram.");
 
                         /* Note that after processing the SD_LLDP_TYPE_END left could still be > 0
                          * as the message may contain padding (see IEEE 802.1AB-2016, sec. 8.5.12) */
@@ -216,98 +210,93 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         goto end_marker;
 
                 case SD_LLDP_TYPE_CHASSIS_ID:
-                        if (length < 2 || length > 256) { /* includes the chassis subtype, hence one extra byte */
-                                log_lldp("Chassis ID field size out of range, ignoring datagram.");
-                                return -EBADMSG;
-                        }
-                        if (n->id.chassis_id) {
-                                log_lldp("Duplicate chassis ID field, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length < 2 || length > 256)
+                                /* includes the chassis subtype, hence one extra byte */
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "Chassis ID field size out of range, ignoring datagram.");
+
+                        if (n->id.chassis_id)
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "Duplicate chassis ID field, ignoring datagram.");
 
                         n->id.chassis_id = memdup(p, length);
                         if (!n->id.chassis_id)
-                                return -ENOMEM;
+                                return log_oom_debug();
 
                         n->id.chassis_id_size = length;
                         break;
 
                 case SD_LLDP_TYPE_PORT_ID:
-                        if (length < 2 || length > 256) { /* includes the port subtype, hence one extra byte */
-                                log_lldp("Port ID field size out of range, ignoring datagram.");
-                                return -EBADMSG;
-                        }
-                        if (n->id.port_id) {
-                                log_lldp("Duplicate port ID field, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length < 2 || length > 256)
+                                /* includes the port subtype, hence one extra byte */
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "Port ID field size out of range, ignoring datagram.");
+
+                        if (n->id.port_id)
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "Duplicate port ID field, ignoring datagram.");
 
                         n->id.port_id = memdup(p, length);
                         if (!n->id.port_id)
-                                return -ENOMEM;
+                                return log_oom_debug();
 
                         n->id.port_id_size = length;
                         break;
 
                 case SD_LLDP_TYPE_TTL:
-                        if (length != 2) {
-                                log_lldp("TTL field has wrong size, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (length != 2)
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "TTL field has wrong size, ignoring datagram.");
 
-                        if (n->has_ttl) {
-                                log_lldp("Duplicate TTL field, ignoring datagram.");
-                                return -EBADMSG;
-                        }
+                        if (n->has_ttl)
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "Duplicate TTL field, ignoring datagram.");
 
                         n->ttl = unaligned_read_be16(p);
                         n->has_ttl = true;
                         break;
 
                 case SD_LLDP_TYPE_PORT_DESCRIPTION:
-                        r = parse_string(&n->port_description, p, length);
+                        r = parse_string(n->lldp, &n->port_description, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
                 case SD_LLDP_TYPE_SYSTEM_NAME:
-                        r = parse_string(&n->system_name, p, length);
+                        r = parse_string(n->lldp, &n->system_name, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
                 case SD_LLDP_TYPE_SYSTEM_DESCRIPTION:
-                        r = parse_string(&n->system_description, p, length);
+                        r = parse_string(n->lldp, &n->system_description, p, length);
                         if (r < 0)
                                 return r;
                         break;
 
                 case SD_LLDP_TYPE_SYSTEM_CAPABILITIES:
                         if (length != 4)
-                                log_lldp("System capabilities field has wrong size, ignoring.");
-                        else {
-                                n->system_capabilities = unaligned_read_be16(p);
-                                n->enabled_capabilities = unaligned_read_be16(p + 2);
-                                n->has_capabilities = true;
-                        }
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "System capabilities field has wrong size.");
 
+                        n->system_capabilities = unaligned_read_be16(p);
+                        n->enabled_capabilities = unaligned_read_be16(p + 2);
+                        n->has_capabilities = true;
                         break;
 
-                case SD_LLDP_TYPE_PRIVATE: {
+                case SD_LLDP_TYPE_PRIVATE:
                         if (length < 4)
-                                log_lldp("Found private TLV that is too short, ignoring.");
-                        else {
-                                /* RFC 8520: MUD URL */
-                                if (memcmp(p, SD_LLDP_OUI_MUD, sizeof(SD_LLDP_OUI_MUD)) == 0 &&
-                                    p[sizeof(SD_LLDP_OUI_MUD)] == SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION) {
-                                        r = parse_string(&n->mud_url, p + sizeof(SD_LLDP_OUI_MUD) + 1,
-                                                         length - 1 - sizeof(SD_LLDP_OUI_MUD));
-                                        if (r < 0)
-                                                return r;
-                                }
-                        }
-                }
+                                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                                      "Found private TLV that is too short, ignoring.");
 
+                        /* RFC 8520: MUD URL */
+                        if (memcmp(p, SD_LLDP_OUI_MUD, sizeof(SD_LLDP_OUI_MUD)) == 0 &&
+                            p[sizeof(SD_LLDP_OUI_MUD)] == SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION) {
+                                r = parse_string(n->lldp, &n->mud_url, p + sizeof(SD_LLDP_OUI_MUD) + 1,
+                                                 length - 1 - sizeof(SD_LLDP_OUI_MUD));
+                                if (r < 0)
+                                        return r;
+                        }
                         break;
                 }
 
@@ -315,11 +304,9 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
         }
 
 end_marker:
-        if (!n->id.chassis_id || !n->id.port_id || !n->has_ttl) {
-                log_lldp("One or more mandatory TLV missing in datagram. Ignoring.");
-                return -EBADMSG;
-
-        }
+        if (!n->id.chassis_id || !n->id.port_id || !n->has_ttl)
+                return log_lldp_errno(n->lldp, SYNTHETIC_ERRNO(EBADMSG),
+                                      "One or more mandatory TLV missing in datagram. Ignoring.");
 
         n->rindex = sizeof(struct ether_header);
 

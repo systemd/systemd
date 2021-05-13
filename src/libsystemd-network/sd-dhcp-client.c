@@ -24,6 +24,7 @@
 #include "hostname-util.h"
 #include "io-util.h"
 #include "memory-util.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "set.h"
 #include "sort-util.h"
@@ -76,6 +77,7 @@ struct sd_dhcp_client {
         int event_priority;
         sd_event_source *timeout_resend;
         int ifindex;
+        char *ifname;
         int fd;
         uint16_t port;
         union sockaddr_union link;
@@ -280,6 +282,23 @@ int sd_dhcp_client_set_ifindex(sd_dhcp_client *client, int ifindex) {
 
         client->ifindex = ifindex;
         return 0;
+}
+
+int sd_dhcp_client_set_ifname(sd_dhcp_client *client, const char *ifname) {
+        assert_return(client, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&client->ifname, ifname);
+}
+
+const char *sd_dhcp_client_get_ifname(sd_dhcp_client *client) {
+        if (!client)
+                return NULL;
+
+        return get_ifname(client->ifindex, &client->ifname);
 }
 
 int sd_dhcp_client_set_mac(
@@ -2033,6 +2052,13 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         return client_initialize_time_events(client);
 }
 
+int sd_dhcp_client_is_running(sd_dhcp_client *client) {
+        if (!client)
+                return 0;
+
+        return !IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED);
+}
+
 int sd_dhcp_client_start(sd_dhcp_client *client) {
         int r;
 
@@ -2205,6 +2231,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         client->user_class = strv_free(client->user_class);
         ordered_hashmap_free(client->extra_options);
         ordered_hashmap_free(client->vendor_options);
+        free(client->ifname);
         return mfree(client);
 }
 

@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "creds-util.h"
 #include "def.h"
 #include "dissect-image.h"
 #include "fd-util.h"
@@ -13,7 +14,9 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "libcrypt-util.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mount-util.h"
 #include "nscd-flush.h"
 #include "pager.h"
@@ -429,6 +432,8 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
+                _cleanup_free_ char *creds_shell = NULL, *cn = NULL;
+
                 struct passwd n = {
                         .pw_name = i->name,
                         .pw_uid = i->uid,
@@ -436,7 +441,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_gecos = i->description,
 
                         /* "x" means the password is stored in the shadow file */
-                        .pw_passwd = (char*) "x",
+                        .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
 
                         /* We default to the root directory as home */
                         .pw_dir = i->home ?: (char*) "/",
@@ -445,6 +450,17 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                          * for root we patch in something special */
                         .pw_shell = i->shell ?: (char*) default_shell(i->uid),
                 };
+
+                /* Try to pick up the shell for this account via the credentials logic */
+                cn = strjoin("passwd.shell.", i->name);
+                if (!cn)
+                        return -ENOMEM;
+
+                r = read_credential(cn, (void**) &creds_shell, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                else
+                        n.pw_shell = creds_shell;
 
                 r = putpwent_sane(&n, passwd);
                 if (r < 0)
@@ -530,9 +546,12 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
+                _cleanup_(erase_and_freep) char *creds_password = NULL;
+                _cleanup_free_ char *cn = NULL;
+
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!*", /* lock this password, and make it invalid */
+                        .sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID,
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
@@ -541,6 +560,34 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         .sp_expire = -1,
                         .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
+
+                /* Try to pick up the password for this account via the credentials logic */
+                cn = strjoin("passwd.hashed-password.", i->name);
+                if (!cn)
+                        return -ENOMEM;
+
+                r = read_credential(cn, (void**) &creds_password, NULL);
+                if (r == -ENOENT) {
+                        _cleanup_(erase_and_freep) char *plaintext_password = NULL;
+
+                        free(cn);
+                        cn = strjoin("passwd.plaintext-password.", i->name);
+                        if (!cn)
+                                return -ENOMEM;
+
+                        r = read_credential(cn, (void**) &plaintext_password, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                        else {
+                                r = hash_password(plaintext_password, &creds_password);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to hash password: %m");
+                        }
+                } else if (r < 0)
+                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+
+                if (creds_password)
+                        n.sp_pwdp = creds_password;
 
                 r = putspent_sane(&n, shadow);
                 if (r < 0)
@@ -635,7 +682,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 struct group n = {
                         .gr_name = i->name,
                         .gr_gid = i->gid,
-                        .gr_passwd = (char*) "x",
+                        .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
                 };
 
                 r = putgrent_with_members(&n, group);
@@ -719,7 +766,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         ORDERED_HASHMAP_FOREACH(i, todo_gids) {
                 struct sgrp n = {
                         .sg_namp = i->name,
-                        .sg_passwd = (char*) "!*",
+                        .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
                 };
 
                 r = putsgent_with_members(&n, gshadow);
@@ -1445,7 +1492,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 name = mfree(name);
 
         if (name) {
-                r = specifier_printf(name, specifier_table, NULL, &resolved_name);
+                r = specifier_printf(name, NAME_MAX, specifier_table, NULL, &resolved_name);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, name);
 
@@ -1460,7 +1507,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 id = mfree(id);
 
         if (id) {
-                r = specifier_printf(id, specifier_table, NULL, &resolved_id);
+                r = specifier_printf(id, PATH_MAX-1, specifier_table, NULL, &resolved_id);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, name);
@@ -1471,7 +1518,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 description = mfree(description);
 
         if (description) {
-                r = specifier_printf(description, specifier_table, NULL, &resolved_description);
+                r = specifier_printf(description, LONG_LINE_MAX, specifier_table, NULL, &resolved_description);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, description);
@@ -1487,7 +1534,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 home = mfree(home);
 
         if (home) {
-                r = specifier_printf(home, specifier_table, NULL, &resolved_home);
+                r = specifier_printf(home, PATH_MAX-1, specifier_table, NULL, &resolved_home);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, home);
@@ -1503,7 +1550,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 shell = mfree(shell);
 
         if (shell) {
-                r = specifier_printf(shell, specifier_table, NULL, &resolved_shell);
+                r = specifier_printf(shell, PATH_MAX-1, specifier_table, NULL, &resolved_shell);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
                                                fname, line, shell);
@@ -1681,6 +1728,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
         _cleanup_fclose_ FILE *rf = NULL;
+        _cleanup_free_ char *pp = NULL;
         FILE *f = NULL;
         unsigned v = 0;
         int r = 0;
@@ -1690,7 +1738,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf, &pp);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
@@ -1699,6 +1747,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 }
 
                 f = rf;
+                fn = pp;
         }
 
         for (;;) {
@@ -1946,7 +1995,12 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
-                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_FSCK |
+                                DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);

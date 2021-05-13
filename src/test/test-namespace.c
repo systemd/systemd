@@ -147,7 +147,6 @@ static void test_protect_kernel_logs(void) {
                 return;
         }
 
-
         pid = fork();
         assert_se(pid >= 0);
 
@@ -187,7 +186,6 @@ static void test_protect_kernel_logs(void) {
                                     NULL,
                                     NULL,
                                     NULL,
-                                    0,
                                     NULL);
                 assert_se(r == 0);
 

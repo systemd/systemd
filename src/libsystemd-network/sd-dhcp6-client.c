@@ -21,6 +21,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -47,6 +48,7 @@ struct sd_dhcp6_client {
         sd_event *event;
         int event_priority;
         int ifindex;
+        char *ifname;
         DHCP6Address hint_pd_prefix;
         struct in6_addr local_address;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
@@ -159,10 +161,27 @@ int sd_dhcp6_client_set_callback(
 int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
         assert_return(client, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         client->ifindex = ifindex;
         return 0;
+}
+
+int sd_dhcp6_client_set_ifname(sd_dhcp6_client *client, const char *ifname) {
+        assert_return(client, -EINVAL);
+        assert_return(ifname, -EINVAL);
+
+        if (!ifname_valid_full(ifname, IFNAME_VALID_ALTERNATIVE))
+                return -EINVAL;
+
+        return free_and_strdup(&client->ifname, ifname);
+}
+
+const char *sd_dhcp6_client_get_ifname(sd_dhcp6_client *client) {
+        if (!client)
+                return NULL;
+
+        return get_ifname(client->ifindex, &client->ifname);
 }
 
 int sd_dhcp6_client_set_local_address(
@@ -172,8 +191,7 @@ int sd_dhcp6_client_set_local_address(
         assert_return(client, -EINVAL);
         assert_return(local_address, -EINVAL);
         assert_return(in6_addr_is_link_local(local_address) > 0, -EINVAL);
-
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         client->local_address = *local_address;
 
@@ -188,8 +206,7 @@ int sd_dhcp6_client_set_mac(
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
         assert_return(addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
-
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         if (arp_type == ARPHRD_ETHER)
                 assert_return(addr_len == ETH_ALEN, -EINVAL);
@@ -219,8 +236,7 @@ int sd_dhcp6_client_set_prefix_delegation_hint(
 
         assert_return(client, -EINVAL);
         assert_return(pd_address, -EINVAL);
-
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         client->hint_pd_prefix.iapdprefix.address = *pd_address;
         client->hint_pd_prefix.iapdprefix.prefixlen = prefixlen;
@@ -265,7 +281,7 @@ static int dhcp6_client_set_duid_internal(
 
         assert_return(client, -EINVAL);
         assert_return(duid_len == 0 || duid != NULL, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         if (duid) {
                 r = dhcp_validate_duid_len(duid_type, duid_len, true);
@@ -374,7 +390,7 @@ int sd_dhcp6_client_duid_as_string(
 
 int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         assert_return(client, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         client->ia_na.ia_na.id = htobe32(iaid);
         client->ia_pd.ia_pd.id = htobe32(iaid);
@@ -411,7 +427,7 @@ int sd_dhcp6_client_set_fqdn(
 
 int sd_dhcp6_client_set_information_request(sd_dhcp6_client *client, int enabled) {
         assert_return(client, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
         client->information_request = enabled;
 
@@ -1172,7 +1188,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->ia, &ia_na_status);
+                        r = dhcp6_option_parse_ia(client, option, &lease->ia, &ia_na_status);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
 
@@ -1205,7 +1221,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->pd, &ia_pd_status);
+                        r = dhcp6_option_parse_ia(client, option, &lease->pd, &ia_pd_status);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
 
@@ -1686,7 +1702,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(client->ifindex > 0, -EINVAL);
         assert_return(in6_addr_is_link_local(&client->local_address) > 0, -EINVAL);
 
-        if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
+        if (client->state != DHCP6_STATE_STOPPED)
                 return -EBUSY;
 
         if (!client->information_request && !client->request)
@@ -1787,6 +1803,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         ordered_hashmap_free(client->extra_options);
         strv_free(client->user_class);
         strv_free(client->vendor_class);
+        free(client->ifname);
 
         return mfree(client);
 }

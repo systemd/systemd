@@ -178,7 +178,7 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(ordered_set_freep) OrderedSet *search_domains = NULL, *route_domains = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL, *route_domains = NULL;
         Link *l = userdata;
         int r;
 
@@ -211,22 +211,22 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (r == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
                 if (!route_only && dns_name_is_root(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
 
                 r = dns_name_normalize(name, 0, &str);
                 if (r < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
 
                 domains = route_only ? &route_domains : &search_domains;
-                r = ordered_set_ensure_allocated(domains, &string_hash_ops);
+                r = ordered_set_ensure_allocated(domains, &string_hash_ops_free);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put(*domains, str);
+                r = ordered_set_consume(*domains, TAKE_PTR(str));
+                if (r == -EEXIST)
+                        continue;
                 if (r < 0)
                         return r;
-
-                TAKE_PTR(str);
         }
 
         r = sd_bus_message_exit_container(message);
@@ -242,8 +242,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        ordered_set_free_free(l->search_domains);
-        ordered_set_free_free(l->route_domains);
+        ordered_set_free(l->search_domains);
+        ordered_set_free(l->route_domains);
         l->search_domains = TAKE_PTR(search_domains);
         l->route_domains = TAKE_PTR(route_domains);
 
@@ -684,6 +684,8 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CarrierState", "s", property_get_carrier_state, offsetof(Link, carrier_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AddressState", "s", property_get_address_state, offsetof(Link, address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IPv4AddressState", "s", property_get_address_state, offsetof(Link, ipv4_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Link, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BitRates", "(tt)", property_get_bit_rates, 0, 0),
 
@@ -854,7 +856,7 @@ int link_send_changed_strv(Link *link, char **properties) {
         assert(link->manager);
         assert(properties);
 
-        if (!link->manager->bus)
+        if (sd_bus_is_ready(link->manager->bus) <= 0)
                 return 0;
 
         p = link_bus_path(link);

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 if grep -q cgroup2 /proc/filesystems ; then
@@ -34,6 +34,6 @@ else
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
 fi
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

@@ -46,6 +46,7 @@
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
+    <filename>initrd-usr-fs.target</filename>,
     <filename>kbrequest.target</filename>,
     <filename>kexec.target</filename>,
     <filename>local-fs-pre.target</filename>,
@@ -372,12 +373,13 @@
           <term><filename>initrd-fs.target</filename></term>
           <listitem>
             <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-            automatically adds dependencies of type
-            <varname>Before=</varname> to
-            <filename>sysroot-usr.mount</filename> and all mount points
-            found in <filename>/etc/fstab</filename> that have
-            <option>x-initrd.mount</option> and not have
-            <option>noauto</option> mount options set.</para>
+            automatically adds dependencies of type <varname>Before=</varname> to
+            <filename>sysroot-usr.mount</filename> and all mount points found in
+            <filename>/etc/fstab</filename> that have the <option>x-initrd.mount</option> mount option set
+            and do not have the <option>noauto</option> mount option set. It is also indirectly ordered after
+            <filename>sysroot.mount</filename>. Thus, once this target is reached the
+            <filename>/sysroot/</filename> hierarchy is fully set up, in preparation for the transition to
+            the host OS.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -396,11 +398,27 @@
           <term><filename>initrd-root-fs.target</filename></term>
           <listitem>
             <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-            automatically adds dependencies of type
-            <varname>Before=</varname> to the
-            <filename>sysroot.mount</filename> unit, which is generated
-            from the kernel command line.
-            </para>
+            automatically adds dependencies of type <varname>Before=</varname> to the
+            <filename>sysroot.mount</filename> unit, which is generated from the kernel command line's
+            <varname>root=</varname> setting (or equivalent).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-usr-fs.target</filename></term>
+          <listitem>
+            <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            automatically adds dependencies of type <varname>Before=</varname> to the
+            <filename>sysusr-usr.mount</filename> unit, which is generated from the kernel command line's
+            <varname>usr=</varname> switch. Services may order themselves after this target unit in order to
+            run once the <filename>/sysusr/</filename> hierarchy becomes available, on systems that come up
+            initially without a root file system, but with an initialized <filename>/usr/</filename> and need
+            to access that before setting up the root file system to ultimately switch to. On systems where
+            <varname>usr=</varname> is not used this target is ordered after
+            <filename>sysroot.mount</filename> and thus mostly equivalent to
+            <filename>initrd-root-fs.target</filename>. In effect on any system once this target is reached
+            the file system backing <filename>/usr/</filename> is mounted, though possibly at two different
+            locations, either below the <filename>/sysusr/</filename> or the <filename>/sysroot/</filename>
+            hierarchies.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -99,10 +99,12 @@ _pure_ static uint64_t uint64_import(const void *buf, size_t buflen) {
 static void det_randomize(void *buf, size_t buflen, const void *seed, size_t seedlen, uint32_t idx) {
         gcry_md_hd_t hd, hd2;
         size_t olen, cpylen;
+        gcry_error_t err;
         uint32_t ctr;
 
         olen = gcry_md_get_algo_dlen(RND_HASH);
-        gcry_md_open(&hd, RND_HASH, 0);
+        err = gcry_md_open(&hd, RND_HASH, 0);
+        assert_se(gcry_err_code(err) == GPG_ERR_NO_ERROR); /* This shouldn't happen */
         gcry_md_write(hd, seed, seedlen);
         gcry_md_putc(hd, (idx >> 24) & 0xff);
         gcry_md_putc(hd, (idx >> 16) & 0xff);
@@ -110,7 +112,8 @@ static void det_randomize(void *buf, size_t buflen, const void *seed, size_t see
         gcry_md_putc(hd, (idx >>  0) & 0xff);
 
         for (ctr = 0; buflen; ctr++) {
-                gcry_md_copy(&hd2, hd);
+                err = gcry_md_copy(&hd2, hd);
+                assert_se(gcry_err_code(err) == GPG_ERR_NO_ERROR); /* This shouldn't happen */
                 gcry_md_putc(hd2, (ctr >> 24) & 0xff);
                 gcry_md_putc(hd2, (ctr >> 16) & 0xff);
                 gcry_md_putc(hd2, (ctr >>  8) & 0xff);

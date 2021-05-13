@@ -433,6 +433,7 @@ static int dns_stub_finish_reply_packet(
                 int rcode,
                 bool tc,        /* set the Truncated bit? */
                 bool aa,        /* set the Authoritative Answer bit? */
+                bool rd,        /* set the Recursion Desired bit? */
                 bool add_opt,   /* add an OPT RR to this packet? */
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
                 bool ad,        /* set the DNSSEC authenticated data bit? */
@@ -473,7 +474,7 @@ static int dns_stub_finish_reply_packet(
                                                               0  /* opcode */,
                                                               aa /* aa */,
                                                               tc /* tc */,
-                                                              1  /* rd */,
+                                                              rd /* rd */,
                                                               1  /* ra */,
                                                               ad /* ad */,
                                                               cd /* cd */,
@@ -581,6 +582,7 @@ static int dns_stub_send_reply(
                         rcode,
                         truncated,
                         dns_query_fully_authoritative(q),
+                        DNS_PACKET_RD(q->request_packet),
                         !!q->request_packet->opt,
                         edns0_do,
                         DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
@@ -622,6 +624,7 @@ static int dns_stub_send_failure(
                         rcode,
                         truncated,
                         false,
+                        DNS_PACKET_RD(p),
                         !!p->opt,
                         DNS_PACKET_DO(p),
                         DNS_PACKET_AD(p) && authenticated,
@@ -879,13 +882,13 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (dns_type_is_obsolete(p->question->keys[0]->type)) {
+        if (dns_type_is_obsolete(dns_question_first_key(p->question)->type)) {
                 log_debug("Got message with obsolete key type, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
 
-        if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
+        if (dns_type_is_zone_transer(dns_question_first_key(p->question)->type)) {
                 log_debug("Got request for zone transfer, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;

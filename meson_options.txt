@@ -269,7 +269,7 @@ option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', '
        description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
-       value : '1.1.1.1 8.8.8.8 1.0.0.1 8.8.4.4 2606:4700:4700::1111 2001:4860:4860::8888 2606:4700:4700::1001 2001:4860:4860::8844')
+       value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google')
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
@@ -370,6 +370,18 @@ option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
 option('tpm-pcrindex', type : 'integer', value : 8,
        description : 'TPM PCR register number to use')
+option('sbat-distro', type : 'string',
+       description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
+option('sbat-distro-generation', type : 'integer', value : 1,
+       description : 'SBAT distribution generation')
+option('sbat-distro-summary', type : 'string',
+       description : 'SBAT distribution summary, e.g. Fedora')
+option('sbat-distro-pkgname', type : 'string',
+       description : 'SBAT distribution package name, e.g. systemd')
+option('sbat-distro-version', type : 'string',
+       description : 'SBAT distribution package version, e.g. 248-7.fc34')
+option('sbat-distro-url', type : 'string',
+       description : 'SBAT distribution URL, e.g. https://src.fedoraproject.org/rpms/systemd')
 
 option('bashcompletiondir', type : 'string',
        description : 'directory for bash completion scripts ["no" disables]')
@@ -403,3 +415,6 @@ option('kernel-install', type: 'boolean', value: 'true',
        description : 'install kernel-install and associated files')
 option('analyze', type: 'boolean', value: 'true',
        description : 'install systemd-analyze')
+
+option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
+    description: 'build BPF programs from source code in restricted C')

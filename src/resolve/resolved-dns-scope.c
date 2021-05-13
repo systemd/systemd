@@ -287,17 +287,23 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                         return -EBUSY;
 
                 if (family == AF_INET) {
-                        addr.in = MDNS_MULTICAST_IPV4_ADDRESS;
+                        if (in4_addr_is_null(&p->destination.in))
+                                addr.in = MDNS_MULTICAST_IPV4_ADDRESS;
+                        else
+                                addr = p->destination;
                         fd = manager_mdns_ipv4_fd(s->manager);
                 } else if (family == AF_INET6) {
-                        addr.in6 = MDNS_MULTICAST_IPV6_ADDRESS;
+                        if (in6_addr_is_null(&p->destination.in6))
+                                addr.in6 = MDNS_MULTICAST_IPV6_ADDRESS;
+                        else
+                                addr = p->destination;
                         fd = manager_mdns_ipv6_fd(s->manager);
                 } else
                         return -EAFNOSUPPORT;
                 if (fd < 0)
                         return fd;
 
-                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, MDNS_PORT, NULL, p);
+                r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, p->destination_port ?: MDNS_PORT, NULL, p);
                 if (r < 0)
                         return r;
 
@@ -624,8 +630,8 @@ DnsScopeMatch dns_scope_good_domain(
         if (dns_name_endswith(domain, "invalid") > 0)
                 return DNS_SCOPE_NO;
 
-        /* Never go to network for the _gateway domain, it's something special, synthesized locally. */
-        if (is_gateway_hostname(domain))
+        /* Never go to network for the _gateway or _outbound domain — they're something special, synthesized locally. */
+        if (is_gateway_hostname(domain) || is_outbound_hostname(domain))
                 return DNS_SCOPE_NO;
 
         switch (s->protocol) {
@@ -733,6 +739,7 @@ DnsScopeMatch dns_scope_good_domain(
 
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "_gateway" with LLMNR, let local synthesizing logic handle that */
+                     !is_outbound_hostname(domain) && /* similar for "_outbound" */
                      dns_name_equal(domain, "local") == 0 && /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
@@ -984,7 +991,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 
         assert(dns_question_size(p->question) == 1);
-        key = p->question->keys[0];
+        key = dns_question_first_key(p->question);
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
         if (r < 0) {
@@ -1441,7 +1448,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
         /* Since all the active services are in the zone make them discoverable now. */
         SET_FOREACH(service_type, types) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr;
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
                                                   "_services._dns-sd._udp.local");

@@ -350,6 +350,11 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                 log_info("Unit %s is an alias to a unit that is not present, ignoring.",
                                          changes[i].path);
                         break;
+                case UNIT_FILE_DESTINATION_NOT_PRESENT:
+                        if (!quiet)
+                                log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
+                                            changes[i].source, changes[i].path);
+                        break;
                 case -EEXIST:
                         if (changes[i].source)
                                 log_error_errno(changes[i].type_or_errno,
@@ -1138,7 +1143,7 @@ static int config_parse_also(
                 if (r == 0)
                         break;
 
-                r = install_full_printf(info, word, &printed);
+                r = install_name_printf(info, word, &printed);
                 if (r < 0)
                         return r;
 
@@ -1185,7 +1190,7 @@ static int config_parse_default_instance(
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                   "DefaultInstance= only makes sense for template units, ignoring.");
 
-        r = install_full_printf(i, rvalue, &printed);
+        r = install_name_printf(i, rvalue, &printed);
         if (r < 0)
                 return r;
 
@@ -1749,12 +1754,12 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
                                                  "Invalid path \"%s\" in alias.", dir);
                 *p = '\0'; /* dir should now be a unit name */
 
-                r = unit_name_classify(dir);
-                if (r < 0)
+                UnitNameFlags type = unit_name_classify(dir);
+                if (type < 0)
                         return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
                                                  "Invalid unit name component \"%s\" in alias.", dir);
 
-                const bool instance_propagation = r == UNIT_NAME_TEMPLATE;
+                const bool instance_propagation = type == UNIT_NAME_TEMPLATE;
 
                 /* That's the name we want to use for verification. */
                 r = unit_symlink_name_compatible(path_alias, i->name, instance_propagation);
@@ -1771,11 +1776,11 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
                 if (unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
                         _cleanup_free_ char *inst = NULL;
 
-                        r = unit_name_to_instance(i->name, &inst);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to extract instance name from %s: %m", i->name);
+                        UnitNameFlags type = unit_name_to_instance(i->name, &inst);
+                        if (type < 0)
+                                return log_error_errno(type, "Failed to extract instance name from %s: %m", i->name);
 
-                        if (r == UNIT_NAME_INSTANCE) {
+                        if (type == UNIT_NAME_INSTANCE) {
                                 r = unit_name_replace_instance(dst, inst, &dst_updated);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to build unit name from %s+%s: %m",
@@ -1811,7 +1816,7 @@ static int install_info_symlink_alias(
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
 
-                q = install_full_printf(i, *s, &dst);
+                q = install_path_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
 
@@ -1832,6 +1837,7 @@ static int install_info_symlink_alias(
 }
 
 static int install_info_symlink_wants(
+                UnitFileScope scope,
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
@@ -1885,7 +1891,7 @@ static int install_info_symlink_wants(
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
-                q = install_full_printf(i, *s, &dst);
+                q = install_name_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
 
@@ -1902,6 +1908,9 @@ static int install_info_symlink_wants(
                 q = create_symlink(paths, i->path, path, true, changes, n_changes);
                 if (r == 0)
                         r = q;
+
+                if (unit_file_exists(scope, paths, dst) == 0)
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_DESTINATION_NOT_PRESENT, dst, i->path);
         }
 
         return r;
@@ -1937,6 +1946,7 @@ static int install_info_symlink_link(
 }
 
 static int install_info_apply(
+                UnitFileScope scope,
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
@@ -1955,11 +1965,11 @@ static int install_info_apply(
 
         r = install_info_symlink_alias(i, paths, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
+        q = install_info_symlink_wants(scope, i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
+        q = install_info_symlink_wants(scope, i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
         if (r == 0)
                 r = q;
 
@@ -2023,7 +2033,7 @@ static int install_context_apply(
                 if (i->type != UNIT_FILE_TYPE_REGULAR)
                         continue;
 
-                q = install_info_apply(i, paths, config_path, force, changes, n_changes);
+                q = install_info_apply(scope, i, paths, config_path, force, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
@@ -2950,7 +2960,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, UnitFilePrese
                 return r;
 
         STRV_FOREACH(p, files) {
-                _cleanup_fclose_ FILE *f;
+                _cleanup_fclose_ FILE *f = NULL;
                 int n = 0;
 
                 f = fopen(*p, "re");
@@ -3457,10 +3467,11 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
 
 static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX] = {
-        [UNIT_FILE_SYMLINK]     = "symlink",
-        [UNIT_FILE_UNLINK]      = "unlink",
-        [UNIT_FILE_IS_MASKED]   = "masked",
-        [UNIT_FILE_IS_DANGLING] = "dangling",
+        [UNIT_FILE_SYMLINK]                 = "symlink",
+        [UNIT_FILE_UNLINK]                  = "unlink",
+        [UNIT_FILE_IS_MASKED]               = "masked",
+        [UNIT_FILE_IS_DANGLING]             = "dangling",
+        [UNIT_FILE_DESTINATION_NOT_PRESENT] = "destination not present",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, int);

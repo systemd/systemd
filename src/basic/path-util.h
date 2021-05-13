@@ -61,6 +61,8 @@ char* path_startswith(const char *path, const char *prefix) _pure_;
 int path_compare(const char *a, const char *b) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
+/* Compares only the last portion of the input paths, ie: the filenames */
+bool path_equal_filename(const char *a, const char *b);
 char* path_join_internal(const char *first, ...);
 #define path_join(x, ...) path_join_internal(x, __VA_ARGS__, POINTER_MAX)
 
@@ -183,5 +185,3 @@ static inline const char *empty_to_root(const char *path) {
 
 bool path_strv_contains(char **l, const char *path);
 bool prefixed_path_strv_contains(char **l, const char *path);
-
-bool credential_name_valid(const char *s);

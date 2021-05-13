@@ -1364,9 +1364,9 @@ static int service_allocate_exec_fd_event_source(
 static int service_allocate_exec_fd(
                 Service *s,
                 sd_event_source **ret_event_source,
-                int* ret_exec_fd) {
+                int *ret_exec_fd) {
 
-        _cleanup_close_pair_ int p[2] = { -1, -1 };
+        _cleanup_close_pair_ int p[] = { -1, -1 };
         int r;
 
         assert(s);
@@ -1380,7 +1380,7 @@ static int service_allocate_exec_fd(
         if (r < 0)
                 return r;
 
-        p[0] = -1;
+        TAKE_FD(p[0]);
         *ret_exec_fd = TAKE_FD(p[1]);
 
         return 0;
@@ -1410,7 +1410,7 @@ static int service_spawn(
                 ExecCommand *c,
                 usec_t timeout,
                 ExecFlags flags,
-                pid_t *_pid) {
+                pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = flags,
@@ -1427,7 +1427,7 @@ static int service_spawn(
 
         assert(s);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
@@ -1582,7 +1582,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        *_pid = pid;
+        *ret_pid = pid;
 
         return 0;
 }
@@ -1621,18 +1621,25 @@ static int control_pid_good(Service *s) {
         return s->control_pid > 0;
 }
 
-static int cgroup_good(Service *s) {
-        int r;
-
+static int cgroup_empty(Service *s) {
         assert(s);
 
-        /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
-         * figure it out */
+        /* Returns 0 if there is no cgroup, > 0 if is empty or doesn't exist, < 0 if we can't figure it out */
 
         if (!UNIT(s)->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
+        return cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
+}
+
+
+static int cgroup_good(Service *s) {
+        int r;
+
+        /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
+         * figure it out */
+
+        r = cgroup_empty(s);
         if (r < 0)
                 return r;
 
@@ -2270,12 +2277,11 @@ static void service_enter_restart(Service *s) {
         s->n_restarts ++;
         s->flush_n_restarts = false;
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
-                   LOG_UNIT_ID(UNIT(s)),
-                   LOG_UNIT_INVOCATION_ID(UNIT(s)),
-                   LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
-                   "N_RESTARTS=%u", s->n_restarts);
+        log_unit_struct(UNIT(s), LOG_INFO,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
+                        LOG_UNIT_INVOCATION_ID(UNIT(s)),
+                        LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                        "N_RESTARTS=%u", s->n_restarts);
 
         /* Notify clients about changed restart counter */
         unit_add_to_dbus_queue(UNIT(s));
@@ -2718,7 +2724,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int service_deserialize_exec_command(
+int service_deserialize_exec_command(
                 Unit *u,
                 const char *key,
                 const char *value) {
@@ -2776,9 +2782,6 @@ static int service_deserialize_exec_command(
                 case STATE_EXEC_COMMAND_PATH:
                         path = TAKE_PTR(arg);
                         state = STATE_EXEC_COMMAND_ARGS;
-
-                        if (!path_is_absolute(path))
-                                return -EINVAL;
                         break;
                 case STATE_EXEC_COMMAND_ARGS:
                         r = strv_extend(&argv, arg);
@@ -2786,13 +2789,14 @@ static int service_deserialize_exec_command(
                                 return -ENOMEM;
                         break;
                 default:
-                        assert_not_reached("Unknown error at deserialization of exec command");
-                        break;
+                        assert_not_reached("Logic error in exec command deserialization");
                 }
         }
 
         if (state != STATE_EXEC_COMMAND_ARGS)
                 return -EINVAL;
+        if (strv_isempty(argv))
+                return -EINVAL; /* At least argv[0] must be always present. */
 
         /* Let's check whether exec command on given offset matches data that we just deserialized */
         for (command = s->exec_command[id], i = 0; command; command = command->command_next, i++) {
@@ -3398,7 +3402,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
-        if (s->main_pid == pid) {
+        /* Services with ExitType=cgroup ignore the main PID for purposes of exit status */
+        if (s->exit_type == SERVICE_EXIT_CGROUP && s->main_pid == pid) {
+                service_unwatch_main_pid(s);
+                s->main_pid_known = false;
+        }
+
+        if ((s->exit_type == SERVICE_EXIT_MAIN && s->main_pid == pid) ||
+            (s->exit_type == SERVICE_EXIT_CGROUP && cgroup_empty(s) && !control_pid_good(s))) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
@@ -3431,7 +3442,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 unit_log_process_exit(
                                 u,
-                                "Main process",
+                                s->exit_type == SERVICE_EXIT_CGROUP ? "Last process" : "Main process",
                                 service_exec_command_to_string(SERVICE_EXEC_START),
                                 f == SERVICE_SUCCESS,
                                 code, status);
@@ -3444,25 +3455,31 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                     s->type == SERVICE_ONESHOT &&
                     f == SERVICE_SUCCESS) {
 
-                        /* There is another command to *
-                         * execute, so let's do that. */
+                        /* There is another command to execute, so let's do that. */
 
                         log_unit_debug(u, "Running next main command for state %s.", service_state_to_string(s->state));
                         service_run_next_main(s);
 
                 } else {
 
-                        /* The service exited, so the service is officially
-                         * gone. */
+                        /* The service exited, so the service is officially gone. */
                         s->main_command = NULL;
 
                         switch (s->state) {
 
                         case SERVICE_START_POST:
                         case SERVICE_RELOAD:
+                                /* If neither main nor control processes are running then
+                                 * the current state can never exit cleanly, hence immediately
+                                 * terminate the service. */
+                                if (control_pid_good(s) <= 0)
+                                        service_enter_stop(s, f);
+
+                                /* Otherwise need to wait until the operation is done. */
+                                break;
+
                         case SERVICE_STOP:
-                                /* Need to wait until the operation is
-                                 * done */
+                                /* Need to wait until the operation is done. */
                                 break;
 
                         case SERVICE_START:
@@ -4255,7 +4272,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         if (getpeername_pretty(fd, true, &peer) >= 0) {
 
                 if (UNIT(s)->description) {
-                        _cleanup_free_ char *a;
+                        _cleanup_free_ char *a = NULL;
 
                         a = strjoin(UNIT(s)->description, " (", peer, ")");
                         if (!a)
@@ -4447,6 +4464,13 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
+
+static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
+        [SERVICE_EXIT_MAIN] = "main",
+        [SERVICE_EXIT_CGROUP] = "cgroup",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION] = "ExecCondition",

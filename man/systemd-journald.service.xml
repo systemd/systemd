@@ -53,9 +53,10 @@
       project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       call</para></listitem>
 
-      <listitem><para>Structured system log messages via the native
-      Journal API, see
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Structured system log messages via the native Journal API, see
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      and <ulink url="https://systemd.io/JOURNAL_NATIVE_PROTOCOL">Native Journal
+      Protocol</ulink></para></listitem>
 
       <listitem><para>Standard output and standard error of service units. For further details see
       below.</para></listitem>
@@ -78,6 +79,11 @@
     to volatile storage otherwise. Use <varname>Storage=</varname> in
     <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> to configure
     where log data is placed, independently of the existence of <filename>/var/log/journal/</filename>.</para>
+
+    <para>Note that journald will initially use volatile storage, until a call to
+    <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause
+    it to switch to persistent logging (under the conditions mentioned above). This is done automatically
+    on boot via <literal>systemd-journal-flush.service</literal>.</para>
 
     <para>On systems where <filename>/var/log/journal/</filename> does not exist yet but where persistent logging is
     desired (and the default <filename>journald.conf</filename> is used), it is sufficient to create the directory, and

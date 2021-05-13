@@ -38,8 +38,8 @@ relative_source_path = run_command('realpath',
                                    project_source_root).stdout().strip()
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
-conf.set('BUILD_MODE', 'BUILD_MODE_' + get_option('mode').to_upper(),
-         description : 'tailor build to development or release builds')
+conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
+           description : 'tailor build to development or release builds')
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
@@ -395,10 +395,6 @@ possible_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
-        # Disable -Wmaybe-uninitialized, since it's noisy on gcc 8 with
-        # optimizations enabled, producing essentially false positives.
-        '-Wno-maybe-uninitialized',
-
         '-ffast-math',
         '-fno-common',
         '-fdiagnostics-show-option',
@@ -408,6 +404,15 @@ possible_cc_flags = [
         '-fstack-protector-strong',
         '--param=ssp-buffer-size=4',
 ]
+
+# Disable -Wmaybe-unitialized when compiling with -Os/-O1/-O3/etc. There are
+# too many false positives with gcc >= 8. Effectively, we only test with -O0
+# and -O2; this should be enough to catch most important cases without too much
+# busywork. See https://github.com/systemd/systemd/pull/19226.
+if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
+                             cc.version().version_compare('<10'))
+        possible_cc_flags += '-Wno-maybe-uninitialized'
+endif
 
 # --as-needed and --no-undefined are provided by meson by default,
 # run mesonconf to see what is enabled
@@ -475,11 +480,14 @@ conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h
 
 decl_headers = '''
 #include <uchar.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
+#include <linux/fs.h>
 '''
 
 foreach decl : ['char16_t',
                 'char32_t',
+                'struct mount_attr',
                 'struct statx',
                ]
 
@@ -547,9 +555,13 @@ foreach ident : [
                                  #include <signal.h>
                                  #include <sys/wait.h>'''],
         ['mallinfo',          '''#include <malloc.h>'''],
+        ['mallinfo2',         '''#include <malloc.h>'''],
         ['execveat',          '''#include <unistd.h>'''],
         ['close_range',       '''#include <unistd.h>'''],
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],
+        ['mount_setattr',     '''#include <sys/mount.h>'''],
+        ['move_mount',        '''#include <sys/mount.h>'''],
+        ['open_tree',         '''#include <sys/mount.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
@@ -710,7 +722,7 @@ if time_epoch == -1
         if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command('git', 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command('git', 'log', '-1', '--format=%at', latest_tag).stdout()
+                time_epoch = run_command('git', 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
         endif
         if time_epoch == ''
                 NEWS = files('NEWS')
@@ -797,7 +809,7 @@ if not meson.is_cross_build()
                 id = id_result.stdout().to_int()
                 if id != 65534
                         warning('\n' +
-                                'The local group with the configured group name "@0@" of the nobody group does not have UID 65534 (it has @1@).\n'.format(nobody_group, id) +
+                                'The local group with the configured group name "@0@" of the nobody group does not have GID 65534 (it has @1@).\n'.format(nobody_group, id) +
                                 'Your build will result in an group table setup that is incompatible with the local system.')
                 endif
         endif
@@ -930,6 +942,25 @@ libcap = dependency('libcap', required : false)
 if not libcap.found()
         # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
         libcap = cc.find_library('cap')
+endif
+
+want_bpf_framework = get_option('bpf-framework')
+bpf_framework_required = want_bpf_framework == 'true'
+
+libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
+conf.set10('HAVE_LIBBPF', libbpf.found())
+
+if want_bpf_framework == 'false'
+        conf.set10('BPF_FRAMEWORK', 0)
+else
+        clang = find_program('clang', required : bpf_framework_required)
+        llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
+        bpftool = find_program('bpftool', required : bpf_framework_required)
+        bpf_arches = ['x86_64']
+        deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
+        # Can build BPF program from source code in restricted C
+        conf.set10('BPF_FRAMEWORK',
+                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
 endif
 
 libmount = dependency('mount',
@@ -1112,7 +1143,7 @@ else
         libcurl = []
 endif
 conf.set10('HAVE_LIBCURL', have)
-conf.set10('CURL_NO_OLDIES', get_option('mode') == 'developer')
+conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
 want_libidn = get_option('libidn')
 want_libidn2 = get_option('libidn2')
@@ -1227,7 +1258,7 @@ conf.set10('HAVE_LIBFIDO2', have)
 want_tpm2 = get_option('tpm2')
 if want_tpm2 != 'false' and not skip_deps
         tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
-                              required : want_tpm2 == 'true')
+                          required : want_tpm2 == 'true')
         have = tpm2.found()
 else
         have = false
@@ -1580,6 +1611,9 @@ if get_option('efi')
         elif efi_arch == 'aarch64'
                 EFI_MACHINE_TYPE_NAME = 'aa64'
                 gnu_efi_arch = 'aarch64'
+        elif efi_arch == 'riscv64'
+                EFI_MACHINE_TYPE_NAME = 'riscv64'
+                gnu_efi_arch = 'riscv64'
         else
                 EFI_MACHINE_TYPE_NAME = ''
                 gnu_efi_arch = ''
@@ -1596,6 +1630,7 @@ conf.set10('ENABLE_EFI', have)
 
 ############################################################
 
+build_bpf_skel_py = find_program('tools/build-bpf-skel.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -1688,6 +1723,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
+                        libbpf,
                         libcap,
                         libblkid,
                         libmount,
@@ -2324,7 +2360,7 @@ if conf.get('ENABLE_HOMED') == 1
 endif
 
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
-                (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
+                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
         meson.add_install_script(meson_make_symlink,
                                  join_paths(rootbindir, 'systemctl'),
                                  join_paths(rootsbindir, alias))
@@ -2745,14 +2781,14 @@ if conf.get('ENABLE_OOMD') == 1
                    install_dir : rootlibexecdir)
 
         public_programs += executable(
-                   'oomctl',
-                   oomctl_sources,
-                   include_directories : includes,
-                   link_with : [libshared],
-                   dependencies : [],
-                   install_rpath : rootlibexecdir,
-                   install : true,
-                   install_dir : rootbindir)
+                'oomctl',
+                oomctl_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootbindir)
 endif
 
 if conf.get('ENABLE_BINFMT') == 1
@@ -3139,7 +3175,7 @@ if conf.get('ENABLE_TMPFILES') == 1
 endif
 
 if conf.get('ENABLE_HWDB') == 1
-        public_programs += executable(
+        systemd_hwdb = executable(
                 'systemd-hwdb',
                 'src/hwdb/hwdb.c',
                 include_directories : includes,
@@ -3147,6 +3183,14 @@ if conf.get('ENABLE_HWDB') == 1
                 install_rpath : udev_rpath,
                 install : true,
                 install_dir : rootbindir)
+        public_programs += systemd_hwdb
+
+        if want_tests != 'false'
+                test('hwdb-test',
+                     hwdb_test_sh,
+                     args : [systemd_hwdb.full_path()],
+                     timeout : 90)
+        endif
 endif
 
 if conf.get('ENABLE_QUOTACHECK') == 1
@@ -3308,10 +3352,19 @@ custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
         command : ['sh', '-c', '{ ' +
-                   'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
-                   'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(project_build_root, 'catalog')) +
-                   '} >@OUTPUT@'],
+                               'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
+                               'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(project_build_root, 'catalog')) +
+                               '} >@OUTPUT@'],
         build_by_default : true)
+
+test_cflags = ['-DTEST_CODE=1']
+# We intentionally do not do inline initializations with definitions for a
+# bunch of _cleanup_ variables in tests, to ensure valgrind is triggered if we
+# use the variable unexpectedly. This triggers a lot of maybe-uninitialized
+# false positives when the combination of -O2 and -flto is used. Suppress them.
+if '-O2' in get_option('c_args') and '-flto=auto' in get_option('c_args')
+        test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
+endif
 
 foreach tuple : tests
         sources = tuple[0]
@@ -3321,6 +3374,7 @@ foreach tuple : tests
         condition = tuple.length() > 4 ? tuple[4] : ''
         type = tuple.length() > 5 ? tuple[5] : ''
         defs = tuple.length() > 6 ? tuple[6] : []
+        defs += test_cflags
         parallel = tuple.length() > 7 ? tuple[7] : true
         timeout = 30
 
@@ -3388,7 +3442,7 @@ exe = executable(
         'test-libudev-sym',
         test_libudev_sym_c,
         include_directories : libudev_includes,
-        c_args : '-Wno-deprecated-declarations',
+        c_args : ['-Wno-deprecated-declarations'] + test_cflags,
         link_with : [libudev],
         build_by_default : want_tests != 'false',
         install : install_tests,
@@ -3401,7 +3455,7 @@ exe = executable(
         'test-libudev-static-sym',
         test_libudev_sym_c,
         include_directories : libudev_includes,
-        c_args : '-Wno-deprecated-declarations',
+        c_args : ['-Wno-deprecated-declarations'] + test_cflags,
         link_with : [install_libudev_static],
         build_by_default : want_tests != 'false' and static_libudev_pic,
         install : install_tests and static_libudev_pic,
@@ -3442,7 +3496,7 @@ foreach tuple : fuzzers
                 include_directories : [incs, include_directories('src/fuzz')],
                 link_with : link_with,
                 dependencies : dependencies,
-                c_args : defs,
+                c_args : defs + test_cflags,
                 link_args: link_args,
                 install : false,
                 build_by_default : fuzz_tests or fuzzer_build)
@@ -3515,7 +3569,7 @@ check_directives_sh = find_program('tools/check-directives.sh')
 if want_tests != 'false'
         test('check-directives',
              check_directives_sh,
-             args : project_source_root)
+             args : [project_source_root, project_build_root])
 endif
 
 ############################################################
@@ -3629,7 +3683,7 @@ if dbus_docs.length() > 0
                            '@INPUT@'],
                 input : dbus_docs)
 
-        if conf.get('BUILD_MODE') == 'BUILD_MODE_DEVELOPER'
+        if conf.get('BUILD_MODE_DEVELOPER') == 1
                 test('dbus-docs-fresh',
                      update_dbus_docs_py,
                      args : ['--build-dir=@0@'.format(project_build_root),
@@ -3713,10 +3767,6 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d',
 status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
-status += [
-        'static libsystemd:                 @0@'.format(static_libsystemd),
-        'static libudev:                    @0@'.format(static_libudev)]
-
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
@@ -3739,107 +3789,114 @@ found = []
 missing = []
 
 foreach tuple : [
-        ['libcryptsetup'],
-        ['PAM'],
-        ['pwquality'],
-        ['libfdisk'],
-        ['p11kit'],
-        ['libfido2'],
-        ['tpm2'],
+        # dependencies
+        ['ACL'],
         ['AUDIT'],
-        ['IMA'],
         ['AppArmor'],
-        ['SELinux'],
+        ['IMA'],
+        ['PAM'],
         ['SECCOMP'],
+        ['SELinux'],
         ['SMACK'],
-        ['zlib'],
-        ['xz'],
+        ['blkid'],
+        ['elfutils'],
+        ['gcrypt'],
+        ['gnutls'],
+        ['libbpf'],
+        ['libcryptsetup'],
+        ['libcurl'],
+        ['libfdisk'],
+        ['libfido2'],
+        ['libidn'],
+        ['libidn2'],
+        ['libiptc'],
+        ['microhttpd'],
+        ['openssl'],
+        ['p11kit'],
+        ['pcre2'],
+        ['pwquality'],
+        ['qrencode'],
+        ['tpm2'],
+        ['xkbcommon'],
+
+        # compression libs
         ['zstd'],
         ['lz4'],
+        ['xz'],
+        ['zlib'],
         ['bzip2'],
-        ['ACL'],
-        ['gcrypt'],
-        ['qrencode'],
-        ['microhttpd'],
-        ['gnutls'],
-        ['openssl'],
-        ['libcurl'],
-        ['idn'],
-        ['initrd'],
-        ['compat-mutable-uid-boundaries'],
-        ['nscd'],
-        ['libidn2'],
-        ['libidn'],
-        ['libiptc'],
-        ['elfutils'],
-        ['binfmt'],
-        ['repart'],
-        ['vconsole'],
-        ['quotacheck'],
-        ['tmpfiles'],
-        ['environment.d'],
-        ['sysusers'],
-        ['firstboot'],
-        ['randomseed'],
+
+        # components
         ['backlight'],
-        ['rfkill'],
-        ['xdg-autostart'],
+        ['binfmt'],
+        ['bpf-framework',         conf.get('BPF_FRAMEWORK') == 1],
+        ['coredump'],
+        ['environment.d'],
+        ['efi'],
+        ['gnu-efi',               have_gnu_efi],
+        ['firstboot'],
+        ['hibernate'],
+        ['homed'],
+        ['hostnamed'],
+        ['hwdb'],
+        ['importd'],
+        ['initrd'],
+        ['kernel-install',        get_option('kernel-install')],
+        ['localed'],
         ['logind'],
         ['machined'],
-        ['portabled'],
-        ['sysext'],
-        ['userdb'],
-        ['homed'],
-        ['importd'],
-        ['hostnamed'],
-        ['timedated'],
-        ['timesyncd'],
-        ['localed'],
         ['networkd'],
-        ['resolve'],
-        ['DNS-over-TLS(gnutls)',  conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1],
-        ['DNS-over-TLS(openssl)', conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1],
-        ['coredump'],
-        ['pstore'],
-        ['oomd'],
-        ['polkit'],
-        ['legacy pkla',      install_polkit_pkla],
-        ['efi'],
-        ['gnu-efi',          have_gnu_efi],
-        ['kmod'],
-        ['xkbcommon'],
-        ['pcre2'],
-        ['blkid'],
-        ['dbus'],
-        ['glib'],
         ['nss-myhostname'],
         ['nss-mymachines'],
         ['nss-resolve'],
         ['nss-systemd'],
-        ['hwdb'],
+        ['oomd'],
+        ['portabled'],
+        ['pstore'],
+        ['quotacheck'],
+        ['randomseed'],
+        ['repart'],
+        ['resolve'],
+        ['rfkill'],
+        ['sysext'],
+        ['systemd-analyze',       conf.get('ENABLE_ANALYZE') == 1],
+        ['sysusers'],
+        ['timedated'],
+        ['timesyncd'],
+        ['tmpfiles'],
+        ['userdb'],
+        ['vconsole'],
+        ['xdg-autostart'],
+
+        # optional features
+        ['idn'],
+        ['polkit'],
+        ['nscd'],
+        ['legacy-pkla',           install_polkit_pkla],
+        ['kmod'],
+        ['dbus'],
+        ['glib'],
         ['tpm'],
-        ['man pages',        want_man],
-        ['html pages',       want_html],
-        ['man page indices', want_man and have_lxml],
+        ['man pages',             want_man],
+        ['html pages',            want_html],
+        ['man page indices',      want_man and have_lxml],
         ['SysV compat'],
+        ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],
-        ['hibernate'],
-        ['adm group',        get_option('adm-group')],
-        ['wheel group',      get_option('wheel-group')],
+        ['adm group',             get_option('adm-group')],
+        ['wheel group',           get_option('wheel-group')],
         ['gshadow'],
         ['debug hashmap'],
         ['debug mmap cache'],
         ['debug siphash'],
-        ['valgrind',         conf.get('VALGRIND') == 1],
-        ['trace logging',    conf.get('LOG_TRACE') == 1],
-        ['install tests',    install_tests],
+        ['valgrind',              conf.get('VALGRIND') == 1],
+        ['trace logging',         conf.get('LOG_TRACE') == 1],
+        ['install tests',         install_tests],
         ['link-udev-shared',      get_option('link-udev-shared')],
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
-        ['kernel-install',        get_option('kernel-install')],
-        ['systemd-analyze',  conf.get('ENABLE_ANALYZE') == 1],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
 ]
@@ -3857,6 +3914,26 @@ foreach tuple : [
                 missing += tuple[0]
         endif
 endforeach
+
+if static_libsystemd == 'false'
+        missing += 'static-libsystemd'
+else
+        found += 'static-libsystemd(@0@)'.format(static_libsystemd)
+endif
+
+if static_libudev == 'false'
+        missing += 'static-libudev'
+else
+        found += 'static-libudev(@0@)'.format(static_libudev)
+endif
+
+if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
+        found += 'DNS-over-TLS(gnutls)'
+elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
+        found += 'DNS-over-TLS(openssl)'
+else
+        missing += 'DNS-over-TLS'
+endif
 
 status += [
         '',

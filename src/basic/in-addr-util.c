@@ -51,7 +51,7 @@ bool in4_addr_is_link_local(const struct in_addr *a) {
 bool in6_addr_is_link_local(const struct in6_addr *a) {
         assert(a);
 
-        return IN6_IS_ADDR_LINKLOCAL(a);
+        return IN6_IS_ADDR_LINKLOCAL(a); /* lgtm [cpp/potentially-dangerous-function] */
 }
 
 int in_addr_is_link_local(int family, const union in_addr_union *u) {
@@ -116,7 +116,7 @@ int in_addr_is_localhost(int family, const union in_addr_union *u) {
                 return in4_addr_is_localhost(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_LOOPBACK(&u->in6);
+                return IN6_IS_ADDR_LOOPBACK(&u->in6); /* lgtm [cpp/potentially-dangerous-function] */
 
         return -EAFNOSUPPORT;
 }
@@ -803,12 +803,18 @@ int in_addr_prefix_from_string_auto_internal(
 }
 
 static void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state) {
+        assert(a);
+        assert(state);
+
         siphash24_compress(&a->family, sizeof(a->family), state);
         siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
 }
 
 static int in_addr_data_compare_func(const struct in_addr_data *x, const struct in_addr_data *y) {
         int r;
+
+        assert(x);
+        assert(y);
 
         r = CMP(x->family, y->family);
         if (r != 0)
@@ -819,13 +825,46 @@ static int in_addr_data_compare_func(const struct in_addr_data *x, const struct 
 
 DEFINE_HASH_OPS(in_addr_data_hash_ops, struct in_addr_data, in_addr_data_hash_func, in_addr_data_compare_func);
 
+static void in_addr_prefix_hash_func(const struct in_addr_prefix *a, struct siphash *state) {
+        assert(a);
+        assert(state);
+
+        siphash24_compress(&a->family, sizeof(a->family), state);
+        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+}
+
+static int in_addr_prefix_compare_func(const struct in_addr_prefix *x, const struct in_addr_prefix *y) {
+        int r;
+
+        assert(x);
+        assert(y);
+
+        r = CMP(x->family, y->family);
+        if (r != 0)
+                return r;
+
+        r = CMP(x->prefixlen, y->prefixlen);
+        if (r != 0)
+                return r;
+
+        return memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
+}
+
+DEFINE_HASH_OPS(in_addr_prefix_hash_ops, struct in_addr_prefix, in_addr_prefix_hash_func, in_addr_prefix_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(in_addr_prefix_hash_ops_free, struct in_addr_prefix, in_addr_prefix_hash_func, in_addr_prefix_compare_func, free);
+
 void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state) {
         assert(addr);
+        assert(state);
 
         siphash24_compress(addr, sizeof(*addr), state);
 }
 
 int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b) {
+        assert(a);
+        assert(b);
+
         return memcmp(a, b, sizeof(*a));
 }
 

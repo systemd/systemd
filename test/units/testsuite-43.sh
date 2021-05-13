@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
@@ -7,6 +7,7 @@ systemd-analyze log-level debug
 runas() {
     declare userid=$1
     shift
+    # shellcheck disable=SC2016
     su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
 }
 
@@ -34,9 +35,10 @@ test -e /home/testuser/works.txt
 runas testuser systemd-run --wait --user --unit=test-protect-home-read-only \
     -p PrivateUsers=yes -p ProtectHome=read-only \
     -P bash -c '
-        test -e /home/testuser/works.txt
-        ! touch /home/testuser/blocked.txt
-    '
+        test -e /home/testuser/works.txt || exit 10
+        touch /home/testuser/blocked.txt && exit 11
+    ' \
+        && { echo 'unexpected success'; exit 1; }
 test ! -e /home/testuser/blocked.txt
 
 # Check that tmpfs hides the whole directory
@@ -45,6 +47,7 @@ runas testuser systemd-run --wait --user --unit=test-protect-home-tmpfs \
     -P test ! -e /home/testuser
 
 # Confirm that home, /root, and /run/user are inaccessible under "yes"
+# shellcheck disable=SC2016
 runas testuser systemd-run --wait --user --unit=test-protect-home-yes \
     -p PrivateUsers=yes -p ProtectHome=yes \
     -P bash -c '
@@ -57,12 +60,13 @@ runas testuser systemd-run --wait --user --unit=test-protect-home-yes \
 # namespace (no CAP_SETGID in the parent namespace to write the additional
 # mapping of the user supplied group and thus cannot change groups to an
 # unmapped group ID)
-! runas testuser systemd-run --wait --user --unit=test-group-fail \
+runas testuser systemd-run --wait --user --unit=test-group-fail \
     -p PrivateUsers=yes -p Group=daemon \
-    -P true
+    -P true \
+    && { echo 'unexpected success'; exit 1; }
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

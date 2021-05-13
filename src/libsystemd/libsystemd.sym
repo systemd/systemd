@@ -751,3 +751,10 @@ global:
         sd_device_new_from_stat_rdev;
         sd_device_trigger;
 } LIBSYSTEMD_247;
+
+LIBSYSTEMD_249 {
+global:
+        sd_device_monitor_filter_add_match_sysattr;
+        sd_device_monitor_filter_add_match_parent;
+        sd_device_get_usec_initialized;
+} LIBSYSTEMD_248;

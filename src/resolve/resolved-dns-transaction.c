@@ -510,7 +510,7 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
 
         /* Retries the transaction as it is, possibly on a different server */
 
-        if (next_server)
+        if (next_server && t->scope->protocol == DNS_PROTOCOL_DNS)
                 log_debug("Retrying transaction %" PRIu16 ", after switching servers.", t->id);
         else
                 log_debug("Retrying transaction %" PRIu16 ".", t->id);
@@ -1510,7 +1510,10 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
+        if (t->initial_jitter_scheduled && !t->initial_jitter_elapsed) {
+                log_debug("Initial jitter phase for transaction %" PRIu16 " elapsed.", t->id);
+                t->initial_jitter_elapsed = true;
+        } else {
                 /* Timeout reached? Increase the timeout for the server used */
                 switch (t->scope->protocol) {
 
@@ -1528,14 +1531,12 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
                         assert_not_reached("Invalid DNS protocol.");
                 }
 
-                if (t->initial_jitter_scheduled)
-                        t->initial_jitter_elapsed = true;
+                log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
         }
 
-        log_debug("Timeout reached on transaction %" PRIu16 ".", t->id);
-
-        dns_transaction_retry(t, true); /* try a different server, but given this means packet loss, let's do
-                                         * so even if we already tried a bunch */
+        dns_transaction_retry(t, /* next_server= */ true); /* try a different server, but given this means
+                                                            * packet loss, let's do so even if we already
+                                                            * tried a bunch */
         return 0;
 }
 
@@ -1928,8 +1929,8 @@ int dns_transaction_go(DnsTransaction *t) {
         if (r <= 0)
                 return r;
 
-        log_debug("%s transaction %" PRIu16 " for <%s> scope %s on %s/%s (validate=%s).",
-                  t->bypass ? "Bypass" : "Regular",
+        log_debug("Firing %s transaction %" PRIu16 " for <%s> scope %s on %s/%s (validate=%s).",
+                  t->bypass ? "bypass" : "regular",
                   t->id,
                   dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
@@ -1941,34 +1942,33 @@ int dns_transaction_go(DnsTransaction *t) {
             IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
                 usec_t jitter, accuracy;
 
-                /* RFC 4795 Section 2.7 suggests all queries should be
-                 * delayed by a random time from 0 to JITTER_INTERVAL. */
+                /* RFC 4795 Section 2.7 suggests all queries should be delayed by a random time from 0 to
+                 * JITTER_INTERVAL. */
 
                 t->initial_jitter_scheduled = true;
-
-                random_bytes(&jitter, sizeof(jitter));
 
                 switch (t->scope->protocol) {
 
                 case DNS_PROTOCOL_LLMNR:
-                        jitter %= LLMNR_JITTER_INTERVAL_USEC;
+                        jitter = random_u64_range(LLMNR_JITTER_INTERVAL_USEC);
                         accuracy = LLMNR_JITTER_INTERVAL_USEC;
                         break;
 
                 case DNS_PROTOCOL_MDNS:
-                        jitter %= MDNS_JITTER_RANGE_USEC;
-                        jitter += MDNS_JITTER_MIN_USEC;
+                        jitter = usec_add(random_u64_range(MDNS_JITTER_RANGE_USEC), MDNS_JITTER_MIN_USEC);
                         accuracy = MDNS_JITTER_RANGE_USEC;
                         break;
                 default:
                         assert_not_reached("bad protocol");
                 }
 
-                r = sd_event_add_time(
+                assert(!t->timeout_event_source);
+
+                r = sd_event_add_time_relative(
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 clock_boottime_or_monotonic(),
-                                ts + jitter, accuracy,
+                                jitter, accuracy,
                                 on_transaction_timeout, t);
                 if (r < 0)
                         return r;
@@ -1979,7 +1979,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 t->next_attempt_after = ts;
                 t->state = DNS_TRANSACTION_PENDING;
 
-                log_debug("Delaying %s transaction for " USEC_FMT "us.", dns_protocol_to_string(t->scope->protocol), jitter);
+                log_debug("Delaying %s transaction %" PRIu16 " for " USEC_FMT "us.",
+                          dns_protocol_to_string(t->scope->protocol),
+                          t->id,
+                          jitter);
                 return 1;
         }
 
@@ -2222,13 +2225,7 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
          * question. If so, let's see if there are any NSEC/NSEC3 RRs
          * included. If not, the answer is unsigned. */
 
-        r = dns_answer_contains_nsec_or_nsec3(t->answer);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return false;
-
-        return true;
+        return !dns_answer_contains_nsec_or_nsec3(t->answer);
 }
 
 static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRecord *rr) {

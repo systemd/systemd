@@ -10,6 +10,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "dbus-job.h"
+#include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
 #include "dbus.h"
@@ -43,7 +44,6 @@ static bool unit_can_isolate_refuse_manual(Unit *u) {
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 static BUS_DEFINE_PROPERTY_GET(property_get_description, "s", Unit, unit_description);
 static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_active_state, unit_active_state_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_freezer_state, "s", Unit, unit_freezer_state, freezer_state_to_string);
@@ -527,7 +527,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         }
 
         if (!SIGNAL_VALID(signo))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
         r = bus_verify_manage_units_async_full(
                         u,
@@ -653,7 +653,7 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
 
         r = bus_unit_track_remove_sender(u, message);
         if (r == -EUNATCH)
-                return sd_bus_error_setf(error, BUS_ERROR_NOT_REFERENCED, "Unit has not been referenced yet.");
+                return sd_bus_error_set(error, BUS_ERROR_NOT_REFERENCED, "Unit has not been referenced yet.");
         if (r < 0)
                 return r;
 
@@ -719,9 +719,9 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r == -EOPNOTSUPP)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not supporting cleaning.", u->id);
         if (r == -EUNATCH)
-                return sd_bus_error_setf(error, BUS_ERROR_NOTHING_TO_CLEAN, "No matching resources found.");
+                return sd_bus_error_set(error, BUS_ERROR_NOTHING_TO_CLEAN, "No matching resources found.");
         if (r == -EBUSY)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_BUSY, "Unit is not inactive or has pending job.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit is not inactive or has pending job.");
         if (r < 0)
                 return r;
 
@@ -768,9 +768,9 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == -EOPNOTSUPP)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not support freezing.", u->id);
         if (r == -EBUSY)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
         if (r == -EHOSTDOWN)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
         if (r == -EALREADY)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit '%s' is still in progress.", u->id);
         if (r < 0)
@@ -899,7 +899,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Markers", "as", property_get_markers, offsetof(Unit, markers), 0),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobRunningTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_running_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_emergency_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JobTimeoutAction", "s", bus_property_get_emergency_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutRebootArgument", "s", NULL, offsetof(Unit, job_timeout_reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConditionResult", "b", bus_property_get_bool, offsetof(Unit, condition_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AssertResult", "b", bus_property_get_bool, offsetof(Unit, assert_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -912,10 +912,10 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("FailureAction", "s", property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StartLimitAction", "s", bus_property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FailureAction", "s", bus_property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FailureActionExitStatus", "i", bus_property_get_int, offsetof(Unit, failure_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SuccessAction", "s", property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SuccessAction", "s", bus_property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SuccessActionExitStatus", "i", bus_property_get_int, offsetof(Unit, success_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -1229,7 +1229,9 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
                 p = buf;
         }
 
-        (void) get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &cmdline);
+        (void) get_process_cmdline(pid, SIZE_MAX,
+                                   PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE,
+                                   &cmdline);
 
         return sd_bus_message_append(reply,
                                      "(sus)",
@@ -1442,10 +1444,10 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         }
 
         if (!unit_cgroup_delegate(u))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process migration not available on non-delegated units.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Process migration not available on non-delegated units.");
 
         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not active, refusing.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not active, refusing.");
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID, &creds);
         if (r < 0)
@@ -1930,7 +1932,7 @@ static int bus_unit_set_live_property(
                         return r;
 
                 if (some_plus_minus && some_absolute)
-                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING, "Bad marker syntax.");
+                        return sd_bus_error_set(error, BUS_ERROR_BAD_UNIT_SETTING, "Bad marker syntax.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (some_absolute)
@@ -1999,7 +2001,7 @@ static int bus_set_transient_exit_status(
                 return r;
 
         if (k > 255)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Exit status must be in range 0…255 or negative.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Exit status must be in range 0…255 or negative.");
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                 *p = k < 0 ? -1 : k;
@@ -2205,11 +2207,11 @@ static int bus_unit_set_transient_property(
                 const char *s;
 
                 if (!UNIT_HAS_CGROUP_CONTEXT(u))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
                 if (u->type == UNIT_SLICE)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
                 if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope");
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)

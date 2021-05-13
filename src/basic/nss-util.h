@@ -127,6 +127,20 @@ enum nss_status _nss_##module##_getpwuid_r(             \
                 char *buffer, size_t buflen,            \
                 int *errnop) _public_
 
+#define NSS_GETSP_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_getspnam_r(             \
+                const char *name,                       \
+                struct spwd *spwd,                      \
+                char *buffer, size_t buflen,            \
+                int *errnop) _public_
+
+#define NSS_GETSG_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_getsgnam_r(             \
+                const char *name,                       \
+                struct sgrp *sgrp,                      \
+                char *buffer, size_t buflen,            \
+                int *errnop) _public_
+
 #define NSS_GETGR_PROTOTYPES(module)                    \
 enum nss_status _nss_##module##_getgrnam_r(             \
                 const char *name,                       \
@@ -150,6 +164,17 @@ enum nss_status _nss_##module##_getpwent_r(             \
                 size_t buflen,                          \
                 int *errnop) _public_;
 
+#define NSS_SPENT_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_endspent(               \
+                void) _public_;                         \
+enum nss_status _nss_##module##_setspent(               \
+                int stayopen) _public_;                 \
+enum nss_status _nss_##module##_getspent_r(             \
+                struct spwd *spwd,                      \
+                char *buffer,                           \
+                size_t buflen,                          \
+                int *errnop) _public_;
+
 #define NSS_GRENT_PROTOTYPES(module)                    \
 enum nss_status _nss_##module##_endgrent(               \
                 void) _public_;                         \
@@ -157,6 +182,17 @@ enum nss_status _nss_##module##_setgrent(               \
                 int stayopen) _public_;                 \
 enum nss_status _nss_##module##_getgrent_r(             \
                 struct group *result,                   \
+                char *buffer,                           \
+                size_t buflen,                          \
+                int *errnop) _public_;
+
+#define NSS_SGENT_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_endsgent(               \
+                void) _public_;                         \
+enum nss_status _nss_##module##_setsgent(               \
+                int stayopen) _public_;                 \
+enum nss_status _nss_##module##_getsgent_r(             \
+                struct sgrp *sgrp,                      \
                 char *buffer,                           \
                 size_t buflen,                          \
                 int *errnop) _public_;
@@ -213,3 +249,25 @@ typedef enum nss_status (*_nss_gethostbyaddr_r_t)(
                 struct hostent *host,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop);
+
+typedef enum nss_status (*_nss_getpwnam_r_t)(
+                const char *name,
+                struct passwd *pwd,
+                char *buffer, size_t buflen,
+                int *errnop);
+typedef enum nss_status (*_nss_getpwuid_r_t)(
+                uid_t uid,
+                struct passwd *pwd,
+                char *buffer, size_t buflen,
+                int *errnop);
+
+typedef enum nss_status (*_nss_getgrnam_r_t)(
+                const char *name,
+                struct group *gr,
+                char *buffer, size_t buflen,
+                int *errnop);
+typedef enum nss_status (*_nss_getgrgid_r_t)(
+                gid_t gid,
+                struct group *gr,
+                char *buffer, size_t buflen,
+                int *errnop);

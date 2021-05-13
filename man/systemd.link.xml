@@ -133,7 +133,10 @@
         <term><varname>Type=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching the device type, as exposed by
-          <command>networkctl status</command>. If the list is prefixed with a "!", the test is inverted.
+          <command>networkctl list</command>. If the list is prefixed with a "!", the test is inverted.
+          Some valid values are <literal>ether</literal>, <literal>loopback</literal>, <literal>wlan</literal>, <literal>wwan</literal>.
+          Valid types are named either from the udev <literal>DEVTYPE</literal> attribute, or
+          <literal>ARPHRD_</literal> macros in <filename>linux/if_arp.h</filename>, so this is not comprehensive.
           </para>
         </listitem>
       </varlistentry>
@@ -216,6 +219,18 @@
         <listitem>
           <para>Checks whether the system is running on a specific architecture. See
           <varname>ConditionArchitecture=</varname> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='firmware'>
+        <term><varname>Firmware=</varname></term>
+        <listitem>
+          <para>Checks whether the system is running on a machine with the specified firmware. See
+          <varname>ConditionFirmware=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, then previously assigned value is cleared.

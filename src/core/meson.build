@@ -11,6 +11,8 @@ libcore_sources = '''
         bpf-devices.h
         bpf-firewall.c
         bpf-firewall.h
+        bpf-foreign.c
+        bpf-foreign.h
         cgroup.c
         cgroup.h
         core-varlink.c
@@ -103,6 +105,8 @@ libcore_sources = '''
         slice.h
         smack-setup.c
         smack-setup.h
+        socket-bind.c
+        socket-bind.h
         socket.c
         socket.h
         swap.c
@@ -120,6 +124,11 @@ libcore_sources = '''
         unit.c
         unit.h
 '''.split()
+
+subdir('bpf/socket_bind')
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += [socket_bind_skel_h]
+endif
 
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
@@ -150,6 +159,7 @@ libcore = static_library(
         include_directories : includes,
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libpam,

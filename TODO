@@ -22,6 +22,47 @@ Janitorial Clean-ups:
 
 Features:
 
+* ability to insert trusted configuration and secrets into the boot parameters
+  of a kernel booting in a VM or on baremetal some way, via TPM
+  protection. idea:
+  1. pass via /proc/bootconfig
+  2. for secrets: put secrets in node of /proc/bootconfig, decrypt them via
+     TPM early on in PID 1, put them in $CREDENTIAL_PATH logic
+  3. for config: put signed data in node /proc/booconfig, validate via TPM
+     early on in PID 1, put data into /run/bootconfig/ as individual files
+  4. boot loader/stub should pick these up automatically from the boot loader
+     file systems
+
+* journald: support RFC3164 fully for the incoming syslog transport, see
+  https://github.com/systemd/systemd/issues/19251#issuecomment-816601955
+
+* homed: if kernel 5.12 uid mapping mounts exist, use that instead of recursive
+  chowns.
+
+* DynamicUser= + StateDirectory= → use uid mapping mounts, too, in order to
+  make dirs appear under right UID.
+
+* nspawn: make --bind= work sanely with --private-users when uid mapping mounts
+  are used.
+
+* cryptsetup: tweak tpm2-device=auto logic, abort quickly if firmware tells us
+  there isn't any TPM2 device anyway. that way, we'll wait for the TPM2 device
+  to show up only if registered in LUKS header + the firmware suggests there is
+  a device worth waiting for.
+
+* systemd-sysext: optionally, run it in initrd already, before transitioning
+  into host, to open up possibility for services shipped like that.
+
+* add a new switch --auto-definitions=yes/no or so to systemd-repart. If
+  specified, synthesize a definition automatically if we can: enlarge last
+  partition on disk, but only if it is marked for growing and not read-only.
+
+* add a switch to homectl (maybe called --first-boot) where it will check if
+  any non-system users exist, and if not prompts interactively for basic user
+  info, mimicking systemd-firstboot. Then, place this in a service that runs
+  after systemd-homed, but before gdm and friends, as a simple, barebones
+  fallback logic to get a regular user created on uninitialized systems.
+
 * maybe add a tool that displays most recent journal logs as QR code to scan
   off screen and run it automatically on boot failures, emergency logs and
   such. Use DRM APIs directly, see
@@ -36,12 +77,22 @@ Features:
 * systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
 
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
-  disk the rootfs is on in a reasonably secure way.
+  disk the rootfs is on in a reasonably secure way. (or maybe: add
+  /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
+  already have it.
 
 * systemd-repart: add a switch to factory reset the partition table without
   immediately applying the new configuration again. i.e. --factory-reset=leave
   or so. (this is useful to factory reset an image, then putting it into
   another machine, ensuring that luks key is generated on new machine, not old)
+
+* systemd-repart: support setting up dm-integrity with HMAC
+
+* systemd-repart: maybe remove half-initialized image on failure. It fails
+  if the output file exists, so a repeated invocation will usually fail if
+  something goes wrong on the way.
+
+* systemd-repart: drop pager mode on normal operation?
 
 * move logind udev rules to top-level rule.d/ directory
 
@@ -60,11 +111,6 @@ Features:
   • in nss-systemd pick up user record from there and make available to system
   With all that in place if nspawn host and container payload are up-to-date
   enough we have a very simple way to make host users available in containers.
-
-* systemd-sysusers: pick up passwords from credentials logic, so that users can
-  easily set root user pw. enable cred inheriting for root user from PID 1, so
-  that for containers we can configure the root pw automatically via nspawn's
-  --set-credential= switch. (Also do this for systemd-firstboot)
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
@@ -179,21 +225,8 @@ Features:
 
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
-* port selinux code from mallinfo() to mallinfo2() once added to glibc
-
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
-
-* export action of device object on sd-device, so that monitor becomes useful
-
-* add root=tmpfs that mounts a tmpfs to /sysroot (to be used in combination
-  with usr=…, for a similar effect as systemd.volatile=yes but without the
-  "hide-out" effect). Also, add root=gpt-auto-late support or so, that is like
-  root=gpt-auto but initially mounts a tmpfs to /sysroot, and then revisits
-  later after systemd-repart ran. Usecase: let's ship images with only /usr
-  partition, then on first boot create the root partition. In this case we want
-  to read the repart data from /usr before the root partition exists. Add
-  usr=gpt-auto that automatically finds a /usr partition.
 
 * change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
   documented in the pivot_root(2) man page, so that we can drop the /oldroot
@@ -211,8 +244,6 @@ Features:
 
 * when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
   so, freeze the payload too.
-
-* repart: support setting up dm-integrity with HMAC
 
 * add /etc/integritytab, to support dm-integrity setups. In particular those
   with HMAC as hash function, so that we can have a protected /home without
@@ -321,15 +352,6 @@ Features:
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
 
-* when systemd-nspawn and suchlike dissect an OS image, and there are multiple
-  root partitions, do an strverscmp() on the partition label and boot
-  first. That is inspired how sd-boot figures out which kernel to boot, and
-  thus allows defining OS images which can be A/B updated and we default to the
-  newest version automatically, both in nspawn and in sd-boot
-
-* systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
-  creates
-
 * bootctl:
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
@@ -379,8 +401,6 @@ Features:
 
 * systemd-repart: allow sizing partitions as factor of available RAM, so that
   we can reasonably size swap partitions for hibernation.
-
-* systemd-repart: allow managing the gpt read-only partition flag + auto-mount flag
 
 * systemd-repart: allow boolean option that ensures that if existing partition
   doesn't exist within the configured size bounds the whole command fails. This
@@ -808,10 +828,6 @@ Features:
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
 
-* gpt-auto logic: related to the above, maybe support a "secondary" root
-  partition, that is mounted to / and is writable, and where the actual root's
-  /usr is mounted into.
-
 * gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
 
 * drop nss-myhostname in favour of nss-resolve?
@@ -847,9 +863,6 @@ Features:
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
-
-* mount: automatically search for "main" partition of an image has multiple
-  partitions
 
 * in nss-systemd, if we run inside of RootDirectory= with PrivateUsers= set,
   find a way to map the User=/Group= of the service to the right name. This way

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
@@ -836,6 +837,73 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 else
                         r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
 
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "BPFProgram")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
+                else {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, word, eq);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (STR_IN_SET(field, "SocketBindAllow",
+                              "SocketBindDeny")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 0);
+                else {
+                        const char *address_family, *user_port;
+                        _cleanup_free_ char *word = NULL;
+                        int family = AF_UNSPEC;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        address_family = eq ? word : NULL;
+                        if (address_family) {
+                                family = af_from_ipv4_ipv6(address_family);
+                                if (family == AF_UNSPEC)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only \"ipv4\" and \"ipv6\" protocols are supported");
+                        }
+
+                        user_port = eq ? eq : word;
+                        if (streq(user_port, "any")) {
+                                r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 1, family, 0, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        } else {
+                                uint16_t port_min, port_max;
+
+                                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Invalid port or port range: %s", user_port);
+
+                                r = sd_bus_message_append(
+                                                m, "(sv)", field, "a(iqq)", 1, family, port_max - port_min + 1, port_min);
+                        }
+                }
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1947,6 +2015,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "PIDFile",
                               "Type",
+                              "ExitType",
                               "Restart",
                               "BusName",
                               "NotifyAccess",

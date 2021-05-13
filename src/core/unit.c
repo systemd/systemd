@@ -11,6 +11,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-setup.h"
@@ -40,6 +41,7 @@
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
+#include "socket-bind.h"
 #include "sparse-endian.h"
 #include "special.h"
 #include "specifier.h"
@@ -55,6 +57,9 @@
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
+#if BPF_FRAMEWORK
+#include "bpf-link.h"
+#endif
 
 /* Thresholds for logging at INFO level about resource consumption */
 #define MENTIONWORTHY_CPU_NSEC (1 * NSEC_PER_SEC)
@@ -556,7 +561,7 @@ static void unit_free_requires_mounts_for(Unit *u) {
         assert(u);
 
         for (;;) {
-                _cleanup_free_ char *path;
+                _cleanup_free_ char *path = NULL;
 
                 path = hashmap_steal_first_key(u->requires_mounts_for);
                 if (!path)
@@ -662,6 +667,13 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
+
+        fdset_free(u->initial_socket_bind_link_fds);
+#if BPF_FRAMEWORK
+        bpf_link_free(u->ipv4_socket_bind_link);
+        bpf_link_free(u->ipv6_socket_bind_link);
+#endif
+
         unit_release_cgroup(u);
 
         if (!MANAGER_IS_RELOADING(u->manager))
@@ -722,6 +734,8 @@ Unit* unit_free(Unit *u) {
         set_free(u->ip_bpf_custom_egress);
         set_free(u->ip_bpf_custom_ingress_installed);
         set_free(u->ip_bpf_custom_egress_installed);
+
+        hashmap_free(u->bpf_foreign_by_key);
 
         bpf_program_unref(u->bpf_device_control_installed);
 
@@ -1060,7 +1074,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
 
                 char **dp;
                 STRV_FOREACH(dp, c->directories[dt].paths) {
-                        _cleanup_free_ char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         p = path_join(u->manager->prefix[dt], *dp);
                         if (!p)
@@ -1448,6 +1462,9 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
         Unit *u = userdata;
         va_list ap;
         int r;
+
+        if (u && !unit_log_level_test(u, level))
+                return -ERRNO_VALUE(error);
 
         va_start(ap, format);
         if (u)
@@ -2152,6 +2169,13 @@ static int unit_log_resources(Unit *u) {
                                                 value > NOTICEWORTHY_IP_BYTES);
         }
 
+        /* This check is here because it is the earliest point following all possible log_level assignments. If
+         * log_level is assigned anywhere after this point, move this check. */
+        if (!unit_log_level_test(u, log_level)) {
+                r = 0;
+                goto finish;
+        }
+
         if (have_ip_accounting) {
                 if (any_traffic) {
                         if (igress)
@@ -2181,7 +2205,7 @@ static int unit_log_resources(Unit *u) {
         if (n_message_parts == 0)
                 t = strjoina("MESSAGE=", u->id, ": Completed.");
         else {
-                _cleanup_free_ char *joined;
+                _cleanup_free_ char *joined = NULL;
 
                 message_parts[n_message_parts] = NULL;
 
@@ -2206,7 +2230,7 @@ static int unit_log_resources(Unit *u) {
         t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
         iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
 
-        log_struct_iovec(log_level, iovec, n_iovec + 4);
+        log_unit_struct_iovec(u, log_level, iovec, n_iovec + 4);
         r = 0;
 
 finish:
@@ -3866,7 +3890,7 @@ int unit_patch_contexts(Unit *u) {
         return 0;
 }
 
-ExecContext *unit_get_exec_context(Unit *u) {
+ExecContext *unit_get_exec_context(const Unit *u) {
         size_t offset;
         assert(u);
 
@@ -4478,6 +4502,9 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         assert(u);
         assert(where);
 
+        if (!unit_log_level_test(u, LOG_NOTICE))
+                return;
+
         r = dir_is_empty(where);
         if (r > 0 || r == -ENOTDIR)
                 return;
@@ -4486,12 +4513,11 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
                 return;
         }
 
-        log_struct(LOG_NOTICE,
-                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
-                   "WHERE=%s", where);
+        log_unit_struct(u, LOG_NOTICE,
+                        "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
+                        "WHERE=%s", where);
 }
 
 int unit_fail_if_noncanonical(Unit *u, const char* where) {
@@ -4512,12 +4538,11 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
                 return 0;
 
         /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
-        log_struct(LOG_ERR,
-                   "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
-                   "WHERE=%s", where);
+        log_unit_struct(u, LOG_ERR,
+                        "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
+                        "WHERE=%s", where);
 
         return -ELOOP;
 }
@@ -5296,35 +5321,32 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
 void unit_log_success(Unit *u) {
         assert(u);
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Deactivated successfully."));
+        log_unit_struct(u, LOG_INFO,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "Deactivated successfully."));
 }
 
 void unit_log_failure(Unit *u, const char *result) {
         assert(u);
         assert(result);
 
-        log_struct(LOG_WARNING,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILURE_RESULT_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Failed with result '%s'.", result),
-                   "UNIT_RESULT=%s", result);
+        log_unit_struct(u, LOG_WARNING,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILURE_RESULT_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "Failed with result '%s'.", result),
+                        "UNIT_RESULT=%s", result);
 }
 
 void unit_log_skip(Unit *u, const char *result) {
         assert(u);
         assert(result);
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Skipped due to '%s'.", result),
-                   "UNIT_RESULT=%s", result);
+        log_unit_struct(u, LOG_INFO,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "Skipped due to '%s'.", result),
+                        "UNIT_RESULT=%s", result);
 }
 
 void unit_log_process_exit(
@@ -5351,19 +5373,18 @@ void unit_log_process_exit(
         else
                 level = LOG_WARNING;
 
-        log_struct(level,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
-                   LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s",
-                                    kind,
-                                    sigchld_code_to_string(code), status,
-                                    strna(code == CLD_EXITED
-                                          ? exit_status_to_string(status, EXIT_STATUS_FULL)
-                                          : signal_to_string(status))),
-                   "EXIT_CODE=%s", sigchld_code_to_string(code),
-                   "EXIT_STATUS=%i", status,
-                   "COMMAND=%s", strna(command),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u));
+        log_unit_struct(u, level,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
+                        LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s",
+                                         kind,
+                                         sigchld_code_to_string(code), status,
+                                         strna(code == CLD_EXITED
+                                               ? exit_status_to_string(status, EXIT_STATUS_FULL)
+                                               : signal_to_string(status))),
+                        "EXIT_CODE=%s", sigchld_code_to_string(code),
+                        "EXIT_STATUS=%i", status,
+                        "COMMAND=%s", strna(command),
+                        LOG_UNIT_INVOCATION_ID(u));
 }
 
 int unit_exit_status(Unit *u) {

@@ -1072,7 +1072,7 @@ int copy_file_full(
 
         _cleanup_close_ int fdf = -1;
         struct stat st;
-        int fdt = -1, r;
+        int r, fdt = -1;  /* avoid false maybe-uninitialized warning */
 
         assert(from);
         assert(to);

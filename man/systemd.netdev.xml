@@ -258,6 +258,17 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Firmware=</varname></term>
+        <listitem>
+          <para>Checks whether the system is running on a machine with the specified firmware. See
+          <literal>ConditionFirmware=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

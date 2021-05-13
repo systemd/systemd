@@ -150,7 +150,7 @@ char *delete_chars(char *s, const char *bad) {
 }
 
 char *delete_trailing_chars(char *s, const char *bad) {
-        char *p, *c = s;
+        char *c = s;
 
         /* Drops all specified bad characters, at the end of the string */
 
@@ -160,7 +160,7 @@ char *delete_trailing_chars(char *s, const char *bad) {
         if (!bad)
                 bad = WHITESPACE;
 
-        for (p = s; *p; p++)
+        for (char *p = s; *p; p++)
                 if (!strchr(bad, *p))
                         c = p + 1;
 
@@ -193,34 +193,28 @@ char ascii_toupper(char x) {
 }
 
 char *ascii_strlower(char *t) {
-        char *p;
-
         assert(t);
 
-        for (p = t; *p; p++)
+        for (char *p = t; *p; p++)
                 *p = ascii_tolower(*p);
 
         return t;
 }
 
 char *ascii_strupper(char *t) {
-        char *p;
-
         assert(t);
 
-        for (p = t; *p; p++)
+        for (char *p = t; *p; p++)
                 *p = ascii_toupper(*p);
 
         return t;
 }
 
 char *ascii_strlower_n(char *t, size_t n) {
-        size_t i;
-
         if (n <= 0)
                 return t;
 
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 t[i] = ascii_tolower(t[i]);
 
         return t;
@@ -252,10 +246,8 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m) {
 }
 
 bool chars_intersect(const char *a, const char *b) {
-        const char *p;
-
         /* Returns true if any of the chars in a are in b. */
-        for (p = a; *p; p++)
+        for (const char *p = a; *p; p++)
                 if (strchr(b, *p))
                         return true;
 
@@ -263,8 +255,6 @@ bool chars_intersect(const char *a, const char *b) {
 }
 
 bool string_has_cc(const char *p, const char *ok) {
-        const char *t;
-
         assert(p);
 
         /*
@@ -273,14 +263,11 @@ bool string_has_cc(const char *p, const char *ok) {
          * considered OK.
          */
 
-        for (t = p; *t; t++) {
+        for (const char *t = p; *t; t++) {
                 if (ok && strchr(ok, *t))
                         continue;
 
-                if (*t > 0 && *t < ' ')
-                        return true;
-
-                if (*t == 127)
+                if (char_is_cc(*t))
                         return true;
         }
 
@@ -468,7 +455,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
          * very end.
          */
 
-        size_t i = 0, last_char_width[4] = {}, k = 0, j;
+        size_t i = 0, last_char_width[4] = {}, k = 0;
 
         assert(len > 0); /* at least a terminating NUL */
 
@@ -497,7 +484,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
 
         /* Ellipsation is necessary. This means we might need to truncate the string again to make space for 4
          * characters ideally, but the buffer is shorter than that in the first place take what we can get */
-        for (j = 0; j < ELEMENTSOF(last_char_width); j++) {
+        for (size_t j = 0; j < ELEMENTSOF(last_char_width); j++) {
 
                 if (i + 4 <= len) /* nice, we reached our space goal */
                         break;
@@ -803,6 +790,87 @@ char *strextend_with_separator_internal(char **x, const char *separator, ...) {
         return p;
 }
 
+int strextendf(char **x, const char *format, ...) {
+        size_t m, a;
+        va_list ap;
+        int l;
+
+        /* Appends a formatted string to the specified string. Don't use this in inner loops, since then
+         * we'll spend a tonload of time in determining the length of the string passed in, over and over
+         * again. */
+
+        assert(x);
+        assert(format);
+
+        /* Let's try to use the allocated buffer, if there's room at the end still. Otherwise let's extend by 64 chars. */
+        if (*x) {
+                m = strlen(*x);
+                a = malloc_usable_size(*x);
+                assert(a >= m + 1);
+        } else
+                m = a = 0;
+
+        if (a - m < 17) { /* if there's less than 16 chars space, then enlarge the buffer first */
+                char *n;
+
+                if (_unlikely_(m > SIZE_MAX - 64)) /* overflow check */
+                        return -ENOMEM;
+
+                n = realloc(*x, m + 64);
+                if (!n)
+                        return -ENOMEM;
+
+                *x = n;
+                a = malloc_usable_size(*x);
+        }
+
+        /* Now, let's try to format the string into it */
+        va_start(ap, format);
+        l = vsnprintf(*x + m, a - m, format, ap);
+        va_end(ap);
+
+        assert(l >= 0);
+
+        if ((size_t) l < a - m) {
+                char *n;
+
+                /* Nice! This worked. We are done. But first, let's return the extra space we don't
+                 * need. This should be a cheap operation, since we only lower the allocation size here,
+                 * never increase. */
+                n = realloc(*x, m + (size_t) l + 1);
+                if (n)
+                        *x = n;
+        } else {
+                char *n;
+
+                /* Wasn't enough. Then let's allocate exactly what we need. */
+
+                if (_unlikely_((size_t) l > SIZE_MAX - 1)) /* overflow check #1 */
+                        goto oom;
+                if (_unlikely_(m > SIZE_MAX - ((size_t) l + 1))) /* overflow check #2 */
+                        goto oom;
+
+                a = m + (size_t) l + 1;
+                n = realloc(*x, a);
+                if (!n)
+                        goto oom;
+                *x = n;
+
+                va_start(ap, format);
+                l = vsnprintf(*x + m, a - m, format, ap);
+                va_end(ap);
+
+                assert((size_t) l < a - m);
+        }
+
+        return 0;
+
+oom:
+        /* truncate the bytes added after the first vsnprintf() attempt again */
+        (*x)[m] = 0;
+        return -ENOMEM;
+}
+
 char *strrep(const char *s, unsigned n) {
         char *r, *p;
         size_t l;
@@ -903,14 +971,12 @@ int free_and_strndup(char **p, const char *s, size_t l) {
 }
 
 bool string_is_safe(const char *p) {
-        const char *t;
-
         if (!p)
                 return false;
 
         /* Checks if the specified string contains no quotes or control characters */
 
-        for (t = p; *t; t++) {
+        for (const char *t = p; *t; t++) {
                 if (*t > 0 && *t < ' ') /* no control characters */
                         return false;
 

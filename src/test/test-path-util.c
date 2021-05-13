@@ -113,6 +113,11 @@ static void test_path(void) {
         assert_se(!path_equal_ptr("/a", "/b"));
         assert_se(!path_equal_ptr("/a", NULL));
         assert_se(!path_equal_ptr(NULL, "/a"));
+
+        assert_se(path_equal_filename("/a/c", "/b/c"));
+        assert_se(path_equal_filename("/a", "/a"));
+        assert_se(!path_equal_filename("/a/b", "/a/c"));
+        assert_se(!path_equal_filename("/b", "/c"));
 }
 
 static void test_path_equal_root(void) {

@@ -1,56 +1,53 @@
-#! /bin/bash
-set -e
-set -x
+#!/bin/bash
+set -eux
+set -o pipefail
 
 _clear_service () {
-    systemctl stop $1.service 2>/dev/null || :
-    rm -f  /{etc,run,usr/lib}/systemd/system/$1.service
-    rm -fr /{etc,run,usr/lib}/systemd/system/$1.service.d
-    rm -fr /{etc,run,usr/lib}/systemd/system/$1.service.{wants,requires}
-    if [[ $1 == *@ ]]; then
-        systemctl stop $1*.service 2>/dev/null || :
-        rm -f  /{etc,run,usr/lib}/systemd/system/$1*.service
-        rm -fr /{etc,run,usr/lib}/systemd/system/$1*.service.d
-        rm -fr /{etc,run,usr/lib}/systemd/system/$1*.service.{wants,requires}
+    local SERVICE_NAME="${1:?_clear_service: missing argument}"
+    systemctl stop "$SERVICE_NAME.service" 2>/dev/null || :
+    rm -f  /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service
+    rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.d
+    rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.{wants,requires}
+    if [[ $SERVICE_NAME == *@ ]]; then
+        systemctl stop "$SERVICE_NAME"*.service 2>/dev/null || :
+        rm -f  /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME"*.service
+        rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME"*.service.d
+        rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME"*.service.{wants,requires}
     fi
 }
 
 clear_services () {
-    for u in $*; do
-        _clear_service $u
+    for u in "$@"; do
+        _clear_service "$u"
     done
     systemctl daemon-reload
 }
 
 create_service () {
-    clear_services $1
+    local SERVICE_NAME="${1:?create_service: missing argument}"
+    clear_services "$SERVICE_NAME"
 
-    cat >/etc/systemd/system/$1.service<<EOF
+    cat >/etc/systemd/system/"$SERVICE_NAME".service <<EOF
 [Unit]
-Description=$1 unit
+Description=$SERVICE_NAME unit
 
 [Service]
-ExecStart=/bin/sleep 100000
+ExecStart=sleep 100000
 EOF
-    mkdir -p /{etc,run,usr/lib}/systemd/system/$1.service.d
-    mkdir -p /etc/systemd/system/$1.service.{wants,requires}
-    mkdir -p /run/systemd/system/$1.service.{wants,requires}
-    mkdir -p /usr/lib/systemd/system/$1.service.{wants,requires}
+    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.{d,wants,requires}
 }
 
 create_services () {
-    for u in $*; do
-        create_service $u
+    for u in "$@"; do
+        create_service "$u"
     done
 }
 
 check_ok () {
-    [ $# -eq 3 ] || return
-
-    x="$(systemctl show --value -p $2 $1)"
+    x="$(systemctl show --value -p "${2:?}" "${1:?}")"
     case "$x" in
-        *$3*) return 0 ;;
-        *)    return 1 ;;
+        *${3:?}*) return 0 ;;
+        *)        return 1 ;;
     esac
 }
 
@@ -121,7 +118,7 @@ EOF
     check_ok test15-b ExecCondition "/bin/echo test15-b"
     rm -rf /usr/lib/systemd/system/service.d
 
-    clear_services test15-a test15-b test15-c
+    clear_services test15-a test15-b test15-c test15-c1
 }
 
 test_linked_units () {
@@ -151,6 +148,32 @@ test_linked_units () {
     clear_services test15-a test15-b
 }
 
+test_template_alias() {
+    echo "Testing instance alias..."
+    echo "*** forward"
+
+    create_service test15-a@
+    ln -s test15-a@inst.service /etc/systemd/system/test15-b@inst.service  # alias
+
+    check_ok test15-a@inst Names test15-a@inst.service
+    check_ok test15-a@inst Names test15-b@inst.service
+
+    check_ok test15-a@other Names test15-a@other.service
+    check_ko test15-a@other Names test15-b@other.service
+
+    echo "*** reverse"
+
+    systemctl daemon-reload
+
+    check_ok test15-b@inst Names test15-a@inst.service
+    check_ok test15-b@inst Names test15-b@inst.service
+
+    check_ko test15-b@other Names test15-a@other.service
+    check_ok test15-b@other Names test15-b@other.service
+
+    clear_services test15-a@ test15-b@
+}
+
 test_hierarchical_dropins () {
     echo "Testing hierarchical dropins..."
     echo "*** test service.d/ top level drop-in"
@@ -165,7 +188,7 @@ test_hierarchical_dropins () {
         echo "
 [Service]
 ExecCondition=/bin/echo $dropin
-        " > /usr/lib/systemd/system/$dropin/override.conf
+        " >/usr/lib/systemd/system/$dropin/override.conf
         systemctl daemon-reload
         check_ok a-b-c ExecCondition "/bin/echo $dropin"
     done
@@ -493,6 +516,7 @@ test_invalid_dropins () {
 
 test_basic_dropins
 test_linked_units
+test_template_alias
 test_hierarchical_dropins
 test_template_dropins
 test_alias_dropins

@@ -55,11 +55,13 @@
     partition slot greater than the highest slot number currently in use. Any existing partitions that have
     no matching partition file are left as they are.</para>
 
-    <para>Note that these definitions may only be used to created and initialize new partitions or grow
+    <para>Note that these definitions may only be used to create and initialize new partitions or to grow
     existing ones. In the latter case it will not grow the contained files systems however; separate
     mechanisms, such as
     <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
-    used to grow the file systems inside of these partitions.</para>
+    used to grow the file systems inside of these partitions. Partitions may also be marked for automatic
+    growing via the <varname>GrowFileSystem=</varname> setting, in which case the file system is grown on
+    first mount by tools that respect this flag. See below for details.</para>
   </refsect1>
 
   <refsect1>
@@ -422,12 +424,25 @@
       <varlistentry>
         <term><varname>CopyBlocks=</varname></term>
 
-        <listitem><para>Takes a path to a regular file, block device node or directory. If specified and the
-        partition is newly created the data from the specified path is written to the newly created
-        partition, on the block level. If a directory is specified the backing block device of the file
-        system the directory is on is determined and the data read directly from that. This option is useful
-        to efficiently replicate existing file systems on the block level on a new partition, for example to
-        build a simple OS installer or OS image builder.</para>
+        <listitem><para>Takes a path to a regular file, block device node or directory, or the special value
+        <literal>auto</literal>. If specified and the partition is newly created, the data from the specified
+        path is written to the newly created partition, on the block level. If a directory is specified, the
+        backing block device of the file system the directory is on is determined, and the data read directly
+        from that. This option is useful to efficiently replicate existing file systems onto new partitions
+        on the block level — for example to build a simple OS installer or an OS image builder.</para>
+
+        <para>If the special value <literal>auto</literal> is specified, the source to copy from is
+        automatically picked up from the running system (or the image specified with
+        <option>--image=</option> — if used). A partition that matches both the configured partition type (as
+        declared with <varname>Type=</varname> above), and the currently mounted directory appropriate for
+        that partition type is determined. For example, if the partition type is set to
+        <literal>root</literal> the partition backing the root directory (<filename>/</filename>) is used as
+        source to copy from — if its partition type is set to <literal>root</literal> as well. If the
+        declared type is <literal>usr</literal> the partition backing <filename>/usr/</filename> is used as
+        source to copy blocks from — if its partition type is set to <literal>usr</literal> too. The logic is
+        capable of automatically tracking down the the backing partitions for encrypted and Verity-enabled
+        volumes. <literal>CopyBlocks=auto</literal> is useful for implementing "self-replicating" systems,
+        i.e. systems that are their own installer.</para>
 
         <para>The file specified here must have a size that is a multiple of the basic block size 512 and not
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
@@ -486,7 +501,38 @@
         <para>The copy operation is executed before the file system is registered in the partition table,
         thus ensuring that a file system populated this way only ever exists fully initialized.</para>
 
-        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para></listitem>
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
+
+        <para>When <command>systemd-repart</command> is invoked with the <option>--image=</option> or
+        <option>--root=</option> command line switches the source paths specified are taken relative to the
+        specified root directory or disk image root.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MakeDirectories=</varname></term>
+
+        <listitem><para>akes one or more absolute paths, separated by whitespace, each declaring a directory
+        to create within the new file system. Behaviour is similar to <varname>CopyFiles=</varname>, but
+        instead of copying in a set of files this just creates the specified directories with the default
+        mode of 0755 owned by the root user and group, plus all their parent directories (with the same
+        ownership and access mode). To configure directories with different ownership or access mode, use
+        <varname>CopyFiles=</varname> and specify a source tree to copy containing appropriately
+        owned/configured directories. This option may be used more than once to create multiple
+        directories. When <varname>CopyFiles=</varname> and <varname>MakeDirectories=</varname> are used
+        together the former is applied first. If a directory listed already exists no operation is executed
+        (in particular, the ownership/access mode of the directories is left as is).</para>
+
+        <para>The primary usecase for this option is to create a minimal set of directories that may be
+        mounted over by other partitions contained in the same disk image. For example, a disk image where
+        the root file system is formatted at first boot might want to automatically pre-create
+        <filename>/usr/</filename> in it this way, so that the <literal>usr</literal> partition may
+        over-mount it.</para>
+
+        <para>Consider using
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        with its <option>--image=</option> option to pre-create other, more complex directory hierarchies (as
+        well as other inodes) with fine-grained control of ownership, access modes and other file
+        attributes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -521,6 +567,55 @@
         factory reset operation. This functionality is useful to implement schemes where images can be reset
         into their original state by removing partitions and creating them anew. Defaults to off.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Flags=</varname></term>
+
+        <listitem><para>Configures the 64bit GPT partition flags to set for the partition when creating
+        it. This option has no effect if the partition already exists. If not specified the flags values is
+        set to all zeroes, except if the partition type (as configured with <varname>Type=</varname> above)
+        refers to a Verity partition, in which case bit 60 is set (i.e. the read-only bit). This bit may also
+        be configured separately via <varname>ReadOnly=</varname>, see below. Specify the flags value in
+        hexadecimal (by prefixing it with <literal>0x</literal>), binary (prefix <literal>0b</literal>) or
+        decimal (no prefix).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadOnly=</varname></term>
+        <term><varname>GrowFileSystem=</varname></term>
+
+        <listitem><para>Configures the Read-Only and Grow-File-System partition flags (bit 60 and 59) of the
+        partition table entry, as defined by the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. Only
+        available for partition types supported by the specification. This option is a friendly way to set bit
+        60 and 59 of the partition flags value without setting any of the other bits, and may be set via
+        <varname>Flags=</varname> too, see above.</para>
+
+        <para>If <varname>Flags=</varname> is used in conjunction with one or both of
+        <varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> the latter control the value of the
+        relevant flags, i.e. the high-level settings
+        <varname>ReadOnly=</varname>/<varname>GrowFileSystem=</varname> override the low-level setting
+        <varname>Flags=</varname>.</para>
+
+        <para>Note that the two flags affect only automatic partition mounting, as implemented by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        or the <option>--image=</option> option of various commands (such as
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>). It
+        has no effect on explicit mounts, such as those done via <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+        <citerefentry
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry></para>
+
+        <para>If both bit 50 and 59 are set for a partition (i.e. the partition is marked both read-only and
+        marked for file system growing) the latter is typically without effect: the read-only flag takes
+        precedence in most tools reading these flags, and since growing the file system involves writing to
+        the partition it is consequently ignored.</para>
+
+        <para><varname>ReadOnly=</varname> defaults to on for Verity partition
+        types. <varname>GrowFileSystem=</varname> defaults to on for all partition types that support it,
+        except if the partition is marked read-only (and thus effectively, defaults to off for Verity
+        partitions).</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -543,11 +638,13 @@
           </thead>
           <tbody>
             <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
             <xi:include href="standard-specifiers.xml" xpointer="b"/>
             <xi:include href="standard-specifiers.xml" xpointer="B"/>
             <xi:include href="standard-specifiers.xml" xpointer="H"/>
             <xi:include href="standard-specifiers.xml" xpointer="l"/>
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
             <xi:include href="standard-specifiers.xml" xpointer="v"/>
             <xi:include href="standard-specifiers.xml" xpointer="w"/>

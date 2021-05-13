@@ -109,3 +109,14 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
 
 bool is_nologin_shell(const char *shell);
+
+int is_this_me(const char *username);
+
+/* A locked *and* invalid password for "struct spwd"'s .sp_pwdp and "struct passwd"'s .pw_passwd field */
+#define PASSWORD_LOCKED_AND_INVALID "!*"
+
+/* A password indicating "look in shadow file, please!" for "struct passwd"'s .pw_passwd */
+#define PASSWORD_SEE_SHADOW "x"
+
+/* A password indicating "hey, no password required for login" */
+#define PASSWORD_NONE ""

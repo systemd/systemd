@@ -11,7 +11,7 @@ typedef struct Specifier {
         const void *data;
 } Specifier;
 
-int specifier_printf(const char *text, const Specifier table[], const void *userdata, char **ret);
+int specifier_printf(const char *text, size_t max_length, const Specifier table[], const void *userdata, char **ret);
 
 int specifier_string(char specifier, const void *data, const void *userdata, char **ret);
 
@@ -25,6 +25,8 @@ int specifier_os_id(char specifier, const void *data, const void *userdata, char
 int specifier_os_version_id(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_os_build_id(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_os_variant_id(char specifier, const void *data, const void *userdata, char **ret);
+int specifier_os_image_id(char specifier, const void *data, const void *userdata, char **ret);
+int specifier_os_image_version(char specifier, const void *data, const void *userdata, char **ret);
 
 int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_group_id(char specifier, const void *data, const void *userdata, char **ret);
@@ -41,11 +43,13 @@ int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata
  *
  * COMMON_SYSTEM_SPECIFIERS:
  * %a: the native userspace architecture
+ * %A: the OS image version, according to /etc/os-release
  * %b: the boot ID of the running system
  * %B: the OS build ID, according to /etc/os-release
  * %H: the hostname of the running system
  * %l: the short hostname of the running system
  * %m: the machine ID of the running system
+ * %M: the OS image ID, according to /etc/os-release
  * %o: the OS ID according to /etc/os-release
  * %v: the kernel version
  * %w: the OS version ID, according to /etc/os-release
@@ -64,15 +68,18 @@ int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata
 
 #define COMMON_SYSTEM_SPECIFIERS                  \
         { 'a', specifier_architecture,    NULL }, \
+        { 'A', specifier_os_image_version,NULL }, \
         { 'b', specifier_boot_id,         NULL }, \
         { 'B', specifier_os_build_id,     NULL }, \
         { 'H', specifier_host_name,       NULL }, \
         { 'l', specifier_short_host_name, NULL }, \
         { 'm', specifier_machine_id,      NULL }, \
+        { 'M', specifier_os_image_id,     NULL }, \
         { 'o', specifier_os_id,           NULL }, \
         { 'v', specifier_kernel_release,  NULL }, \
         { 'w', specifier_os_version_id,   NULL }, \
         { 'W', specifier_os_variant_id,   NULL }
+
 
 #define COMMON_CREDS_SPECIFIERS                   \
         { 'g', specifier_group_name,      NULL }, \

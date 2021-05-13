@@ -170,7 +170,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         assert(s);
         assert(s->name_template);
 
-        r = specifier_printf(s->name_template, specifier_table, s, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, s, &name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
@@ -329,9 +329,12 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
         return 0;
 }
 
-void dnssd_signal_conflict(Manager *manager, const char *name) {
+int dnssd_signal_conflict(Manager *manager, const char *name) {
         DnssdService *s;
         int r;
+
+        if (sd_bus_is_ready(manager->bus) <= 0)
+                return 0;
 
         HASHMAP_FOREACH(s, manager->dnssd_services) {
                 if (s->withdrawn)
@@ -343,22 +346,20 @@ void dnssd_signal_conflict(Manager *manager, const char *name) {
                         s->withdrawn = true;
 
                         r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", s->name, &path);
-                        if (r < 0) {
-                                log_error_errno(r, "Can't get D-BUS object path: %m");
-                                return;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Can't get D-BUS object path: %m");
 
                         r = sd_bus_emit_signal(manager->bus,
                                                path,
                                                "org.freedesktop.resolve1.DnssdService",
                                                "Conflicted",
                                                NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Cannot emit signal: %m");
-                                return;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot emit signal: %m");
 
                         break;
                 }
         }
+
+        return 0;
 }

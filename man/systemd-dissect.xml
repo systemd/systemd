@@ -187,11 +187,33 @@
         <term><option>--fsck=no</option></term>
 
         <listitem><para>Turn off automatic file system checking. By default when an image is accessed for
-        writing (by <option>--mount</option> or <option>--add</option>) the file systems contained in the OS
-        image are automatically checked using the appropriate <citerefentry
+        writing (by <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the
+        OS image are automatically checked using the appropriate <citerefentry
         project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         command, in automatic fixing mode. This behavior may be switched off using
         <option>--fsck=no</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--growfs=no</option></term>
+
+        <listitem><para>Turn off automatic growing of accessed file systems to their partition size, if
+        marked for that in the GPT partition table. By default when an image is accessed for writing (by
+        <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the OS image
+        are automatically grown to their partition sizes, if bit 59 in the GPT partition flags is set for
+        partition types that are defined by the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. This
+        behavior may be switched off using <option>--growfs=no</option>. File systems are grown automatically
+        on access if all of the following conditions are met:</para>
+        <orderedlist>
+          <listitem><para>The file system is mounted writable</para></listitem>
+          <listitem><para>The file system currently is smaller than the partition it is contained in (and thus can be grown)</para></listitem>
+          <listitem><para>The image contains a GPT partition table</para></listitem>
+          <listitem><para>The file system is stored on a partition defined by the Discoverable Partitions Specification</para></listitem>
+          <listitem><para>Bit 59 of the GPT partition flags for this partition is set, as per specification</para></listitem>
+          <listitem><para>The <option>--growfs=no</option> option is not passed.</para></listitem>
+        </orderedlist>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

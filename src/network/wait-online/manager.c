@@ -32,6 +32,13 @@ static bool manager_ignore_link(Manager *m, Link *link) {
 }
 
 static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
+        AddressFamily required_family;
+        bool needs_ipv4;
+        bool needs_ipv6;
+
+        assert(m);
+        assert(l);
+
         /* This returns the following:
          * -EAGAIN: not processed by udev or networkd
          *       0: operstate is not enough
@@ -58,6 +65,34 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
                                link_operstate_to_string(l->operational_state),
                                link_operstate_to_string(s.min), link_operstate_to_string(s.max));
                 return 0;
+        }
+
+        required_family = m->required_family > 0 ? m->required_family : l->required_family;
+        needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
+        needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
+
+        if (s.min >= LINK_OPERSTATE_DEGRADED) {
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED) {
+                        log_link_debug(l, "No routable or link-local IPv4 address is configured.");
+                        return 0;
+                }
+
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED) {
+                        log_link_debug(l, "No routable or link-local IPv6 address is configured.");
+                        return 0;
+                }
+        }
+
+        if (s.min >= LINK_OPERSTATE_ROUTABLE) {
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE) {
+                        log_link_debug(l, "No routable IPv4 address is configured.");
+                        return 0;
+                }
+
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE) {
+                        log_link_debug(l, "No routable IPv6 address is configured.");
+                        return 0;
+                }
         }
 
         return 1;
@@ -298,6 +333,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 LinkOperationalStateRange required_operstate,
+                AddressFamily required_family,
                 bool any, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -312,6 +348,7 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 .interfaces = interfaces,
                 .ignore = ignore,
                 .required_operstate = required_operstate,
+                .required_family = required_family,
                 .any = any,
         };
 

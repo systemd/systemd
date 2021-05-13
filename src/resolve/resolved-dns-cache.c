@@ -36,14 +36,13 @@ enum DnsCacheItemType {
 
 struct DnsCacheItem {
         DnsCacheItemType type;
+        int rcode;
         DnsResourceKey *key;     /* The key for this item, i.e. the lookup key */
         DnsResourceRecord *rr;   /* The RR for this item, i.e. the lookup value for positive queries */
         DnsAnswer *answer;       /* The full validated answer, if this is an RRset acquired via a "primary" lookup */
         DnsPacket *full_packet;  /* The full packet this information was acquired with */
-        int rcode;
 
         usec_t until;
-        bool shared_owner:1;
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
@@ -53,6 +52,8 @@ struct DnsCacheItem {
 
         unsigned prioq_idx;
         LIST_FIELDS(DnsCacheItem, by_key);
+
+        bool shared_owner;
 };
 
 /* Returns true if this is a cache item created as result of an explicit lookup, or created as "side-effect"
@@ -937,6 +938,8 @@ static int answer_add_clamp_ttl(
         if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL)) {
                 uint32_t left_ttl;
 
+                assert(current > 0);
+
                 /* Let's determine how much time is left for this cache entry. Note that we round down, but
                  * clamp this to be 1s at minimum, since we usually want records to remain cached better too
                  * short a time than too long a time, but otoh don't want to return 0 ever, since that has
@@ -987,7 +990,7 @@ int dns_cache_lookup(
         bool nxdomain = false;
         DnsCacheItem *j, *first, *nsec = NULL;
         bool have_authenticated = false, have_non_authenticated = false, have_confidential = false, have_non_confidential = false;
-        usec_t current;
+        usec_t current = 0;
         int found_rcode = -1;
         DnssecResult dnssec_result = -1;
         int have_dnssec_result = -1;
@@ -1013,8 +1016,12 @@ int dns_cache_lookup(
                 goto miss;
         }
 
-        if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL))
+        if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL)) {
+                /* 'current' is always passed to answer_add_clamp_ttl(), but is only used conditionally.
+                 * We'll do the same assert there to make sure that it was initialized properly. */
                 current = now(clock_boottime_or_monotonic());
+                assert(current > 0);
+        }
 
         LIST_FOREACH(by_key, j, first) {
                 /* If the caller doesn't allow us to answer questions from cache data learned from

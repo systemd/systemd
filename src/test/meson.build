@@ -133,6 +133,17 @@ tests += [
 
         [['src/test/test-serialize.c']],
 
+        [['src/test/test-unit-serialize.c'],
+         [libcore,
+          libshared],
+         [threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libmount,
+          libblkid],
+         core_includes],
+
         [['src/test/test-utf8.c']],
 
         [['src/test/test-dev-setup.c']],
@@ -158,7 +169,10 @@ tests += [
 
         [['src/test/test-fstab-util.c']],
 
-        [['src/test/test-random-util.c']],
+        [['src/test/test-random-util.c'],
+         [],
+         [libm],
+         [], '', 'timeout=120'],
 
         [['src/test/test-format-table.c']],
 
@@ -319,6 +333,12 @@ tests += [
           libseccomp,
           libselinux,
           libblkid],
+         core_includes],
+
+        [['src/test/test-bpf-foreign-programs.c'],
+         [libcore,
+          libshared],
+         [],
          core_includes],
 
         [['src/test/test-watch-pid.c'],
@@ -540,7 +560,16 @@ tests += [
         [['src/test/test-gcrypt-util.c'],
          [], [], [], 'HAVE_GCRYPT'],
 
-        [['src/test/test-nss.c'],
+        [['src/test/test-nss-hosts.c',
+          'src/test/nss-test-util.c',
+          'src/test/nss-test-util.h'],
+         [],
+         [libdl],
+         [], 'ENABLE_NSS', 'manual'],
+
+        [['src/test/test-nss-users.c',
+          'src/test/nss-test-util.c',
+          'src/test/nss-test-util.h'],
          [],
          [libdl],
          [], 'ENABLE_NSS', 'manual'],
@@ -581,4 +610,13 @@ tests += [
         [['src/libudev/test-udev-device-thread.c'],
          [libudev],
          [threads]],
+]
+
+tests += [
+         [['src/test/test-socket-bind.c'],
+          [libcore,
+          libshared],
+         [libbpf],
+         core_includes,
+         'BPF_FRAMEWORK'],
 ]

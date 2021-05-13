@@ -79,6 +79,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static bool arg_headless = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -381,6 +382,17 @@ static int parse_one_option(const char *option) {
 
         } else if (streq(option, "try-empty-password"))
                 arg_try_empty_password = true;
+        else if ((val = startswith(option, "headless="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_headless = r;
+        } else if (streq(option, "headless"))
+                arg_headless = true;
 
         else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
@@ -532,6 +544,9 @@ static int get_password(
         assert(src);
         assert(ret);
 
+        if (arg_headless)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Password querying disabled via 'headless' option.");
+
         friendly = friendly_disk_name(src, vol);
         if (!friendly)
                 return log_oom();
@@ -545,7 +560,7 @@ static int get_password(
 
         id = strjoina("cryptsetup:", disk_path);
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
+        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
                               ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
                               &passwords);
         if (r < 0)
@@ -561,7 +576,7 @@ static int get_password(
 
                 id = strjoina("cryptsetup-verification:", disk_path);
 
-                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
+                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 
@@ -724,6 +739,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         int keyslot = arg_key_slot, r;
         const char *rp_id;
         const void *cid;
+        Fido2EnrollFlags required;
 
         assert(cd);
         assert(name);
@@ -731,11 +747,14 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
 
         if (arg_fido2_cid) {
                 if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 mode selected but no key file specified, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
 
                 rp_id = arg_fido2_rp_id;
                 cid = arg_fido2_cid;
                 cid_size = arg_fido2_cid_size;
+
+                required = FIDO2ENROLL_PIN | FIDO2ENROLL_UP; /* For backwards compatibility, PIN+presence is required by default. */
         } else {
                 r = find_fido2_auto_data(
                                 cd,
@@ -744,13 +763,18 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 &discovered_salt_size,
                                 &discovered_cid,
                                 &discovered_cid_size,
-                                &keyslot);
+                                &keyslot,
+                                &required);
 
                 if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
                 if (r < 0)
                         return r;
+
+                if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && arg_headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
                 rp_id = discovered_rp_id;
                 key_data = discovered_salt;
@@ -775,6 +799,8 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                 key_data, key_data_size,
                                 until,
+                                arg_headless,
+                                required,
                                 &decrypted_key, &decrypted_key_size);
                 if (r >= 0)
                         break;
@@ -895,6 +921,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                 key_data, key_data_size,
                                 until,
+                                arg_headless,
                                 &decrypted_key, &decrypted_key_size);
                 if (r >= 0)
                         break;
@@ -1008,7 +1035,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        size_t decrypted_key_size;
+        size_t decrypted_key_size = 0;  /* avoid false maybe-uninitialized warning */
 
         assert(cd);
         assert(name);
@@ -1058,15 +1085,12 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &policy_hash, &policy_hash_size,
                                                 &keyslot,
                                                 &token);
-                                if (r == -ENXIO) {
+                                if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header.*/
-                                        if (found_some)
-                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                                       "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
-                                        else
-                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                                       "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
-                                }
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               found_some
+                                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
+                                                               : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
                                 if (r < 0)
                                         return r;
 
@@ -1091,6 +1115,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
                                 return r;
                 }
+                assert(decrypted_key);
 
                 if (!monitor) {
                         /* We didn't find the TPM2 device. In this case, watch for it via udev. Let's create

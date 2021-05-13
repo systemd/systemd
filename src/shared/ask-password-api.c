@@ -20,6 +20,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "creds-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -971,11 +972,33 @@ finish:
         return r;
 }
 
+static int ask_password_credential(const char *credential_name, AskPasswordFlags flags, char ***ret) {
+        _cleanup_(erase_and_freep) char *buffer = NULL;
+        size_t size;
+        char **l;
+        int r;
+
+        assert(credential_name);
+        assert(ret);
+
+        r = read_credential(credential_name, (void**) &buffer, &size);
+        if (IN_SET(r, -ENXIO, -ENOENT)) /* No credentials passed or this credential not defined? */
+                return -ENOKEY;
+
+        l = strv_parse_nulstr(buffer, size);
+        if (!l)
+                return -ENOMEM;
+
+        *ret = l;
+        return 0;
+}
+
 int ask_password_auto(
                 const char *message,
                 const char *icon,
-                const char *id,
-                const char *keyname,
+                const char *id,                /* id in "ask-password" protocol */
+                const char *key_name,          /* name in kernel keyring */
+                const char *credential_name,   /* name in $CREDENTIALS_DIRECTORY directory */
                 usec_t until,
                 AskPasswordFlags flags,
                 char ***ret) {
@@ -984,20 +1007,26 @@ int ask_password_auto(
 
         assert(ret);
 
+        if (!(flags & ASK_PASSWORD_NO_CREDENTIAL) && credential_name) {
+                r = ask_password_credential(credential_name, flags, ret);
+                if (r != -ENOKEY)
+                        return r;
+        }
+
         if ((flags & ASK_PASSWORD_ACCEPT_CACHED) &&
-            keyname &&
+            key_name &&
             ((flags & ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) &&
             (flags & ASK_PASSWORD_NO_AGENT)) {
-                r = ask_password_keyring(keyname, flags, ret);
+                r = ask_password_keyring(key_name, flags, ret);
                 if (r != -ENOKEY)
                         return r;
         }
 
         if (!(flags & ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO))
-                return ask_password_tty(-1, message, keyname, until, flags, NULL, ret);
+                return ask_password_tty(-1, message, key_name, until, flags, NULL, ret);
 
         if (!(flags & ASK_PASSWORD_NO_AGENT))
-                return ask_password_agent(message, icon, id, keyname, until, flags, ret);
+                return ask_password_agent(message, icon, id, key_name, until, flags, ret);
 
         return -EUNATCH;
 }

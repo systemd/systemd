@@ -1802,7 +1802,6 @@ int setup_namespace(
                 const char *propagate_dir,
                 const char *incoming_dir,
                 const char *notify_socket,
-                DissectImageFlags dissect_image_flags,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -1813,6 +1812,14 @@ int setup_namespace(
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
         const char *root, *extension_dir = "/run/systemd/unit-extensions";
+        DissectImageFlags dissect_image_flags =
+                DISSECT_IMAGE_GENERIC_ROOT |
+                DISSECT_IMAGE_REQUIRE_ROOT |
+                DISSECT_IMAGE_DISCARD_ON_LOOP |
+                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                DISSECT_IMAGE_FSCK |
+                DISSECT_IMAGE_USR_NO_ROOT |
+                DISSECT_IMAGE_GROWFS;
         size_t n_mounts;
         int r;
 
@@ -1825,8 +1832,6 @@ int setup_namespace(
                 mount_flags = MS_SHARED;
 
         if (root_image) {
-                dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
-
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
                                    ns_info->protect_system) &&
@@ -1849,7 +1854,7 @@ int setup_namespace(
 
                 r = loop_device_make_by_path(
                                 root_image,
-                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                                 &loop_device);
                 if (r < 0)
@@ -1859,6 +1864,8 @@ int setup_namespace(
                                 loop_device->fd,
                                 &verity,
                                 root_image_options,
+                                loop_device->uevent_seqnum_not_before,
+                                loop_device->timestamp_not_before,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r < 0)
@@ -2088,7 +2095,7 @@ int setup_namespace(
                 }
 
                 if (log_namespace) {
-                        _cleanup_free_ char *q;
+                        _cleanup_free_ char *q = NULL;
 
                         q = strjoin("/run/systemd/journal.", log_namespace);
                         if (!q) {
@@ -2163,7 +2170,7 @@ int setup_namespace(
 
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
-                r = dissected_image_mount(dissected_image, root, UID_INVALID, dissect_image_flags);
+                r = dissected_image_mount(dissected_image, root, UID_INVALID, UID_INVALID, dissect_image_flags);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount root image: %m");
                         goto finish;
@@ -2327,7 +2334,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         }
 
         LIST_FOREACH(mount_options, i, item->mount_options) {
-                _cleanup_(mount_options_free_allp) MountOptions *o;
+                _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
 
                 o = new(MountOptions, 1);
                 if (!o)

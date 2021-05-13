@@ -30,6 +30,7 @@
 #include "clean-ipc.h"
 #include "clock-util.h"
 #include "core-varlink.h"
+#include "creds-util.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
@@ -49,8 +50,8 @@
 #include "install.h"
 #include "io-util.h"
 #include "label.h"
-#include "locale-setup.h"
 #include "load-fragment.h"
+#include "locale-setup.h"
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
@@ -247,7 +248,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
 }
 
 static int have_ask_password(void) {
-        _cleanup_closedir_ DIR *dir;
+        _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *de;
 
         dir = opendir("/run/systemd/ask-password");
@@ -687,7 +688,8 @@ static int manager_setup_prefix(Manager *m) {
         for (ExecDirectoryType i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
                 r = sd_path_lookup(p[i].type, p[i].suffix, &m->prefix[i]);
                 if (r < 0)
-                        return r;
+                        return log_warning_errno(r, "Failed to lookup %s path: %m",
+                                                 exec_directory_type_to_string(i));
         }
 
         return 0;
@@ -852,8 +854,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         if (r < 0)
                 return r;
 
-        e = secure_getenv("CREDENTIALS_DIRECTORY");
-        if (e) {
+        r = get_credentials_dir(&e);
+        if (r >= 0) {
                 m->received_credentials = strdup(e);
                 if (!m->received_credentials)
                         return -ENOMEM;
@@ -1280,7 +1282,6 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
 
         while ((u = m->stop_when_unneeded_queue)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                assert(m->stop_when_unneeded_queue);
 
                 assert(u->in_stop_when_unneeded_queue);
                 LIST_REMOVE(stop_when_unneeded_queue, m->stop_when_unneeded_queue, u);
@@ -1731,13 +1732,13 @@ int manager_add_job(
         assert(mode < _JOB_MODE_MAX);
 
         if (mode == JOB_ISOLATE && type != JOB_START)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
 
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                return sd_bus_error_set(error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
         if (mode == JOB_TRIGGERING && type != JOB_STOP)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
 
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 

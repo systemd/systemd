@@ -13,7 +13,7 @@ Documentation=man:systemd-firstboot(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
-Before=systemd-sysusers.service sysinit.target first-boot-complete.target shutdown.target
+Before=systemd-sysusers.service systemd-vconsole-setup.service sysinit.target first-boot-complete.target shutdown.target
 Wants=first-boot-complete.target
 ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
@@ -25,3 +25,14 @@ ExecStart=systemd-firstboot --prompt-locale --prompt-timezone --prompt-root-pass
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
+
+# Optionally, pick up basic fields from credentials passed to the service
+# manager. This is useful for importing this data from nspawn's
+# --set-credential= switch.
+LoadCredential=passwd.hashed-password.root
+LoadCredential=passwd.plaintext-password.root
+LoadCredential=passwd.shell.root
+LoadCredential=firstboot.locale
+LoadCredential=firstboot.locale-messages
+LoadCredential=firstboot.keymap
+LoadCredential=firstboot.timezone

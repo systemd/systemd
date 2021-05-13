@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/timex.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -65,24 +66,33 @@ typedef struct Context {
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
 
-#define log_unit_full(unit, level, error, ...)                          \
+#define log_unit_full_errno_zerook(unit, level, error, ...)             \
         ({                                                              \
                 const UnitStatusInfo *_u = (unit);                      \
-                log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, \
-                                    "UNIT=", _u->name, NULL, NULL, ##__VA_ARGS__); \
+                _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "UNIT=", _u->name, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
-#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_unit_error(unit, ...)   log_unit_full(unit, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_unit_full_errno(unit, level, error, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_unit_full_errno_zerook(unit, level, _error, ##__VA_ARGS__); \
+        })
 
-#define log_unit_debug_errno(unit, error, ...)   log_unit_full(unit, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_unit_info_errno(unit, error, ...)    log_unit_full(unit, LOG_INFO, error, ##__VA_ARGS__)
-#define log_unit_notice_errno(unit, error, ...)  log_unit_full(unit, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_unit_warning_errno(unit, error, ...) log_unit_full(unit, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_unit_error_errno(unit, error, ...)   log_unit_full(unit, LOG_ERR, error, ##__VA_ARGS__)
+#define log_unit_full(unit, level, ...) (void) log_unit_full_errno_zerook(unit, level, 0, ##__VA_ARGS__)
+
+#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, ##__VA_ARGS__)
+#define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, ##__VA_ARGS__)
+#define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, ##__VA_ARGS__)
+#define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, ##__VA_ARGS__)
+#define log_unit_error(unit, ...)   log_unit_full(unit, LOG_ERR, ##__VA_ARGS__)
+
+#define log_unit_debug_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_unit_info_errno(unit, error, ...)    log_unit_full_errno(unit, LOG_INFO, error, ##__VA_ARGS__)
+#define log_unit_notice_errno(unit, error, ...)  log_unit_full_errno(unit, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_unit_warning_errno(unit, error, ...) log_unit_full_errno(unit, LOG_WARNING, error, ##__VA_ARGS__)
+#define log_unit_error_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_ERR, error, ##__VA_ARGS__)
 
 static void unit_status_info_clear(UnitStatusInfo *p) {
         assert(p);
@@ -485,8 +495,8 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
                 "ss",
                 u->name,
                 "replace");
-        log_unit_full(u, r < 0 ? LOG_WARNING : LOG_DEBUG, r,
-                      "%s unit: %m", start ? "Starting" : "Stopping");
+        log_unit_full_errno_zerook(u, r < 0 ? LOG_WARNING : LOG_DEBUG, r,
+                                   "%s unit: %m", start ? "Starting" : "Stopping");
         if (r < 0)
                 return r;
 
@@ -545,6 +555,18 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                 return r;
 
         return 0;
+}
+
+static bool ntp_synced(void) {
+        struct timex txc = {};
+
+        if (adjtimex(&txc) < 0)
+                return false;
+
+        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
+         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
+         * touching the RTC. */
+        return txc.maxerror < 16000000;
 }
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME));
@@ -801,6 +823,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         sd_bus *bus = sd_bus_message_get_bus(m);
+        char buf[FORMAT_TIMESTAMP_MAX];
         int relative, interactive, r;
         Context *c = userdata;
         int64_t utc;
@@ -886,7 +909,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    "REALTIME="USEC_FMT, timespec_load(&ts),
-                   LOG_MESSAGE("Changed local time to %s", ctime(&ts.tv_sec)));
+                   LOG_MESSAGE("Changed local time to %s", strnull(format_timestamp(buf, sizeof(buf), timespec_load(&ts)))));
 
         return sd_bus_reply_method_return(m, NULL);
 }

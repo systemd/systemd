@@ -86,8 +86,10 @@ static int bus_error_name_to_errno(const char *name) {
                                 if (m->code == BUS_ERROR_MAP_END_MARKER)
                                         break;
 
-                                if (streq(m->name, name))
+                                if (streq(m->name, name)) {
+                                        assert(m->code > 0);
                                         return m->code;
+                                }
                         }
 
         m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
@@ -103,8 +105,10 @@ static int bus_error_name_to_errno(const char *name) {
                         continue;
                 }
 
-                if (streq(m->name, name))
+                if (streq(m->name, name)) {
+                        assert(m->code > 0);
                         return m->code;
+                }
 
                 m++;
         }
@@ -208,30 +212,33 @@ _public_ void sd_bus_error_free(sd_bus_error *e) {
 }
 
 _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
+        int r;
 
         if (!name)
                 return 0;
-        if (!e)
-                goto finish;
 
-        assert_return(!bus_error_is_dirty(e), -EINVAL);
+        if (e) {
+                assert_return(!bus_error_is_dirty(e), -EINVAL);
 
-        e->name = strdup(name);
-        if (!e->name) {
-                *e = BUS_ERROR_OOM;
-                return -ENOMEM;
+                e->name = strdup(name);
+                if (!e->name) {
+                        *e = BUS_ERROR_OOM;
+                        return -ENOMEM;
+                }
+
+                if (message)
+                        e->message = strdup(message);
+
+                e->_need_free = 1;
         }
 
-        if (message)
-                e->message = strdup(message);
-
-        e->_need_free = 1;
-
-finish:
-        return -bus_error_name_to_errno(name);
+        r = bus_error_name_to_errno(name);
+        assert(r > 0);
+        return -r;
 }
 
 int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
+        int r;
 
         if (!name)
                 return 0;
@@ -253,23 +260,28 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
                 e->_need_free = 1;
         }
 
-        return -bus_error_name_to_errno(name);
+        r = bus_error_name_to_errno(name);
+        assert(r > 0);
+        return -r;
 }
 
 _public_ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...) {
+        int r;
 
         if (format) {
-                int r;
                 va_list ap;
 
                 va_start(ap, format);
                 r = bus_error_setfv(e, name, format, ap);
+                assert(!name || r < 0);
                 va_end(ap);
 
                 return r;
         }
 
-        return sd_bus_error_set(e, name, NULL);
+        r = sd_bus_error_set(e, name, NULL);
+        assert(!name || r < 0);
+        return r;
 }
 
 _public_ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
@@ -455,7 +467,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
         if (!e)
                 return -error;
         if (error == 0)
-                return -error;
+                return 0;
 
         assert_return(!bus_error_is_dirty(e), -EINVAL);
 

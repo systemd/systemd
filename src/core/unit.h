@@ -305,6 +305,19 @@ typedef struct Unit {
         Set *ip_bpf_custom_egress;
         Set *ip_bpf_custom_egress_installed;
 
+        /* BPF programs managed (e.g. loaded to kernel) by an entity external to systemd,
+         * attached to unit cgroup by provided program fd and attach type. */
+        Hashmap *bpf_foreign_by_key;
+
+        FDSet *initial_socket_bind_link_fds;
+#if BPF_FRAMEWORK
+        /* BPF links to BPF programs attached to cgroup/bind{4|6} hooks and
+         * responsible for allowing or denying a unit to bind(2) to a socket
+         * address. */
+        struct bpf_link *ipv4_socket_bind_link;
+        struct bpf_link *ipv6_socket_bind_link;
+#endif
+
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
@@ -645,7 +658,7 @@ typedef struct UnitVTable {
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
-static inline const UnitVTable* UNIT_VTABLE(Unit *u) {
+static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
         return unit_vtable[u->type];
 }
 
@@ -808,7 +821,7 @@ void unit_ref_unset(UnitRef *ref);
 
 int unit_patch_contexts(Unit *u);
 
-ExecContext *unit_get_exec_context(Unit *u) _pure_;
+ExecContext *unit_get_exec_context(const Unit *u) _pure_;
 KillContext *unit_get_kill_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 
@@ -879,6 +892,11 @@ static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
 }
 
+static inline bool unit_log_level_test(const Unit *u, int level) {
+        ExecContext *ec = unit_get_exec_context(u);
+        return !ec || ec->log_level_max < 0 || ec->log_level_max >= LOG_PRI(level);
+}
+
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
  * after some execution, rather than succeeded or failed. */
 void unit_log_skip(Unit *u, const char *result);
@@ -915,17 +933,25 @@ int unit_thaw_vtable_common(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
-#define log_unit_full_errno(unit, level, error, ...)                    \
+#define log_unit_full_errno_zerook(unit, level, error, ...)             \
         ({                                                              \
                 const Unit *_u = (unit);                                \
-                (log_get_max_level() < LOG_PRI(level)) ? -ERRNO_VALUE(error) : \
-                        _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                                log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                const int _l = (level);                                 \
+                (log_get_max_level() < LOG_PRI(_l) || (_u && !unit_log_level_test(_u, _l))) ? -ERRNO_VALUE(error) : \
+                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                                log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
-#define log_unit_full(unit, level, ...) (void) log_unit_full_errno(unit, level, 0, __VA_ARGS__)
+#define log_unit_full_errno(unit, level, error, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_unit_full_errno_zerook(unit, level, _error, ##__VA_ARGS__); \
+        })
 
-#define log_unit_debug(unit, ...)   log_unit_full_errno(unit, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_unit_full(unit, level, ...) (void) log_unit_full_errno_zerook(unit, level, 0, __VA_ARGS__)
+
+#define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, __VA_ARGS__)
 #define log_unit_info(unit, ...)    log_unit_full(unit, LOG_INFO, __VA_ARGS__)
 #define log_unit_notice(unit, ...)  log_unit_full(unit, LOG_NOTICE, __VA_ARGS__)
 #define log_unit_warning(unit, ...) log_unit_full(unit, LOG_WARNING, __VA_ARGS__)
@@ -936,6 +962,27 @@ int unit_thaw_vtable_common(Unit *u);
 #define log_unit_notice_errno(unit, error, ...)  log_unit_full_errno(unit, LOG_NOTICE, error, __VA_ARGS__)
 #define log_unit_warning_errno(unit, error, ...) log_unit_full_errno(unit, LOG_WARNING, error, __VA_ARGS__)
 #define log_unit_error_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_ERR, error, __VA_ARGS__)
+
+#define log_unit_struct_errno(unit, level, error, ...)                  \
+        ({                                                              \
+                const Unit *_u = (unit);                                \
+                const int _l = (level);                                 \
+                unit_log_level_test(_u, _l) ?                           \
+                        log_struct_errno(_l, error, __VA_ARGS__, LOG_UNIT_ID(_u)) : \
+                        -ERRNO_VALUE(error);                            \
+        })
+
+#define log_unit_struct(unit, level, ...) log_unit_struct_errno(unit, level, 0, __VA_ARGS__)
+
+#define log_unit_struct_iovec_errno(unit, level, error, iovec, n_iovec) \
+        ({                                                              \
+                const int _l = (level);                                 \
+                unit_log_level_test(unit, _l) ?                         \
+                        log_struct_iovec_errno(_l, error, iovec, n_iovec) : \
+                        -ERRNO_VALUE(error);                            \
+        })
+
+#define log_unit_struct_iovec(unit, level, iovec, n_iovec) log_unit_struct_iovec_errno(unit, level, 0, iovec, n_iovec)
 
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) "MESSAGE=%s: " fmt, (unit)->id, ##__VA_ARGS__
 #define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id

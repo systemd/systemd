@@ -4,10 +4,12 @@
 
 #include "sd-messages.h"
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-setup.h"
@@ -24,6 +26,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -190,6 +193,25 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         free(b);
 }
 
+void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p) {
+        assert(c);
+        assert(p);
+
+        LIST_REMOVE(programs, c->bpf_foreign_programs, p);
+        free(p->bpffs_path);
+        free(p);
+}
+
+void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
+        assert(head);
+
+        while (*head) {
+                CGroupSocketBindItem *h = *head;
+                LIST_REMOVE(socket_bind_items, *head, h);
+                free(h);
+        }
+}
+
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
@@ -211,11 +233,17 @@ void cgroup_context_done(CGroupContext *c) {
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
 
+        cgroup_context_remove_socket_bind(&c->socket_bind_allow);
+        cgroup_context_remove_socket_bind(&c->socket_bind_deny);
+
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
+
+        while (c->bpf_foreign_programs)
+                cgroup_context_remove_bpf_foreign_program(c, c->bpf_foreign_programs);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
@@ -276,8 +304,7 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         if (!FLAGS_SET(m, CGROUP_MASK_MEMORY))
                 return -ENODATA;
 
-        c = unit_get_cgroup_context(u);
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         if (streq(property_name, "MemoryLow")) {
                 unit_value = unit_get_ancestor_memory_low(u);
@@ -360,8 +387,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupIODeviceLatency *l;
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
+        CGroupBPFForeignProgram *p;
         CGroupDeviceAllow *a;
         CGroupContext *c;
+        CGroupSocketBindItem *bi;
         IPAddressAccessItem *iaai;
         char **path;
         char q[FORMAT_TIMESPAN_MAX];
@@ -376,8 +405,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         assert(u);
         assert(f);
 
-        c = unit_get_cgroup_context(u);
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         prefix = strempty(prefix);
 
@@ -420,7 +448,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
-                "%sManagedOOMPreference: %s%%\n",
+                "%sManagedOOMPreference: %s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -544,6 +572,40 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs)
+                fprintf(f, "%sBPFProgram: %s:%s",
+                        prefix, bpf_cgroup_attach_type_to_string(p->attach_type), p->bpffs_path);
+
+        if (c->socket_bind_allow) {
+                fprintf(f, "%sSocketBindAllow:", prefix);
+                LIST_FOREACH(socket_bind_items, bi, c->socket_bind_allow)
+                        cgroup_context_dump_socket_bind_item(bi, f);
+                fputc('\n', f);
+        }
+
+        if (c->socket_bind_deny) {
+                fprintf(f, "%sSocketBindDeny:", prefix);
+                LIST_FOREACH(socket_bind_items, bi, c->socket_bind_deny)
+                        cgroup_context_dump_socket_bind_item(bi, f);
+                fputc('\n', f);
+        }
+}
+
+void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
+        const char *family, *colon;
+
+        family = strempty(af_to_ipv4_ipv6(item->address_family));
+        colon = isempty(family) ? "" : ":";
+
+        if (item->nr_ports == 0)
+                fprintf(f, " %s%sany", family, colon);
+        else if (item->nr_ports == 1)
+                fprintf(f, " %s%s%" PRIu16, family, colon, item->port_min);
+        else {
+                uint16_t port_max = item->port_min + item->nr_ports - 1;
+                fprintf(f, " %s%s%" PRIu16 "-%" PRIu16, family, colon, item->port_min, port_max);
+        }
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
@@ -571,6 +633,34 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 
         LIST_PREPEND(device_allow, c->device_allow, a);
         TAKE_PTR(a);
+
+        return 0;
+}
+
+int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
+        CGroupBPFForeignProgram *p;
+        _cleanup_free_ char *d = NULL;
+
+        assert(c);
+        assert(bpffs_path);
+
+        if (!path_is_normalized(bpffs_path) || !path_is_absolute(bpffs_path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not normalized: %m");
+
+        d = strdup(bpffs_path);
+        if (!d)
+                return log_oom();
+
+        p = new(CGroupBPFForeignProgram, 1);
+        if (!p)
+                return log_oom();
+
+        *p = (CGroupBPFForeignProgram) {
+                .attach_type = attach_type,
+                .bpffs_path = TAKE_PTR(d),
+        };
+
+        LIST_PREPEND(programs, c->bpf_foreign_programs, TAKE_PTR(p));
 
         return 0;
 }
@@ -937,17 +1027,14 @@ static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t
 }
 
 static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
-        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
-        char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
-        CGroupIOLimitType type;
+        char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)],
+             buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
         dev_t dev;
-        int r;
 
-        r = lookup_block_device(dev_path, &dev);
-        if (r < 0)
+        if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
-        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+        for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
                 if (limits[type] != cgroup_io_limit_defaults[type])
                         xsprintf(limit_bufs[type], "%" PRIu64, limits[type]);
                 else
@@ -962,10 +1049,8 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
 static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
-        int r;
 
-        r = lookup_block_device(dev_path, &dev);
-        if (r < 0)
+        if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
@@ -980,8 +1065,7 @@ static bool unit_has_unified_memory_config(Unit *u) {
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         return unit_get_ancestor_memory_min(u) > 0 || unit_get_ancestor_memory_low(u) > 0 ||
                c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX ||
@@ -1007,6 +1091,12 @@ static void cgroup_apply_firewall(Unit *u) {
 
         (void) bpf_firewall_load_custom(u);
         (void) bpf_firewall_install(u);
+}
+
+static void cgroup_apply_socket_bind(Unit *u) {
+        assert(u);
+
+        (void) socket_bind_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -1113,6 +1203,12 @@ static void set_io_weight(Unit *u, const char *controller, uint64_t weight) {
         p = strjoina(controller, ".bfq.weight");
         xsprintf(buf, "%" PRIu64 "\n", (weight + 9) / 10);
         (void) set_attribute_and_warn(u, controller, p, buf);
+}
+
+static void cgroup_apply_bpf_foreign_program(Unit *u) {
+        assert(u);
+
+        (void) bpf_foreign_install(u);
 }
 
 static void cgroup_context_apply(
@@ -1428,6 +1524,12 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
+                cgroup_apply_bpf_foreign_program(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
+                cgroup_apply_socket_bind(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1460,15 +1562,35 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         return false;
 }
 
+static bool unit_get_needs_bpf_foreign_program(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return !LIST_IS_EMPTY(c->bpf_foreign_programs);
+}
+
+static bool unit_get_needs_socket_bind(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->socket_bind_allow || c->socket_bind_deny;
+}
+
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
         CGroupMask mask = 0;
         CGroupContext *c;
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-
-        assert(c);
+        assert_se(c = unit_get_cgroup_context(u));
 
         /* Figure out which controllers we need, based on the cgroup context object */
 
@@ -1510,6 +1632,12 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_bpf_foreign_program(u))
+                mask |= CGROUP_MASK_BPF_FOREIGN;
+
+        if (unit_get_needs_socket_bind(u))
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         return mask;
 }
@@ -2786,11 +2914,10 @@ int unit_check_oomd_kill(Unit *u) {
                 return 0;
 
         if (n > 0)
-                log_struct(LOG_NOTICE,
-                           "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u),
-                           LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n));
+                log_unit_struct(u, LOG_NOTICE,
+                                "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                                LOG_UNIT_INVOCATION_ID(u),
+                                LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n));
 
         return 1;
 }
@@ -2818,11 +2945,10 @@ int unit_check_oom(Unit *u) {
         if (!increased)
                 return 0;
 
-        log_struct(LOG_NOTICE,
-                   "MESSAGE_ID=" SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR,
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
+        log_unit_struct(u, LOG_NOTICE,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
 
         if (UNIT_VTABLE(u)->notify_cgroup_oom)
                 UNIT_VTABLE(u)->notify_cgroup_oom(u);
@@ -2988,6 +3114,16 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF pinned prog */
+        r = bpf_foreign_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_FOREIGN;
+
+        /* BPF-based bind{4|6} hooks */
+        r = socket_bind_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         *ret = mask;
         return 0;

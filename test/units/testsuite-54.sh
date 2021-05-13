@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -ex
+# shellcheck disable=SC2016
+set -eux
 
 systemd-analyze log-level debug
 
@@ -10,22 +11,24 @@ systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
             --wait \
             --pipe \
-            cat '${CREDENTIALS_DIRECTORY}/passwd' '${CREDENTIALS_DIRECTORY}/shadow' '${CREDENTIALS_DIRECTORY}/dog' > /tmp/ts54-concat
+            cat '${CREDENTIALS_DIRECTORY}/passwd' '${CREDENTIALS_DIRECTORY}/shadow' '${CREDENTIALS_DIRECTORY}/dog' >/tmp/ts54-concat
 ( cat /etc/passwd /etc/shadow && echo -n wuff ) | cmp /tmp/ts54-concat
 rm /tmp/ts54-concat
 
 # Verify that the creds are immutable
-! systemd-run -p LoadCredential=passwd:/etc/passwd \
+systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
             --wait \
-            touch '${CREDENTIALS_DIRECTORY}/passwd'
-! systemd-run -p LoadCredential=passwd:/etc/passwd \
+            touch '${CREDENTIALS_DIRECTORY}/passwd' \
+    && { echo 'unexpected success'; exit 1; }
+systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
             --wait \
-            rm '${CREDENTIALS_DIRECTORY}/passwd'
+            rm '${CREDENTIALS_DIRECTORY}/passwd' \
+    && { echo 'unexpected success'; exit 1; }
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

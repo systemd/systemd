@@ -2564,6 +2564,7 @@ static int acquire_credentials(
                 ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
                 _cleanup_(erase_and_freep) char *data = NULL;
                 _cleanup_free_ char *j = NULL, *bindname = NULL;
+                bool missing_ok = true;
                 const char *source;
                 size_t size, add;
 
@@ -2577,6 +2578,8 @@ static int acquire_credentials(
                         if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, *id) < 0)
                                 return -ENOMEM;
 
+                        missing_ok = false;
+
                 } else if (params->received_credentials) {
                         /* If this is a relative path, take it relative to the credentials we received
                          * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
@@ -2589,16 +2592,23 @@ static int acquire_credentials(
                 } else
                         source = NULL;
 
-
                 if (source)
                         r = read_full_file_full(AT_FDCWD, source, UINT64_MAX, SIZE_MAX, flags, bindname, &data, &size);
                 else
                         r = -ENOENT;
-                if (r == -ENOENT &&
-                    faccessat(dfd, *id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) /* If the source file doesn't exist, but we already acquired the key otherwise, then don't fail */
+                if (r == -ENOENT && (missing_ok || faccessat(dfd, *id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)) {
+                        /* Make a missing inherited credential non-fatal, let's just continue. After all apps
+                         * will get clear errors if we don't pass such a missing credential on as they
+                         * themselves will get ENOENT when trying to read them, which should not be much
+                         * worse than when we handle the error here and make it fatal.
+                         *
+                         * Also, if the source file doesn't exist, but we already acquired the key otherwise,
+                         * then don't fail either. */
+                        log_debug_errno(r, "Couldn't read inherited credential '%s', skipping: %m", *fn);
                         continue;
+                }
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to read credential '%s': %m", *fn);
 
                 add = strlen(*id) + size;
                 if (add > left)
@@ -3247,7 +3257,6 @@ static int apply_mount_namespace(
                             propagate_dir,
                             incoming_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
-                            DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
@@ -4309,24 +4318,23 @@ static int exec_child(
         r = find_executable_full(command->path, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-                        log_struct_errno(LOG_INFO, r,
-                                         "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                         LOG_UNIT_ID(unit),
-                                         LOG_UNIT_INVOCATION_ID(unit),
-                                         LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
-                                                          command->path),
-                                         "EXECUTABLE=%s", command->path);
+                        log_unit_struct_errno(unit, LOG_INFO, r,
+                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                              LOG_UNIT_INVOCATION_ID(unit),
+                                              LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
+                                                               command->path),
+                                              "EXECUTABLE=%s", command->path);
                         return 0;
                 }
 
                 *exit_status = EXIT_EXEC;
-                return log_struct_errno(LOG_INFO, r,
-                                        "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                        LOG_UNIT_ID(unit),
-                                        LOG_UNIT_INVOCATION_ID(unit),
-                                        LOG_UNIT_MESSAGE(unit, "Failed to locate executable %s: %m",
-                                                         command->path),
-                                        "EXECUTABLE=%s", command->path);
+
+                return log_unit_struct_errno(unit, LOG_INFO, r,
+                                             "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                             LOG_UNIT_INVOCATION_ID(unit),
+                                             LOG_UNIT_MESSAGE(unit, "Failed to locate executable %s: %m",
+                                                              command->path),
+                                             "EXECUTABLE=%s", command->path);
         }
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, executable_fd, &executable_fd);
@@ -4630,15 +4638,14 @@ static int exec_child(
                 final_argv = command->argv;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *line;
+                _cleanup_free_ char *line = NULL;
 
                 line = exec_command_line(final_argv);
                 if (line)
-                        log_struct(LOG_DEBUG,
-                                   "EXECUTABLE=%s", executable,
-                                   LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
-                                   LOG_UNIT_ID(unit),
-                                   LOG_UNIT_INVOCATION_ID(unit));
+                        log_unit_struct(unit, LOG_DEBUG,
+                                        "EXECUTABLE=%s", executable,
+                                        LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
+                                        LOG_UNIT_INVOCATION_ID(unit));
         }
 
         if (exec_fd >= 0) {
@@ -4730,14 +4737,13 @@ int exec_spawn(Unit *unit,
            and, until the next SELinux policy changes, we save further reloads in future children. */
         mac_selinux_maybe_reload();
 
-        log_struct(LOG_DEBUG,
-                   LOG_UNIT_MESSAGE(unit, "About to execute %s", line),
-                   "EXECUTABLE=%s", command->path, /* We won't know the real executable path until we create
-                                                      the mount namespace in the child, but we want to log
-                                                      from the parent, so we need to use the (possibly
-                                                      inaccurate) path here. */
-                   LOG_UNIT_ID(unit),
-                   LOG_UNIT_INVOCATION_ID(unit));
+        log_unit_struct(unit, LOG_DEBUG,
+                        LOG_UNIT_MESSAGE(unit, "About to execute %s", line),
+                        "EXECUTABLE=%s", command->path, /* We won't know the real executable path until we create
+                                                           the mount namespace in the child, but we want to log
+                                                           from the parent, so we need to use the (possibly
+                                                           inaccurate) path here. */
+                        LOG_UNIT_INVOCATION_ID(unit));
 
         if (params->cgroup_path) {
                 r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
@@ -4781,13 +4787,12 @@ int exec_spawn(Unit *unit,
                                 exit_status_to_string(exit_status,
                                                       EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
 
-                        log_struct_errno(LOG_ERR, r,
-                                         "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                         LOG_UNIT_ID(unit),
-                                         LOG_UNIT_INVOCATION_ID(unit),
-                                         LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
-                                                          status, command->path),
-                                         "EXECUTABLE=%s", command->path);
+                        log_unit_struct_errno(unit, LOG_ERR, r,
+                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                              LOG_UNIT_INVOCATION_ID(unit),
+                                              LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
+                                                               status, command->path),
+                                              "EXECUTABLE=%s", command->path);
                 }
 
                 _exit(exit_status);
@@ -4907,6 +4912,7 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data_size = 0;
 
         c->network_namespace_path = mfree(c->network_namespace_path);
+        c->ipc_namespace_path = mfree(c->ipc_namespace_path);
 
         c->log_namespace = mfree(c->log_namespace);
 
@@ -4923,7 +4929,7 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
                 return 0;
 
         STRV_FOREACH(i, c->directories[EXEC_DIRECTORY_RUNTIME].paths) {
-                _cleanup_free_ char *p;
+                _cleanup_free_ char *p = NULL;
 
                 if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
                         p = path_join(runtime_prefix, "private", *i);
@@ -5225,7 +5231,7 @@ static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv
         assert(name);
 
         if (!strv_isempty(strv)) {
-                fprintf(f, "%s%s:", name, prefix);
+                fprintf(f, "%s%s:", prefix, name);
                 strv_fprintf(f, strv);
                 fputs("\n", f);
         }

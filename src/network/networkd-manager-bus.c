@@ -235,6 +235,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Manager, operational_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CarrierState", "s", property_get_carrier_state, offsetof(Manager, carrier_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AddressState", "s", property_get_address_state, offsetof(Manager, address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IPv4AddressState", "s", property_get_address_state, offsetof(Manager, ipv4_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Manager, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD_WITH_ARGS("ListLinks",
                                 SD_BUS_NO_ARGS,
@@ -339,7 +341,7 @@ int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
         assert(properties);
 
-        if (!manager->bus)
+        if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;
 
         return sd_bus_emit_properties_changed_strv(

@@ -509,7 +509,12 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                         _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
                         _cleanup_(verity_settings_done) VeritySettings verity_settings = VERITY_SETTINGS_DEFAULT;
-                        DissectImageFlags flags = DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_MOUNT_ROOT_ONLY;
+                        DissectImageFlags flags =
+                                DISSECT_IMAGE_READ_ONLY |
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_MOUNT_ROOT_ONLY |
+                                DISSECT_IMAGE_USR_NO_ROOT;
 
                         r = verity_settings_load(&verity_settings, img->path, NULL, NULL);
                         if (r < 0)
@@ -520,13 +525,15 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
                         r = loop_device_make_by_path(img->path, O_RDONLY, 0, &d);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set up loopback device: %m");
+                                return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
 
                         r = dissect_image_and_warn(
                                         d->fd,
                                         img->path,
                                         &verity_settings,
                                         NULL,
+                                        d->uevent_seqnum_not_before,
+                                        d->timestamp_not_before,
                                         flags,
                                         &m);
                         if (r < 0)
@@ -543,6 +550,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         r = dissected_image_mount_and_warn(
                                         m,
                                         p,
+                                        UID_INVALID,
                                         UID_INVALID,
                                         flags);
                         if (r < 0)

@@ -7,7 +7,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
-#include <sys/timex.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -1245,21 +1244,6 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         return 0;
 }
 
-bool ntp_synced(void) {
-        struct timex txc = {};
-
-        if (adjtimex(&txc) < 0)
-                return false;
-
-        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
-         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
-         * touching the RTC. */
-        if (txc.maxerror >= 16000000)
-                return false;
-
-        return true;
-}
-
 int get_timezones(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
@@ -1278,8 +1262,8 @@ int get_timezones(char ***ret) {
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
         if (f) {
                 for (;;) {
-                        _cleanup_free_ char *line = NULL;
-                        char *p, *w;
+                        _cleanup_free_ char *line = NULL, *w = NULL;
+                        char *p;
                         size_t k;
 
                         r = read_line(f, LONG_LINE_MAX, &line);
@@ -1310,12 +1294,10 @@ int get_timezones(char ***ret) {
                         if (!w)
                                 return -ENOMEM;
 
-                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2)) {
-                                free(w);
+                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2))
                                 return -ENOMEM;
-                        }
 
-                        zones[n_zones++] = w;
+                        zones[n_zones++] = TAKE_PTR(w);
                         zones[n_zones] = NULL;
                 }
 
@@ -1547,7 +1529,7 @@ int time_change_fd(void) {
                 .it_value.tv_sec = TIME_T_MAX,
         };
 
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 

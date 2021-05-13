@@ -3,11 +3,36 @@
 
 #include "log.h"
 
-#define log_interface_full_errno(ifname, level, error, ...)             \
+#define log_interface_full_errno_zerook(ifname, level, error, ...)      \
         ({                                                              \
                 const char *_ifname = (ifname);                         \
                 _ifname ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _ifname, NULL, NULL, ##__VA_ARGS__) : \
                         log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+        })
+
+#define log_interface_full_errno(ifname, level, error, ...)             \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_interface_full_errno_zerook(ifname, level, _error, __VA_ARGS__); \
+        })
+
+#define log_interface_prefix_full_errno_zerook(prefix, ifname_expr, error, fmt, ...) \
+        ({                                                              \
+                int _e = (error);                                       \
+                if (DEBUG_LOGGING)                                      \
+                        log_interface_full_errno_zerook(                \
+                                ifname_expr,                            \
+                                LOG_DEBUG, _e, prefix fmt,              \
+                                ##__VA_ARGS__);                         \
+                -ERRNO_VALUE(_e);                                       \
+        })
+
+#define log_interface_prefix_full_errno(prefix, ifname_expr, error, fmt, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_interface_prefix_full_errno_zerook(prefix, ifname_expr, _error, fmt, ##__VA_ARGS__); \
         })
 
 /*
@@ -21,15 +46,22 @@
  * See, network/networkd-link.h for example.
  */
 
-#define log_link_full_errno(link, level, error, ...)                    \
+#define log_link_full_errno_zerook(link, level, error, ...)             \
         ({                                                              \
                 const Link *_l = (link);                                \
-                log_interface_full_errno(_l ? _l->ifname : NULL, level, error, ##__VA_ARGS__); \
+                log_interface_full_errno_zerook(_l ? _l->ifname : NULL, level, error, __VA_ARGS__); \
         })
 
-#define log_link_full(link, level, ...) (void) log_link_full_errno(link, level, 0, __VA_ARGS__)
+#define log_link_full_errno(link, level, error, ...)                    \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_link_full_errno_zerook(link, level, _error, __VA_ARGS__); \
+        })
 
-#define log_link_debug(link, ...)   log_link_full_errno(link, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_link_full(link, level, ...) (void) log_link_full_errno_zerook(link, level, 0, __VA_ARGS__)
+
+#define log_link_debug(link, ...)   log_link_full(link, LOG_DEBUG, __VA_ARGS__)
 #define log_link_info(link, ...)    log_link_full(link, LOG_INFO, __VA_ARGS__)
 #define log_link_notice(link, ...)  log_link_full(link, LOG_NOTICE, __VA_ARGS__)
 #define log_link_warning(link, ...) log_link_full(link, LOG_WARNING, __VA_ARGS__)

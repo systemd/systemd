@@ -614,14 +614,10 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 #if HAVE_LZ4
         LZ4F_errorCode_t c;
         _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
-        _cleanup_free_ char *buf = NULL;
-        char *src = NULL;
-        size_t size, n, total_in = 0, total_out, offset = 0, frame_size;
-        struct stat st;
+        _cleanup_free_ void *in_buff = NULL;
+        _cleanup_free_ char *out_buff = NULL;
+        size_t out_allocsize, n, total_in = 0, total_out, offset = 0, frame_size;
         int r;
-        static const LZ4F_compressOptions_t options = {
-                .stableSrc = 1,
-        };
         static const LZ4F_preferences_t preferences = {
                 .frameInfo.blockSizeID = 5,
         };
@@ -630,74 +626,66 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         if (LZ4F_isError(c))
                 return -ENOMEM;
 
-        if (fstat(fdf, &st) < 0)
-                return log_debug_errno(errno, "fstat() failed: %m");
-
         frame_size = LZ4F_compressBound(LZ4_BUFSIZE, &preferences);
-        size =  frame_size + 64*1024; /* add some space for header and trailer */
-        buf = malloc(size);
-        if (!buf)
+        out_allocsize = frame_size + 64*1024; /* add some space for header and trailer */
+        out_buff = malloc(out_allocsize);
+        if (!out_buff)
                 return -ENOMEM;
 
-        n = offset = total_out = LZ4F_compressBegin(ctx, buf, size, &preferences);
+        in_buff = malloc(LZ4_BUFSIZE);
+        if (!in_buff)
+                return -ENOMEM;
+
+        n = offset = total_out = LZ4F_compressBegin(ctx, out_buff, out_allocsize, &preferences);
         if (LZ4F_isError(n))
                 return -EINVAL;
 
-        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fdf, 0);
-        if (src == MAP_FAILED)
-                return -errno;
+        log_debug("Buffer size is %zu bytes, header size %zu bytes.", out_allocsize, n);
 
-        log_debug("Buffer size is %zu bytes, header size %zu bytes.", size, n);
-
-        while (total_in < (size_t) st.st_size) {
+        for (;;) {
                 ssize_t k;
 
-                k = MIN(LZ4_BUFSIZE, st.st_size - total_in);
-                n = LZ4F_compressUpdate(ctx, buf + offset, size - offset,
-                                        src + total_in, k, &options);
-                if (LZ4F_isError(n)) {
-                        r = -ENOTRECOVERABLE;
-                        goto cleanup;
-                }
+                k = loop_read(fdf, in_buff, LZ4_BUFSIZE, true);
+                if (k < 0)
+                        return k;
+                if (k == 0)
+                        break;
+                n = LZ4F_compressUpdate(ctx, out_buff + offset, out_allocsize - offset,
+                                        in_buff, k, NULL);
+                if (LZ4F_isError(n))
+                        return -ENOTRECOVERABLE;
 
                 total_in += k;
                 offset += n;
                 total_out += n;
 
-                if (max_bytes != UINT64_MAX && total_out > (size_t) max_bytes) {
-                        r = log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
-                                            "Compressed stream longer than %" PRIu64 " bytes", max_bytes);
-                        goto cleanup;
-                }
+                if (max_bytes != UINT64_MAX && total_out > (size_t) max_bytes)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
+                                               "Compressed stream longer than %" PRIu64 " bytes", max_bytes);
 
-                if (size - offset < frame_size + 4) {
-                        k = loop_write(fdt, buf, offset, false);
-                        if (k < 0) {
-                                r = k;
-                                goto cleanup;
-                        }
+                if (out_allocsize - offset < frame_size + 4) {
+                        k = loop_write(fdt, out_buff, offset, false);
+                        if (k < 0)
+                                return k;
                         offset = 0;
                 }
         }
 
-        n = LZ4F_compressEnd(ctx, buf + offset, size - offset, &options);
-        if (LZ4F_isError(n)) {
-                r = -ENOTRECOVERABLE;
-                goto cleanup;
-        }
+        n = LZ4F_compressEnd(ctx, out_buff + offset, out_allocsize - offset, NULL);
+        if (LZ4F_isError(n))
+                return -ENOTRECOVERABLE;
 
         offset += n;
         total_out += n;
-        r = loop_write(fdt, buf, offset, false);
+        r = loop_write(fdt, out_buff, offset, false);
         if (r < 0)
-                goto cleanup;
+                return r;
 
         log_debug("LZ4 compression finished (%zu -> %zu bytes, %.1f%%)",
                   total_in, total_out,
                   (double) total_out / total_in * 100);
- cleanup:
-        munmap(src, st.st_size);
-        return r;
+
+        return 0;
 #else
         return -EPROTONOSUPPORT;
 #endif

@@ -58,6 +58,7 @@ node /org/freedesktop/hostname1 {
                   in  b interactive);
       GetProductUUID(in  b interactive,
                      out ay uuid);
+      Describe(out s json);
     properties:
       readonly s Hostname = '...';
       readonly s StaticHostname = '...';
@@ -117,6 +118,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetLocation()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Hostname"/>
 
@@ -232,6 +235,17 @@ node /org/freedesktop/hostname1 {
     <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for that. For more information on these files and syscalls see the respective man pages.</para>
 
+    <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
+    <varname>KernelVersion</varname> expose the kernel name (e.g. <literal>Linux</literal>), release
+    (e.g. <literal>5.0.0-11</literal>), and version (i.e. the build number, e.g. <literal>#11</literal>) as
+    reported by <citerefentry project="man-pages"><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    <varname>OperatingSystemPrettyName</varname>, <varname>OperatingSystemCPEName</varname>, and
+    <varname>HomeURL</varname> expose the <varname>PRETTY_NAME=</varname>, <varname>CPE_NAME=</varname> and
+    <varname>HOME_URL=</varname> fields from
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    purpose of those properties is to allow remote clients to access this information over D-Bus. Local
+    clients can access the information directly.</para>
+
     <refsect2>
       <title>Methods</title>
 
@@ -261,22 +275,12 @@ node /org/freedesktop/hostname1 {
       <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
       the semantics of those settings.</para>
 
-      <para><function>GetProductUUID()</function> returns the "product uuid" as exposed by the kernel based
+      <para><function>GetProductUUID()</function> returns the "product UUID" as exposed by the kernel based
       on DMI information in <filename>/sys/class/dmi/id/product_uuid</filename>. Reading the file directly
       requires root privileges, and this method allows access to unprivileged clients through the polkit
       framework.</para>
 
-      <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
-      <varname>KernelVersion</varname> expose the kernel name (e.g. <literal>Linux</literal>), release
-      (e.g. <literal>5.0.0-11</literal>), and version (i.e. the build number, e.g. <literal>#11</literal>) as
-      reported by
-      <citerefentry project="man-pages"><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-      <varname>OperatingSystemPrettyName</varname>, <varname>OperatingSystemCPEName</varname>, and
-      <varname>HomeURL</varname> expose the <varname>PRETTY_NAME=</varname>, <varname>CPE_NAME=</varname> and
-      <varname>HOME_URL=</varname> fields from
-      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
-      purpose of those properties is to allow remote clients to access this information over D-Bus. Local
-      clients can access the information directly.</para>
+      <para><function>Describe()</function> returns a JSON representation of all properties in one.</para>
     </refsect2>
 
     <refsect2>

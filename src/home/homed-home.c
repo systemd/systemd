@@ -437,19 +437,19 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         switch (e) {
 
         case -EMSGSIZE:
-                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type cannot be shrunk");
+                return sd_bus_error_set(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type cannot be shrunk");
         case -ETXTBSY:
-                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type can only be shrunk offline");
+                return sd_bus_error_set(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type can only be shrunk offline");
         case -ERANGE:
-                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File system size too small");
+                return sd_bus_error_set(error, BUS_ERROR_BAD_HOME_SIZE, "File system size too small");
         case -ENOLINK:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "System does not support selected storage backend");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "System does not support selected storage backend");
         case -EPROTONOSUPPORT:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "System does not support selected file system");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "System does not support selected file system");
         case -ENOTTY:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Operation not supported on storage backend");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Operation not supported on storage backend");
         case -ESOCKTNOSUPPORT:
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Operation not supported on file system");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Operation not supported on file system");
         case -ENOKEY:
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_PASSWORD, "Password for home %s is incorrect or not sufficient for authentication.", h->user_name);
         case -EBADSLT:
@@ -457,21 +457,21 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         case -EREMOTEIO:
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_RECOVERY_KEY, "Recovery key for home %s is incorrect or not sufficient for authentication.", h->user_name);
         case -ENOANO:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PIN_NEEDED, "PIN for security token required.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_PIN_NEEDED, "PIN for security token required.");
         case -ERFKILL:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED, "Security token requires protected authentication path.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED, "Security token requires protected authentication path.");
         case -EMEDIUMTYPE:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires user presence.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires user presence.");
         case -ENOSTR:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_ACTION_TIMEOUT, "Token action timeout. (User was supposed to verify presence or similar, by interacting with the token, and didn't do that in time.)");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_ACTION_TIMEOUT, "Token action timeout. (User was supposed to verify presence or similar, by interacting with the token, and didn't do that in time.)");
         case -EOWNERDEAD:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PIN_LOCKED, "PIN of security token locked.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_PIN_LOCKED, "PIN of security token locked.");
         case -ENOLCK:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_BAD_PIN, "Bad PIN of security token.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_BAD_PIN, "Bad PIN of security token.");
         case -ETOOMANYREFS:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_BAD_PIN_FEW_TRIES_LEFT, "Bad PIN of security token, and only a few tries left.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_BAD_PIN_FEW_TRIES_LEFT, "Bad PIN of security token, and only a few tries left.");
         case -EUCLEAN:
-                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_BAD_PIN_ONE_TRY_LEFT, "Bad PIN of security token, and only one try left.");
+                return sd_bus_error_set(error, BUS_ERROR_TOKEN_BAD_PIN_ONE_TRY_LEFT, "Bad PIN of security token, and only one try left.");
         case -EBUSY:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         case -ENOEXEC:
@@ -1104,7 +1104,7 @@ static int home_ratelimit(Home *h, sd_bus_error *error) {
                         return sd_bus_error_setf(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again in %s!",
                                                  format_timespan(buf, sizeof(buf), t - n, USEC_PER_SEC));
 
-                return sd_bus_error_setf(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again later.");
+                return sd_bus_error_set(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT, "Too many login attempts, please try again later.");
         }
 
         return 0;
@@ -1402,10 +1402,10 @@ static int home_update_internal(
         assert(hr);
 
         if (!user_record_compatible(hr, h->record))
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Updated user record is not compatible with existing one.");
+                return sd_bus_error_set(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Updated user record is not compatible with existing one.");
         c = user_record_compare_last_change(hr, h->record); /* refuse downgrades */
         if (c < 0)
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_DOWNGRADE, "Refusing to update to older home record.");
+                return sd_bus_error_set(error, BUS_ERROR_HOME_RECORD_DOWNGRADE, "Refusing to update to older home record.");
 
         if (!secret && FLAGS_SET(hr->mask, USER_RECORD_SECRET)) {
                 r = user_record_clone(hr, USER_RECORD_EXTRACT_SECRET, &saved_secret);
@@ -1454,7 +1454,7 @@ static int home_update_internal(
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Home record different but timestamp remained the same, refusing.");
+                        return sd_bus_error_set(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Home record different but timestamp remained the same, refusing.");
         }
 
         r = home_start_work(h, verb, new_hr, secret);
@@ -1528,7 +1528,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
 
         if (disk_size == UINT64_MAX || disk_size == h->record->disk_size) {
                 if (h->record->disk_size == UINT64_MAX)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No disk size to resize to specified.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "No disk size to resize to specified.");
 
                 c = user_record_ref(h->record); /* Shortcut if size is unspecified or matches the record */
         } else {
@@ -2349,6 +2349,8 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_ACQUIRE);
 
+        assert(!h->current_operation);
+
         switch (home_get_state(h)) {
 
         case HOME_UNFIXATED:
@@ -2357,8 +2359,9 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                 break;
 
         case HOME_ABSENT:
-                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
-                break;
+                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT,
+                                      "Home %s is currently missing or not plugged in.", h->user_name);
+                goto check;
 
         case HOME_INACTIVE:
         case HOME_DIRTY:
@@ -2382,14 +2385,11 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                 return 0;
         }
 
-        assert(!h->current_operation);
+        r = home_ratelimit(h, &error);
+        if (r >= 0)
+                r = call(h, o->secret, for_state, &error);
 
-        if (call) {
-                r = home_ratelimit(h, &error);
-                if (r >= 0)
-                        r = call(h, o->secret, for_state, &error);
-        }
-
+ check:
         if (r != 0) /* failure or completed */
                 operation_result(o, r, &error);
         else /* ongoing */
@@ -2660,7 +2660,7 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error) {
 
         if (o) {
                 if (ordered_set_size(h->pending_operations) >= PENDING_OPERATIONS_MAX)
-                        return sd_bus_error_setf(error, BUS_ERROR_TOO_MANY_OPERATIONS, "Too many client operations requested");
+                        return sd_bus_error_set(error, BUS_ERROR_TOO_MANY_OPERATIONS, "Too many client operations requested");
 
                 r = ordered_set_ensure_put(&h->pending_operations, &operation_hash_ops, o);
                 if (r < 0)

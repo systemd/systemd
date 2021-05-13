@@ -40,7 +40,7 @@ node /org/freedesktop/portable1 {
     methods:
       GetImage(in  s image,
                out o object);
-      ListImages(out a(ssbtttso) UNNAMED);
+      ListImages(out a(ssbtttso) images);
       GetImageOSRelease(in  s image,
                         out a{ss} os_release);
       GetImageMetadata(in  s image,
@@ -48,6 +48,13 @@ node /org/freedesktop/portable1 {
                        out s image,
                        out ay os_release,
                        out a{say} units);
+      GetImageMetadataWithExtensions(in  s image,
+                                     in  as extensions,
+                                     in  as matches,
+                                     in  t flags,
+                                     out s image,
+                                     out ay os_release,
+                                     out a{say} units);
       GetImageState(in  s image,
                     out s state);
       AttachImage(in  s image,
@@ -56,9 +63,20 @@ node /org/freedesktop/portable1 {
                   in  b runtime,
                   in  s copy_mode,
                   out a(sss) changes);
+      AttachImageWithExtensions(in  s image,
+                                in  as extensions,
+                                in  as matches,
+                                in  s profile,
+                                in  s copy_mode,
+                                in  t flags,
+                                out a(sss) changes);
       DetachImage(in  s image,
                   in  b runtime,
                   out a(sss) changes);
+      DetachImageWithExtensions(in  s image,
+                                in  as extensions,
+                                in  t flags,
+                                out a(sss) changes);
       ReattachImage(in  s image,
                     in  as matches,
                     in  s profile,
@@ -66,6 +84,14 @@ node /org/freedesktop/portable1 {
                     in  s copy_mode,
                     out a(sss) changes_removed,
                     out a(sss) changes_updated);
+      ReattachImageWithExtensions(in  s image,
+                                  in  as extensions,
+                                  in  as matches,
+                                  in  s profile,
+                                  in  s copy_mode,
+                                  in  t flags,
+                                  out a(sss) changes_removed,
+                                  out a(sss) changes_updated);
       RemoveImage(in  s image);
       MarkImageReadOnly(in  s image,
                         in  b read_only);
@@ -102,13 +128,21 @@ node /org/freedesktop/portable1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetImageMetadata()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="GetImageMetadataWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="GetImageState()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachImage()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="AttachImageWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="DetachImage()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DetachImageWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ReattachImage()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReattachImageWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RemoveImage()"/>
 
@@ -148,6 +182,12 @@ node /org/freedesktop/portable1 {
       <manvolnum>5</manvolnum></citerefentry> content in the form of a (streamable) array of bytes,
       and a list of portable units contained in the image, in the form of a string (unit name) and
       an array of bytes with the content.</para>
+
+      <para><function>GetImageMetadataWithExtensions()</function> retrieves metadata associated with an image.
+      This method is a superset of <function>GetImageMetadata()</function> with the addition of
+      a list of extensions as input parameter, which were overlaid on top of the main
+      image via <function>AttachImageWithExtensions()</function>.
+      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
 
       <para><function>GetImageState()</function> retrieves the image state as one of the following
       strings:
@@ -197,6 +237,16 @@ node /org/freedesktop/portable1 {
       Note that an image cannot be attached if a unit that it contains is already present
       on the system.</para>
 
+      <para><function>AttachImageWithExtensions()</function> attaches a portable image to the system.
+      This method is a superset of <function>AttachImage()</function> with the addition of
+      a list of extensions as input parameter, which will be overlaid on top of the main
+      image. When this method is used, detaching must be done by passing the same arguments via the
+      <function>DetachImageWithExtensions()</function> method. For more details on this functionality,
+      see the <varname>MountImages=</varname> entry on
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
+
       <para><function>DetachImage()</function> detaches a portable image from the system.
       This method takes an image path or name, and a boolean indicating whether the image to
       detach was attached only for the current boot session or persistently. This method
@@ -209,6 +259,12 @@ node /org/freedesktop/portable1 {
       </itemizedlist>
       Note that an image cannot be detached if a unit that it contains is running.</para>
 
+      <para><function>DetachImageWithExtensions()</function> detaches a portable image from the system.
+      This method is a superset of <function>DetachImage()</function> with the addition of
+      a list of extensions as input parameter, which were overlaid on top of the main
+      image via <function>AttachImageWithExtensions()</function>.
+      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
+
       <para><function>ReattachImage()</function> combines the effects of the
       <function>AttachImage()</function> method and the <function>DetachImage()</function> method.
       The difference is that it is allowed to reattach an image while one or more of its units
@@ -218,6 +274,14 @@ node /org/freedesktop/portable1 {
       <function>DetachImage()</function> method (first array, units that were removed) and the
       <function>AttachImage()</function> method (second array, units that were updated or added).</para>
 
+      <para><function>ReattachImageWithExtensions()</function> reattaches a portable image to the system.
+      This method is a superset of <function>ReattachImage()</function> with the addition of
+      a list of extensions as input parameter, which will be overlaid on top of the main
+      image. For more details on this functionality, see the <varname>MountImages=</varname> entry on
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The <varname>flag</varname> parameter is currently unused and reserved for future purposes</para>
+
       <para><function>RemoveImage()</function> removes the image with the specified name.</para>
 
       <para><function>MarkImageReadOnly()</function> toggles the read-only flag of an image.</para>
@@ -225,6 +289,15 @@ node /org/freedesktop/portable1 {
       <para><function>SetPoolLimit()</function> sets an overall quota limit on the pool of images.</para>
 
       <para><function>SetImageLimit()</function> sets a per-image quota limit.</para>
+
+      <para>The <function>AttachImageWithExtensions()</function>,
+      <function>DetachImageWithExtensions()</function> and
+      <function>ReattachImageWithExtensions()</function> methods take in options as flags instead of
+      booleans to allow for extendability, defined as follows:</para>
+
+      <programlisting>
+#define SD_SYSTEMD_PORTABLE_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
+      </programlisting>
     </refsect2>
 
     <refsect2>
@@ -249,25 +322,47 @@ node /org/freedesktop/portable1 {
 node /org/freedesktop/portable1 {
   interface org.freedesktop.portable1.Image {
     methods:
-      GetOSRelease(out a{ss} UNNAMED);
+      GetOSRelease(out a{ss} os_release);
       GetMetadata(in  as matches,
                   out s image,
                   out ay os_release,
                   out a{say} units);
-      GetState(out s UNNAMED);
+      GetMetadataWithExtensions(in  as extensions,
+                                in  as matches,
+                                in  t flags,
+                                out s image,
+                                out ay os_release,
+                                out a{say} units);
+      GetState(out s state);
       Attach(in  as matches,
              in  s profile,
              in  b runtime,
              in  s copy_mode,
              out a(sss) changes);
+      AttachWithExtensions(in  as extensions,
+                           in  as matches,
+                           in  s profile,
+                           in  s copy_mode,
+                           in  t flags,
+                           out a(sss) changes);
       Detach(in  b runtime,
              out a(sss) changes);
+      DetachWithExtensions(in  as extensions,
+                           in  t flags,
+                           out a(sss) changes);
       Reattach(in  as matches,
                in  s profile,
                in  b runtime,
                in  s copy_mode,
                out a(sss) changes_removed,
                out a(sss) changes_updated);
+      ReattacheWithExtensions(in  as extensions,
+                              in  as matches,
+                              in  s profile,
+                              in  s copy_mode,
+                              in  t flags,
+                              out a(sss) changes_removed,
+                              out a(sss) changes_updated);
       Remove();
       MarkReadOnly(in  b read_only);
       SetLimit(in  t limit);
@@ -303,13 +398,21 @@ node /org/freedesktop/portable1 {
 
     <!--method GetMetadata is not documented!-->
 
+    <!--method GetMetadataWithExtensions is not documented!-->
+
     <!--method GetState is not documented!-->
 
     <!--method Attach is not documented!-->
 
+    <!--method AttachWithExtensions is not documented!-->
+
     <!--method Detach is not documented!-->
 
+    <!--method DetachWithExtensions is not documented!-->
+
     <!--method Reattach is not documented!-->
+
+    <!--method ReattacheWithExtensions is not documented!-->
 
     <!--method Remove is not documented!-->
 
@@ -327,13 +430,21 @@ node /org/freedesktop/portable1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetMetadata()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMetadataWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="GetState()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Attach()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="AttachWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Detach()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DetachWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Reattach()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReattacheWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Remove()"/>
 
@@ -377,13 +488,21 @@ node /org/freedesktop/portable1 {
 
         <listitem><para>GetMetadata()</para></listitem>
 
+        <listitem><para>GetMetadataWithExtensions()</para></listitem>
+
         <listitem><para>GetState()</para></listitem>
 
         <listitem><para>Attach()</para></listitem>
 
+        <listitem><para>AttachWithExtensions()</para></listitem>
+
         <listitem><para>Detach()</para></listitem>
 
+        <listitem><para>DetachWithExtensions()</para></listitem>
+
         <listitem><para>Reattach()</para></listitem>
+
+        <listitem><para>ReattacheWithExtensions()</para></listitem>
 
         <listitem><para>Remove()</para></listitem>
 

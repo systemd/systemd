@@ -50,6 +50,7 @@ int logind_reboot(enum action a) {
         } actions[_ACTION_MAX] = {
                 [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
                 [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
+                [ACTION_KEXEC]                  = { "Reboot",               "kexec reboot system"             },
                 [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
                 [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
                 [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
@@ -79,6 +80,7 @@ int logind_reboot(enum action a) {
                 return 0;
 
         SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
+        SET_FLAG(flags, SD_LOGIND_REBOOT_VIA_KEXEC, a == ACTION_KEXEC);
 
         method_with_flags = strjoina(actions[a].method, "WithFlags");
 

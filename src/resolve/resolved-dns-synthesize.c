@@ -311,27 +311,33 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
         return added;
 }
 
-static int synthesize_gateway_rr(Manager *m, const DnsResourceKey *key, int ifindex, DnsAnswer **answer) {
+static int synthesize_gateway_rr(
+                Manager *m,
+                const DnsResourceKey *key,
+                int ifindex,
+                int (*lookup)(sd_netlink *context, int ifindex, int af, struct local_address **ret), /* either local_gateways() or local_outbound() */
+                DnsAnswer **answer) {
         _cleanup_free_ struct local_address *addresses = NULL;
         int n = 0, af, r;
 
         assert(m);
         assert(key);
+        assert(lookup);
         assert(answer);
 
         af = dns_type_to_af(key->type);
         if (af >= 0) {
-                n = local_gateways(m->rtnl, ifindex, af, &addresses);
+                n = lookup(m->rtnl, ifindex, af, &addresses);
                 if (n < 0) /* < 0 means: error */
                         return n;
 
                 if (n == 0) { /* == 0 means we have no gateway */
                         /* See if there's a gateway on the other protocol */
                         if (af == AF_INET)
-                                n = local_gateways(m->rtnl, ifindex, AF_INET6, NULL);
+                                n = lookup(m->rtnl, ifindex, AF_INET6, NULL);
                         else {
                                 assert(af == AF_INET6);
-                                n = local_gateways(m->rtnl, ifindex, AF_INET, NULL);
+                                n = lookup(m->rtnl, ifindex, AF_INET, NULL);
                         }
                         if (n <= 0) /* error (if < 0) or really no gateway at all (if == 0) */
                                 return n;
@@ -402,9 +408,19 @@ int dns_synthesize_answer(
 
                 } else if (is_gateway_hostname(name)) {
 
-                        r = synthesize_gateway_rr(m, key, ifindex, &answer);
+                        r = synthesize_gateway_rr(m, key, ifindex, local_gateways, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize gateway RRs: %m");
+                        if (r == 0) { /* if we have no gateway return NXDOMAIN */
+                                nxdomain = true;
+                                continue;
+                        }
+
+                } else if (is_outbound_hostname(name)) {
+
+                        r = synthesize_gateway_rr(m, key, ifindex, local_outbounds, &answer);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to synthesize outbound RRs: %m");
                         if (r == 0) { /* if we have no gateway return NXDOMAIN */
                                 nxdomain = true;
                                 continue;
@@ -430,6 +446,10 @@ int dns_synthesize_answer(
 
                         if (v == 0 && w == 0) /* This IP address is neither a local one nor a gateway */
                                 continue;
+
+                        /* Note that we never synthesize reverse PTR for _outbound, since those are local
+                         * addresses and thus mapped to the local hostname anyway, hence they already have a
+                         * mapping. */
 
                 } else
                         continue;

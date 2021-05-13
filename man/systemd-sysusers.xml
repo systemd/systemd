@@ -126,7 +126,60 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-sysusers</command> supports the service credentials logic as implemented by
+    <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>passwd.hashed-password.<replaceable>user</replaceable></literal></term>
+        <listitem><para>A UNIX hashed password string to use for the specified user, when creating an entry
+        for it. This is particularly useful for the <literal>root</literal> user as it allows provisioning
+        the default root password to use via a unit file drop-in or from a container manager passing in this
+        credential. Note that setting this credential has no effect if the specified user account already
+        exists. This credential is hence primarily useful in first boot scenarios or systems that are fully
+        stateless and come up with an empty <filename>/etc/</filename> on every boot.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>passwd.plaintext-password.<replaceable>user</replaceable></literal></term>
+
+        <listitem><para>Similar to <literal>passwd.hashed-password.<replaceable>user</replaceable></literal>
+        but expect a literal, plaintext password, which is then automatically hashed before used for the user
+        account. If both the hashed and the plaintext credential are specified for the same user the
+        former takes precedence. It's generally recommended to specify the hashed version; however in test
+        environments with weaker requirements on security it might be easier to pass passwords in plaintext
+        instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>passwd.shell.<replaceable>user</replaceable></literal></term>
+
+        <listitem><para>Specifies the shell binary to use for the the specified account when creating it.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-sysusers.service</filename> unit file is set up to
+    inherit the <literal>passwd.hashed-password.root</literal>,
+    <literal>passwd.plaintext-password.root</literal> and <literal>passwd.shell.root</literal> credentials
+    from the service manager. Thus, when invoking a container with an unpopulated <filename>/etc/</filename>
+    for the first time it is possible to configure the root user's password to be <literal>systemd</literal>
+    like this:</para>
+
+    <para><programlisting># systemd-nspawn --image=… --set-credential=password.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' …</programlisting></para>
+
+    <para>Note again that the data specified in these credentials is consulted only when creating an account
+    for the first time, it may not be used for changing the password or shell of an account that already
+    exists.</para>
+
+    <para>Use <citerefentry><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for generating UNIX password hashes from the command line.</para>
   </refsect1>
 
   <refsect1>
@@ -141,7 +194,9 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>
+      <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

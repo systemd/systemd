@@ -29,7 +29,7 @@ static int environment_dirs(char ***ret) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strv_join(dirs, "\n\t");
                 log_debug("Looking for environment.d files in (higher priority first):\n\t%s", strna(t));
@@ -70,7 +70,7 @@ static int load_and_print(void) {
                 t = strchr(*i, '=');
                 assert(t);
 
-                q = shell_maybe_quote(t + 1, ESCAPE_BACKSLASH);
+                q = shell_maybe_quote(t + 1, 0);
                 if (!q)
                         return log_oom();
 

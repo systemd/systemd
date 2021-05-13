@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-set -ex
+set -eux
 
-echo "MARKER_FIXED" > /run/testservice-49-fixed
+echo "MARKER_FIXED" >/run/testservice-49-fixed
 mkdir -p /run/inaccessible
 
 systemctl start testsuite-49-namespaced.service
@@ -11,7 +11,7 @@ set +e
 systemctl bind --mkdir testsuite-49-namespaced.service /run/testservice-49-fixed /run/inaccessible/testfile_fixed && exit 1
 set -e
 
-echo "MARKER_RUNTIME" > /run/testservice-49-runtime
+echo "MARKER_RUNTIME" >/run/testservice-49-runtime
 
 systemctl bind --mkdir testsuite-49-namespaced.service /run/testservice-49-runtime /tmp/testfile_runtime
 
@@ -38,6 +38,6 @@ set +e
 systemctl is-active testsuite-49-non-namespaced.service && exit 1
 set -e
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

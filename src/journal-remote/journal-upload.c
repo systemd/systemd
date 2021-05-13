@@ -9,7 +9,6 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "def.h"
@@ -34,6 +33,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "util.h"
+#include "version.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
@@ -803,7 +803,7 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open_container(j, arg_machine, 0);
 #pragma GCC diagnostic pop
         } else
-                r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+                r = sd_journal_open(j, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
                                 arg_directory ? arg_directory : arg_file ? "files" : "journal");

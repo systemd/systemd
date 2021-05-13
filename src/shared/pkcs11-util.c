@@ -31,7 +31,7 @@ bool pkcs11_uri_valid(const char *uri) {
         if (isempty(p))
                 return false;
 
-        if (!in_charset(p, ALPHANUMERICAL "-_?;&%="))
+        if (!in_charset(p, ALPHANUMERICAL ".~/-_?;&%="))
                 return false;
 
         return true;
@@ -181,8 +181,10 @@ int pkcs11_token_login(
                 const CK_TOKEN_INFO *token_info,
                 const char *friendly_name,
                 const char *icon_name,
-                const char *keyname,
+                const char *key_name,
+                const char *credential_name,
                 usec_t until,
+                bool headless,
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
@@ -246,7 +248,9 @@ int pkcs11_token_login(
                         string_erase(e);
                         if (unsetenv("PIN") < 0)
                                 return log_error_errno(errno, "Failed to unset $PIN: %m");
-                } else {
+                } else if (headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
+                else {
                         _cleanup_free_ char *text = NULL;
 
                         if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
@@ -269,7 +273,7 @@ int pkcs11_token_login(
                                 return log_oom();
 
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
-                        r = ask_password_auto(text, icon_name, id, keyname, until, 0, &passwords);
+                        r = ask_password_auto(text, icon_name, id, key_name, credential_name, until, 0, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query PIN for security token '%s': %m", token_label);
                 }
@@ -959,7 +963,7 @@ static int pkcs11_acquire_certificate_callback(
 
         /* Called for every token matching our URI */
 
-        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", UINT64_MAX, &pin_used);
+        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", "pkcs11-pin", UINT64_MAX, false, &pin_used);
         if (r < 0)
                 return r;
 

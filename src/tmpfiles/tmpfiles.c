@@ -1656,10 +1656,9 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                         return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
                 if (k < 0)
                         return log_error_errno(k, "Failed to check if %s exists: %m", path);
-                if (!k) {
-                        log_warning("\"%s\" already exists and is not a directory.", path);
-                        return -EEXIST;
-                }
+                if (!k)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                 "\"%s\" already exists and is not a directory.", path);
 
                 *creation = CREATION_EXISTING;
         } else
@@ -1742,10 +1741,10 @@ static int empty_directory(Item *i, const char *path) {
         }
         if (r < 0)
                 return log_error_errno(r, "is_dir() failed on path %s: %m", path);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                       "'%s' already exists and is not a directory.",
-                                       path);
+        if (r == 0) {
+                log_warning("\"%s\" already exists and is not a directory.", path);
+                return 0;
+        }
 
         return path_set_perms(i, path);
 }
@@ -1804,7 +1803,7 @@ static int create_device(Item *i, mode_t file_type) {
                                         return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
                                 creation = CREATION_FORCE;
                         } else {
-                                log_debug("%s is not a device node.", i->path);
+                                log_warning("\"%s\" already exists is not a device node.", i->path);
                                 return 0;
                         }
                 } else
@@ -2523,7 +2522,7 @@ static int specifier_expansion_from_arg(Item *i) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to unescape parameter to write: %s", i->argument);
 
-                r = specifier_printf(unescaped, specifier_table, NULL, &resolved);
+                r = specifier_printf(unescaped, PATH_MAX-1, specifier_table, NULL, &resolved);
                 if (r < 0)
                         return r;
 
@@ -2533,7 +2532,7 @@ static int specifier_expansion_from_arg(Item *i) {
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:
                 STRV_FOREACH(xattr, i->xattrs) {
-                        r = specifier_printf(*xattr, specifier_table, NULL, &resolved);
+                        r = specifier_printf(*xattr, SIZE_MAX, specifier_table, NULL, &resolved);
                         if (r < 0)
                                 return r;
 
@@ -2575,7 +2574,9 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
          * there's no immediate need for action by the user. However, in the interest of making things less confusing
          * to the user, let's still inform the user that these snippets should really be updated. */
-        log_syntax(NULL, LOG_NOTICE, fname, line, 0, "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", *path, n);
+        log_syntax(NULL, LOG_NOTICE, fname, line, 0,
+                   "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.",
+                   *path, n);
 
         free_and_replace(*path, n);
 
@@ -2705,7 +2706,7 @@ static int parse_line(
         i.append_or_force = append_or_force;
         i.allow_failure = allow_failure;
 
-        r = specifier_printf(path, specifier_table, NULL, &i.path);
+        r = specifier_printf(path, PATH_MAX-1, specifier_table, NULL, &i.path);
         if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
@@ -3184,9 +3185,10 @@ static int parse_argv(int argc, char *argv[]) {
 static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
+        _cleanup_free_ char *pp = NULL;
         unsigned v = 0;
         FILE *f;
-        Item *i;
+        ItemArray *ia;
         int r = 0;
 
         assert(fn);
@@ -3196,7 +3198,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f, &pp);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
@@ -3205,7 +3207,9 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
 
                         return log_error_errno(r, "Failed to open '%s': %m", fn);
                 }
-                log_debug("Reading config file \"%s\"…", fn);
+
+                log_debug("Reading config file \"%s\"…", pp);
+                fn = pp;
                 f = _f;
         }
 
@@ -3239,31 +3243,41 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
         }
 
         /* we have to determine age parameter for each entry of type X */
-        ORDERED_HASHMAP_FOREACH(i, globs) {
-                Item *j, *candidate_item = NULL;
+        ORDERED_HASHMAP_FOREACH(ia, globs)
+                for (size_t ni = 0; ni < ia->n_items; ni++) {
+                        ItemArray *ja;
+                        Item *i = ia->items + ni, *candidate_item = NULL;
 
-                if (i->type != IGNORE_DIRECTORY_PATH)
-                        continue;
-
-                ORDERED_HASHMAP_FOREACH(j, items) {
-                        if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
+                        if (i->type != IGNORE_DIRECTORY_PATH)
                                 continue;
 
-                        if (path_equal(j->path, i->path)) {
-                                candidate_item = j;
-                                break;
+                        ORDERED_HASHMAP_FOREACH(ja, items)
+                                for (size_t nj = 0; nj < ja->n_items; nj++) {
+                                        Item *j = ja->items + nj;
+
+                                        if (!IN_SET(j->type, CREATE_DIRECTORY,
+                                                             TRUNCATE_DIRECTORY,
+                                                             CREATE_SUBVOLUME,
+                                                             CREATE_SUBVOLUME_INHERIT_QUOTA,
+                                                             CREATE_SUBVOLUME_NEW_QUOTA))
+                                                continue;
+
+                                        if (path_equal(j->path, i->path)) {
+                                                candidate_item = j;
+                                                break;
+                                        }
+
+                                        if (candidate_item
+                                            ? (path_startswith(j->path, candidate_item->path) && fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)
+                                            : path_startswith(i->path, j->path) != NULL)
+                                                candidate_item = j;
+                                }
+
+                        if (candidate_item && candidate_item->age_set) {
+                                i->age = candidate_item->age;
+                                i->age_set = true;
                         }
-
-                        if ((!candidate_item && path_startswith(i->path, j->path)) ||
-                            (candidate_item && path_startswith(j->path, candidate_item->path) && (fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)))
-                                candidate_item = j;
                 }
-
-                if (candidate_item && candidate_item->age_set) {
-                        i->age = candidate_item->age;
-                        i->age_set = true;
-                }
-        }
 
         if (ferror(f)) {
                 log_error_errno(errno, "Failed to read from file %s: %m", fn);
@@ -3431,7 +3445,12 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
-                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_FSCK |
+                                DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
                                 &loop_device,
                                 &decrypted_image);

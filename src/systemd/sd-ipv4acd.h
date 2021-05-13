@@ -44,6 +44,7 @@ int sd_ipv4acd_set_callback(sd_ipv4acd *acd, sd_ipv4acd_callback_t cb, void *use
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr);
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int interface_index);
 int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd);
+int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *interface_name);
 const char *sd_ipv4acd_get_ifname(sd_ipv4acd *acd);
 int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address);
 int sd_ipv4acd_is_running(sd_ipv4acd *acd);

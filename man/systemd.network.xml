@@ -230,6 +230,18 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>RequiredFamilyForOnline=</varname></term>
+        <listitem>
+          <para>Specifies an address family. When specified,
+          <command>systemd-networkd-wait-online</command> waits for at least one routable or link-local
+          IP address in the family should be configured on the link. Takes one of
+          <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
+          <literal>any</literal>. Defaults to <literal>any</literal>. Note that this will be used only
+          when <varname>RequiredForOnline=</varname> is true, or its minimum operational state is
+          <literal>degraded</literal> or above. Otherwise, it will be ignored.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ActivationPolicy=</varname></term>
         <listitem>
           <para>Specifies the policy for <command>systemd-networkd</command> managing the link
@@ -1088,6 +1100,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>The metric of the prefix route, which is pointing to the subnet of the configured IP
+            address, taking the configured prefix length into account. Takes an unsigned integer in the
+            range 0…4294967295. When unset or set to 0, the kernel's default value is used. This
+            setting will be ignored when <varname>AddPrefixRoute=</varname> is false.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>HomeAddress=</varname></term>
           <listitem>
             <para>Takes a boolean. Designates this address the "home address" as defined in
@@ -1409,7 +1430,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Metric=</varname></term>
           <listitem>
-            <para>The metric of the route (an unsigned integer).</para>
+            <para>The metric of the route. Takes an unsigned integer in the range 0…4294967295.
+            Defaluts to unset, and the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1609,7 +1631,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>When true, the routes to the DNS servers received from the DHCP server will be
             configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored.
-            Defaults to false.</para>
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1617,6 +1639,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>When true (the default), the NTP servers received from the DHCP server will be used by
             <filename>systemd-timesyncd.service</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RoutesToNTP=</varname></term>
+          <listitem>
+            <para>When true, the routes to the NTP servers received from the DHCP server will be
+            configured. When <varname>UseNTP=</varname> is disabled, this setting is ignored.
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1639,26 +1669,24 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>Anonymize=</varname></term>
           <listitem>
-            <para>Takes a boolean. When true, the options sent to the DHCP server will
-            follow the <ulink url="https://tools.ietf.org/html/rfc7844">RFC 7844</ulink>
-            (Anonymity Profiles for DHCP Clients) to minimize disclosure of identifying information.
-            Defaults to false.</para>
+            <para>Takes a boolean. When true, the options sent to the DHCP server will follow the
+            <ulink url="https://tools.ietf.org/html/rfc7844">RFC 7844</ulink> (Anonymity Profiles for
+            DHCP Clients) to minimize disclosure of identifying information. Defaults to false.</para>
 
-            <para>This option should only be set to true when
-            <varname>MACAddressPolicy=</varname> is set to <literal>random</literal>
-            (see <citerefentry
-            project='man-pages'><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+            <para>This option should only be set to true when <varname>MACAddressPolicy=</varname> is
+            set to <literal>random</literal> (see
+            <citerefentry project='man-pages'><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+            </para>
 
-            <para>Note that this configuration will overwrite others.
-            In concrete, the following variables will be ignored:
-            <varname>SendHostname=</varname>, <varname>ClientIdentifier=</varname>,
-            <varname>UseRoutes=</varname>, <varname>UseMTU=</varname>,
-            <varname>VendorClassIdentifier=</varname>, <varname>UseTimezone=</varname>.</para>
+            <para>When true, <varname>SendHostname=</varname>, <varname>ClientIdentifier=</varname>,
+            <varname>VendorClassIdentifier=</varname>, <varname>UserClass=</varname>,
+            <varname>RequestOptions=</varname>, <varname>SendOption=</varname>,
+            <varname>SendVendorOption=</varname>, and <varname>MUDURL=</varname> are ignored.</para>
 
-            <para>With this option enabled DHCP requests will mimic those generated by Microsoft Windows, in
-            order to reduce the ability to fingerprint and recognize installations. This means DHCP request
-            sizes will grow and lease data will be more comprehensive than normally, though most of the
-            requested data is not actually used.</para>
+            <para>With this option enabled DHCP requests will mimic those generated by Microsoft
+            Windows, in order to reduce the ability to fingerprint and recognize installations. This
+            means DHCP request sizes will grow and lease data will be more comprehensive than normally,
+            though most of the requested data is not actually used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1827,7 +1855,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
+            <para>Set the routing metric for routes specified by the DHCP server. Takes an unsigned
+            integer in the range 0…4294967295. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -1961,15 +1990,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <term><varname>UseHostname=</varname></term>
+          <term><varname>UseDomains=</varname></term>
+          <term><varname>IAID=</varname></term>
+          <term><varname>DUIDType=</varname></term>
+          <term><varname>DUIDRawData=</varname></term>
           <listitem>
             <para>As in the [DHCPv4] section.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>RouteMetric=</varname></term>
-          <listitem>
-            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -2147,6 +2173,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>As in the [Address] section, but defaults to true.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
+          the range 0…4294967295. When unset or set to 0, the kernel's default value is used.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2193,6 +2227,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
+            unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -2406,6 +2448,44 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           then all options specified earlier are cleared. Defaults to unset.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>BindToInterface=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When <literal>yes</literal>, DHCP server socket will be bound
+          to its network interface and all socket communication will be restricted to this interface.
+          Defaults to <literal>yes</literal>, except if <varname>RelayTarget=</varname> is used (see below),
+          in which case it defaults defaults to <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RelayTarget=</varname></term>
+        <listitem>
+          <para>Takes an IPv4 address, which must be in the format described in
+          <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+          Turns this DHCP server into a DHCP relay agent. See <ulink url="https://tools.ietf.org/html/rfc1542">RFC 1542</ulink>.
+          The address is the address of DHCP server or another relay agent to forward DHCP messages to and from.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RelayAgentCircuitId=</varname></term>
+        <listitem>
+          <para>Specifies value for Agent Circuit ID suboption of Relay Agent Information option.
+          Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
+          where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
+          Defaults to unset (means no Agent Circuit ID suboption is generated).
+          Ignored if <varname>RelayTarget=</varname> is not specified.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RelayAgentRemoteId=</varname></term>
+        <listitem>
+          <para>Specifies value for Agent Remote ID suboption of Relay Agent Information option.
+          Takes a string, which must be in the format <literal>string:<replaceable>value</replaceable></literal>,
+          where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
+          Defaults to unset (means no Agent Remote ID suboption is generated).
+          Ignored if <varname>RelayTarget=</varname> is not specified.</para>
+        </listitem>
+      </varlistentry>
 
     </variablelist>
   </refsect1>
@@ -2534,6 +2614,15 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>Assign=</varname></term>
         <listitem><para>Takes a boolean. When true, adds an address from the prefix. Default to false.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>The metric of the prefix route. Takes an unsigned integer in the range 0…4294967295.
+          When unset or set to 0, the kernel's default value is used. This setting is ignored when
+          <varname>Assign=</varname> is false.</para>
+        </listitem>
       </varlistentry>
     </variablelist>
     </refsect1>

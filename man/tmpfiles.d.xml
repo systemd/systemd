@@ -58,8 +58,8 @@ c+    /dev/char-device-to-[re]create           mode user group -           major
 b     /dev/block-device-to-create              mode user group -           major:minor
 b+    /dev/block-device-to-[re]create          mode user group -           major:minor
 C     /target/to/create                        -    -    -     -           /source/to/copy
-x     /path-or-glob/to/ignore                  -    -    -     -           -
-X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
+x     /path-or-glob/to/ignore/recursively      -    -    -     -           -
+X     /path-or-glob/to/ignore                  -    -    -     -           -
 r     /empty/dir/to/remove                     -    -    -     -           -
 R     /dir/to/remove/recursively               -    -    -     -           -
 z     /path-or-glob/to/adjust/mode             mode user group -           -
@@ -635,6 +635,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
           </thead>
           <tbody>
             <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
             <xi:include href="standard-specifiers.xml" xpointer="b"/>
             <xi:include href="standard-specifiers.xml" xpointer="B"/>
             <row>
@@ -665,6 +666,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename index="false">/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
             </row>
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
             <xi:include href="standard-specifiers.xml" xpointer="o"/>
             <row>
               <entry><literal>%S</literal></entry>

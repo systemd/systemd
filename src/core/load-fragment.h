@@ -32,6 +32,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_failure_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_exit_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_restart);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bindtodevice);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_output);
@@ -139,6 +140,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
 CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
+CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

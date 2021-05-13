@@ -9,9 +9,11 @@
 #include <netinet/in.h>
 
 #include "sd-event.h"
+#include "sd-dhcp6-client.h"
 
-#include "list.h"
 #include "hashmap.h"
+#include "list.h"
+#include "log-link.h"
 #include "macro.h"
 #include "sparse-endian.h"
 
@@ -78,7 +80,7 @@ struct ia_ta {
         be32_t id;
 } _packed_;
 
-struct DHCP6IA {
+typedef struct DHCP6IA {
         uint16_t type;
         union {
                 struct ia_na ia_na;
@@ -87,12 +89,7 @@ struct DHCP6IA {
         };
 
         LIST_HEAD(DHCP6Address, addresses);
-};
-
-typedef struct DHCP6IA DHCP6IA;
-
-#define log_dhcp6_client_errno(p, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
-#define log_dhcp6_client(p, fmt, ...) log_dhcp6_client_errno(p, 0, fmt, ##__VA_ARGS__)
+} DHCP6IA;
 
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
@@ -105,7 +102,7 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
 int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
                        size_t *optlen, uint8_t **optvalue);
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
-int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code);
+int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code);
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
                                 struct in6_addr **addrs, size_t count,
                                 size_t *allocated);
@@ -121,3 +118,14 @@ const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(int s) _const_;
 int dhcp6_message_status_from_string(const char *s) _pure_;
+
+#define log_dhcp6_client_errno(client, error, fmt, ...)         \
+        log_interface_prefix_full_errno(                        \
+                "DHCPv6 client: ",                              \
+                sd_dhcp6_client_get_ifname(client),             \
+                error, fmt, ##__VA_ARGS__)
+#define log_dhcp6_client(client, fmt, ...)                      \
+        log_interface_prefix_full_errno_zerook(                 \
+                "DHCPv6 client: ",                              \
+                sd_dhcp6_client_get_ifname(client),             \
+                0, fmt, ##__VA_ARGS__)

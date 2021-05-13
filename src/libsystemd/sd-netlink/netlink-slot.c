@@ -142,7 +142,7 @@ void *sd_netlink_slot_set_userdata(sd_netlink_slot *slot, void *userdata) {
         return ret;
 }
 
-int sd_netlink_slot_get_destroy_callback(const sd_netlink_slot *slot, sd_netlink_destroy_t *callback) {
+int sd_netlink_slot_get_destroy_callback(sd_netlink_slot *slot, sd_netlink_destroy_t *callback) {
         assert_return(slot, -EINVAL);
 
         if (callback)
@@ -158,7 +158,7 @@ int sd_netlink_slot_set_destroy_callback(sd_netlink_slot *slot, sd_netlink_destr
         return 0;
 }
 
-int sd_netlink_slot_get_floating(const sd_netlink_slot *slot) {
+int sd_netlink_slot_get_floating(sd_netlink_slot *slot) {
         assert_return(slot, -EINVAL);
 
         return slot->floating;
@@ -186,7 +186,7 @@ int sd_netlink_slot_set_floating(sd_netlink_slot *slot, int b) {
         return 1;
 }
 
-int sd_netlink_slot_get_description(const sd_netlink_slot *slot, const char **description) {
+int sd_netlink_slot_get_description(sd_netlink_slot *slot, const char **description) {
         assert_return(slot, -EINVAL);
 
         if (description)

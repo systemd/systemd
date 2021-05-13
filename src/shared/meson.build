@@ -262,6 +262,8 @@ shared_sources = files('''
         user-record.h
         userdb.c
         userdb.h
+        userdb-dropin.c
+        userdb-dropin.h
         utmp-wtmp.h
         varlink.c
         varlink.h
@@ -317,6 +319,13 @@ endif
 
 if conf.get('HAVE_LIBIPTC') == 1
         shared_sources += files('firewall-util-iptables.c')
+endif
+
+if conf.get('HAVE_LIBBPF') == 1
+        shared_sources += files('''
+                bpf-link.c
+                bpf-link.h
+        '''.split())
 endif
 
 if conf.get('HAVE_KMOD') == 1
@@ -378,6 +387,7 @@ libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 libshared_deps = [threads,
                   libacl,
                   libblkid,
+                  libbpf,
                   libcap,
                   libcrypt,
                   libgcrypt,

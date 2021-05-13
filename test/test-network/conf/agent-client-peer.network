@@ -1,0 +1,11 @@
+[Match]
+Name=client-peer
+[Network]
+Address=192.168.6.2/24
+DHCPServer=yes
+IPForward=ipv4
+[DHCPServer]
+RelayTarget=192.168.5.1
+BindToInterface=no
+RelayAgentCircuitId=string:sample_circuit_id
+RelayAgentRemoteId=string:sample_remote_id

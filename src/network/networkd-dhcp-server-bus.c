@@ -31,6 +31,9 @@ static int property_get_leases(
         if (!s)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has no DHCP server.", l->ifname);
 
+        if (sd_dhcp_server_is_in_relay_mode(s))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has DHCP relay agent active.", l->ifname);
+
         r = sd_bus_message_open_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
                 return r;
@@ -77,6 +80,9 @@ static int dhcp_server_emit_changed(Link *link, const char *property, ...) {
         char **l;
 
         assert(link);
+
+        if (sd_bus_is_ready(link->manager->bus) <= 0)
+                return 0;
 
         path = link_bus_path(link);
         if (!path)

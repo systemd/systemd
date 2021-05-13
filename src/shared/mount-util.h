@@ -93,11 +93,17 @@ int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest)
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
 static inline char* umount_and_rmdir_and_free(char *p) {
         PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        (void) rmdir(p);
+        if (p) {
+                (void) umount_recursive(p, 0);
+                (void) rmdir(p);
+        }
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
 int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
 int mount_image_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options);
+
+int make_mount_point(const char *path);
+
+int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range);

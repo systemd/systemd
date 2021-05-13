@@ -1,11 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <sys/statvfs.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "mount-util.h"
+#include "namespace-util.h"
+#include "path-util.h"
+#include "process-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_mount_option_mangle(void) {
         char *opts = NULL;
@@ -61,10 +70,98 @@ static void test_mount_option_mangle(void) {
         assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) < 0);
 }
 
+static void test_bind_remount_recursive(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *subdir = NULL;
+        const char *p;
+
+        if (geteuid() != 0) {
+                (void) log_tests_skipped("not running as root");
+                return;
+        }
+
+        assert_se(mkdtemp_malloc("/tmp/XXXXXX", &tmp) >= 0);
+        subdir = path_join(tmp, "subdir");
+        assert_se(subdir);
+        assert_se(mkdir(subdir, 0755) >= 0);
+
+        FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
+                pid_t pid;
+
+                pid = fork();
+                assert_se(pid >= 0);
+
+                if (pid == 0) {
+                        struct statvfs svfs;
+                        /* child */
+                        assert_se(detach_mount_namespace() >= 0);
+
+                        /* Check that the subdir is writable (it must be because it's in /tmp) */
+                        assert_se(statvfs(subdir, &svfs) >= 0);
+                        assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
+
+                        /* Make the subdir a bind mount */
+                        assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND|MS_REC, NULL) >= 0);
+
+                        /* Ensure it's still writable */
+                        assert_se(statvfs(subdir, &svfs) >= 0);
+                        assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
+
+                        /* Now mark the path we currently run for read-only */
+                        assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, STRV_MAKE("/sys/kernel")) >= 0);
+
+                        /* Ensure that this worked on the top-level */
+                        assert_se(statvfs(p, &svfs) >= 0);
+                        assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY));
+
+                        /* And ensure this had an effect on the subdir exactly if we are talking about a path above the subdir */
+                        assert_se(statvfs(subdir, &svfs) >= 0);
+                        assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY) == !!path_startswith(subdir, p));
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                assert_se(wait_for_terminate_and_check("test-remount-rec", pid, WAIT_LOG) == EXIT_SUCCESS);
+        }
+}
+
+static void test_bind_remount_one(void) {
+        pid_t pid;
+
+        if (geteuid() != 0) {
+                (void) log_tests_skipped("not running as root");
+                return;
+        }
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                /* child */
+
+                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+
+                assert_se(detach_mount_namespace() >= 0);
+
+                assert_se(fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo) >= 0);
+
+                assert_se(bind_remount_one_with_mountinfo("/run", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
+                assert_se(bind_remount_one_with_mountinfo("/proc/idontexist", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -ENOENT);
+                assert_se(bind_remount_one_with_mountinfo("/proc/self", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -EINVAL);
+                assert_se(bind_remount_one_with_mountinfo("/", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_check("test-remount-one", pid, WAIT_LOG) == EXIT_SUCCESS);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_mount_option_mangle();
+        test_bind_remount_recursive();
+        test_bind_remount_one();
 
         return 0;
 }

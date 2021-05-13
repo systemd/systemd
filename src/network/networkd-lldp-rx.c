@@ -73,15 +73,16 @@ int link_lldp_rx_configure(Link *link) {
         if (!link_lldp_rx_enabled(link))
                 return 0;
 
-        if (!link->lldp) {
-                r = sd_lldp_new(&link->lldp);
-                if (r < 0)
-                        return r;
+        if (link->lldp)
+                return -EBUSY;
 
-                r = sd_lldp_attach_event(link->lldp, link->manager->event, 0);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_lldp_new(&link->lldp);
+        if (r < 0)
+                return r;
+
+        r = sd_lldp_attach_event(link->lldp, link->manager->event, 0);
+        if (r < 0)
+                return r;
 
         r = sd_lldp_set_ifindex(link->lldp, link->ifindex);
         if (r < 0)

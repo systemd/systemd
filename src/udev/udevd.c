@@ -28,7 +28,6 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
@@ -65,6 +64,7 @@
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "user-util.h"
+#include "version.h"
 
 #define WORKER_NUM_MAX 2048U
 
@@ -92,10 +92,12 @@ typedef struct Manager {
 
         sd_device_monitor *monitor;
         struct udev_ctrl *ctrl;
-        int fd_inotify;
         int worker_watch[2];
 
+        /* used by udev-watch */
+        int inotify_fd;
         sd_event_source *inotify_event;
+
         sd_event_source *kill_workers_event;
 
         usec_t last_usec;
@@ -134,6 +136,7 @@ enum worker_state {
         WORKER_RUNNING,
         WORKER_IDLE,
         WORKER_KILLED,
+        WORKER_KILLING,
 };
 
 struct worker {
@@ -303,7 +306,7 @@ static Manager* manager_free(Manager *manager) {
         hashmap_free_free_free(manager->properties);
         udev_rules_free(manager->rules);
 
-        safe_close(manager->fd_inotify);
+        safe_close(manager->inotify_fd);
         safe_close_pair(manager->worker_watch);
 
         return mfree(manager);
@@ -472,7 +475,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                  * degree — they go hand-in-hand after all. */
 
                 log_device_debug(dev, "Block device is currently locked, installing watch to wait until the lock is released.");
-                (void) udev_watch_begin(dev);
+                (void) udev_watch_begin(manager->inotify_fd, dev);
 
                 /* Now the watch is installed, let's lock the device again, maybe in the meantime things changed */
                 r = worker_lock_block_device(dev, &fd_lock);
@@ -483,7 +486,13 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         (void) worker_mark_block_device_read_only(dev);
 
         /* apply rules, create node, symlinks */
-        r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_timeout_signal, manager->properties, manager->rules);
+        r = udev_event_execute_rules(
+                          udev_event,
+                          manager->inotify_fd,
+                          arg_event_timeout_usec,
+                          arg_timeout_signal,
+                          manager->properties,
+                          manager->rules);
         if (r < 0)
                 return r;
 
@@ -493,14 +502,9 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 /* in case rtnl was initialized */
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
-        /* apply/restore/end inotify watch */
-        if (udev_event->inotify_watch) {
-                (void) udev_watch_begin(dev);
-                r = device_update_db(dev);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
-        } else
-                (void) udev_watch_end(dev);
+        r = udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
+        if (r < 0)
+                return r;
 
         log_device_uevent(dev, "Device processed");
         return 0;
@@ -728,7 +732,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         return 0;
 }
 
-static void manager_kill_workers(Manager *manager) {
+static void manager_kill_workers(Manager *manager, bool force) {
         struct worker *worker;
 
         assert(manager);
@@ -736,6 +740,11 @@ static void manager_kill_workers(Manager *manager) {
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state == WORKER_KILLED)
                         continue;
+
+                if (worker->state == WORKER_RUNNING && !force) {
+                        worker->state = WORKER_KILLING;
+                        continue;
+                }
 
                 worker->state = WORKER_KILLED;
                 (void) kill(worker->pid, SIGTERM);
@@ -866,13 +875,13 @@ static void manager_exit(Manager *manager) {
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
 
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-        manager->fd_inotify = safe_close(manager->fd_inotify);
+        manager->inotify_fd = safe_close(manager->inotify_fd);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
-        manager_kill_workers(manager);
+        manager_kill_workers(manager, true);
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
@@ -884,7 +893,7 @@ static void manager_reload(Manager *manager) {
                   "RELOADING=1\n"
                   "STATUS=Flushing configuration...");
 
-        manager_kill_workers(manager);
+        manager_kill_workers(manager, false);
         manager->rules = udev_rules_free(manager->rules);
         udev_builtin_exit();
 
@@ -899,7 +908,7 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         assert(manager);
 
         log_debug("Cleanup idle workers");
-        manager_kill_workers(manager);
+        manager_kill_workers(manager, false);
 
         return 1;
 }
@@ -1014,7 +1023,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                if (worker->state != WORKER_KILLED)
+                if (worker->state == WORKER_KILLING) {
+                        worker->state = WORKER_KILLED;
+                        (void) kill(worker->pid, SIGTERM);
+                } else if (worker->state != WORKER_KILLED)
                         worker->state = WORKER_IDLE;
 
                 /* worker returned */
@@ -1060,7 +1072,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
                 log_set_max_level(value->intval);
                 manager->log_level = value->intval;
-                manager_kill_workers(manager);
+                manager_kill_workers(manager, false);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
@@ -1125,7 +1137,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
                 }
 
                 key = val = NULL;
-                manager_kill_workers(manager);
+                manager_kill_workers(manager, false);
                 break;
         }
         case UDEV_CTRL_SET_CHILDREN_MAX:
@@ -1290,17 +1302,21 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 const char *devnode;
 
-                if (udev_watch_lookup(e->wd, &dev) <= 0)
+                r = device_new_from_watch_handle(&dev, e->wd);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
                         continue;
+                }
 
                 if (sd_device_get_devname(dev, &devnode) < 0)
                         continue;
 
                 log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
                 if (e->mask & IN_CLOSE_WRITE)
-                        synthesize_change(dev);
-                else if (e->mask & IN_IGNORED)
-                        udev_watch_end(dev);
+                        (void) synthesize_change(dev);
+
+                /* Do not handle IN_IGNORED here. It should be handled by worker in 'remove' uevent;
+                 * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
         }
 
         return 1;
@@ -1660,7 +1676,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
                 return log_oom();
 
         *manager = (Manager) {
-                .fd_inotify = -1,
+                .inotify_fd = -1,
                 .worker_watch = { -1, -1 },
                 .cgroup = cgroup,
         };
@@ -1713,12 +1729,11 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
 
-        r = udev_watch_init();
-        if (r < 0)
-                return log_error_errno(r, "Failed to create inotify descriptor: %m");
-        manager->fd_inotify = r;
+        manager->inotify_fd = inotify_init1(IN_CLOEXEC);
+        if (manager->inotify_fd < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
 
-        udev_watch_restore();
+        udev_watch_restore(manager->inotify_fd);
 
         /* block and listen to all signals on signalfd */
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
@@ -1763,7 +1778,7 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->fd_inotify, EPOLLIN, on_inotify, manager);
+        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
 

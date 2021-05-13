@@ -44,7 +44,13 @@ static const char *arg_image = NULL;
 static const char *arg_path = NULL;
 static const char *arg_source = NULL;
 static const char *arg_target = NULL;
-static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
+static DissectImageFlags arg_flags =
+        DISSECT_IMAGE_GENERIC_ROOT |
+        DISSECT_IMAGE_DISCARD_ON_LOOP |
+        DISSECT_IMAGE_RELAX_VAR_CHECK |
+        DISSECT_IMAGE_FSCK |
+        DISSECT_IMAGE_USR_NO_ROOT |
+        DISSECT_IMAGE_GROWFS;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -70,6 +76,7 @@ static int help(void) {
                "     --no-legend          Do not show the headers and footers\n"
                "  -r --read-only          Mount read-only\n"
                "     --fsck=BOOL          Run fsck before mounting\n"
+               "     --growfs=BOOL        Grow file system to partition size, if marked\n"
                "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
@@ -107,6 +114,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_DISCARD,
                 ARG_FSCK,
+                ARG_GROWFS,
                 ARG_ROOT_HASH,
                 ARG_ROOT_HASH_SIG,
                 ARG_VERITY_DATA,
@@ -123,6 +131,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
+                { "growfs",        required_argument, NULL, ARG_GROWFS        },
                 { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
@@ -259,6 +268,14 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
                         break;
 
+                case ARG_GROWFS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", optarg);
+
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
+                        break;
+
                 case ARG_JSON:
                         r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
@@ -293,6 +310,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_FROM:
@@ -304,7 +322,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_source = argv[optind + 1];
                 arg_target = argc > optind + 2 ? argv[optind + 2] : "-" /* this means stdout */ ;
 
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags |= DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_TO:
@@ -322,6 +340,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_target = argv[optind + 1];
                 }
 
+                arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         default:
@@ -460,7 +479,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_oom();
         }
 
-        t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
+        t = table_new("rw", "designator", "partition uuid", "partition label", "fstype", "architecture", "verity", "growfs", "node", "partno");
         if (!t)
                 return log_oom();
 
@@ -489,6 +508,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = table_add_many(
                                 t,
+                                TABLE_STRING, p->label,
                                 TABLE_STRING, p->fstype,
                                 TABLE_STRING, architecture_to_string(p->architecture));
                 if (r < 0)
@@ -500,6 +520,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
                 else
                         r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(t, TABLE_BOOLEAN, (int) p->growfs);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -558,7 +582,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return r;
 
-        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -604,7 +628,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
                 return r;
 
@@ -762,17 +786,19 @@ static int run(int argc, char *argv[]) {
 
         r = loop_device_make_by_path(
                         arg_image,
-                        FLAGS_SET(arg_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device: %m");
+                return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
         r = dissect_image_and_warn(
                         d->fd,
                         arg_image,
                         &arg_verity_settings,
                         NULL,
+                        d->uevent_seqnum_not_before,
+                        d->timestamp_not_before,
                         arg_flags,
                         &m);
         if (r < 0)

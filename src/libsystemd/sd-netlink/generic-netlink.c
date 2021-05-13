@@ -26,7 +26,6 @@ static const genl_family genl_families[] = {
 int sd_genl_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_GENERIC);
 }
-static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id);
 
 static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -71,17 +70,6 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint16_t nl
         *ret = TAKE_PTR(m);
 
         return 0;
-}
-
-int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret) {
-        uint16_t id;
-        int r;
-
-        r = lookup_id(nl, family, &id);
-        if (r < 0)
-                return r;
-
-        return genl_message_new(nl, family, id, cmd, ret);
 }
 
 static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id) {
@@ -129,6 +117,17 @@ static int lookup_id(sd_netlink *nl, sd_genl_family_t family, uint16_t *id) {
         return 0;
 }
 
+int sd_genl_message_new(sd_netlink *nl, sd_genl_family_t family, uint8_t cmd, sd_netlink_message **ret) {
+        uint16_t id = 0; /* Unnecessary initialization to appease gcc */
+        int r;
+
+        r = lookup_id(nl, family, &id);
+        if (r < 0)
+                return r;
+
+        return genl_message_new(nl, family, id, cmd, ret);
+}
+
 int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_family_t *ret) {
         void *p;
 
@@ -153,7 +152,7 @@ int nlmsg_type_to_genl_family(const sd_netlink *nl, uint16_t type, sd_genl_famil
         return 0;
 }
 
-int sd_genl_message_get_family(const sd_netlink *nl, const sd_netlink_message *m, sd_genl_family_t *family) {
+int sd_genl_message_get_family(sd_netlink *nl, sd_netlink_message *m, sd_genl_family_t *family) {
         uint16_t type;
         int r;
 

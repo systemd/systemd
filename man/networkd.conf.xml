@@ -63,11 +63,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManageForeignRoutingPolicyRules=</varname></term>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will remove rules
+        that are not configured in .network files (except for rules with protocol
+        <literal>kernel</literal>). When false, it will not remove any foreign rules, keeping them even
+        if they are not configured in a .network file. Defaults to yes.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ManageForeignRoutes=</varname></term>
-        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will store any routes
-        configured by other tools in its memory. When false, <command>systemd-networkd</command> will
-        not manage the foreign routes, thus they are kept even if <varname>KeepConfiguration=</varname>
-        is false. Defaults to yes.</para></listitem>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will remove routes
+        that are not configured in .network files (except for routes with protocol
+        <literal>kernel</literal>, <literal>dhcp</literal> when <varname>KeepConfiguration=</varname>
+        is true or <literal>dhcp</literal>, and <literal>static</literal> when
+        <varname>KeepConfiguration=</varname> is true or <literal>static</literal>). When false, it will
+        not remove any foreign routes, keeping them even if they are not configured in a .network file.
+        Defaults to yes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -86,15 +98,12 @@
   </refsect1>
 
   <refsect1>
-    <title>[DHCP] Section Options</title>
+    <title>[DHCPv4] Section Options</title>
 
-    <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP
-    protocol. DHCPv6 client protocol sends the DHCP Unique Identifier and the interface
-    Identity Association Identifier (IAID) to a DHCP server when acquiring a dynamic IPv6
-    address. DHCPv4 client protocol sends IAID and DUID to the DHCP server when acquiring
-    a dynamic IPv4 address if <option>ClientIdentifier=duid</option>. IAID and DUID allows
-    a DHCP server to uniquely identify the machine and the interface requesting a DHCP IP.
-    To configure IAID and ClientIdentifier, see
+    <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCP protocol. DHCPv4
+    client protocol sends IAID and DUID to the DHCP server when acquiring a dynamic IPv4 address if
+    <option>ClientIdentifier=duid</option>. IAID and DUID allows a DHCP server to uniquely identify the
+    machine and the interface requesting a DHCP IP address. To configure IAID and ClientIdentifier, see
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
@@ -172,6 +181,28 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           </para>
         </example>
         </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[DHCPv6] Section Options</title>
+
+    <para>This section configures the DHCP Unique Identifier (DUID) value used by DHCPv6 protocol.
+    DHCPv6 client protocol sends the DHCP Unique Identifier and the interface Identity Association
+    Identifier (IAID) to a DHCPv6 server when acquiring a dynamic IPv6 address. IAID and DUID allows a
+    DHCPv6 server to uniquely identify the machine and the interface requesting a DHCP IP address. To
+    configure IAID, see
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>The following options are understood:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>DUIDType=</varname></term>
+        <term><varname>DUIDRawData=</varname></term>
+        <listitem><para>As in the [DHCPv4] section.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

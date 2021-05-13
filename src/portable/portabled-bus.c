@@ -252,11 +252,13 @@ static int method_attach_image(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **extension_images = NULL;
         PortableChange *changes = NULL;
+        PortableFlags flags = 0;
         Manager *m = userdata;
         size_t n_changes = 0;
         const char *name_or_path;
-        int r, runtime;
+        int r;
 
         assert(message);
         assert(m);
@@ -265,9 +267,36 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
          * detach already deleted images too, in case the user already deleted an image before properly detaching
          * it. */
 
-        r = sd_bus_message_read(message, "sb", &name_or_path, &runtime);
+        r = sd_bus_message_read(message, "s", &name_or_path);
         if (r < 0)
                 return r;
+
+        if (sd_bus_message_is_method_call(message, NULL, "DetachImageWithExtensions")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read_strv(message, &extension_images);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+
+                if ((input_flags & ~_PORTABLE_MASK_PUBLIC) != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
+                flags |= input_flags;
+        } else {
+                int runtime;
+
+                r = sd_bus_message_read(message, "b", &runtime);
+                if (r < 0)
+                        return r;
+
+                if (runtime)
+                        flags |= PORTABLE_RUNTIME;
+        }
 
         r = bus_verify_polkit_async(
                         message,
@@ -286,7 +315,8 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
         r = portable_detach(
                         sd_bus_message_get_bus(message),
                         name_or_path,
-                        runtime ? PORTABLE_RUNTIME : 0,
+                        extension_images,
+                        flags,
                         &changes,
                         &n_changes,
                         error);
@@ -327,7 +357,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
                         message,
@@ -347,7 +377,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 
         r = btrfs_subvol_set_subtree_quota_limit("/var/lib/portables", 0, limit);
         if (r == -ENOTTY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
 
@@ -383,6 +413,16 @@ const sd_bus_vtable manager_vtable[] = {
                                               "a{say}", units),
                                 method_get_image_metadata,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetImageMetadataWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "as", matches,
+                                            "t", flags),
+                                SD_BUS_RESULT("s", image,
+                                              "ay", os_release,
+                                              "a{say}", units),
+                                method_get_image_metadata,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetImageState",
                                 SD_BUS_ARGS("s", image),
                                 SD_BUS_RESULT("s", state),
@@ -397,9 +437,26 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_RESULT("a(sss)", changes),
                                 method_attach_image,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("AttachImageWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "s", copy_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("a(sss)", changes),
+                                method_attach_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("DetachImage",
                                 SD_BUS_ARGS("s", image,
                                             "b", runtime),
+                                SD_BUS_RESULT("a(sss)", changes),
+                                method_detach_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DetachImageWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "t", flags),
                                 SD_BUS_RESULT("a(sss)", changes),
                                 method_detach_image,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
@@ -409,6 +466,17 @@ const sd_bus_vtable manager_vtable[] = {
                                             "s", profile,
                                             "b", runtime,
                                             "s", copy_mode),
+                                SD_BUS_RESULT("a(sss)", changes_removed,
+                                              "a(sss)", changes_updated),
+                                method_reattach_image,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ReattachImageWithExtensions",
+                                SD_BUS_ARGS("s", image,
+                                            "as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "s", copy_mode,
+                                            "t", flags),
                                 SD_BUS_RESULT("a(sss)", changes_removed,
                                               "a(sss)", changes_updated),
                                 method_reattach_image,

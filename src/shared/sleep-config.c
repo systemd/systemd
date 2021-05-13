@@ -34,7 +34,7 @@
 #include "time-util.h"
 
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
-        _cleanup_(free_sleep_configp) SleepConfig *sc;
+        _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
         int allow_suspend = -1, allow_hibernate = -1,
             allow_s2h = -1, allow_hybrid_sleep = -1;
 
@@ -324,7 +324,7 @@ static bool location_is_resume_device(const HibernateLocation *location, dev_t s
 int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(hibernate_location_freep) HibernateLocation *hibernate_location = NULL;
-        dev_t sys_resume;
+        dev_t sys_resume = 0; /* Unnecessary initialization to appease gcc */
         uint64_t sys_offset = 0;
         bool resume_match = false;
         int r;

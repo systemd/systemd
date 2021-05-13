@@ -557,6 +557,9 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
                 return;
 
+        if (!unit_log_level_test(u, LOG_INFO))
+                return;
+
         if (log_on_console()) /* Skip this if it would only go on the console anyway */
                 return;
 
@@ -578,13 +581,12 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
          * which is supposed the highest level, friendliest output
          * possible, which means we should avoid the low-level unit
          * name. */
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE("%s", buf),
-                   "JOB_ID=%" PRIu32, job_id,
-                   "JOB_TYPE=%s", job_type_to_string(t),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   mid);
+        log_unit_struct(u, LOG_INFO,
+                        LOG_MESSAGE("%s", buf),
+                        "JOB_ID=%" PRIu32, job_id,
+                        "JOB_TYPE=%s", job_type_to_string(t),
+                        LOG_UNIT_INVOCATION_ID(u),
+                        mid);
 }
 
 static void job_emit_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
@@ -844,9 +846,9 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
         REENABLE_WARNING;
 
         if (t == JOB_START && result == JOB_FAILED) {
-                _cleanup_free_ char *quoted;
+                _cleanup_free_ char *quoted = NULL;
 
-                quoted = shell_maybe_quote(u->id, ESCAPE_BACKSLASH);
+                quoted = shell_maybe_quote(u->id, 0);
                 manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
         }
 }
@@ -879,17 +881,19 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
 
         /* Show condition check message if the job did not actually do anything due to failed condition. */
         if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
-                log_struct(LOG_INFO,
-                           "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
-                           "JOB_ID=%" PRIu32, job_id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u),
-                           "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
+                log_unit_struct(u, LOG_INFO,
+                                "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
+                                "JOB_ID=%" PRIu32, job_id,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_INVOCATION_ID(u),
+                                "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
 
                 return;
         }
+
+        if (!unit_log_level_test(u, job_result_log_level[result]))
+                return;
 
         format = job_get_done_status_message_format(u, t, result);
         if (!format)
@@ -922,24 +926,22 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
                 break;
 
         default:
-                log_struct(job_result_log_level[result],
-                           LOG_MESSAGE("%s", buf),
-                           "JOB_ID=%" PRIu32, job_id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u));
+                log_unit_struct(u, job_result_log_level[result],
+                                LOG_MESSAGE("%s", buf),
+                                "JOB_ID=%" PRIu32, job_id,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_INVOCATION_ID(u));
                 return;
         }
 
-        log_struct(job_result_log_level[result],
-                   LOG_MESSAGE("%s", buf),
-                   "JOB_ID=%" PRIu32, job_id,
-                   "JOB_TYPE=%s", job_type_to_string(t),
-                   "JOB_RESULT=%s", job_result_to_string(result),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   mid);
+        log_unit_struct(u, job_result_log_level[result],
+                        LOG_MESSAGE("%s", buf),
+                        "JOB_ID=%" PRIu32, job_id,
+                        "JOB_TYPE=%s", job_type_to_string(t),
+                        "JOB_RESULT=%s", job_result_to_string(result),
+                        LOG_UNIT_INVOCATION_ID(u),
+                        mid);
 }
 
 static void job_emit_done_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
@@ -1048,14 +1050,13 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
          * this context. And JOB_FAILURE is already handled by the
          * unit itself. */
         if (IN_SET(result, JOB_TIMEOUT, JOB_DEPENDENCY)) {
-                log_struct(LOG_NOTICE,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
-                                            u->id,
-                                            job_type_to_string(t),
-                                            job_result_to_string(result)));
+                log_unit_struct(u, LOG_NOTICE,
+                                "JOB_TYPE=%s", job_type_to_string(t),
+                                "JOB_RESULT=%s", job_result_to_string(result),
+                                LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
+                                                 u->id,
+                                                 job_type_to_string(t),
+                                                 job_result_to_string(result)));
 
                 unit_start_on_failure(u);
         }

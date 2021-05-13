@@ -5,6 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
+#include "bpf-foreign.h"
 #include "bus-get-properties.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -15,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "limits-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
 
@@ -347,6 +349,59 @@ static int property_get_ip_address_access(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_bpf_foreign_program(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        CGroupContext *c = userdata;
+        CGroupBPFForeignProgram *p;
+        int r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs) {
+                const char *attach_type = bpf_cgroup_attach_type_to_string(p->attach_type);
+
+                r = sd_bus_message_append(reply, "(ss)", attach_type, p->bpffs_path);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_socket_bind(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        CGroupSocketBindItem **items = userdata, *i;
+        int r;
+
+        assert(items);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iqq)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(socket_bind_items, i, *items) {
+                r = sd_bus_message_append(reply, "(iqq)", i->address_family, i->nr_ports, i->port_min);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -398,6 +453,9 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressure", "s", property_get_managed_oom_mode, offsetof(CGroupContext, moom_mem_pressure), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
+        SD_BUS_PROPERTY("SocketBindAllow", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
+        SD_BUS_PROPERTY("SocketBindDeny", "a(iqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -422,7 +480,7 @@ static int bus_cgroup_set_transient_property(
                 int b;
 
                 if (!UNIT_VTABLE(u)->can_delegate)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_read(message, "b", &b);
                 if (r < 0)
@@ -441,7 +499,7 @@ static int bus_cgroup_set_transient_property(
                 CGroupMask mask = 0;
 
                 if (streq(name, "DelegateControllers") && !UNIT_VTABLE(u)->can_delegate)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
                 if (r < 0)
@@ -567,6 +625,85 @@ static int bus_cgroup_set_transient_property(
                                                  "Starting this unit will fail! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
                                         warned = true;
                                 }
+                        }
+                }
+
+                return 1;
+        } else if (streq(name, "BPFProgram")) {
+                const char *a, *p;
+                size_t n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ss)", &a, &p)) > 0) {
+                        int attach_type = bpf_cgroup_attach_type_from_string(a);
+                        if (attach_type < 0)
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "%s expects a valid BPF attach type, got '%s'.",
+                                                name, a);
+
+                        if (!path_is_normalized(p) || !path_is_absolute(p))
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "%s= expects a normalized absolute path.",
+                                                name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = cgroup_add_bpf_foreign_program(c, attach_type, p);
+                                if (r < 0)
+                                        return r;
+                        }
+                        n++;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupBPFForeignProgram *fp;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                while (c->bpf_foreign_programs)
+                                        cgroup_context_remove_bpf_foreign_program(c, c->bpf_foreign_programs);
+
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs(name, f);
+                        fputs("=\n", f);
+
+                        LIST_FOREACH(programs, fp, c->bpf_foreign_programs)
+                                fprintf(f, "%s=%s:%s\n", name,
+                                                bpf_cgroup_attach_type_to_string(fp->attach_type),
+                                                fp->bpffs_path);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
+
+                        if (!LIST_IS_EMPTY(c->bpf_foreign_programs)) {
+                                r = bpf_foreign_supported();
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        log_full(LOG_DEBUG,
+                                                 "Transient unit %s configures a BPF program pinned to BPF "
+                                                 "filesystem, but the local system does not support that.\n"
+                                                 "Starting this unit will fail!", u->id);
                         }
                 }
 
@@ -944,7 +1081,7 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (u64 <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "CPUQuotaPerSecUSec= value out of range");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "CPUQuotaPerSecUSec= value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_per_sec_usec = u64;
@@ -1122,7 +1259,7 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!CGROUP_WEIGHT_IS_OK(weight) || weight == CGROUP_WEIGHT_INVALID)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupIODeviceWeight *a = NULL, *b;
@@ -1380,7 +1517,7 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight) || weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupBlockIODeviceWeight *a = NULL, *b;
@@ -1476,12 +1613,12 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
                         if (!valid_device_allow_pattern(path) || strpbrk(path, WHITESPACE))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
 
                         if (isempty(rwm))
                                 rwm = "rwm";
                         else if (!in_charset(rwm, "rwm"))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupDeviceAllow *a = NULL, *b;
@@ -1737,6 +1874,89 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->moom_preference = p;
                         unit_write_settingf(u, flags, name, "ManagedOOMPreference=%s", pref);
+                }
+
+                return 1;
+        }
+        if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
+                CGroupSocketBindItem **list;
+                uint16_t nr_ports, port_min;
+                size_t n = 0;
+                int family;
+
+                list = streq(name, "SocketBindAllow") ? &c->socket_bind_allow : &c->socket_bind_deny;
+
+                r = sd_bus_message_enter_container(message, 'a', "(iqq)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(iqq)", &family, &nr_ports, &port_min)) > 0) {
+
+                        if (!IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects INET or INET6 family, if specified.", name);
+
+                        if (port_min + (uint32_t) nr_ports > (1 << 16))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects maximum port value lesser than 65536.", name);
+
+                        if (port_min == 0 && nr_ports != 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= expects port range starting with positive value.", name);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                _cleanup_free_ CGroupSocketBindItem *item = NULL;
+
+                                item = new(CGroupSocketBindItem, 1);
+                                if (!item)
+                                        return log_oom();
+
+                                *item = (CGroupSocketBindItem) {
+                                        .address_family = family,
+                                        .nr_ports = nr_ports,
+                                        .port_min = port_min
+                                };
+
+                                LIST_PREPEND(socket_bind_items, *list, TAKE_PTR(item));
+                        }
+                        n++;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupSocketBindItem *item;
+                        size_t size = 0;
+
+                        if (n == 0)
+                                cgroup_context_remove_socket_bind(list);
+                        else {
+                                if ((u->manager->cgroup_supported & CGROUP_MASK_BPF_SOCKET_BIND) == 0)
+                                        log_full(LOG_DEBUG,
+                                                 "Unit %s configures source compiled BPF programs "
+                                                 "but the local system does not support that.\n"
+                                                 "Starting this unit will fail!", u->id);
+                        }
+
+                        f = open_memstream_unlocked(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fprintf(f, "%s:", name);
+
+                        LIST_FOREACH(socket_bind_items, item, *list)
+                                cgroup_context_dump_socket_bind_item(item, f);
+
+                        fputc('\n', f);
+
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_setting(u, flags, name, buf);
                 }
 
                 return 1;

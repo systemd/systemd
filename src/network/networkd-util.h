@@ -8,17 +8,10 @@
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
+#include "network-util.h"
 #include "string-util.h"
 
-typedef enum AddressFamily {
-        /* This is a bitmask, though it usually doesn't feel that way! */
-        ADDRESS_FAMILY_NO             = 0,
-        ADDRESS_FAMILY_IPV4           = 1 << 0,
-        ADDRESS_FAMILY_IPV6           = 1 << 1,
-        ADDRESS_FAMILY_YES            = ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6,
-        _ADDRESS_FAMILY_MAX,
-        _ADDRESS_FAMILY_INVALID = -EINVAL,
-} AddressFamily;
+typedef struct Link Link;
 
 typedef struct NetworkConfigSection {
         unsigned line;
@@ -82,9 +75,15 @@ static inline bool section_is_invalid(NetworkConfigSection *section) {
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
-static inline int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
-        const char *err_msg = NULL;
-
-        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
-}
+int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
+#define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)
+#define log_link_message_warning_errno(link, m, err, msg) log_link_message_full_errno(link, m, LOG_WARNING, err, msg)
+#define log_link_message_notice_errno(link, m, err, msg)  log_link_message_full_errno(link, m, LOG_NOTICE, err, msg)
+#define log_link_message_info_errno(link, m, err, msg)    log_link_message_full_errno(link, m, LOG_INFO, err, msg)
+#define log_link_message_debug_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_DEBUG, err, msg)
+#define log_message_full_errno(m, level, err, msg)        log_link_message_full_errno(NULL, m, level, err, msg)
+#define log_message_error_errno(m, err, msg)              log_message_full_errno(m, LOG_ERR, err, msg)
+#define log_message_warning_errno(m, err, msg)            log_message_full_errno(m, LOG_WARNING, err, msg)
+#define log_message_notice_errno(m, err, msg)             log_message_full_errno(m, LOG_NOTICE, err, msg)
+#define log_message_info_errno(m, err, msg)               log_message_full_errno(m, LOG_INFO, err, msg)
+#define log_message_debug_errno(m, err, msg)              log_message_full_errno(m, LOG_DEBUG, err, msg)

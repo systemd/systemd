@@ -37,6 +37,10 @@ struct sd_device_monitor {
 
         Hashmap *subsystem_filter;
         Set *tag_filter;
+        Hashmap *match_sysattr_filter;
+        Hashmap *nomatch_sysattr_filter;
+        Set *match_parent_filter;
+        Set *nomatch_parent_filter;
         bool filter_uptodate;
 
         sd_event *event;
@@ -83,8 +87,8 @@ static int monitor_set_nl_address(sd_device_monitor *m) {
 }
 
 int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor *sender) {
-        assert_return(m, -EINVAL);
-        assert_return(sender, -EINVAL);
+        assert(m);
+        assert(sender);
 
         m->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
         return 0;
@@ -104,7 +108,7 @@ int device_monitor_disconnect(sd_device_monitor *m) {
 }
 
 int device_monitor_get_fd(sd_device_monitor *m) {
-        assert_return(m, -EINVAL);
+        assert(m);
 
         return m->sock;
 }
@@ -114,8 +118,8 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         _cleanup_close_ int sock = -1;
         int r;
 
+        assert(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX);
         assert_return(ret, -EINVAL);
-        assert_return(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX, -EINVAL);
 
         if (group == MONITOR_GROUP_UDEV &&
             access("/run/udev/control", F_OK) < 0 &&
@@ -304,7 +308,7 @@ _public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *
 int device_monitor_enable_receiving(sd_device_monitor *m) {
         int r;
 
-        assert_return(m, -EINVAL);
+        assert(m);
 
         r = sd_device_monitor_filter_update(m);
         if (r < 0)
@@ -334,57 +338,80 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
         (void) sd_device_monitor_detach_event(m);
 
-        hashmap_free_free_free(m->subsystem_filter);
-        set_free_free(m->tag_filter);
+        hashmap_free(m->subsystem_filter);
+        set_free(m->tag_filter);
+        hashmap_free(m->match_sysattr_filter);
+        hashmap_free(m->nomatch_sysattr_filter);
+        set_free(m->match_parent_filter);
+        set_free(m->nomatch_parent_filter);
 
         return mfree(m);
 }
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, device_monitor_free);
 
-static int passes_filter(sd_device_monitor *m, sd_device *device) {
-        const char *tag, *subsystem, *devtype, *s, *d = NULL;
+static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
+        const char *s, *subsystem, *d, *devtype = NULL;
         int r;
 
-        assert_return(m, -EINVAL);
-        assert_return(device, -EINVAL);
+        assert(m);
+        assert(device);
 
         if (hashmap_isempty(m->subsystem_filter))
-                goto tag;
+                return true;
 
-        r = sd_device_get_subsystem(device, &s);
+        r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
                 return r;
 
-        r = sd_device_get_devtype(device, &d);
+        r = sd_device_get_devtype(device, &devtype);
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        HASHMAP_FOREACH_KEY(devtype, subsystem, m->subsystem_filter) {
+        HASHMAP_FOREACH_KEY(d, s, m->subsystem_filter) {
                 if (!streq(s, subsystem))
                         continue;
 
-                if (!devtype)
-                        goto tag;
-
-                if (!d)
-                        continue;
-
-                if (streq(d, devtype))
-                        goto tag;
+                if (!d || streq_ptr(d, devtype))
+                        return true;
         }
 
-        return 0;
+        return false;
+}
 
-tag:
+static bool check_tag_filter(sd_device_monitor *m, sd_device *device) {
+        const char *tag;
+
+        assert(m);
+        assert(device);
+
         if (set_isempty(m->tag_filter))
-                return 1;
+                return true;
 
         SET_FOREACH(tag, m->tag_filter)
                 if (sd_device_has_tag(device, tag) > 0)
-                        return 1;
+                        return true;
 
-        return 0;
+        return false;
+}
+
+static int passes_filter(sd_device_monitor *m, sd_device *device) {
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = check_subsystem_filter(m, device);
+        if (r <= 0)
+                return r;
+
+        if (!check_tag_filter(m, device))
+                return false;
+
+        if (!device_match_sysattr(device, m->match_sysattr_filter, m->nomatch_sysattr_filter))
+                return false;
+
+        return device_match_parent(device, m->match_parent_filter, m->nomatch_parent_filter);
 }
 
 int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
@@ -413,6 +440,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         bool is_initialized = false;
         int r;
 
+        assert(m);
         assert(ret);
 
         buflen = recvmsg(m->sock, &smsg, 0);
@@ -507,10 +535,10 @@ static uint64_t string_bloom64(const char *str) {
         uint64_t bits = 0;
         uint32_t hash = string_hash32(str);
 
-        bits |= 1LLU << (hash & 63);
-        bits |= 1LLU << ((hash >> 6) & 63);
-        bits |= 1LLU << ((hash >> 12) & 63);
-        bits |= 1LLU << ((hash >> 18) & 63);
+        bits |= UINT64_C(1) << (hash & 63);
+        bits |= UINT64_C(1) << ((hash >> 6) & 63);
+        bits |= UINT64_C(1) << ((hash >> 12) & 63);
+        bits |= UINT64_C(1) << ((hash >> 18) & 63);
         return bits;
 }
 
@@ -717,42 +745,69 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 }
 
 _public_ int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype) {
-        _cleanup_free_ char *s = NULL, *d = NULL;
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(subsystem, -EINVAL);
 
-        s = strdup(subsystem);
-        if (!s)
-                return -ENOMEM;
-
-        if (devtype) {
-                d = strdup(devtype);
-                if (!d)
-                        return -ENOMEM;
-        }
-
-        r = hashmap_ensure_put(&m->subsystem_filter, NULL, s, d);
-        if (r < 0)
+        /* Do not use string_has_ops_free_free or hashmap_put_strdup() here, as this may be called
+         * multiple times with the same subsystem but different devtypes. */
+        r = hashmap_put_strdup_full(&m->subsystem_filter, &trivial_hash_ops_free_free, subsystem, devtype);
+        if (r <= 0)
                 return r;
 
-        TAKE_PTR(s);
-        TAKE_PTR(d);
-
         m->filter_uptodate = false;
-
-        return 0;
+        return r;
 }
 
 _public_ int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag) {
+        int r;
+
         assert_return(m, -EINVAL);
         assert_return(tag, -EINVAL);
 
-        int r = set_put_strdup(&m->tag_filter, tag);
-        if (r > 0)
-                m->filter_uptodate = false;
+        r = set_put_strdup(&m->tag_filter, tag);
+        if (r <= 0)
+                return r;
+
+        m->filter_uptodate = false;
         return r;
+}
+
+_public_ int sd_device_monitor_filter_add_match_sysattr(sd_device_monitor *m, const char *sysattr, const char *value, int match) {
+        Hashmap **hashmap;
+
+        assert_return(m, -EINVAL);
+        assert_return(sysattr, -EINVAL);
+
+        if (match)
+                hashmap = &m->match_sysattr_filter;
+        else
+                hashmap = &m->nomatch_sysattr_filter;
+
+        /* TODO: unset m->filter_uptodate on success when we support this filter on BPF. */
+        return hashmap_put_strdup_full(hashmap, &trivial_hash_ops_free_free, sysattr, value);
+}
+
+_public_ int sd_device_monitor_filter_add_match_parent(sd_device_monitor *m, sd_device *device, int match) {
+        const char *syspath;
+        Set **set;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(device, -EINVAL);
+
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        if (match)
+                set = &m->match_parent_filter;
+        else
+                set = &m->nomatch_parent_filter;
+
+        /* TODO: unset m->filter_uptodate on success when we support this filter on BPF. */
+        return set_put_strdup(set, syspath);
 }
 
 _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
@@ -760,8 +815,12 @@ _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
 
         assert_return(m, -EINVAL);
 
-        m->subsystem_filter = hashmap_free_free_free(m->subsystem_filter);
-        m->tag_filter = set_free_free(m->tag_filter);
+        m->subsystem_filter = hashmap_free(m->subsystem_filter);
+        m->tag_filter = set_free(m->tag_filter);
+        m->match_sysattr_filter = hashmap_free(m->match_sysattr_filter);
+        m->nomatch_sysattr_filter = hashmap_free(m->nomatch_sysattr_filter);
+        m->match_parent_filter = set_free(m->match_parent_filter);
+        m->nomatch_parent_filter = set_free(m->nomatch_parent_filter);
 
         if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
