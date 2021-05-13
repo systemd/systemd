@@ -76,6 +76,7 @@ if [[ "$COMPILER" == clang ]]; then
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
     add-apt-repository -y "deb http://apt.llvm.org/$RELEASE/   llvm-toolchain-$RELEASE-$COMPILER_VERSION  main"
     PACKAGES+=(clang-$COMPILER_VERSION lldb-$COMPILER_VERSION lld-$COMPILER_VERSION clangd-$COMPILER_VERSION)
+    PACKAGES+=(rustc)
 elif [[ "$COMPILER" == gcc ]]; then
     CC="gcc-$COMPILER_VERSION"
     CXX="g++-$COMPILER_VERSION"
@@ -84,6 +85,8 @@ elif [[ "$COMPILER" == gcc ]]; then
     # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
     add-apt-repository -y ppa:ubuntu-toolchain-r/test
     PACKAGES+=(gcc-$COMPILER_VERSION)
+    # The LLVM build is not happy with Rust, so use it only with GCC for now
+    PACKAGES+=(rustc)
 else
     fatal "Unknown compiler: $COMPILER"
 fi
