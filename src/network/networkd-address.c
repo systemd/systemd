@@ -1157,6 +1157,32 @@ int link_request_static_addresses(Link *link) {
                 req->after_configure = static_address_after_configure;
         }
 
+        if (in4_addr_is_set(&link->network->dhcp_server_address)) {
+                _cleanup_(address_freep) Address *address = NULL;
+
+                r = address_new(&address);
+                if (r < 0)
+                        return log_oom();
+
+                address->family = AF_INET;
+                address->in_addr.in = link->network->dhcp_server_address;
+                address->prefixlen = link->network->dhcp_server_address_prefixlen;
+                address_set_broadcast(address);
+
+                /* The same address may be explicitly configured in [Address] or [Network] section.
+                 * Configure the DHCP server address only when it is not. */
+                if (!link_is_static_address_configured(link, address)) {
+                        Request *req;
+
+                        r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
+                                                 static_address_handler, &req);
+                        if (r < 0)
+                                return r;
+
+                        req->after_configure = static_address_after_configure;
+                }
+        }
+
         if (link->static_address_messages == 0) {
                 link->static_addresses_configured = true;
                 link_check_ready(link);

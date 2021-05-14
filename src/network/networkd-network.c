@@ -240,6 +240,8 @@ int network_verify(Network *network) {
         network_drop_invalid_traffic_control(network);
         network_drop_invalid_sr_iov(network);
 
+        network_adjust_dhcp_server(network);
+
         return 0;
 }
 
