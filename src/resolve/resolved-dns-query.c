@@ -13,6 +13,8 @@
 #define QUERIES_MAX 2048
 #define AUXILIARY_QUERIES_MAX 64
 
+assert_cc(AUXILIARY_QUERIES_MAX < UINT8_MAX);
+
 static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScope *s) {
         DnsQueryCandidate *c;
 
