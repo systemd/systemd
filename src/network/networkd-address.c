@@ -1123,6 +1123,30 @@ int link_request_static_addresses(Link *link) {
                 req->after_configure = static_address_after_configure;
         }
 
+        if (link->network->dhcp_server_address_configure) {
+                _cleanup_(address_freep) Address *address = NULL;
+                Request *req;
+
+                r = address_new(&address);
+                if (r < 0)
+                        return log_oom();
+
+                assert(link->network->dhcp_server_address.family == AF_INET);
+
+                address->family = AF_INET;
+                address->in_addr.in = link->network->dhcp_server_address.address.in;
+                address->prefixlen = link->network->dhcp_server_address.prefixlen;
+                if (address_may_have_broadcast(address))
+                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> address->prefixlen);
+
+                r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
+                                         static_address_handler, &req);
+                if (r < 0)
+                        return r;
+
+                req->after_configure = static_address_after_configure;
+        }
+
         if (link->static_address_messages == 0) {
                 link->static_addresses_configured = true;
                 link_check_ready(link);
