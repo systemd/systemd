@@ -371,14 +371,16 @@ int dhcp4_server_configure(Link *link) {
                 else {
                         r = get_timezone(&buffer);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to determine timezone: %m");
-
-                        tz = buffer;
+                                log_link_warning_errno(link, r, "Failed to determine timezone, not sending timezone: %m");
+                        else
+                                tz = buffer;
                 }
 
-                r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
+                if (tz) {
+                        r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
+                }
         }
 
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
