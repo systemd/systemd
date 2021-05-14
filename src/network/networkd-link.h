@@ -81,6 +81,7 @@ typedef struct Link {
 
         unsigned address_label_messages;
         unsigned static_address_messages;
+        unsigned static_bridge_fdb_messages;
         unsigned static_neighbor_messages;
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
@@ -122,6 +123,7 @@ typedef struct Link {
         bool ipv4ll_address_configured:1;
 
         bool static_addresses_configured:1;
+        bool static_bridge_fdb_configured:1;
         bool static_neighbors_configured:1;
         bool static_nexthops_configured:1;
         bool static_routes_configured:1;
