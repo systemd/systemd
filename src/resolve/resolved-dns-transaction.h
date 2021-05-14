@@ -57,17 +57,6 @@ struct DnsTransaction {
 
         uint64_t query_flags;
 
-        DnsTransactionState state;
-
-        uint16_t id;
-
-        bool tried_stream:1;
-
-        bool initial_jitter_scheduled:1;
-        bool initial_jitter_elapsed:1;
-
-        bool probing:1;
-
         DnsPacket *sent, *received;
 
         DnsAnswer *answer;
@@ -76,6 +65,8 @@ struct DnsTransaction {
         DnsTransactionSource answer_source;
         uint32_t answer_nsec_ttl;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
+
+        DnsTransactionState state;
 
         /* SD_RESOLVED_AUTHENTICATED here indicates whether the primary answer is authenticated, i.e. whether
          * the RRs from answer which directly match the question are authenticated, or, if there are none,
@@ -92,8 +83,6 @@ struct DnsTransaction {
         usec_t next_attempt_after;
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
-
-        unsigned n_picked_servers;
 
         /* UDP connection logic, if we need it */
         int dns_udp_fd;
@@ -114,6 +103,15 @@ struct DnsTransaction {
         DnsServerFeatureLevel clamp_feature_level_servfail;
         DnsServerFeatureLevel clamp_feature_level_nxdomain;
 
+        uint16_t id;
+
+        bool tried_stream:1;
+
+        bool initial_jitter_scheduled:1;
+        bool initial_jitter_elapsed:1;
+
+        bool probing:1;
+
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
          * completing. */
@@ -133,11 +131,15 @@ struct DnsTransaction {
          * created in order to request DNSKEY or DS RRs. */
         Set *dnssec_transactions;
 
+        unsigned n_picked_servers;
+
         unsigned block_gc;
 
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
         LIST_FIELDS(DnsTransaction, transactions_by_stream);
         LIST_FIELDS(DnsTransaction, transactions_by_key);
+
+        /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
 };
 
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key, DnsPacket *bypass, uint64_t flags);
