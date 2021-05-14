@@ -84,6 +84,8 @@ elif [[ "$COMPILER" == gcc ]]; then
     # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
     add-apt-repository -y ppa:ubuntu-toolchain-r/test
     PACKAGES+=(gcc-$COMPILER_VERSION)
+    # The LLVM build is not happy with Rust, so use it only with GCC for now
+    PACKAGES+=(rustc)
 else
     fatal "Unknown compiler: $COMPILER"
 fi

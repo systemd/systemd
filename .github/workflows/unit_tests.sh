@@ -17,6 +17,7 @@ ADDITIONAL_DEPS=(
     perl
     python3-libevdev
     python3-pyparsing
+    rustc
     zstd
 )
 
@@ -41,8 +42,9 @@ for phase in "${PHASES[@]}"; do
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 export CC=clang
                 export CXX=clang++
+                MESON_ARGS=(-Dbuild-rust=false)
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
+            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;
@@ -55,7 +57,7 @@ for phase in "${PHASES[@]}"; do
                 # Build fuzzer regression tests only with clang (for now),
                 # see: https://github.com/systemd/systemd/pull/15886#issuecomment-632689604
                 # -Db_lundef=false: See https://github.com/mesonbuild/meson/issues/764
-                MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
+                MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true -Dbuild-rust=false)
             fi
             meson --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
