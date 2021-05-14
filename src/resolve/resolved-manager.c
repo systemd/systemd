@@ -1098,7 +1098,7 @@ uint32_t manager_find_mtu(Manager *m) {
         Link *l;
 
         /* If we don't know on which link a DNS packet would be delivered, let's find the largest MTU that
-         * works on all interfaces we know of that have an IP address asociated */
+         * works on all interfaces we know of that have an IP address associated */
 
         HASHMAP_FOREACH(l, m->links) {
                 /* Let's filter out links without IP addresses (e.g. AF_CAN links and suchlike) */
