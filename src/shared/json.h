@@ -146,22 +146,26 @@ struct json_variant_foreach_state {
         size_t idx;
 };
 
+#define _JSON_VARIANT_ARRAY_FOREACH(i, v, state)                        \
+        for (struct json_variant_foreach_state state = { (v), 0 };      \
+             json_variant_is_array(state.variant) &&                    \
+                     state.idx < json_variant_elements(state.variant) && \
+                     ({ i = json_variant_by_index(state.variant, state.idx); \
+                             true; });                                  \
+             state.idx++)
 #define JSON_VARIANT_ARRAY_FOREACH(i, v)                                \
-        for (struct json_variant_foreach_state _state = { (v), 0 };     \
-             json_variant_is_array(_state.variant) &&                   \
-                     _state.idx < json_variant_elements(_state.variant) && \
-                     ({ i = json_variant_by_index(_state.variant, _state.idx); \
-                             true; });                                  \
-             _state.idx++)
+        _JSON_VARIANT_ARRAY_FOREACH(i, v, UNIQ_T(state, UNIQ))
 
-#define JSON_VARIANT_OBJECT_FOREACH(k, e, v)                            \
-        for (struct json_variant_foreach_state _state = { (v), 0 };     \
-             json_variant_is_object(_state.variant) &&                  \
-                     _state.idx < json_variant_elements(_state.variant) && \
-                     ({ k = json_variant_string(json_variant_by_index(_state.variant, _state.idx)); \
-                             e = json_variant_by_index(_state.variant, _state.idx + 1); \
+#define _JSON_VARIANT_OBJECT_FOREACH(k, e, v, state)                    \
+        for (struct json_variant_foreach_state state = { (v), 0 };      \
+             json_variant_is_object(state.variant) &&                   \
+                     state.idx < json_variant_elements(state.variant) && \
+                     ({ k = json_variant_string(json_variant_by_index(state.variant, state.idx)); \
+                             e = json_variant_by_index(state.variant, state.idx + 1); \
                              true; });                                  \
-             _state.idx += 2)
+             state.idx += 2)
+#define JSON_VARIANT_OBJECT_FOREACH(k, e, v)                            \
+        _JSON_VARIANT_OBJECT_FOREACH(k, e, v, UNIQ_T(state, UNIQ))
 
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
 
