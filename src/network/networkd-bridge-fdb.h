@@ -13,8 +13,8 @@
 #include "in-addr-util.h"
 #include "networkd-util.h"
 
-typedef struct Network Network;
 typedef struct Link Link;
+typedef struct Network Network;
 
 typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_USE = NTF_USE,
@@ -25,7 +25,7 @@ typedef enum NeighborCacheEntryFlags {
         _NEIGHBOR_CACHE_ENTRY_FLAGS_INVALID = -EINVAL,
 } NeighborCacheEntryFlags;
 
-typedef struct FdbEntry {
+typedef struct BridgeFDB {
         Network *network;
         NetworkConfigSection *section;
 
@@ -36,12 +36,12 @@ typedef struct FdbEntry {
 
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
-        NeighborCacheEntryFlags fdb_ntf_flags;
-} FdbEntry;
+        NeighborCacheEntryFlags ntf_flags;
+} BridgeFDB;
 
-FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
+BridgeFDB *bridge_fdb_free(BridgeFDB *fdb);
 
-void network_drop_invalid_fdb_entries(Network *network);
+void network_drop_invalid_bridge_fdb_entries(Network *network);
 
 int link_set_bridge_fdb(Link *link);
 
