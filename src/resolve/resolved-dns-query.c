@@ -12,8 +12,10 @@
 
 #define QUERIES_MAX 2048
 #define AUXILIARY_QUERIES_MAX 64
+#define CNAME_REDIRECTS_MAX 16
 
 assert_cc(AUXILIARY_QUERIES_MAX < UINT8_MAX);
+assert_cc(CNAME_REDIRECTS_MAX < UINT8_MAX);
 
 static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScope *s) {
         DnsQueryCandidate *c;
@@ -1006,9 +1008,9 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
 
         assert(q);
 
-        q->n_cname_redirects++;
-        if (q->n_cname_redirects > CNAME_REDIRECT_MAX)
+        if (q->n_cname_redirects >= CNAME_REDIRECTS_MAX)
                 return -ELOOP;
+        q->n_cname_redirects++;
 
         r = dns_question_cname_redirect(q->question_idna, cname, &nq_idna);
         if (r < 0)
