@@ -91,21 +91,21 @@ struct DnsTxtItem {
 
 struct DnsResourceRecord {
         unsigned n_ref;
+        uint32_t ttl;
+        usec_t expiry; /* RRSIG signature expiry */
+
         DnsResourceKey *key;
 
         char *to_string;
-
-        uint32_t ttl;
-        usec_t expiry; /* RRSIG signature expiry */
 
         /* How many labels to strip to determine "signer" of the RRSIG (aka, the zone). -1 if not signed. */
         uint8_t n_skip_labels_signer;
         /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's immediate parent. -1 if not signed. */
         uint8_t n_skip_labels_source;
 
-        bool unparsable:1;
+        bool unparsable;
+        bool wire_format_canonical;
 
-        bool wire_format_canonical:1;
         void *wire_format;
         size_t wire_format_size;
         size_t wire_format_rdata_offset;
@@ -117,10 +117,10 @@ struct DnsResourceRecord {
                 } generic, opt;
 
                 struct {
+                        char *name;
                         uint16_t priority;
                         uint16_t weight;
                         uint16_t port;
-                        char *name;
                 } srv;
 
                 struct {
@@ -155,8 +155,8 @@ struct DnsResourceRecord {
                 } soa;
 
                 struct {
-                        uint16_t priority;
                         char *exchange;
+                        uint16_t priority;
                 } mx;
 
                 /* https://tools.ietf.org/html/rfc1876 */
@@ -172,23 +172,29 @@ struct DnsResourceRecord {
 
                 /* https://tools.ietf.org/html/rfc4255#section-3.1 */
                 struct {
-                        uint8_t algorithm;
-                        uint8_t fptype;
                         void *fingerprint;
                         size_t fingerprint_size;
+
+                        uint8_t algorithm;
+                        uint8_t fptype;
                 } sshfp;
 
                 /* http://tools.ietf.org/html/rfc4034#section-2.1 */
                 struct {
+                        void* key;
+                        size_t key_size;
+
                         uint16_t flags;
                         uint8_t protocol;
                         uint8_t algorithm;
-                        void* key;
-                        size_t key_size;
                 } dnskey;
 
                 /* http://tools.ietf.org/html/rfc4034#section-3.1 */
                 struct {
+                        char *signer;
+                        void *signature;
+                        size_t signature_size;
+
                         uint16_t type_covered;
                         uint8_t algorithm;
                         uint8_t labels;
@@ -196,9 +202,6 @@ struct DnsResourceRecord {
                         uint32_t expiration;
                         uint32_t inception;
                         uint16_t key_tag;
-                        char *signer;
-                        void *signature;
-                        size_t signature_size;
                 } rrsig;
 
                 /* https://tools.ietf.org/html/rfc4034#section-4.1 */
@@ -209,41 +212,47 @@ struct DnsResourceRecord {
 
                 /* https://tools.ietf.org/html/rfc4034#section-5.1 */
                 struct {
+                        void *digest;
+                        size_t digest_size;
+
                         uint16_t key_tag;
                         uint8_t algorithm;
                         uint8_t digest_type;
-                        void *digest;
-                        size_t digest_size;
                 } ds;
 
                 struct {
-                        uint8_t algorithm;
-                        uint8_t flags;
-                        uint16_t iterations;
+                        Bitmap *types;
                         void *salt;
                         size_t salt_size;
                         void *next_hashed_name;
                         size_t next_hashed_name_size;
-                        Bitmap *types;
+
+                        uint8_t algorithm;
+                        uint8_t flags;
+                        uint16_t iterations;
                 } nsec3;
 
                 /* https://tools.ietf.org/html/draft-ietf-dane-protocol-23 */
                 struct {
+                        void *data;
+                        size_t data_size;
+
                         uint8_t cert_usage;
                         uint8_t selector;
                         uint8_t matching_type;
-                        void *data;
-                        size_t data_size;
                 } tlsa;
 
                 /* https://tools.ietf.org/html/rfc6844 */
                 struct {
-                        uint8_t flags;
                         char *tag;
                         void *value;
                         size_t value_size;
+
+                        uint8_t flags;
                 } caa;
         };
+
+        /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
 };
 
 /* We use uint8_t for label counts above, and UINT8_MAX/-1 has special meaning. */
