@@ -333,7 +333,11 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                         return log_debug_errno(r, "Error getting memory.low from %s: %m", path);
 
                 r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.swap.current", &ctx->swap_usage);
-                if (r < 0)
+                if (r == -ENODATA)
+                        /* The kernel can be compiled without support for memory.swap.* files,
+                         * or it can be disabled with boot param 'swapaccount=0' */
+                        log_once(LOG_WARNING, "No kernel support for memory.swap.current from %s (try boot param swapaccount=1), ignoring.", path);
+                else if (r < 0)
                         return log_debug_errno(r, "Error getting memory.swap.current from %s: %m", path);
 
                 r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "memory.stat", STRV_MAKE("pgscan"), &val);
