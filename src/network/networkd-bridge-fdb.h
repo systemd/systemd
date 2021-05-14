@@ -37,6 +37,8 @@ typedef struct BridgeFDB {
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
         NeighborCacheEntryFlags ntf_flags;
+        char *outgoing_ifname;
+        int outgoing_ifindex;
 } BridgeFDB;
 
 BridgeFDB *bridge_fdb_free(BridgeFDB *fdb);
@@ -52,3 +54,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_destination);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vxlan_vni);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_ntf_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdb_interface);

@@ -306,6 +306,7 @@ BridgeFDB.VLANId,                            config_parse_fdb_vlan_id,          
 BridgeFDB.Destination,                       config_parse_fdb_destination,                             0,                             0
 BridgeFDB.VNI,                               config_parse_fdb_vxlan_vni,                               0,                             0
 BridgeFDB.AssociatedWith,                    config_parse_fdb_ntf_flags,                               0,                             0
+BridgeFDB.OutgoingInterface,                 config_parse_fdb_interface,                               0,                             0
 BridgeMDB.MulticastGroupAddress,             config_parse_mdb_group_address,                           0,                             0
 BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,                                 0,                             0
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0

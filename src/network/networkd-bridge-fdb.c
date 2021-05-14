@@ -33,6 +33,8 @@ BridgeFDB *bridge_fdb_free(BridgeFDB *fdb) {
         }
 
         network_config_section_free(fdb->section);
+
+        free(fdb->outgoing_ifname);
         return mfree(fdb);
 }
 
@@ -154,6 +156,12 @@ static int bridge_fdb_configure(const BridgeFDB *fdb, Link *link, link_netlink_m
                         return log_link_error_errno(link, r, "Could not append NDA_VLAN attribute: %m");
         }
 
+        if (fdb->outgoing_ifindex > 0) {
+                r = sd_netlink_message_append_u32(req, NDA_IFINDEX, fdb->outgoing_ifindex);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append NDA_IFINDEX attribute: %m");
+        }
+
         if (in_addr_is_set(fdb->family, &fdb->destination_addr)) {
                 r = netlink_message_append_in_addr_union(req, NDA_DST, fdb->family, &fdb->destination_addr);
                 if (r < 0)
@@ -204,13 +212,38 @@ int link_request_static_bridge_fdb(Link *link) {
         return 0;
 }
 
+static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
+        Link *out = NULL;
+
+        assert(fdb);
+        assert(link);
+        assert(link->manager);
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (fdb->outgoing_ifname) {
+                if (link_get_by_name(link->manager, fdb->outgoing_ifname, &out) < 0)
+                        return false;
+
+                fdb->outgoing_ifindex = out->ifindex;
+        } else if (fdb->outgoing_ifindex > 0) {
+                if (link_get(link->manager, fdb->outgoing_ifindex, &out) < 0)
+                        return false;
+        }
+        if (out && !link_is_ready_to_configure(out, false))
+                return false;
+
+        return true;
+}
+
 int request_process_bridge_fdb(Request *req) {
         assert(req);
         assert(req->link);
         assert(req->fdb);
         assert(req->type == REQUEST_TYPE_BRIDGE_FDB);
 
-        if (!link_is_ready_to_configure(req->link, false))
+        if (!bridge_fdb_is_ready_to_configure(req->fdb, req->link))
                 return 0;
 
         return bridge_fdb_configure(req->fdb, req->link, req->netlink_handler);
@@ -431,6 +464,62 @@ int config_parse_fdb_ntf_flags(
         }
 
         fdb->ntf_flags = f;
+
+        TAKE_PTR(fdb);
+        return 0;
+}
+
+int config_parse_fdb_interface(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = bridge_fdb_new_static(network, filename, section_line, &fdb);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                fdb->outgoing_ifname = mfree(fdb->outgoing_ifname);
+                fdb->outgoing_ifindex = 0;
+                TAKE_PTR(fdb);
+                return 0;
+        }
+
+        r = parse_ifindex(rvalue);
+        if (r > 0) {
+                fdb->outgoing_ifname = mfree(fdb->outgoing_ifname);
+                fdb->outgoing_ifindex = r;
+                TAKE_PTR(fdb);
+                return 0;
+        }
+
+        if (!ifname_valid_full(rvalue, IFNAME_VALID_ALTERNATIVE)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid interface name in %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        r = free_and_strdup(&fdb->outgoing_ifname, rvalue);
+        if (r < 0)
+                return log_oom();
+        fdb->outgoing_ifindex = 0;
 
         TAKE_PTR(fdb);
         return 0;

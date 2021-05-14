@@ -2857,6 +2857,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>OutgoingInterface=</varname></term>
+          <listitem>
+            <para>Specifies the name or index of the outgoing interface for the VXLAN device driver to
+            reach the remote VXLAN tunnel endpoint. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
   <refsect1>
