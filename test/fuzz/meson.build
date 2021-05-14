@@ -22,14 +22,11 @@ sanitize_address_undefined = custom_target(
 sanitizers = [['address,undefined', sanitize_address_undefined]]
 
 if git.found()
-        out = run_command(
-                'env', '-u', 'GIT_WORK_TREE',
-                git,
-                '--git-dir=@0@/.git'.format(project_source_root),
-                'ls-files', ':/test/fuzz/*/*')
+        out = run_command(env, '-u', 'GIT_WORK_TREE',
+                          git, '--git-dir=@0@/.git'.format(project_source_root),
+                          'ls-files', ':/test/fuzz/*/*')
 else
-        out = run_command(
-                'sh', '-c', 'ls @0@/test/fuzz/*/*'.format(project_source_root))
+        out = run_command(sh, '-c', 'ls @0@/test/fuzz/*/*'.format(project_source_root))
 endif
 
 fuzz_regression_tests = []

@@ -47,12 +47,10 @@ if conf.get('ENABLE_HWDB') == 1
                      install_dir : udevhwdbdir)
 
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(join_paths(sysconfdir, 'udev/hwdb.d')))
+                meson.add_install_script(sh, '-c', mkdir_p.format(join_paths(sysconfdir, 'udev/hwdb.d')))
 
-                meson.add_install_script('sh', '-c',
-                                         'test -n "$DESTDIR" || @0@/systemd-hwdb update'
-                                         .format(rootbindir))
+                meson.add_install_script(sh, '-c',
+                                         'test -n "$DESTDIR" || @0@/systemd-hwdb update'.format(rootbindir))
         endif
 
         if want_tests != 'false'

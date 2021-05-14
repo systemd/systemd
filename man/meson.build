@@ -70,7 +70,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         link = custom_target(
                                 htmlalias,
                                 output : htmlalias,
-                                command : ['ln', '-fs', html, '@OUTPUT@'])
+                                command : [ln, '-fs', html, '@OUTPUT@'])
                         if want_html
                                 dst = join_paths(docdir, 'html', htmlalias)
                                 cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
@@ -148,7 +148,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         htmlalias,
                         input : p2,
                         output : htmlalias,
-                        command : ['ln', '-fs', html, '@OUTPUT@'])
+                        command : [ln, '-fs', html, '@OUTPUT@'])
                 if want_html
                         dst = join_paths(docdir, 'html', htmlalias)
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
@@ -176,15 +176,14 @@ man = custom_target(
         'man',
         output : 'man',
         depends : man_pages,
-        command : ['echo'])
+        command : [echo])
 
 html = custom_target(
         'html',
         output : 'html',
         depends : html_pages,
-        command : ['echo'])
+        command : [echo])
 
-rsync = find_program('rsync', required : false)
 if rsync.found()
         run_target(
                 'doc-sync',

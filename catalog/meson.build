@@ -29,6 +29,5 @@ foreach file : in_files
                 install_dir : catalogdir)
 endforeach
 
-meson.add_install_script('sh', '-c',
-                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'
-                         .format(rootbindir))
+meson.add_install_script(sh, '-c',
+                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'.format(rootbindir))

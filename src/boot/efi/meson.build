@@ -72,14 +72,14 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         if efi_libdir == ''
                 # New location first introduced with gnu-efi 3.0.11
                 efi_libdir = join_paths('/usr/lib/gnuefi', EFI_MACHINE_TYPE_NAME)
-                cmd = run_command('test', '-e', efi_libdir)
+                cmd = run_command(test, '-e', efi_libdir)
 
                 if cmd.returncode() != 0
                         # Fall back to the old approach
                         cmd = run_command(efi_cc + ['-print-multi-os-directory'])
                         if cmd.returncode() == 0
                                 path = join_paths('/usr/lib', cmd.stdout().strip())
-                                cmd = run_command('realpath', '-e', path)
+                                cmd = run_command(env, 'realpath', '-e', path)
                                 if cmd.returncode() == 0
                                         efi_libdir = cmd.stdout().strip()
                                 endif
@@ -116,7 +116,8 @@ if have_gnu_efi
                 foreach sbatvar : sbatvars
                         value = get_option(sbatvar[0])
                         if value == '' or value == 'auto'
-                                value = run_command('sh', '-c', 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $' + sbatvar[1]).stdout().strip()
+                                cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
+                                value = run_command(sh, '-c', cmd).stdout().strip()
                         endif
                         if value == ''
                                 error('Required @0@ option not set and autodetection failed'.format(sbatvar[0]))
@@ -156,7 +157,7 @@ if have_gnu_efi
         efi_lds = ''
         foreach location : efi_location_map
                 if efi_lds == ''
-                        cmd = run_command('test', '-f', location[0])
+                        cmd = run_command(test, '-f', location[0])
                         if cmd.returncode() == 0
                                 efi_lds = location[0]
                                 efi_crt0 = location[1]

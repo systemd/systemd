@@ -56,22 +56,17 @@ if install_sysconfdir_samples
 endif
 
 if get_option('create-log-dirs')
-        meson.add_install_script(
-                'sh', '-c',
-                mkdir_p.format('/var/log/journal'))
-        meson.add_install_script(
-                'sh', '-c',
-                '''chown 0:0 $DESTDIR/var/log/journal &&
-                   chmod 755 $DESTDIR/var/log/journal || :''')
+        meson.add_install_script(sh, '-c', mkdir_p.format('/var/log/journal'))
+        meson.add_install_script(sh, '-c',
+                                 '''chown 0:0 $DESTDIR/var/log/journal &&
+                                    chmod 755 $DESTDIR/var/log/journal || :''')
         if get_option('adm-group')
-                meson.add_install_script(
-                        'sh', '-c',
-                        'setfacl -nm g:adm:rx,d:g:adm:rx $DESTDIR/var/log/journal || :')
+                meson.add_install_script(sh, '-c',
+                                         'setfacl -nm g:adm:rx,d:g:adm:rx $DESTDIR/var/log/journal || :')
         endif
         if get_option('wheel-group')
-                meson.add_install_script(
-                        'sh', '-c',
-                        'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
+                meson.add_install_script(sh, '-c',
+                                         'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
         endif
 endif
 
