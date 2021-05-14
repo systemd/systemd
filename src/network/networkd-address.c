@@ -489,7 +489,7 @@ int address_get(Link *link, const Address *in, Address **ret) {
         return -ENOENT;
 }
 
-int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
+int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret) {
         _cleanup_(address_freep) Address *a = NULL;
         int r;
 
@@ -505,10 +505,10 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
         a->family = AF_INET6;
         a->in_addr.in6 = *address;
 
-        return address_get(link, a, NULL) >= 0;
+        return address_get(link, a, ret);
 }
 
-static int link_get_ipv4_address(Set *addresses, const struct in_addr *address, Address **ret) {
+static int addresses_get_ipv4_address(Set *addresses, const struct in_addr *address, Address **ret) {
         Address *a;
 
         assert(address);
@@ -529,7 +529,35 @@ static int link_get_ipv4_address(Set *addresses, const struct in_addr *address, 
         return -ENOENT;
 }
 
+int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret) {
+        int r;
+
+        assert(link);
+        assert(address);
+
+        if (prefixlen != 0) {
+                _cleanup_(address_freep) Address *a = NULL;
+
+                /* If prefixlen is set, then we can use address_get(). */
+
+                r = address_new(&a);
+                if (r < 0)
+                        return r;
+
+                a->family = AF_INET;
+                a->in_addr.in = *address;
+                a->prefixlen = prefixlen;
+
+                return address_get(link, a, ret);
+        }
+
+        if (addresses_get_ipv4_address(link->addresses, address, ret) >= 0)
+                return 0;
+        return addresses_get_ipv4_address(link->addresses_foreign, address, ret);
+}
+
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+        Address *a;
         Link *link;
         int r;
 
@@ -537,18 +565,12 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        if (family == AF_INET)
-                HASHMAP_FOREACH(link, manager->links) {
-                        Address *a;
-
-                        if (link_get_ipv4_address(link->addresses, &address->in, &a) >= 0)
+        if (family == AF_INET) {
+                HASHMAP_FOREACH(link, manager->links)
+                        if (link_get_ipv4_address(link, &address->in, 0, &a) >= 0)
                                 return !check_ready || address_is_ready(a);
-                        if (link_get_ipv4_address(link->addresses_foreign, &address->in, &a) >= 0)
-                                return !check_ready || address_is_ready(a);
-                }
-        else {
+        } else {
                 _cleanup_(address_freep) Address *tmp = NULL;
-                Address *a;
 
                 r = address_new(&tmp);
                 if (r < 0)
