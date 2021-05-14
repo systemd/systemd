@@ -564,17 +564,22 @@ version_h = vcs_tag(
 
 versiondep = declare_dependency(sources: version_h)
 
+sh = find_program('sh')
+echo = find_program('echo')
+test = find_program('test')
 sed = find_program('sed')
 awk = find_program('awk')
 m4 = find_program('m4')
 stat = find_program('stat')
+ln = find_program('ln')
 git = find_program('git', required : false)
 env = find_program('env')
 perl = find_program('perl', required : false)
-
+rsync = find_program('rsync', required : false)
 meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
-mkdir_p = 'mkdir -p $DESTDIR/@0@'
 test_efi_create_disk_sh = find_program('test/test-efi-create-disk.sh')
+
+mkdir_p = 'mkdir -p $DESTDIR/@0@'
 splash_bmp = files('test/splash.bmp')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
@@ -608,7 +613,7 @@ endforeach
 
 conf.set_quoted('TELINIT', get_option('telinit-path'))
 
-if run_command('ln', '--relative', '--help').returncode() != 0
+if run_command(ln, '--relative', '--help').returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
 endif
 
@@ -622,7 +627,7 @@ const char * in_word_set(const char *, @0@);
 @1@
 '''
 gperf_snippet_format = 'echo foo,bar | @0@ -L ANSI-C'
-gperf_snippet = run_command('sh', '-c', gperf_snippet_format.format(gperf.path()))
+gperf_snippet = run_command(sh, '-c', gperf_snippet_format.format(gperf.path()))
 gperf_test = gperf_test_format.format('size_t', gperf_snippet.stdout())
 if cc.compiles(gperf_test)
         gperf_len_type = 'size_t'
@@ -684,11 +689,11 @@ conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
-        time_epoch = run_command('sh', ['-c', 'echo "$SOURCE_DATE_EPOCH"']).stdout().strip()
+        time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"').stdout().strip()
         if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
                 # If we're in a git repository, use the creation time of the latest git tag.
-                latest_tag = run_command('git', 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command('git', 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
+                latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags').stdout().strip()
+                time_epoch = run_command(git, 'log', '--no-show-signature', '-1', '--format=%at', latest_tag).stdout()
         endif
         if time_epoch == ''
                 NEWS = files('NEWS')
@@ -3333,7 +3338,7 @@ executable(
 custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
-        command : ['sh', '-c', '{ ' +
+        command : [sh, '-c', '{ ' +
                    'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
                    'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(project_build_root, 'catalog')) +
                    '} >@OUTPUT@'],
@@ -3568,7 +3573,7 @@ foreach tuple : sanitizers
                                                 name,
                                                 output : name,
                                                 depends : build,
-                                                command : [env, 'ln', '-fs',
+                                                command : [ln, '-fs',
                                                            join_paths(build.full_path(), b),
                                                            '@OUTPUT@'],
                                                 build_by_default : true)
@@ -3620,16 +3625,16 @@ endif
 if git.found()
         git_head = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(project_source_root),
-                 'rev-parse', 'HEAD']).stdout().strip()
+                '--git-dir=@0@/.git'.format(project_source_root),
+                'rev-parse', 'HEAD').stdout().strip()
         git_head_short = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(project_source_root),
-                 'rev-parse', '--short=7', 'HEAD']).stdout().strip()
+                '--git-dir=@0@/.git'.format(project_source_root),
+                'rev-parse', '--short=7', 'HEAD').stdout().strip()
 
         run_target(
                 'git-snapshot',
-                command : ['git', 'archive',
+                command : [git, 'archive',
                            '-o', '@0@/systemd-@1@.tar.gz'.format(project_source_root,
                                                                  git_head_short),
                            '--prefix', 'systemd-@0@/'.format(git_head),

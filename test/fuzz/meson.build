@@ -27,8 +27,7 @@ if git.found()
                 '--git-dir=@0@/.git'.format(project_source_root),
                  'ls-files', ':/test/fuzz/*/*')
 else
-        out = run_command(
-                'sh', '-c', 'ls @0@/test/fuzz/*/*'.format(project_source_root))
+        out = run_command(sh, '-c', 'ls @0@/test/fuzz/*/*'.format(project_source_root))
 endif
 
 fuzz_regression_tests = []
