@@ -2,10 +2,11 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "networkd-link.h"
-#include "networkd-util.h"
 
 typedef struct Link Link;
+typedef struct Network Network;
+
+void network_adjust_dhcp_server(Network *network);
 
 int dhcp4_server_configure(Link *link);
 
