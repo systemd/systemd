@@ -33,14 +33,6 @@ struct DnsQueryCandidate {
 struct DnsQuery {
         Manager *manager;
 
-        /* When resolving a service, we first create a TXT+SRV query, and then for the hostnames we discover
-         * auxiliary A+AAAA queries. This pointer always points from the auxiliary queries back to the
-         * TXT+SRV query. */
-        DnsQuery *auxiliary_for;
-        LIST_HEAD(DnsQuery, auxiliary_queries);
-        uint8_t n_auxiliary_queries;
-        int auxiliary_result;
-
         /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
          * that even on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names
          * (in contrast to their domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference
@@ -63,8 +55,12 @@ struct DnsQuery {
         uint64_t flags;
         int ifindex;
 
-        DnsTransactionState state;
-        uint8_t n_cname_redirects;
+        /* When resolving a service, we first create a TXT+SRV query, and then for the hostnames we discover
+         * auxiliary A+AAAA queries. This pointer always points from the auxiliary queries back to the
+         * TXT+SRV query. */
+        int auxiliary_result;
+        DnsQuery *auxiliary_for;
+        LIST_HEAD(DnsQuery, auxiliary_queries);
 
         LIST_HEAD(DnsQueryCandidate, candidates);
         sd_event_source *timeout_event_source;
@@ -76,18 +72,26 @@ struct DnsQuery {
         uint64_t answer_query_flags;
         DnsProtocol answer_protocol;
         int answer_family;
-        DnsSearchDomain *answer_search_domain;
-        int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
-        bool previous_redirect_unauthenticated;
-        bool previous_redirect_non_confidential;
-        bool previous_redirect_non_synthetic;
         DnsPacket *answer_full_packet;
+        DnsSearchDomain *answer_search_domain;
+
+        DnsTransactionState state;
+        int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
+
+        unsigned block_ready;
+
+        uint8_t n_auxiliary_queries;
+        uint8_t n_cname_redirects;
+
+        bool previous_redirect_unauthenticated:1;
+        bool previous_redirect_non_confidential:1;
+        bool previous_redirect_non_synthetic:1;
+        bool request_address_valid:1;
 
         /* Bus + Varlink client information */
         sd_bus_message *bus_request;
         Varlink *varlink_request;
         int request_family;
-        bool request_address_valid;
         union in_addr_union request_address;
         unsigned block_all_complete;
         char *request_address_string;
@@ -102,12 +106,13 @@ struct DnsQuery {
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
-        unsigned block_ready;
 
         sd_bus_track *bus_track;
 
         LIST_FIELDS(DnsQuery, queries);
         LIST_FIELDS(DnsQuery, auxiliary_queries);
+
+        /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
 };
 
 enum {
