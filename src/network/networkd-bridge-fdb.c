@@ -13,6 +13,8 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-queue.h"
+#include "networkd-util.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "vlan-util.h"
@@ -89,33 +91,43 @@ static int bridge_fdb_new_static(
         return 0;
 }
 
-static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int bridge_fdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
+        assert(link->static_bridge_fdb_messages > 0);
+
+        link->static_bridge_fdb_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+                return 0;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not add FDB entry");
+                log_link_message_warning_errno(link, m, r, "Could not add bridge FDB entry");
                 link_enter_failed(link);
-                return 1;
+                return 0;
         }
 
-        return 1;
+        if (link->static_bridge_fdb_messages == 0) {
+                log_link_debug(link, "Bridge FDB entries set");
+                link->static_bridge_fdb_configured = true;
+                link_check_ready(link);
+        }
+
+        return 0;
 }
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
-static int bridge_fdb_configure(Link *link, BridgeFDB *fdb) {
+static int bridge_fdb_configure(const BridgeFDB *fdb, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
         assert(fdb);
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(callback);
 
         /* create new RTM message */
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_BRIDGE);
@@ -155,7 +167,7 @@ static int bridge_fdb_configure(Link *link, BridgeFDB *fdb) {
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_fdb_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -165,20 +177,43 @@ static int bridge_fdb_configure(Link *link, BridgeFDB *fdb) {
         return 1;
 }
 
-int link_set_bridge_fdb(Link *link) {
+int link_request_static_bridge_fdb(Link *link) {
         BridgeFDB *fdb;
         int r;
 
         assert(link);
         assert(link->network);
 
+        link->static_bridge_fdb_configured = false;
+
         HASHMAP_FOREACH(fdb, link->network->bridge_fdb_entries_by_section) {
-                r = bridge_fdb_configure(link, fdb);
+                r = link_queue_request(link, REQUEST_TYPE_BRIDGE_FDB, fdb, false,
+                                       &link->static_bridge_fdb_messages, bridge_fdb_configure_handler, NULL);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
+                        return log_link_error_errno(link, r, "Failed to request static bridge FDB entry: %m");
+        }
+
+        if (link->static_bridge_fdb_messages == 0) {
+                link->static_bridge_fdb_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Setting bridge FDB entries");
+                link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
         return 0;
+}
+
+int request_process_bridge_fdb(Request *req) {
+        assert(req);
+        assert(req->link);
+        assert(req->fdb);
+        assert(req->type == REQUEST_TYPE_BRIDGE_FDB);
+
+        if (!link_is_ready_to_configure(req->link, false))
+                return 0;
+
+        return bridge_fdb_configure(req->fdb, req->link, req->netlink_handler);
 }
 
 void network_drop_invalid_bridge_fdb_entries(Network *network) {
