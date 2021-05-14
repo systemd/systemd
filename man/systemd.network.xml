@@ -1622,10 +1622,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>SendHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the machine's hostname will be sent to the DHCP server.
-            Note that the machine's hostname must consist only of 7-bit ASCII lower-case characters and
-            no spaces or dots, and be formatted as a valid DNS domain name. Otherwise, the hostname is not
-            sent even if this is set to true.</para>
+            <para>When true (the default), the machine's hostname (or the value specified with
+            <varname>Hostname=</varname> below) will be sent to the DHCP server. Note that the hostname must
+            consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be formatted as a
+            valid DNS domain name. Otherwise, the hostname is not sent even if this option is true.</para>
           </listitem>
         </varlistentry>
 
@@ -1950,7 +1950,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>ListenPort=</varname></term>
           <listitem>
-            <para>Allow setting custom port for the DHCP client to listen on.</para>
+            <para>Set the port from which the DHCP client packets originate.</para>
           </listitem>
         </varlistentry>
 
