@@ -466,7 +466,7 @@ int address_get(Link *link, const Address *in, Address **ret) {
         return -ENOENT;
 }
 
-int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
+int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret) {
         _cleanup_(address_freep) Address *a = NULL;
         int r;
 
@@ -482,10 +482,10 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
         a->family = AF_INET6;
         a->in_addr.in6 = *address;
 
-        return address_get(link, a, NULL) >= 0;
+        return address_get(link, a, ret);
 }
 
-static int link_get_ipv4_address(Set *addresses, const struct in_addr *address, Address **ret) {
+static int set_get_ipv4_address(Set *addresses, const struct in_addr *address, Address **ret) {
         Address *a;
 
         assert(address);
@@ -506,7 +506,17 @@ static int link_get_ipv4_address(Set *addresses, const struct in_addr *address, 
         return -ENOENT;
 }
 
+int link_get_ipv4_address(Link *link, const struct in_addr *address, Address **ret) {
+        assert(link);
+        assert(address);
+
+        if (set_get_ipv4_address(link->addresses, address, ret) >= 0)
+                return 0;
+        return set_get_ipv4_address(link->addresses_foreign, address, ret);
+}
+
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+        Address *a;
         Link *link;
         int r;
 
@@ -514,18 +524,12 @@ int manager_has_address(Manager *manager, int family, const union in_addr_union 
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        if (family == AF_INET)
-                HASHMAP_FOREACH(link, manager->links) {
-                        Address *a;
-
-                        if (link_get_ipv4_address(link->addresses, &address->in, &a) >= 0)
+        if (family == AF_INET) {
+                HASHMAP_FOREACH(link, manager->links)
+                        if (link_get_ipv4_address(link, &address->in, &a) >= 0)
                                 return !check_ready || address_is_ready(a);
-                        if (link_get_ipv4_address(link->addresses_foreign, &address->in, &a) >= 0)
-                                return !check_ready || address_is_ready(a);
-                }
-        else {
+        } else {
                 _cleanup_(address_freep) Address *tmp = NULL;
-                Address *a;
 
                 r = address_new(&tmp);
                 if (r < 0)
@@ -855,7 +859,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
                 if (original->prefixlen > 30)
                         broadcast.s_addr = 0;
                 else
-                        broadcast.s_addr = in_addr.in.s_addr | htobe32(0xFFFFFFFFUL >> original->prefixlen);
+                        broadcast.s_addr = in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> original->prefixlen);
         } else if (original->family == AF_INET6)
                 in_addr.in6.s6_addr[15] |= 1;
 
@@ -1110,6 +1114,30 @@ int link_request_static_addresses(Link *link) {
 
                 address->family = AF_INET6;
                 address->route_metric = p->route_metric;
+
+                r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
+                                         static_address_handler, &req);
+                if (r < 0)
+                        return r;
+
+                req->after_configure = static_address_after_configure;
+        }
+
+        if (link->network->dhcp_server_address_configure) {
+                _cleanup_(address_freep) Address *address = NULL;
+                Request *req;
+
+                r = address_new(&address);
+                if (r < 0)
+                        return log_oom();
+
+                assert(link->network->dhcp_server_address.family == AF_INET);
+
+                address->family = AF_INET;
+                address->in_addr.in = link->network->dhcp_server_address.address.in;
+                address->prefixlen = link->network->dhcp_server_address.prefixlen;
+                if (address_may_have_broadcast(address))
+                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> address->prefixlen);
 
                 r = link_request_address(link, TAKE_PTR(address), true, &link->static_address_messages,
                                          static_address_handler, &req);
@@ -1959,7 +1987,7 @@ static int address_section_verify(Address *address) {
 
         if (address_may_have_broadcast(address)) {
                 if (address->broadcast.s_addr == 0 && address->set_broadcast != 0)
-                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(0xfffffffflu >> address->prefixlen);
+                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> address->prefixlen);
         } else if (address->broadcast.s_addr != 0) {
                 log_warning("%s: broadcast address is set for IPv6 address or IPv4 address with prefixlength larger than 30. "
                             "Ignoring Broadcast= setting in the [Address] section from line %u.",
