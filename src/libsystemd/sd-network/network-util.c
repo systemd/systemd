@@ -119,24 +119,31 @@ int parse_operational_state_range(const char *str, LinkOperationalStateRange *ou
         return 0;
 }
 
-char *link_get_type_string(sd_device *device, unsigned short iftype) {
+int link_get_type_string(sd_device *device, unsigned short iftype, char **ret) {
         const char *t;
         char *p;
 
         if (device &&
             sd_device_get_devtype(device, &t) >= 0 &&
-            !isempty(t))
-                return strdup(t);
+            !isempty(t)) {
+                p = strdup(t);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret = p;
+                return 0;
+        }
 
         t = arphrd_to_name(iftype);
         if (!t)
-                return NULL;
+                return -ENOENT;
 
         p = strdup(t);
         if (!p)
-                return NULL;
+                return -ENOMEM;
 
-        return ascii_strlower(p);
+        *ret = ascii_strlower(p);
+        return 0;
 }
 
 const char *net_get_name_persistent(sd_device *device) {

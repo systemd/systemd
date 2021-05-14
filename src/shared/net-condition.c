@@ -134,7 +134,7 @@ static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
 
-bool net_match_config(
+int net_match_config(
                 const NetMatch *match,
                 sd_device *device,
                 const struct ether_addr *mac,
@@ -149,10 +149,13 @@ bool net_match_config(
 
         _cleanup_free_ char *iftype_str = NULL;
         const char *path = NULL;
+        int r;
 
         assert(match);
 
-        iftype_str = link_get_type_string(device, iftype);
+        r = link_get_type_string(device, iftype, &iftype_str);
+        if (r == -ENOMEM)
+                return r;
 
         if (device) {
                 const char *mac_str;
