@@ -261,6 +261,7 @@ IPv6AcceptRA.PrefixAllowList,                config_parse_ndisc_address_filter, 
 IPv6AcceptRA.PrefixDenyList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.RouteAllowList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_route_prefix)
+DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
 DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
