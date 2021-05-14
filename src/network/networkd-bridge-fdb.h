@@ -11,10 +11,10 @@
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
-#include "networkd-util.h"
 
 typedef struct Link Link;
 typedef struct Network Network;
+typedef struct Request Request;
 
 typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_USE = NTF_USE,
@@ -43,7 +43,9 @@ BridgeFDB *bridge_fdb_free(BridgeFDB *fdb);
 
 void network_drop_invalid_bridge_fdb_entries(Network *network);
 
-int link_set_bridge_fdb(Link *link);
+int link_request_static_bridge_fdb(Link *link);
+
+int request_process_bridge_fdb(Request *req);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);
