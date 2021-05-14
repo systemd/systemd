@@ -58,6 +58,7 @@ MACAddress=
 Destination=
 VNI=
 AssociatedWith=
+OutgoingInterface=
 [BridgeMDB]
 MulticastGroupAddress=
 VLANId=
