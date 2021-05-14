@@ -401,6 +401,32 @@ static int link_update_flags(Link *link, sd_netlink_message *m, bool force_updat
         return 0;
 }
 
+static int link_update_alternative_names(Link *link, sd_netlink_message *message) {
+        _cleanup_strv_free_ char **altnames = NULL;
+        char **n;
+        int r;
+
+        assert(link);
+        assert(message);
+
+        r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        STRV_FOREACH(n, link->alternative_names)
+                hashmap_remove(link->manager->links_by_name, *n);
+
+        strv_free_and_replace(link->alternative_names, altnames);
+
+        STRV_FOREACH(n, link->alternative_names) {
+                r = hashmap_ensure_put(&link->manager->links_by_name, &string_hash_ops, *n, link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_(link_unrefp) Link *link = NULL;
         const char *ifname, *kind = NULL;
@@ -490,10 +516,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
 
-        r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &link->alternative_names);
-        if (r < 0 && r != -ENODATA)
-                return r;
-
         if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
                 return -ENOMEM;
 
@@ -504,6 +526,14 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 return -ENOMEM;
 
         r = hashmap_ensure_put(&manager->links, NULL, INT_TO_PTR(link->ifindex), link);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_put(&manager->links_by_name, &string_hash_ops, link->ifname, link);
+        if (r < 0)
+                return r;
+
+        r = link_update_alternative_names(link, message);
         if (r < 0)
                 return r;
 
@@ -627,14 +657,28 @@ int link_get(Manager *m, int ifindex, Link **ret) {
 
         assert(m);
         assert(ifindex > 0);
-        assert(ret);
 
         link = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!link)
                 return -ENODEV;
 
-        *ret = link;
+        if (ret)
+                *ret = link;
+        return 0;
+}
 
+int link_get_by_name(Manager *m, const char *ifname, Link **ret) {
+        Link *link;
+
+        assert(m);
+        assert(ifname);
+
+        link = hashmap_get(m->links_by_name, ifname);
+        if (!link)
+                return -ENODEV;
+
+        if (ret)
+                *ret = link;
         return 0;
 }
 
@@ -1772,11 +1816,18 @@ static void link_drop_from_master(Link *link, NetDev *netdev) {
 }
 
 static void link_detach_from_manager(Link *link) {
+        char **n;
+
         if (!link || !link->manager)
                 return;
 
         link_unref(set_remove(link->manager->links_requesting_uuid, link));
         link_clean(link);
+
+        STRV_FOREACH(n, link->alternative_names)
+                hashmap_remove(link->manager->links_by_name, *n);
+
+        hashmap_remove(link->manager->links_by_name, link->ifname);
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex)) == link);
@@ -2227,7 +2278,6 @@ static int link_configure_continue(Link *link) {
 }
 
 static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool force) {
-        _cleanup_strv_free_ char **s = NULL;
         Network *network;
         int r;
 
@@ -2237,11 +2287,9 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
-        if (r < 0 && r != -ENODATA)
+        r = link_update_alternative_names(link, m);
+        if (r < 0)
                 return r;
-
-        strv_free_and_replace(link->alternative_names, s);
 
         r = network_get(link->manager, link->iftype, link->sd_device,
                         link->ifname, link->alternative_names, link->driver,
@@ -2417,7 +2465,6 @@ static int link_initialized_and_synced(Link *link) {
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        _cleanup_strv_free_ char **s = NULL;
         int r;
 
         r = sd_netlink_message_get_errno(m);
@@ -2427,13 +2474,11 @@ static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
                 return 0;
         }
 
-        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
-        if (r < 0 && r != -ENODATA) {
+        r = link_update_alternative_names(link, m);
+        if (r < 0) {
                 link_enter_failed(link);
-                return 0;
+                return r;
         }
-
-        strv_free_and_replace(link->alternative_names, s);
 
         r = link_initialized_and_synced(link);
         if (r < 0)
@@ -2789,7 +2834,6 @@ static int link_admin_state_down(Link *link) {
 }
 
 static int link_update(Link *link, sd_netlink_message *m) {
-        _cleanup_strv_free_ char **s = NULL;
         hw_addr_data hw_addr;
         const char *ifname;
         uint32_t mtu;
@@ -2819,11 +2863,11 @@ static int link_update(Link *link, sd_netlink_message *m) {
                 r = link_add(manager, m, &link);
                 if (r < 0)
                         return r;
+        } else {
+                r = link_update_alternative_names(link, m);
+                if (r < 0)
+                        return r;
         }
-
-        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
-        if (r >= 0)
-                strv_free_and_replace(link->alternative_names, s);
 
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
         if (r >= 0 && mtu > 0) {
