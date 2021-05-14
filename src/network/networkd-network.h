@@ -307,7 +307,7 @@ struct Network {
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
-        Hashmap *fdb_entries_by_section;
+        Hashmap *bridge_fdb_entries_by_section;
         Hashmap *mdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
