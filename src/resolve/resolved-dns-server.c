@@ -1086,19 +1086,19 @@ DnsScope *dns_server_scope(DnsServer *s) {
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
-        [DNS_SERVER_SYSTEM] = "system",
+        [DNS_SERVER_SYSTEM]   = "system",
         [DNS_SERVER_FALLBACK] = "fallback",
-        [DNS_SERVER_LINK] = "link",
+        [DNS_SERVER_LINK]     = "link",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
 static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
-        [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
-        [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
-        [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
+        [DNS_SERVER_FEATURE_LEVEL_TCP]       = "TCP",
+        [DNS_SERVER_FEATURE_LEVEL_UDP]       = "UDP",
+        [DNS_SERVER_FEATURE_LEVEL_EDNS0]     = "UDP+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN] = "TLS+EDNS0",
-        [DNS_SERVER_FEATURE_LEVEL_DO] = "UDP+EDNS0+DO",
-        [DNS_SERVER_FEATURE_LEVEL_LARGE] = "UDP+EDNS0+DO+LARGE",
-        [DNS_SERVER_FEATURE_LEVEL_TLS_DO] = "TLS+EDNS0+D0",
+        [DNS_SERVER_FEATURE_LEVEL_DO]        = "UDP+EDNS0+DO",
+        [DNS_SERVER_FEATURE_LEVEL_LARGE]     = "UDP+EDNS0+DO+LARGE",
+        [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+D0",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

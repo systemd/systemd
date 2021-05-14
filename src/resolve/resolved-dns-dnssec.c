@@ -2234,24 +2234,24 @@ int dnssec_test_positive_wildcard(
 #endif
 
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
-        [DNSSEC_VALIDATED] = "validated",
-        [DNSSEC_VALIDATED_WILDCARD] = "validated-wildcard",
-        [DNSSEC_INVALID] = "invalid",
-        [DNSSEC_SIGNATURE_EXPIRED] = "signature-expired",
+        [DNSSEC_VALIDATED]             = "validated",
+        [DNSSEC_VALIDATED_WILDCARD]    = "validated-wildcard",
+        [DNSSEC_INVALID]               = "invalid",
+        [DNSSEC_SIGNATURE_EXPIRED]     = "signature-expired",
         [DNSSEC_UNSUPPORTED_ALGORITHM] = "unsupported-algorithm",
-        [DNSSEC_NO_SIGNATURE] = "no-signature",
-        [DNSSEC_MISSING_KEY] = "missing-key",
-        [DNSSEC_UNSIGNED] = "unsigned",
-        [DNSSEC_FAILED_AUXILIARY] = "failed-auxiliary",
-        [DNSSEC_NSEC_MISMATCH] = "nsec-mismatch",
-        [DNSSEC_INCOMPATIBLE_SERVER] = "incompatible-server",
+        [DNSSEC_NO_SIGNATURE]          = "no-signature",
+        [DNSSEC_MISSING_KEY]           = "missing-key",
+        [DNSSEC_UNSIGNED]              = "unsigned",
+        [DNSSEC_FAILED_AUXILIARY]      = "failed-auxiliary",
+        [DNSSEC_NSEC_MISMATCH]         = "nsec-mismatch",
+        [DNSSEC_INCOMPATIBLE_SERVER]   = "incompatible-server",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
 
 static const char* const dnssec_verdict_table[_DNSSEC_VERDICT_MAX] = {
-        [DNSSEC_SECURE] = "secure",
-        [DNSSEC_INSECURE] = "insecure",
-        [DNSSEC_BOGUS] = "bogus",
+        [DNSSEC_SECURE]        = "secure",
+        [DNSSEC_INSECURE]      = "insecure",
+        [DNSSEC_BOGUS]         = "bogus",
         [DNSSEC_INDETERMINATE] = "indeterminate",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict);
