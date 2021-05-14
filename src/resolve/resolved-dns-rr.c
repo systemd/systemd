@@ -1868,9 +1868,9 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, 255);
 
 static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
-        [DNSSEC_DIGEST_SHA1] = "SHA-1",
-        [DNSSEC_DIGEST_SHA256] = "SHA-256",
+        [DNSSEC_DIGEST_SHA1]            = "SHA-1",
+        [DNSSEC_DIGEST_SHA256]          = "SHA-256",
         [DNSSEC_DIGEST_GOST_R_34_11_94] = "GOST_R_34.11-94",
-        [DNSSEC_DIGEST_SHA384] = "SHA-384",
+        [DNSSEC_DIGEST_SHA384]          = "SHA-384",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, 255);

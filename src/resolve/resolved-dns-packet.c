@@ -2635,31 +2635,31 @@ size_t dns_packet_size_unfragmented(DnsPacket *p) {
 }
 
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
-        [DNS_RCODE_SUCCESS] = "SUCCESS",
-        [DNS_RCODE_FORMERR] = "FORMERR",
-        [DNS_RCODE_SERVFAIL] = "SERVFAIL",
-        [DNS_RCODE_NXDOMAIN] = "NXDOMAIN",
-        [DNS_RCODE_NOTIMP] = "NOTIMP",
-        [DNS_RCODE_REFUSED] = "REFUSED",
-        [DNS_RCODE_YXDOMAIN] = "YXDOMAIN",
-        [DNS_RCODE_YXRRSET] = "YRRSET",
-        [DNS_RCODE_NXRRSET] = "NXRRSET",
-        [DNS_RCODE_NOTAUTH] = "NOTAUTH",
-        [DNS_RCODE_NOTZONE] = "NOTZONE",
-        [DNS_RCODE_BADVERS] = "BADVERS",
-        [DNS_RCODE_BADKEY] = "BADKEY",
-        [DNS_RCODE_BADTIME] = "BADTIME",
-        [DNS_RCODE_BADMODE] = "BADMODE",
-        [DNS_RCODE_BADNAME] = "BADNAME",
-        [DNS_RCODE_BADALG] = "BADALG",
-        [DNS_RCODE_BADTRUNC] = "BADTRUNC",
+        [DNS_RCODE_SUCCESS]   = "SUCCESS",
+        [DNS_RCODE_FORMERR]   = "FORMERR",
+        [DNS_RCODE_SERVFAIL]  = "SERVFAIL",
+        [DNS_RCODE_NXDOMAIN]  = "NXDOMAIN",
+        [DNS_RCODE_NOTIMP]    = "NOTIMP",
+        [DNS_RCODE_REFUSED]   = "REFUSED",
+        [DNS_RCODE_YXDOMAIN]  = "YXDOMAIN",
+        [DNS_RCODE_YXRRSET]   = "YRRSET",
+        [DNS_RCODE_NXRRSET]   = "NXRRSET",
+        [DNS_RCODE_NOTAUTH]   = "NOTAUTH",
+        [DNS_RCODE_NOTZONE]   = "NOTZONE",
+        [DNS_RCODE_BADVERS]   = "BADVERS",
+        [DNS_RCODE_BADKEY]    = "BADKEY",
+        [DNS_RCODE_BADTIME]   = "BADTIME",
+        [DNS_RCODE_BADMODE]   = "BADMODE",
+        [DNS_RCODE_BADNAME]   = "BADNAME",
+        [DNS_RCODE_BADALG]    = "BADALG",
+        [DNS_RCODE_BADTRUNC]  = "BADTRUNC",
         [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
-        [DNS_PROTOCOL_DNS] = "dns",
-        [DNS_PROTOCOL_MDNS] = "mdns",
+        [DNS_PROTOCOL_DNS]   = "dns",
+        [DNS_PROTOCOL_MDNS]  = "mdns",
         [DNS_PROTOCOL_LLMNR] = "llmnr",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);
