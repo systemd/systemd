@@ -38,7 +38,7 @@ struct DnsQuery {
          * TXT+SRV query. */
         DnsQuery *auxiliary_for;
         LIST_HEAD(DnsQuery, auxiliary_queries);
-        unsigned n_auxiliary_queries;
+        uint8_t n_auxiliary_queries;
         int auxiliary_result;
 
         /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
