@@ -1054,67 +1054,6 @@ int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
         return truncation_applied;
 }
 
-int string_extract_line(const char *s, size_t i, char **ret) {
-        const char *p = s;
-        size_t c = 0;
-
-        /* Extract the i'nth line from the specified string. Returns > 0 if there are more lines after that,
-         * and == 0 if we are looking at the last line or already beyond the last line. As special
-         * optimization, if the first line is requested and the string only consists of one line we return
-         * NULL, indicating the input string should be used as is, and avoid a memory allocation for a very
-         * common case. */
-
-        for (;;) {
-                const char *q;
-
-                q = strchr(p, '\n');
-                if (i == c) {
-                        /* The line we are looking for! */
-
-                        if (q) {
-                                char *m;
-
-                                m = strndup(p, q - p);
-                                if (!m)
-                                        return -ENOMEM;
-
-                                *ret = m;
-                                return !isempty(q + 1); /* more coming? */
-                        } else {
-                                if (p == s)
-                                        *ret = NULL; /* Just use the input string */
-                                else {
-                                        char *m;
-
-                                        m = strdup(p);
-                                        if (!m)
-                                                return -ENOMEM;
-
-                                        *ret = m;
-                                }
-
-                                return 0; /* The end */
-                        }
-                }
-
-                if (!q) {
-                        char *m;
-
-                        /* No more lines, return empty line */
-
-                        m = strdup("");
-                        if (!m)
-                                return -ENOMEM;
-
-                        *ret = m;
-                        return 0; /* The end */
-                }
-
-                p = q + 1;
-                c++;
-        }
-}
-
 int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
         /* In the default mode with no separators specified, we split on whitespace and
          * don't coalesce separators. */
