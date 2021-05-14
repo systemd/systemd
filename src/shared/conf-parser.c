@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_network.h"
@@ -1357,6 +1358,58 @@ int config_parse_hwaddrs(
                 if (r > 0)
                         TAKE_PTR(n); /* avoid cleanup */
         }
+}
+
+int config_parse_in_addr_non_null(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        /* data must be a pointer to struct in_addr or in6_addr, and the type is determined by ltype. */
+        struct in_addr *ipv4 = data;
+        struct in6_addr *ipv6 = data;
+        union in_addr_union a;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+        assert(IN_SET(ltype, AF_INET, AF_INET6));
+
+        if (isempty(rvalue)) {
+                if (ltype == AF_INET)
+                        *ipv4 = (struct in_addr) {};
+                else
+                        *ipv6 = (struct in6_addr) {};
+                return 0;
+        }
+
+        r = in_addr_from_string(ltype, rvalue, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!in_addr_is_set(ltype, &a)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= cannot be the ANY address, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (ltype == AF_INET)
+                *ipv4 = a.in;
+        else
+                *ipv6 = a.in6;
+        return 0;
 }
 
 DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");

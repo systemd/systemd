@@ -149,6 +149,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
 CONFIG_PARSER_PROTOTYPE(config_parse_percent);
 CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
 
