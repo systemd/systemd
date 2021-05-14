@@ -30,16 +30,12 @@ int mac_selinux_setup(bool *loaded_policy) {
         usec_t before_load, after_load;
         char *con;
         int r;
-        static const union selinux_callback cb = {
-                .func_log = null_log,
-        };
-
         bool initialized = false;
 
         assert(loaded_policy);
 
         /* Turn off all of SELinux' own logging, we want to do that */
-        selinux_set_callback(SELINUX_CB_LOG, cb);
+        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = null_log });
 
         /* Don't load policy in the initrd if we don't appear to have
          * it.  For the real root, we check below if we've already
