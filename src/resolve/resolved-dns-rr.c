@@ -795,14 +795,12 @@ static char *format_txt(DnsTxtItem *first) {
                 return NULL;
 
         LIST_FOREACH(items, i, first) {
-                size_t j;
-
                 if (i != first)
                         *(p++) = ' ';
 
                 *(p++) = '"';
 
-                for (j = 0; j < i->length; j++) {
+                for (size_t j = 0; j < i->length; j++) {
                         if (i->data[j] < ' ' || i->data[j] == '"' || i->data[j] >= 127) {
                                 *(p++) = '\\';
                                 *(p++) = '0' + (i->data[j] / 100);

@@ -35,7 +35,6 @@
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         const uint8_t *p;
         uint32_t sum, f;
-        size_t i;
 
         /* The algorithm from RFC 4034, Appendix B. */
 
@@ -51,7 +50,7 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
 
         p = dnskey->dnskey.key;
 
-        for (i = 0; i < dnskey->dnskey.key_size; i++)
+        for (size_t i = 0; i < dnskey->dnskey.key_size; i++)
                 sum += (i & 1) == 0 ? (uint32_t) p[i] << 8 : (uint32_t) p[i];
 
         sum += (sum >> 16) & UINT32_C(0xFFFF);
@@ -605,13 +604,11 @@ static void dnssec_fix_rrset_ttl(
                 DnsResourceRecord *rrsig,
                 usec_t realtime) {
 
-        unsigned k;
-
         assert(list);
         assert(n > 0);
         assert(rrsig);
 
-        for (k = 0; k < n; k++) {
+        for (unsigned k = 0; k < n; k++) {
                 DnsResourceRecord *rr = list[k];
 
                 /* Pick the TTL as the minimum of the RR's TTL, the
@@ -641,7 +638,7 @@ int dnssec_verify_rrset(
         const char *source, *name;
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         int r, md_algorithm;
-        size_t k, n = 0;
+        size_t n = 0;
         size_t sig_size = 0;
         _cleanup_free_ char *sig_data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -771,7 +768,7 @@ int dnssec_verify_rrset(
         if (r < 0)
                 return r;
 
-        for (k = 0; k < n; k++) {
+        for (size_t k = 0; k < n; k++) {
                 size_t l;
 
                 rr = list[k];
@@ -1211,7 +1208,6 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         size_t hash_size;
         int algorithm;
         void *result;
-        unsigned k;
         int r;
 
         assert(nsec3);
@@ -1253,7 +1249,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (!result)
                 return -EIO;
 
-        for (k = 0; k < nsec3->nsec3.iterations; k++) {
+        for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
                 uint8_t tmp[hash_size];
                 memcpy(tmp, result, hash_size);
 
