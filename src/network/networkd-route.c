@@ -1565,25 +1565,23 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
 
         ORDERED_SET_FOREACH(m, route->multipath_routes) {
                 union in_addr_union a = m->gateway.address;
+                Link *l = NULL;
 
                 if (route->gateway_onlink <= 0 &&
                     !manager_address_is_reachable(link->manager, m->gateway.family, &a))
                         return false;
 
                 if (m->ifname) {
-                        Link *l;
-
-                        r = resolve_interface(&link->manager->rtnl, m->ifname);
-                        if (r < 0)
+                        if (link_get_by_name(link->manager, m->ifname, &l) < 0)
                                 return false;
-                        m->ifindex = r;
 
+                        m->ifindex = l->ifindex;
+                } else if (m->ifindex > 0) {
                         if (link_get(link->manager, m->ifindex, &l) < 0)
                                 return false;
-
-                        if (!link_is_ready_to_configure(l, true))
-                                return false;
                 }
+                if (l && !link_is_ready_to_configure(l, true))
+                        return false;
         }
 
         return true;
@@ -2745,9 +2743,14 @@ int config_parse_multipath_route(
         if (dev) {
                 *dev++ = '\0';
 
-                m->ifname = strdup(dev);
-                if (!m->ifname)
-                        return log_oom();
+                r = parse_ifindex(dev);
+                if (r > 0)
+                        m->ifindex = r;
+                else {
+                        m->ifname = strdup(dev);
+                        if (!m->ifname)
+                                return log_oom();
+                }
         }
 
         r = in_addr_from_string_auto(word, &family, &a);
