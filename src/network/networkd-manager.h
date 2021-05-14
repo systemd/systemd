@@ -45,6 +45,7 @@ struct Manager {
         LinkOnlineState online_state;
 
         Hashmap *links;
+        Hashmap *links_by_name;
         Hashmap *netdevs;
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
