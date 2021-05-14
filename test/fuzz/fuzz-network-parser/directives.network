@@ -372,6 +372,7 @@ Gateway=
 Family=
 OnLink=
 Blackhole=
+Group=
 [QDisc]
 Parent=
 Handle=
