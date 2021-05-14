@@ -152,7 +152,7 @@ int nss_pack_user_record_shadow(
 
         *spwd = (struct spwd) {
                 .sp_namp = buffer,
-                .sp_lstchg = hr->last_password_change_usec == 0 ? 1 :               /* map 0 to 1, since 0 means please change pasword on next login */
+                .sp_lstchg = hr->last_password_change_usec == 0 ? 1 :               /* map 0 to 1, since 0 means please change password on next login */
                              hr->last_password_change_usec == UINT64_MAX ? -1 :
                              (long int) (hr->last_password_change_usec / USEC_PER_DAY),
                 .sp_min = hr->password_change_min_usec != UINT64_MAX ? (long int) (hr->password_change_min_usec / USEC_PER_DAY) : -1,
