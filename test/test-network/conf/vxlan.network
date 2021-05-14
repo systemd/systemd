@@ -16,3 +16,4 @@ Destination=10.0.0.6
 [BridgeFDB]
 MACAddress=00:11:22:33:44:77
 Destination=10.0.0.7
+OutgoingInterface=test1
