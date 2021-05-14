@@ -1385,6 +1385,18 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <literal>no</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Group=</varname></term>
+          <listitem>
+            <para>Takes a whitespace separated list of nexthop IDs. Each ID must be in the range
+            1…4294967295. Optionally, each nexthop ID can take a weight after a comma
+            (<literal><replaceable>id</replaceable>,<replaceable>weight</replaceable></literal>). The
+            weight must be in the range 1…255. This setting cannot be specified with
+            <varname>Gateway=</varname>, <varname>Family=</varname>, <varname>Blackhole=</varname>.
+            This setting can be specified multiple times. If an empty string is assigned, then the all
+            previous assignments are cleared. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
