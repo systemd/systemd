@@ -859,7 +859,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
                 if (original->prefixlen > 30)
                         broadcast.s_addr = 0;
                 else
-                        broadcast.s_addr = in_addr.in.s_addr | htobe32(0xFFFFFFFFUL >> original->prefixlen);
+                        broadcast.s_addr = in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> original->prefixlen);
         } else if (original->family == AF_INET6)
                 in_addr.in6.s6_addr[15] |= 1;
 
@@ -1987,7 +1987,7 @@ static int address_section_verify(Address *address) {
 
         if (address_may_have_broadcast(address)) {
                 if (address->broadcast.s_addr == 0 && address->set_broadcast != 0)
-                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(0xfffffffflu >> address->prefixlen);
+                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> address->prefixlen);
         } else if (address->broadcast.s_addr != 0) {
                 log_warning("%s: broadcast address is set for IPv6 address or IPv4 address with prefixlength larger than 30. "
                             "Ignoring Broadcast= setting in the [Address] section from line %u.",
