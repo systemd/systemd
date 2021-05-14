@@ -57,6 +57,8 @@ sources = files('''
         networkd-address-pool.h
         networkd-address.c
         networkd-address.h
+        networkd-bridge-fdb.c
+        networkd-bridge-fdb.h
         networkd-brvlan.c
         networkd-brvlan.h
         networkd-can.c
@@ -73,8 +75,6 @@ sources = files('''
         networkd-dhcp4.h
         networkd-dhcp6.c
         networkd-dhcp6.h
-        networkd-fdb.c
-        networkd-fdb.h
         networkd-ipv4ll.c
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c
