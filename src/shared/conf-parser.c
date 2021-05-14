@@ -1411,5 +1411,59 @@ int config_parse_in_addr_non_null(
         return 0;
 }
 
+int config_parse_in_addr_prefix_non_null(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct in_addr_prefix *dest = data;
+        unsigned char prefixlen;
+        union in_addr_union a;
+        int family, r;
+
+        assert(unit);
+        assert(filename);
+        assert(lvalue);
+        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
+        assert(rvalue);
+        assert(dest);
+
+        if (isempty(rvalue)) {
+                *dest = (struct in_addr_prefix) {};
+                return 0;
+        }
+
+        if (ltype == AF_UNSPEC)
+                r = in_addr_prefix_from_string_auto(rvalue, &family, &a, &prefixlen);
+        else {
+                family = ltype;
+                r = in_addr_prefix_from_string(rvalue, family, &a, &prefixlen);
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (!in_addr_is_set(family, &a)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "%s= cannot be the ANY address, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        *dest = (struct in_addr_prefix) {
+                .family = family,
+                .prefixlen = prefixlen,
+                .address = a,
+        };
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");
 DEFINE_CONFIG_PARSE(config_parse_permyriad, parse_permyriad, "Failed to parse permyriad value");
