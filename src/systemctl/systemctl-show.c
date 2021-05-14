@@ -324,7 +324,7 @@ static void print_status_info(
         printf("\n");
 
         if (i->following)
-                printf("   Follow: unit currently follows state of %s\n", i->following);
+                printf("    Follows: unit currently follows state of %s\n", i->following);
 
         if (STRPTR_IN_SET(i->load_state, "error", "not-found", "bad-setting")) {
                 on = ansi_highlight_red();
