@@ -118,6 +118,7 @@ if have_gnu_efi
                         if value == '' or value == 'auto'
                                 cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
                                 value = run_command(sh, '-c', cmd).stdout().strip()
+                                message('@0@ (from @1@): @2@'.format(sbatvar[0], sbatvar[1], value))
                         endif
                         if value == ''
                                 error('Required @0@ option not set and autodetection failed'.format(sbatvar[0]))
