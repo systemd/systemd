@@ -444,32 +444,6 @@ int config_parse_dhcp_server_relay_agent_suboption(
         return free_and_strdup(suboption_value, empty_to_null(p));
 }
 
-int config_parse_dhcp_server_relay_target(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        union in_addr_union a;
-        int r;
-
-        r = in_addr_from_string(AF_INET, rvalue, &a);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s= address '%s', ignoring: %m", lvalue, rvalue);
-                return 0;
-        }
-        network->dhcp_server_relay_target = a.in;
-        return r;
-}
-
 int config_parse_dhcp_server_emit(
                 const char *unit,
                 const char *filename,
