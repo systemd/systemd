@@ -4,9 +4,11 @@ Name=veth-peer
 [Network]
 IPv6AcceptRA=false
 Address=192.168.5.1/24
+Address=192.168.5.2/24
 DHCPServer=yes
 
 [DHCPServer]
+Address=192.168.5.1/24
 PoolOffset=10
 PoolSize=50
 EmitRouter=yes
