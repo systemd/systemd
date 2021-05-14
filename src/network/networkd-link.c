@@ -849,6 +849,9 @@ void link_check_ready(Link *link) {
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
+        if (!link->static_bridge_fdb_configured)
+                return (void) log_link_debug(link, "%s(): static bridge fdb entries are not configured.", __func__);
+
         if (!link->static_neighbors_configured)
                 return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
@@ -922,10 +925,6 @@ static int link_set_static_configs(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        r = link_set_bridge_fdb(link);
-        if (r < 0)
-                return r;
-
         r = link_set_bridge_mdb(link);
         if (r < 0)
                 return r;
@@ -939,6 +938,10 @@ static int link_set_static_configs(Link *link) {
                 return r;
 
         r = link_request_static_addresses(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_bridge_fdb(link);
         if (r < 0)
                 return r;
 
