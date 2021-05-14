@@ -44,6 +44,7 @@ struct Manager {
         LinkAddressState ipv6_address_state;
 
         Hashmap *links;
+        Hashmap *links_by_name;
         Hashmap *netdevs;
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
