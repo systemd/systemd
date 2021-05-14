@@ -381,8 +381,8 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
                 .n_ref = 1,
                 .key = dns_resource_key_ref(key),
                 .expiry = USEC_INFINITY,
-                .n_skip_labels_signer = UINT_MAX,
-                .n_skip_labels_source = UINT_MAX,
+                .n_skip_labels_signer = UINT8_MAX,
+                .n_skip_labels_source = UINT8_MAX,
         };
 
         return rr;
@@ -1258,7 +1258,7 @@ int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's signer, if it is known. */
 
-        if (rr->n_skip_labels_signer == UINT_MAX)
+        if (rr->n_skip_labels_signer == UINT8_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1281,7 +1281,7 @@ int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's synthesizing source, if it is known. */
 
-        if (rr->n_skip_labels_source == UINT_MAX)
+        if (rr->n_skip_labels_source == UINT8_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1315,7 +1315,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
 
         /* Returns > 0 if the RR is generated from a wildcard, and is not the asterisk name itself */
 
-        if (rr->n_skip_labels_source == UINT_MAX)
+        if (rr->n_skip_labels_source == UINT8_MAX)
                 return -ENODATA;
 
         if (rr->n_skip_labels_source == 0)

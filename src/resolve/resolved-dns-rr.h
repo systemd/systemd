@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 
 #include "bitmap.h"
+#include "dns-def.h"
 #include "dns-type.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
@@ -98,9 +99,9 @@ struct DnsResourceRecord {
         usec_t expiry; /* RRSIG signature expiry */
 
         /* How many labels to strip to determine "signer" of the RRSIG (aka, the zone). -1 if not signed. */
-        unsigned n_skip_labels_signer;
+        uint8_t n_skip_labels_signer;
         /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's immediate parent. -1 if not signed. */
-        unsigned n_skip_labels_source;
+        uint8_t n_skip_labels_source;
 
         bool unparsable:1;
 
@@ -244,6 +245,9 @@ struct DnsResourceRecord {
                 } caa;
         };
 };
+
+/* We use uint8_t for label counts above, and UINT8_MAX/-1 has special meaning. */
+assert_cc(DNS_N_LABELS_MAX < UINT8_MAX);
 
 static inline const void* DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr) {
         if (!rr)

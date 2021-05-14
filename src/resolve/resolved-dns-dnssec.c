@@ -483,14 +483,14 @@ static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
         const char *name;
         int r;
 
-        /* Checks whether the specified RRSIG RR is somewhat valid, and initializes the .n_skip_labels_source and
-         * .n_skip_labels_signer fields so that we can use them later on. */
+        /* Checks whether the specified RRSIG RR is somewhat valid, and initializes the .n_skip_labels_source
+         * and .n_skip_labels_signer fields so that we can use them later on. */
 
         assert(rrsig);
         assert(rrsig->key->type == DNS_TYPE_RRSIG);
 
         /* Check if this RRSIG RR is already prepared */
-        if (rrsig->n_skip_labels_source != UINT_MAX)
+        if (rrsig->n_skip_labels_source != UINT8_MAX)
                 return 0;
 
         if (rrsig->rrsig.inception > rrsig->rrsig.expiration)
@@ -523,6 +523,7 @@ static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
         if (r == 0)
                 return -EINVAL;
 
+        assert(n_key_labels < UINT8_MAX); /* UINT8_MAX/-1 means unsigned. */
         rrsig->n_skip_labels_source = n_key_labels - rrsig->rrsig.labels;
         rrsig->n_skip_labels_signer = n_key_labels - n_signer_labels;
 
@@ -1291,10 +1292,10 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
 
         /* Ignore NSEC3 RRs generated from wildcards. If these NSEC3 RRs weren't correctly signed we can't make this
          * check (since rr->n_skip_labels_source is -1), but that's OK, as we won't trust them anyway in that case. */
-        if (!IN_SET(rr->n_skip_labels_source, 0, UINT_MAX))
+        if (!IN_SET(rr->n_skip_labels_source, 0, UINT8_MAX))
                 return 0;
         /* Ignore NSEC3 RRs that are located anywhere else than one label below the zone */
-        if (!IN_SET(rr->n_skip_labels_signer, 1, UINT_MAX))
+        if (!IN_SET(rr->n_skip_labels_signer, 1, UINT8_MAX))
                 return 0;
 
         if (!nsec3)
