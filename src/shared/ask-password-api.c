@@ -799,12 +799,14 @@ int ask_password_agent(
                 "Socket=%s\n"
                 "AcceptCached=%i\n"
                 "Echo=%i\n"
-                "NotAfter="USEC_FMT"\n",
+                "NotAfter="USEC_FMT"\n"
+                "Silent=%i\n",
                 getpid_cached(),
                 socket_name,
                 (flags & ASK_PASSWORD_ACCEPT_CACHED) ? 1 : 0,
                 (flags & ASK_PASSWORD_ECHO) ? 1 : 0,
-                until);
+                until,
+                (flags & ASK_PASSWORD_SILENT) ? 1 : 0);
 
         if (message)
                 fprintf(f, "Message=%s\n", message);
