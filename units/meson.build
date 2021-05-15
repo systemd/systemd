@@ -82,6 +82,8 @@ units = [
         ['sound.target',                        ''],
         ['suspend.target',                      ''],
         ['swap.target',                         ''],
+        ['sys-firmware-efi-efivars.mount',      'not ENABLE_EFI',
+         'sysinit.target.wants/'],
         ['sys-fs-fuse-connections.mount',       '',
          'sysinit.target.wants/'],
         ['sys-kernel-config.mount',             '',
@@ -262,7 +264,8 @@ foreach tuple : in_units
 
         # we do this here because install_data does not accept custom_target output
         conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
+        install = (conds.get(0, '') == 'not' ? conf.get(conds[1]) != 1 :
+                   (conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
                    (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
 
         gen1 = configure_file(
@@ -291,7 +294,8 @@ foreach tuple : m4_units
 
         # we do this here because install_data does not accept custom_target output
         conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
+        install = (conds.get(0, '') == 'not' ? conf.get(conds[1]) != 1 :
+                   (conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
                    (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
 
         custom_target(
@@ -315,7 +319,8 @@ foreach tuple : units
         input = tuple.get(3, file)
 
         conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
+        install = (conds.get(0, '') == 'not' ? conf.get(conds[1]) != 1 :
+                   (conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
                    (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
 
         if install
