@@ -106,7 +106,7 @@ ignored on reading. They are currently not used but might be used later on.
 ## Structure
 
 The file format's data structures are declared in
-[journal-def.h](https://github.com/systemd/systemd/blob/master/src/journal/journal-def.h).
+[journal-def.h](https://github.com/systemd/systemd/blob/main/src/libsystemd/sd-journal/journal-def.h).
 
 The file format begins with a header structure. After the header structure
 object structures follow. Objects are appended to the end as time
