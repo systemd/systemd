@@ -529,6 +529,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>silent</option></term>
+
+        <listitem><para>If the encryption password is read from console, no asterisks will be shown
+        while typing the password.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>pkcs11-uri=</option></term>
 
         <listitem><para>Takes either the special value <literal>auto</literal> or an <ulink

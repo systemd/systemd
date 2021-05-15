@@ -169,7 +169,7 @@ static int agent_ask_password_tty(
 
 static int process_one_password_file(const char *filename) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
-        bool accept_cached = false, echo = false;
+        bool accept_cached = false, echo = false, silent = false;
         uint64_t not_after = 0;
         unsigned pid = 0;
 
@@ -180,6 +180,7 @@ static int process_one_password_file(const char *filename) {
                 { "Ask", "PID",          config_parse_unsigned, 0, &pid           },
                 { "Ask", "AcceptCached", config_parse_bool,     0, &accept_cached },
                 { "Ask", "Echo",         config_parse_bool,     0, &echo          },
+                { "Ask", "Silent",       config_parse_bool,     0, &silent        },
                 {}
         };
 
@@ -239,6 +240,7 @@ static int process_one_password_file(const char *filename) {
                 SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED, accept_cached);
                 SET_FLAG(flags, ASK_PASSWORD_CONSOLE_COLOR, arg_console);
                 SET_FLAG(flags, ASK_PASSWORD_ECHO, echo);
+                SET_FLAG(flags, ASK_PASSWORD_SILENT, silent);
 
                 if (arg_plymouth)
                         r = ask_password_plymouth(message, not_after, flags, filename, &passwords);

@@ -57,6 +57,7 @@ static char *arg_header = NULL;
 static unsigned arg_tries = 3;
 static bool arg_readonly = false;
 static bool arg_verify = false;
+static bool arg_silent = false;
 static bool arg_discards = false;
 static bool arg_same_cpu_crypt = false;
 static bool arg_submit_from_crypt_cpus = false;
@@ -233,6 +234,8 @@ static int parse_one_option(const char *option) {
                 arg_readonly = true;
         else if (streq(option, "verify"))
                 arg_verify = true;
+        else if (streq(option, "silent"))
+                arg_silent = true;
         else if (STR_IN_SET(option, "allow-discards", "discard"))
                 arg_discards = true;
         else if (streq(option, "same-cpu-crypt"))
@@ -539,6 +542,7 @@ static int get_password(
         _cleanup_strv_free_erase_ char **passwords = NULL;
         char **p, *id;
         int r = 0;
+        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | (arg_silent*ASK_PASSWORD_SILENT);
 
         assert(vol);
         assert(src);
@@ -561,7 +565,7 @@ static int get_password(
         id = strjoina("cryptsetup:", disk_path);
 
         r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
-                              ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+                              flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
                               &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
@@ -576,7 +580,7 @@ static int get_password(
 
                 id = strjoina("cryptsetup-verification:", disk_path);
 
-                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
+                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, flags, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 
