@@ -17,6 +17,7 @@ ADDITIONAL_DEPS=(
     perl
     python3-libevdev
     python3-pyparsing
+    rustc
     zstd
 )
 
@@ -37,12 +38,15 @@ for phase in "${PHASES[@]}"; do
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
             ;;
-        RUN|RUN_GCC|RUN_CLANG)
+        RUN|RUN_GCC|RUN_GCC_RUST|RUN_CLANG)
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 export CC=clang
                 export CXX=clang++
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
+            if [[ "$phase" = "RUN_GCC_RUST" ]]; then
+                MESON_ARGS=(-Dbuild-rust=true)
+            fi
+            RUSTFLAGS="--deny warnings" meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;
@@ -57,7 +61,7 @@ for phase in "${PHASES[@]}"; do
                 # -Db_lundef=false: See https://github.com/mesonbuild/meson/issues/764
                 MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
             fi
-            meson --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
+            RUSTFLAGS="--deny warnings" meson --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
 
             export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
