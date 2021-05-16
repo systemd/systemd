@@ -65,7 +65,7 @@ hwdb_test_sh = find_program('hwdb-test.sh')
 test_sysusers_sh = configure_file(
         input : 'test-sysusers.sh.in',
         output : 'test-sysusers.sh',
-        configuration : substs)
+        configuration : conf)
 if install_tests and conf.get('ENABLE_SYSUSERS') == 1
         install_data(test_sysusers_sh,
                      install_dir : testsdir)
