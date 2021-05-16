@@ -6,18 +6,18 @@
 #  (at your option) any later version.
 
 g systemd-journal   - -
-m4_ifdef(`ENABLE_NETWORKD',
+{% if ENABLE_NETWORKD %}
 u systemd-network   - "systemd Network Management"
-)m4_dnl
-m4_ifdef(`ENABLE_OOMD',
+{% endif %}
+{% if ENABLE_OOMD %}
 u systemd-oom       - "systemd Userspace OOM Killer"
-)m4_dnl
-m4_ifdef(`ENABLE_RESOLVE',
+{% endif %}
+{% if ENABLE_RESOLVE %}
 u systemd-resolve   - "systemd Resolver"
-)m4_dnl
-m4_ifdef(`ENABLE_TIMESYNCD',
+{% endif %}
+{% if ENABLE_TIMESYNCD %}
 u systemd-timesync  - "systemd Time Synchronization"
-)m4_dnl
-m4_ifdef(`ENABLE_COREDUMP',
+{% endif %}
+{% if ENABLE_COREDUMP %}
 u systemd-coredump  - "systemd Core Dumper"
-)m4_dnl
+{% endif %}
