@@ -7,14 +7,14 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@rootlibdir@
-includedir=@includedir@
+prefix={{PREFIX}}
+exec_prefix={{PREFIX}}
+libdir={{ROOTLIBDIR}}
+includedir={{INCLUDE_DIR}}
 
 Name: systemd
 Description: systemd Library
-URL: @PROJECT_URL@
-Version: @PROJECT_VERSION@
+URL: {{PROJECT_URL}}
+Version: {{PROJECT_VERSION}}
 Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}
