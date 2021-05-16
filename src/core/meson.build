@@ -132,9 +132,9 @@ endif
 
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
-        input : 'load-fragment-gperf.gperf.m4',
+        input : 'load-fragment-gperf.gperf.in',
         output: 'load-fragment-gperf.gperf',
-        command : [meson_apply_m4, config_h, '@INPUT@'],
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
         capture : true)
 
 load_fragment_gperf_c = custom_target(
