@@ -423,7 +423,7 @@
           <listitem>
             <para>Specifies how IPv6 link local address is generated. Takes one of <literal>eui64</literal>,
             <literal>none</literal>, <literal>stable-privacy</literal> and <literal>random</literal>.
-            When unset, the kernel's default will be used. Note that if <varname>LinkLocalAdressing=</varname>
+            When unset, the kernel's default will be used. Note that if <varname>LinkLocalAddressing=</varname>
             not configured as <literal>ipv6</literal> then <varname>IPv6LinkLocalAddressGenerationMode=</varname>
             is ignored.</para>
           </listitem>
