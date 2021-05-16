@@ -11,7 +11,7 @@ __systemctl() {
 }
 
 __systemd_properties() {
-    @rootlibexecdir@/systemd --dump-bus-properties
+    {{ROOTLIBEXECDIR}}/systemd --dump-bus-properties
 }
 
 __contains_word () {
@@ -21,6 +21,7 @@ __contains_word () {
     done
 }
 
+{% raw -%}
 __filter_units_by_properties () {
     local mode=$1 properties=$2; shift 2
     local units=("$@")
@@ -50,6 +51,7 @@ __filter_units_by_properties () {
         echo $names
     fi
 }
+{% endraw %}
 
 __get_all_units      () { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } \
                               | { while read -r a b; do echo " $a"; done; }; }
