@@ -177,11 +177,14 @@ libsystemd_sym_path = join_paths(meson.current_source_dir(), 'libsystemd.sym')
 static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
 
-configure_file(
+custom_target(
+        'libsystemd.pc',
         input : 'libsystemd.pc.in',
         output : 'libsystemd.pc',
-        configuration : substs,
-        install_dir : pkgconfiglibdir == 'no' ? '' : pkgconfiglibdir)
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : pkgconfiglibdir != 'no',
+        install_dir : pkgconfiglibdir)
 
 ############################################################
 
