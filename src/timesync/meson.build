@@ -34,15 +34,16 @@ libtimesyncd_core = static_library(
         include_directories : includes,
         link_with : [timesyncd_link_with])
 
+custom_target(
+        'timesyncd.conf',
+        input : 'timesyncd.conf.in',
+        output : 'timesyncd.conf',
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : conf.get('ENABLE_TIMESYNCD') == 1 and install_sysconfdir_samples,
+        install_dir : pkgsysconfdir)
+
 if conf.get('ENABLE_TIMESYNCD') == 1
-        timesyncd_conf = configure_file(
-                input : 'timesyncd.conf.in',
-                output : 'timesyncd.conf',
-                configuration : substs)
-        if install_sysconfdir_samples
-                install_data(timesyncd_conf,
-                             install_dir : pkgsysconfdir)
-        endif
         install_data('org.freedesktop.timesync1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.timesync1.service',
