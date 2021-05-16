@@ -36,8 +36,8 @@ SUBSYSTEM=="dvb", GROUP="video"
 SUBSYSTEM=="media", GROUP="video"
 SUBSYSTEM=="cec", GROUP="video"
 
-SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="@GROUP_RENDER_MODE@"
-SUBSYSTEM=="kfd", GROUP="render", MODE="@GROUP_RENDER_MODE@"
+SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
+SUBSYSTEM=="kfd", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
 
 SUBSYSTEM=="misc", KERNEL=="sgx_enclave", GROUP="sgx", MODE="0660"
 
@@ -89,14 +89,14 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
 KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 
 # The static_node is required on s390x and ppc (they are using MODULE_ALIAS)
-KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=kvm"
+KERNEL=="kvm", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=kvm"
 
 KERNEL=="vfio", MODE="0666", OPTIONS+="static_node=vfio/vfio"
 
 KERNEL=="vsock", MODE="0666"
-KERNEL=="vhost-vsock", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=vhost-vsock"
+KERNEL=="vhost-vsock", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=vhost-vsock"
 
-KERNEL=="vhost-net", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=vhost-net"
+KERNEL=="vhost-net", GROUP="kvm", MODE="{{DEV_KVM_MODE}}", OPTIONS+="static_node=vhost-net"
 
 KERNEL=="udmabuf", GROUP="kvm"
 
