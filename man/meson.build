@@ -200,12 +200,15 @@ endif
 
 ############################################################
 
+buildroot_substs = configuration_data()
+buildroot_substs.set_quoted('BUILD_ROOT', project_build_root)
+
 configure_file(
         input : 'man.in',
         output : 'man',
-        configuration : substs)
+        configuration : buildroot_substs)
 
 configure_file(
         input : 'html.in',
         output : 'html',
-        configuration : substs)
+        configuration : buildroot_substs)
