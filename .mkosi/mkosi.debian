@@ -51,6 +51,7 @@ BuildPackages=
         pkg-config
         python3
         python3-lxml
+        python3-jinja2
         tree
         uuid-dev
         xsltproc
