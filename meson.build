@@ -3125,9 +3125,10 @@ if enable_sysusers
 
         if want_tests != 'false'
                 test('test-sysusers',
-                     test_sysusers_sh,
                      # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
+                     sh,
+                     args : [test_sysusers_sh.full_path(), exe.full_path()],
+                     depends : [test_sysusers_sh, exe])
         endif
 
         if have_standalone_binaries
@@ -3146,9 +3147,10 @@ if enable_sysusers
 
                 if want_tests != 'false'
                         test('test-sysusers.standalone',
-                             test_sysusers_sh,
                              # https://github.com/mesonbuild/meson/issues/2681
-                             args : exe.full_path())
+                             sh,
+                             args : [test_sysusers_sh.full_path(), exe.full_path()],
+                             depends : [test_sysusers_sh, exe])
                 endif
         endif
 endif
