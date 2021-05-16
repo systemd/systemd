@@ -104,8 +104,8 @@ if have_gnu_efi
 
         if get_option('sbat-distro') != ''
                 efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
-                efi_conf.set_quoted('PROJECT_VERSION', substs.get('PROJECT_VERSION'))
-                efi_conf.set_quoted('PROJECT_URL', substs.get('PROJECT_URL'))
+                efi_conf.set_quoted('PROJECT_VERSION', meson.project_version())
+                efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
                 if get_option('sbat-distro-generation') < 1
                        error('SBAT Distro Generation must be a positive integer')
                 endif
