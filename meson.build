@@ -319,7 +319,6 @@ substs.set('RC_LOCAL_PATH',                                   get_option('rc-loc
 substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
 substs.set('STATUS_UNIT_FORMAT_DEFAULT',                      status_unit_format_default)
 substs.set('HIGH_RLIMIT_NOFILE',                              conf.get('HIGH_RLIMIT_NOFILE'))
-substs.set('BUILD_ROOT',                                      project_build_root)
 
 #####################################################################
 
