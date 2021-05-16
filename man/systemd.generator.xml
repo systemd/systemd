@@ -34,20 +34,20 @@
       <literallayout><filename>/run/systemd/system-generators/*</filename>
 <filename>/etc/systemd/system-generators/*</filename>
 <filename>/usr/local/lib/systemd/system-generators/*</filename>
-<filename>&systemgeneratordir;/*</filename></literallayout>
+<filename>&SYSTEM_GENERATOR_DIR;/*</filename></literallayout>
     </para>
 
     <para>
       <literallayout><filename>/run/systemd/user-generators/*</filename>
 <filename>/etc/systemd/user-generators/*</filename>
 <filename>/usr/local/lib/systemd/user-generators/*</filename>
-<filename>&usergeneratordir;/*</filename></literallayout>
+<filename>&USER_GENERATOR_DIR;/*</filename></literallayout>
     </para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
-    <para>Generators are small executables placed in <filename>&systemgeneratordir;/</filename> and other
+    <para>Generators are small executables placed in <filename>&SYSTEM_GENERATOR_DIR;/</filename> and other
     directories listed above.
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will execute
     these binaries very early at bootup and at configuration reload time — before unit files are
@@ -294,7 +294,7 @@
       <title>Debugging a generator</title>
 
       <programlisting>dir=$(mktemp -d)
-SYSTEMD_LOG_LEVEL=debug &systemgeneratordir;/systemd-fstab-generator \
+SYSTEMD_LOG_LEVEL=debug &SYSTEM_GENERATOR_DIR;/systemd-fstab-generator \
         "$dir" "$dir" "$dir"
 find $dir</programlisting>
     </example>
