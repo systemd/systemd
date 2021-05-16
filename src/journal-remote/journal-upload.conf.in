@@ -14,6 +14,6 @@
 
 [Upload]
 # URL=
-# ServerKeyFile=@CERTIFICATEROOT@/private/journal-upload.pem
-# ServerCertificateFile=@CERTIFICATEROOT@/certs/journal-upload.pem
-# TrustedCertificateFile=@CERTIFICATEROOT@/ca/trusted.pem
+# ServerKeyFile={{CERTIFICATE_ROOT}}/private/journal-upload.pem
+# ServerCertificateFile={{CERTIFICATE_ROOT}}/certs/journal-upload.pem
+# TrustedCertificateFile={{CERTIFICATE_ROOT}}/ca/trusted.pem
