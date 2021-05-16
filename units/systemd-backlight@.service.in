@@ -17,7 +17,7 @@ Before=sysinit.target shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-backlight load %i
-ExecStop=@rootlibexecdir@/systemd-backlight save %i
+ExecStart={{ROOTLIBEXECDIR}}/systemd-backlight load %i
+ExecStop={{ROOTLIBEXECDIR}}/systemd-backlight save %i
 TimeoutSec=90s
 StateDirectory=systemd/backlight
