@@ -39,11 +39,14 @@ libudev_static = static_library(
 static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 
-configure_file(
+custom_target(
+        'libudev.pc',
         input : 'libudev.pc.in',
         output : 'libudev.pc',
-        configuration : substs,
-        install_dir : pkgconfiglibdir == 'no' ? '' : pkgconfiglibdir)
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : pkgconfiglibdir != 'no',
+        install_dir : pkgconfiglibdir)
 
 ############################################################
 
