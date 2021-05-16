@@ -45,7 +45,6 @@ BuildPackages=
         libzstd-devel
         lz4
         lz4-devel
-        m4
         meson
         ninja-build
         openssl-devel
@@ -55,6 +54,7 @@ BuildPackages=
         pkgconfig
         python3-devel
         python3-lxml
+        python3dist(jinja2)
         qrencode-devel
         rpm
         tpm2-tss-devel

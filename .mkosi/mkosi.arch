@@ -35,12 +35,12 @@ BuildPackages=
         libxkbcommon
         libxslt
         lz4
-        m4
         meson
         pam
         pkgconfig
         python
         python-lxml
+        python-jinja2
         qrencode
         rsync
         xz

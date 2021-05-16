@@ -49,11 +49,11 @@ BuildPackages=
         libxkbcommon-dev
         libxtables-dev
         libzstd-dev
-        m4
         meson
         pkg-config
         python3
         python3-lxml
+        python3-jinja2
         tree
         tzdata
         uuid-dev
