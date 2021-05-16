@@ -15,7 +15,7 @@ After=network-online.target
 
 [Service]
 DynamicUser=yes
-ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
+ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-upload --save-state
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 PrivateDevices=yes
@@ -33,11 +33,11 @@ StateDirectory=systemd/journal-upload
 SupplementaryGroups=systemd-journal
 SystemCallArchitectures=native
 User=systemd-journal-upload
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 
 [Install]
 WantedBy=multi-user.target

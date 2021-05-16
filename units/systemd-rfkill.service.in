@@ -17,7 +17,7 @@ After=sys-devices-virtual-misc-rfkill.device
 Before=shutdown.target
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-rfkill
+ExecStart={{ROOTLIBEXECDIR}}/systemd-rfkill
 NoNewPrivileges=yes
 StateDirectory=systemd/rfkill
 TimeoutSec=30s

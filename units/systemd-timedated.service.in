@@ -17,7 +17,7 @@ Documentation=man:org.freedesktop.timedate1(5)
 BusName=org.freedesktop.timedate1
 CapabilityBoundingSet=CAP_SYS_TIME
 DeviceAllow=char-rtc r
-ExecStart=@rootlibexecdir@/systemd-timedated
+ExecStart={{ROOTLIBEXECDIR}}/systemd-timedated
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -39,4 +39,4 @@ RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @clock
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}

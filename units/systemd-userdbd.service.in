@@ -17,9 +17,9 @@ DefaultDependencies=no
 
 [Service]
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-ExecStart=@rootlibexecdir@/systemd-userdbd
+ExecStart={{ROOTLIBEXECDIR}}/systemd-userdbd
 IPAddressDeny=any
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
@@ -39,7 +39,7 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 [Install]
 Also=systemd-userdbd.socket

@@ -242,6 +242,7 @@ conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               join_paths(rootlib
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      join_paths(rootbindir, 'systemctl'))
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
 conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
+conf.set_quoted('ROOTBINDIR',                                 rootbindir)
 conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
 conf.set_quoted('ROOTPREFIX_NOSLASH',                         rootprefixdir_noslash)
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
@@ -842,6 +843,7 @@ substs.set('TTY_GID', tty_gid)
 
 # Ensure provided GID argument is numeric, otherwise fall back to default assignment
 users_gid = get_option('users-gid')
+conf.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
 substs.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
 
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
@@ -887,6 +889,7 @@ if localegen_path != ''
         writable = ' /usr/lib/locale'
 endif
 substs.set('SERVICE_LOCALEGEN_WRITABLE', writable)
+conf.set_quoted('SERVICE_LOCALEGEN_WRITABLE', writable)
 conf.set10('HAVE_LOCALEGEN', have)
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
@@ -894,7 +897,9 @@ conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 service_watchdog = get_option('service-watchdog')
 watchdog_value = service_watchdog == '' ? '' : 'WatchdogSec=' + service_watchdog
 substs.set('SERVICE_WATCHDOG', watchdog_value)
+conf.set_quoted('SERVICE_WATCHDOG', watchdog_value)
 
+conf.set_quoted('SUSHELL', get_option('debug-shell'))
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 conf.set_quoted('DEBUGTTY', get_option('debug-tty'))
@@ -3741,7 +3746,7 @@ status = [
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
-        'users GID:                         @0@'.format(substs.get('USERS_GID')),
+        'users GID:                         @0@'.format(conf.get('USERS_GID')),
         'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
                                                                         conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),

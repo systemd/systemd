@@ -26,7 +26,7 @@ SuccessExitStatus=133
 Slice=machine.slice
 Delegate=yes
 TasksMax=16384
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # Enforce a strict device policy, similar to the one nspawn configures when it
 # allocates its own scope unit. Make sure to keep these policies in sync if you

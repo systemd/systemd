@@ -17,7 +17,7 @@ Documentation=man:org.freedesktop.locale1(5)
 [Service]
 BusName=org.freedesktop.locale1
 CapabilityBoundingSet=
-ExecStart=@rootlibexecdir@/systemd-localed
+ExecStart={{ROOTLIBEXECDIR}}/systemd-localed
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -33,7 +33,7 @@ ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectSystem=strict
-ReadWritePaths=/etc@SERVICE_LOCALEGEN_WRITABLE@
+ReadWritePaths=/etc{{SERVICE_LOCALEGEN_WRITABLE}}
 RestrictAddressFamilies=AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes
@@ -41,4 +41,4 @@ RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}

@@ -13,7 +13,7 @@ Documentation=man:systemd-journal-remote(8) man:journal-remote.conf(5)
 Requires=systemd-journal-remote.socket
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-journal-remote --listen-https=-3 --output=/var/log/journal/remote/
+ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-remote --listen-https=-3 --output=/var/log/journal/remote/
 LockPersonality=yes
 LogsDirectory=journal/remote
 MemoryDenyWriteExecute=yes
@@ -36,11 +36,11 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 User=systemd-journal-remote
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 
 [Install]
 Also=systemd-journal-remote.socket

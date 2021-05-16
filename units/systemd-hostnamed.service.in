@@ -17,7 +17,7 @@ Documentation=man:org.freedesktop.resolve1(5)
 [Service]
 BusName=org.freedesktop.hostname1
 CapabilityBoundingSet=CAP_SYS_ADMIN
-ExecStart=@rootlibexecdir@/systemd-hostnamed
+ExecStart={{ROOTLIBEXECDIR}}/systemd-hostnamed
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -40,4 +40,4 @@ RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service sethostname
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}

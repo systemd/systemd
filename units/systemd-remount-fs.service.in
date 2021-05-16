@@ -20,4 +20,4 @@ Wants=local-fs-pre.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-remount-fs
+ExecStart={{ROOTLIBEXECDIR}}/systemd-remount-fs

@@ -17,4 +17,4 @@ ConditionFileNotEmpty=/lib/modules/%v/modules.devname
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@KMOD@ static-nodes --format=tmpfiles --output=/run/tmpfiles.d/static-nodes.conf
+ExecStart={{KMOD}} static-nodes --format=tmpfiles --output=/run/tmpfiles.d/static-nodes.conf

@@ -24,7 +24,7 @@ OOMScoreAdjust=-1000
 Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
 Restart=always
 RestartSec=0
-ExecStart=@rootlibexecdir@/systemd-udevd
+ExecStart={{ROOTLIBEXECDIR}}/systemd-udevd
 ExecReload=udevadm control --reload --timeout 0
 KillMode=mixed
 TasksMax=infinity
@@ -40,4 +40,4 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 IPAddressDeny=any
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}

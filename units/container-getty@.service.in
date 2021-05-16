@@ -8,33 +8,36 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Console Getty
+Description=Container Getty on /dev/pts/%I
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
+Documentation=man:machinectl(1)
 After=systemd-user-sessions.service plymouth-quit-wait.service
-m4_ifdef(`HAVE_SYSV_COMPAT',
+{% if HAVE_SYSV_COMPAT %}
 After=rc-local.service getty-pre.target
-)m4_dnl
+{% endif %}
 Before=getty.target
+IgnoreOnIsolate=yes
+ConditionPathExists=/dev/pts/%I
 
-# OCI containers may be run without a console
-ConditionPathExists=/dev/console
+# IgnoreOnIsolate is an issue: when someone isolates rescue.target,
+# tradition expects that we shut down all but the main console.
+Conflicts=rescue.service
+Before=rescue.service
 
 [Service]
 # The '-o' option value tells agetty to replace 'login' arguments with an
 # option to preserve environment (-p), followed by '--' for safety, and then
 # the entered username.
-ExecStart=-/sbin/agetty -o '-p -- \\u' --noclear --keep-baud console 115200,38400,9600 $TERM
+ExecStart=-/sbin/agetty -o '-p -- \\u' --noclear --keep-baud pts/%I 115200,38400,9600 $TERM
 Type=idle
 Restart=always
-UtmpIdentifier=cons
-TTYPath=/dev/console
+RestartSec=0
+UtmpIdentifier=pts/%I
+TTYPath=/dev/pts/%I
 TTYReset=yes
 TTYVHangup=yes
-m4_ifdef(`ENABLE_LOGIND',,
+{% if not ENABLE_LOGIND %}
 KillMode=process
-)m4_dnl
+{% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
-
-[Install]
-WantedBy=getty.target

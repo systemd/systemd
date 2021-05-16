@@ -8,19 +8,19 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Early root shell on @DEBUGTTY@ FOR DEBUGGING ONLY
+Description=Early root shell on {{DEBUGTTY}} FOR DEBUGGING ONLY
 Documentation=man:systemd-debug-generator(8)
 DefaultDependencies=no
 IgnoreOnIsolate=yes
-ConditionPathExists=@DEBUGTTY@
+ConditionPathExists={{DEBUGTTY}}
 
 [Service]
 Environment=TERM=linux
-ExecStart=@SUSHELL@
+ExecStart={{SUSHELL}}
 Restart=always
 RestartSec=0
 StandardInput=tty
-TTYPath=@DEBUGTTY@
+TTYPath={{DEBUGTTY}}
 TTYReset=yes
 TTYVHangup=yes
 KillMode=process

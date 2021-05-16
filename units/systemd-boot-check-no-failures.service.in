@@ -18,7 +18,7 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-boot-check-no-failures
+ExecStart={{ROOTLIBEXECDIR}}/systemd-boot-check-no-failures
 
 [Install]
 RequiredBy=boot-complete.target

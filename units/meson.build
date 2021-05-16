@@ -165,13 +165,18 @@ units = [
 ]
 
 in_units = [
+        ['console-getty.service',                ''],
+        ['container-getty@.service',             ''],
         ['debug-shell.service',                  ''],
         ['emergency.service',                    ''],
+        ['getty@.service',                       '',
+         'autovt@.service'],
         ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
          'sysinit.target.wants/'],
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
         ['rc-local.service',                     'HAVE_SYSV_COMPAT'],
         ['rescue.service',                       ''],
+        ['serial-getty@.service',                ''],
         ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
         ['systemd-binfmt.service',               'ENABLE_BINFMT',
          'sysinit.target.wants/'],
@@ -247,14 +252,6 @@ in_units = [
         ['user@.service',                        ''],
 ]
 
-m4_units = [
-        ['console-getty.service',              ''],
-        ['container-getty@.service',           ''],
-        ['getty@.service',                     '',
-         'autovt@.service '],
-        ['serial-getty@.service',              ''],
-]
-
 add_wants = []
 
 foreach tuple : in_units
@@ -265,45 +262,16 @@ foreach tuple : in_units
         install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
                    (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
 
-        gen1 = configure_file(
-                input : file + '.in',
-                output : file + '.tmp',
-                configuration : substs)
-        gen2 = custom_target(
+        custom_target(
                 file,
-                input : gen1,
+                input : file + '.in',
                 output : file,
-                command : [sed, '/^## /d', '@INPUT@'],
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
                 capture : true,
                 install : install,
                 install_dir : systemunitdir)
 
         if install and tuple.length() > 2
-                foreach target : tuple[2].split()
-                        add_wants += [systemunitdir, target, file]
-                endforeach
-        endif
-endforeach
-
-foreach tuple : m4_units
-        file = tuple[0]
-        input = tuple.get(3, file + '.m4')
-
-        # we do this here because install_data does not accept custom_target output
-        conds = tuple[1].split(' ')
-        install = ((conds.get(0, '') == '' or conf.get(conds[0]) == 1) and
-                   (conds.get(1, '') == '' or conf.get(conds[1]) == 1))
-
-        custom_target(
-                file,
-                input : input,
-                output: file,
-                command : [meson_apply_m4, config_h, '@INPUT@'],
-                capture : true,
-                install : install,
-                install_dir : systemunitdir)
-
-        if tuple.length() > 2 and install
                 foreach target : tuple[2].split()
                         add_wants += [systemunitdir, target, file]
                 endforeach

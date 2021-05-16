@@ -25,5 +25,5 @@ ConditionKernelCommandLine=|rd.modules-load
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-modules-load
+ExecStart={{ROOTLIBEXECDIR}}/systemd-modules-load
 TimeoutSec=90s

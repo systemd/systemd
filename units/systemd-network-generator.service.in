@@ -17,7 +17,7 @@ Wants=network-pre.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-network-generator
+ExecStart={{ROOTLIBEXECDIR}}/systemd-network-generator
 
 [Install]
 WantedBy=sysinit.target

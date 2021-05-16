@@ -24,7 +24,7 @@ Wants=nss-lookup.target
 AmbientCapabilities=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
 BusName=org.freedesktop.resolve1
 CapabilityBoundingSet=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
-ExecStart=!!@rootlibexecdir@/systemd-resolved
+ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-resolved
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
@@ -51,7 +51,7 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-resolve
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 [Install]
 WantedBy=multi-user.target

@@ -16,7 +16,7 @@ After=systemd-journald@%i.socket systemd-journald-varlink@%i.socket
 [Service]
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
 DevicePolicy=closed
-ExecStart=@rootlibexecdir@/systemd-journald %i
+ExecStart={{ROOTLIBEXECDIR}}/systemd-journald %i
 FileDescriptorStoreMax=4224
 Group=systemd-journal
 IPAddressDeny=any
@@ -37,8 +37,8 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
