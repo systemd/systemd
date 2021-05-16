@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
          * even emergency.target. */
         p = strjoina(arg_dest, "/" SPECIAL_BASIC_TARGET ".wants/systemd-bless-boot.service");
         (void) mkdir_parents(p, 0755);
-        if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-bless-boot.service", p) < 0) {
+        if (symlink(SYSTEM_DATA_UNIT_DIR "/systemd-bless-boot.service", p) < 0) {
                 log_error_errno(errno, "Failed to create symlink '%s': %m", p);
                 return EXIT_FAILURE;
         }

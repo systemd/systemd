@@ -325,7 +325,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_UNIT:
-                *ret = SYSTEM_DATA_UNIT_PATH;
+                *ret = SYSTEM_DATA_UNIT_DIR;
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_PRESET:

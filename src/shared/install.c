@@ -247,7 +247,7 @@ static int path_is_vendor_or_generator(const LookupPaths *p, const char *path) {
         if (path_is_generator(p, rpath))
                 return true;
 
-        return path_equal(rpath, SYSTEM_DATA_UNIT_PATH);
+        return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
 }
 
 static const char* config_path_from_flags(const LookupPaths *paths, UnitFileFlags flags) {
