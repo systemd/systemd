@@ -26,34 +26,20 @@ foreach pair : files
         endif
 endforeach
 
-in_files = ['static-nodes-permissions.conf']
-
-foreach file : in_files
-        gen = configure_file(
-                input : file + '.in',
-                output : file,
-                configuration : substs)
-        if enable_tmpfiles
-                install_data(gen,
-                             install_dir : tmpfilesdir)
-        endif
-endforeach
-
-m4_files = ['etc.conf',
+in_files = ['etc.conf',
+            'static-nodes-permissions.conf',
             'systemd.conf',
             'var.conf']
 
-foreach file : m4_files
-        if enable_tmpfiles
-                custom_target(
-                        'tmpfiles.d_' + file,
-                         input : file + '.m4',
-                         output: file,
-                         command : [meson_apply_m4, config_h, '@INPUT@'],
-                         capture : true,
-                         install : true,
-                         install_dir : tmpfilesdir)
-        endif
+foreach file : in_files
+        custom_target(
+                file,
+                input : file + '.in',
+                output: file,
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
+                capture : true,
+                install : enable_tmpfiles,
+                install_dir : tmpfilesdir)
 endforeach
 
 if enable_tmpfiles and install_sysconfdir
