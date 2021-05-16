@@ -46,7 +46,6 @@ BuildPackages=
         libtss2-dev
         libxkbcommon-dev
         libzstd-dev
-        m4
         meson
         pkg-config
         python3

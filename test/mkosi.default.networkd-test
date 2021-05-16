@@ -52,7 +52,6 @@ BuildPackages=
         libxslt
         lz4
         lz4-devel
-        m4
         meson
         ninja-build
         pam-devel
