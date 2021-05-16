@@ -1425,6 +1425,7 @@ if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
+conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 dns_over_tls = get_option('dns-over-tls')
@@ -1466,16 +1467,19 @@ if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
 endif
 conf.set('DEFAULT_DNS_OVER_TLS_MODE',
          'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
+conf.set_quoted('DEFAULT_DNS_OVER_TLS_MODE_STR', default_dns_over_tls)
 substs.set('DEFAULT_DNS_OVER_TLS_MODE', default_dns_over_tls)
 
 default_mdns = get_option('default-mdns')
 conf.set('DEFAULT_MDNS_MODE',
          'RESOLVE_SUPPORT_' + default_mdns.to_upper())
+conf.set_quoted('DEFAULT_MDNS_MODE_STR', default_mdns)
 substs.set('DEFAULT_MDNS_MODE', default_mdns)
 
 default_llmnr = get_option('default-llmnr')
 conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
+conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 substs.set('DEFAULT_LLMNR_MODE', default_llmnr)
 
 want_repart = get_option('repart')

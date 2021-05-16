@@ -158,19 +158,18 @@ if conf.get('ENABLE_RESOLVE') == 1
                      install_dir : dbussystemservicedir)
         install_data('org.freedesktop.resolve1.policy',
                      install_dir : polkitpolicydir)
-
-        resolved_conf = configure_file(
-                input : 'resolved.conf.in',
-                output : 'resolved.conf',
-                configuration : substs)
-        if install_sysconfdir_samples
-                install_data(resolved_conf,
-                             install_dir : pkgsysconfdir)
-        endif
-
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
 endif
+
+custom_target(
+        'resolved.conf',
+        input : 'resolved.conf.in',
+        output : 'resolved.conf',
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
+        install_dir : pkgsysconfdir)
 
 ############################################################
 
