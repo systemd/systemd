@@ -655,6 +655,12 @@ endif
 
 ############################################################
 
+if run_command('python3', '-c', 'import jinja2').returncode() != 0
+        error('python3 jinja2 missing')
+endif
+
+############################################################
+
 gperf = find_program('gperf')
 
 gperf_test_format = '''
