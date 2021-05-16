@@ -85,7 +85,7 @@ static int process_resume(void) {
                 return log_oom();
 
         mkdir_parents_label(lnk, 0755);
-        if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-hibernate-resume@.service", lnk) < 0)
+        if (symlink(SYSTEM_DATA_UNIT_DIR "/systemd-hibernate-resume@.service", lnk) < 0)
                 return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         r = unit_name_from_path(arg_resume_device, ".device", &device_unit);

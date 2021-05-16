@@ -5,25 +5,25 @@
 
 # RPM macros for packages installing systemd unit files
 
-%_systemd_util_dir @rootlibexecdir@
-%_unitdir @systemunitdir@
-%_userunitdir @userunitdir@
-%_presetdir @systempresetdir@
-%_userpresetdir @userpresetdir@
-%_udevhwdbdir @udevhwdbdir@
-%_udevrulesdir @udevrulesdir@
-%_journalcatalogdir @catalogdir@
-%_binfmtdir @binfmtdir@
-%_sysctldir @sysctldir@
-%_sysusersdir @sysusersdir@
-%_tmpfilesdir @tmpfilesdir@
-%_environmentdir @environmentdir@
-%_modulesloaddir @modulesloaddir@
-%_modprobedir @modprobedir@
-%_systemdgeneratordir @systemgeneratordir@
-%_systemdusergeneratordir @usergeneratordir@
-%_systemd_system_env_generator_dir @systemenvgeneratordir@
-%_systemd_user_env_generator_dir @userenvgeneratordir@
+%_systemd_util_dir {{ROOTLIBEXECDIR}}
+%_unitdir {{SYSTEM_DATA_UNIT_DIR}}
+%_userunitdir {{USER_DATA_UNIT_DIR}}
+%_presetdir {{SYSTEM_PRESET_DIR}}
+%_userpresetdir {{USER_PRESET_DIR}}
+%_udevhwdbdir {{UDEV_HWDB_DIR}}
+%_udevrulesdir {{UDEV_RULES_DIR}}
+%_journalcatalogdir {{SYSTEMD_CATALOG_DIR}}
+%_binfmtdir {{BINFMT_DIR}}
+%_sysctldir {{SYSCTL_DIR}}
+%_sysusersdir {{SYSUSERS_DIR}}
+%_tmpfilesdir {{TMPFILES_DIR}}
+%_environmentdir {{ENVIRONMENT_DIR}}
+%_modulesloaddir {{MODULESLOAD_DIR}}
+%_modprobedir {{MODPROBE_DIR}}
+%_systemdgeneratordir {{SYSTEM_GENERATOR_DIR}}
+%_systemdusergeneratordir {{USER_GENERATOR_DIR}}
+%_systemd_system_env_generator_dir {{SYSTEM_ENV_GENERATOR_DIR}}
+%_systemd_user_env_generator_dir {{USER_ENV_GENERATOR_DIR}}
 
 # Because we had one release with a typo...
 # This is temporary (Remove after systemd 240 is released)
@@ -162,10 +162,10 @@ SYSTEMD_INLINE_EOF\
 
 %sysctl_apply() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# sysctl_apply}} \
-[ -x @rootlibexecdir@/systemd-sysctl ] && @rootlibexecdir@/systemd-sysctl %{?*} || : \
+[ -x {{ROOTLIBEXECDIR}}/systemd-sysctl ] && {{ROOTLIBEXECDIR}}/systemd-sysctl %{?*} || : \
 %{nil}
 
 %binfmt_apply() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# binfmt_apply}} \
-[ -x @rootlibexecdir@/systemd-binfmt ] && @rootlibexecdir@/systemd-binfmt %{?*} || : \
+[ -x {{ROOTLIBEXECDIR}}/systemd-binfmt ] && {{ROOTLIBEXECDIR}}/systemd-binfmt %{?*} || : \
 %{nil}
