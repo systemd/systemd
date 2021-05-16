@@ -88,6 +88,15 @@ else
     fatal "Unknown compiler: $COMPILER"
 fi
 
+if [ -n "${RUST}" ]; then
+    PACKAGES+=(rustc)
+    RUST="-Dbuild-rust=true"
+    RUSTFLAGS="--deny warnings -Copt-level=3"
+    if [[ "$COMPILER" == clang ]]; then
+        RUSTFLAGS="${RUSTFLAGS} -Clinker-plugin-lto"
+    fi
+fi
+
 # PPA with some newer build dependencies (like zstd)
 add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
@@ -107,8 +116,13 @@ ninja --version
 for args in "${ARGS[@]}"; do
     SECONDS=0
 
+    # Only for Clang, and only for LTO builds, we need to enable a Rust-specific LTO flag
+    if [ -n "${RUST}" ] && [[ "$COMPILER" == clang ]] && [ "${ARGS}" = "--optimization=3 -Db_lto=true"]; then
+        RUSTFLAGS="${RUSTFLAGS} -Clinker-plugin-lto"
+    fi
+
     info "Checking build with $args"
-    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror $args build; then
+    if ! AR="$AR" CC="$CC" CXX="$CXX" CFLAGS="-Werror" CXXFLAGS="-Werror" RUSTFLAGS="${RUSTFLAGS}" meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror ${RUST} $args build; then
         fatal "meson failed with $args"
     fi
 
