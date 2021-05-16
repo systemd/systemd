@@ -41,6 +41,7 @@ BuildPackages=
         pkgconfig
         python
         python-lxml
+        python-jinja
         qrencode
         rsync
         xz
