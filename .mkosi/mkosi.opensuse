@@ -30,7 +30,6 @@ BuildPackages=
         libseccomp-devel
         libselinux-devel
         libxslt-tools
-        m4
         meson
         pam-devel
         pciutils-devel

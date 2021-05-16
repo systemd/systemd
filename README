@@ -195,7 +195,7 @@ REQUIREMENTS:
         python >= 3.5
         meson >= 0.46 (>= 0.49 is required to build position-independent executables)
         ninja
-        gcc, awk, sed, grep, m4, and similar tools
+        gcc, awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
 

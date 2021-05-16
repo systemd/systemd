@@ -49,7 +49,6 @@ BuildPackages=
         libxkbcommon-dev
         libxtables-dev
         libzstd-dev
-        m4
         meson
         pkg-config
         python3
