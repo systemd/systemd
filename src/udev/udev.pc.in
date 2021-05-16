@@ -9,7 +9,7 @@
 
 Name: udev
 Description: udev
-Version: @PROJECT_VERSION@
+Version: {{PROJECT_VERSION}}
 
-udev_dir=@udevlibexecdir@
+udev_dir={{UDEVLIBEXECDIR}}
 udevdir=${udev_dir}
