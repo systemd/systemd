@@ -33,7 +33,10 @@ ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectSystem=strict
-ReadWritePaths=/etc{{SERVICE_LOCALEGEN_WRITABLE}}
+ReadWritePaths=/etc
+{% if HAVE_LOCALEGEN %}
+ReadWritePaths=/usr/lib/locale
+{% endif %}
 RestrictAddressFamilies=AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes
