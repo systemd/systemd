@@ -24,7 +24,7 @@ The systemd journal stores log data in a binary format with several features:
 This document explains the basic structure of the file format on disk. We are
 making this available primarily to allow review and provide documentation. Note
 that the actual implementation in the [systemd
-codebase](https://github.com/systemd/systemd/blob/master/src/journal/) is the
+codebase](https://github.com/systemd/systemd/blob/main/src/libsystemd/sd-journal/) is the
 only ultimately authoritative description of the format, so if this document
 and the code disagree, the code is right. That said we'll of course try hard to
 keep this document up-to-date and accurate.
