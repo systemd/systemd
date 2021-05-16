@@ -37,7 +37,7 @@
 #NoNewPrivileges=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
-#StatusUnitFormat=@STATUS_UNIT_FORMAT_DEFAULT@
+#StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}
 #DefaultTimerAccuracySec=1min
 #DefaultStandardOutput=journal
 #DefaultStandardError=inherit
@@ -52,7 +52,7 @@
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
 #DefaultBlockIOAccounting=no
-#DefaultMemoryAccounting=@MEMORY_ACCOUNTING_DEFAULT@
+#DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
 #DefaultTasksAccounting=yes
 #DefaultTasksMax=15%
 #DefaultLimitCPU=
@@ -61,7 +61,7 @@
 #DefaultLimitSTACK=
 #DefaultLimitCORE=
 #DefaultLimitRSS=
-#DefaultLimitNOFILE=1024:@HIGH_RLIMIT_NOFILE@
+#DefaultLimitNOFILE=1024:{{HIGH_RLIMIT_NOFILE}}
 #DefaultLimitAS=
 #DefaultLimitNPROC=
 #DefaultLimitMEMLOCK=
