@@ -13,7 +13,7 @@ Documentation=man:systemd-importd.service(8)
 Documentation=man:org.freedesktop.import1(5)
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-importd
+ExecStart={{ROOTLIBEXECDIR}}/systemd-importd
 BusName=org.freedesktop.import1
 KillMode=mixed
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_SETFCAP CAP_SYS_ADMIN CAP_SETPCAP CAP_DAC_OVERRIDE
@@ -27,4 +27,4 @@ SystemCallFilter=@system-service @mount
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
