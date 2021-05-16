@@ -45,7 +45,6 @@ BuildPackages=
         libzstd-devel
         lz4
         lz4-devel
-        m4
         meson
         ninja-build
         openssl-devel
