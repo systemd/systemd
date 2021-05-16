@@ -9,7 +9,7 @@
 u root    0     "Super User" /root
 
 # The nobody user for NFS file systems
-u @NOBODY_USER_NAME@  65534 "Nobody"     -
+u {{NOBODY_USER_NAME}}  65534 "Nobody"     -
 
 # Administrator group: can *see* more than normal users
 g adm     -     -            -
@@ -19,7 +19,7 @@ g wheel   -     -            -
 
 # Access to certain kernel and userspace facilities
 g kmem    -     -            -
-g tty     @TTY_GID@     -            -
+g tty     {{TTY_GID}}     -            -
 g utmp    -     -            -
 
 # Hardware access groups
@@ -36,4 +36,4 @@ g tape    -     -            -
 g video   -     -            -
 
 # Default group for normal users
-g users   @USERS_GID@     -            -
+g users   {{USERS_GID}}     -            -
