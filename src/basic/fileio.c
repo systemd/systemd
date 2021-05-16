@@ -1391,7 +1391,7 @@ int rename_and_apply_smack_floor_label(const char *from, const char *to) {
         if (rename(from, to) < 0)
                 return -errno;
 
-#ifdef SMACK_RUN_LABEL
+#if HAVE_SMACK_RUN_LABEL
         r = mac_smack_apply(to, SMACK_ATTR_ACCESS, SMACK_FLOOR_LABEL);
         if (r < 0)
                 return r;
