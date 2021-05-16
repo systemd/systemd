@@ -20,10 +20,10 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FS
 DeviceAllow=/dev/loop-control rw
 DeviceAllow=/dev/mapper/control rw
 DeviceAllow=block-* rw
-ExecStart=@rootlibexecdir@/systemd-homed
+ExecStart={{ROOTLIBEXECDIR}}/systemd-homed
 IPAddressDeny=any
 KillMode=mixed
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
@@ -34,7 +34,7 @@ StateDirectory=systemd/home
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @mount
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 [Install]
 WantedBy=multi-user.target

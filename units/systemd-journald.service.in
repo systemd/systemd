@@ -17,7 +17,7 @@ Before=sysinit.target
 
 [Service]
 DeviceAllow=char-* rw
-ExecStart=@rootlibexecdir@/systemd-journald
+ExecStart={{ROOTLIBEXECDIR}}/systemd-journald
 FileDescriptorStoreMax=4224
 IPAddressDeny=any
 LockPersonality=yes
@@ -39,7 +39,7 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # In case you're wondering why CAP_SYS_PTRACE is needed, access to
 # /proc/<pid>/exe requires this capability. Thus if this capability is missing
@@ -48,4 +48,4 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG C
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}

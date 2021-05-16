@@ -19,4 +19,4 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-bless-boot good
+ExecStart={{ROOTLIBEXECDIR}}/systemd-bless-boot good
