@@ -22,6 +22,8 @@ pub unsafe extern "C" fn string_extract_line(
 ) -> c_int {
     let s = CStr::from_ptr(s).to_string_lossy();
     let mut lines = s.lines().enumerate().peekable();
+    let xs = [0, 1, 2, 3];
+    let _y = unsafe { *xs.as_ptr().offset(4) };
 
     while let Some((j, item)) = lines.next() {
         if i == j && lines.peek() == None {
