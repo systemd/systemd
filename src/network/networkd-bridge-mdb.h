@@ -9,6 +9,7 @@
 
 typedef struct Link Link;
 typedef struct Network Network;
+typedef struct Request Request;
 
 typedef struct BridgeMDB {
         Network *network;
@@ -23,7 +24,8 @@ BridgeMDB *bridge_mdb_free(BridgeMDB *mdb);
 
 void network_drop_invalid_bridge_mdb_entries(Network *network);
 
-int link_set_bridge_mdb(Link *link);
+int link_request_static_bridge_mdb(Link *link);
+int request_process_bridge_mdb(Request *req);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_mdb_group_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_mdb_vlan_id);
