@@ -719,43 +719,6 @@ int manager_enumerate(Manager *m) {
         return 0;
 }
 
-Link* manager_find_uplink(Manager *m, Link *exclude) {
-        _cleanup_free_ struct local_address *gateways = NULL;
-        int n;
-
-        assert(m);
-
-        /* Looks for a suitable "uplink", via black magic: an
-         * interface that is up and where the default route with the
-         * highest priority points to. */
-
-        n = local_gateways(m->rtnl, 0, AF_UNSPEC, &gateways);
-        if (n < 0) {
-                log_warning_errno(n, "Failed to determine list of default gateways: %m");
-                return NULL;
-        }
-
-        for (int i = 0; i < n; i++) {
-                Link *link;
-
-                link = hashmap_get(m->links, INT_TO_PTR(gateways[i].ifindex));
-                if (!link) {
-                        log_debug("Weird, found a gateway for a link we don't know. Ignoring.");
-                        continue;
-                }
-
-                if (link == exclude)
-                        continue;
-
-                if (link->operstate < LINK_OPERSTATE_ROUTABLE)
-                        continue;
-
-                return link;
-        }
-
-        return NULL;
-}
-
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         const sd_bus_error *e;
         int r;
