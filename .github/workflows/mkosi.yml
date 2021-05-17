@@ -27,7 +27,7 @@ jobs:
     - uses: systemd/mkosi@v9
 
     - name: Install
-      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect
+      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
 
     - name: Symlink
       run: ln -s .mkosi/mkosi.${{ matrix.distro }} mkosi.default
