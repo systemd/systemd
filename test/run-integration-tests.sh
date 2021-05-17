@@ -60,17 +60,19 @@ pass_deny_list() {
     return 0
 }
 
+SELECTED_TESTS="${SELECTED_TESTS:-TEST-??-*}"
+
 # Let's always do the cleaning operation first, because it destroys the image
 # cache.
 if [ $CLEAN = 1 ]; then
-    for TEST in TEST-??-* ; do
+    for TEST in $SELECTED_TESTS; do
         ( set -x ; make -C "$TEST" clean )
     done
 fi
 
 # Run actual tests (if requested)
 if [[ $args =~ [a-z] ]]; then
-    for TEST in TEST-??-* ; do
+    for TEST in $SELECTED_TESTS; do
         COUNT=$(($COUNT+1))
 
         pass_deny_list $TEST || continue
