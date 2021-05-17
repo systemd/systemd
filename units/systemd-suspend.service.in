@@ -16,4 +16,4 @@ After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-sleep suspend
+ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep suspend

@@ -8,16 +8,16 @@
 #  (at your option) any later version.
 
 # This unit gets pulled automatically into multi-user.target by
-# systemd-rc-local-generator if @RC_LOCAL_PATH@ is executable.
+# systemd-rc-local-generator if {{RC_LOCAL_PATH}} is executable.
 [Unit]
-Description=@RC_LOCAL_PATH@ Compatibility
+Description={{RC_LOCAL_PATH}} Compatibility
 Documentation=man:systemd-rc-local-generator(8)
-ConditionFileIsExecutable=@RC_LOCAL_PATH@
+ConditionFileIsExecutable={{RC_LOCAL_PATH}}
 After=network.target
 
 [Service]
 Type=forking
-ExecStart=@RC_LOCAL_PATH@ start
+ExecStart={{RC_LOCAL_PATH}} start
 TimeoutSec=0
 RemainAfterExit=yes
 GuessMainPID=no

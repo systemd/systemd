@@ -433,7 +433,7 @@ done
         if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
                ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
         then
-            _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
+            _sys_all_properties=( ${${(M)${(f)"$({{ROOTLIBEXECDIR}}/systemd --dump-bus-properties)"}}} )
             _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
         fi
         _values -s , "${_sys_all_properties[@]}"

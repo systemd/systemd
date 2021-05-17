@@ -28,7 +28,7 @@ Conflicts=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-time-wait-sync
+ExecStart={{ROOTLIBEXECDIR}}/systemd-time-wait-sync
 TimeoutStartSec=infinity
 RemainAfterExit=yes
 
