@@ -3675,7 +3675,9 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         'dhcp-client.network',
         'dhcp-client-timezone-router.network',
         'dhcp-server.network',
-        'dhcp-server-timezone-router.network']
+        'dhcp-server-timezone-router.network',
+        'dhcp-server-uplink.network',
+    ]
 
     def setUp(self):
         remove_links(self.links)
@@ -3687,7 +3689,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network',
+                                        '12-dummy.netdev', 'dhcp-server-uplink.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
