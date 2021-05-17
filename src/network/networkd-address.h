@@ -57,6 +57,7 @@ int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Lin
 int address_remove(const Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(const Address *a1, const Address *a2);
 bool address_is_ready(const Address *a);
+void address_set_broadcast(Address *a);
 
 int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
