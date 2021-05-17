@@ -17,6 +17,8 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_BRIDGE_FDB:
                 bridge_fdb_free(object);
                 break;
+        case REQUEST_TYPE_DHCP_SERVER:
+                break;
         case REQUEST_TYPE_NEIGHBOR:
                 neighbor_free(object);
                 break;
@@ -73,8 +75,10 @@ int link_queue_request(
         assert(link);
         assert(link->manager);
         assert(type >= 0 && type < _REQUEST_TYPE_MAX);
-        assert(object);
-        assert(netlink_handler);
+        if (type != REQUEST_TYPE_DHCP_SERVER) {
+                assert(object);
+                assert(netlink_handler);
+        }
 
         req = new(Request, 1);
         if (!req) {
@@ -125,6 +129,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_BRIDGE_FDB:
                                 r = request_process_bridge_fdb(req);
+                                break;
+                        case REQUEST_TYPE_DHCP_SERVER:
+                                r = request_process_dhcp_server(req);
                                 break;
                         case REQUEST_TYPE_NEIGHBOR:
                                 r = request_process_neighbor(req);
