@@ -363,7 +363,7 @@ static int dhcp4_server_configure(Link *link) {
                 else {
                         /* Emission is requested, but nothing explicitly configured. Let's find a suitable upling */
                         if (!acquired_uplink) {
-                                uplink = manager_find_uplink(link->manager, link);
+                                (void) manager_find_uplink(link->manager, AF_INET, link, &uplink);
                                 acquired_uplink = true;
                         }
 
