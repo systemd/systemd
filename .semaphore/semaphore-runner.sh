@@ -57,7 +57,7 @@ for phase in "${PHASES[@]}"; do
             echo "deb http://archive.ubuntu.com/ubuntu $UBUNTU_RELEASE-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/backports.list
             sudo apt-get -q update
             sudo apt-get install -y -t "$UBUNTU_RELEASE-backports" lxc
-            sudo apt-get install -y python3-debian git dpkg-dev fakeroot
+            sudo apt-get install -y python3-debian git dpkg-dev fakeroot python3-jinja2
 
             [ -d $AUTOPKGTEST_DIR ] || git clone --quiet --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
 

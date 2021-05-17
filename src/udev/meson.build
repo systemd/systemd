@@ -158,11 +158,14 @@ if install_sysconfdir_samples
                      install_dir : join_paths(sysconfdir, 'udev'))
 endif
 
-configure_file(
+custom_target(
+        'udev.pc',
         input : 'udev.pc.in',
         output : 'udev.pc',
-        configuration : substs,
-        install_dir : pkgconfigdatadir == 'no' ? '' : pkgconfigdatadir)
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : pkgconfigdatadir != 'no',
+        install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
         meson.add_install_script('sh', '-c',
