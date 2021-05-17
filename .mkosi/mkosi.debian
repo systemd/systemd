@@ -51,6 +51,7 @@ BuildPackages=
         pkg-config
         python3
         python3-lxml
+        rustc
         tree
         uuid-dev
         xsltproc
