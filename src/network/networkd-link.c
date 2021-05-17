@@ -1771,23 +1771,16 @@ static void link_drop_from_master(Link *link, NetDev *netdev) {
         link_unref(set_remove(master->slaves, link));
 }
 
-static void link_detach_from_manager(Link *link) {
-        if (!link || !link->manager)
-                return;
-
-        link_unref(set_remove(link->manager->links_requesting_uuid, link));
-        link_clean(link);
-
-        /* The following must be called at last. */
-        assert_se(hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex)) == link);
-        link_unref(link);
-}
-
 static void link_drop(Link *link) {
-        if (!link || link->state == LINK_STATE_LINGER)
+        if (!link)
                 return;
+
+        assert(link->manager);
 
         link_set_state(link, LINK_STATE_LINGER);
+
+        /* Drop all references from other links and manager. Note that async netlink calls may have
+         * references to the link, and they will be dropped when we receive replies. */
 
         link_free_carrier_maps(link);
 
@@ -1797,10 +1790,14 @@ static void link_drop(Link *link) {
                 link_drop_from_master(link, link->network->bond);
         }
 
-        log_link_debug(link, "Link removed");
+        link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
         (void) unlink(link->state_file);
-        link_detach_from_manager(link);
+        link_clean(link);
+
+        /* The following must be called at last. */
+        assert_se(hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex)) == link);
+        link_unref(link);
 }
 
 int link_activate(Link *link) {
