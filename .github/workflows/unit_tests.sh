@@ -26,6 +26,8 @@ function info() {
 
 set -ex
 
+export PATH="$HOME/.local/bin:$PATH"
+
 for phase in "${PHASES[@]}"; do
     case $phase in
         SETUP)
@@ -36,6 +38,11 @@ for phase in "${PHASES[@]}"; do
             apt-get -y update
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
+            # Install the latest meson and ninja form pip, since the distro versions don't
+            # support all the features we need (like --optimization=). Since the build-dep
+            # command above installs the distro versions, let's install the pip ones just
+            # locally and add the local bin directory to the $PATH.
+            pip3 install --user -U meson ninja
             ;;
         RUN|RUN_GCC|RUN_CLANG)
             if [[ "$phase" = "RUN_CLANG" ]]; then
