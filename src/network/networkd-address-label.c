@@ -225,7 +225,7 @@ int config_parse_address_label(
                 return 0;
         }
 
-        if (k == 0xffffffffUL) {
+        if (k == UINT32_C(0xffffffff)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
