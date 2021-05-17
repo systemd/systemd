@@ -10,6 +10,7 @@
 CRYPTSETUP_TOKEN_1.0 {
 global:
         cryptsetup_token_open;
+        cryptsetup_token_open_pin;
         cryptsetup_token_buffer_free;
         cryptsetup_token_validate;
         cryptsetup_token_dump;
