@@ -1771,6 +1771,17 @@ static void link_drop_from_master(Link *link, NetDev *netdev) {
         link_unref(set_remove(master->slaves, link));
 }
 
+static void link_drop_requests(Link *link) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+
+        ORDERED_SET_FOREACH(req, link->manager->request_queue)
+                if (req->link == link)
+                        request_drop(req);
+}
+
 static void link_drop(Link *link) {
         if (!link)
                 return;
@@ -1781,6 +1792,8 @@ static void link_drop(Link *link) {
 
         /* Drop all references from other links and manager. Note that async netlink calls may have
          * references to the link, and they will be dropped when we receive replies. */
+
+        link_drop_requests(link);
 
         link_free_carrier_maps(link);
 
@@ -2096,17 +2109,6 @@ static int link_drop_config(Link *link) {
         ndisc_flush(link);
 
         return r;
-}
-
-static void link_drop_requests(Link *link) {
-        Request *req;
-
-        assert(link);
-        assert(link->manager);
-
-        ORDERED_SET_FOREACH(req, link->manager->request_queue)
-                if (req->link == link)
-                        request_drop(req);
 }
 
 int link_configure(Link *link) {
