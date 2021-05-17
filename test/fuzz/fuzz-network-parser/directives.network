@@ -366,6 +366,7 @@ RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
 ServerAddress=
+UplinkInterface=
 [DHCPServerStaticLease]
 MACAddress=
 Address=
