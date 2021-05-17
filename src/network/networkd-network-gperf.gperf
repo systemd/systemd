@@ -9,12 +9,12 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "net-condition.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-bridge-fdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-mdb.h"
@@ -194,6 +194,7 @@ NextHop.Gateway,                             config_parse_nexthop_gateway,      
 NextHop.Family,                              config_parse_nexthop_family,                              0,                             0
 NextHop.OnLink,                              config_parse_nexthop_onlink,                              0,                             0
 NextHop.Blackhole,                           config_parse_nexthop_blackhole,                           0,                             0
+NextHop.Group,                               config_parse_nexthop_group,                               0,                             0
 DHCPv4.ClientIdentifier,                     config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCPv4.UseDNS,                               config_parse_dhcp_use_dns,                                0,                             0
 DHCPv4.RoutesToDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_dns)
@@ -261,7 +262,9 @@ IPv6AcceptRA.PrefixAllowList,                config_parse_ndisc_address_filter, 
 IPv6AcceptRA.PrefixDenyList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.RouteAllowList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_route_prefix)
-DHCPServer.RelayTarget,                      config_parse_dhcp_server_relay_target,                    0,                             0
+DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
+DHCPServer.UplinkInterface,                  config_parse_dhcp_server_uplink,                          0,                             0
+DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
 DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
 DHCPServer.MaxLeaseTimeSec,                  config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_max_lease_time_usec)
@@ -305,6 +308,7 @@ BridgeFDB.VLANId,                            config_parse_fdb_vlan_id,          
 BridgeFDB.Destination,                       config_parse_fdb_destination,                             0,                             0
 BridgeFDB.VNI,                               config_parse_fdb_vxlan_vni,                               0,                             0
 BridgeFDB.AssociatedWith,                    config_parse_fdb_ntf_flags,                               0,                             0
+BridgeFDB.OutgoingInterface,                 config_parse_fdb_interface,                               0,                             0
 BridgeMDB.MulticastGroupAddress,             config_parse_mdb_group_address,                           0,                             0
 BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,                                 0,                             0
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
@@ -314,7 +318,7 @@ DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,   
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
 DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp6_pd_manage_temporary_address)
-DHCPv6PrefixDelegation.Token,                config_parse_dhcp6_pd_token,                              0,                             offsetof(Network, dhcp6_pd_token)
+DHCPv6PrefixDelegation.Token,                config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, dhcp6_pd_token)
 DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_pd_route_metric)
 IPv6SendRA.RouterLifetimeSec,                config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)

@@ -80,6 +80,7 @@ typedef struct Link {
 
         unsigned address_label_messages;
         unsigned static_address_messages;
+        unsigned static_bridge_fdb_messages;
         unsigned static_neighbor_messages;
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
@@ -111,7 +112,6 @@ typedef struct Link {
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
-        unsigned dhcp4_remove_messages;
         sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
@@ -122,6 +122,7 @@ typedef struct Link {
         bool ipv4ll_address_configured:1;
 
         bool static_addresses_configured:1;
+        bool static_bridge_fdb_configured:1;
         bool static_neighbors_configured:1;
         bool static_nexthops_configured:1;
         bool static_routes_configured:1;
@@ -210,6 +211,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
+int link_get_by_name(Manager *m, const char *ifname, Link **ret);
 
 int link_up(Link *link);
 int link_down(Link *link, link_netlink_message_handler_t callback);
