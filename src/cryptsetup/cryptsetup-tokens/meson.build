@@ -25,4 +25,22 @@ if conf.get('HAVE_TPM2') == 1
                 c_args : cryptsetup_token_c_args)
 endif
 
+if conf.get('HAVE_LIBFIDO2') == 1
+        cryptsetup_token_systemd_fido2_sources = files('''
+                cryptsetup-token-systemd-fido2.c
+                cryptsetup-token.h
+                cryptsetup-token-util.h
+                cryptsetup-token-util.c
+                luks2-fido2.c
+                luks2-fido2.h
+        '''.split())
+
+        cryptsetup_token_systemd_fido2_static = static_library(
+                'cryptsetup-token-systemd-fido2_static',
+                cryptsetup_token_systemd_fido2_sources,
+                include_directories : includes,
+                dependencies : libshared_deps + [libcryptsetup, versiondep],
+                c_args : cryptsetup_token_c_args)
+endif
+
 endif
