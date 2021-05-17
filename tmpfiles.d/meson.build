@@ -33,7 +33,8 @@ in_files = ['etc.conf',
 
 foreach file : in_files
         custom_target(
-                file,
+                # XXX: workaround for old meson. Drop when upgrading.
+                'tmpfiles+' + file,
                 input : file + '.in',
                 output: file,
                 command : [meson_render_jinja2, config_h, '@INPUT@'],
