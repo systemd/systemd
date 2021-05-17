@@ -20,4 +20,4 @@ ConditionNeedsUpdate=|/var
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-update-done
+ExecStart={{ROOTLIBEXECDIR}}/systemd-update-done

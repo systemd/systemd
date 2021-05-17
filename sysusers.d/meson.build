@@ -4,32 +4,19 @@ if enable_sysusers
         install_data('README', install_dir : sysusersdir)
 endif
 
-in_files = ['basic.conf']
+in_files = [['basic.conf',          enable_sysusers],
+            ['systemd.conf',        enable_sysusers],
+            ['systemd-remote.conf', enable_sysusers and
+                                    conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1]]
 
-foreach file : in_files
-        gen = configure_file(
-                input : file + '.in',
-                output : file,
-                configuration : substs)
-        if enable_sysusers
-                install_data(gen,
-                             install_dir : sysusersdir)
-        endif
-endforeach
-
-m4_files = ['systemd.conf']
-
-if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
-        m4_files += ['systemd-remote.conf']
-endif
-
-foreach file : m4_files
+foreach tuple : in_files
+        file = tuple[0]
         custom_target(
-                'sysusers.d_' + file,
-                input : file + '.m4',
+                file,
+                input : file + '.in',
                 output: file,
-                command : [meson_apply_m4, config_h, '@INPUT@'],
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
                 capture : true,
-                install : enable_sysusers,
+                install : tuple[1],
                 install_dir : sysusersdir)
 endforeach
