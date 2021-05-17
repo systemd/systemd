@@ -17,6 +17,7 @@ ADDITIONAL_DEPS=(
     perl
     python3-libevdev
     python3-pyparsing
+    rustc
     zstd
 )
 
@@ -25,6 +26,8 @@ function info() {
 }
 
 set -ex
+
+export PATH="$HOME/.local/bin:$PATH"
 
 for phase in "${PHASES[@]}"; do
     case $phase in
@@ -36,13 +39,21 @@ for phase in "${PHASES[@]}"; do
             apt-get -y update
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
+            # Install the latest meson and ninja form pip, since the distro versions don't
+            # support all the features we need (like --optimization=). Since the build-dep
+            # command above installs the distro versions, let's install the pip ones just
+            # locally and add the local bin directory to the $PATH.
+            pip3 install --user -U meson ninja
             ;;
-        RUN|RUN_GCC|RUN_CLANG)
+        RUN|RUN_GCC|RUN_GCC_RUST|RUN_CLANG|RUN_CLANG_RUST)
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 export CC=clang
                 export CXX=clang++
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
+            if [[ "$phase" = "RUN_GCC_RUST" ]] || [[ "$phase" = "RUN_CLANG_RUST" ]]; then
+                MESON_ARGS=(-Dbuild-rust=true)
+            fi
+            meson --werror -Drust_args="--deny warnings" -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;

@@ -414,3 +414,20 @@ libbasic_gcrypt = static_library(
         include_directories : basic_includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'])
+
+############################################################
+
+# Basic helpers written in Rust. If not available, use the
+# C versions.
+if want_rust
+        basic_rust_sources = files(
+                'string-util.rs')
+
+        # Basic helpers written in Rust.
+        libbasic_rust = static_library(
+                'basic_rust',
+                basic_rust_sources,
+                rust_crate_type: 'staticlib')
+else
+        libbasic_rust = []
+endif
