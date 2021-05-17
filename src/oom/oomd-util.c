@@ -291,7 +291,11 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         ctx->preference = MANAGED_OOM_PREFERENCE_NONE;
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "memory.pressure", &p);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                /* Support for {io,cpu,memory}.pressure can be disabled with boot param 'psi=0'
+                 * or can be compiled to default to psi=0 */
+                return log_error_errno(r, "No kernel support for memory.pressure from %s (try boot param psi=1)", path);
+        else if (r < 0)
                 return log_debug_errno(r, "Error getting cgroup memory pressure path from %s: %m", path);
 
         r = read_resource_pressure(p, PRESSURE_TYPE_FULL, &ctx->memory_pressure);
