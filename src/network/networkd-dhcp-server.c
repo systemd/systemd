@@ -96,6 +96,26 @@ static int link_find_dhcp_server_address(Link *link, Address **ret) {
         return -ENOENT;
 }
 
+static int dhcp_server_find_uplink(Link *link, Link **ret) {
+        assert(link);
+
+        if (link->network->dhcp_server_uplink_name)
+                return link_get_by_name(link->manager, link->network->dhcp_server_uplink_name, ret);
+
+        if (link->network->dhcp_server_uplink_index > 0)
+                return link_get(link->manager, link->network->dhcp_server_uplink_index, ret);
+
+        if (link->network->dhcp_server_uplink_index == 0) {
+                /* It is not necessary to propagate error in automatic selection. */
+                if (manager_find_uplink(link->manager, AF_INET, link, ret) < 0)
+                        *ret = NULL;
+                return 0;
+        }
+
+        *ret = NULL;
+        return 0;
+}
+
 static int link_push_uplink_to_dhcp_server(
                 Link *link,
                 sd_dhcp_lease_server_type_t what,
@@ -357,7 +377,7 @@ static int dhcp4_server_configure(Link *link) {
                 else {
                         /* Emission is requested, but nothing explicitly configured. Let's find a suitable upling */
                         if (!acquired_uplink) {
-                                (void) manager_find_uplink(link->manager, AF_INET, link, &uplink);
+                                (void) dhcp_server_find_uplink(link, &uplink);
                                 acquired_uplink = true;
                         }
 
@@ -456,6 +476,7 @@ int link_request_dhcp_server(Link *link) {
 }
 
 static bool dhcp_server_is_ready_to_configure(Link *link) {
+        Link *uplink = NULL;
         Address *a;
 
         assert(link);
@@ -479,6 +500,12 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
                 return false;
 
         if (!address_is_ready(a))
+                return false;
+
+        if (dhcp_server_find_uplink(link, &uplink) < 0)
+                return false;
+
+        if (uplink && !uplink->network)
                 return false;
 
         return true;
@@ -619,5 +646,59 @@ int config_parse_dhcp_server_address(
 
         network->dhcp_server_address = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
+        return 0;
+}
+
+int config_parse_dhcp_server_uplink(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        char *name;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_server_uplink_index = 0;
+                network->dhcp_server_uplink_name = mfree(network->dhcp_server_uplink_name);
+                return 0;
+        }
+
+        if (streq(rvalue, "%none")) {
+                network->dhcp_server_uplink_index = -1; /* uplink will not be selected automatically */
+                network->dhcp_server_uplink_name = mfree(network->dhcp_server_uplink_name);
+                return 0;
+        }
+
+        r = parse_ifindex(rvalue);
+        if (r > 0) {
+                network->dhcp_server_uplink_index = r;
+                network->dhcp_server_uplink_name = mfree(network->dhcp_server_uplink_name);
+                return 0;
+        }
+
+        if (!ifname_valid_full(rvalue, IFNAME_VALID_ALTERNATIVE)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid interface name in %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        name = strdup(rvalue);
+        if (!name)
+                return log_oom();
+
+        network->dhcp_server_uplink_index = 0;
+        network->dhcp_server_uplink_name = name;
         return 0;
 }
