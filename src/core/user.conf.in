@@ -20,7 +20,7 @@
 #LogTime=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
-#StatusUnitFormat=@STATUS_UNIT_FORMAT_DEFAULT@
+#StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}
 #DefaultTimerAccuracySec=1min
 #DefaultStandardOutput=inherit
 #DefaultStandardError=inherit

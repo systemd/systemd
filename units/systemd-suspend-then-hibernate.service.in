@@ -16,4 +16,4 @@ After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-sleep suspend-then-hibernate
+ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep suspend-then-hibernate

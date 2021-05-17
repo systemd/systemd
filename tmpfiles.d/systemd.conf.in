@@ -8,9 +8,9 @@
 # See tmpfiles.d(5) for details
 
 d /run/user 0755 root root -
-m4_ifdef(`ENABLE_UTMP',
+{% if ENABLE_UTMP %}
 F! /run/utmp 0664 root utmp -
-)m4_dnl
+{% endif %}
 
 d /run/systemd/ask-password 0755 root root -
 d /run/systemd/seats 0755 root root -
@@ -18,53 +18,51 @@ d /run/systemd/sessions 0755 root root -
 d /run/systemd/users 0755 root root -
 d /run/systemd/machines 0755 root root -
 d /run/systemd/shutdown 0755 root root -
-m4_ifdef(`ENABLE_NETWORKD',
+{% if ENABLE_NETWORKD %}
 d /run/systemd/netif 0755 systemd-network systemd-network -
 d /run/systemd/netif/links 0755 systemd-network systemd-network -
 d /run/systemd/netif/leases 0755 systemd-network systemd-network -
 d /run/systemd/netif/lldp 0755 systemd-network systemd-network -
-)m4_dnl
+{% endif %}
 
 d /run/log 0755 root root -
 
 z /run/log/journal 2755 root systemd-journal - -
 Z /run/log/journal/%m ~2750 root systemd-journal - -
-m4_ifdef(`HAVE_ACL',`m4_dnl
-m4_ifdef(`ENABLE_ADM_GROUP',`m4_dnl
-m4_ifdef(`ENABLE_WHEEL_GROUP',``
+{% if HAVE_ACL %}
+{% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
 a+ /run/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x,group:adm:r-x,group:wheel:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:adm:r--,group:wheel:r--
-'',``
+{% elif ENABLE_ADM_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,group::r-x,group:adm:r-x
 a+ /run/log/journal/%m - - - - d:group:adm:r-x,group:adm:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:adm:r--
-'')',`m4_dnl
-m4_ifdef(`ENABLE_WHEEL_GROUP',``
+{% elif ENABLE_WHEEL_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:wheel:r-x,group::r-x,group:wheel:r-x
 a+ /run/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-x
 a+ /run/log/journal/%m/*.journal* - - - - group:wheel:r--
-'')')')m4_dnl
+{% endif %}
+{% endif %}
 
 z /var/log/journal 2755 root systemd-journal - -
 z /var/log/journal/%m 2755 root systemd-journal - -
 z /var/log/journal/%m/system.journal 0640 root systemd-journal - -
-m4_ifdef(`HAVE_ACL',`m4_dnl
-m4_ifdef(`ENABLE_ADM_GROUP',`m4_dnl
-m4_ifdef(`ENABLE_WHEEL_GROUP',``
+{% if HAVE_ACL %}
+{% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /var/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
 a+ /var/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x,group:adm:r-x,group:wheel:r-x
 a+ /var/log/journal/%m/system.journal - - - - group:adm:r--,group:wheel:r--
-'', ``
+{% elif ENABLE_ADM_GROUP %}
 a+ /var/log/journal    - - - - d:group::r-x,d:group:adm:r-x,group::r-x,group:adm:r-x
 a+ /var/log/journal/%m - - - - d:group:adm:r-x,group:adm:r-x
 a+ /var/log/journal/%m/system.journal - - - - group:adm:r--
-'')',`m4_dnl
-m4_ifdef(`ENABLE_WHEEL_GROUP',``
+{% elif ENABLE_WHEEL_GROUP %}
 a+ /var/log/journal    - - - - d:group::r-x,d:group:wheel:r-x,group::r-x,group:wheel:r-x
 a+ /var/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-x
 a+ /var/log/journal/%m/system.journal - - - - group:wheel:r--
-'')')')m4_dnl
+{% endif %}
+{% endif %}
 
 d /var/lib/systemd 0755 root root -
 d /var/lib/systemd/coredump 0755 root root 3d

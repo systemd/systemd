@@ -18,5 +18,5 @@ ConditionPathIsReadWrite=!/
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-fsck
+ExecStart={{ROOTLIBEXECDIR}}/systemd-fsck
 TimeoutSec=0

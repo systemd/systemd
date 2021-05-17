@@ -4,7 +4,7 @@ set -e
 SYSUSERS="${1:-systemd-sysusers}"
 
 [ -e "$(dirname $0)/../systemd-runtest.env" ] && . "$(dirname $0)/../systemd-runtest.env"
-SYSTEMD_TEST_DATA=${SYSTEMD_TEST_DATA:-@SYSTEMD_TEST_DATA@}
+SYSTEMD_TEST_DATA=${SYSTEMD_TEST_DATA:-{{SYSTEMD_TEST_DATA}}}
 SOURCE=$SYSTEMD_TEST_DATA/test-sysusers
 
 TESTDIR=$(mktemp --tmpdir --directory "test-sysusers.XXXXXXXXXX")
@@ -20,13 +20,13 @@ prepare_testdir() {
     return 0
 }
 
-[ @SYSTEM_UID_MAX@ -lt @SYSTEM_GID_MAX@ ] && system_guid_max=@SYSTEM_UID_MAX@ || system_guid_max=@SYSTEM_GID_MAX@
+[ {{SYSTEM_UID_MAX}} -lt {{SYSTEM_GID_MAX}} ] && system_guid_max={{SYSTEM_UID_MAX}} || system_guid_max={{SYSTEM_GID_MAX}}
 
 preprocess() {
     m=${2:-$system_guid_max}
 
     sed -e "s/SYSTEM_UGID_MAX/$m/g;
-            s#NOLOGIN#@NOLOGIN@#g" "$1"
+            s#NOLOGIN#{{NOLOGIN}}#g" "$1"
 }
 
 compare() {
@@ -125,7 +125,7 @@ for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
     $SYSUSERS --root=$TESTDIR
 
-    [ @ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES@ = 1 ] && bound=555 || bound=$system_guid_max
+    [ {{ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES}} = 1 ] && bound=555 || bound=$system_guid_max
     compare ${f%.*} "(with login.defs)" $bound
 done
 
@@ -140,7 +140,7 @@ for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
     $SYSUSERS --root=$TESTDIR
 
-    [ @ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES@ = 1 ] && bound=555 || bound=$system_guid_max
+    [ {{ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES}} = 1 ] && bound=555 || bound=$system_guid_max
     compare ${f%.*} "(with login.defs symlinked)" $bound
 done
 

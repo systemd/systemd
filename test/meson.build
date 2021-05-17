@@ -62,13 +62,15 @@ hwdb_test_sh = find_program('hwdb-test.sh')
 
 ############################################################
 
-test_sysusers_sh = configure_file(
+test_sysusers_sh = custom_target(
+        'test-sysusers.sh',
         input : 'test-sysusers.sh.in',
         output : 'test-sysusers.sh',
-        configuration : substs)
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : install_tests and conf.get('ENABLE_SYSUSERS') == 1,
+        install_dir : testsdir)
 if install_tests and conf.get('ENABLE_SYSUSERS') == 1
-        install_data(test_sysusers_sh,
-                     install_dir : testsdir)
         install_subdir('test-sysusers',
                        install_dir : testdata_dir)
 endif
