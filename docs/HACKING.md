@@ -106,13 +106,31 @@ And after that, head over to your repo on GitHub and click "Compare & pull reque
 
 Happy hacking!
 
+## Templating engines in .in files
+
+Some source files are generated during build. We use two templating engines:
+* meson's `configure_file()` directive uses syntax with `@VARIABLE@`.
+
+  See https://mesonbuild.com/Reference-manual.html#configure_file for
+  details.
+
+* most files are rendered using jinja2, with `{{VARIABLE}}` and `{% if … %}`,
+  `{% elif … %}`, `{% else … %}`, `{% endif … %}` blocks. `{# … #}` is a
+  jinja2 comment, i.e. that block will not be visible in the rendered
+  output. `{% raw %} … {% endraw %}` creates a block where the jinja2 syntax
+  is not interpreted.
+
+  See https://jinja2docs.readthedocs.io/en/stable/templates.html#synopsis
+  for details.
+
+Please note that files for both template engines use the `.in` extension.
 
 ## Developer and release modes
 
 In the default meson configuration (`-Dmode=developer`), certain checks are
 enabled that are suitable when hacking on systemd (such as internal
-documentation consistency checks). Those are not useful when compiling for code
-for distribution and can be disabled by setting `-Dmode=release`.
+documentation consistency checks). Those are not useful when compiling for
+distribution and can be disabled by setting `-Dmode=release`.
 
 ## Fuzzers
 
