@@ -771,6 +771,65 @@ bool manager_address_is_reachable(Manager *manager, int family, const union in_a
         return false;
 }
 
+static Route *routes_get_default_gateway(Set *routes, int family, Route *gw) {
+        Route *route;
+
+        SET_FOREACH(route, routes) {
+                if (family != AF_UNSPEC && route->family != family)
+                        continue;
+                if (route->dst_prefixlen != 0)
+                        continue;
+                if (route->src_prefixlen != 0)
+                        continue;
+                if (route->table != RT_TABLE_MAIN)
+                        continue;
+                if (route->type != RTN_UNICAST)
+                        continue;
+                if (route->scope != RT_SCOPE_UNIVERSE)
+                        continue;
+                if (!in_addr_is_set(route->gw_family, &route->gw))
+                        continue;
+                if (gw) {
+                        if (route->gw_weight > gw->gw_weight)
+                                continue;
+                        if (route->priority >= gw->priority)
+                                continue;
+                }
+                gw = route;
+        }
+
+        return gw;
+}
+
+int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret) {
+        Route *gw = NULL;
+        Link *link;
+
+        assert(m);
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
+
+        /* Looks for a suitable "uplink", via black magic: an interface that is up and where the
+         * default route with the highest priority points to. */
+
+        HASHMAP_FOREACH(link, m->links) {
+                if (link == exclude)
+                        continue;
+
+                if (link->state != LINK_STATE_CONFIGURED)
+                        continue;
+
+                gw = routes_get_default_gateway(link->routes, family, gw);
+                gw = routes_get_default_gateway(link->routes_foreign, family, gw);
+        }
+
+        if (!gw)
+                return -ENOENT;
+
+        assert(gw->link);
+        *ret = gw->link;
+        return 0;
+}
+
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
         _cleanup_free_ char *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL;
