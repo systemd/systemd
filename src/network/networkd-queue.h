@@ -20,6 +20,7 @@ typedef void (*request_on_free_handler_t)(Request*);
 typedef enum RequestType {
         REQUEST_TYPE_ADDRESS,
         REQUEST_TYPE_BRIDGE_FDB,
+        REQUEST_TYPE_DHCP_SERVER,
         REQUEST_TYPE_NEIGHBOR,
         REQUEST_TYPE_NEXTHOP,
         REQUEST_TYPE_ROUTE,
