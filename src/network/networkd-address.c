@@ -1091,10 +1091,6 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
                 log_link_debug(link, "Addresses set");
                 link->static_addresses_configured = true;
                 link_check_ready(link);
-
-                r = dhcp4_server_configure(link);
-                if (r < 0)
-                        link_enter_failed(link);
         }
 
         return 1;
