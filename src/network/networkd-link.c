@@ -826,10 +826,6 @@ static int link_set_static_configs(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        r = link_set_bridge_mdb(link);
-        if (r < 0)
-                return r;
-
         r = link_set_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
@@ -843,6 +839,10 @@ static int link_set_static_configs(Link *link) {
                 return r;
 
         r = link_request_static_bridge_fdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_bridge_mdb(link);
         if (r < 0)
                 return r;
 
@@ -2802,30 +2802,7 @@ static int link_carrier_gained(Link *link) {
                         return r;
         }
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        if (!link->static_bridge_mdb_configured) {
-                r = link_set_bridge_mdb(link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (streq_ptr(link->kind, "bridge")) {
-                Link *slave;
-
-                SET_FOREACH(slave, link->slaves) {
-                        if (slave->static_bridge_mdb_configured)
-                                continue;
-
-                        r = link_set_bridge_mdb(slave);
-                        if (r < 0)
-                                link_enter_failed(slave);
-                }
-        }
-
-        return 0;
+        return link_handle_bound_by_list(link);
 }
 
 static int link_carrier_lost(Link *link) {
