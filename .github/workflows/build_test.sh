@@ -144,8 +144,23 @@ apt-get -y install "${PACKAGES[@]}"
 pip3 install --user -r .github/workflows/requirements.txt --require-hashes
 export PATH="$HOME/.local/bin:$PATH"
 
+# For rust_crate_type: object
+git clone --depth 1 --branch rust_objects https://github.com/bluca/meson.git ../meson
+if [ -n "${RUST}" ]; then
+    # Create pkg-config file so that meson can use dependency()
+    libstd_rust_link="$(dpkg-query --listfiles "$(dpkg-query --showformat "\${Package}" --show 'libstd-rust-1*')" | grep usr/lib | grep libstd | sed "s|.*/lib\(std-.*\).so|\1|")"
+    libstd_rust_version="$(dpkg-query --showformat "\${Version}" --show 'libstd-rust-1*')"
+    mkdir -p /usr/lib/pkgconfig/
+    cat >/usr/lib/pkgconfig/std-rust.pc <<EOF
+Name: std-rust
+Description: Rust standard library
+Version: $libstd_rust_version
+Libs: -l${libstd_rust_link}
+EOF
+fi
+
 $CC --version
-meson --version
+../meson/meson.py --version
 ninja --version
 
 for i in "${!ARGS[@]}"; do
@@ -171,7 +186,7 @@ for i in "${!ARGS[@]}"; do
          CC="$CC" CC_LD="$LD" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
          RUSTFLAGS="${RUST_ARGS[$i]}" \
-         meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
+         ../meson/meson.py -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" ${BUILD_RUST} \
                ${ARGS[$i]} build; then
 
@@ -179,7 +194,7 @@ for i in "${!ARGS[@]}"; do
         fatal "meson failed with ${ARGS[$i]}"
     fi
 
-    if ! meson compile -C build -v; then
+    if ! ../meson/meson.py compile -C build -v; then
         fatal "'meson compile' failed with ${ARGS[$i]}"
     fi
 
