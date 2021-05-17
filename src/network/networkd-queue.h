@@ -7,6 +7,7 @@
 
 typedef struct Address Address;
 typedef struct BridgeFDB BridgeFDB;
+typedef struct BridgeMDB BridgeMDB;
 typedef struct Neighbor Neighbor;
 typedef struct NextHop NextHop;
 typedef struct Route Route;
@@ -20,6 +21,7 @@ typedef void (*request_on_free_handler_t)(Request*);
 typedef enum RequestType {
         REQUEST_TYPE_ADDRESS,
         REQUEST_TYPE_BRIDGE_FDB,
+        REQUEST_TYPE_BRIDGE_MDB,
         REQUEST_TYPE_DHCP_SERVER,
         REQUEST_TYPE_NEIGHBOR,
         REQUEST_TYPE_NEXTHOP,
@@ -36,6 +38,7 @@ typedef struct Request {
         union {
                 Address *address;
                 BridgeFDB *fdb;
+                BridgeMDB *mdb;
                 Neighbor *neighbor;
                 NextHop *nexthop;
                 Route *route;
