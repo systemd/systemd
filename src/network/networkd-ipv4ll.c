@@ -31,9 +31,9 @@ static int address_new_from_ipv4ll(Link *link, Address **ret) {
         address->family = AF_INET;
         address->in_addr.in = addr;
         address->prefixlen = 16;
-        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> address->prefixlen);
         address->scope = RT_SCOPE_LINK;
         address->route_metric = IPV4LL_ROUTE_METRIC;
+        address_set_broadcast(address);
 
         *ret = TAKE_PTR(address);
         return 0;
