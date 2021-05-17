@@ -191,6 +191,8 @@ struct Network {
         bool dhcp_server_bind_to_interface;
         unsigned char dhcp_server_address_prefixlen;
         struct in_addr dhcp_server_address;
+        int dhcp_server_uplink_index;
+        char *dhcp_server_uplink_name;
         struct in_addr dhcp_server_relay_target;
         char *dhcp_server_relay_agent_circuit_id;
         char *dhcp_server_relay_agent_remote_id;
