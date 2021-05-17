@@ -564,6 +564,7 @@ endif
 versiondep = declare_dependency(sources: version_h)
 
 sh = find_program('sh')
+bash = find_program('bash')
 echo = find_program('echo')
 test = find_program('test')
 sed = find_program('sed')
@@ -3062,7 +3063,7 @@ if enable_sysusers
         if want_tests != 'false'
                 test('test-sysusers',
                      # https://github.com/mesonbuild/meson/issues/2681
-                     sh,
+                     bash,
                      args : [test_sysusers_sh.full_path(), exe.full_path()],
                      depends : [test_sysusers_sh, exe])
         endif
@@ -3084,7 +3085,7 @@ if enable_sysusers
                 if want_tests != 'false'
                         test('test-sysusers.standalone',
                              # https://github.com/mesonbuild/meson/issues/2681
-                             sh,
+                             bash,
                              args : [test_sysusers_sh.full_path(), exe.full_path()],
                              depends : [test_sysusers_sh, exe])
                 endif
