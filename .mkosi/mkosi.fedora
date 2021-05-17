@@ -57,6 +57,7 @@ BuildPackages=
         python3-lxml
         qrencode-devel
         rpm
+        rust
         tpm2-tss-devel
         tree
         valgrind-devel
