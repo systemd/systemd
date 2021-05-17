@@ -9,6 +9,7 @@ extraction:
         - libfdisk-dev
         - libp11-kit-dev
         - libssl-dev
+        - python3-jinja2
   python:
     python_setup:
       version: 3

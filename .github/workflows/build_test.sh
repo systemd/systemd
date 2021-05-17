@@ -46,9 +46,9 @@ PACKAGES=(
     mount
     net-tools
     perl
-    python-lxml
     python3-evdev
     python3-lxml
+    python3-jinja2
     python3-pip
     python3-pyparsing
     python3-setuptools
