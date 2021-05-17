@@ -15,6 +15,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
@@ -289,7 +290,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);
 }
 
-int dhcp4_server_configure(Link *link) {
+static int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
         DHCPStaticLease *static_lease;
@@ -300,21 +301,18 @@ int dhcp4_server_configure(Link *link) {
 
         assert(link);
 
-        if (!link_dhcp4_server_enabled(link))
-                return 0;
+        log_link_debug(link, "Configuring DHCP Server.");
 
-        if (!(link->flags & IFF_UP))
-                return 0;
+        if (link->dhcp_server)
+                return -EBUSY;
 
-        if (!link->dhcp_server) {
-                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
-                if (r < 0)
-                        return r;
+        r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
+        if (r < 0)
+                return r;
 
-                r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
+        if (r < 0)
+                return r;
 
         r = sd_dhcp_server_set_callback(link->dhcp_server, dhcp_server_callback, link);
         if (r < 0)
@@ -455,7 +453,60 @@ int dhcp4_server_configure(Link *link) {
                 log_link_debug(link, "Offering DHCPv4 leases");
         }
 
-        return 0;
+        return 1;
+}
+
+int link_request_dhcp_server(Link *link) {
+        assert(link);
+
+        if (!link_dhcp4_server_enabled(link))
+                return 0;
+
+        if (link->dhcp_server)
+                return 0;
+
+        log_link_debug(link, "Requesting DHCP server.");
+        return link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
+}
+
+static bool dhcp_server_is_ready_to_configure(Link *link) {
+        Address *a;
+
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (!link_has_carrier(link))
+                return false;
+
+        if (link->address_remove_messages > 0)
+                return false;
+
+        if (!link->static_addresses_configured)
+                return false;
+
+        if (link_find_dhcp_server_address(link, &a) < 0)
+                return false;
+
+        if (!address_is_ready(a))
+                return false;
+
+        return true;
+}
+
+int request_process_dhcp_server(Request *req) {
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
+
+        if (!dhcp_server_is_ready_to_configure(req->link))
+                return 0;
+
+        return dhcp4_server_configure(req->link);
 }
 
 int config_parse_dhcp_server_relay_agent_suboption(
