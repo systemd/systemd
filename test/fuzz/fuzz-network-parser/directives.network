@@ -366,6 +366,7 @@ RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
 ServerAddress=
+UplinkInterface=
 [NextHop]
 Id=
 Gateway=
