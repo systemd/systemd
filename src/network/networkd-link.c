@@ -138,7 +138,7 @@ bool link_ipv6_enabled(Link *link) {
 bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         assert(link);
 
-        if (!link->network || link->network->unmanaged) {
+        if (!link->network) {
                 if (!allow_unmanaged)
                         return false;
 
