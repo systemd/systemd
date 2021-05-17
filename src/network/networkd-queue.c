@@ -2,6 +2,7 @@
 
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -16,6 +17,9 @@ static void request_free_object(RequestType type, void *object) {
                 break;
         case REQUEST_TYPE_BRIDGE_FDB:
                 bridge_fdb_free(object);
+                break;
+        case REQUEST_TYPE_BRIDGE_MDB:
+                bridge_mdb_free(object);
                 break;
         case REQUEST_TYPE_DHCP_SERVER:
                 break;
@@ -129,6 +133,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_BRIDGE_FDB:
                                 r = request_process_bridge_fdb(req);
+                                break;
+                        case REQUEST_TYPE_BRIDGE_MDB:
+                                r = request_process_bridge_mdb(req);
                                 break;
                         case REQUEST_TYPE_DHCP_SERVER:
                                 r = request_process_dhcp_server(req);
