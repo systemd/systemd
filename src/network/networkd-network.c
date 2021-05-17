@@ -16,11 +16,11 @@
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -234,7 +234,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
-        network_drop_invalid_mdb_entries(network);
+        network_drop_invalid_bridge_mdb_entries(network);
         network_drop_invalid_neighbors(network);
         network_drop_invalid_address_labels(network);
         network_drop_invalid_prefixes(network);
@@ -604,7 +604,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
+        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
@@ -659,7 +659,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;
         BridgeFDB *fdb;
-        MdbEntry *mdb;
+        BridgeMDB *mdb;
         Neighbor *neighbor;
 
         assert(network);
@@ -676,7 +676,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (fdb->family == AF_INET6)
                         return true;
 
-        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
+        HASHMAP_FOREACH(mdb, network->bridge_mdb_entries_by_section)
                 if (mdb->family == AF_INET6)
                         return true;
 
