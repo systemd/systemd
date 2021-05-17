@@ -59,6 +59,8 @@ sources = files('''
         networkd-address.h
         networkd-bridge-fdb.c
         networkd-bridge-fdb.h
+        networkd-bridge-mdb.c
+        networkd-bridge-mdb.h
         networkd-brvlan.c
         networkd-brvlan.h
         networkd-can.c
@@ -93,8 +95,6 @@ sources = files('''
         networkd-manager-bus.h
         networkd-manager.c
         networkd-manager.h
-        networkd-mdb.c
-        networkd-mdb.h
         networkd-ndisc.c
         networkd-ndisc.h
         networkd-neighbor.c
