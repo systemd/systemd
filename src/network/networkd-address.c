@@ -608,14 +608,13 @@ static int address_set_netlink_message(const Address *address, sd_netlink_messag
         return 0;
 }
 
-int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rtnl);
         assert(m);
         assert(link);
         assert(link->address_remove_messages > 0);
-        assert(error_msg);
 
         link->address_remove_messages--;
 
@@ -624,22 +623,14 @@ int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Lin
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_message_warning_errno(link, m, r, error_msg);
+                log_link_message_warning_errno(link, m, r, "Could not drop address");
         else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         return 1;
 }
 
-static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return address_remove_handler_internal(rtnl, m, link, "Could not drop address");
-}
-
-int address_remove(
-                const Address *address,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+int address_remove(const Address *address, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -662,7 +653,7 @@ int address_remove(
                 return r;
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: address_remove_handler,
+                               address_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -789,7 +780,7 @@ int link_drop_foreign_addresses(Link *link) {
                                         r = k;
                         }
                 } else {
-                        k = address_remove(address, link, NULL);
+                        k = address_remove(address, link);
                         if (k < 0 && r >= 0)
                                 r = k;
                 }
@@ -809,7 +800,7 @@ int link_drop_addresses(Link *link) {
                 if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
                         continue;
 
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0 && r >= 0) {
                         r = k;
                         continue;
@@ -1149,6 +1140,8 @@ int request_process_address(Request *req) {
         if (r < 0)
                 return r;
 
+        req->message_counter = NULL;
+
         if (req->after_configure) {
                 r = req->after_configure(req, ret);
                 if (r < 0)
@@ -1367,7 +1360,7 @@ static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         case SD_IPV4ACD_EVENT_CONFLICT:
                 log_link_warning(link, "DAD conflict. Dropping address "IPV4_ADDRESS_FMT_STR,
                                  IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
-                r = address_remove(address, link, NULL);
+                r = address_remove(address, link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Failed to drop DAD conflicted address "IPV4_ADDRESS_FMT_STR,
                                              IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
