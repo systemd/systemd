@@ -30,7 +30,7 @@ DeviceAllow=char-drm rw
 DeviceAllow=char-input rw
 DeviceAllow=char-tty rw
 DeviceAllow=char-vcs rw
-ExecStart=@rootlibexecdir@/systemd-logind
+ExecStart={{ROOTLIBEXECDIR}}/systemd-logind
 FileDescriptorStoreMax=512
 IPAddressDeny=any
 LockPersonality=yes
@@ -58,8 +58,8 @@ StateDirectory=systemd/linger
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 # Increase the default a bit in order to allow many simultaneous logins since
 # we keep one fd open per session.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}

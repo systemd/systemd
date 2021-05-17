@@ -185,7 +185,7 @@ int generator_write_fsck_deps(
                 lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
                 (void) mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
+                if (symlink(SYSTEM_DATA_UNIT_DIR "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
                         return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         } else {
@@ -561,7 +561,7 @@ int generator_hook_up_growfs(
 int generator_enable_remount_fs_service(const char *dir) {
         /* Pull in systemd-remount-fs.service */
         return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants",
-                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_REMOUNT_FS_SERVICE);
+                                     SYSTEM_DATA_UNIT_DIR "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
 int generator_write_blockdev_dependency(
