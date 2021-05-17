@@ -2122,6 +2122,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_dhcp_server(link);
+        if (r < 0)
+                return r;
+
         r = radv_configure(link);
         if (r < 0)
                 return r;
