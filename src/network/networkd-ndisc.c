@@ -171,14 +171,14 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 
         SET_FOREACH(na, link->ndisc_addresses)
                 if (na->marked && in6_addr_equal(&na->router, router)) {
-                        k = address_remove(na->address, link, NULL);
+                        k = address_remove(na->address, link);
                         if (k < 0)
                                 r = k;
                 }
 
         SET_FOREACH(nr, link->ndisc_routes)
                 if (nr->marked && in6_addr_equal(&nr->router, router)) {
-                        k = route_remove(nr->route, NULL, link, NULL);
+                        k = route_remove(nr->route, NULL, link);
                         if (k < 0)
                                 r = k;
                 }
