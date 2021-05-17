@@ -112,7 +112,6 @@ typedef struct Link {
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
-        unsigned dhcp4_remove_messages;
         sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
