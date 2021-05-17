@@ -170,7 +170,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         log_link_debug(link, "Removing old DHCPv6 Prefix Delegation addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_pd_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
 
@@ -180,7 +180,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         }
 
         SET_FOREACH(address, link->dhcp6_pd_addresses_old) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -212,7 +212,7 @@ int dhcp6_pd_remove(Link *link) {
         log_link_debug(link, "Removing DHCPv6 Prefix Delegation addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_pd_routes) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
 
@@ -222,7 +222,7 @@ int dhcp6_pd_remove(Link *link) {
         }
 
         SET_FOREACH(address, link->dhcp6_pd_addresses) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -761,13 +761,13 @@ static int dhcp6_remove_old(Link *link, bool force) {
         log_link_debug(link, "Removing old DHCPv6 addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         SET_FOREACH(address, link->dhcp6_addresses_old) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -795,13 +795,13 @@ static int dhcp6_remove(Link *link) {
         log_link_debug(link, "Removing DHCPv6 addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_routes) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         SET_FOREACH(address, link->dhcp6_addresses) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
