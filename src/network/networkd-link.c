@@ -28,6 +28,7 @@
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
@@ -38,7 +39,6 @@
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -753,6 +753,9 @@ void link_check_ready(Link *link) {
         if (!link->static_bridge_fdb_configured)
                 return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
 
+        if (!link->static_bridge_mdb_configured)
+                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+
         if (!link->static_neighbors_configured)
                 return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
@@ -770,9 +773,6 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
-
-        if (!link->bridge_mdb_configured)
-                return (void) log_link_debug(link, "%s(): Bridge MDB is not configured.", __func__);
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
                 bool has_ndisc_address = false;
@@ -2806,7 +2806,7 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 return r;
 
-        if (!link->bridge_mdb_configured) {
+        if (!link->static_bridge_mdb_configured) {
                 r = link_set_bridge_mdb(link);
                 if (r < 0)
                         return r;
@@ -2816,7 +2816,7 @@ static int link_carrier_gained(Link *link) {
                 Link *slave;
 
                 SET_FOREACH(slave, link->slaves) {
-                        if (slave->bridge_mdb_configured)
+                        if (slave->static_bridge_mdb_configured)
                                 continue;
 
                         r = link_set_bridge_mdb(slave);
