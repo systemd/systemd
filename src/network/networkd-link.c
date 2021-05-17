@@ -816,6 +816,10 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_request_dhcp_server(link);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
