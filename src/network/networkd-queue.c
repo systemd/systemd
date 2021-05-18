@@ -5,6 +5,7 @@
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -27,6 +28,9 @@ static void request_free_object(RequestType type, void *object) {
                 bridge_mdb_free(object);
                 break;
         case REQUEST_TYPE_DHCP_SERVER:
+                break;
+        case REQUEST_TYPE_IPV6_PROXY_NDP:
+                free(object);
                 break;
         case REQUEST_TYPE_NEIGHBOR:
                 neighbor_free(object);
@@ -147,6 +151,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_DHCP_SERVER:
                                 r = request_process_dhcp_server(req);
+                                break;
+                        case REQUEST_TYPE_IPV6_PROXY_NDP:
+                                r = request_process_ipv6_proxy_ndp_address(req);
                                 break;
                         case REQUEST_TYPE_NEIGHBOR:
                                 r = request_process_neighbor(req);
