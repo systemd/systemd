@@ -601,7 +601,7 @@ int get_process_root(pid_t pid, char **root) {
 int get_process_environ(pid_t pid, char **env) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *outcome = NULL;
-        size_t allocated = 0, sz = 0;
+        size_t sz = 0;
         const char *p;
         int r;
 
@@ -622,7 +622,7 @@ int get_process_environ(pid_t pid, char **env) {
                 if (sz >= ENVIRONMENT_BLOCK_MAX)
                         return -ENOBUFS;
 
-                if (!GREEDY_REALLOC(outcome, allocated, sz + 5))
+                if (!GREEDY_REALLOC(outcome, sz + 5))
                         return -ENOMEM;
 
                 r = safe_fgetc(f, &c);

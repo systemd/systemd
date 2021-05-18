@@ -11,8 +11,8 @@ int list_enrolled(struct crypt_device *cd) {
                 int slot;
                 const char *type;
         } *keyslot_metadata = NULL;
-        size_t n_keyslot_metadata = 0, n_keyslot_metadata_allocated = 0;
         _cleanup_(table_unrefp) Table *t = NULL;
+        size_t n_keyslot_metadata = 0;
         int slot_max, r;
         TableCell *cell;
 
@@ -27,7 +27,7 @@ int list_enrolled(struct crypt_device *cd) {
                 if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
                         continue;
 
-                if (!GREEDY_REALLOC(keyslot_metadata, n_keyslot_metadata_allocated, n_keyslot_metadata+1))
+                if (!GREEDY_REALLOC(keyslot_metadata, n_keyslot_metadata+1))
                         return log_oom();
 
                 keyslot_metadata[n_keyslot_metadata++] = (struct keyslot_metadata) {
