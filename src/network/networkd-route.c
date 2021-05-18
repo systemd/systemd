@@ -1622,6 +1622,9 @@ int request_process_route(Request *req) {
         if (r < 0)
                 return r;
 
+        /* To prevent a double decrement on failure in after_configure(). */
+        req->message_counter = NULL;
+
         if (req->after_configure) {
                 assert(n_routes > 0);
 
