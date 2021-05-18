@@ -805,7 +805,7 @@ int strextendf(char **x, const char *format, ...) {
         /* Let's try to use the allocated buffer, if there's room at the end still. Otherwise let's extend by 64 chars. */
         if (*x) {
                 m = strlen(*x);
-                a = malloc_usable_size(*x);
+                a = MALLOC_SIZEOF_SAFE(*x);
                 assert(a >= m + 1);
         } else
                 m = a = 0;
@@ -821,7 +821,7 @@ int strextendf(char **x, const char *format, ...) {
                         return -ENOMEM;
 
                 *x = n;
-                a = malloc_usable_size(*x);
+                a = MALLOC_SIZEOF_SAFE(*x);
         }
 
         /* Now, let's try to format the string into it */
