@@ -1622,6 +1622,8 @@ int request_process_route(Request *req) {
         if (r < 0)
                 return r;
 
+        req->message_counter = NULL;
+
         if (req->after_configure) {
                 assert(n_routes > 0);
 

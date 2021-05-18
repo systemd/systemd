@@ -814,6 +814,8 @@ int request_process_routing_policy_rule(Request *req) {
         if (r < 0)
                 return r;
 
+        req->message_counter = NULL;
+
         if (req->after_configure) {
                 r = req->after_configure(req, ret);
                 if (r < 0)
