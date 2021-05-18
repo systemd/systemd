@@ -750,6 +750,9 @@ void link_check_ready(Link *link) {
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
+        if (!link->static_address_labels_configured)
+                return (void) log_link_debug(link, "%s(): static address labels are not configured.", __func__);
+
         if (!link->static_bridge_fdb_configured)
                 return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
 
@@ -830,11 +833,11 @@ static int link_set_static_configs(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_address_labels(link);
+        r = link_request_static_addresses(link);
         if (r < 0)
                 return r;
 
-        r = link_request_static_addresses(link);
+        r = link_request_static_address_labels(link);
         if (r < 0)
                 return r;
 
