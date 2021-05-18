@@ -25,6 +25,7 @@ typedef enum RequestType {
         REQUEST_TYPE_BRIDGE_FDB,
         REQUEST_TYPE_BRIDGE_MDB,
         REQUEST_TYPE_DHCP_SERVER,
+        REQUEST_TYPE_IPV6_PROXY_NDP,
         REQUEST_TYPE_NEIGHBOR,
         REQUEST_TYPE_NEXTHOP,
         REQUEST_TYPE_ROUTE,
@@ -42,6 +43,7 @@ typedef struct Request {
                 AddressLabel *label;
                 BridgeFDB *fdb;
                 BridgeMDB *mdb;
+                struct in6_addr *ipv6_proxy_ndp;
                 Neighbor *neighbor;
                 NextHop *nexthop;
                 Route *route;
