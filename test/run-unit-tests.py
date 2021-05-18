@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import dataclasses
 import glob
 import os
 import pathlib
@@ -17,12 +16,11 @@ try:
 except ImportError:
     GREEN = YELLOW = RED = RESET_ALL = BRIGHT = ''
 
-@dataclasses.dataclass
-class Total:
-    total:int
-    good:int = 0
-    skip:int = 0
-    fail:int = 0
+class total:
+    total = None
+    good = 0
+    skip = 0
+    fail = 0
 
 def argument_parser():
     p = argparse.ArgumentParser()
@@ -41,7 +39,7 @@ if opts.unsafe:
 if not opts.artifact_directory and os.getenv('ARTIFACT_DIRECTORY'):
     opts.artifact_directory = os.getenv('ARTIFACT_DIRECTORY')
 
-total = Total(total=len(tests))
+total.total = len(tests)
 for test in tests:
     name = os.path.basename(test)
 
