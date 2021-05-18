@@ -5,9 +5,11 @@
 
 typedef struct Link Link;
 typedef struct Network Network;
+typedef struct Request Request;
 
 void network_adjust_ipv6_proxy_ndp(Network *network);
 
-int link_set_ipv6_proxy_ndp_addresses(Link *link);
+int link_request_static_ipv6_proxy_ndp_addresses(Link *link);
+int request_process_ipv6_proxy_ndp_address(Request *req);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_proxy_ndp_address);
