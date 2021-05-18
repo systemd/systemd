@@ -113,7 +113,7 @@ static int address_label_configure(AddressLabel *label, Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFAL_LABEL attribute: %m");
 
-        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &label->in_addr.in6);
+        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &label->in_addr);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
 
@@ -197,7 +197,7 @@ int config_parse_address_label_prefix(const char *unit,
                 return 0;
         }
 
-        n->in_addr = a;
+        n->in_addr = a.in6;
         n->prefixlen = prefixlen;
 
         TAKE_PTR(n);
