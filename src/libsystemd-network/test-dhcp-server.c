@@ -61,7 +61,7 @@ static int test_basic(sd_event *event, bool bind_to_interface) {
                 return log_info_errno(r, "sd_dhcp_server_start failed: %m");
         assert_se(r >= 0);
 
-        assert_se(sd_dhcp_server_start(server) == -EBUSY);
+        assert_se(sd_dhcp_server_start(server) >= 0);
         assert_se(sd_dhcp_server_stop(server) >= 0);
         assert_se(sd_dhcp_server_stop(server) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);
