@@ -169,6 +169,8 @@ int config_parse_address_label_prefix(const char *unit,
 
         _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
+        unsigned char prefixlen;
+        union in_addr_union a;
         int r;
 
         assert(filename);
@@ -181,11 +183,22 @@ int config_parse_address_label_prefix(const char *unit,
         if (r < 0)
                 return log_oom();
 
-        r = in_addr_prefix_from_string(rvalue, AF_INET6, &n->in_addr, &n->prefixlen);
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Address label is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid prefix for address label, ignoring assignment: %s", rvalue);
                 return 0;
         }
+        if (in6_addr_is_ipv4_mapped_address(&a.in6) && prefixlen > 96) {
+                /* See ip6addrlbl_alloc() in net/ipv6/addrlabel.c of kernel. */
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "The prefix length of IPv4 mapped address for address label must be equal to or smaller than 96, "
+                           "ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        n->in_addr = a;
+        n->prefixlen = prefixlen;
 
         TAKE_PTR(n);
         return 0;
