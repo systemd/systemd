@@ -20,6 +20,7 @@
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
@@ -177,6 +178,7 @@ int network_verify(Network *network) {
         /* IPMasquerade implies IPForward */
         network->ip_forward |= network->ip_masquerade;
 
+        network_adjust_ipv6_proxy_ndp(network);
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
