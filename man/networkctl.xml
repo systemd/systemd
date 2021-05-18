@@ -187,14 +187,46 @@
 
           <para>Produces output similar to:
           <programlisting>
-●      State: routable
-     Address: 10.193.76.5 on eth0
-              192.168.122.1 on virbr0
-              169.254.190.105 on eth0
-              fe80::5054:aa:bbbb:cccc on eth0
-     Gateway: 10.193.11.1 (CISCO SYSTEMS, INC.) on eth0
-         DNS: 8.8.8.8
-              8.8.4.4</programlisting></para>
+●        State: routable
+  Online state: online
+       Address: 10.193.76.5 on eth0
+                192.168.122.1 on virbr0
+                169.254.190.105 on eth0
+                fe80::5054:aa:bbbb:cccc on eth0
+       Gateway: 10.193.11.1 (CISCO SYSTEMS, INC.) on eth0
+           DNS: 8.8.8.8
+                8.8.4.4</programlisting></para>
+
+          <para>In the overall network status, the online state depends on the individual online state of all
+          required links. Managed links are required for online by default. In this case, the online state is
+          one of the following:
+          <variablelist>
+            <varlistentry>
+              <term>unknown</term>
+              <listitem>
+                <para>all links have unknown online status (i.e. there are no required links)</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>offline</term>
+              <listitem>
+                <para>all required links are offline</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>partial</term>
+              <listitem>
+                <para>some, but not all, required links are online</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>online</term>
+              <listitem>
+                <para>all required links are online</para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          </para>
         </listitem>
 
       </varlistentry>
