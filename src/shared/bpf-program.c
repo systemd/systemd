@@ -133,7 +133,7 @@ int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructi
         if (p->kernel_fd >= 0) /* don't allow modification after we uploaded things to the kernel */
                 return -EBUSY;
 
-        if (!GREEDY_REALLOC(p->instructions, p->allocated, p->n_instructions + count))
+        if (!GREEDY_REALLOC(p->instructions, p->n_instructions + count))
                 return -ENOMEM;
 
         memcpy(p->instructions + p->n_instructions, instructions, sizeof(struct bpf_insn) * count);

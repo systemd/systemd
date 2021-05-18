@@ -46,11 +46,11 @@ static void test_deserialize_in_addr(void) {
 }
 
 static void test_deserialize_dhcp_routes(void) {
-        size_t size, allocated;
+        size_t size;
 
         {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, "") >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, "") >= 0);
                 assert_se(size == 0);
         }
 
@@ -59,7 +59,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
 
                 assert_se(size == 3);
                 assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
@@ -80,7 +80,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
 
                 assert_se(size == 2);
                 assert_se(routes[0].dst_addr.s_addr == inet_addr("192.168.0.0"));
@@ -97,7 +97,7 @@ static void test_deserialize_dhcp_routes(void) {
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
                 const char *routes_string = "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X";
 
-                assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
+                assert_se(deserialize_dhcp_routes(&routes, &size, routes_string) >= 0);
                 assert_se(size == 0);
         }
 }

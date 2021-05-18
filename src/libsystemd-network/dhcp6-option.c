@@ -678,14 +678,12 @@ int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6I
 }
 
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count,
-                                size_t *allocated) {
+                                struct in6_addr **addrs, size_t count) {
 
         if (optlen == 0 || optlen % sizeof(struct in6_addr) != 0)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(*addrs, *allocated,
-                            count * sizeof(struct in6_addr) + optlen))
+        if (!GREEDY_REALLOC(*addrs, count * sizeof(struct in6_addr) + optlen))
                 return -ENOMEM;
 
         memcpy(*addrs + count, optval, optlen);
@@ -697,10 +695,10 @@ int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
 
 static int parse_domain(const uint8_t **data, uint16_t *len, char **out_domain) {
         _cleanup_free_ char *ret = NULL;
-        size_t n = 0, allocated = 0;
         const uint8_t *optval = *data;
         uint16_t optlen = *len;
         bool first = true;
+        size_t n = 0;
         int r;
 
         if (optlen <= 1)
@@ -730,7 +728,7 @@ static int parse_domain(const uint8_t **data, uint16_t *len, char **out_domain) 
                 optval += c;
                 optlen -= c;
 
-                if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                if (!GREEDY_REALLOC(ret, n + !first + DNS_LABEL_ESCAPED_MAX))
                         return -ENOMEM;
 
                 if (first)
@@ -746,7 +744,7 @@ static int parse_domain(const uint8_t **data, uint16_t *len, char **out_domain) 
         }
 
         if (n) {
-                if (!GREEDY_REALLOC(ret, allocated, n + 1))
+                if (!GREEDY_REALLOC(ret, n + 1))
                         return -ENOMEM;
                 ret[n] = 0;
         }

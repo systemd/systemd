@@ -85,7 +85,6 @@ char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const ch
 struct iovec_wrapper {
         struct iovec *iovec;
         size_t count;
-        size_t size_bytes;
 };
 
 struct iovec_wrapper *iovw_new(void);

@@ -1254,12 +1254,12 @@ int server_process_datagram(
                 uint32_t revents,
                 void *userdata) {
 
+        size_t label_len = 0, m;
         Server *s = userdata;
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
         struct cmsghdr *cmsg;
         char *label = NULL;
-        size_t label_len = 0, m;
         struct iovec iovec;
         ssize_t n;
         int *fds = NULL, v = 0;
@@ -1302,10 +1302,10 @@ int server_process_datagram(
                             (size_t) LINE_MAX,
                             ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
 
-        if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
+        if (!GREEDY_REALLOC(s->buffer, m))
                 return log_oom();
 
-        iovec = IOVEC_MAKE(s->buffer, s->buffer_size - 1); /* Leave room for trailing NUL we add later */
+        iovec = IOVEC_MAKE(s->buffer, MALLOC_ELEMENTSOF(s->buffer) - 1); /* Leave room for trailing NUL we add later */
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (IN_SET(n, -EINTR, -EAGAIN))

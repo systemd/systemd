@@ -1728,7 +1728,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
         };
 
         _cleanup_free_ uint64_t *items = NULL;
-        size_t n_items = 0, n_allocated = 0;
+        size_t n_items = 0;
         int r;
 
         assert(fd >= 0);
@@ -1775,7 +1775,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                         if (sh->objectid != qgroupid)
                                 continue;
 
-                        if (!GREEDY_REALLOC(items, n_allocated, n_items+1))
+                        if (!GREEDY_REALLOC(items, n_items+1))
                                 return -ENOMEM;
 
                         items[n_items++] = sh->offset;

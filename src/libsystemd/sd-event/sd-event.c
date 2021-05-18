@@ -144,7 +144,6 @@ struct sd_event {
         unsigned n_sources;
 
         struct epoll_event *event_queue;
-        size_t event_queue_allocated;
 
         LIST_HEAD(sd_event_source, sources);
 
@@ -3858,38 +3857,45 @@ static int epoll_wait_usec(
 }
 
 static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
+        size_t n_event_queue, m, n_event_max;
         int64_t min_priority = threshold;
         bool something_new = false;
-        size_t n_event_queue, m;
         int r;
 
         assert(e);
         assert(ret_min_priority);
 
         n_event_queue = MAX(e->n_sources, 1u);
-        if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, n_event_queue))
+        if (!GREEDY_REALLOC(e->event_queue, n_event_queue))
                 return -ENOMEM;
+
+        n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
         if (e->inotify_data_buffered)
                 timeout = 0;
 
         for (;;) {
-                r = epoll_wait_usec(e->epoll_fd, e->event_queue, e->event_queue_allocated, timeout);
+                r = epoll_wait_usec(
+                                e->epoll_fd,
+                                e->event_queue,
+                                n_event_max,
+                                timeout);
                 if (r < 0)
                         return r;
 
                 m = (size_t) r;
 
-                if (m < e->event_queue_allocated)
+                if (m < n_event_max)
                         break;
 
-                if (e->event_queue_allocated >= n_event_queue * 10)
+                if (n_event_max >= n_event_queue * 10)
                         break;
 
-                if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, e->event_queue_allocated + n_event_queue))
+                if (!GREEDY_REALLOC(e->event_queue, n_event_max + n_event_queue))
                         return -ENOMEM;
 
+                n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
                 timeout = 0;
         }
 

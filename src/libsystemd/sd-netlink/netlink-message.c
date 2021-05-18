@@ -1064,7 +1064,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                                    struct rtattr *rta,
                                    size_t rt_len) {
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
-        size_t n_allocated = 0;
+        size_t n = 0;
 
         /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
          * LGTM.com analysis does not like the type difference. Hence, here we
@@ -1075,7 +1075,7 @@ static int netlink_container_parse(sd_netlink_message *m,
 
                 type = RTA_TYPE(rta);
 
-                if (!GREEDY_REALLOC0(attributes, n_allocated, type + 1))
+                if (!GREEDY_REALLOC0(attributes, type + 1))
                         return -ENOMEM;
 
                 if (attributes[type].offset != 0)
@@ -1084,10 +1084,13 @@ static int netlink_container_parse(sd_netlink_message *m,
                 attributes[type].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
                 attributes[type].nested = RTA_FLAGS(rta) & NLA_F_NESTED;
                 attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
+
+                if (type + 1U > n)
+                        n = type + 1U;
         }
 
         container->attributes = TAKE_PTR(attributes);
-        container->n_attributes = n_allocated;
+        container->n_attributes = n;
 
         return 0;
 }

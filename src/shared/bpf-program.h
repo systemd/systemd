@@ -17,7 +17,6 @@ struct BPFProgram {
         uint32_t prog_type;
 
         size_t n_instructions;
-        size_t allocated;
         struct bpf_insn *instructions;
 
         char *attached_path;

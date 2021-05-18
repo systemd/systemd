@@ -88,7 +88,7 @@ static inline void* erase_and_free(void *p) {
         if (!p)
                 return NULL;
 
-        l = malloc_usable_size(p);
+        l = MALLOC_SIZEOF_SAFE(p);
         explicit_bzero_safe(p, l);
         return mfree(p);
 }

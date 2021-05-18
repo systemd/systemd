@@ -493,7 +493,6 @@ int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
         struct dirent *de;
-        size_t alloc = 0;
         int count = 0;
 
         assert(options);
@@ -521,7 +520,7 @@ int efi_get_boot_options(uint16_t **options) {
                 if (id < 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, alloc, count + 1))
+                if (!GREEDY_REALLOC(list, count + 1))
                         return -ENOMEM;
 
                 list[count++] = id;

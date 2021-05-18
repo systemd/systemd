@@ -723,7 +723,7 @@ static int find_mount_points(const char *what, char ***list) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        size_t bufsize = 0, n = 0;
+        size_t n = 0;
         int r;
 
         assert(what);
@@ -755,7 +755,7 @@ static int find_mount_points(const char *what, char ***list) {
                         continue;
 
                 /* one extra slot is needed for the terminating NULL */
-                if (!GREEDY_REALLOC0(l, bufsize, n + 2))
+                if (!GREEDY_REALLOC0(l, n + 2))
                         return log_oom();
 
                 l[n] = strdup(target);
@@ -764,7 +764,7 @@ static int find_mount_points(const char *what, char ***list) {
                 n++;
         }
 
-        if (!GREEDY_REALLOC0(l, bufsize, n + 1))
+        if (!GREEDY_REALLOC0(l, n + 1))
                 return log_oom();
 
         *list = TAKE_PTR(l);

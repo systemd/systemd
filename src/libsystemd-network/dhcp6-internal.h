@@ -104,8 +104,7 @@ int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
 int dhcp6_option_parse_ia(sd_dhcp6_client *client, DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code);
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count,
-                                size_t *allocated);
+                                struct in6_addr **addrs, size_t count);
 int dhcp6_option_parse_domainname_list(const uint8_t *optval, uint16_t optlen,
                                        char ***str_arr);
 int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char **str);

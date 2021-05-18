@@ -2116,7 +2116,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_strv_free_ char **list = NULL;
-                size_t allocated = 0, n = 0;
+                size_t n = 0;
                 char **i;
 
                 r = sd_bus_call_method(
@@ -2148,7 +2148,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (!endswith(info.id, ".service"))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, allocated, n + 2))
+                        if (!GREEDY_REALLOC(list, n + 2))
                                 return log_oom();
 
                         copy = strdup(info.id);

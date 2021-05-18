@@ -712,7 +712,7 @@ int config_parse_exec(
                 bool ignore = false, separate_argv0 = false;
                 _cleanup_free_ ExecCommand *nce = NULL;
                 _cleanup_strv_free_ char **n = NULL;
-                size_t nlen = 0, nbufsize = 0;
+                size_t nlen = 0;
                 const char *f;
 
                 semicolon = false;
@@ -799,7 +799,7 @@ int config_parse_exec(
                 if (!separate_argv0) {
                         char *w = NULL;
 
-                        if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                        if (!GREEDY_REALLOC(n, nlen + 2))
                                 return log_oom();
 
                         w = strdup(path);
@@ -831,7 +831,7 @@ int config_parse_exec(
                                 p += 2;
                                 p += strspn(p, WHITESPACE);
 
-                                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                                if (!GREEDY_REALLOC(n, nlen + 2))
                                         return log_oom();
 
                                 w = strdup(";");
@@ -856,7 +856,7 @@ int config_parse_exec(
                                 return ignore ? 0 : -ENOEXEC;
                         }
 
-                        if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                        if (!GREEDY_REALLOC(n, nlen + 2))
                                 return log_oom();
 
                         n[nlen++] = TAKE_PTR(resolved);
@@ -2691,9 +2691,9 @@ int config_parse_pass_environ(
                 void *userdata) {
 
         _cleanup_strv_free_ char **n = NULL;
-        size_t nlen = 0, nbufsize = 0;
-        char*** passenv = data;
         const Unit *u = userdata;
+        char*** passenv = data;
+        size_t nlen = 0;
         int r;
 
         assert(filename);
@@ -2737,7 +2737,7 @@ int config_parse_pass_environ(
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                if (!GREEDY_REALLOC(n, nlen + 2))
                         return log_oom();
 
                 n[nlen++] = TAKE_PTR(k);
@@ -2766,9 +2766,9 @@ int config_parse_unset_environ(
                 void *userdata) {
 
         _cleanup_strv_free_ char **n = NULL;
-        size_t nlen = 0, nbufsize = 0;
         char*** unsetenv = data;
         const Unit *u = userdata;
+        size_t nlen = 0;
         int r;
 
         assert(filename);
@@ -2812,7 +2812,7 @@ int config_parse_unset_environ(
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
+                if (!GREEDY_REALLOC(n, nlen + 2))
                         return log_oom();
 
                 n[nlen++] = TAKE_PTR(k);

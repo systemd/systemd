@@ -31,7 +31,6 @@ typedef struct JournalImporter {
         char *name;
 
         char *buf;
-        size_t size;       /* total size of the buffer */
         size_t offset;     /* offset to the beginning of live data in the buffer */
         size_t scanned;    /* number of bytes since the beginning of data without a newline */
         size_t filled;     /* total number of bytes in the buffer */
