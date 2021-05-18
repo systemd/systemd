@@ -57,6 +57,7 @@ int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Lin
 int address_remove(const Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(const Address *a1, const Address *a2);
 bool address_is_ready(const Address *a);
+void address_set_broadcast(Address *a);
 
 int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
@@ -65,7 +66,8 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 bool link_address_is_dynamic(const Link *link, const Address *address);
-int link_has_ipv6_address(Link *link, const struct in6_addr *address);
+int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret);
+int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
 void ipv4_dad_unref(Link *link);

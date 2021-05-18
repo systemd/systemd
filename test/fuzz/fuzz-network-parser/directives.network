@@ -364,6 +364,7 @@ BindToInterface=
 RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
+ServerAddress=
 [NextHop]
 Id=
 Gateway=
