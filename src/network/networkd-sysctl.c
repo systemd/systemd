@@ -161,6 +161,28 @@ static int link_set_ipv6_hop_limit(Link *link) {
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);
 }
 
+static int link_set_ipv6_proxy_ndp(Link *link) {
+        bool v;
+
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->ipv6_proxy_ndp >= 0)
+                v = link->network->ipv6_proxy_ndp;
+        else
+                v = !set_isempty(link->network->ipv6_proxy_ndp_addresses);
+
+        return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
+}
+
 static int link_set_ipv4_accept_local(Link *link) {
         assert(link);
 
@@ -223,6 +245,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv6_hop_limit(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface, ignoring: %m");
+
+        r = link_set_ipv6_proxy_ndp(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 proxy NDP, ignoring: %m");
 
         r = link_set_ipv4_accept_local(link);
         if (r < 0)
