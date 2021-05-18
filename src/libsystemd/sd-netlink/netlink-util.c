@@ -472,7 +472,7 @@ int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, O
 
                 *m = (MultipathRoute) {
                         .ifindex = rtnh->rtnh_ifindex,
-                        .weight = rtnh->rtnh_hops == 0 ? 0 : rtnh->rtnh_hops + 1,
+                        .weight = rtnh->rtnh_hops,
                 };
 
                 if (rtnh->rtnh_len > sizeof(struct rtnexthop)) {

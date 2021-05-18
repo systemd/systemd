@@ -44,6 +44,7 @@ struct Manager {
         LinkAddressState ipv6_address_state;
 
         Hashmap *links;
+        Hashmap *links_by_name;
         Hashmap *netdevs;
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
@@ -108,8 +109,6 @@ int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
 int manager_enumerate(Manager *m);
-
-Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);

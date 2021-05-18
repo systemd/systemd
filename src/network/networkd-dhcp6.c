@@ -170,7 +170,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         log_link_debug(link, "Removing old DHCPv6 Prefix Delegation addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_pd_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
 
@@ -180,7 +180,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         }
 
         SET_FOREACH(address, link->dhcp6_pd_addresses_old) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -212,7 +212,7 @@ int dhcp6_pd_remove(Link *link) {
         log_link_debug(link, "Removing DHCPv6 Prefix Delegation addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_pd_routes) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
 
@@ -222,7 +222,7 @@ int dhcp6_pd_remove(Link *link) {
         }
 
         SET_FOREACH(address, link->dhcp6_pd_addresses) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -761,13 +761,13 @@ static int dhcp6_remove_old(Link *link, bool force) {
         log_link_debug(link, "Removing old DHCPv6 addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         SET_FOREACH(address, link->dhcp6_addresses_old) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -795,13 +795,13 @@ static int dhcp6_remove(Link *link) {
         log_link_debug(link, "Removing DHCPv6 addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_routes) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         SET_FOREACH(address, link->dhcp6_addresses) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -1885,50 +1885,6 @@ int config_parse_dhcp6_pd_subnet_id(
         }
 
         *p = (int64_t) t;
-
-        return 0;
-}
-
-int config_parse_dhcp6_pd_token(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct in6_addr *addr = data;
-        union in_addr_union tmp;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                *addr = (struct in6_addr) {};
-                return 0;
-        }
-
-        r = in_addr_from_string(AF_INET6, rvalue, &tmp);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse DHCPv6 Prefix Delegation token, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (in_addr_is_null(AF_INET6, &tmp)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "DHCPv6 Prefix Delegation token cannot be the ANY address, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *addr = tmp.in6;
 
         return 0;
 }
