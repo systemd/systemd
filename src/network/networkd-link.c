@@ -1160,7 +1160,7 @@ static int link_set_flags(Link *link) {
         return 0;
 }
 
-static int link_acquire_ipv6_conf(Link *link) {
+static int link_acquire_dynamic_ipv6_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1195,7 +1195,7 @@ static int link_acquire_ipv6_conf(Link *link) {
         return 0;
 }
 
-static int link_acquire_ipv4_conf(Link *link) {
+static int link_acquire_dynamic_ipv4_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1224,17 +1224,17 @@ static int link_acquire_ipv4_conf(Link *link) {
         return 0;
 }
 
-static int link_acquire_conf(Link *link) {
+static int link_acquire_dynamic_conf(Link *link) {
         int r;
 
         assert(link);
 
-        r = link_acquire_ipv4_conf(link);
+        r = link_acquire_dynamic_ipv4_conf(link);
         if (r < 0)
                 return r;
 
         if (in6_addr_is_set(&link->ipv6ll_address)) {
-                r = link_acquire_ipv6_conf(link);
+                r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0)
                         return r;
         }
@@ -1862,7 +1862,7 @@ static int link_joined(Link *link) {
         if (!link_has_carrier(link))
                 return 0;
 
-        return link_acquire_conf(link);
+        return link_acquire_dynamic_conf(link);
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2711,7 +2711,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
         link_check_ready(link);
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_ipv6_conf(link);
+                r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
@@ -2793,7 +2793,7 @@ static int link_carrier_gained(Link *link) {
         }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_conf(link);
+                r = link_acquire_dynamic_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
