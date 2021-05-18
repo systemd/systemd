@@ -12,6 +12,20 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
+void network_adjust_ipv6_proxy_ndp(Network *network) {
+        assert(network);
+
+        if (set_isempty(network->ipv6_proxy_ndp_addresses))
+                return;
+
+        if (!socket_ipv6_is_supported()) {
+                log_once(LOG_WARNING,
+                         "%s: IPv6 proxy NDP addresses are set, but IPv6 is not supported by kernel, "
+                         "Ignoring IPv6 proxy NDP addresses.", network->filename);
+                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
+        }
+}
+
 static int set_ipv6_proxy_ndp_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
