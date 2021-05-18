@@ -150,6 +150,44 @@ static void test_auto_erase_memory(void) {
                 assert_se(p1[i] == p2[i]);
 }
 
+#define TEST_SIZES(f, n)                                                \
+        do {                                                            \
+                log_debug("requested=%zu vs. malloc_size=%zu vs. gcc_size=%zu", \
+                          n * sizeof(*f),                               \
+                          malloc_usable_size(f),                        \
+                          __builtin_object_size(f, 0));                 \
+                assert_se(MALLOC_ELEMENTSOF(f) >= n);                   \
+                assert_se(MALLOC_SIZEOF_SAFE(f) >= sizeof(*f) * n);     \
+                assert_se(malloc_usable_size(f) >= sizeof(*f) * n);     \
+                assert_se(__builtin_object_size(f, 0) >= sizeof(*f) * n); \
+        } while(false)
+
+static void test_malloc_size_safe(void) {
+        _cleanup_free_ uint32_t *f = NULL;
+        size_t n = 4711;
+
+        /* Let's check the macros and built-ins work on NULL and return the expected values */
+        assert_se(MALLOC_ELEMENTSOF((float*) NULL) == 0);
+        assert_se(MALLOC_SIZEOF_SAFE((float*) NULL) == 0);
+        assert_se(malloc_usable_size(NULL) == 0); /* as per man page, this is safe and defined */
+        assert_se(__builtin_object_size(NULL, 0) == SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
+
+        /* Then, let's try these macros once with contant size values, so that __builtin_object_size()
+         * definitely can work (as long as -O2 is used when compiling) */
+        assert_se(f = new(uint32_t, n));
+        TEST_SIZES(f, n);
+
+        /* Finally, let's use some dynamically sized allocations, to make sure this doesn't deteriorate */
+        for (unsigned i = 0; i < 50; i++) {
+                _cleanup_free_ uint64_t *g = NULL;
+                size_t m;
+
+                m = random_u64_range(16*1024);
+                assert_se(g = new(uint64_t, m));
+                TEST_SIZES(g, m);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -159,6 +197,7 @@ int main(int argc, char *argv[]) {
         test_bool_assign();
         test_cleanup_order();
         test_auto_erase_memory();
+        test_malloc_size_safe();
 
         return 0;
 }
