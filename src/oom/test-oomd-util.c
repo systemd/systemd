@@ -114,7 +114,10 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
                 assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
         }
 
-        assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
+        r = oomd_cgroup_context_acquire(cgroup, &ctx);
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("kernel does not provide memory.pressure");
+        assert_se(r == 0);
 
         assert_se(streq(ctx->path, cgroup));
         assert_se(ctx->current_memory_usage > 0);
