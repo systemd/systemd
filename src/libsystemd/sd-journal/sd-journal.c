@@ -2321,7 +2321,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 #if HAVE_COMPRESSION
                         r = decompress_startswith(compression,
                                                   o->data.payload, l,
-                                                  &f->compress_buffer, &f->compress_buffer_size,
+                                                  &f->compress_buffer,
                                                   field, field_length, '=');
                         if (r < 0)
                                 log_debug_errno(r, "Cannot decompress %s object of length %"PRIu64" at offset "OFSfmt": %m",
@@ -2332,7 +2332,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
                                 r = decompress_blob(compression,
                                                     o->data.payload, l,
-                                                    &f->compress_buffer, &f->compress_buffer_size, &rsize,
+                                                    &f->compress_buffer, &rsize,
                                                     j->data_threshold);
                                 if (r < 0)
                                         return r;
@@ -2389,9 +2389,11 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
                 size_t rsize;
                 int r;
 
-                r = decompress_blob(compression,
-                                    o->data.payload, l, &f->compress_buffer,
-                                    &f->compress_buffer_size, &rsize, j->data_threshold);
+                r = decompress_blob(
+                                compression,
+                                o->data.payload, l,
+                                &f->compress_buffer, &rsize,
+                                j->data_threshold);
                 if (r < 0)
                         return r;
 
@@ -3143,7 +3145,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                 if (sz > j->data_threshold)
                         sz = j->data_threshold;
 
-                if (!GREEDY_REALLOC(j->fields_buffer, j->fields_buffer_allocated, sz + 1))
+                if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
                         return -ENOMEM;
 
                 memcpy(j->fields_buffer, o->field.payload, sz);

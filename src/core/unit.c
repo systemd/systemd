@@ -4004,7 +4004,7 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
 
 char* unit_concat_strv(char **l, UnitWriteFlags flags) {
         _cleanup_free_ char *result = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         char **i;
 
         /* Takes a list of strings, escapes them, and concatenates them. This may be used to format command lines in a
@@ -4021,7 +4021,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags) {
                         return NULL;
 
                 a = (n > 0) + 1 + strlen(p) + 1; /* separating space + " + entry + " */
-                if (!GREEDY_REALLOC(result, allocated, n + a + 1))
+                if (!GREEDY_REALLOC(result, n + a + 1))
                         return NULL;
 
                 q = result + n;
@@ -4035,7 +4035,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags) {
                 n += a;
         }
 
-        if (!GREEDY_REALLOC(result, allocated, n + 1))
+        if (!GREEDY_REALLOC(result, n + 1))
                 return NULL;
 
         result[n] = 0;

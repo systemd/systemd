@@ -71,14 +71,11 @@ struct sd_netlink {
 
         sd_netlink_message **rqueue;
         unsigned rqueue_size;
-        size_t rqueue_allocated;
 
         sd_netlink_message **rqueue_partial;
         unsigned rqueue_partial_size;
-        size_t rqueue_partial_allocated;
 
         struct nlmsghdr *rbuffer;
-        size_t rbuffer_allocated;
 
         bool processing:1;
 

@@ -101,8 +101,8 @@ static int link_push_uplink_to_dhcp_server(
                 sd_dhcp_server *s) {
 
         _cleanup_free_ struct in_addr *addresses = NULL;
-        size_t n_addresses = 0, n_allocated = 0;
         bool use_dhcp_lease_data = true;
+        size_t n_addresses = 0;
 
         assert(link);
 
@@ -131,7 +131,7 @@ static int link_push_uplink_to_dhcp_server(
                         if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))
                                 continue;
 
-                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        if (!GREEDY_REALLOC(addresses, n_addresses + 1))
                                 return log_oom();
 
                         addresses[n_addresses++] = ia;
@@ -156,7 +156,7 @@ static int link_push_uplink_to_dhcp_server(
                         if (in4_addr_is_null(&ia.in) || in4_addr_is_localhost(&ia.in))
                                 continue;
 
-                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        if (!GREEDY_REALLOC(addresses, n_addresses + 1))
                                 return log_oom();
 
                         addresses[n_addresses++] = ia.in;
@@ -188,7 +188,7 @@ static int link_push_uplink_to_dhcp_server(
 
                 int n = sd_dhcp_lease_get_servers(link->dhcp_lease, what, &da);
                 if (n > 0) {
-                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                        if (!GREEDY_REALLOC(addresses, n_addresses + n))
                                 return log_oom();
 
                         for (int j = 0; j < n; j++)
@@ -203,7 +203,11 @@ static int link_push_uplink_to_dhcp_server(
         return sd_dhcp_server_set_servers(s, what, addresses, n_addresses);
 }
 
-static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *string, struct in_addr **addresses, size_t *n_allocated, size_t *n_addresses) {
+static int dhcp4_server_parse_dns_server_string_and_warn(
+                const char *string,
+                struct in_addr **addresses,
+                size_t *n_addresses) {
+
         for (;;) {
                 _cleanup_free_ char *word = NULL, *server_name = NULL;
                 union in_addr_union address;
@@ -229,7 +233,7 @@ static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *st
                 if (in4_addr_is_null(&address.in) || in4_addr_is_localhost(&address.in))
                         continue;
 
-                if (!GREEDY_REALLOC(*addresses, *n_allocated, *n_addresses + 1))
+                if (!GREEDY_REALLOC(*addresses, *n_addresses + 1))
                         return log_oom();
 
                 (*addresses)[(*n_addresses)++] = address.in;
@@ -240,8 +244,8 @@ static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *st
 
 static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         _cleanup_free_ struct in_addr *addresses = NULL;
-        size_t n_addresses = 0, n_allocated = 0;
         _cleanup_fclose_ FILE *f = NULL;
+        size_t n_addresses = 0;
         int n = 0, r;
 
         f = fopen(PRIVATE_UPLINK_RESOLV_CONF, "re");
@@ -273,7 +277,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
                 if (!a)
                         continue;
 
-                r = dhcp4_server_parse_dns_server_string_and_warn(link, a, &addresses, &n_allocated, &n_addresses);
+                r = dhcp4_server_parse_dns_server_string_and_warn(a, &addresses, &n_addresses);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
         }

@@ -148,7 +148,6 @@ typedef struct Item {
 typedef struct ItemArray {
         Item *items;
         size_t n_items;
-        size_t allocated;
 
         struct ItemArray *parent;
         Set *children;
@@ -2952,7 +2951,7 @@ static int parse_line(
                 }
         }
 
-        if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->n_items + 1))
+        if (!GREEDY_REALLOC(existing->items, existing->n_items + 1))
                 return log_oom();
 
         existing->items[existing->n_items++] = i;

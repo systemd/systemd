@@ -700,7 +700,7 @@ int bus_socket_start_auth(sd_bus *b) {
 static int bus_socket_inotify_setup(sd_bus *b) {
         _cleanup_free_ int *new_watches = NULL;
         _cleanup_free_ char *absolute = NULL;
-        size_t n_allocated = 0, n = 0, done = 0, i;
+        size_t n = 0, done = 0, i;
         unsigned max_follow = 32;
         const char *p;
         int wd, r;
@@ -737,7 +737,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
          * that exists we want to know when files are created or moved into it. For all parents of it we just care if
          * they are removed or renamed. */
 
-        if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+        if (!GREEDY_REALLOC(new_watches, n + 1)) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -786,7 +786,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+                if (!GREEDY_REALLOC(new_watches, n + 1)) {
                         r = -ENOMEM;
                         goto fail;
                 }

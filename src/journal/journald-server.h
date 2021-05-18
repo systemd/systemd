@@ -95,7 +95,6 @@ struct Server {
         uint64_t seqnum;
 
         char *buffer;
-        size_t buffer_size;
 
         JournalRateLimit *ratelimit;
         usec_t sync_interval_usec;

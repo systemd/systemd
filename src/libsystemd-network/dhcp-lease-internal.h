@@ -53,7 +53,7 @@ struct sd_dhcp_lease {
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 
         struct sd_dhcp_route *static_route;
-        size_t static_route_size, static_route_allocated;
+        size_t static_route_size;
 
         uint16_t mtu; /* 0 if unset */
 
