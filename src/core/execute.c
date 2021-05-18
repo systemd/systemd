@@ -1967,7 +1967,7 @@ static int build_environment(
 
 static int build_pass_environment(const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **pass_env = NULL;
-        size_t n_env = 0, n_bufsize = 0;
+        size_t n_env = 0;
         char **i;
 
         STRV_FOREACH(i, c->pass_environment) {
@@ -1981,7 +1981,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
                 if (!x)
                         return -ENOMEM;
 
-                if (!GREEDY_REALLOC(pass_env, n_bufsize, n_env + 2))
+                if (!GREEDY_REALLOC(pass_env, n_env + 2))
                         return -ENOMEM;
 
                 pass_env[n_env++] = TAKE_PTR(x);

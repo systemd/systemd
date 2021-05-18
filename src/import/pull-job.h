@@ -57,7 +57,6 @@ struct PullJob {
 
         uint8_t *payload;
         size_t payload_size;
-        size_t payload_allocated;
 
         int disk_fd;
 

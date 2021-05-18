@@ -249,7 +249,7 @@ static int catalog_entry_lang(
 int catalog_import_file(OrderedHashmap *h, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
-        size_t payload_size = 0, payload_allocated = 0;
+        size_t payload_size = 0;
         unsigned n = 0;
         sd_id128_t id;
         _cleanup_free_ char *deflang = NULL, *lang = NULL;
@@ -345,8 +345,7 @@ int catalog_import_file(OrderedHashmap *h, const char *path) {
                                                path, n);
 
                 line_len = strlen(line);
-                if (!GREEDY_REALLOC(payload, payload_allocated,
-                                    payload_size + (empty_line ? 1 : 0) + line_len + 1 + 1))
+                if (!GREEDY_REALLOC(payload, payload_size + (empty_line ? 1 : 0) + line_len + 1 + 1))
                         return log_oom();
 
                 if (empty_line)

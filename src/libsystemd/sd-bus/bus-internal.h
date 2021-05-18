@@ -222,12 +222,10 @@ struct sd_bus {
 
         sd_bus_message **rqueue;
         size_t rqueue_size;
-        size_t rqueue_allocated;
 
         sd_bus_message **wqueue;
         size_t wqueue_size;
         size_t windex;
-        size_t wqueue_allocated;
 
         uint64_t cookie;
         uint64_t read_counter; /* A counter for each incoming msg */

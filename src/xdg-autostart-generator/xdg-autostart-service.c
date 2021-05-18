@@ -188,7 +188,6 @@ static int strv_strndup_unescape_and_push(
                 const char *filename,
                 unsigned line,
                 char ***sv,
-                size_t *n_allocated,
                 size_t *n,
                 const char *start,
                 const char *end) {
@@ -207,7 +206,7 @@ static int strv_strndup_unescape_and_push(
         if (r < 0)
                 return r;
 
-        if (!greedy_realloc((void**) sv, n_allocated, *n + 2, sizeof(char*))) /* One extra for NULL */
+        if (!GREEDY_REALLOC(*sv, *n + 2)) /* One extra for NULL */
                 return log_oom();
 
         (*sv)[*n] = TAKE_PTR(copy);
@@ -243,10 +242,10 @@ static int xdg_config_parse_strv(
                 return 0;
         }
 
-        size_t n = 0, n_allocated = 0;
+        size_t n = 0;
         _cleanup_strv_free_ char **sv = NULL;
 
-        if (!GREEDY_REALLOC0(sv, n_allocated, 1))
+        if (!GREEDY_REALLOC0(sv, 1))
                 return log_oom();
 
         /* We cannot use strv_split because it does not handle escaping correctly. */
@@ -265,7 +264,7 @@ static int xdg_config_parse_strv(
 
                 if (*end == ';') {
                         r = strv_strndup_unescape_and_push(unit, filename, line,
-                                                           &sv, &n_allocated, &n,
+                                                           &sv, &n,
                                                            start, end);
                         if (r < 0)
                                 return r;
@@ -276,7 +275,7 @@ static int xdg_config_parse_strv(
 
         /* Handle the trailing entry after the last separator */
         r = strv_strndup_unescape_and_push(unit, filename, line,
-                                           &sv, &n_allocated, &n,
+                                           &sv, &n,
                                            start, end);
         if (r < 0)
                 return r;

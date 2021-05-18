@@ -522,7 +522,7 @@ char* strshorten(char *s, size_t l) {
 }
 
 char *strreplace(const char *text, const char *old_string, const char *new_string) {
-        size_t l, old_len, new_len, allocated = 0;
+        size_t l, old_len, new_len;
         char *t, *ret = NULL;
         const char *f;
 
@@ -536,7 +536,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         new_len = strlen(new_string);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(ret, allocated, l+1))
+        if (!GREEDY_REALLOC(ret, l+1))
                 return NULL;
 
         f = text;
@@ -552,7 +552,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
                 d = t - ret;
                 nl = l - old_len + new_len;
 
-                if (!GREEDY_REALLOC(ret, allocated, nl + 1))
+                if (!GREEDY_REALLOC(ret, nl + 1))
                         return mfree(ret);
 
                 l = nl;

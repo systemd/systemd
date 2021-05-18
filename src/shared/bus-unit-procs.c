@@ -255,7 +255,7 @@ static int dump_extra_processes(
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         struct CGroupInfo *cg;
-        size_t n_allocated = 0, n = 0, k;
+        size_t n = 0, k;
         int width, r;
 
         /* Prints the extra processes, i.e. those that are in cgroups we haven't displayed yet. We show them as
@@ -275,7 +275,7 @@ static int dump_extra_processes(
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(pids, n_allocated, n + hashmap_size(cg->pids)))
+                if (!GREEDY_REALLOC(pids, n + hashmap_size(cg->pids)))
                         return -ENOMEM;
 
                 HASHMAP_FOREACH_KEY(name, pidp, cg->pids) {

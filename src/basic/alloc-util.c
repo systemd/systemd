@@ -39,24 +39,32 @@ void* memdup_suffix0(const void *p, size_t l) {
         return ret;
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+void* greedy_realloc(
+                void **p,
+                size_t need,
+                size_t size) {
+
         size_t a, newalloc;
         void *q;
 
         assert(p);
-        assert(allocated);
 
-        if (*allocated >= need)
+        /* We use malloc_usable_size() for determining the current allocated size. On all systems we care
+         * about this should be safe to rely on. Should there ever arise the need to avoid relying on this we
+         * can instead locally fall back to realloc() on every call, rounded up to the next exponent of 2 or
+         * so. */
+
+        if (*p && (size == 0 || (MALLOC_SIZEOF_SAFE(*p) / size >= need)))
                 return *p;
 
         if (_unlikely_(need > SIZE_MAX/2)) /* Overflow check */
                 return NULL;
-
         newalloc = need * 2;
+
         if (size_multiply_overflow(newalloc, size))
                 return NULL;
-
         a = newalloc * size;
+
         if (a < 64) /* Allocate at least 64 bytes */
                 a = 64;
 
@@ -64,49 +72,34 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         if (!q)
                 return NULL;
 
-        if (size > 0) {
-                size_t bn;
-
-                /* Adjust for the 64 byte minimum */
-                newalloc = a / size;
-
-                bn = malloc_usable_size(q) / size;
-                if (bn > newalloc) {
-                        void *qq;
-
-                        /* The actual size allocated is larger than what we asked for. Let's call realloc() again to
-                         * take possession of the extra space. This should be cheap, since libc doesn't have to move
-                         * the memory for this. */
-
-                        qq = reallocarray(q, bn, size);
-                        if (_likely_(qq)) {
-                                *p = qq;
-                                *allocated = bn;
-                                return qq;
-                        }
-                }
-        }
-
-        *p = q;
-        *allocated = newalloc;
-        return q;
+        return *p = q;
 }
 
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
-        size_t prev;
+void* greedy_realloc0(
+                void **p,
+                size_t need,
+                size_t size) {
+
+        size_t before, after;
         uint8_t *q;
 
         assert(p);
-        assert(allocated);
 
-        prev = *allocated;
+        before = MALLOC_SIZEOF_SAFE(*p); /* malloc_usable_size() will return 0 on NULL input, as per docs */
 
-        q = greedy_realloc(p, allocated, need, size);
+        q = greedy_realloc(p, need, size);
         if (!q)
                 return NULL;
 
-        if (*allocated > prev)
-                memzero(q + prev * size, (*allocated - prev) * size);
+        after = MALLOC_SIZEOF_SAFE(q);
+
+        if (size == 0) /* avoid division by zero */
+                before = 0;
+        else
+                before = (before / size) * size; /* Round down */
+
+        if (after > before)
+                memzero(q + before, after - before);
 
         return q;
 }

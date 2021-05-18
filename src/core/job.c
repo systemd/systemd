@@ -1498,8 +1498,8 @@ static size_t sort_job_list(Job **list, size_t n) {
 
 int job_get_before(Job *j, Job*** ret) {
         _cleanup_free_ Job** list = NULL;
-        size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
+        size_t n = 0;
         void *v;
 
         /* Returns a list of all pending jobs that need to finish before this job may be started. */
@@ -1518,7 +1518,7 @@ int job_get_before(Job *j, Job*** ret) {
                 if (job_compare(j, other->job, UNIT_AFTER) <= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1529,7 +1529,7 @@ int job_get_before(Job *j, Job*** ret) {
                 if (job_compare(j, other->job, UNIT_BEFORE) <= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1543,8 +1543,8 @@ int job_get_before(Job *j, Job*** ret) {
 
 int job_get_after(Job *j, Job*** ret) {
         _cleanup_free_ Job** list = NULL;
-        size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
+        size_t n = 0;
         void *v;
 
         assert(j);
@@ -1562,7 +1562,7 @@ int job_get_after(Job *j, Job*** ret) {
                 if (job_compare(j, other->job, UNIT_BEFORE) >= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1577,7 +1577,7 @@ int job_get_after(Job *j, Job*** ret) {
                 if (job_compare(j, other->job, UNIT_AFTER) >= 0)
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n+1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }

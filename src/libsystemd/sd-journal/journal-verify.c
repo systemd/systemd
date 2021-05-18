@@ -153,12 +153,12 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 compression = o->object.flags & OBJECT_COMPRESSION_MASK;
                 if (compression) {
                         _cleanup_free_ void *b = NULL;
-                        size_t alloc = 0, b_size;
+                        size_t b_size;
 
                         r = decompress_blob(compression,
                                             o->data.payload,
                                             le64toh(o->object.size) - offsetof(Object, data.payload),
-                                            &b, &alloc, &b_size, 0);
+                                            &b, &b_size, 0);
                         if (r < 0) {
                                 error_errno(offset, r, "%s decompression failed: %m",
                                             object_compressed_to_string(compression));

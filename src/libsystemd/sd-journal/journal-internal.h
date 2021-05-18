@@ -99,7 +99,6 @@ struct sd_journal {
         uint64_t fields_offset;
         uint64_t fields_hash_table_index;
         char *fields_buffer;
-        size_t fields_buffer_allocated;
 
         int flags;
 

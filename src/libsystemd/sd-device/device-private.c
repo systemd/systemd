@@ -480,7 +480,6 @@ static int device_update_properties_bufs(sd_device *device) {
         const char *val, *prop;
         _cleanup_free_ char **buf_strv = NULL;
         _cleanup_free_ uint8_t *buf_nulstr = NULL;
-        size_t allocated_nulstr = 0;
         size_t nulstr_len = 0, num = 0, i = 0;
 
         assert(device);
@@ -493,7 +492,7 @@ static int device_update_properties_bufs(sd_device *device) {
 
                 len = strlen(prop) + 1 + strlen(val);
 
-                buf_nulstr = GREEDY_REALLOC0(buf_nulstr, allocated_nulstr, nulstr_len + len + 2);
+                buf_nulstr = GREEDY_REALLOC0(buf_nulstr, nulstr_len + len + 2);
                 if (!buf_nulstr)
                         return -ENOMEM;
 
