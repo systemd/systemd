@@ -6,6 +6,9 @@
 #include "networkd-link.h"
 
 typedef struct Address Address;
+typedef struct AddressLabel AddressLabel;
+typedef struct BridgeFDB BridgeFDB;
+typedef struct BridgeMDB BridgeMDB;
 typedef struct Neighbor Neighbor;
 typedef struct NextHop NextHop;
 typedef struct Route Route;
@@ -18,6 +21,11 @@ typedef void (*request_on_free_handler_t)(Request*);
 
 typedef enum RequestType {
         REQUEST_TYPE_ADDRESS,
+        REQUEST_TYPE_ADDRESS_LABEL,
+        REQUEST_TYPE_BRIDGE_FDB,
+        REQUEST_TYPE_BRIDGE_MDB,
+        REQUEST_TYPE_DHCP_SERVER,
+        REQUEST_TYPE_IPV6_PROXY_NDP,
         REQUEST_TYPE_NEIGHBOR,
         REQUEST_TYPE_NEXTHOP,
         REQUEST_TYPE_ROUTE,
@@ -32,6 +40,10 @@ typedef struct Request {
         bool consume_object;
         union {
                 Address *address;
+                AddressLabel *label;
+                BridgeFDB *fdb;
+                BridgeMDB *mdb;
+                struct in6_addr *ipv6_proxy_ndp;
                 Neighbor *neighbor;
                 NextHop *nexthop;
                 Route *route;

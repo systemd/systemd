@@ -171,14 +171,14 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 
         SET_FOREACH(na, link->ndisc_addresses)
                 if (na->marked && in6_addr_equal(&na->router, router)) {
-                        k = address_remove(na->address, link, NULL);
+                        k = address_remove(na->address, link);
                         if (k < 0)
                                 r = k;
                 }
 
         SET_FOREACH(nr, link->ndisc_routes)
                 if (nr->marked && in6_addr_equal(&nr->router, router)) {
-                        k = route_remove(nr->route, NULL, link, NULL);
+                        k = route_remove(nr->route, NULL, link);
                         if (k < 0)
                                 r = k;
                 }
@@ -541,7 +541,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_has_ipv6_address(link, &gateway) > 0) {
+        if (link_get_ipv6_address(link, &gateway, NULL) >= 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buffer = NULL;
 
@@ -918,7 +918,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_has_ipv6_address(link, &gateway) > 0) {
+        if (link_get_ipv6_address(link, &gateway, NULL) >= 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
