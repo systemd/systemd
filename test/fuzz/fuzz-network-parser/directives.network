@@ -58,6 +58,7 @@ MACAddress=
 Destination=
 VNI=
 AssociatedWith=
+OutgoingInterface=
 [BridgeMDB]
 MulticastGroupAddress=
 VLANId=
@@ -364,12 +365,15 @@ BindToInterface=
 RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
+ServerAddress=
+UplinkInterface=
 [NextHop]
 Id=
 Gateway=
 Family=
 OnLink=
 Blackhole=
+Group=
 [QDisc]
 Parent=
 Handle=

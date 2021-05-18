@@ -16,7 +16,6 @@
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
@@ -189,10 +188,13 @@ struct Network {
         /* DHCP Server Support */
         bool dhcp_server;
         bool dhcp_server_bind_to_interface;
+        unsigned char dhcp_server_address_prefixlen;
+        struct in_addr dhcp_server_address;
+        int dhcp_server_uplink_index;
+        char *dhcp_server_uplink_name;
         struct in_addr dhcp_server_relay_target;
         char *dhcp_server_relay_agent_circuit_id;
         char *dhcp_server_relay_agent_remote_id;
-
         NetworkDHCPServerEmitAddress dhcp_server_emit[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
@@ -306,8 +308,8 @@ struct Network {
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
-        Hashmap *fdb_entries_by_section;
-        Hashmap *mdb_entries_by_section;
+        Hashmap *bridge_fdb_entries_by_section;
+        Hashmap *bridge_mdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;
