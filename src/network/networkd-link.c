@@ -825,7 +825,7 @@ void link_check_ready(Link *link) {
         link_enter_configured(link);
 }
 
-static int link_set_static_configs(Link *link) {
+static int link_request_static_configs(Link *link) {
         int r;
 
         assert(link);
@@ -1829,6 +1829,8 @@ static int link_joined(Link *link) {
         if (r < 0)
                 return r;
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
         if (link->network->bridge) {
                 r = link_set_bridge(link);
                 if (r < 0)
@@ -1853,19 +1855,14 @@ static int link_joined(Link *link) {
         if (r < 0)
                 log_link_error_errno(link, r, "Could not set bridge vlan: %m");
 
-        /* Skip setting up addresses until it gets carrier,
-           or it would try to set addresses twice,
-           which is bad for non-idempotent steps. */
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                return 0;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        r = link_acquire_conf(link);
+        r = link_request_static_configs(link);
         if (r < 0)
                 return r;
 
-        return link_set_static_configs(link);
+        if (!link_has_carrier(link))
+                return 0;
+
+        return link_acquire_conf(link);
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2802,8 +2799,7 @@ static int link_carrier_gained(Link *link) {
                         return r;
                 }
 
-                link_set_state(link, LINK_STATE_CONFIGURING);
-                r = link_set_static_configs(link);
+                r = link_request_static_configs(link);
                 if (r < 0)
                         return r;
         }
