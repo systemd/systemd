@@ -175,3 +175,11 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
  * case. */
 #define MALLOC_SIZEOF_SAFE(x) \
         MIN(malloc_usable_size(x), __builtin_object_size(x, 0))
+
+/* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
+ * that fit into the specified memory block */
+#define MALLOC_ELEMENTSOF(x) \
+        (__builtin_choose_expr(                                         \
+                __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
+                VOID_0))
