@@ -89,7 +89,6 @@ typedef struct Context {
 
         Feature *drive_features;
         size_t n_drive_feature;
-        size_t n_allocated;
 
         Feature media_feature;
         bool has_media;
@@ -137,7 +136,7 @@ static int set_drive_feature(Context *c, Feature f) {
         if (drive_has_feature(c, f))
                 return 0;
 
-        if (!GREEDY_REALLOC(c->drive_features, c->n_allocated, c->n_drive_feature + 1))
+        if (!GREEDY_REALLOC(c->drive_features, c->n_drive_feature + 1))
                 return -ENOMEM;
 
         c->drive_features[c->n_drive_feature++] = f;

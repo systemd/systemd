@@ -549,10 +549,10 @@ int mkfifoat_atomic(int dirfd, const char *path, mode_t mode) {
 }
 
 int get_files_in_directory(const char *path, char ***list) {
+        _cleanup_strv_free_ char **l = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        size_t bufsize = 0, n = 0;
-        _cleanup_strv_free_ char **l = NULL;
+        size_t n = 0;
 
         assert(path);
 
@@ -572,7 +572,7 @@ int get_files_in_directory(const char *path, char ***list) {
 
                 if (list) {
                         /* one extra slot is needed for the terminating NULL */
-                        if (!GREEDY_REALLOC(l, bufsize, n + 2))
+                        if (!GREEDY_REALLOC(l, n + 2))
                                 return -ENOMEM;
 
                         l[n] = strdup(de->d_name);

@@ -432,7 +432,6 @@ int list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
         unsigned cs = 0;
-        size_t size = 0;
         int r, n;
         sd_bus *bus;
 
@@ -468,7 +467,7 @@ int list_sockets(int argc, char *argv[], void *userdata) {
                                 goto cleanup;
                         }
 
-                        if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
+                        if (!GREEDY_REALLOC(socket_infos, cs + c)) {
                                 r = log_oom();
                                 goto cleanup;
                         }
@@ -695,7 +694,6 @@ int list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        size_t size = 0;
         int n, c = 0;
         dual_timestamp nw;
         sd_bus *bus;
@@ -736,7 +734,7 @@ int list_timers(int argc, char *argv[], void *userdata) {
 
                         get_last_trigger(bus, u->unit_path, &last);
 
-                        if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
+                        if (!GREEDY_REALLOC(timer_infos, c+1)) {
                                 r = log_oom();
                                 goto cleanup;
                         }

@@ -37,30 +37,30 @@ static inline int compress_blob(const void *src, uint64_t src_size,
 }
 
 int decompress_blob_xz(const void *src, uint64_t src_size,
-                       void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
+                       void **dst, size_t* dst_size, size_t dst_max);
 int decompress_blob_lz4(const void *src, uint64_t src_size,
-                        void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
+                        void **dst, size_t* dst_size, size_t dst_max);
 int decompress_blob_zstd(const void *src, uint64_t src_size,
-                        void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
+                        void **dst, size_t* dst_size, size_t dst_max);
 int decompress_blob(int compression,
                     const void *src, uint64_t src_size,
-                    void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
+                    void **dst, size_t* dst_size, size_t dst_max);
 
 int decompress_startswith_xz(const void *src, uint64_t src_size,
-                             void **buffer, size_t *buffer_size,
+                             void **buffer,
                              const void *prefix, size_t prefix_len,
                              uint8_t extra);
 int decompress_startswith_lz4(const void *src, uint64_t src_size,
-                              void **buffer, size_t *buffer_size,
+                              void **buffer,
                               const void *prefix, size_t prefix_len,
                               uint8_t extra);
 int decompress_startswith_zstd(const void *src, uint64_t src_size,
-                               void **buffer, size_t *buffer_size,
+                               void **buffer,
                                const void *prefix, size_t prefix_len,
                                uint8_t extra);
 int decompress_startswith(int compression,
                           const void *src, uint64_t src_size,
-                          void **buffer, size_t *buffer_size,
+                          void **buffer,
                           const void *prefix, size_t prefix_len,
                           uint8_t extra);
 
