@@ -75,7 +75,6 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
         j->error = 0;
         j->payload = mfree(j->payload);
         j->payload_size = 0;
-        j->payload_allocated = 0;
         j->written_compressed = 0;
         j->written_uncompressed = 0;
         j->content_length = UINT64_MAX;
@@ -266,7 +265,7 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
         } else {
 
-                if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz))
+                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz))
                         return log_oom();
 
                 memcpy(j->payload + j->payload_size, p, sz);
@@ -371,7 +370,6 @@ static int pull_job_detect_compression(PullJob *j) {
 
         j->payload = NULL;
         j->payload_size = 0;
-        j->payload_allocated = 0;
 
         j->state = PULL_JOB_RUNNING;
 
@@ -395,7 +393,7 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
         case PULL_JOB_ANALYZING:
                 /* Let's first check what it actually is */
 
-                if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz)) {
+                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz)) {
                         r = log_oom();
                         goto fail;
                 }

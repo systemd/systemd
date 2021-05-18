@@ -882,8 +882,6 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                 if (missing & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
                                         p = startswith(line, "Groups:");
                                         if (p) {
-                                                size_t allocated = 0;
-
                                                 for (;;) {
                                                         unsigned long g;
                                                         int n = 0;
@@ -895,7 +893,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                                                         if (sscanf(p, "%lu%n", &g, &n) != 1)
                                                                 return -EIO;
 
-                                                        if (!GREEDY_REALLOC(c->supplementary_gids, allocated, c->n_supplementary_gids+1))
+                                                        if (!GREEDY_REALLOC(c->supplementary_gids, c->n_supplementary_gids+1))
                                                                 return -ENOMEM;
 
                                                         c->supplementary_gids[c->n_supplementary_gids++] = (gid_t) g;

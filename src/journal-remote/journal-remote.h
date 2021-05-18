@@ -23,7 +23,6 @@ struct MHDDaemonWrapper {
 
 struct RemoteServer {
         RemoteSource **sources;
-        size_t sources_size;
         size_t active;
 
         sd_event *events;

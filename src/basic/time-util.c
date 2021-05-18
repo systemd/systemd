@@ -1247,7 +1247,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 int get_timezones(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0, n_allocated = 0;
+        size_t n_zones = 0;
         int r;
 
         assert(ret);
@@ -1256,7 +1256,6 @@ int get_timezones(char ***ret) {
         if (!zones)
                 return -ENOMEM;
 
-        n_allocated = 2;
         n_zones = 1;
 
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
@@ -1294,7 +1293,7 @@ int get_timezones(char ***ret) {
                         if (!w)
                                 return -ENOMEM;
 
-                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2))
+                        if (!GREEDY_REALLOC(zones, n_zones + 2))
                                 return -ENOMEM;
 
                         zones[n_zones++] = TAKE_PTR(w);

@@ -1212,8 +1212,8 @@ static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, funlockfile, NULL);
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
-        size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
+        size_t n = 0, count = 0;
         int r;
 
         assert(f);
@@ -1243,7 +1243,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
          * If a line shall be skipped ret may be initialized as NULL. */
 
         if (ret) {
-                if (!GREEDY_REALLOC(buffer, allocated, 1))
+                if (!GREEDY_REALLOC(buffer, 1))
                         return -ENOMEM;
         }
 
@@ -1315,7 +1315,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         }
 
                         if (ret) {
-                                if (!GREEDY_REALLOC(buffer, allocated, n + 2))
+                                if (!GREEDY_REALLOC(buffer, n + 2))
                                         return -ENOMEM;
 
                                 buffer[n] = c;

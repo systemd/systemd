@@ -2166,10 +2166,10 @@ int unit_file_unmask(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_strv_free_ char **todo = NULL;
-        size_t n_todo = 0, n_allocated = 0;
         const char *config_path;
-        char **i;
+        size_t n_todo = 0;
         bool dry_run;
+        char **i;
         int r, q;
 
         assert(scope >= 0);
@@ -2203,7 +2203,7 @@ int unit_file_unmask(
                 if (r == 0)
                         continue;
 
-                if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
 
                 todo[n_todo] = strdup(*i);
@@ -2259,8 +2259,8 @@ int unit_file_link(
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
-        size_t n_todo = 0, n_allocated = 0;
         const char *config_path;
+        size_t n_todo = 0;
         char **i;
         int r, q;
 
@@ -2303,7 +2303,7 @@ int unit_file_link(
                 if (q > 0)
                         continue;
 
-                if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
 
                 todo[n_todo] = strdup(*i);
@@ -2360,7 +2360,7 @@ int unit_file_revert(
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
-        size_t n_todo = 0, n_allocated = 0;
+        size_t n_todo = 0;
         char **i;
         int r, q;
 
@@ -2421,7 +2421,7 @@ int unit_file_revert(
                                 if (r < 0)
                                         return r;
                                 if (r > 0) {
-                                        if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                                        if (!GREEDY_REALLOC0(todo, n_todo + 2))
                                                 return -ENOMEM;
 
                                         todo[n_todo++] = TAKE_PTR(dropin);
@@ -2450,7 +2450,7 @@ int unit_file_revert(
                                 if (r < 0)
                                         return r;
                                 if (r > 0) {
-                                        if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                                        if (!GREEDY_REALLOC0(todo, n_todo + 2))
                                                 return -ENOMEM;
 
                                         todo[n_todo++] = TAKE_PTR(path);
@@ -2946,7 +2946,6 @@ static int presets_find_config(UnitFileScope scope, const char *root_dir, char *
 
 static int read_presets(UnitFileScope scope, const char *root_dir, UnitFilePresets *presets) {
         _cleanup_(unit_file_presets_freep) UnitFilePresets ps = {};
-        size_t n_allocated = 0;
         _cleanup_strv_free_ char **files = NULL;
         char **p;
         int r;
@@ -3025,7 +3024,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, UnitFilePrese
                         }
 
                         if (rule.action) {
-                                if (!GREEDY_REALLOC(ps.rules, n_allocated, ps.n_rules + 1))
+                                if (!GREEDY_REALLOC(ps.rules, ps.n_rules + 1))
                                         return -ENOMEM;
 
                                 ps.rules[ps.n_rules++] = rule;

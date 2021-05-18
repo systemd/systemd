@@ -63,8 +63,7 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         /* We guarantee that the read buffer has at least space for
          * a message header */
-        if (!greedy_realloc((void**)&rtnl->rbuffer, &rtnl->rbuffer_allocated,
-                            sizeof(struct nlmsghdr), sizeof(uint8_t)))
+        if (!greedy_realloc((void**)&rtnl->rbuffer, sizeof(struct nlmsghdr), sizeof(uint8_t)))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(rtnl);
@@ -295,7 +294,7 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl) {
                                        "rtnl: exhausted the read queue size (%d)",
                                        RTNL_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
+        if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_size + 1))
                 return -ENOMEM;
 
         return 0;
@@ -309,8 +308,7 @@ int rtnl_rqueue_partial_make_room(sd_netlink *rtnl) {
                                        "rtnl: exhausted the partial read queue size (%d)",
                                        RTNL_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated,
-                            rtnl->rqueue_partial_size + 1))
+        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_size + 1))
                 return -ENOMEM;
 
         return 0;

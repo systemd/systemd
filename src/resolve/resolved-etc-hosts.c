@@ -147,7 +147,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         bn->name = TAKE_PTR(name);
                 }
 
-                if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
+                if (!GREEDY_REALLOC(bn->addresses, bn->n_addresses + 1))
                         return log_oom();
 
                 bn->addresses[bn->n_addresses++] = &item->address;

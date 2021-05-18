@@ -716,7 +716,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_close_ int fd = -1;
-        size_t allocated = 0, c = 0;
+        size_t c = 0;
         int r;
 
         assert(rtnl);
@@ -742,7 +742,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         }
 
         for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
-                if (!GREEDY_REALLOC0(links, allocated, c + 2)) /* We keep one trailing one as marker */
+                if (!GREEDY_REALLOC0(links, c + 2)) /* We keep one trailing one as marker */
                         return -ENOMEM;
 
                 r = decode_link(i, links + c, patterns, matched_patterns);

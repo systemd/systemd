@@ -39,7 +39,7 @@ Bitmap* bitmap_copy(Bitmap *b) {
         if (!ret->bitmaps)
                 return mfree(ret);
 
-        ret->n_bitmaps = ret->bitmaps_allocated = b->n_bitmaps;
+        ret->n_bitmaps = b->n_bitmaps;
         return ret;
 }
 
@@ -81,7 +81,7 @@ int bitmap_set(Bitmap *b, unsigned n) {
         offset = BITMAP_NUM_TO_OFFSET(n);
 
         if (offset >= b->n_bitmaps) {
-                if (!GREEDY_REALLOC0(b->bitmaps, b->bitmaps_allocated, offset + 1))
+                if (!GREEDY_REALLOC0(b->bitmaps, offset + 1))
                         return -ENOMEM;
 
                 b->n_bitmaps = offset + 1;
@@ -147,7 +147,6 @@ void bitmap_clear(Bitmap *b) {
 
         b->bitmaps = mfree(b->bitmaps);
         b->n_bitmaps = 0;
-        b->bitmaps_allocated = 0;
 }
 
 bool bitmap_iterate(const Bitmap *b, Iterator *i, unsigned *n) {

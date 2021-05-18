@@ -630,7 +630,7 @@ static int get_dnssl_info(sd_ndisc_router *rt, uint8_t **ret) {
 _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *e = NULL;
-        size_t allocated = 0, n = 0, left;
+        size_t n = 0, left;
         uint8_t *ri, *p;
         bool first = true;
         int r;
@@ -691,7 +691,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                 if (1U + *p + 1U > left)
                         return -EBADMSG;
 
-                if (!GREEDY_REALLOC(e, allocated, n + !first + DNS_LABEL_ESCAPED_MAX + 1U))
+                if (!GREEDY_REALLOC(e, n + !first + DNS_LABEL_ESCAPED_MAX + 1U))
                         return -ENOMEM;
 
                 if (first)

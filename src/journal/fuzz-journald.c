@@ -22,7 +22,6 @@ void dummy_server_init(Server *s, const uint8_t *buffer, size_t size) {
         if (buffer) {
                 s->buffer = memdup_suffix0(buffer, size);
                 assert_se(s->buffer);
-                s->buffer_size = size + 1;
         }
 }
 

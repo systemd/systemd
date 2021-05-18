@@ -34,10 +34,10 @@
 typedef int (compress_blob_t)(const void *src, uint64_t src_size,
                               void *dst, size_t dst_alloc_size, size_t *dst_size);
 typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
-                                void **dst, size_t *dst_alloc_size,
+                                void **dst,
                                 size_t* dst_size, size_t dst_max);
 typedef int (decompress_sw_t)(const void *src, uint64_t src_size,
-                              void **buffer, size_t *buffer_size,
+                              void **buffer,
                               const void *prefix, size_t prefix_len,
                               uint8_t extra);
 
@@ -45,14 +45,16 @@ typedef int (compress_stream_t)(int fdf, int fdt, uint64_t max_bytes);
 typedef int (decompress_stream_t)(int fdf, int fdt, uint64_t max_size);
 
 #if HAVE_COMPRESSION
-_unused_ static void test_compress_decompress(const char *compression,
-                                              compress_blob_t compress,
-                                              decompress_blob_t decompress,
-                                              const char *data,
-                                              size_t data_len,
-                                              bool may_fail) {
+_unused_ static void test_compress_decompress(
+                const char *compression,
+                compress_blob_t compress,
+                decompress_blob_t decompress,
+                const char *data,
+                size_t data_len,
+                bool may_fail) {
+
         char compressed[512];
-        size_t csize, usize = 0;
+        size_t csize;
         _cleanup_free_ char *decompressed = NULL;
         int r;
 
@@ -66,26 +68,26 @@ _unused_ static void test_compress_decompress(const char *compression,
         } else {
                 assert_se(r == 0);
                 r = decompress(compressed, csize,
-                               (void **) &decompressed, &usize, &csize, 0);
+                               (void **) &decompressed, &csize, 0);
                 assert_se(r == 0);
                 assert_se(decompressed);
                 assert_se(memcmp(decompressed, data, data_len) == 0);
         }
 
         r = decompress("garbage", 7,
-                       (void **) &decompressed, &usize, &csize, 0);
+                       (void **) &decompressed, &csize, 0);
         assert_se(r < 0);
 
         /* make sure to have the minimal lz4 compressed size */
         r = decompress("00000000\1g", 9,
-                       (void **) &decompressed, &usize, &csize, 0);
+                       (void **) &decompressed, &csize, 0);
         assert_se(r < 0);
 
         r = decompress("\100000000g", 9,
-                       (void **) &decompressed, &usize, &csize, 0);
+                       (void **) &decompressed, &csize, 0);
         assert_se(r < 0);
 
-        memzero(decompressed, usize);
+        explicit_bzero_safe(decompressed, MALLOC_SIZEOF_SAFE(decompressed));
 }
 
 _unused_ static void test_decompress_startswith(const char *compression,
@@ -97,7 +99,7 @@ _unused_ static void test_decompress_startswith(const char *compression,
 
         char *compressed;
         _cleanup_free_ char *compressed1 = NULL, *compressed2 = NULL, *decompressed = NULL;
-        size_t csize, usize = 0, len;
+        size_t csize, len;
         int r;
 
         log_info("/* testing decompress_startswith with %s on %.20s text */",
@@ -122,17 +124,17 @@ _unused_ static void test_decompress_startswith(const char *compression,
 
         len = strlen(data);
 
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len, '\0');
+        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
         assert_se(r > 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len, 'w');
+        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, 'w');
         assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, "barbarbar", 9, ' ');
+        r = decompress_sw(compressed, csize, (void **) &decompressed, "barbarbar", 9, ' ');
         assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len - 1, data[len-1]);
+        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, data[len-1]);
         assert_se(r > 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len - 1, 'w');
+        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, 'w');
         assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len, '\0');
+        r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
         assert_se(r > 0);
 }
 
@@ -152,13 +154,12 @@ _unused_ static void test_decompress_startswith_short(const char *compression,
         assert_se(r == 0);
 
         for (i = 1; i < strlen(TEXT); i++) {
-                size_t alloc_size = i;
                 _cleanup_free_ void *buf2 = NULL;
 
                 assert_se(buf2 = malloc(i));
 
-                assert_se(decompress_sw(buf, csize, &buf2, &alloc_size, TEXT, i, TEXT[i]) == 1);
-                assert_se(decompress_sw(buf, csize, &buf2, &alloc_size, TEXT, i, 'y') == 0);
+                assert_se(decompress_sw(buf, csize, &buf2, TEXT, i, TEXT[i]) == 1);
+                assert_se(decompress_sw(buf, csize, &buf2, TEXT, i, 'y') == 0);
         }
 }
 

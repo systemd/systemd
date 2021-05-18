@@ -15,7 +15,7 @@
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
                          size_t dst_alloc_size, size_t *dst_size);
 typedef int (decompress_t)(const void *src, uint64_t src_size,
-                           void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
+                           void **dst, size_t* dst_size, size_t dst_max);
 
 #if HAVE_COMPRESSION
 
@@ -80,7 +80,6 @@ static void test_compress_decompress(const char* label, const char* type,
 
         _cleanup_free_ char *text, *buf;
         _cleanup_free_ void *buf2 = NULL;
-        size_t buf2_allocated = 0;
         size_t skipped = 0, compressed = 0, total = 0;
 
         text = make_buf(MAX_SIZE, type);
@@ -116,9 +115,8 @@ static void test_compress_decompress(const char* label, const char* type,
                 if (j >= size)
                         log_error("%s \"compressed\" %zu -> %zu", label, size, j);
 
-                r = decompress(buf, j, &buf2, &buf2_allocated, &k, 0);
+                r = decompress(buf, j, &buf2, &k, 0);
                 assert_se(r == 0);
-                assert_se(buf2_allocated >= k);
                 assert_se(k == size);
 
                 assert_se(memcmp(text, buf2, size) == 0);

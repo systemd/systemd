@@ -1644,8 +1644,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 static int json_transform_one(sd_bus_message *m, JsonVariant **ret);
 
 static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) {
-        size_t n_elements = 0, n_allocated = 0;
         JsonVariant **elements = NULL;
+        size_t n_elements = 0;
         int r;
 
         assert(m);
@@ -1660,7 +1660,7 @@ static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) 
                 if (r > 0)
                         break;
 
-                if (!GREEDY_REALLOC(elements, n_allocated, n_elements + 1)) {
+                if (!GREEDY_REALLOC(elements, n_elements + 1)) {
                         r = log_oom();
                         goto finish;
                 }
@@ -1702,8 +1702,8 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, JsonV
 }
 
 static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
-        size_t n_elements = 0, n_allocated = 0;
         JsonVariant **elements = NULL;
+        size_t n_elements = 0;
         int r;
 
         assert(m);
@@ -1727,7 +1727,7 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
 
                 assert(type == 'e');
 
-                if (!GREEDY_REALLOC(elements, n_allocated, n_elements + 2)) {
+                if (!GREEDY_REALLOC(elements, n_elements + 2)) {
                         r = log_oom();
                         goto finish;
                 }

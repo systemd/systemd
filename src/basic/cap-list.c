@@ -59,7 +59,7 @@ int capability_list_length(void) {
 
 int capability_set_to_string_alloc(uint64_t set, char **s) {
         _cleanup_free_ char *str = NULL;
-        size_t allocated = 0, n = 0;
+        size_t n = 0;
 
         assert(s);
 
@@ -77,14 +77,14 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
                         add = strlen(p);
 
-                        if (!GREEDY_REALLOC(str, allocated, n + add + 2))
+                        if (!GREEDY_REALLOC(str, n + add + 2))
                                 return -ENOMEM;
 
                         strcpy(mempcpy(str + n, p, add), " ");
                         n += add + 1;
                 }
 
-        if (!GREEDY_REALLOC(str, allocated, n + 1))
+        if (!GREEDY_REALLOC(str, n + 1))
                 return -ENOMEM;
 
         str[n > 0 ? n - 1 : 0] = '\0'; /* truncate the last space, if it's there */

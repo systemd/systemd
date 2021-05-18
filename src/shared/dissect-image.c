@@ -1780,7 +1780,6 @@ typedef struct DecryptedPartition {
 struct DecryptedImage {
         DecryptedPartition *decrypted;
         size_t n_decrypted;
-        size_t n_allocated;
 };
 #endif
 
@@ -1876,7 +1875,7 @@ static int decrypt_partition(
         if (r < 0)
                 return r;
 
-        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
         r = sym_crypt_init(&cd, m->node);
@@ -2028,7 +2027,7 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
         /* If activating fails because the device already exists, check the metadata and reuse it if it matches.

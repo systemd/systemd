@@ -19,7 +19,6 @@ struct Seat {
         LIST_HEAD(Session, sessions);
 
         Session **positions;
-        size_t position_count;
 
         bool in_gc_queue:1;
         bool started:1;

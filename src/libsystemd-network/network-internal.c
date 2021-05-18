@@ -158,13 +158,12 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
         fputs("\n", f);
 }
 
-int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
+int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const char *string) {
         _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-        size_t size = 0, allocated = 0;
+        size_t size = 0;
 
         assert(ret);
         assert(ret_size);
-        assert(ret_allocated);
         assert(string);
 
          /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
@@ -180,7 +179,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(routes, allocated, size + 1))
+                if (!GREEDY_REALLOC(routes, size + 1))
                         return -ENOMEM;
 
                 tok = word;
@@ -220,7 +219,6 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
         }
 
         *ret_size = size;
-        *ret_allocated = allocated;
         *ret = TAKE_PTR(routes);
 
         return 0;

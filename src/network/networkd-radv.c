@@ -515,7 +515,7 @@ int config_parse_route_prefix_lifetime(
 
 static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresses, size_t *ret_size) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
-        size_t n_addresses = 0, n_allocated = 0;
+        size_t n_addresses = 0;
 
         assert(network);
         assert(ret_addresses);
@@ -534,7 +534,7 @@ static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresse
                     in_addr_is_localhost(AF_INET6, addr))
                         continue;
 
-                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                if (!GREEDY_REALLOC(addresses, n_addresses + 1))
                         return -ENOMEM;
 
                 addresses[n_addresses++] = addr->in6;

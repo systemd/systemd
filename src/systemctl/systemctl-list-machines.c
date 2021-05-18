@@ -93,7 +93,6 @@ static int get_machine_list(
         struct machine_info *machine_infos = NULL;
         _cleanup_strv_free_ char **m = NULL;
         _cleanup_free_ char *hn = NULL;
-        size_t sz = 0;
         char **i;
         int c = 0, r;
 
@@ -102,7 +101,7 @@ static int get_machine_list(
                 return log_oom();
 
         if (output_show_machine(hn, patterns)) {
-                if (!GREEDY_REALLOC0(machine_infos, sz, c+1))
+                if (!GREEDY_REALLOC0(machine_infos, c+1))
                         return log_oom();
 
                 machine_infos[c].is_host = true;
@@ -126,7 +125,7 @@ static int get_machine_list(
                 if (!streq_ptr(class, "container"))
                         continue;
 
-                if (!GREEDY_REALLOC0(machine_infos, sz, c+1)) {
+                if (!GREEDY_REALLOC0(machine_infos, c+1)) {
                         free_machines_list(machine_infos, c);
                         return log_oom();
                 }

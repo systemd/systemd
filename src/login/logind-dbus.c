@@ -828,7 +828,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
          */
         if (c != SESSION_GREETER &&
             vtnr > 0 &&
-            vtnr < m->seat0->position_count &&
+            vtnr < MALLOC_ELEMENTSOF(m->seat0->positions) &&
             m->seat0->positions[vtnr] &&
             m->seat0->positions[vtnr]->class != SESSION_GREETER)
                 return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already occupied by a session");

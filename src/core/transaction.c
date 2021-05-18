@@ -330,11 +330,11 @@ _pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
 
 static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
         char **unit_id, **job_type, *ans = NULL;
-        size_t alloc = 0, size = 0, next;
+        size_t size = 0, next;
 
         STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
                 next = strlen(unit_log_field) + strlen(*unit_id);
-                if (!GREEDY_REALLOC(ans, alloc, size + next + 1))
+                if (!GREEDY_REALLOC(ans, size + next + 1))
                         return mfree(ans);
 
                 sprintf(ans + size, "%s%s", unit_log_field, *unit_id);

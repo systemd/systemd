@@ -136,7 +136,6 @@ struct Table {
         size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If SIZE_MAX then no limit is set, the default. == 0 is not allowed.) */
 
         TableData **data;
-        size_t n_allocated;
 
         size_t *display_map;  /* List of columns to show (by their index). It's fine if columns are listed multiple times or not at all */
         size_t n_display_map;
@@ -453,7 +452,7 @@ int table_add_cell_full(
                         return -ENOMEM;
         }
 
-        if (!GREEDY_REALLOC(t->data, t->n_allocated, MAX(t->n_cells + 1, t->n_columns)))
+        if (!GREEDY_REALLOC(t->data, MAX(t->n_cells + 1, t->n_columns)))
                 return -ENOMEM;
 
         if (ret_cell)
@@ -510,7 +509,7 @@ int table_dup_cell(Table *t, TableCell *cell) {
         if (i >= t->n_cells)
                 return -ENXIO;
 
-        if (!GREEDY_REALLOC(t->data, t->n_allocated, MAX(t->n_cells + 1, t->n_columns)))
+        if (!GREEDY_REALLOC(t->data, MAX(t->n_cells + 1, t->n_columns)))
                 return -ENOMEM;
 
         t->data[t->n_cells++] = table_data_ref(t->data[i]);
@@ -1094,19 +1093,18 @@ static int table_set_display_all(Table *t) {
 }
 
 int table_set_display_internal(Table *t, size_t first_column, ...) {
-        size_t allocated, column;
+        size_t column;
         va_list ap;
 
         assert(t);
 
-        allocated = t->n_display_map;
         column = first_column;
 
         va_start(ap, first_column);
         for (;;) {
                 assert(column < t->n_columns);
 
-                if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, t->n_display_map+1))) {
+                if (!GREEDY_REALLOC(t->display_map, MAX(t->n_columns, t->n_display_map+1))) {
                         va_end(ap);
                         return -ENOMEM;
                 }
@@ -1124,19 +1122,18 @@ int table_set_display_internal(Table *t, size_t first_column, ...) {
 }
 
 int table_set_sort_internal(Table *t, size_t first_column, ...) {
-        size_t allocated, column;
+        size_t column;
         va_list ap;
 
         assert(t);
 
-        allocated = t->n_sort_map;
         column = first_column;
 
         va_start(ap, first_column);
         for (;;) {
                 assert(column < t->n_columns);
 
-                if (!GREEDY_REALLOC(t->sort_map, allocated, MAX(t->n_columns, t->n_sort_map+1))) {
+                if (!GREEDY_REALLOC(t->sort_map, MAX(t->n_columns, t->n_sort_map+1))) {
                         va_end(ap);
                         return -ENOMEM;
                 }

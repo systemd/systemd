@@ -2566,10 +2566,10 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
 
 static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command) {
         _cleanup_free_ char *args = NULL, *p = NULL;
-        size_t allocated = 0, length = 0;
         Service *s = SERVICE(u);
         const char *type, *key;
         ServiceExecCommand id;
+        size_t length = 0;
         unsigned idx;
         char **arg;
 
@@ -2598,7 +2598,7 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                         return log_oom();
 
                 n = strlen(e);
-                if (!GREEDY_REALLOC(args, allocated, length + 2 + n + 2))
+                if (!GREEDY_REALLOC(args, length + 2 + n + 2))
                         return log_oom();
 
                 if (length > 0)
@@ -2610,7 +2610,7 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                 args[length++] = '"';
         }
 
-        if (!GREEDY_REALLOC(args, allocated, length + 1))
+        if (!GREEDY_REALLOC(args, length + 1))
                 return log_oom();
 
         args[length++] = 0;

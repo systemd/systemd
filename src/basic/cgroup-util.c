@@ -1817,9 +1817,9 @@ done:
 
 int cg_mask_to_string(CGroupMask mask, char **ret) {
         _cleanup_free_ char *s = NULL;
-        size_t n = 0, allocated = 0;
         bool space = false;
         CGroupController c;
+        size_t n = 0;
 
         assert(ret);
 
@@ -1838,7 +1838,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
                 k = cgroup_controller_to_string(c);
                 l = strlen(k);
 
-                if (!GREEDY_REALLOC(s, allocated, n + space + l + 1))
+                if (!GREEDY_REALLOC(s, n + space + l + 1))
                         return -ENOMEM;
 
                 if (space)

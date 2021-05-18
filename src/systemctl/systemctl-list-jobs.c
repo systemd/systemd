@@ -131,7 +131,6 @@ int list_jobs(int argc, char *argv[], void *userdata) {
         _cleanup_free_ struct job_info *jobs = NULL;
         const char *name, *type, *state;
         bool skipped = false;
-        size_t size = 0;
         unsigned c = 0;
         sd_bus *bus;
         uint32_t id;
@@ -157,7 +156,7 @@ int list_jobs(int argc, char *argv[], void *userdata) {
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(jobs, size, c + 1))
+                if (!GREEDY_REALLOC(jobs, c + 1))
                         return log_oom();
 
                 jobs[c++] = job;

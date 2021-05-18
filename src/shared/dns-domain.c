@@ -407,7 +407,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
 
 int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_ret) {
         _cleanup_free_ char *ret = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         const char *p;
         bool first = true;
         int r;
@@ -439,7 +439,7 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_r
                 }
 
                 if (_ret) {
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        if (!GREEDY_REALLOC(ret, n + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
                         r = dns_label_escape(label, r, ret + n + !first, DNS_LABEL_ESCAPED_MAX);
@@ -471,12 +471,12 @@ finish:
         if (_ret) {
                 if (n == 0) {
                         /* Nothing appended? If so, generate at least a single dot, to indicate the DNS root domain */
-                        if (!GREEDY_REALLOC(ret, allocated, 2))
+                        if (!GREEDY_REALLOC(ret, 2))
                                 return -ENOMEM;
 
                         ret[n++] = '.';
                 } else {
-                        if (!GREEDY_REALLOC(ret, allocated, n + 1))
+                        if (!GREEDY_REALLOC(ret, n + 1))
                                 return -ENOMEM;
                 }
 

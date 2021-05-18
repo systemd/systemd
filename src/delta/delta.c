@@ -291,7 +291,7 @@ static int enumerate_dir(
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
-        size_t n_files = 0, allocated_files = 0, n_dirs = 0, allocated_dirs = 0;
+        size_t n_files = 0, n_dirs = 0;
         char **t;
         int r;
 
@@ -314,7 +314,7 @@ static int enumerate_dir(
                 dirent_ensure_type(d, de);
 
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d")) {
-                        if (!GREEDY_REALLOC0(dirs, allocated_dirs, n_dirs + 2))
+                        if (!GREEDY_REALLOC0(dirs, n_dirs + 2))
                                 return -ENOMEM;
 
                         dirs[n_dirs] = strdup(de->d_name);
@@ -326,7 +326,7 @@ static int enumerate_dir(
                 if (!dirent_is_file(de))
                         continue;
 
-                if (!GREEDY_REALLOC0(files, allocated_files, n_files + 2))
+                if (!GREEDY_REALLOC0(files, n_files + 2))
                         return -ENOMEM;
 
                 files[n_files] = strdup(de->d_name);
