@@ -121,6 +121,12 @@ int in_addr_is_localhost(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a) {
+        return a->s6_addr32[0] == 0 &&
+                a->s6_addr32[1] == 0 &&
+                a->s6_addr32[2] == htobe32(UINT32_C(0x0000ffff));
+}
+
 bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b) {
         assert(a);
         assert(b);
