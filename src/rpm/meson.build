@@ -1,18 +1,22 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-configure_file(
-        input : 'macros.systemd.in',
-        output : 'macros.systemd',
-        configuration : substs,
-        install_dir : rpmmacrosdir == 'no' ? '' : rpmmacrosdir)
+in_files = [
+        ['macros.systemd',      rpmmacrosdir != 'no'],
+        ['triggers.systemd',    false],
+        ['triggers.systemd.sh', false]]
 
-# Those doesn't get installed anywhere, one of them needs to included in the
-# rpm spec file definition.
-configure_file(
-        input : 'triggers.systemd.in',
-        output : 'triggers.systemd',
-        configuration : substs)
-configure_file(
-        input : 'triggers.systemd.sh.in',
-        output : 'triggers.systemd.sh',
-        configuration : substs)
+# The last two don't get installed anywhere, one of them needs to included in
+# the rpm spec file definition instead.
+
+foreach tuple : in_files
+        file = tuple[0]
+        custom_target(
+                file,
+                input : file + '.in',
+                output : file,
+                command : [meson_render_jinja2, config_h, '@INPUT@'],
+                capture : true,
+                install : tuple[1],
+                install_dir : rpmmacrosdir,
+                build_by_default : true)
+endforeach

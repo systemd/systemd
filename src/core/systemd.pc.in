@@ -12,9 +12,9 @@
 # shall have underscores.
 
 prefix=/usr
-root_prefix=@rootprefix_noslash@
+root_prefix={{ROOTPREFIX_NOSLASH}}
 rootprefix=${root_prefix}
-sysconf_dir=@sysconfdir@
+sysconf_dir={{SYSCONF_DIR}}
 sysconfdir=${sysconf_dir}
 
 systemd_util_dir=${root_prefix}/lib/systemd
@@ -80,22 +80,22 @@ modulesloaddir=${modules_load_dir}
 catalog_dir=${prefix}/lib/systemd/catalog
 catalogdir=${catalog_dir}
 
-system_uid_max=@SYSTEM_UID_MAX@
+system_uid_max={{SYSTEM_UID_MAX}}
 systemuidmax=${system_uid_max}
-system_gid_max=@SYSTEM_GID_MAX@
+system_gid_max={{SYSTEM_GID_MAX}}
 systemgidmax=${system_gid_max}
 
-dynamic_uid_min=@dynamicuidmin@
+dynamic_uid_min={{DYNAMIC_UID_MIN}}
 dynamicuidmin=${dynamic_uid_min}
-dynamic_uid_max=@dynamicuidmax@
+dynamic_uid_max={{DYNAMIC_UID_MAX}}
 dynamicuidmax=${dynamic_uid_max}
 
-container_uid_base_min=@containeruidbasemin@
+container_uid_base_min={{CONTAINER_UID_BASE_MIN}}
 containeruidbasemin=${container_uid_base_min}
-container_uid_base_max=@containeruidbasemax@
+container_uid_base_max={{CONTAINER_UID_BASE_MAX}}
 containeruidbasemax=${container_uid_base_max}
 
 Name: systemd
 Description: systemd System and Service Manager
-URL: @PROJECT_URL@
-Version: @PROJECT_VERSION@
+URL: {{PROJECT_URL}}
+Version: {{PROJECT_VERSION}}
