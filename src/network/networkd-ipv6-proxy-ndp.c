@@ -10,7 +10,6 @@
 #include "networkd-network.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "sysctl-util.h"
 
 void network_adjust_ipv6_proxy_ndp(Network *network) {
         assert(network);
@@ -70,51 +69,12 @@ static int ipv6_proxy_ndp_address_configure(Link *link, const struct in6_addr *a
         return 0;
 }
 
-static bool ipv6_proxy_ndp_is_needed(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->network->ipv6_proxy_ndp >= 0)
-                return link->network->ipv6_proxy_ndp;
-
-        return !set_isempty(link->network->ipv6_proxy_ndp_addresses);
-}
-
-static int ipv6_proxy_ndp_set(Link *link) {
-        bool v;
-        int r;
-
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        v = ipv6_proxy_ndp_is_needed(link);
-
-        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Cannot configure proxy NDP for the interface, ignoring: %m");
-
-        return v;
-}
-
-/* configure all ipv6 proxy ndp addresses */
 int link_set_ipv6_proxy_ndp_addresses(Link *link) {
         struct in6_addr *address;
         int r;
 
         assert(link);
         assert(link->network);
-
-        /* enable or disable proxy_ndp itself depending on whether ipv6_proxy_ndp_addresses are set or not */
-        r = ipv6_proxy_ndp_set(link);
-        if (r <= 0)
-                return 0;
 
         SET_FOREACH(address, link->network->ipv6_proxy_ndp_addresses) {
                 r = ipv6_proxy_ndp_address_configure(link, address);
