@@ -445,13 +445,11 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
 
-        if (!sd_dhcp_server_is_running(link->dhcp_server)) {
-                r = sd_dhcp_server_start(link->dhcp_server);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+        r = sd_dhcp_server_start(link->dhcp_server);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
 
-                log_link_debug(link, "Offering DHCPv4 leases");
-        }
+        log_link_debug(link, "Offering DHCPv4 leases");
 
         return 1;
 }
