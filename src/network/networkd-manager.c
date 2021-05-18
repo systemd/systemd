@@ -60,8 +60,10 @@ static int manager_reset_all(Manager *m) {
 
         HASHMAP_FOREACH(link, m->links) {
                 r = link_carrier_reset(link);
-                if (r < 0)
+                if (r < 0) {
                         log_link_warning_errno(link, r, "Could not reset carrier: %m");
+                        link_enter_failed(link);
+                }
         }
 
         return 0;
