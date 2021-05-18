@@ -79,8 +79,8 @@ typedef struct Link {
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
 
-        unsigned address_label_messages;
         unsigned static_address_messages;
+        unsigned static_address_label_messages;
         unsigned static_bridge_fdb_messages;
         unsigned static_bridge_mdb_messages;
         unsigned static_neighbor_messages;
@@ -123,6 +123,7 @@ typedef struct Link {
         bool ipv4ll_address_configured:1;
 
         bool static_addresses_configured:1;
+        bool static_address_labels_configured:1;
         bool static_bridge_fdb_configured:1;
         bool static_bridge_mdb_configured:1;
         bool static_neighbors_configured:1;
