@@ -16,7 +16,7 @@ typedef struct AddressLabel {
 
         unsigned char prefixlen;
         uint32_t label;
-        union in_addr_union in_addr;
+        struct in6_addr in_addr;
 } AddressLabel;
 
 AddressLabel *address_label_free(AddressLabel *label);
