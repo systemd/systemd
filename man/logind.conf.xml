@@ -225,10 +225,8 @@
         <varname>HandleSuspendKey=</varname> and
         <varname>HandleLidSwitch=</varname> default to
         <literal>suspend</literal>.
-        <varname>HandleLidSwitchExternalPower=</varname> is completely
-        ignored by default (for backwards compatibility) — an explicit
-        value must be set before it will be used to determine
-        behaviour. <varname>HandleLidSwitchDocked=</varname> defaults
+        <varname>HandleLidSwitchExternalPower=</varname> and
+        <varname>HandleLidSwitchDocked=</varname> both default
         to <literal>ignore</literal>.
         <varname>HandleHibernateKey=</varname> defaults to
         <literal>hibernate</literal>. If the system is inserted in a
