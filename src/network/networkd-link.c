@@ -2786,18 +2786,14 @@ static int link_carrier_gained(Link *link) {
                 return r;
         if (r > 0) {
                 r = link_reconfigure(link, false);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
         }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
                 r = link_acquire_dynamic_conf(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
 
                 r = link_request_static_configs(link);
                 if (r < 0)
@@ -3136,7 +3132,8 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
 
                 r = link_update(link, message);
                 if (r < 0) {
-                        log_warning_errno(r, "Could not process link message, ignoring: %m");
+                        log_warning_errno(r, "Could not process link message: %m");
+                        link_enter_failed(link);
                         return 0;
                 }
 
