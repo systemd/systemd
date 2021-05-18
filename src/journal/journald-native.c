@@ -105,7 +105,7 @@ static int server_process_entry(
          *
          * Note that *remaining is altered on both success and failure. */
 
-        size_t n = 0, j, tn = SIZE_MAX, m = 0, entry_size = 0;
+        size_t n = 0, j, tn = SIZE_MAX, entry_size = 0;
         char *identifier = NULL, *message = NULL;
         struct iovec *iovec = NULL;
         int priority = LOG_INFO;
@@ -146,7 +146,7 @@ static int server_process_entry(
                 }
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m,
+                if (!GREEDY_REALLOC(iovec,
                                     n + 2 +
                                     N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
                                     client_context_extra_fields_n_iovec(context))) {
@@ -273,7 +273,7 @@ static int server_process_entry(
                         server_forward_wall(s, priority, identifier, message, ucred);
         }
 
-        server_dispatch_message(s, iovec, n, m, context, tv, priority, object_pid);
+        server_dispatch_message(s, iovec, n, MALLOC_ELEMENTSOF(iovec), context, tv, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {

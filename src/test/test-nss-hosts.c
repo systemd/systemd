@@ -354,15 +354,13 @@ static void test_byaddr(void *handle,
 
 static int make_addresses(struct local_address **addresses) {
         int n;
-        size_t n_alloc;
         _cleanup_free_ struct local_address *addrs = NULL;
 
         n = local_addresses(NULL, 0, AF_UNSPEC, &addrs);
         if (n < 0)
                 log_info_errno(n, "Failed to query local addresses: %m");
 
-        n_alloc = n; /* we _can_ do that */
-        assert_se(GREEDY_REALLOC(addrs, n_alloc, n + 3));
+        assert_se(GREEDY_REALLOC(addrs, n + 3));
 
         addrs[n++] = (struct local_address) { .family = AF_INET,
                                               .address.in = { htobe32(0x7F000001) } };
@@ -406,7 +404,6 @@ static int parse_argv(int argc, char **argv,
 
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
-        size_t n_allocated = 0;
         const char *p;
         int r, n = 0;
 
@@ -446,7 +443,7 @@ static int parse_argv(int argc, char **argv,
                                 if (r < 0)
                                         return r;
                         } else {
-                                assert_se(GREEDY_REALLOC0(addrs, n_allocated, n + 1));
+                                assert_se(GREEDY_REALLOC0(addrs, n + 1));
 
                                 addrs[n++] = (struct local_address) { .family = family,
                                                                       .address = address };

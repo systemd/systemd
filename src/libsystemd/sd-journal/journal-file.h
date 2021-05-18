@@ -108,7 +108,6 @@ typedef struct JournalFile {
         uint64_t compress_threshold_bytes;
 #if HAVE_COMPRESSION
         void *compress_buffer;
-        size_t compress_buffer_size;
 #endif
 
 #if HAVE_GCRYPT

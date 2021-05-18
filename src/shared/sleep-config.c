@@ -512,7 +512,6 @@ int read_fiemap(int fd, struct fiemap **ret) {
         uint32_t result_extents = 0;
         uint64_t fiemap_start = 0, fiemap_length;
         const size_t n_extra = DIV_ROUND_UP(sizeof(struct fiemap), sizeof(struct fiemap_extent));
-        size_t fiemap_allocated = n_extra, result_fiemap_allocated = n_extra;
 
         if (fstat(fd, &statinfo) < 0)
                 return log_debug_errno(errno, "Cannot determine file size: %m");
@@ -551,8 +550,7 @@ int read_fiemap(int fd, struct fiemap **ret) {
 
                 /* Resize fiemap to allow us to read in the extents, result fiemap has to hold all
                  * the extents for the whole file. Add space for the initial struct fiemap. */
-                if (!greedy_realloc0((void**) &fiemap, &fiemap_allocated,
-                                     n_extra + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
+                if (!greedy_realloc0((void**) &fiemap, n_extra + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
                         return -ENOMEM;
 
                 fiemap->fm_extent_count = fiemap->fm_mapped_extents;
@@ -562,7 +560,7 @@ int read_fiemap(int fd, struct fiemap **ret) {
                         return log_debug_errno(errno, "Failed to read extents: %m");
 
                 /* Resize result_fiemap to allow us to copy in the extents */
-                if (!greedy_realloc((void**) &result_fiemap, &result_fiemap_allocated,
+                if (!greedy_realloc((void**) &result_fiemap,
                                     n_extra + result_extents + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
                         return -ENOMEM;
 

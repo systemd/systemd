@@ -2399,7 +2399,7 @@ static int unhex_ucs2(const char *c, uint16_t *ret) {
 
 static int json_parse_string(const char **p, char **ret) {
         _cleanup_free_ char *s = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         const char *c;
 
         assert(p);
@@ -2471,7 +2471,7 @@ static int json_parse_string(const char **p, char **ret) {
 
                                 c += 5;
 
-                                if (!GREEDY_REALLOC(s, allocated, n + 5))
+                                if (!GREEDY_REALLOC(s, n + 5))
                                         return -ENOMEM;
 
                                 if (!utf16_is_surrogate(x))
@@ -2500,7 +2500,7 @@ static int json_parse_string(const char **p, char **ret) {
                         } else
                                 return -EINVAL;
 
-                        if (!GREEDY_REALLOC(s, allocated, n + 2))
+                        if (!GREEDY_REALLOC(s, n + 2))
                                 return -ENOMEM;
 
                         s[n++] = ch;
@@ -2512,7 +2512,7 @@ static int json_parse_string(const char **p, char **ret) {
                 if (len < 0)
                         return len;
 
-                if (!GREEDY_REALLOC(s, allocated, n + len + 1))
+                if (!GREEDY_REALLOC(s, n + len + 1))
                         return -ENOMEM;
 
                 memcpy(s + n, c, len);
@@ -2825,7 +2825,7 @@ typedef enum JsonExpect {
 typedef struct JsonStack {
         JsonExpect expect;
         JsonVariant **elements;
-        size_t n_elements, n_elements_allocated;
+        size_t n_elements;
         unsigned line_before;
         unsigned column_before;
         size_t n_suppress; /* When building: if > 0, suppress this many subsequent elements. If == SIZE_MAX, suppress all subsequent elements */
@@ -2847,7 +2847,7 @@ static int json_parse_internal(
                 unsigned *column,
                 bool continue_end) {
 
-        size_t n_stack = 1, n_stack_allocated = 0, i;
+        size_t n_stack = 1, i;
         unsigned line_buffer = 0, column_buffer = 0;
         void *tokenizer_state = NULL;
         JsonStack *stack = NULL;
@@ -2859,7 +2859,7 @@ static int json_parse_internal(
 
         p = *input;
 
-        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack))
+        if (!GREEDY_REALLOC(stack, n_stack))
                 return -ENOMEM;
 
         stack[0] = (JsonStack) {
@@ -2933,7 +2933,7 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2984,7 +2984,7 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -3168,7 +3168,7 @@ static int json_parse_internal(
 
                         (void) json_variant_set_source(&add, source, line_token, column_token);
 
-                        if (!GREEDY_REALLOC(current->elements, current->n_elements_allocated, current->n_elements + 1)) {
+                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -3229,12 +3229,12 @@ int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags fla
 
 int json_buildv(JsonVariant **ret, va_list ap) {
         JsonStack *stack = NULL;
-        size_t n_stack = 1, n_stack_allocated = 0, i;
+        size_t n_stack = 1, i;
         int r;
 
         assert_return(ret, -EINVAL);
 
-        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack))
+        if (!GREEDY_REALLOC(stack, n_stack))
                 return -ENOMEM;
 
         stack[0] = (JsonStack) {
@@ -3517,7 +3517,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -3714,7 +3714,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -3810,7 +3810,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 /* If a variant was generated, add it to our current variant, but only if we are not supposed to suppress additions */
                 if (add && current->n_suppress == 0) {
-                        if (!GREEDY_REALLOC(current->elements, current->n_elements_allocated, current->n_elements + 1)) {
+                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
