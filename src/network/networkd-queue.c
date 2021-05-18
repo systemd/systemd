@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "networkd-address.h"
+#include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-server.h"
@@ -15,6 +16,9 @@ static void request_free_object(RequestType type, void *object) {
         switch(type) {
         case REQUEST_TYPE_ADDRESS:
                 address_free(object);
+                break;
+        case REQUEST_TYPE_ADDRESS_LABEL:
+                address_label_free(object);
                 break;
         case REQUEST_TYPE_BRIDGE_FDB:
                 bridge_fdb_free(object);
@@ -131,6 +135,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         switch(req->type) {
                         case REQUEST_TYPE_ADDRESS:
                                 r = request_process_address(req);
+                                break;
+                        case REQUEST_TYPE_ADDRESS_LABEL:
+                                r = request_process_address_label(req);
                                 break;
                         case REQUEST_TYPE_BRIDGE_FDB:
                                 r = request_process_bridge_fdb(req);
