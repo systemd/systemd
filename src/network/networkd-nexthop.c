@@ -2,6 +2,7 @@
  * Copyright © 2019 VMware, Inc.
  */
 
+#include <net/if.h>
 #include <linux/nexthop.h>
 
 #include "alloc-util.h"
@@ -695,11 +696,20 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         assert(link);
         assert(nexthop);
 
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
         if (nexthop->blackhole) {
                 if (link->manager->nexthop_remove_messages > 0)
                         return false;
         } else {
                 Link *l;
+
+                /* TODO: fdb nexthop does not require IFF_UP. The condition below needs to be updated
+                 * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
+                 * kernel. */
+                if (!FLAGS_SET(link->flags, IFF_UP))
+                        return false;
 
                 HASHMAP_FOREACH(l, link->manager->links) {
                         if (l->address_remove_messages > 0)
@@ -738,9 +748,6 @@ int request_process_nexthop(Request *req) {
         assert(req->link);
         assert(req->nexthop);
         assert(req->type == REQUEST_TYPE_NEXTHOP);
-
-        if (!link_is_ready_to_configure(req->link, false))
-                return 0;
 
         if (!nexthop_is_ready_to_configure(req->link, req->nexthop))
                 return 0;
