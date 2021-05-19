@@ -67,6 +67,7 @@ static void test_find_legacy_keymap(void) {
 
 static void test_vconsole_convert_to_x11(void) {
         _cleanup_(context_clear) Context c = {};
+        int r;
 
         log_info("/*** %s ***/", __func__);
 
@@ -93,9 +94,13 @@ static void test_vconsole_convert_to_x11(void) {
         log_info("/* test with known variant, new mapping (es:dvorak) */");
         assert_se(free_and_strdup(&c.vc_keymap, "es-dvorak") >= 0);
 
-        assert_se(vconsole_convert_to_x11(&c) == 0); // FIXME
+        r = vconsole_convert_to_x11(&c);
+        assert_se(r >= 0);
         assert_se(streq(c.x11_layout, "es"));
-        assert_se(c.x11_variant == NULL); // FIXME: "dvorak"
+        if (r == 0)
+                assert_se(!c.x11_variant); // FIXME: "dvorak"
+        else
+                assert_se(streq(c.x11_variant, "dvorak"));
 
         log_info("/* test with old mapping (fr:latin9) */");
         assert_se(free_and_strdup(&c.vc_keymap, "fr-latin9") >= 0);
