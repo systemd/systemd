@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -107,12 +108,18 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 int is_pressure_supported(void) {
         const char *p;
 
-        FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory")
-                if (access(p, F_OK) < 0) {
-                        if (errno == ENOENT)
-                                return 0;
-                        return -errno;
-                }
+        /* The pressure files, both under /proc and in cgroups, will exist
+         * even if the kernel has PSI support disabled; we have to read
+         * the file to make sure it doesn't return -EOPNOTSUPP */
+        FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
+                int r;
+
+                r = read_virtual_file(p, 0, NULL, NULL);
+                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
