@@ -369,7 +369,6 @@ static int address_add_foreign(Link *link, const Address *in, Address **ret) {
 }
 
 static int address_add(Link *link, const Address *in, Address **ret) {
-        bool is_new = false;
         Address *address;
         int r;
 
@@ -382,7 +381,6 @@ static int address_add(Link *link, const Address *in, Address **ret) {
                 r = address_add_internal(link, &link->addresses, in, &address);
                 if (r < 0)
                         return r;
-                is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign address */
                 r = set_ensure_put(&link->addresses, &address_hash_ops, address);
@@ -398,7 +396,7 @@ static int address_add(Link *link, const Address *in, Address **ret) {
 
         if (ret)
                 *ret = address;
-        return is_new;
+        return 0;
 }
 
 static int address_update(Address *address, const Address *src) {
@@ -653,14 +651,13 @@ static int address_set_netlink_message(const Address *address, sd_netlink_messag
         return 0;
 }
 
-int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rtnl);
         assert(m);
         assert(link);
         assert(link->address_remove_messages > 0);
-        assert(error_msg);
 
         link->address_remove_messages--;
 
@@ -669,22 +666,12 @@ int address_remove_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Lin
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_message_warning_errno(link, m, r, error_msg);
-        else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+                log_link_message_warning_errno(link, m, r, "Could not drop address");
 
         return 1;
 }
 
-static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return address_remove_handler_internal(rtnl, m, link, "Could not drop address");
-}
-
-int address_remove(
-                const Address *address,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+int address_remove(const Address *address, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -707,7 +694,7 @@ int address_remove(
                 return r;
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: address_remove_handler,
+                               address_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -834,7 +821,7 @@ int link_drop_foreign_addresses(Link *link) {
                                         r = k;
                         }
                 } else {
-                        k = address_remove(address, link, NULL);
+                        k = address_remove(address, link);
                         if (k < 0 && r >= 0)
                                 r = k;
                 }
@@ -854,7 +841,7 @@ int link_drop_addresses(Link *link) {
                 if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
                         continue;
 
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0 && r >= 0) {
                         r = k;
                         continue;
@@ -934,8 +921,7 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
                 log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
                 return 0;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        }
 
         return 1;
 }
@@ -951,7 +937,7 @@ static int address_configure(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Address *acquired_address, *a;
         bool update;
-        int r, k;
+        int r;
 
         assert(address);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
@@ -1018,9 +1004,9 @@ static int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_RT_PRIORITY attribute: %m");
 
-        k = address_add(link, address, &a);
-        if (k < 0)
-                return log_link_error_errno(link, k, "Could not add address: %m");
+        r = address_add(link, address, &a);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add address: %m");
 
         r = address_set_masquerade(a, true);
         if (r < 0)
@@ -1043,7 +1029,7 @@ static int address_configure(
         if (ret)
                 *ret = a;
 
-        return k;
+        return 0;
 }
 
 static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1062,10 +1048,6 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
                 log_link_debug(link, "Addresses set");
                 link->static_addresses_configured = true;
                 link_check_ready(link);
-
-                r = dhcp4_server_configure(link);
-                if (r < 0)
-                        link_enter_failed(link);
         }
 
         return 1;
@@ -1123,6 +1105,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1153,6 +1137,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1178,8 +1164,8 @@ int link_request_static_addresses(Link *link) {
                                                  static_address_handler, &req);
                         if (r < 0)
                                 return r;
-
-                        req->after_configure = static_address_after_configure;
+                        if (r > 0)
+                                req->after_configure = static_address_after_configure;
                 }
         }
 
@@ -1434,7 +1420,7 @@ static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         case SD_IPV4ACD_EVENT_CONFLICT:
                 log_link_warning(link, "DAD conflict. Dropping address "IPV4_ADDRESS_FMT_STR,
                                  IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
-                r = address_remove(address, link, NULL);
+                r = address_remove(address, link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Failed to drop DAD conflicted address "IPV4_ADDRESS_FMT_STR,
                                              IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
