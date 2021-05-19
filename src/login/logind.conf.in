@@ -17,7 +17,7 @@
 [Login]
 #NAutoVTs=6
 #ReserveVT=6
-#KillUserProcesses=@KILL_USER_PROCESSES@
+#KillUserProcesses={{ "yes" if KILL_USER_PROCESSES else "no" }}
 #KillOnlyUsers=
 #KillExcludeUsers=root
 #InhibitDelayMaxSec=5

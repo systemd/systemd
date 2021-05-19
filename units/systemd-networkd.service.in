@@ -23,7 +23,7 @@ AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET
 BusName=org.freedesktop.network1
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
 DeviceAllow=char-* rw
-ExecStart=!!@rootlibexecdir@/systemd-networkd
+ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-networkd
 ExecReload=networkctl reload
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -49,7 +49,7 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-network
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 [Install]
 WantedBy=multi-user.target

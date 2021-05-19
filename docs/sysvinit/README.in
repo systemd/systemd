@@ -1,4 +1,4 @@
-You are looking for the traditional init scripts in @SYSTEM_SYSVINIT_PATH@,
+You are looking for the traditional init scripts in {{ SYSTEM_SYSVINIT_PATH }},
 and they are gone?
 
 Here's an explanation on what's going on:
@@ -15,7 +15,7 @@ service, respectively. For further details, please refer to
 systemctl(1).
 
 Note that traditional init scripts continue to function on a systemd
-system. An init script @SYSTEM_SYSVINIT_PATH@/foobar is implicitly mapped
+system. An init script {{ SYSTEM_SYSVINIT_PATH }}/foobar is implicitly mapped
 into a service unit foobar.service during system initialization.
 
 Thank you!

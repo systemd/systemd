@@ -59,9 +59,11 @@ SUBSYSTEM=="pci", ATTRS{vendor}=="0x1ab8", ATTRS{device}=="0x4005", TAG+="seat",
 # the child if we notice that the parent wasn't recognized yet.
 
 # Match parent
+{% raw -%}
 SUBSYSTEM=="usb", ATTR{idVendor}=="058f", ATTR{idProduct}=="6254", \
                   ATTR{%k.2/idVendor}=="17e9", ATTR{%k.2/idProduct}=="401a", ATTR{%k.2/product}=="mimo inc", \
                   ENV{ID_AUTOSEAT}="1", ENV{ID_AVOID_LOOP}="1"
+{% endraw %}
 
 # Match child, look for parent's ID_AVOID_LOOP
 SUBSYSTEM=="usb", ATTR{idVendor}=="17e9", ATTR{idProduct}=="401a", ATTR{product}=="mimo inc", \
@@ -72,11 +74,11 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="17e9", ATTR{idProduct}=="401a", ATTR{product}
 SUBSYSTEM=="usb", ATTR{idVendor}=="17e9", ATTR{idProduct}=="401a", ATTR{product}=="mimo inc", \
                   ATTR{../idVendor}=="058f", ATTR{../idProduct}=="6254", \
                   ENV{ID_AVOID_LOOP}=="", \
-                  RUN+="@rootbindir@/udevadm trigger --parent-match=%p/.."
+                  RUN+="{{ROOTBINDIR}}/udevadm trigger --parent-match=%p/.."
 
 TAG=="seat", ENV{ID_PATH}=="", IMPORT{builtin}="path_id"
 TAG=="seat", ENV{ID_FOR_SEAT}=="", ENV{ID_PATH_TAG}!="", ENV{ID_FOR_SEAT}="$env{SUBSYSTEM}-$env{ID_PATH_TAG}"
 
-SUBSYSTEM=="input", ATTR{name}=="Wiebetech LLC Wiebetech", RUN+="@rootbindir@/loginctl lock-sessions"
+SUBSYSTEM=="input", ATTR{name}=="Wiebetech LLC Wiebetech", RUN+="{{ROOTBINDIR}}/loginctl lock-sessions"
 
 LABEL="seat_end"

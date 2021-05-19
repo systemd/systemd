@@ -25,7 +25,7 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>&userenvgeneratordir;/30-systemd-environment-d-generator</filename></para>
+    <para><filename>&USER_ENV_GENERATOR_DIR;/30-systemd-environment-d-generator</filename></para>
   </refsynopsisdiv>
 
   <refsect1>

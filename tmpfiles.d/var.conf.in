@@ -12,11 +12,11 @@ q /var 0755 - - -
 L /var/run - - - - ../run
 
 d /var/log 0755 - - -
-m4_ifdef(`ENABLE_UTMP',
+{% if ENABLE_UTMP %}
 f /var/log/wtmp 0664 root utmp -
 f /var/log/btmp 0660 root utmp -
 f /var/log/lastlog 0664 root utmp -
-)m4_dnl
+{% endif %}
 
 d /var/cache 0755 - - -
 

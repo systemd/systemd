@@ -28,7 +28,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         assert(fservice);
         assert(tservice);
 
-        from = strjoina(SYSTEM_DATA_UNIT_PATH "/", fservice);
+        from = strjoina(SYSTEM_DATA_UNIT_DIR "/", fservice);
         to = strjoina(arg_dest, "/getty.target.wants/", tservice);
 
         mkdir_parents_label(to, 0755);

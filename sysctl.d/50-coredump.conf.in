@@ -13,7 +13,7 @@
 # the core dump.
 #
 # See systemd-coredump(8) and core(5).
-kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %P %u %g %s %t %c %h
+kernel.core_pattern=|{{ROOTLIBEXECDIR}}/systemd-coredump %P %u %g %s %t %c %h
 
 # Allow 16 coredumps to be dispatched in parallel by the kernel.
 # We collect metadata from /proc/%P/, and thus need to make sure the crashed
