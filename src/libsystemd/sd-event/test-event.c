@@ -438,13 +438,12 @@ static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, v
                 log_info("inotify-handler <%s>: overflow", description);
                 c->create_overflow |= bit;
         } else if (ev->mask & IN_CREATE) {
-                unsigned i;
+                if (streq(ev->name, "sub"))
+                        log_debug("inotify-handler <%s>: create on %s", description, ev->name);
+                else {
+                        unsigned i;
 
-                log_debug("inotify-handler <%s>: create on %s", description, ev->name);
-
-                if (!streq(ev->name, "sub")) {
                         assert_se(safe_atou(ev->name, &i) >= 0);
-
                         assert_se(i < c->n_create_events);
                         c->create_called[i] |= bit;
                 }
