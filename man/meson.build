@@ -113,6 +113,7 @@ systemd_directives_xml = custom_target(
         'systemd.directives.xml',
         input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
+        depends : custom_entities_ent,
         command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
