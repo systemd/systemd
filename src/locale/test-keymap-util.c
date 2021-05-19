@@ -93,9 +93,9 @@ static void test_vconsole_convert_to_x11(void) {
         log_info("/* test with known variant, new mapping (es:dvorak) */");
         assert_se(free_and_strdup(&c.vc_keymap, "es-dvorak") >= 0);
 
-        assert_se(vconsole_convert_to_x11(&c) == 0); // FIXME
+        assert_se(vconsole_convert_to_x11(&c) == 1);
         assert_se(streq(c.x11_layout, "es"));
-        assert_se(c.x11_variant == NULL); // FIXME: "dvorak"
+        assert_se(streq(c.x11_variant, "dvorak"));
 
         log_info("/* test with old mapping (fr:latin9) */");
         assert_se(free_and_strdup(&c.vc_keymap, "fr-latin9") >= 0);
