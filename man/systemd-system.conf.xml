@@ -408,7 +408,24 @@
         <varname>LimitXXX=</varname> directives and they accept the same parameter syntax,
         see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. Note that these resource limits are only defaults
-        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para></listitem>
+        for units, they are not applied to the service manager process (i.e. PID 1) itself.</para>
+
+        <para>Most of these settings are unset, which means the resource limits are inherited from the parent process.
+        However, the following have defaults:</para>
+        <itemizedlist>
+          <listitem><para><varname>DefaultLimitNOFILE=</varname> defaults to <literal>1024:524288</literal>.</para></listitem>
+
+          <listitem><para><varname>DefaultLimitMEMLOCK=</varname> defaults to the service manager's original
+          <varname>RLIMIT_MEMLOCK</varname>. Original refers to the initial <varname>RLIMIT_MEMLOCK</varname> applied
+          on the service manager, before systemd attempts to bump it higher.
+          </para></listitem>
+
+          <listitem><para><varname>DefaultLimitCORE=</varname> does not have a default but it is worth mentioning that
+          <varname>RLIMIT_CORE</varname> is set to <literal>infinity</literal> on PID 1 which is inherited by its
+          children.</para></listitem>
+        </itemizedlist>
+
+      </listitem>
       </varlistentry>
 
       <varlistentry>
