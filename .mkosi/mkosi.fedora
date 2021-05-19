@@ -71,4 +71,3 @@ Packages=
         procps-ng
         strace
         tpm2-tss
-        vi
