@@ -50,6 +50,15 @@
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
 
+#define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
+#define __ONCE(o)                            \
+        ({                                   \
+                static bool (o) = true;      \
+                bool __o = (o);              \
+                (o) = false;                 \
+                __o;                         \
+        })
+
 #undef MAX
 #define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
 #define __MAX(aq, a, bq, b)                             \
