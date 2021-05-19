@@ -36,6 +36,9 @@ if install_tests
         install_subdir('testsuite-63.units',
                        install_dir : testdata_dir)
 
+        install_data(kbd_model_map,
+                     install_dir : testdata_dir + '/test-keymap-util')
+
         testsuite08_dir = testdata_dir + '/testsuite-08.units'
         install_data('testsuite-08.units/-.mount',
                      install_dir : testsuite08_dir)
