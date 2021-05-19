@@ -20,7 +20,7 @@ static int parse_env_file_internal(
                 void *userdata,
                 int *n_pushed) {
 
-        size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
+        size_t n_key = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
         _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
         unsigned line = 1;
         char *p;
@@ -58,7 +58,7 @@ static int parse_env_file_internal(
                                 state = KEY;
                                 last_key_whitespace = SIZE_MAX;
 
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
+                                if (!GREEDY_REALLOC(key, n_key+2))
                                         return -ENOMEM;
 
                                 key[n_key++] = c;
@@ -79,7 +79,7 @@ static int parse_env_file_internal(
                                 else if (last_key_whitespace == SIZE_MAX)
                                          last_key_whitespace = n_key;
 
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
+                                if (!GREEDY_REALLOC(key, n_key+2))
                                         return -ENOMEM;
 
                                 key[n_key++] = c;
@@ -106,7 +106,7 @@ static int parse_env_file_internal(
 
                                 n_key = 0;
                                 value = NULL;
-                                value_alloc = n_value = 0;
+                                n_value = 0;
 
                         } else if (c == '\'')
                                 state = SINGLE_QUOTE_VALUE;
@@ -117,7 +117,7 @@ static int parse_env_file_internal(
                         else if (!strchr(WHITESPACE, c)) {
                                 state = VALUE;
 
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, n_value+2))
                                         return  -ENOMEM;
 
                                 value[n_value++] = c;
@@ -149,7 +149,7 @@ static int parse_env_file_internal(
 
                                 n_key = 0;
                                 value = NULL;
-                                value_alloc = n_value = 0;
+                                n_value = 0;
 
                         } else if (c == '\\') {
                                 state = VALUE_ESCAPE;
@@ -160,7 +160,7 @@ static int parse_env_file_internal(
                                 else if (last_value_whitespace == SIZE_MAX)
                                         last_value_whitespace = n_value;
 
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, n_value+2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -173,7 +173,7 @@ static int parse_env_file_internal(
 
                         if (!strchr(NEWLINE, c)) {
                                 /* Escaped newlines we eat up entirely */
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, n_value+2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -184,7 +184,7 @@ static int parse_env_file_internal(
                         if (c == '\'')
                                 state = PRE_VALUE;
                         else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, n_value+2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -198,7 +198,7 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = DOUBLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, n_value+2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -211,13 +211,13 @@ static int parse_env_file_internal(
 
                         if (strchr(SHELL_NEED_ESCAPE, c)) {
                                 /* If this is a char that needs escaping, just unescape it. */
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, n_value+2))
                                         return -ENOMEM;
                                 value[n_value++] = c;
                         } else if (c != '\n') {
                                 /* If other char than what needs escaping, keep the "\" in place, like the
                                  * real shell does. */
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+3))
+                                if (!GREEDY_REALLOC(value, n_value+3))
                                         return -ENOMEM;
                                 value[n_value++] = '\\';
                                 value[n_value++] = c;

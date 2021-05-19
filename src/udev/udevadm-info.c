@@ -66,8 +66,8 @@ static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
 
 static int print_all_attributes(sd_device *device, bool is_parent) {
         _cleanup_free_ SysAttr *sysattrs = NULL;
-        size_t n_items = 0, n_allocated = 0;
         const char *name, *value;
+        size_t n_items = 0;
 
         value = NULL;
         (void) sd_device_get_devpath(device, &value);
@@ -105,7 +105,7 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                 if (len > 0)
                         continue;
 
-                if (!GREEDY_REALLOC(sysattrs, n_allocated, n_items + 1))
+                if (!GREEDY_REALLOC(sysattrs, n_items + 1))
                         return log_oom();
 
                 sysattrs[n_items] = (SysAttr) {

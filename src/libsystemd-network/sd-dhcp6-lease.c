@@ -203,8 +203,7 @@ int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                 return 0;
 
         r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->dns,
-                                        lease->dns_count,
-                                        &lease->dns_allocated);
+                                        lease->dns_count);
         if (r < 0)
                 return r;
 
@@ -269,7 +268,6 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
 
         lease->ntp = mfree(lease->ntp);
         lease->ntp_count = 0;
-        lease->ntp_allocated = 0;
 
         while ((r = dhcp6_option_parse(&optval, &optlen, &subopt, &sublen,
                                        &subval)) >= 0) {
@@ -284,8 +282,7 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
 
                         s = dhcp6_option_parse_ip6addrs(subval, sublen,
                                                         &lease->ntp,
-                                                        lease->ntp_count,
-                                                        &lease->ntp_allocated);
+                                                        lease->ntp_count);
                         if (s < 0)
                                 return s;
 
@@ -327,8 +324,7 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) 
         /* Using deprecated SNTP information */
 
         r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->ntp,
-                                        lease->ntp_count,
-                                        &lease->ntp_allocated);
+                                        lease->ntp_count);
         if (r < 0)
                 return r;
 

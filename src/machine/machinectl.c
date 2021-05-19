@@ -2261,10 +2261,10 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
-        size_t n_transfers = 0, n_allocated = 0;
         const char *type, *remote, *local;
         sd_bus *bus = userdata;
         uint32_t id, max_id = 0;
+        size_t n_transfers = 0;
         double progress;
         int r;
 
@@ -2281,7 +2281,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL)) > 0) {
                 size_t l;
 
-                if (!GREEDY_REALLOC(transfers, n_allocated, n_transfers + 1))
+                if (!GREEDY_REALLOC(transfers, n_transfers + 1))
                         return log_oom();
 
                 transfers[n_transfers].id = id;

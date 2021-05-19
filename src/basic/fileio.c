@@ -424,7 +424,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 if (!buf)
                         return -ENOMEM;
                 /* Use a bigger allocation if we got it anyway, but not more than the limit. */
-                size = MIN3(malloc_usable_size(buf) - 1, max_size, READ_FULL_BYTES_MAX);
+                size = MIN3(MALLOC_SIZEOF_SAFE(buf) - 1, max_size, READ_FULL_BYTES_MAX);
 
                 for (;;) {
                         ssize_t k;
@@ -570,7 +570,7 @@ int read_full_stream_full(
                 buf = t;
                 /* Unless a size has been explicitly specified, try to read as much as fits into the memory
                  * we allocated (minus 1, to leave one byte for the safety NUL byte) */
-                n = size == SIZE_MAX ? malloc_usable_size(buf) - 1 : n_next;
+                n = size == SIZE_MAX ? MALLOC_SIZEOF_SAFE(buf) - 1 : n_next;
 
                 errno = 0;
                 k = fread(buf + l, 1, n - l, f);
@@ -1212,8 +1212,8 @@ static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, funlockfile, NULL);
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
-        size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
+        size_t n = 0, count = 0;
         int r;
 
         assert(f);
@@ -1243,7 +1243,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
          * If a line shall be skipped ret may be initialized as NULL. */
 
         if (ret) {
-                if (!GREEDY_REALLOC(buffer, allocated, 1))
+                if (!GREEDY_REALLOC(buffer, 1))
                         return -ENOMEM;
         }
 
@@ -1315,7 +1315,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         }
 
                         if (ret) {
-                                if (!GREEDY_REALLOC(buffer, allocated, n + 2))
+                                if (!GREEDY_REALLOC(buffer, n + 2))
                                         return -ENOMEM;
 
                                 buffer[n] = c;

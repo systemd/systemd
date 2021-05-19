@@ -1445,8 +1445,8 @@ int dns_packet_read_name(
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         size_t after_rindex = 0, jump_barrier;
         _cleanup_free_ char *name = NULL;
-        size_t n = 0, allocated = 0;
         bool first = true;
+        size_t n = 0;
         int r;
 
         assert(p);
@@ -1475,7 +1475,7 @@ int dns_packet_read_name(
                         if (r < 0)
                                 return r;
 
-                        if (!GREEDY_REALLOC(name, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        if (!GREEDY_REALLOC(name, n + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
                         if (first)
@@ -1511,7 +1511,7 @@ int dns_packet_read_name(
                         return -EBADMSG;
         }
 
-        if (!GREEDY_REALLOC(name, allocated, n + 1))
+        if (!GREEDY_REALLOC(name, n + 1))
                 return -ENOMEM;
 
         name[n] = 0;

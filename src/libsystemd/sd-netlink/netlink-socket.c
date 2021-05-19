@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <malloc.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -297,16 +298,15 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
  */
 int socket_read_message(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *first = NULL;
+        bool multi_part = false, done = false;
+        size_t len, allocated;
         struct iovec iov = {};
         uint32_t group = 0;
-        bool multi_part = false, done = false;
-        size_t len;
-        int r;
         unsigned i = 0;
+        int r;
 
         assert(rtnl);
         assert(rtnl->rbuffer);
-        assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
 
         /* read nothing, just get the pending message size */
         r = socket_recv_message(rtnl->fd, &iov, NULL, true);
@@ -316,12 +316,11 @@ int socket_read_message(sd_netlink *rtnl) {
                 len = (size_t) r;
 
         /* make room for the pending message */
-        if (!greedy_realloc((void **)&rtnl->rbuffer,
-                            &rtnl->rbuffer_allocated,
-                            len, sizeof(uint8_t)))
+        if (!greedy_realloc((void **)&rtnl->rbuffer, len, sizeof(uint8_t)))
                 return -ENOMEM;
 
-        iov = IOVEC_MAKE(rtnl->rbuffer, rtnl->rbuffer_allocated);
+        allocated = MALLOC_SIZEOF_SAFE(rtnl->rbuffer);
+        iov = IOVEC_MAKE(rtnl->rbuffer, allocated);
 
         /* read the pending message */
         r = socket_recv_message(rtnl->fd, &iov, &group, false);
@@ -330,7 +329,7 @@ int socket_read_message(sd_netlink *rtnl) {
         else
                 len = (size_t) r;
 
-        if (len > rtnl->rbuffer_allocated)
+        if (len > allocated)
                 /* message did not fit in read buffer */
                 return -EIO;
 
