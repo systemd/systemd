@@ -2345,6 +2345,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
     <variablelist class='network-directives'>
 
       <varlistentry>
+        <term><varname>ServerAddress=</varname></term>
+        <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
+        length, e.g., <literal>192.168.0.1/24</literal>. This setting may be useful when the link which
+        DHCP server running on has multiple static addresses. When unset, one of static addresses in
+        the link will be automatically selected. Defaults to unset.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PoolOffset=</varname></term>
         <term><varname>PoolSize=</varname></term>
 
