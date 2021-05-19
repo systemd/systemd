@@ -43,7 +43,6 @@ struct DnsScope {
         OrderedHashmap *conflict_queue;
         sd_event_source *conflict_event_source;
 
-        bool announced:1;
         sd_event_source *announce_event_source;
 
         RateLimit ratelimit;
@@ -63,6 +62,8 @@ struct DnsScope {
         LIST_HEAD(DnsTransaction, transactions);
 
         LIST_FIELDS(DnsScope, scopes);
+
+        bool announced;
 };
 
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);

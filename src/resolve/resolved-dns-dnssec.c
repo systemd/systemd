@@ -35,7 +35,6 @@
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
         const uint8_t *p;
         uint32_t sum, f;
-        size_t i;
 
         /* The algorithm from RFC 4034, Appendix B. */
 
@@ -51,7 +50,7 @@ uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
 
         p = dnskey->dnskey.key;
 
-        for (i = 0; i < dnskey->dnskey.key_size; i++)
+        for (size_t i = 0; i < dnskey->dnskey.key_size; i++)
                 sum += (i & 1) == 0 ? (uint32_t) p[i] << 8 : (uint32_t) p[i];
 
         sum += (sum >> 16) & UINT32_C(0xFFFF);
@@ -483,14 +482,14 @@ static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
         const char *name;
         int r;
 
-        /* Checks whether the specified RRSIG RR is somewhat valid, and initializes the .n_skip_labels_source and
-         * .n_skip_labels_signer fields so that we can use them later on. */
+        /* Checks whether the specified RRSIG RR is somewhat valid, and initializes the .n_skip_labels_source
+         * and .n_skip_labels_signer fields so that we can use them later on. */
 
         assert(rrsig);
         assert(rrsig->key->type == DNS_TYPE_RRSIG);
 
         /* Check if this RRSIG RR is already prepared */
-        if (rrsig->n_skip_labels_source != UINT_MAX)
+        if (rrsig->n_skip_labels_source != UINT8_MAX)
                 return 0;
 
         if (rrsig->rrsig.inception > rrsig->rrsig.expiration)
@@ -523,6 +522,7 @@ static int dnssec_rrsig_prepare(DnsResourceRecord *rrsig) {
         if (r == 0)
                 return -EINVAL;
 
+        assert(n_key_labels < UINT8_MAX); /* UINT8_MAX/-1 means unsigned. */
         rrsig->n_skip_labels_source = n_key_labels - rrsig->rrsig.labels;
         rrsig->n_skip_labels_signer = n_key_labels - n_signer_labels;
 
@@ -604,13 +604,11 @@ static void dnssec_fix_rrset_ttl(
                 DnsResourceRecord *rrsig,
                 usec_t realtime) {
 
-        unsigned k;
-
         assert(list);
         assert(n > 0);
         assert(rrsig);
 
-        for (k = 0; k < n; k++) {
+        for (unsigned k = 0; k < n; k++) {
                 DnsResourceRecord *rr = list[k];
 
                 /* Pick the TTL as the minimum of the RR's TTL, the
@@ -640,7 +638,7 @@ int dnssec_verify_rrset(
         const char *source, *name;
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         int r, md_algorithm;
-        size_t k, n = 0;
+        size_t n = 0;
         size_t sig_size = 0;
         _cleanup_free_ char *sig_data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -770,7 +768,7 @@ int dnssec_verify_rrset(
         if (r < 0)
                 return r;
 
-        for (k = 0; k < n; k++) {
+        for (size_t k = 0; k < n; k++) {
                 size_t l;
 
                 rr = list[k];
@@ -1210,7 +1208,6 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         size_t hash_size;
         int algorithm;
         void *result;
-        unsigned k;
         int r;
 
         assert(nsec3);
@@ -1252,7 +1249,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (!result)
                 return -EIO;
 
-        for (k = 0; k < nsec3->nsec3.iterations; k++) {
+        for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
                 uint8_t tmp[hash_size];
                 memcpy(tmp, result, hash_size);
 
@@ -1291,10 +1288,10 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
 
         /* Ignore NSEC3 RRs generated from wildcards. If these NSEC3 RRs weren't correctly signed we can't make this
          * check (since rr->n_skip_labels_source is -1), but that's OK, as we won't trust them anyway in that case. */
-        if (!IN_SET(rr->n_skip_labels_source, 0, UINT_MAX))
+        if (!IN_SET(rr->n_skip_labels_source, 0, UINT8_MAX))
                 return 0;
         /* Ignore NSEC3 RRs that are located anywhere else than one label below the zone */
-        if (!IN_SET(rr->n_skip_labels_signer, 1, UINT_MAX))
+        if (!IN_SET(rr->n_skip_labels_signer, 1, UINT8_MAX))
                 return 0;
 
         if (!nsec3)
@@ -2234,24 +2231,24 @@ int dnssec_test_positive_wildcard(
 #endif
 
 static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
-        [DNSSEC_VALIDATED] = "validated",
-        [DNSSEC_VALIDATED_WILDCARD] = "validated-wildcard",
-        [DNSSEC_INVALID] = "invalid",
-        [DNSSEC_SIGNATURE_EXPIRED] = "signature-expired",
+        [DNSSEC_VALIDATED]             = "validated",
+        [DNSSEC_VALIDATED_WILDCARD]    = "validated-wildcard",
+        [DNSSEC_INVALID]               = "invalid",
+        [DNSSEC_SIGNATURE_EXPIRED]     = "signature-expired",
         [DNSSEC_UNSUPPORTED_ALGORITHM] = "unsupported-algorithm",
-        [DNSSEC_NO_SIGNATURE] = "no-signature",
-        [DNSSEC_MISSING_KEY] = "missing-key",
-        [DNSSEC_UNSIGNED] = "unsigned",
-        [DNSSEC_FAILED_AUXILIARY] = "failed-auxiliary",
-        [DNSSEC_NSEC_MISMATCH] = "nsec-mismatch",
-        [DNSSEC_INCOMPATIBLE_SERVER] = "incompatible-server",
+        [DNSSEC_NO_SIGNATURE]          = "no-signature",
+        [DNSSEC_MISSING_KEY]           = "missing-key",
+        [DNSSEC_UNSIGNED]              = "unsigned",
+        [DNSSEC_FAILED_AUXILIARY]      = "failed-auxiliary",
+        [DNSSEC_NSEC_MISMATCH]         = "nsec-mismatch",
+        [DNSSEC_INCOMPATIBLE_SERVER]   = "incompatible-server",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
 
 static const char* const dnssec_verdict_table[_DNSSEC_VERDICT_MAX] = {
-        [DNSSEC_SECURE] = "secure",
-        [DNSSEC_INSECURE] = "insecure",
-        [DNSSEC_BOGUS] = "bogus",
+        [DNSSEC_SECURE]        = "secure",
+        [DNSSEC_INSECURE]      = "insecure",
+        [DNSSEC_BOGUS]         = "bogus",
         [DNSSEC_INDETERMINATE] = "indeterminate",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict);

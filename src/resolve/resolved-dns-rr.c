@@ -381,8 +381,8 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
                 .n_ref = 1,
                 .key = dns_resource_key_ref(key),
                 .expiry = USEC_INFINITY,
-                .n_skip_labels_signer = UINT_MAX,
-                .n_skip_labels_source = UINT_MAX,
+                .n_skip_labels_signer = UINT8_MAX,
+                .n_skip_labels_source = UINT8_MAX,
         };
 
         return rr;
@@ -795,14 +795,12 @@ static char *format_txt(DnsTxtItem *first) {
                 return NULL;
 
         LIST_FOREACH(items, i, first) {
-                size_t j;
-
                 if (i != first)
                         *(p++) = ' ';
 
                 *(p++) = '"';
 
-                for (j = 0; j < i->length; j++) {
+                for (size_t j = 0; j < i->length; j++) {
                         if (i->data[j] < ' ' || i->data[j] == '"' || i->data[j] >= 127) {
                                 *(p++) = '\\';
                                 *(p++) = '0' + (i->data[j] / 100);
@@ -1258,7 +1256,7 @@ int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's signer, if it is known. */
 
-        if (rr->n_skip_labels_signer == UINT_MAX)
+        if (rr->n_skip_labels_signer == UINT8_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1281,7 +1279,7 @@ int dns_resource_record_source(DnsResourceRecord *rr, const char **ret) {
 
         /* Returns the RRset's synthesizing source, if it is known. */
 
-        if (rr->n_skip_labels_source == UINT_MAX)
+        if (rr->n_skip_labels_source == UINT8_MAX)
                 return -ENODATA;
 
         n = dns_resource_key_name(rr->key);
@@ -1315,7 +1313,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
 
         /* Returns > 0 if the RR is generated from a wildcard, and is not the asterisk name itself */
 
-        if (rr->n_skip_labels_source == UINT_MAX)
+        if (rr->n_skip_labels_source == UINT8_MAX)
                 return -ENODATA;
 
         if (rr->n_skip_labels_source == 0)
@@ -1868,9 +1866,9 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, 255);
 
 static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
-        [DNSSEC_DIGEST_SHA1] = "SHA-1",
-        [DNSSEC_DIGEST_SHA256] = "SHA-256",
+        [DNSSEC_DIGEST_SHA1]            = "SHA-1",
+        [DNSSEC_DIGEST_SHA256]          = "SHA-256",
         [DNSSEC_DIGEST_GOST_R_34_11_94] = "GOST_R_34.11-94",
-        [DNSSEC_DIGEST_SHA384] = "SHA-384",
+        [DNSSEC_DIGEST_SHA384]          = "SHA-384",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, 255);

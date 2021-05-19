@@ -1191,13 +1191,11 @@ int dns_name_skip(const char *a, unsigned n_labels, const char **ret) {
 
 int dns_name_count_labels(const char *name) {
         unsigned n = 0;
-        const char *p;
         int r;
 
         assert(name);
 
-        p = name;
-        for (;;) {
+        for (const char *p = name;;) {
                 r = dns_name_parent(&p);
                 if (r < 0)
                         return r;
@@ -1210,7 +1208,7 @@ int dns_name_count_labels(const char *name) {
                 n++;
         }
 
-        return (int) n;
+        return n;
 }
 
 int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
