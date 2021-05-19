@@ -15,7 +15,7 @@ Conflicts=shutdown.target
 After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target systemd-update-done.service
 ConditionNeedsUpdate=/etc
-ConditionPathExists=|!@udevlibexecdir@/hwdb.bin
+ConditionPathExists=|!{{UDEVLIBEXECDIR}}/hwdb.bin
 ConditionPathExists=|/etc/udev/hwdb.bin
 ConditionDirectoryNotEmpty=|/etc/udev/hwdb.d/
 

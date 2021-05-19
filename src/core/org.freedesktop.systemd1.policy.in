@@ -26,7 +26,7 @@
                         <allow_inactive>no</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
-                <annotate key="org.freedesktop.policykit.exec.path">@rootlibexecdir@/systemd-reply-password</annotate>
+                <annotate key="org.freedesktop.policykit.exec.path">{{ROOTLIBEXECDIR}}/systemd-reply-password</annotate>
         </action>
 
         <action id="org.freedesktop.systemd1.manage-units">

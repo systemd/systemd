@@ -15,5 +15,5 @@ After=remote-fs.target nss-user-lookup.target network.target home.mount
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-user-sessions start
-ExecStop=@rootlibexecdir@/systemd-user-sessions stop
+ExecStart={{ROOTLIBEXECDIR}}/systemd-user-sessions start
+ExecStop={{ROOTLIBEXECDIR}}/systemd-user-sessions stop

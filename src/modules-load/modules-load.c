@@ -186,9 +186,7 @@ static int run(int argc, char *argv[]) {
         r = 0;
 
         if (argc > optind) {
-                int i;
-
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         k = apply_file(ctx, argv[i], false);
                         if (k < 0 && r == 0)
                                 r = k;

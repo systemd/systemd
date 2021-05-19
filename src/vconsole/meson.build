@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('ENABLE_VCONSOLE') == 1
-        vconsole_rules = configure_file(
-                input : '90-vconsole.rules.in',
-                output : '90-vconsole.rules',
-                configuration : substs)
-        install_data(vconsole_rules,
-                     install_dir : udevrulesdir)
-endif
+custom_target(
+        '90-vconsole.rules',
+        input : '90-vconsole.rules.in',
+        output : '90-vconsole.rules',
+        command : [meson_render_jinja2, config_h, '@INPUT@'],
+        capture : true,
+        install : conf.get('ENABLE_VCONSOLE') == 1,
+        install_dir : udevrulesdir)

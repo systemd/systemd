@@ -14,7 +14,7 @@ Requires=systemd-journal-gatewayd.socket
 
 [Service]
 DynamicUser=yes
-ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
+ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-gatewayd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 PrivateDevices=yes
@@ -35,7 +35,7 @@ User=systemd-journal-gateway
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 
 [Install]
 Also=systemd-journal-gatewayd.socket

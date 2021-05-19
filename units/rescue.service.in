@@ -18,8 +18,8 @@ Before=shutdown.target
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-ExecStartPre=-@rootbindir@/plymouth --wait quit
-ExecStart=-@rootlibexecdir@/systemd-sulogin-shell rescue
+ExecStartPre=-{{ROOTBINDIR}}/plymouth --wait quit
+ExecStart=-{{ROOTLIBEXECDIR}}/systemd-sulogin-shell rescue
 Type=idle
 StandardInput=tty-force
 StandardOutput=inherit

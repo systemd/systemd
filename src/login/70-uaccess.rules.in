@@ -41,14 +41,14 @@ SUBSYSTEM=="firewire", TEST=="units", ENV{IEEE1394_UNIT_FUNCTION_VIDEO}=="1", TA
 
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
-m4_ifdef(`GROUP_RENDER_UACCESS',``
+{% if GROUP_RENDER_UACCESS %}
 # DRI render nodes
-SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess"''
-)m4_dnl
-m4_ifdef(`DEV_KVM_UACCESS',``
+SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess"
+{% endif %}
+{% if DEV_KVM_UACCESS %}
 # KVM
-SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"''
-)m4_dnl
+SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
+{% endif %}
 
 # smart-card readers
 ENV{ID_SMARTCARD_READER}=="?*", TAG+="uaccess"

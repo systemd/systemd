@@ -20,4 +20,4 @@ Before=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-update-utmp runlevel
+ExecStart={{ROOTLIBEXECDIR}}/systemd-update-utmp runlevel
