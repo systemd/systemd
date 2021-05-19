@@ -1,4 +1,4 @@
-# Generated from system-config-keyboard's model list
+# Originally generated from system-config-keyboard's model list.
 # consolelayout		xlayout	xmodel		xvariant	xoptions
 sg			ch	pc105		de_nodeadkeys	terminate:ctrl_alt_bksp
 nl			nl	pc105		-		terminate:ctrl_alt_bksp
@@ -63,6 +63,7 @@ by			by,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 il			il	pc105		-		terminate:ctrl_alt_bksp
 kazakh			kz,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 lt.baltic		lt	pc105		-		terminate:ctrl_alt_bksp
-lt.l4                  lt	pc105		-		terminate:ctrl_alt_bksp
+lt.l4			lt	pc105		-		terminate:ctrl_alt_bksp
 lt			lt	pc105		-		terminate:ctrl_alt_bksp
 khmer			kh,us	pc105		-		terminate:ctrl_alt_bksp
+es-dvorak		es	microsoftpro	dvorak		terminate:ctrl_alt_bksp
