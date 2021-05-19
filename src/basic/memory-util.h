@@ -16,11 +16,11 @@ size_t page_size(void) _pure_;
 #define PAGE_OFFSET(l) ((l) & (page_size() - 1))
 
 /* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
-static inline void memcpy_safe(void *dst, const void *src, size_t n) {
+static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
-                return;
+                return dst;
         assert(src);
-        memcpy(dst, src, n);
+        return memcpy(dst, src, n);
 }
 
 /* Normal memcmp requires s1 and s2 to be nonnull. We do nothing if n is 0. */
