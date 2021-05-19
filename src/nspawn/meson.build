@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 libnspawn_core_sources = files('''
+        nspawn-bind-user.c
+        nspawn-bind-user.h
         nspawn-cgroup.c
         nspawn-cgroup.h
         nspawn-creds.c
@@ -26,6 +28,7 @@ libnspawn_core_sources = files('''
         nspawn-setuid.h
         nspawn-stub-pid1.c
         nspawn-stub-pid1.h
+        nspawn.h
 '''.split())
 
 nspawn_gperf_c = custom_target(

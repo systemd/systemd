@@ -1353,6 +1353,58 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--bind-user=</option></term>
+
+        <listitem><para>Binds the home directory of the specified user on the host into the container. Takes
+        the name of an existing user on the host as argument. May be used multiple times to bind multiple
+        users into the container. This does three things:</para>
+
+        <orderedlist>
+          <listitem><para>The user's home directory is bind mounted from the host into
+          <filename>/run/hosts/home/</filename>.</para></listitem>
+
+          <listitem><para>An additional UID/GID mapping is added that maps the host user's UID/GID to a
+          container UID/GID, allocated from the 60514…60577 range.</para></listitem>
+
+          <listitem><para>A JSON user and group record is generated in <filename>/run/userdb/</filename> that
+          describes the mapped user. It contains a minimized representation of the host's user record,
+          adjusted to the UID/GID and home directory path assigned to the user in the container. The
+          <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          glibc NSS module will pick up these records from there and make them available in the container's
+          user/group databases.</para></listitem>
+        </orderedlist>
+
+        <para>The combination of the three operations above ensures that it is possible to log into the
+        host's user account inside the container as if it was local to the container. The user is only mapped
+        transiently, while the container is running and the mapping itself does not result in persistent
+        changes to the container (except maybe for generated log messages at login time, and similar). Note
+        that in particular the UID/GID assignment in the container is not made persistently. If the user is
+        mapped transiently, it is best to not allow the user to make persistent changes to the container. If
+        the user leaves files or directories owned by the user, and those UIDs/GIDs are recycled during later
+        container invocations (possibly with a different <option>--bind-user=</option> mapping), those files
+        and directories will be accessible to the "new" user.</para>
+
+        <para>The user/group record mapping only works if the container contains systemd 249 or newer, with
+        <command>nss-systemd</command> properly configured in <filename>nsswitch.conf</filename>. See
+        <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that the user record propagated from the host into the container will contain the UNIX
+        password hash of the user, so that seamless logins in the container are possible. If the container is
+        less trusted than the host it's hence important to use a strong UNIX password hash function
+        (e.g. yescrypt or similar, with the <literal>$y$</literal> hash prefix).</para>
+
+        <para>When binding a user from the host into the container checks are executed to ensure that the
+        username is not yet known in the container. Moreover, it is checked that the UID/GID allocated for it
+        is not currently defined in the user/group databases of the container. Both checks directly access
+        the container's <filename>/etc/passwd</filename> and <filename>/etc/group</filename>, and thus might
+        not detect existing accounts in other databases.</para>
+
+        <para>This operation is only supported in combination with
+        <option>--private-users=</option>/<option>-U</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--inaccessible=</option></term>
 
         <listitem><para>Make the specified path inaccessible in the container. This over-mounts the specified path
