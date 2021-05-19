@@ -669,8 +669,6 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
                 log_link_message_warning_errno(link, m, r, "Could not drop address");
-        else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         return 1;
 }
@@ -925,8 +923,7 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
                 log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
                 return 0;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+        }
 
         return 1;
 }
