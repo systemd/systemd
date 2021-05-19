@@ -11,5 +11,6 @@
 <!ENTITY KILL_USER_PROCESSES "{{ 'yes' if KILL_USER_PROCESSES else 'no' }}">
 <!ENTITY DEBUGTTY "{{DEBUGTTY}}">
 <!ENTITY RC_LOCAL_PATH "{{RC_LOCAL_PATH}}">
+<!ENTITY HIGH_RLIMIT_NOFILE "{{HIGH_RLIMIT_NOFILE}}">
 <!ENTITY fedora_latest_version "34">
 <!ENTITY fedora_cloud_release "1.2">
