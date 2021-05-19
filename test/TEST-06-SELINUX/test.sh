@@ -48,7 +48,7 @@ test_append_files() {
         cp systemd_test.fc "$workspace/systemd-test-module"
         dracut_install -o sesearch
         dracut_install runcon
-        dracut_install checkmodule semodule semodule_package make load_policy sefcontext_compile
+        dracut_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
         dracut_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
         dracut_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
     )
