@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <malloc.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -37,7 +38,7 @@ void journal_importer_cleanup(JournalImporter *imp) {
 static char* realloc_buffer(JournalImporter *imp, size_t size) {
         char *b, *old = imp->buf;
 
-        b = GREEDY_REALLOC(imp->buf, imp->size, size);
+        b = GREEDY_REALLOC(imp->buf, size);
         if (!b)
                 return NULL;
 
@@ -53,8 +54,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
         assert(imp);
         assert(imp->state == IMPORTER_STATE_LINE);
         assert(imp->offset <= imp->filled);
-        assert(imp->filled <= imp->size);
-        assert(!imp->buf || imp->size > 0);
+        assert(imp->filled <= MALLOC_SIZEOF_SAFE(imp->buf));
         assert(imp->fd >= 0);
 
         for (;;) {
@@ -80,22 +80,22 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
                 /* We know that imp->filled is at most DATA_SIZE_MAX, so if
                    we reallocate it, we'll increase the size at least a bit. */
                 assert_cc(DATA_SIZE_MAX < ENTRY_SIZE_MAX);
-                if (imp->size - imp->filled < LINE_CHUNK &&
+                if (MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled < LINE_CHUNK &&
                     !realloc_buffer(imp, MIN(imp->filled + LINE_CHUNK, ENTRY_SIZE_MAX)))
                                 return log_oom();
 
                 assert(imp->buf);
-                assert(imp->size - imp->filled >= LINE_CHUNK ||
-                       imp->size == ENTRY_SIZE_MAX);
+                assert(MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled >= LINE_CHUNK ||
+                       MALLOC_SIZEOF_SAFE(imp->buf) >= ENTRY_SIZE_MAX);
 
                 n = read(imp->fd,
                          imp->buf + imp->filled,
-                         imp->size - imp->filled);
+                         MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                 if (n < 0) {
                         if (errno != EAGAIN)
                                 log_error_errno(errno, "read(%d, ..., %zu): %m",
                                                 imp->fd,
-                                                imp->size - imp->filled);
+                                                MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                         return -errno;
                 } else if (n == 0)
                         return 0;
@@ -116,9 +116,7 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
         assert(IN_SET(imp->state, IMPORTER_STATE_DATA_START, IMPORTER_STATE_DATA, IMPORTER_STATE_DATA_FINISH));
         assert(size <= DATA_SIZE_MAX);
         assert(imp->offset <= imp->filled);
-        assert(imp->filled <= imp->size);
-        assert(imp->buf || imp->size == 0);
-        assert(!imp->buf || imp->size > 0);
+        assert(imp->filled <= MALLOC_SIZEOF_SAFE(imp->buf));
         assert(imp->fd >= 0);
         assert(data);
 
@@ -133,11 +131,11 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
                         return log_oom();
 
                 n = read(imp->fd, imp->buf + imp->filled,
-                         imp->size - imp->filled);
+                         MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                 if (n < 0) {
                         if (errno != EAGAIN)
                                 log_error_errno(errno, "read(%d, ..., %zu): %m", imp->fd,
-                                                imp->size - imp->filled);
+                                                MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                         return -errno;
                 } else if (n == 0)
                         return 0;
@@ -431,7 +429,7 @@ int journal_importer_push_data(JournalImporter *imp, const char *data, size_t si
                 return log_error_errno(SYNTHETIC_ERRNO(ENOMEM),
                                        "Failed to store received data of size %zu "
                                        "(in addition to existing %zu bytes with %zu filled): %s",
-                                       size, imp->size, imp->filled,
+                                       size, MALLOC_SIZEOF_SAFE(imp->buf), imp->filled,
                                        strerror_safe(ENOMEM));
 
         memcpy(imp->buf + imp->filled, data, size);
@@ -452,18 +450,21 @@ void journal_importer_drop_iovw(JournalImporter *imp) {
 
         if (remain == 0) /* no brainer */
                 imp->offset = imp->scanned = imp->filled = 0;
-        else if (imp->offset > imp->size - imp->filled &&
+        else if (imp->offset > MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled &&
                  imp->offset > remain) {
                 memcpy(imp->buf, imp->buf + imp->offset, remain);
                 imp->offset = imp->scanned = 0;
                 imp->filled = remain;
         }
 
-        target = imp->size;
+        target = MALLOC_SIZEOF_SAFE(imp->buf);
         while (target > 16 * LINE_CHUNK && imp->filled < target / 2)
                 target /= 2;
-        if (target < imp->size) {
+        if (target < MALLOC_SIZEOF_SAFE(imp->buf)) {
                 char *tmp;
+                size_t old_size;
+
+                old_size = MALLOC_SIZEOF_SAFE(imp->buf);
 
                 tmp = realloc(imp->buf, target);
                 if (!tmp)
@@ -471,9 +472,8 @@ void journal_importer_drop_iovw(JournalImporter *imp) {
                                     target);
                 else {
                         log_debug("Reallocated buffer from %zu to %zu bytes",
-                                  imp->size, target);
+                                  old_size, target);
                         imp->buf = tmp;
-                        imp->size = target;
                 }
         }
 }

@@ -137,7 +137,7 @@ int bus_message_read_dns_servers(
                         size_t *ret_n_dns) {
 
         struct in_addr_full **dns = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         int r;
 
         assert(message);
@@ -160,7 +160,7 @@ int bus_message_read_dns_servers(
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(dns, allocated, n+1)) {
+                if (!GREEDY_REALLOC(dns, n+1)) {
                         r = -ENOMEM;
                         goto clear;
                 }

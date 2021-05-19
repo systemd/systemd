@@ -29,7 +29,7 @@ struct sd_device_enumerator {
 
         DeviceEnumerationType type;
         sd_device **devices;
-        size_t n_devices, n_allocated, current_device_index;
+        size_t n_devices, current_device_index;
         bool scan_uptodate;
 
         Set *match_subsystem;
@@ -279,7 +279,7 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
         assert_return(enumerator, -EINVAL);
         assert_return(device, -EINVAL);
 
-        if (!GREEDY_REALLOC(enumerator->devices, enumerator->n_allocated, enumerator->n_devices + 1))
+        if (!GREEDY_REALLOC(enumerator->devices, enumerator->n_devices + 1))
                 return -ENOMEM;
 
         enumerator->devices[enumerator->n_devices++] = sd_device_ref(device);
