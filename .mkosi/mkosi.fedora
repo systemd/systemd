@@ -9,13 +9,8 @@ Release=34
 
 [Packages]
 BuildPackages=
-        audit-libs-devel
-        bzip2-devel
-        cryptsetup-devel
-        dbus-devel
         diffutils
         docbook-style-xsl
-        elfutils-devel
         findutils
         gcc
         gettext
@@ -23,44 +18,51 @@ BuildPackages=
         glibc-minimal-langpack
         gnu-efi
         gnu-efi-devel
-        gnutls-devel
         gperf
-        iptables-devel
-        kmod-devel
-        libacl-devel
-        libblkid-devel
-        libcap-devel
-        libcurl-devel
-        libfdisk-devel
-        libfido2-devel
-        libgcrypt-devel
-        libidn2-devel
-        libmicrohttpd-devel
-        libmount-devel
-        libpwquality-devel
-        libseccomp-devel
-        libselinux-devel
-        libxkbcommon-devel
-        libxslt
-        libzstd-devel
         lz4
-        lz4-devel
         meson
         ninja-build
-        openssl-devel
-        p11-kit-devel
         pam-devel
-        pcre2-devel
         pkgconfig
-        python3-lxml
+        pkgconfig(audit)
+        pkgconfig(blkid)
+        pkgconfig(bzip2)
+        pkgconfig(dbus-1)
+        pkgconfig(fdisk)
+        pkgconfig(gnutls)
+        pkgconfig(libacl)
+        pkgconfig(libcap)
+        pkgconfig(libcryptsetup)
+        pkgconfig(libcurl)
+        pkgconfig(libdw)
+        pkgconfig(libfido2)
+        pkgconfig(libgcrypt)
+        pkgconfig(libidn2)
+        pkgconfig(libiptc)
+        pkgconfig(libkmod)
+        pkgconfig(liblz4)
+        pkgconfig(liblzma)
+        pkgconfig(libmicrohttpd)
+        pkgconfig(libpcre2-8)
+        pkgconfig(libqrencode)
+        pkgconfig(libseccomp)
+        pkgconfig(libselinux)
+        pkgconfig(libzstd)
+        pkgconfig(mount)
+        pkgconfig(openssl)
+        pkgconfig(p11-kit-1)
+        pkgconfig(pwquality)
+        pkgconfig(tss2-esys)
+        pkgconfig(tss2-mu)
+        pkgconfig(tss2-rc)
+        pkgconfig(valgrind)
+        pkgconfig(xkbcommon)
         python3dist(jinja2)
-        qrencode-devel
+        python3dist(lxml)
         rpm
-        tpm2-tss-devel
         tree
-        valgrind-devel
-        xz-devel
         zstd
+        /usr/bin/xsltproc
 
 Packages=
         gdb
