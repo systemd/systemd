@@ -3440,7 +3440,7 @@ foreach tuple : fuzzers
 
         name = sources[0].split('/')[-1].split('.')[0]
 
-        fuzzer_exes += executable(
+        exe = executable(
                 name,
                 sources,
                 include_directories : [incs, include_directories('src/fuzz')],
@@ -3449,7 +3449,23 @@ foreach tuple : fuzzers
                 c_args : defs + test_cflags,
                 link_args: link_args,
                 install : false,
-                build_by_default : fuzz_tests or fuzzer_build)
+                build_by_default : fuzzer_build)
+        fuzzer_exes += exe
+
+        if want_tests != 'false'
+                # Run the fuzz regression tests without any sanitizers enabled.
+                # Additional invocations with sanitizers may be added below.
+                foreach p : fuzz_regression_tests
+                        b = p.split('/')[-2]
+                        c = p.split('/')[-1]
+
+                        if b == name
+                                test('@0@_@1@'.format(b, c),
+                                     exe,
+                                     args : [join_paths(project_source_root, p)])
+                        endif
+                endforeach
+        endif
 endforeach
 
 run_target(
