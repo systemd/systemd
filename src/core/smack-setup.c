@@ -247,7 +247,7 @@ static int write_onlycap_list(void) {
         _cleanup_close_ int onlycap_fd = -1;
         _cleanup_free_ char *list = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        size_t len = 0, allocated = 0;
+        size_t len = 0;
         int r;
 
         f = fopen("/etc/smack/onlycap", "re");
@@ -272,7 +272,7 @@ static int write_onlycap_list(void) {
                         continue;
 
                 l = strlen(buf);
-                if (!GREEDY_REALLOC(list, allocated, len + l + 1))
+                if (!GREEDY_REALLOC(list, len + l + 1))
                         return log_oom();
 
                 stpcpy(list + len, buf)[0] = ' ';

@@ -121,14 +121,14 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t size, size_t n
         return memdup_suffix0(p, size * need);
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
+void* greedy_realloc(void **p, size_t need, size_t size);
+void* greedy_realloc0(void **p, size_t need, size_t size);
 
-#define GREEDY_REALLOC(array, allocated, need)                          \
-        greedy_realloc((void**) &(array), &(allocated), (need), sizeof((array)[0]))
+#define GREEDY_REALLOC(array, need)                                     \
+        greedy_realloc((void**) &(array), (need), sizeof((array)[0]))
 
-#define GREEDY_REALLOC0(array, allocated, need)                         \
-        greedy_realloc0((void**) &(array), &(allocated), (need), sizeof((array)[0]))
+#define GREEDY_REALLOC0(array, need)                                    \
+        greedy_realloc0((void**) &(array), (need), sizeof((array)[0]))
 
 #define alloca0(n)                                      \
         ({                                              \
@@ -163,3 +163,23 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
 #else
 #  define msan_unpoison(r, s)
 #endif
+
+/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), in a way that
+ * is compatible with _FORTIFY_SOURCES. If _FORTIFY_SOURCES is used many memory operations will take the
+ * object size as returned by __builtin_object_size() into account. Hence, let's return the smaller size of
+ * malloc_usable_size() and __builtin_object_size() here, so that we definitely operate in safe territory by
+ * both the compiler's and libc's standards. Note that __builtin_object_size() evaluates to SIZE_MAX if the
+ * size cannot be determined, hence the MIN() expression should be safe with dynamically sized memory,
+ * too. Moreover, when NULL is passed malloc_usable_size() is documented to return zero, and
+ * __builtin_object_size() returns SIZE_MAX too, hence we also return a sensible value of 0 in this corner
+ * case. */
+#define MALLOC_SIZEOF_SAFE(x) \
+        MIN(malloc_usable_size(x), __builtin_object_size(x, 0))
+
+/* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
+ * that fit into the specified memory block */
+#define MALLOC_ELEMENTSOF(x) \
+        (__builtin_choose_expr(                                         \
+                __builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                MALLOC_SIZEOF_SAFE(x)/sizeof((x)[0]),                   \
+                VOID_0))

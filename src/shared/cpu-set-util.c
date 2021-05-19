@@ -22,14 +22,14 @@
 
 char* cpu_set_to_string(const CPUSet *a) {
         _cleanup_free_ char *str = NULL;
-        size_t allocated = 0, len = 0;
+        size_t len = 0;
         int i, r;
 
         for (i = 0; (size_t) i < a->allocated * 8; i++) {
                 if (!CPU_ISSET_S(i, a->allocated, a->set))
                         continue;
 
-                if (!GREEDY_REALLOC(str, allocated, len + 1 + DECIMAL_STR_MAX(int)))
+                if (!GREEDY_REALLOC(str, len + 1 + DECIMAL_STR_MAX(int)))
                         return NULL;
 
                 r = sprintf(str + len, len > 0 ? " %d" : "%d", i);
@@ -43,8 +43,8 @@ char* cpu_set_to_string(const CPUSet *a) {
 char *cpu_set_to_range_string(const CPUSet *set) {
         unsigned range_start = 0, range_end;
         _cleanup_free_ char *str = NULL;
-        size_t allocated = 0, len = 0;
         bool in_range = false;
+        size_t len = 0;
         int r;
 
         for (unsigned i = 0; i < set->allocated * 8; i++)
@@ -58,7 +58,7 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                 } else if (in_range) {
                         in_range = false;
 
-                        if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
+                        if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
                                 return NULL;
 
                         if (range_end > range_start)
@@ -70,7 +70,7 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                 }
 
         if (in_range) {
-                if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(int)))
                         return NULL;
 
                 if (range_end > range_start)

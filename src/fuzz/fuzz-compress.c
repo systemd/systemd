@@ -73,7 +73,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         size_t sw_len = MIN(data_len - 1, h->sw_len);
 
-        r = decompress_startswith(alg, buf, csize, &buf2, &sw_alloc, h->data, sw_len, h->data[sw_len]);
+        r = decompress_startswith(alg, buf, csize, &buf2, h->data, sw_len, h->data[sw_len]);
         assert_se(r > 0);
 
         return 0;
