@@ -9,5 +9,4 @@ DHCPServer=yes
 ServerAddress=192.168.5.1/24
 PoolOffset=10
 PoolSize=50
-DNS=192.168.5.1
-NTP=192.168.5.1
+UplinkInterface=dummy98

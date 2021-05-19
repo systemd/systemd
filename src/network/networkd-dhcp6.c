@@ -170,7 +170,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         log_link_debug(link, "Removing old DHCPv6 Prefix Delegation addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_pd_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
 
@@ -180,7 +180,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         }
 
         SET_FOREACH(address, link->dhcp6_pd_addresses_old) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -212,7 +212,7 @@ int dhcp6_pd_remove(Link *link) {
         log_link_debug(link, "Removing DHCPv6 Prefix Delegation addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_pd_routes) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
 
@@ -222,7 +222,7 @@ int dhcp6_pd_remove(Link *link) {
         }
 
         SET_FOREACH(address, link->dhcp6_pd_addresses) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -312,6 +312,8 @@ static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, con
                                dhcp6_pd_route_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 prefix route: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_pd_after_route_configure;
 
@@ -470,6 +472,8 @@ static int dhcp6_pd_request_address(
                                  dhcp6_pd_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_pd_after_address_configure;
 
@@ -761,13 +765,13 @@ static int dhcp6_remove_old(Link *link, bool force) {
         log_link_debug(link, "Removing old DHCPv6 addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         SET_FOREACH(address, link->dhcp6_addresses_old) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -795,13 +799,13 @@ static int dhcp6_remove(Link *link) {
         log_link_debug(link, "Removing DHCPv6 addresses and routes.");
 
         SET_FOREACH(route, link->dhcp6_routes) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         SET_FOREACH(address, link->dhcp6_addresses) {
-                k = address_remove(address, link, NULL);
+                k = address_remove(address, link);
                 if (k < 0)
                         r = k;
         }
@@ -897,6 +901,8 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request unreachable route for DHCPv6 delegated subnet %s: %m",
                                             strna(buf));
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_after_route_configure;
 
@@ -1173,6 +1179,8 @@ static int dhcp6_request_address(
                                  dhcp6_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s: %m", strna(buffer));
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_after_address_configure;
 
