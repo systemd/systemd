@@ -111,8 +111,9 @@ Happy hacking!
 Some source files are generated during build. We use two templating engines:
 * meson's `configure_file()` directive uses syntax with `@VARIABLE@`.
 
-  See https://mesonbuild.com/Reference-manual.html#configure_file for
-  details.
+  See the
+  [Meson docs for `configure_file()`](https://mesonbuild.com/Reference-manual.html#configure_file)
+  for details.
 
 {% raw %}
 * most files are rendered using jinja2, with `{{VARIABLE}}` and `{% if … %}`,
@@ -121,7 +122,8 @@ Some source files are generated during build. We use two templating engines:
   output. `{% raw %} … `{% endraw %}`{{ '{' }}{{ '% endraw %' }}}` creates a block
   where jinja2 syntax is not interpreted.
 
-  See https://jinja2docs.readthedocs.io/en/stable/templates.html#synopsis
+  See the
+  [Jinja Template Designer Documentation](https://jinja2docs.readthedocs.io/en/stable/templates.html#synopsis)
   for details.
 
 Please note that files for both template engines use the `.in` extension.
