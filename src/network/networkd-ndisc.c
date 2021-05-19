@@ -395,7 +395,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_routes_messages,
                                ndisc_route_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
@@ -507,7 +507,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
         r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_addresses_messages,
                                  ndisc_address_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);

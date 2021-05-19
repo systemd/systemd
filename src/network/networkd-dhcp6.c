@@ -312,6 +312,8 @@ static int dhcp6_pd_request_route(Link *link, const struct in6_addr *prefix, con
                                dhcp6_pd_route_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 prefix route: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_pd_after_route_configure;
 
@@ -470,6 +472,8 @@ static int dhcp6_pd_request_address(
                                  dhcp6_pd_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 delegated prefix address: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_pd_after_address_configure;
 
@@ -897,6 +901,8 @@ static int dhcp6_request_unreachable_route(Link *link, const struct in6_addr *ad
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request unreachable route for DHCPv6 delegated subnet %s: %m",
                                             strna(buf));
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_after_route_configure;
 
@@ -1173,6 +1179,8 @@ static int dhcp6_request_address(
                                  dhcp6_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s: %m", strna(buffer));
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp6_after_address_configure;
 

@@ -57,7 +57,6 @@ typedef struct Request {
         request_on_free_handler_t on_free;
 } Request;
 
-Request *request_free(Request *req);
 void request_drop(Request *req);
 
 int link_queue_request(
