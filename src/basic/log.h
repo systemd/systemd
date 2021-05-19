@@ -236,6 +236,31 @@ int log_emergency_level(void);
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
 #define log_emergency_errno(error, ...) log_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
+#define __log_once(name, ...)                                          \
+        ({ if (ONCE) log_##name(__VA_ARGS__); })
+#define __log_once_errno(name, error, ...)                             \
+        ({                                                             \
+                int _ee = (error);                                     \
+                if (ONCE)                                              \
+                        _ee = log_##name##_errno(_ee, __VA_ARGS__);    \
+                _ee;                                                   \
+        })
+
+/* One-time logging */
+#define log_once_debug(...)              __log_once(debug, __VA_ARGS__)
+#define log_once_info(...)               __log_once(info, __VA_ARGS__)
+#define log_once_notice(...)             __log_once(notice, __VA_ARGS__)
+#define log_once_warning(...)            __log_once(warning, __VA_ARGS__)
+#define log_once_error(...)              __log_once(error, __VA_ARGS__)
+#define log_once_emergency(...)          __log_once(emergency, __VA_ARGS__)
+
+#define log_once_debug_errno(e, ...)     __log_once_errno(debug, e, __VA_ARGS__)
+#define log_once_info_errno(e, ...)      __log_once_errno(info, e, __VA_ARGS__)
+#define log_once_notice_errno(e, ...)    __log_once_errno(notice, e, __VA_ARGS__)
+#define log_once_warning_errno(e, ...)   __log_once_errno(warning, e, __VA_ARGS__)
+#define log_once_error_errno(e, ...)     __log_once_errno(error, e, __VA_ARGS__)
+#define log_once_emergency_errno(e, ...) __log_once_errno(emergency, e, __VA_ARGS__)
+
 #if LOG_TRACE
 #  define log_trace(...) log_debug(__VA_ARGS__)
 #else
