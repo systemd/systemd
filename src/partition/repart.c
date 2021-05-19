@@ -189,7 +189,7 @@ struct Context {
         size_t n_partitions;
 
         FreeArea **free_areas;
-        size_t n_free_areas, n_allocated_free_areas;
+        size_t n_free_areas;
 
         uint64_t start, end, total;
 
@@ -312,7 +312,6 @@ static void context_free_free_areas(Context *context) {
 
         context->free_areas = mfree(context->free_areas);
         context->n_free_areas = 0;
-        context->n_allocated_free_areas = 0;
 }
 
 static Context *context_free(Context *context) {
@@ -343,7 +342,7 @@ static int context_add_free_area(
         assert(context);
         assert(!after || !after->padding_area);
 
-        if (!GREEDY_REALLOC(context->free_areas, context->n_allocated_free_areas, context->n_free_areas + 1))
+        if (!GREEDY_REALLOC(context->free_areas, context->n_free_areas + 1))
                 return -ENOMEM;
 
         a = new(FreeArea, 1);

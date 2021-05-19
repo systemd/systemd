@@ -96,7 +96,6 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
         unsigned n_gids = 0;
-        size_t sz = 0;
         uid_t uid;
         gid_t gid;
         pid_t pid;
@@ -219,7 +218,7 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(gids, sz, n_gids+1))
+                if (!GREEDY_REALLOC(gids, n_gids+1))
                         return log_oom();
 
                 r = parse_gid(word, &gids[n_gids++]);
