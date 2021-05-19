@@ -108,7 +108,20 @@ for phase in "${PHASES[@]}"; do
             export CC=clang
             export CXX=clang++
             export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
-            meson --werror -Drust_args="--deny warnings -Zsanitizer=address" -Db_lundef=false -Dfuzz-tests=true -Dtests=unsafe -Db_sanitize=address -Dbuild-rust=true build
+            find -name '*.rs' | xargs rustfmt --check
+
+            # get around https://github.com/mesonbuild/meson/issues/8767
+            cat <<'EOF' >rustc
+#!/bin/bash
+if [[ "$*" =~ "--version" ]]; then
+    exec rustc "$@"
+fi
+clippy-driver "$@"
+EOF
+            cat rustc
+            chmod +x rustc
+
+            RUSTC=$(pwd)/rustc meson --werror -Drust_args="--deny warnings -Zsanitizer=address" -Db_lundef=false -Dfuzz-tests=true -Dtests=unsafe -Db_sanitize=address -Dbuild-rust=true build
             ninja -C build -v
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
             meson test --timeout-multiplier=3 -C build --print-errorlogs
