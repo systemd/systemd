@@ -69,4 +69,3 @@ Packages=
         nano
         strace
         util-linux
-        vi

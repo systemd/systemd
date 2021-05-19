@@ -71,4 +71,3 @@ Packages=
         locales
         nano
         strace
-        vim-tiny
