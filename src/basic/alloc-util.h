@@ -66,7 +66,7 @@ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, s
                 size_t _l_ = l;                 \
                 assert(_l_ <= ALLOCA_MAX);      \
                 _q_ = alloca(_l_ ?: 1);         \
-                memcpy(_q_, p, _l_);            \
+                memcpy_safe(_q_, p, _l_);       \
         })
 
 #define memdupa_suffix0(p, l)                   \
@@ -76,7 +76,7 @@ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, s
                 assert(_l_ <= ALLOCA_MAX);      \
                 _q_ = alloca(_l_ + 1);          \
                 ((uint8_t*) _q_)[_l_] = 0;      \
-                memcpy(_q_, p, _l_);            \
+                memcpy_safe(_q_, p, _l_);       \
         })
 
 static inline void freep(void *p) {
