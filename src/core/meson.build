@@ -91,6 +91,8 @@ libcore_sources = '''
         namespace.h
         path.c
         path.h
+        restrict-ifaces.c
+        restrict-ifaces.h
         scope.c
         scope.h
         selinux-access.c
@@ -128,6 +130,11 @@ libcore_sources = '''
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
+endif
+
+subdir('bpf/restrict_ifaces')
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += [restrict_ifaces_skel_h]
 endif
 
 load_fragment_gperf_gperf = custom_target(
