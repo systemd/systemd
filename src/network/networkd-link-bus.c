@@ -24,6 +24,7 @@
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_carrier_state, link_carrier_state, LinkCarrierState);
 BUS_DEFINE_PROPERTY_GET_ENUM(property_get_address_state, link_address_state, LinkAddressState);
+BUS_DEFINE_PROPERTY_GET_ENUM(property_get_online_state, link_online_state, LinkOnlineState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);
 
 static int property_get_bit_rates(
@@ -716,6 +717,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("AddressState", "s", property_get_address_state, offsetof(Link, address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv4AddressState", "s", property_get_address_state, offsetof(Link, ipv4_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Link, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("OnlineState", "s", property_get_online_state, offsetof(Link, online_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BitRates", "(tt)", property_get_bit_rates, 0, 0),
 

@@ -380,6 +380,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
                 .manage_foreign_rules = true,
                 .ethtool_fd = -1,
