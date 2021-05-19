@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdatomic.h>
+
 #ifndef SD_BOOT
 #include <assert.h>
 #endif
@@ -49,6 +51,17 @@
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
+
+/* Note that this works differently from pthread_once(): this macro does
+ * not synchronize code execution, i.e. code that is run conditionalized
+ * on this macro will run concurrently to all other code conditionalized
+ * the same way, there's no ordering or completion enforced. */
+#define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
+#define __ONCE(o)                                                       \
+        ({                                                              \
+                static atomic_flag (o) = ATOMIC_FLAG_INIT;              \
+                !atomic_flag_test_and_set(&(o));                        \
+        })
 
 #undef MAX
 #define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
