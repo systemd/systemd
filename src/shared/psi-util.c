@@ -107,12 +107,26 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 int is_pressure_supported(void) {
         const char *p;
 
-        FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory")
-                if (access(p, F_OK) < 0) {
-                        if (errno == ENOENT)
-                                return 0;
-                        return -errno;
-                }
+        /* The pressure files, both under /proc and in cgroups, will exist
+         * even if the kernel has PSI support disabled; we have to read
+         * the file to make sure it doesn't return -EOPNOTSUPP */
+        FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
+                _cleanup_free_ char *l = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                int r;
+
+                r = fopen_unlocked(p, "re", &f);
+                if (r == -ENOENT)
+                        return 0;
+                else if (r < 0)
+                        return r;
+
+                r = read_line(f, LONG_LINE_MAX, &l);
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
+                else if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
