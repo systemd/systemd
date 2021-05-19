@@ -1385,6 +1385,18 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <literal>no</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Group=</varname></term>
+          <listitem>
+            <para>Takes a whitespace separated list of nexthop IDs. Each ID must be in the range
+            1…4294967295. Optionally, each nexthop ID can take a weight after a comma
+            (<literal><replaceable>id</replaceable>,<replaceable>weight</replaceable></literal>). The
+            weight must be in the range 1…255. This setting cannot be specified with
+            <varname>Gateway=</varname>, <varname>Family=</varname>, <varname>Blackhole=</varname>.
+            This setting can be specified multiple times. If an empty string is assigned, then the all
+            previous assignments are cleared. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
@@ -2388,6 +2400,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem><para>Specifies name or index of uplink interface, or the special value
+        <literal>%none</literal>. When emitting DNS, NTP, or SIP servers are enabled but no servers are
+        specified, then the servers configured in the uplink interface will be emitted. When unset, the
+        link which has default gateway with higher priority will be automatically selected. When
+        <literal>%none</literal>, no uplink interface will be selected. Defaults to unset.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>EmitDNS=</varname></term>
         <term><varname>DNS=</varname></term>
 
@@ -2854,6 +2876,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             means the address is associated with master devices fdb. <literal>router</literal> means
             the destination address is associated with a router. Note that it's valid if the referenced
             device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>OutgoingInterface=</varname></term>
+          <listitem>
+            <para>Specifies the name or index of the outgoing interface for the VXLAN device driver to
+            reach the remote VXLAN tunnel endpoint. Defaults to unset.</para>
           </listitem>
         </varlistentry>
       </variablelist>

@@ -171,14 +171,14 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 
         SET_FOREACH(na, link->ndisc_addresses)
                 if (na->marked && in6_addr_equal(&na->router, router)) {
-                        k = address_remove(na->address, link, NULL);
+                        k = address_remove(na->address, link);
                         if (k < 0)
                                 r = k;
                 }
 
         SET_FOREACH(nr, link->ndisc_routes)
                 if (nr->marked && in6_addr_equal(&nr->router, router)) {
-                        k = route_remove(nr->route, NULL, link, NULL);
+                        k = route_remove(nr->route, NULL, link);
                         if (k < 0)
                                 r = k;
                 }
@@ -396,7 +396,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_routes_messages,
                                ndisc_route_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
@@ -508,7 +508,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
         r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_addresses_messages,
                                  ndisc_address_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->userdata = sd_ndisc_router_ref(rt);
