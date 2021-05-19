@@ -1111,6 +1111,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1141,6 +1143,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1166,8 +1170,8 @@ int link_request_static_addresses(Link *link) {
                                                  static_address_handler, &req);
                         if (r < 0)
                                 return r;
-
-                        req->after_configure = static_address_after_configure;
+                        if (r > 0)
+                                req->after_configure = static_address_after_configure;
                 }
         }
 
