@@ -52,7 +52,6 @@ BuildPackages=
         pam-devel
         pcre2-devel
         pkgconfig
-        python3-devel
         python3-lxml
         python3dist(jinja2)
         qrencode-devel
