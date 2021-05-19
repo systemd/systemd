@@ -48,6 +48,9 @@ jobs:
     - name: Build ${{ matrix.distro }}
       run: sudo python3 -m mkosi --password= --qemu-headless build
 
+    - name: Show ${{ matrix.distro }} image summary
+      run: sudo python3 -m mkosi --password= --qemu-headless summary
+
     # Ugly workaround for systemd/systemd#19442 where systemd-nspawn
     # occasionally fails with 'Failed to dissect image xxx: Connection timed out
     - name: Retry the build if necessary
