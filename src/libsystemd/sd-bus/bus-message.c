@@ -117,7 +117,6 @@ static void message_reset_containers(sd_bus_message *m) {
                 message_free_last_container(m);
 
         m->containers = mfree(m->containers);
-        m->containers_allocated = 0;
         m->root_container.index = 0;
 }
 
@@ -1289,7 +1288,7 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
         if (!c->need_offsets)
                 return 0;
 
-        if (!GREEDY_REALLOC(c->offsets, c->offsets_allocated, c->n_offsets + 1))
+        if (!GREEDY_REALLOC(c->offsets, c->n_offsets + 1))
                 return -ENOMEM;
 
         c->offsets[c->n_offsets++] = offset;
@@ -2031,7 +2030,7 @@ _public_ int sd_bus_message_open_container(
         assert_return(!m->poisoned, -ESTALE);
 
         /* Make sure we have space for one more container */
-        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1)) {
+        if (!GREEDY_REALLOC(m->containers, m->n_containers + 1)) {
                 m->poisoned = true;
                 return -ENOMEM;
         }
@@ -4111,7 +4110,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         if (m->n_containers >= BUS_CONTAINER_DEPTH)
                 return -EBADMSG;
 
-        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1))
+        if (!GREEDY_REALLOC(m->containers, m->n_containers + 1))
                 return -ENOMEM;
 
         if (message_end_of_signature(m))

@@ -82,12 +82,12 @@ static int show_cgroup_one_by_path(
                 bool more,
                 OutputFlags flags) {
 
-        char *fn;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t n = 0, n_allocated = 0;
         _cleanup_free_ pid_t *pids = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
+        size_t n = 0;
         pid_t pid;
+        char *fn;
         int r;
 
         r = cg_mangle_path(path, &p);
@@ -104,10 +104,9 @@ static int show_cgroup_one_by_path(
                 if (!(flags & OUTPUT_KERNEL_THREADS) && is_kernel_thread(pid) > 0)
                         continue;
 
-                if (!GREEDY_REALLOC(pids, n_allocated, n + 1))
+                if (!GREEDY_REALLOC(pids, n + 1))
                         return -ENOMEM;
 
-                assert(n < n_allocated);
                 pids[n++] = pid;
         }
 

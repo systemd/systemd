@@ -66,7 +66,6 @@ struct sd_dhcp6_client {
         bool information_request;
         bool iaid_set;
         be16_t *req_opts;
-        size_t req_opts_allocated;
         size_t req_opts_len;
         char *fqdn;
         char *mudurl;
@@ -456,8 +455,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
                 if (client->req_opts[t] == htobe16(option))
                         return -EEXIST;
 
-        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_allocated,
-                            client->req_opts_len + 1))
+        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_len + 1))
                 return -ENOMEM;
 
         client->req_opts[client->req_opts_len++] = htobe16(option);

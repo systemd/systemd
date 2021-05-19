@@ -171,7 +171,7 @@ static int get_source_for_fd(RemoteServer *s,
         assert(fd >= 0);
         assert(source);
 
-        if (!GREEDY_REALLOC0(s->sources, s->sources_size, fd + 1))
+        if (!GREEDY_REALLOC0(s->sources, fd + 1))
                 return log_oom();
 
         r = journal_remote_get_writer(s, name, &writer);
@@ -197,7 +197,7 @@ static int remove_source(RemoteServer *s, int fd) {
         RemoteSource *source;
 
         assert(s);
-        assert(fd >= 0 && fd < (ssize_t) s->sources_size);
+        assert(fd >= 0 && fd < (ssize_t) MALLOC_ELEMENTSOF(s->sources));
 
         source = s->sources[fd];
         if (source) {
@@ -352,8 +352,7 @@ void journal_remote_server_destroy(RemoteServer *s) {
         hashmap_free_with_destructor(s->daemons, MHDDaemonWrapper_free);
 #endif
 
-        assert(s->sources_size == 0 || s->sources);
-        for (i = 0; i < s->sources_size; i++)
+        for (i = 0; i < MALLOC_ELEMENTSOF(s->sources); i++)
                 remove_source(s, i);
         free(s->sources);
 
@@ -388,7 +387,7 @@ int journal_remote_handle_raw_source(
          * 0 if data is currently exhausted, negative on error.
          */
 
-        assert(fd >= 0 && fd < (ssize_t) s->sources_size);
+        assert(fd >= 0 && fd < (ssize_t) MALLOC_ELEMENTSOF(s->sources));
         source = s->sources[fd];
         assert(source->importer.fd == fd);
 

@@ -1073,8 +1073,8 @@ not_found:
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        size_t n_allocated = 0, n = 0;
         Manager *m = userdata;
+        size_t n = 0;
         Image *image;
         int r;
 
@@ -1097,7 +1097,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(l, n_allocated, n+2)) {
+                if (!GREEDY_REALLOC(l, n+2)) {
                         free(p);
                         return -ENOMEM;
                 }

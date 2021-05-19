@@ -90,7 +90,6 @@ struct StdoutStream {
 
         char *buffer;
         size_t length;
-        size_t allocated;
 
         sd_event_source *event_source;
 
@@ -552,8 +551,8 @@ static int stdout_stream_scan(
 
 static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
+        size_t limit, consumed, allocated;
         StdoutStream *s = userdata;
-        size_t limit, consumed;
         struct ucred *ucred;
         struct iovec iovec;
         ssize_t l;
@@ -575,16 +574,19 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         }
 
         /* If the buffer is almost full, add room for another 1K */
-        if (s->length + 512 >= s->allocated) {
-                if (!GREEDY_REALLOC(s->buffer, s->allocated, s->length + 1 + 1024)) {
+        allocated = MALLOC_ELEMENTSOF(s->buffer);
+        if (s->length + 512 >= allocated) {
+                if (!GREEDY_REALLOC(s->buffer, s->length + 1 + 1024)) {
                         log_oom();
                         goto terminate;
                 }
+
+                allocated = MALLOC_ELEMENTSOF(s->buffer);
         }
 
         /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
          * always leave room for a terminating NUL we might need to add. */
-        limit = MIN(s->allocated - 1, MAX(s->server->line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
+        limit = MIN(allocated - 1, MAX(s->server->line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
         assert(s->length <= limit);
         iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
 
