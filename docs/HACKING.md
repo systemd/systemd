@@ -114,11 +114,12 @@ Some source files are generated during build. We use two templating engines:
   See https://mesonbuild.com/Reference-manual.html#configure_file for
   details.
 
+{% raw %}
 * most files are rendered using jinja2, with `{{VARIABLE}}` and `{% if … %}`,
   `{% elif … %}`, `{% else … %}`, `{% endif … %}` blocks. `{# … #}` is a
   jinja2 comment, i.e. that block will not be visible in the rendered
-  output. `{% raw %} … {% endraw %}` creates a block where the jinja2 syntax
-  is not interpreted.
+  output. `{% raw %} … `{% endraw %}`{{ '{' }}{{ '% endraw %' }}}` creates a block
+  where jinja2 syntax is not interpreted.
 
   See https://jinja2docs.readthedocs.io/en/stable/templates.html#synopsis
   for details.
