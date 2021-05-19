@@ -8,9 +8,6 @@ import sys
 def run() -> None:
     p = pexpect.spawnu(" ".join(sys.argv[1:]), logfile=sys.stdout, timeout=300)
 
-    p.expect("login:")
-    p.sendline("root")
-
     p.expect("#")
     p.sendline("systemctl poweroff")
 
