@@ -6,6 +6,7 @@ ADDITIONAL_DEPS=(
     clang
     expect
     fdisk
+    jekyll
     libfdisk-dev
     libfido2-dev
     libp11-kit-dev
