@@ -17,8 +17,7 @@ void* memdup(const void *p, size_t l) {
         if (!ret)
                 return NULL;
 
-        memcpy(ret, p, l);
-        return ret;
+        return memcpy_safe(ret, p, l);
 }
 
 void* memdup_suffix0(const void *p, size_t l) {
@@ -35,8 +34,8 @@ void* memdup_suffix0(const void *p, size_t l) {
         if (!ret)
                 return NULL;
 
-        *((uint8_t*) mempcpy(ret, p, l)) = 0;
-        return ret;
+        ((uint8_t*) ret)[l] = 0;
+        return memcpy_safe(ret, p, l);
 }
 
 void* greedy_realloc(
