@@ -37,6 +37,9 @@ typedef struct NextHop {
 
 NextHop *nexthop_free(NextHop *nexthop);
 
+void nexthop_hash_func(const NextHop *nexthop, struct siphash *state);
+int nexthop_compare_func(const NextHop *a, const NextHop *b);
+
 void network_drop_invalid_nexthops(Network *network);
 
 int link_drop_nexthops(Link *link);
