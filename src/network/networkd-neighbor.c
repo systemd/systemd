@@ -479,6 +479,9 @@ int request_process_neighbor(Request *req) {
         if (r < 0)
                 return r;
 
+        /* To prevent a double decrement on failure in after_configure(). */
+        req->message_counter = NULL;
+
         if (req->after_configure) {
                 r = req->after_configure(req, ret);
                 if (r < 0)
