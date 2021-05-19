@@ -452,7 +452,7 @@ Manager* manager_free(Manager *m) {
         HASHMAP_FOREACH(link, m->links)
                 (void) link_stop_engines(link, true);
 
-        m->request_queue = ordered_set_free_with_destructor(m->request_queue, request_free);
+        m->request_queue = ordered_set_free(m->request_queue);
 
         m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
         m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);
