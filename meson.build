@@ -3501,6 +3501,21 @@ meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
 
 ############################################################
 
+# Ensure that changes to the docs/ directory do not break the
+# basic Github pages build. But only run it in developer mode,
+# as it might be fragile due to changes in the tooling, and it is
+# not generally useful for users.
+jekyll = find_program('jekyll', required : false)
+if get_option('mode') == 'developer' and want_tests != 'false' and jekyll.found()
+        test('github-pages',
+             jekyll,
+             args : ['build',
+                     '--source', join_paths(project_source_root, 'docs'),
+                     '--destination', join_paths(project_build_root, '_site')])
+endif
+
+############################################################
+
 check_help = find_program('tools/check-help.sh')
 
 foreach exec : public_programs
