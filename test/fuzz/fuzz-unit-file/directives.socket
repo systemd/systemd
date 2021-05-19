@@ -179,6 +179,7 @@ RemoveOnStop=
 RestartKillSignal=
 RestrictAddressFamilies=
 RestrictNamespaces=
+RestrictNetworkInterfaces=
 RestrictRealtime=
 RestrictSUIDSGID=
 ReusePort=

@@ -6,6 +6,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
+#include "restrict-ifaces.h"
 #include "serialize.h"
 #include "socket-bind.h"
 #include "string-table.h"
@@ -153,6 +154,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
         (void) serialize_socket_bind(u, f, fds);
+
+        (void) serialize_restrict_network_interfaces(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -380,9 +383,22 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 (void) socket_bind_add_initial_link_fd(u, fd);
                         }
                         continue;
-                }
+                } else if (streq(l, "restrict-ifaces-bpf-fd")) {
+                        int fd;
 
-                else if (streq(l, "ref-uid")) {
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
+                                log_unit_debug(u, "Failed to parse restrict-ifaces-bpf-fd value: %s", v);
+                                continue;
+                        }
+                        if (fdset_remove(fds, fd) < 0) {
+                                log_unit_debug(u, "Failed to remove restrict-ifaces-bpf-fd %d from fdset", fd);
+                                continue;
+                        }
+
+                        (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
+                        continue;
+
+                } else if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
