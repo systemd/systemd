@@ -9,6 +9,8 @@ if install_tests
                        install_dir : testdata_dir)
         install_subdir('test-execute',
                        install_dir : testdata_dir)
+        install_subdir('test-keymap-util',
+                       install_dir : testdata_dir)
         install_subdir('test-path',
                        install_dir : testdata_dir)
         install_subdir('test-path-util',
