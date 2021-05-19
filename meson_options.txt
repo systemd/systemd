@@ -393,7 +393,7 @@ option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
 option('slow-tests', type : 'boolean', value : 'false',
        description : 'run the slow tests by default')
 option('fuzz-tests', type : 'boolean', value : 'false',
-       description : 'run the fuzzer regression tests by default')
+       description : 'run the fuzzer regression tests by default (with sanitizers)')
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
 
