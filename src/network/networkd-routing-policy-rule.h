@@ -52,6 +52,9 @@ typedef struct RoutingPolicyRule {
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
+void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state);
+int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b);
+
 void network_drop_invalid_routing_policy_rules(Network *network);
 
 int link_request_static_routing_policy_rules(Link *link);

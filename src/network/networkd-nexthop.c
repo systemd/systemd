@@ -104,7 +104,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         return 0;
 }
 
-static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
+void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
 
         siphash24_compress(&nexthop->protocol, sizeof(nexthop->protocol), state);
@@ -124,7 +124,7 @@ static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         }
 }
 
-static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
+int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         int r;
 
         r = CMP(a->protocol, b->protocol);

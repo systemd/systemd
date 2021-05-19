@@ -33,6 +33,9 @@ typedef struct Neighbor {
 
 Neighbor *neighbor_free(Neighbor *neighbor);
 
+void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state);
+int neighbor_compare_func(const Neighbor *a, const Neighbor *b);
+
 void network_drop_invalid_neighbors(Network *network);
 
 int link_drop_neighbors(Link *link);

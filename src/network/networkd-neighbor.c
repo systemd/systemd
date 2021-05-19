@@ -69,7 +69,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         return 0;
 }
 
-static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
+void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
         siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
@@ -89,7 +89,7 @@ static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) 
         siphash24_compress(&neighbor->lladdr, neighbor->lladdr_size, state);
 }
 
-static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
+int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         int r;
 
         r = CMP(a->family, b->family);
