@@ -66,13 +66,13 @@ static int dhcp4_release_old_lease(Link *link) {
         log_link_debug(link, "Removing old DHCPv4 address and routes.");
 
         SET_FOREACH(route, link->dhcp_routes_old) {
-                k = route_remove(route, NULL, link, NULL);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
         }
 
         if (link->dhcp_address_old) {
-                k = address_remove(link->dhcp_address_old, link, NULL);
+                k = address_remove(link->dhcp_address_old, link);
                 if (k < 0)
                         r = k;
         }
@@ -177,6 +177,10 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                         link_enter_failed(link);
 
                 r = link_request_static_routes(link, true);
+                if (r < 0)
+                        link_enter_failed(link);
+
+                r = dhcp4_request_address_and_routes(link, false);
                 if (r < 0)
                         link_enter_failed(link);
 
@@ -712,48 +716,6 @@ static int dhcp_reset_hostname(Link *link) {
         return 0;
 }
 
-static int dhcp4_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->dhcp4_remove_messages > 0);
-
-        link->dhcp4_remove_messages--;
-
-        r = link_route_remove_handler_internal(rtnl, m, link, "Failed to remove DHCPv4 route, ignoring");
-        if (r <= 0)
-                return r;
-
-        if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_request_address_and_routes(link, false);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int dhcp4_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->dhcp4_remove_messages > 0);
-
-        link->dhcp4_remove_messages--;
-
-        r = address_remove_handler_internal(rtnl, m, link, "Failed to remove DHCPv4 address, ignoring");
-        if (r <= 0)
-                return r;
-
-        if (link->dhcp4_remove_messages == 0) {
-                r = dhcp4_request_address_and_routes(link, false);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
 static int dhcp4_remove_all(Link *link) {
         Route *route;
         int k, r = 0;
@@ -761,19 +723,15 @@ static int dhcp4_remove_all(Link *link) {
         assert(link);
 
         SET_FOREACH(route, link->dhcp_routes) {
-                k = route_remove(route, NULL, link, dhcp4_route_remove_handler);
+                k = route_remove(route, NULL, link);
                 if (k < 0)
                         r = k;
-                else
-                        link->dhcp4_remove_messages++;
         }
 
         if (link->dhcp_address) {
-                k = address_remove(link->dhcp_address, link, dhcp4_address_remove_handler);
+                k = address_remove(link->dhcp_address, link);
                 if (k < 0)
                         r = k;
-                else
-                        link->dhcp4_remove_messages++;
         }
 
         return r;
@@ -990,7 +948,7 @@ static int dhcp4_after_address_configure(Request *req, void *object) {
                 if (link->dhcp_address_old &&
                     !address_equal(link->dhcp_address_old, link->dhcp_address)) {
                         /* Still too old address exists? Let's remove it immediately. */
-                        r = address_remove(link->dhcp_address_old, link, NULL);
+                        r = address_remove(link->dhcp_address_old, link);
                         if (r < 0)
                                 return r;
                 }
