@@ -9,6 +9,7 @@
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
+#include "hashmap.h"
 #include "in-addr-util.h"
 #include "networkd-util.h"
 
@@ -31,9 +32,13 @@ typedef struct NextHop {
         int family;
         union in_addr_union gw;
         int onlink;
+        Hashmap *group;
 } NextHop;
 
 NextHop *nexthop_free(NextHop *nexthop);
+
+void nexthop_hash_func(const NextHop *nexthop, struct siphash *state);
+int nexthop_compare_func(const NextHop *a, const NextHop *b);
 
 void network_drop_invalid_nexthops(Network *network);
 
@@ -51,3 +56,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_onlink);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_blackhole);
+CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_group);
