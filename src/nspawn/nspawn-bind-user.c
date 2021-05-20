@@ -205,7 +205,6 @@ int bind_user_prepare(
 
         _cleanup_(bind_user_context_freep) BindUserContext *c = NULL;
         uid_t current_uid = MAP_UID_START;
-        size_t n_allocated = 0;
         char **n;
         int r;
 
@@ -282,7 +281,7 @@ int bind_user_prepare(
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(c->data, n_allocated, c->n_data + 1))
+                if (!GREEDY_REALLOC(c->data, c->n_data + 1))
                         return log_oom();
 
                 sm = strdup(u->home_directory);
