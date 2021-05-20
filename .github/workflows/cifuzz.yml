@@ -23,17 +23,24 @@ jobs:
      fail-fast: false
      matrix:
        sanitizer: [address, undefined, memory]
+       extra-build-args: [c, rust]
+       exclude:
+         - sanitizer: undefined
+           extra-build-args: rust
+         - sanitizer: memory
+           extra-build-args: rust
    steps:
    - name: Build Fuzzers (${{ matrix.sanitizer }})
      id: build
-     uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
+     uses: evverx/oss-fuzz/infra/cifuzz/actions/build_fuzzers@extra-args
      with:
        oss-fuzz-project-name: 'systemd'
        dry-run: false
        allowed-broken-targets-percentage: 0
        sanitizer: ${{ matrix.sanitizer }}
+       extra-build-args: ${{ matrix.extra-build-args }}
    - name: Run Fuzzers (${{ matrix.sanitizer }})
-     uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
+     uses: evverx/oss-fuzz/infra/cifuzz/actions/build_fuzzers@extra-args
      with:
        oss-fuzz-project-name: 'systemd'
        fuzz-seconds: 600
