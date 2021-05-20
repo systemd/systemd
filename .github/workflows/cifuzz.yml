@@ -40,7 +40,7 @@ jobs:
        sanitizer: ${{ matrix.sanitizer }}
        extra-build-args: ${{ matrix.extra-build-args }}
    - name: Run Fuzzers (${{ matrix.sanitizer }})
-     uses: evverx/oss-fuzz/infra/cifuzz/actions/build_fuzzers@extra-args
+     uses: evverx/oss-fuzz/infra/cifuzz/actions/run_fuzzers@extra-args
      with:
        oss-fuzz-project-name: 'systemd'
        fuzz-seconds: 600
