@@ -181,7 +181,7 @@ int bus_read_mount_options(
                 return r;
 
         while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
-                _cleanup_free_ char *previous = NULL, *escaped = NULL;
+                _cleanup_free_ char *escaped = NULL;
                 _cleanup_free_ MountOptions *o = NULL;
                 PartitionDesignator partition_designator;
 
@@ -198,9 +198,7 @@ int bus_read_mount_options(
                 if (!escaped)
                         return -ENOMEM;
 
-                previous = TAKE_PTR(format_str);
-                format_str = strjoin(previous, previous ? separator : "", partition, ":", escaped);
-                if (!format_str)
+                if (!strextend_with_separator(&format_str, separator, partition, ":", escaped))
                         return -ENOMEM;
 
                 o = new(MountOptions, 1);
