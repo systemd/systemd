@@ -1659,14 +1659,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (r < 0)
                                         return r;
 
-                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0) {
-                                        _cleanup_free_ char *previous = NULL;
-
-                                        previous = TAKE_PTR(str);
-                                        str = strjoin(strempty(previous), previous ? ":" : "", partition, ":", mount_options);
-                                        if (!str)
+                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0)
+                                        if (!strextend_with_separator(&str, ":", partition, ":", mount_options))
                                                 return log_oom();
-                                }
                                 if (r < 0)
                                         return r;
 
