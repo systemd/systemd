@@ -51,9 +51,10 @@
 
     <para>Along with the network file <filename>foo.network</filename>, a "drop-in" directory
     <filename>foo.network.d/</filename> may exist. All files with the suffix
-    <literal>.conf</literal> from this directory will be parsed after the file itself is
-    parsed. This is useful to alter or add configuration settings, without having to modify the main
-    configuration file. Each drop-in file must have appropriate section headers.</para>
+    <literal>.conf</literal> from this directory will be merged in the alphanumeric order and parsed
+    after the main file itself has been parsed. This is useful to alter or add configuration settings,
+    without having to modify the main configuration file. Each drop-in file must have appropriate
+    section headers.</para>
 
     <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
     directories can be placed in <filename>/usr/lib/systemd/network</filename> or
