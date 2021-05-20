@@ -1054,6 +1054,7 @@ int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
         return truncation_applied;
 }
 
+#ifdef BUILD_LEGACY_HELPERS
 int string_extract_line(const char *s, size_t i, char **ret) {
         const char *p = s;
         size_t c = 0;
@@ -1114,6 +1115,7 @@ int string_extract_line(const char *s, size_t i, char **ret) {
                 c++;
         }
 }
+#endif
 
 int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
         /* In the default mode with no separators specified, we split on whitespace and
