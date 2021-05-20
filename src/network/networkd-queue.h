@@ -30,9 +30,12 @@ typedef enum RequestType {
         REQUEST_TYPE_NEXTHOP,
         REQUEST_TYPE_ROUTE,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
+        REQUEST_TYPE_SET_LINK,
         _REQUEST_TYPE_MAX,
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;
+
+assert_cc(sizeof(SetLinkFlag) <= sizeof(void*));
 
 typedef struct Request {
         Link *link;
@@ -48,6 +51,7 @@ typedef struct Request {
                 NextHop *nexthop;
                 Route *route;
                 RoutingPolicyRule *rule;
+                SetLinkFlag set_link_flags;
                 void *object;
         };
         void *userdata;

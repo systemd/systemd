@@ -19,6 +19,7 @@
 #include "ether-addr-util.h"
 #include "log-link.h"
 #include "network-util.h"
+#include "networkd-setlink.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
@@ -96,6 +97,9 @@ typedef struct Link {
         unsigned sr_iov_messages;
         unsigned enslaving;
 
+        unsigned set_link_messages;
+        SetLinkFlag set_link_flags;
+
         Set *addresses;
         Set *addresses_foreign;
         Set *pool_addresses;
@@ -134,7 +138,6 @@ typedef struct Link {
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
-        bool setting_mtu:1;
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;
         bool can_configured:1;
@@ -234,8 +237,6 @@ bool link_has_carrier(Link *link);
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
-
-int link_set_mtu(Link *link, uint32_t mtu);
 
 bool link_ipv4ll_enabled(Link *link);
 

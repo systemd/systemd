@@ -44,6 +44,8 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_free(object);
                 break;
+        case REQUEST_TYPE_SET_LINK:
+                break;
         default:
                 assert_not_reached("invalid request type.");
         }
@@ -113,6 +115,9 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_hash_func(req->rule, state);
                 break;
+        case REQUEST_TYPE_SET_LINK:
+                /* Do not hash or compare set_link_flags. */
+                break;
         default:
                 assert_not_reached("invalid request type.");
         }
@@ -153,6 +158,8 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return route_compare_func(a->route, b->route);
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 return routing_policy_rule_compare_func(a->rule, b->rule);
+        case REQUEST_TYPE_SET_LINK:
+                return 0;
         default:
                 assert_not_reached("invalid request type.");
         }
@@ -175,6 +182,7 @@ int link_queue_request(
                 Request **ret) {
 
         _cleanup_(request_freep) Request *req = NULL;
+        Request *existing;
         int r;
 
         assert(link);
@@ -201,18 +209,19 @@ int link_queue_request(
                 .netlink_handler = netlink_handler,
         };
 
-        r = ordered_set_ensure_put(&link->manager->request_queue, &request_hash_ops, req);
-        if (r < 0) {
-                /* To prevent from removing duplicated request. */
+        existing = ordered_set_get(link->manager->request_queue, req);
+        if (existing) {
+                /* To prevent from removing the existing request. */
                 req->link = link_unref(req->link);
 
-                if (r == -EEXIST) {
-                        if (ret)
-                                *ret = NULL;
-                        return 0;
-                }
-                return r;
+                if (ret)
+                        *ret = existing;
+                return 0;
         }
+
+        r = ordered_set_ensure_put(&link->manager->request_queue, &request_hash_ops, req);
+        if (r < 0)
+                return r;
 
         if (req->message_counter)
                 (*req->message_counter)++;
@@ -265,6 +274,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                                 r = request_process_routing_policy_rule(req);
+                                break;
+                        case REQUEST_TYPE_SET_LINK:
+                                r = request_process_set_link(req);
                                 break;
                         default:
                                 return -EINVAL;

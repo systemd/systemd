@@ -151,6 +151,9 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 return false;
 
+        if (link->set_link_messages > 0)
+                return false;
+
         return true;
 }
 
@@ -970,78 +973,6 @@ static int link_set_nomaster(Link *link) {
         return 0;
 }
 
-static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        link->setting_mtu = false;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set MTU, ignoring");
-        else
-                log_link_debug(link, "Setting MTU done.");
-
-        if (link->state == LINK_STATE_INITIALIZED) {
-                r = link_configure_continue(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        if (mtu == 0 || link->setting_mtu)
-                return 0;
-
-        if (link->mtu == mtu)
-                return 0;
-
-        log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
-         * on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
-        if (link_ipv6_enabled(link) && mtu < IPV6_MIN_MTU) {
-
-                log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as "
-                                 "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes");
-
-                mtu = IPV6_MIN_MTU;
-        }
-
-        r = sd_netlink_message_append_u32(req, IFLA_MTU, mtu);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append MTU: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-        link->setting_mtu = true;
-
-        return 0;
-}
-
 static bool link_reduces_vlan_mtu(Link *link) {
         /* See netif_reduces_vlan_mtu() in kernel. */
         return streq_ptr(link->kind, "macsec");
@@ -1070,7 +1001,7 @@ static int link_configure_mtu(Link *link) {
         assert(link->network);
 
         if (link->network->mtu > 0)
-                return link_set_mtu(link, link->network->mtu);
+                return link_request_to_set_mtu(link, link->network->mtu);
 
         mtu = link_get_requested_mtu_by_stacked_netdevs(link);
         if (link->mtu >= mtu)
@@ -1080,7 +1011,7 @@ static int link_configure_mtu(Link *link) {
                         "If it is not desired, then please explicitly specify MTUBytes= setting.",
                         link->mtu, mtu);
 
-        return link_set_mtu(link, mtu);
+        return link_request_to_set_mtu(link, mtu);
 }
 
 static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2167,7 +2098,7 @@ static int link_configure_continue(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
-        if (link->setting_mtu || link->setting_genmode)
+        if (link->setting_genmode)
                 return 0;
 
         /* Drop foreign config, but ignore loopback or critical devices.
@@ -2808,12 +2739,6 @@ static int link_carrier_lost(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return link_handle_bound_by_list(link);
-
-        /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
-         * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
-         * configuration and stop the clients as well. */
-        if (link->setting_mtu)
-                return 0;
 
         r = link_stop_engines(link, false);
         if (r < 0) {
