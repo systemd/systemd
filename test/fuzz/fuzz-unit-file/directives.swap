@@ -140,6 +140,7 @@ RemoveIPC=
 RestartKillSignal=
 RestrictAddressFamilies=
 RestrictNamespaces=
+RestrictNetworkInterfaces=
 RestrictRealtime=
 RestrictSUIDSGID=
 RootDirectory=
