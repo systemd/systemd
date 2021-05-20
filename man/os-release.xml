@@ -87,315 +87,303 @@
     <para>The following OS identifications parameters may be set using
     <filename>os-release</filename>:</para>
 
-    <variablelist class='environment-variables'>
+    <refsect2>
+      <title>General information identifying the operating system</title>
 
-      <varlistentry>
-        <term><varname>NAME=</varname></term>
+      <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><varname>NAME=</varname></term>
 
-        <listitem><para>A string identifying the operating system,
-        without a version component, and suitable for presentation to
-        the user. If not set, defaults to
-        <literal>NAME=Linux</literal>. Example:
-        <literal>NAME=Fedora</literal> or <literal>NAME="Debian
-        GNU/Linux"</literal>.</para></listitem>
-      </varlistentry>
+          <listitem><para>A string identifying the operating system, without a version component, and
+          suitable for presentation to the user. If not set, a default of <literal>NAME=Linux</literal> may
+          be used.</para>
 
-      <varlistentry>
-        <term><varname>VERSION=</varname></term>
+          <para>Examples: <literal>NAME=Fedora</literal>, <literal>NAME="Debian GNU/Linux"</literal>.
+          </para></listitem>
+        </varlistentry>
 
-        <listitem><para>A string identifying the operating system
-        version, excluding any OS name information, possibly including
-        a release code name, and suitable for presentation to the
-        user. This field is optional. Example:
-        <literal>VERSION=17</literal> or <literal>VERSION="17 (Beefy
-        Miracle)"</literal>.</para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><varname>ID=</varname></term>
 
-      <varlistentry>
-        <term><varname>ID=</varname></term>
+          <listitem><para>A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
+          and "-") identifying the operating system, excluding any version information and suitable for
+          processing by scripts or usage in generated filenames. If not set, a default of
+          <literal>ID=linux</literal> may be used.</para>
 
-        <listitem><para>A lower-case string (no spaces or other
-        characters outside of 0–9, a–z, ".", "_" and "-") identifying
-        the operating system, excluding any version information and
-        suitable for processing by scripts or usage in generated
-        filenames. If not set, defaults to
-        <literal>ID=linux</literal>. Example:
-        <literal>ID=fedora</literal> or
-        <literal>ID=debian</literal>.</para></listitem>
-      </varlistentry>
+          <para>Examples: <literal>ID=fedora</literal>, <literal>ID=debian</literal>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><varname>ID_LIKE=</varname></term>
+        <varlistentry>
+          <term><varname>ID_LIKE=</varname></term>
 
-        <listitem><para>A space-separated list of operating system
-        identifiers in the same syntax as the <varname>ID=</varname>
-        setting. It should list identifiers of operating systems that
-        are closely related to the local operating system in regards
-        to packaging and programming interfaces, for example listing
-        one or more OS identifiers the local OS is a derivative from.
-        An OS should generally only list other OS identifiers it
-        itself is a derivative of, and not any OSes that are derived
-        from it, though symmetric relationships are possible. Build
-        scripts and similar should check this variable if they need to
-        identify the local operating system and the value of
-        <varname>ID=</varname> is not recognized. Operating systems
-        should be listed in order of how closely the local operating
-        system relates to the listed ones, starting with the closest.
-        This field is optional. Example: for an operating system with
-        <literal>ID=centos</literal>, an assignment of
-        <literal>ID_LIKE="rhel fedora"</literal> would be appropriate.
-        For an operating system with <literal>ID=ubuntu</literal>, an
-        assignment of <literal>ID_LIKE=debian</literal> is
-        appropriate.</para></listitem>
-      </varlistentry>
+          <listitem><para>A space-separated list of operating system identifiers in the same syntax as the
+          <varname>ID=</varname> setting. It should list identifiers of operating systems that are closely
+          related to the local operating system in regards to packaging and programming interfaces, for
+          example listing one or more OS identifiers the local OS is a derivative from.  An OS should
+          generally only list other OS identifiers it itself is a derivative of, and not any OSes that are
+          derived from it, though symmetric relationships are possible. Build scripts and similar should
+          check this variable if they need to identify the local operating system and the value of
+          <varname>ID=</varname> is not recognized. Operating systems should be listed in order of how
+          closely the local operating system relates to the listed ones, starting with the closest. This
+          field is optional.</para>
 
-      <varlistentry>
-        <term><varname>VERSION_CODENAME=</varname></term>
+          <para>Examples: for an operating system with <literal>ID=centos</literal>, an assignment of
+          <literal>ID_LIKE="rhel fedora"</literal> would be appropriate. For an operating system with
+          <literal>ID=ubuntu</literal>, an assignment of <literal>ID_LIKE=debian</literal> is appropriate.
+          </para></listitem>
+        </varlistentry>
 
-        <listitem><para>
-        A lower-case string (no spaces or other characters outside of
-        0–9, a–z, ".", "_" and "-") identifying the operating system
-        release code name, excluding any OS name information or
-        release version, and suitable for processing by scripts or
-        usage in generated filenames. This field is optional and may
-        not be implemented on all systems.
-        Examples:
-        <literal>VERSION_CODENAME=buster</literal>,
-        <literal>VERSION_CODENAME=xenial</literal>
-        </para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><varname>PRETTY_NAME=</varname></term>
 
-      <varlistentry>
-        <term><varname>VERSION_ID=</varname></term>
+          <listitem><para>A pretty operating system name in a format suitable for presentation to the
+          user. May or may not contain a release code name or OS version of some kind, as suitable. If not
+          set, a default of <literal>PRETTY_NAME="Linux"</literal> may be used</para>
 
-        <listitem><para>A lower-case string (mostly numeric, no spaces
-        or other characters outside of 0–9, a–z, ".", "_" and "-")
-        identifying the operating system version, excluding any OS
-        name information or release code name, and suitable for
-        processing by scripts or usage in generated filenames. This
-        field is optional. Example: <literal>VERSION_ID=17</literal>
-        or <literal>VERSION_ID=11.04</literal>.</para></listitem>
-      </varlistentry>
+          <para>Example: <literal>PRETTY_NAME="Fedora 17 (Beefy Miracle)"</literal>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><varname>PRETTY_NAME=</varname></term>
+        <varlistentry>
+          <term><varname>CPE_NAME=</varname></term>
 
-        <listitem><para>A pretty operating system name in a format
-        suitable for presentation to the user. May or may not contain
-        a release code name or OS version of some kind, as suitable.
-        If not set, defaults to
-        <literal>PRETTY_NAME="Linux"</literal>. Example:
-        <literal>PRETTY_NAME="Fedora 17 (Beefy
-        Miracle)"</literal>.</para></listitem>
-      </varlistentry>
+          <listitem><para>A CPE name for the operating system, in URI binding syntax, following the <ulink
+          url="http://scap.nist.gov/specifications/cpe/">Common Platform Enumeration Specification</ulink> as
+          proposed by the NIST. This field is optional.</para>
 
-      <varlistentry>
-        <term><varname>ANSI_COLOR=</varname></term>
+          <para>Example: <literal>CPE_NAME="cpe:/o:fedoraproject:fedora:17"</literal></para></listitem>
+        </varlistentry>
 
-        <listitem><para>A suggested presentation color when showing the OS name on the console. This should
-        be specified as string suitable for inclusion in the ESC [ m ANSI/ECMA-48 escape code for setting
-        graphical rendition. This field is optional.  Example: <literal>ANSI_COLOR="0;31"</literal> for red,
-        <literal>ANSI_COLOR="1;34"</literal> for light blue, or
-        <literal>ANSI_COLOR="0;38;2;60;110;180"</literal> for Fedora blue.</para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><varname>VARIANT=</varname></term>
 
-      <varlistentry>
-        <term><varname>CPE_NAME=</varname></term>
+          <listitem><para>A string identifying a specific variant or edition of the operating system suitable
+          for presentation to the user. This field may be used to inform the user that the configuration of
+          this system is subject to a specific divergent set of rules or default configuration settings. This
+          field is optional and may not be implemented on all systems.</para>
 
-        <listitem><para>A CPE name for the operating system, in URI
-        binding syntax, following the
-        <ulink url="http://scap.nist.gov/specifications/cpe/">Common
-        Platform Enumeration Specification</ulink> as proposed by the
-        NIST. This field is optional. Example:
-        <literal>CPE_NAME="cpe:/o:fedoraproject:fedora:17"</literal>
-        </para></listitem>
-      </varlistentry>
+          <para>Examples: <literal>VARIANT="Server Edition"</literal>, <literal>VARIANT="Smart Refrigerator
+          Edition"</literal>.</para>
 
-      <varlistentry>
-        <term><varname>HOME_URL=</varname></term>
-        <term><varname>DOCUMENTATION_URL=</varname></term>
-        <term><varname>SUPPORT_URL=</varname></term>
-        <term><varname>BUG_REPORT_URL=</varname></term>
-        <term><varname>PRIVACY_POLICY_URL=</varname></term>
+          <para>Note: this field is for display purposes only. The <varname>VARIANT_ID</varname> field should
+          be used for making programmatic decisions.</para></listitem>
+        </varlistentry>
 
-        <listitem><para>Links to resources on the Internet related to
-        the operating system.
-        <varname>HOME_URL=</varname> should refer to the homepage of
-        the operating system, or alternatively some homepage of the
-        specific version of the operating system.
-        <varname>DOCUMENTATION_URL=</varname> should refer to the main
-        documentation page for this operating system.
-        <varname>SUPPORT_URL=</varname> should refer to the main
-        support page for the operating system, if there is any. This
-        is primarily intended for operating systems which vendors
-        provide support for. <varname>BUG_REPORT_URL=</varname> should
-        refer to the main bug reporting page for the operating system,
-        if there is any. This is primarily intended for operating
-        systems that rely on community QA.
-        <varname>PRIVACY_POLICY_URL=</varname> should refer to the
-        main privacy policy page for the operating system, if there is
-        any. These settings are optional, and providing only some of
-        these settings is common. These URLs are intended to be
-        exposed in "About this system" UIs behind links with captions
-        such as "About this Operating System", "Obtain Support",
-        "Report a Bug", or "Privacy Policy". The values should be in
-        <ulink url="https://tools.ietf.org/html/rfc3986">RFC3986
-        format</ulink>, and should be <literal>http:</literal> or
-        <literal>https:</literal> URLs, and possibly
-        <literal>mailto:</literal> or <literal>tel:</literal>. Only
-        one URL shall be listed in each setting. If multiple resources
-        need to be referenced, it is recommended to provide an online
-        landing page linking all available resources. Examples:
-        <literal>HOME_URL="https://fedoraproject.org/"</literal> and
-        <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal></para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><varname>VARIANT_ID=</varname></term>
 
-      <varlistentry>
-        <term><varname>BUILD_ID=</varname></term>
+          <listitem><para>A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_" and
+          "-"), identifying a specific variant or edition of the operating system. This may be interpreted by
+          other packages in order to determine a divergent default configuration. This field is optional and
+          may not be implemented on all systems.</para>
 
-        <listitem><para>A string uniquely identifying the system image
-        used as the origin for a distribution (it is not updated with
-        system updates). The field can be identical between different
-        VERSION_IDs as BUILD_ID is an only a unique identifier to a
-        specific version. Distributions that release each update as a
-        new version would only need to use VERSION_ID as each build is
-        already distinct based on the VERSION_ID. This field is
-        optional. Example: <literal>BUILD_ID="2013-03-20.3"</literal>
-        or <literal>BUILD_ID=201303203</literal>.
+          <para>Examples: <literal>VARIANT_ID=server</literal>, <literal>VARIANT_ID=embedded</literal>.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
 
-        </para></listitem>
-      </varlistentry>
+    <refsect2>
+      <title>Information about the version of the operating system</title>
 
-      <varlistentry>
-        <term><varname>VARIANT=</varname></term>
+      <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><varname>VERSION=</varname></term>
 
-        <listitem><para>
-        A string identifying a specific variant or edition of the
-        operating system suitable for presentation to the user. This
-        field may be used to inform the user that the configuration of
-        this system is subject to a specific divergent set of rules or
-        default configuration settings. This field is optional and may
-        not be implemented on all systems.
-        Examples:
-        <literal>VARIANT="Server Edition"</literal>,
-        <literal>VARIANT="Smart Refrigerator Edition"</literal>
-        Note: this field is for display purposes only. The
-        <varname>VARIANT_ID</varname> field should be used for making
-        programmatic decisions.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>A string identifying the operating system version, excluding any OS name
+          information, possibly including a release code name, and suitable for presentation to the
+          user. This field is optional.</para>
 
-      <varlistentry>
-        <term><varname>VARIANT_ID=</varname></term>
+          <para>Examples: <literal>VERSION=17</literal>, <literal>VERSION="17 (Beefy Miracle)"</literal>.
+          </para></listitem>
+        </varlistentry>
 
-        <listitem><para>
-        A lower-case string (no spaces or other characters outside of
-        0–9, a–z, ".", "_" and "-"), identifying a specific variant or
-        edition of the operating system. This may be interpreted by
-        other packages in order to determine a divergent default
-        configuration. This field is optional and may not be
-        implemented on all systems.
-        Examples:
-        <literal>VARIANT_ID=server</literal>,
-        <literal>VARIANT_ID=embedded</literal>
-        </para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><varname>VERSION_ID=</varname></term>
 
-      <varlistentry>
-        <term><varname>LOGO=</varname></term>
+          <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
+          a–z, ".", "_" and "-") identifying the operating system version, excluding any OS name information
+          or release code name, and suitable for processing by scripts or usage in generated filenames. This
+          field is optional.</para>
 
-        <listitem><para>
-        A string, specifying the name of an icon as defined by <ulink
-        url="http://standards.freedesktop.org/icon-theme-spec/latest">
-        freedesktop.org Icon Theme Specification</ulink>. This can be
-        used by graphical applications to display an operating
-        system's or distributor's logo. This field is optional and
-        may not necessarily be implemented on all systems.
-        Examples:
-        <literal>LOGO=fedora-logo</literal>,
-        <literal>LOGO=distributor-logo-opensuse</literal>
-        </para></listitem>
-      </varlistentry>
+          <para>Examples: <literal>VERSION_ID=17</literal>, <literal>VERSION_ID=11.04</literal>.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><varname>DEFAULT_HOSTNAME=</varname></term>
+        <varlistentry>
+          <term><varname>VERSION_CODENAME=</varname></term>
 
-        <listitem><para>A string specifying the hostname if
-        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry> is not
-        present and no other configuration source specifies the hostname. Must be either a single DNS label
-        (a string composed of 7-bit ASCII lower-case characters and no spaces or dots, limited to the format
-        allowed for DNS domain name labels), or a sequence of such labels separated by single dots that forms
-        a valid DNS FQDN. The hostname must be at most 64 characters, which is a Linux limitation (DNS allows
-        longer names).</para>
+          <listitem><para>A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
+          and "-") identifying the operating system release code name, excluding any OS name information or
+          release version, and suitable for processing by scripts or usage in generated filenames. This field
+          is optional and may not be implemented on all systems.</para>
 
-        <para>See
-        <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for a description of how
-        <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        determines the fallback hostname.</para></listitem>
-      </varlistentry>
+          <para>Examples: <literal>VERSION_CODENAME=buster</literal>,
+          <literal>VERSION_CODENAME=xenial</literal>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><varname>SYSEXT_LEVEL=</varname></term>
+        <varlistentry>
+          <term><varname>BUILD_ID=</varname></term>
 
-        <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
-        a–z, ".", "_" and "-") identifying the operating system extensions support level, to indicate which
-        extension images are supported (See:
-        <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
-        Example: <literal>SYSEXT_LEVEL=2</literal> or
-        <literal>SYSEXT_LEVEL=15.14</literal>.</para></listitem>
-      </varlistentry>
+          <listitem><para>A string uniquely identifying the system image used as the origin for a distribution
+          (it is not updated with system updates). The field can be identical between different
+          <varname>VERSION_ID</varname>s as <varname>BUILD_ID</varname> is an only a unique identifier to a
+          specific version. Distributions that release each update as a new version would only need to use
+          <varname>VERSION_ID</varname> as each build is already distinct based on the
+          <varname>VERSION_ID</varname>. This field is optional.</para>
 
-      <varlistentry>
-        <term><varname>IMAGE_ID=</varname></term>
+          <para>Examples: <literal>BUILD_ID="2013-03-20.3"</literal>, <literal>BUILD_ID=201303203</literal>.
+          </para></listitem>
+        </varlistentry>
 
-        <listitem><para> A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_" and
-        "-"), identifying a specific image of the operating system. This is supposed to be used for
-        environments where OS images are prepared, built, shipped and updated as comprehensive, consistent OS
-        images. This field is optional and may not be implemented on all systems, in particularly not on those
-        that are not managed via images but put together and updated from individual packages and on the
-        local system. Examples: <literal>IMAGE_ID=vendorx-cashier-system</literal>,
-        <literal>IMAGE_ID=netbook-image</literal> </para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><varname>IMAGE_ID=</varname></term>
 
-      <varlistentry>
-        <term><varname>IMAGE_VERSION=</varname></term>
+          <listitem><para> A lower-case string (no spaces or other characters outside of 0–9, a–z, ".", "_"
+          and "-"), identifying a specific image of the operating system. This is supposed to be used for
+          environments where OS images are prepared, built, shipped and updated as comprehensive, consistent
+          OS images. This field is optional and may not be implemented on all systems, in particularly not on
+          those that are not managed via images but put together and updated from individual packages and on
+          the local system.</para>
 
-        <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
-        a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
-        <varname>IMAGE_ID</varname> described above, to discern different versions of the same
-        image. Examples: <literal>IMAGE_VERSION=33</literal>,
-        <literal>IMAGE_VERSION=47.1rc1</literal> </para></listitem>
-      </varlistentry>
+          <para>Examples: <literal>IMAGE_ID=vendorx-cashier-system</literal>,
+          <literal>IMAGE_ID=netbook-image</literal>.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+        <varlistentry>
+          <term><varname>IMAGE_VERSION=</varname></term>
 
-    <para>If you are reading this file from C code or a shell script
-    to determine the OS or a specific version of it, use the
-    <varname>ID</varname> and <varname>VERSION_ID</varname> fields,
-    possibly with <varname>ID_LIKE</varname> as fallback for
-    <varname>ID</varname>. When looking for an OS identification
-    string for presentation to the user use the
-    <varname>PRETTY_NAME</varname> field.</para>
+          <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
+          a–z, ".", "_" and "-") identifying the OS image version. This is supposed to be used together with
+          <varname>IMAGE_ID</varname> described above, to discern different versions of the same image.
+          </para>
 
-    <para>Note that operating system vendors may choose not to provide
-    version information, for example to accommodate for rolling
-    releases. In this case, <varname>VERSION</varname> and
-    <varname>VERSION_ID</varname> may be unset. Applications should
-    not rely on these fields to be set.</para>
+          <para>Examples: <literal>IMAGE_VERSION=33</literal>, <literal>IMAGE_VERSION=47.1rc1</literal>.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
 
-    <para>Operating system vendors may extend the file
-    format and introduce new fields. It is highly
-    recommended to prefix new fields with an OS specific
-    name in order to avoid name clashes. Applications
-    reading this file must ignore unknown fields. Example:
-    <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal></para>
+    <refsect2>
+      <title>Presentation information and links</title>
 
-    <para>Container and sandbox runtime managers may make the host's
-    identification data available to applications by providing the host's
-    <filename>/etc/os-release</filename> (if available, otherwise
-    <filename>/usr/lib/os-release</filename> as a fallback) as
-    <filename>/run/host/os-release</filename>.</para>
+      <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><varname>HOME_URL=</varname></term>
+          <term><varname>DOCUMENTATION_URL=</varname></term>
+          <term><varname>SUPPORT_URL=</varname></term>
+          <term><varname>BUG_REPORT_URL=</varname></term>
+          <term><varname>PRIVACY_POLICY_URL=</varname></term>
+
+          <listitem><para>Links to resources on the Internet related to the operating system.
+          <varname>HOME_URL=</varname> should refer to the homepage of the operating system, or alternatively
+          some homepage of the specific version of the operating system.
+          <varname>DOCUMENTATION_URL=</varname> should refer to the main documentation page for this
+          operating system.  <varname>SUPPORT_URL=</varname> should refer to the main support page for the
+          operating system, if there is any. This is primarily intended for operating systems which vendors
+          provide support for. <varname>BUG_REPORT_URL=</varname> should refer to the main bug reporting page
+          for the operating system, if there is any. This is primarily intended for operating systems that
+          rely on community QA. <varname>PRIVACY_POLICY_URL=</varname> should refer to the main privacy
+          policy page for the operating system, if there is any. These settings are optional, and providing
+          only some of these settings is common. These URLs are intended to be exposed in "About this system"
+          UIs behind links with captions such as "About this Operating System", "Obtain Support", "Report a
+          Bug", or "Privacy Policy". The values should be in <ulink
+          url="https://tools.ietf.org/html/rfc3986">RFC3986 format</ulink>, and should be
+          <literal>http:</literal> or <literal>https:</literal> URLs, and possibly <literal>mailto:</literal>
+          or <literal>tel:</literal>. Only one URL shall be listed in each setting. If multiple resources
+          need to be referenced, it is recommended to provide an online landing page linking all available
+          resources.</para>
+
+          <para>Examples: <literal>HOME_URL="https://fedoraproject.org/"</literal>,
+          <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>LOGO=</varname></term>
+
+          <listitem><para>A string, specifying the name of an icon as defined by <ulink
+          url="http://standards.freedesktop.org/icon-theme-spec/latest">freedesktop.org Icon Theme
+          Specification</ulink>. This can be used by graphical applications to display an operating system's
+          or distributor's logo. This field is optional and may not necessarily be implemented on all
+          systems.</para>
+
+          <para>Examples: <literal>LOGO=fedora-logo</literal>, <literal>LOGO=distributor-logo-opensuse</literal>
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ANSI_COLOR=</varname></term>
+
+          <listitem><para>A suggested presentation color when showing the OS name on the console. This should
+          be specified as string suitable for inclusion in the ESC [ m ANSI/ECMA-48 escape code for setting
+          graphical rendition. This field is optional.</para>
+
+          <para>Examples: <literal>ANSI_COLOR="0;31"</literal> for red, <literal>ANSI_COLOR="1;34"</literal>
+          for light blue, or <literal>ANSI_COLOR="0;38;2;60;110;180"</literal> for Fedora blue.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Distribution-level defaults and metadata</title>
+
+      <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><varname>DEFAULT_HOSTNAME=</varname></term>
+
+          <listitem><para>A string specifying the hostname if
+          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry> is not
+          present and no other configuration source specifies the hostname. Must be either a single DNS label
+          (a string composed of 7-bit ASCII lower-case characters and no spaces or dots, limited to the
+          format allowed for DNS domain name labels), or a sequence of such labels separated by single dots
+          that forms a valid DNS FQDN. The hostname must be at most 64 characters, which is a Linux
+          limitation (DNS allows longer names).</para>
+
+          <para>See <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for a description of how
+          <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          determines the fallback hostname.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SYSEXT_LEVEL=</varname></term>
+
+          <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
+          a–z, ".", "_" and "-") identifying the operating system extensions support level, to indicate which
+          extension images are supported. See:
+          <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+          for more information.</para>
+
+          <para>Examples: <literal>SYSEXT_LEVEL=2</literal>, <literal>SYSEXT_LEVEL=15.14</literal>.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Notes</title>
+
+      <para>If you are reading this file from C code or a shell script to determine the OS or a specific
+      version of it, use the <varname>ID</varname> and <varname>VERSION_ID</varname> fields, possibly with
+      <varname>ID_LIKE</varname> as fallback for <varname>ID</varname>. When looking for an OS identification
+      string for presentation to the user use the <varname>PRETTY_NAME</varname> field.</para>
+
+      <para>Note that operating system vendors may choose not to provide version information, for example to
+      accommodate for rolling releases. In this case, <varname>VERSION</varname> and
+      <varname>VERSION_ID</varname> may be unset. Applications should not rely on these fields to be
+      set.</para>
+
+      <para>Operating system vendors may extend the file format and introduce new fields. It is highly
+      recommended to prefix new fields with an OS specific name in order to avoid name clashes. Applications
+      reading this file must ignore unknown fields.</para>
+
+      <para>Example: <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal>.</para>
+
+      <para>Container and sandbox runtime managers may make the host's identification data available to
+      applications by providing the host's <filename>/etc/os-release</filename> (if available, otherwise
+      <filename>/usr/lib/os-release</filename> as a fallback) as
+      <filename>/run/host/os-release</filename>.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
