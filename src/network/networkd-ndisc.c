@@ -23,7 +23,6 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
-#define NDISC_PREFIX_LFT_MIN 7200U
 
 #define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3
 
@@ -755,7 +754,7 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
 }
 
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
-        uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
+        uint32_t lifetime_valid, lifetime_preferred;
         _cleanup_set_free_free_ Set *addresses = NULL;
         struct in6_addr addr, *a;
         unsigned prefixlen;
@@ -777,6 +776,11 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix valid lifetime: %m");
 
+        if (lifetime_valid == 0) {
+                log_link_debug(link, "Ignoring prefix as its valid lifetime is zero.");
+                return 0;
+        }
+
         r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
@@ -795,35 +799,29 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         SET_FOREACH(a, addresses) {
                 _cleanup_(address_freep) Address *address = NULL;
-                Address *existing_address;
+                Address *e;
 
                 r = address_new(&address);
                 if (r < 0)
                         return log_oom();
 
                 address->family = AF_INET6;
+                address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
+                address->cinfo.ifa_valid = lifetime_valid;
                 address->cinfo.ifa_prefered = lifetime_preferred;
-                address->in_addr.in6 = *a;
 
-                /* see RFC4862 section 5.5.3.e */
-                r = address_get(link, address, &existing_address);
+                /* See RFC4862, section 5.5.3.e. But the following logic is deviated from RFC4862 by
+                 * honoring all valid lifetimes to improve the reaction of SLAAC to renumbering events.
+                 * See draft-ietf-6man-slaac-renum-02, section 4.2. */
+                r = address_get(link, address, &e);
                 if (r > 0) {
-                        lifetime_remaining = existing_address->cinfo.tstamp / 100 + existing_address->cinfo.ifa_valid - time_now / USEC_PER_SEC;
-                        if (lifetime_valid > NDISC_PREFIX_LFT_MIN || lifetime_valid > lifetime_remaining)
-                                address->cinfo.ifa_valid = lifetime_valid;
-                        else if (lifetime_remaining <= NDISC_PREFIX_LFT_MIN)
-                                address->cinfo.ifa_valid = lifetime_remaining;
-                        else
-                                address->cinfo.ifa_valid = NDISC_PREFIX_LFT_MIN;
-                } else if (lifetime_valid > 0)
-                        address->cinfo.ifa_valid = lifetime_valid;
-                else
-                        continue; /* see RFC4862 section 5.5.3.d */
-
-                if (address->cinfo.ifa_valid == 0)
-                        continue;
+                        /* If the address is already assigned, but not valid anymore, then refuse to
+                         * update the address. */
+                        if (e->cinfo.tstamp / 100 + e->cinfo.ifa_valid < time_now / USEC_PER_SEC)
+                                continue;
+                }
 
                 r = ndisc_request_address(TAKE_PTR(address), link, rt);
                 if (r < 0)
