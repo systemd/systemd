@@ -533,7 +533,6 @@ static int load_sysv(SysvStub *s) {
                          * continuation */
 
                         size_t k;
-                        char *j;
 
                         k = strlen(t);
                         if (k > 0 && t[k-1] == '\\')
@@ -541,20 +540,8 @@ static int load_sysv(SysvStub *s) {
                         else
                                 state = NORMAL;
 
-                        j = strstrip(t);
-                        if (!isempty(j)) {
-                                char *d = NULL;
-
-                                if (chkconfig_description)
-                                        d = strjoin(chkconfig_description, " ", j);
-                                else
-                                        d = strdup(j);
-                                if (!d)
-                                        return log_oom();
-
-                                free(chkconfig_description);
-                                chkconfig_description = d;
-                        }
+                        if (!strextend_with_separator(&chkconfig_description, " ", empty_to_null(strstrip(t))))
+                                return log_oom();
 
                 } else if (IN_SET(state, LSB, LSB_DESCRIPTION)) {
 
@@ -601,22 +588,8 @@ static int load_sysv(SysvStub *s) {
                         } else if (state == LSB_DESCRIPTION) {
 
                                 if (startswith(l, "#\t") || startswith(l, "#  ")) {
-                                        const char *j;
-
-                                        j = strstrip(t);
-                                        if (!isempty(j)) {
-                                                char *d = NULL;
-
-                                                if (long_description)
-                                                        d = strjoin(long_description, " ", t);
-                                                else
-                                                        d = strdup(j);
-                                                if (!d)
-                                                        return log_oom();
-
-                                                free(long_description);
-                                                long_description = d;
-                                        }
+                                        if (!strextend_with_separator(&long_description, " ", empty_to_null(strstrip(t))))
+                                                return log_oom();
 
                                 } else
                                         state = LSB;
