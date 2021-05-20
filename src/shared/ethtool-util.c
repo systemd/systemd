@@ -805,12 +805,6 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
         return 0;
 }
 
-/* If autonegotiation is disabled, the speed and duplex represent the fixed link
- * mode and are writable if the driver supports multiple link modes. If it is
- * enabled then they are read-only. If the link is up they represent the negotiated
- * link mode; if the link is down, the speed is 0, %SPEED_UNKNOWN or the highest
- * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
- */
 int ethtool_set_glinksettings(
                 int *fd,
                 const char *ifname,
@@ -827,6 +821,12 @@ int ethtool_set_glinksettings(
         assert(fd);
         assert(ifname);
         assert(advertise);
+
+        /* If autonegotiation is disabled, the speed and duplex represent the fixed link mode and are
+         * writable if the driver supports multiple link modes. If it is enabled then they are
+         * read-only. If the link is up they represent the negotiated link mode; if the link is down,
+         * the speed is 0, %SPEED_UNKNOWN or the highest enabled speed and @duplex is %DUPLEX_UNKNOWN
+         * or the best enabled duplex mode. */
 
         if (autonegotiation != AUTONEG_DISABLE && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
                 log_debug("ethtool: autonegotiation is unset or enabled, the speed and duplex are not writable.");
