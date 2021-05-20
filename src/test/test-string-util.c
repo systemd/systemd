@@ -984,6 +984,20 @@ static void test_strextendf(void) {
 
         assert_se(strextendf(&p, "<%08x>", 0x1234) >= 0);
         assert_se(streq(p, "<77><99><                                                                              88><00001234>"));
+
+        p = mfree(p);
+
+        assert_se(strextendf_with_separator(&p, ",", "<%i>", 77) >= 0);
+        assert_se(streq(p, "<77>"));
+
+        assert_se(strextendf_with_separator(&p, ",", "<%i>", 99) >= 0);
+        assert_se(streq(p, "<77>,<99>"));
+
+        assert_se(strextendf_with_separator(&p, ",", "<%80i>", 88) >= 0);
+        assert_se(streq(p, "<77>,<99>,<                                                                              88>"));
+
+        assert_se(strextendf_with_separator(&p, ",", "<%08x>", 0x1234) >= 0);
+        assert_se(streq(p, "<77>,<99>,<                                                                              88>,<00001234>"));
 }
 
 int main(int argc, char *argv[]) {
