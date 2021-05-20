@@ -206,6 +206,9 @@ int journal_directory_vacuum(
                 } else if (endswith(de->d_name, ".journal~")) {
                         unsigned long long tmp;
 
+                        /* seqnum_id won't be initialised before use below, so set to 0 */
+                        seqnum_id = SD_ID128_NULL;
+
                         /* Vacuum corrupted files */
 
                         if (q < 1 + 16 + 1 + 16 + 8 + 1) {
