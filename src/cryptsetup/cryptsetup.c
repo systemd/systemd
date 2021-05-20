@@ -996,6 +996,32 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         return 0;
 }
 
+static int attach_luks2_by_pkcs11(
+                struct crypt_device *cd,
+                const char *name,
+                const char *friendly_name,
+                usec_t until,
+                bool headless,
+                uint32_t flags) {
+
+        int r = -ENOTSUP;
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+        if (!crypt_get_type(cd) || strcmp(crypt_get_type(cd), CRYPT_LUKS2))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Automatic PKCS#11 metadata requires LUKS2 device.");
+
+        systemd_pkcs11_plugin_params params = {
+                .friendly_name = friendly_name,
+                .until = until,
+                .headless = headless
+        };
+
+        r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
+        if (r > 0) /* returns unlocked keyslot id on success */
+                r = 0;
+#endif
+        return r;
+}
+
 static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 struct crypt_device *cd,
                 const char *name,
@@ -1013,23 +1039,26 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ void *discovered_key = NULL;
         int keyslot = arg_key_slot, r;
-        const char *uri;
+        const char *uri = NULL;
+        bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
 
         assert(cd);
         assert(name);
         assert(arg_pkcs11_uri || arg_pkcs11_uri_auto);
 
         if (arg_pkcs11_uri_auto) {
-                r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
-                if (IN_SET(r, -ENOTUNIQ, -ENXIO))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
-                if (r < 0)
-                        return r;
+                if (!use_libcryptsetup_plugin) {
+                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
+                        if (IN_SET(r, -ENOTUNIQ, -ENXIO))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                        if (r < 0)
+                                return r;
 
-                uri = discovered_uri;
-                key_data = discovered_key;
-                key_data_size = discovered_key_size;
+                        uri = discovered_uri;
+                        key_data = discovered_key;
+                        key_data_size = discovered_key_size;
+                }
         } else {
                 uri = arg_pkcs11_uri;
 
@@ -1044,17 +1073,22 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         for (;;) {
                 bool processed = false;
 
-                r = decrypt_pkcs11_key(
-                                name,
-                                friendly,
-                                uri,
-                                key_file, arg_keyfile_size, arg_keyfile_offset,
-                                key_data, key_data_size,
-                                until,
-                                arg_headless,
-                                &decrypted_key, &decrypted_key_size);
-                if (r >= 0)
-                        break;
+                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
+                        r = attach_luks2_by_pkcs11(cd, name, friendly, until, arg_headless, flags);
+                else {
+                        r = decrypt_pkcs11_key(
+                                        name,
+                                        friendly,
+                                        uri,
+                                        key_file, arg_keyfile_size, arg_keyfile_offset,
+                                        key_data, key_data_size,
+                                        until,
+                                        arg_headless,
+                                        &decrypted_key, &decrypted_key_size);
+                        if (r >= 0)
+                                break;
+                }
+
                 if (r != -EAGAIN) /* EAGAIN means: token not found */
                         return r;
 
@@ -1094,6 +1128,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
                 log_debug("Got one or more potentially relevant udev events, rescanning PKCS#11...");
         }
+        assert(decrypted_key);
 
         if (pass_volume_key)
                 r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
