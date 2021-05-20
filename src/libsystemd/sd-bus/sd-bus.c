@@ -1574,18 +1574,12 @@ int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
                         return -ENOMEM;
 
                 if (user) {
-                        char *k;
-
                         /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
                          * available in recent systemd versions. Using the "-p" switch with the explicit path
                          * is a working alternative, and is compatible with older versions, hence that's what
                          * we use here. */
-
-                        k = strjoin(a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus");
-                        if (!k)
+                        if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
                                 return -ENOMEM;
-
-                        free_and_replace(a, k);
                 }
         } else {
                 _cleanup_free_ char *e = NULL;
