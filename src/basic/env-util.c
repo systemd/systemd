@@ -572,11 +572,8 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 t = strv_env_get_n(env, word+2, e-word-2, flags);
 
-                                k = strjoin(r, t);
-                                if (!k)
+                                if (!strextend(&r, t))
                                         return NULL;
-
-                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
@@ -627,11 +624,8 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 else if (!t && state == DEFAULT_VALUE)
                                         t = v = replace_env_n(test_value, e-test_value, env, flags);
 
-                                k = strjoin(r, t);
-                                if (!k)
+                                if (!strextend(&r, t))
                                         return NULL;
-
-                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
@@ -646,11 +640,8 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 t = strv_env_get_n(env, word+1, e-word-1, flags);
 
-                                k = strjoin(r, t);
-                                if (!k)
+                                if (!strextend(&r, t))
                                         return NULL;
-
-                                free_and_replace(r, k);
 
                                 word = e--;
                                 i--;
