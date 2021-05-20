@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "networkd-link.h"
+#include "networkd-setlink.h"
 
 typedef struct Address Address;
 typedef struct AddressLabel AddressLabel;
@@ -30,9 +31,12 @@ typedef enum RequestType {
         REQUEST_TYPE_NEXTHOP,
         REQUEST_TYPE_ROUTE,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
+        REQUEST_TYPE_SET_LINK,
         _REQUEST_TYPE_MAX,
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;
+
+assert_cc(sizeof(SetLinkOperation) <= sizeof(void*));
 
 typedef struct Request {
         Link *link;
@@ -48,6 +52,7 @@ typedef struct Request {
                 NextHop *nexthop;
                 Route *route;
                 RoutingPolicyRule *rule;
+                SetLinkOperation set_link_operation;
                 void *object;
         };
         void *userdata;
