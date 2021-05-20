@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="os-release">
+<refentry id="os-release" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>os-release</title>
     <productname>systemd</productname>
@@ -363,8 +363,8 @@
     <refsect2>
       <title>Notes</title>
 
-      <para>If you are reading this file from C code or a shell script to determine the OS or a specific
-      version of it, use the <varname>ID</varname> and <varname>VERSION_ID</varname> fields, possibly with
+      <para>If you are using this file to determine the OS or a specific version of it, use the
+      <varname>ID</varname> and <varname>VERSION_ID</varname> fields, possibly with
       <varname>ID_LIKE</varname> as fallback for <varname>ID</varname>. When looking for an OS identification
       string for presentation to the user use the <varname>PRETTY_NAME</varname> field.</para>
 
@@ -387,9 +387,12 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
 
-    <programlisting>NAME=Fedora
+    <example>
+      <title><filename>os-release</filename> file for Fedora Workstation</title>
+
+      <programlisting>NAME=Fedora
 VERSION="32 (Workstation Edition)"
 ID=fedora
 VERSION_ID=32
@@ -408,6 +411,14 @@ REDHAT_SUPPORT_PRODUCT_VERSION=32
 PRIVACY_POLICY_URL="https://fedoraproject.org/wiki/Legal:PrivacyPolicy"
 VARIANT="Workstation Edition"
 VARIANT_ID=workstation</programlisting>
+    </example>
+
+    <example>
+      <title>Reading <filename>os-release</filename> in
+      <citerefentry><refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum></citerefentry></title>
+
+      <programlisting><xi:include href="check-os-release.sh" parse="text" /></programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
