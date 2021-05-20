@@ -95,6 +95,7 @@ typedef struct Link {
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
+        unsigned set_link_messages;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -136,6 +137,7 @@ typedef struct Link {
         bool sr_iov_configured:1;
         bool can_configured:1;
         bool activated:1;
+        bool entering_to_join_netdev:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -218,6 +220,7 @@ int link_up(Link *link);
 int link_down(Link *link, link_netlink_message_handler_t callback);
 int link_activate(Link *link);
 
+int link_enter_join_netdev(Link *link);
 void link_enter_failed(Link *link);
 
 void link_set_state(Link *link, LinkState state);
@@ -231,8 +234,6 @@ bool link_has_carrier(Link *link);
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
-
-int link_set_mtu(Link *link, uint32_t mtu);
 
 bool link_ipv4ll_enabled(Link *link);
 
