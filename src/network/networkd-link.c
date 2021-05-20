@@ -27,18 +27,18 @@
 #include "network-internal.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
-#include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -744,6 +744,18 @@ void link_check_ready(Link *link) {
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
+        if (!link->static_address_labels_configured)
+                return (void) log_link_debug(link, "%s(): static address labels are not configured.", __func__);
+
+        if (!link->static_bridge_fdb_configured)
+                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+
+        if (!link->static_bridge_mdb_configured)
+                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+
+        if (!link->static_ipv6_proxy_ndp_configured)
+                return (void) log_link_debug(link, "%s(): static IPv6 proxy NDP addresses are not configured.", __func__);
+
         if (!link->static_neighbors_configured)
                 return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
@@ -761,9 +773,6 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
-
-        if (!link->bridge_mdb_configured)
-                return (void) log_link_debug(link, "%s(): Bridge MDB is not configured.", __func__);
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
                 bool has_ndisc_address = false;
@@ -810,30 +819,30 @@ void link_check_ready(Link *link) {
         link_enter_configured(link);
 }
 
-static int link_set_static_configs(Link *link) {
+static int link_request_static_configs(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        r = link_set_bridge_fdb(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_bridge_mdb(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_proxy_ndp_addresses(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_address_labels(link);
-        if (r < 0)
-                return r;
-
         r = link_request_static_addresses(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_address_labels(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_bridge_fdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_bridge_mdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
 
@@ -850,6 +859,10 @@ static int link_set_static_configs(Link *link) {
                 return r;
 
         r = link_request_static_routing_policy_rules(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_dhcp_server(link);
         if (r < 0)
                 return r;
 
@@ -1145,7 +1158,7 @@ static int link_set_flags(Link *link) {
         return 0;
 }
 
-static int link_acquire_ipv6_conf(Link *link) {
+static int link_acquire_dynamic_ipv6_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1180,7 +1193,7 @@ static int link_acquire_ipv6_conf(Link *link) {
         return 0;
 }
 
-static int link_acquire_ipv4_conf(Link *link) {
+static int link_acquire_dynamic_ipv4_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1200,20 +1213,26 @@ static int link_acquire_ipv4_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
         }
 
+        if (link->dhcp_server) {
+                r = sd_dhcp_server_start(link->dhcp_server);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
+        }
+
         return 0;
 }
 
-static int link_acquire_conf(Link *link) {
+static int link_acquire_dynamic_conf(Link *link) {
         int r;
 
         assert(link);
 
-        r = link_acquire_ipv4_conf(link);
+        r = link_acquire_dynamic_ipv4_conf(link);
         if (r < 0)
                 return r;
 
         if (in6_addr_is_set(&link->ipv6ll_address)) {
-                r = link_acquire_ipv6_conf(link);
+                r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0)
                         return r;
         }
@@ -1808,6 +1827,8 @@ static int link_joined(Link *link) {
         if (r < 0)
                 return r;
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
         if (link->network->bridge) {
                 r = link_set_bridge(link);
                 if (r < 0)
@@ -1832,19 +1853,14 @@ static int link_joined(Link *link) {
         if (r < 0)
                 log_link_error_errno(link, r, "Could not set bridge vlan: %m");
 
-        /* Skip setting up addresses until it gets carrier,
-           or it would try to set addresses twice,
-           which is bad for non-idempotent steps. */
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                return 0;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        r = link_acquire_conf(link);
+        r = link_request_static_configs(link);
         if (r < 0)
                 return r;
 
-        return link_set_static_configs(link);
+        if (!link_has_carrier(link))
+                return 0;
+
+        return link_acquire_dynamic_conf(link);
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2689,7 +2705,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
         link_check_ready(link);
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_ipv6_conf(link);
+                r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
@@ -2764,49 +2780,21 @@ static int link_carrier_gained(Link *link) {
                 return r;
         if (r > 0) {
                 r = link_reconfigure(link, false);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
         }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_conf(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                r = link_acquire_dynamic_conf(link);
+                if (r < 0)
                         return r;
-                }
 
-                link_set_state(link, LINK_STATE_CONFIGURING);
-                r = link_set_static_configs(link);
+                r = link_request_static_configs(link);
                 if (r < 0)
                         return r;
         }
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        if (!link->bridge_mdb_configured) {
-                r = link_set_bridge_mdb(link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (streq_ptr(link->kind, "bridge")) {
-                Link *slave;
-
-                SET_FOREACH(slave, link->slaves) {
-                        if (slave->bridge_mdb_configured)
-                                continue;
-
-                        r = link_set_bridge_mdb(slave);
-                        if (r < 0)
-                                link_enter_failed(slave);
-                }
-        }
-
-        return 0;
+        return link_handle_bound_by_list(link);
 }
 
 static int link_carrier_lost(Link *link) {
@@ -3138,7 +3126,8 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
 
                 r = link_update(link, message);
                 if (r < 0) {
-                        log_warning_errno(r, "Could not process link message, ignoring: %m");
+                        log_warning_errno(r, "Could not process link message: %m");
+                        link_enter_failed(link);
                         return 0;
                 }
 

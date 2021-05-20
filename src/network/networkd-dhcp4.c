@@ -208,7 +208,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
                                dhcp4_route_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->after_configure = dhcp4_after_route_configure;
@@ -1064,6 +1064,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                  dhcp4_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp4_after_address_configure;
 
