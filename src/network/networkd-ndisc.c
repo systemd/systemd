@@ -888,14 +888,14 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 
         r = sd_ndisc_router_route_get_lifetime(rt, &lifetime);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get gateway lifetime from RA: %m");
+                return log_link_error_errno(link, r, "Failed to get route lifetime from RA: %m");
 
         if (lifetime == 0)
                 return 0;
 
         r = sd_ndisc_router_route_get_address(rt, &dst);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get route address: %m");
+                return log_link_error_errno(link, r, "Failed to get route destination address: %m");
 
         if ((!set_isempty(link->network->ndisc_allow_listed_route_prefix) &&
              !set_contains(link->network->ndisc_allow_listed_route_prefix, &dst)) ||
