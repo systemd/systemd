@@ -380,7 +380,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         assert(ethtool_fd);
         assert(ifname);
 
-        if (wol == _WOL_INVALID)
+        if (wol < 0)
                 return 0;
 
         if (*ethtool_fd < 0) {
