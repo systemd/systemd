@@ -39,4 +39,20 @@ cryptsetup_token_systemd_fido2_static = static_library(
         dependencies : libshared_deps + [libcryptsetup],
         c_args : cryptsetup_token_c_args)
 
+cryptsetup_token_systemd_pkcs11_sources = files('''
+        cryptsetup-token-systemd-pkcs11.c
+        cryptsetup-token.h
+        cryptsetup-token-util.h
+        cryptsetup-token-util.c
+        luks2-pkcs11.c
+        luks2-pkcs11.h
+'''.split())
+
+cryptsetup_token_systemd_pkcs11_static = static_library(
+        'cryptsetup-token-systemd-pkcs11_static',
+        cryptsetup_token_systemd_pkcs11_sources,
+        include_directories : includes,
+        dependencies : libshared_deps + [libcryptsetup],
+        c_args : cryptsetup_token_c_args)
+
 endif
