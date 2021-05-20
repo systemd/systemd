@@ -2074,7 +2074,7 @@ static int link_drop_config(Link *link) {
         return r;
 }
 
-int link_configure(Link *link) {
+static int link_configure(Link *link) {
         int r;
 
         assert(link);
