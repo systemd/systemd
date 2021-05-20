@@ -151,7 +151,8 @@ int journal_directory_vacuum(
 
                 unsigned long long seqnum = 0, realtime;
                 _cleanup_free_ char *p = NULL;
-                sd_id128_t seqnum_id;
+                /* If the journal file is archived, seqnum_id won't be initialised before use, so set to 0 */
+                sd_id128_t seqnum_id = SD_ID128_MAKE(00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00);
                 bool have_seqnum;
                 uint64_t size;
                 struct stat st;
