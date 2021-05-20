@@ -1645,16 +1645,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '00:11:22:33:44:55 dst 10.0.0.5 self permanent')
         self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
-        self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 self permanent')
+        self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 via test1 self permanent')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'vxlan99', env=env)
         print(output)
         self.assertRegex(output, 'VNI: 999')
         self.assertRegex(output, 'Destination Port: 5555')
         self.assertRegex(output, 'Underlying Device: test1')
-
-        output = check_output('ip -d link show vxlan98')
-        print(output)
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
