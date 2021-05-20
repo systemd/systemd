@@ -773,13 +773,17 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 MultipathRoute *m;
 
                 ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                        _cleanup_free_ char *buf = NULL, *joined = NULL;
+                        _cleanup_free_ char *buf = NULL;
                         union in_addr_union a = m->gateway.address;
 
                         (void) in_addr_to_string(m->gateway.family, &a, &buf);
-                        joined = strjoin(gw_alloc, gw_alloc ? "," : "", strna(buf), m->ifname ? "@" : "", strempty(m->ifname));
-                        if (joined)
-                                free_and_replace(gw_alloc, joined);
+                        (void) strextend_with_separator(&gw_alloc, ",", strna(buf));
+                        if (m->ifname)
+                                (void) strextend(&gw_alloc, "@", m->ifname);
+                        else if (m->ifindex > 0)
+                                (void) strextendf(&gw_alloc, "@%"PRIu32, m->ifindex);
+                        /* See comments in config_parse_multipath_route(). */
+                        (void) strextendf(&gw_alloc, ":%"PRIu32, m->weight + 1);
                 }
                 gw = gw_alloc;
         }
