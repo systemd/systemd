@@ -319,7 +319,7 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         assert(ethtool_fd);
         assert(ifname);
 
-        if (speed == 0 && duplex == _DUP_INVALID)
+        if (speed == 0 && duplex < 0)
                 return 0;
 
         if (*ethtool_fd < 0) {
@@ -334,7 +334,7 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         if (r < 0)
                 return -errno;
 
-        if (ethtool_cmd_speed(&ecmd) != speed) {
+        if (speed > 0 && ethtool_cmd_speed(&ecmd) != speed) {
                 ethtool_cmd_speed_set(&ecmd, speed);
                 need_update = true;
         }
