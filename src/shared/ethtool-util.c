@@ -828,9 +828,16 @@ int ethtool_set_glinksettings(
          * the speed is 0, %SPEED_UNKNOWN or the highest enabled speed and @duplex is %DUPLEX_UNKNOWN
          * or the best enabled duplex mode. */
 
-        if (autonegotiation != AUTONEG_DISABLE && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
-                log_debug("ethtool: autonegotiation is unset or enabled, the speed and duplex are not writable.");
-                return 0;
+        if (speed > 0 || duplex >= 0 || port >= 0) {
+                if (autonegotiation == AUTONEG_ENABLE || !memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
+                        log_debug("ethtool: autonegotiation is enabled, ignoring speed, duplex, or port settings.");
+                        speed = 0;
+                        duplex = _DUP_INVALID;
+                        port = _NET_DEV_PORT_INVALID;
+                } else {
+                        log_debug("ethtool: setting speed, duplex, or port, disabling autonegotiation.");
+                        autonegotiation = AUTONEG_DISABLE;
+                }
         }
 
         r = ethtool_connect(fd);
