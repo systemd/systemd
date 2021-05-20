@@ -18,6 +18,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "compress.h"
@@ -42,6 +43,7 @@
 #include "socket-util.h"
 #include "special.h"
 #include "stacktrace.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -322,6 +324,84 @@ static int make_filename(const Context *context, char **ret) {
         return 0;
 }
 
+static int get_cgroup_memory_limit(uint64_t *ret_max_size) {
+        uint64_t unit_memory_current = 0, unit_memory_max = 0, slice_memory_current = 0, slice_memory_max = 0;
+        _cleanup_free_ char *unit = NULL, *unit_path = NULL, *slice = NULL, *slice_path = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(ret_max_size);
+
+        r = sd_pid_get_unit(0, &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current unit name: %m");
+
+        r = sd_bus_path_encode("/org/freedesktop/systemd1/unit", unit, &unit_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to encode unit %s DBUS path: %m", unit);
+
+        r = sd_pid_get_slice(0, &slice);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current slice name: %m");
+
+        r = sd_bus_path_encode("/org/freedesktop/systemd1/unit", slice, &slice_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to encode unit %s DBUS path: %m", slice);
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.systemd1.Service",
+                        "MemoryCurrent",
+                        &error,
+                        't', &unit_memory_current);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current unit memory usage: %s", bus_error_message(&error, r));
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.systemd1.Service",
+                        "MemoryMax",
+                        &error,
+                        't', &unit_memory_max);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unit memory limit: %s", bus_error_message(&error, r));
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        slice_path,
+                        "org.freedesktop.systemd1.Slice",
+                        "MemoryMax",
+                        &error,
+                        't', &slice_memory_max);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get slice memory limit: %s", bus_error_message(&error, r));
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        slice_path,
+                        "org.freedesktop.systemd1.Slice",
+                        "MemoryCurrent",
+                        &error,
+                        't', &slice_memory_current);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get current slice memory usage: %s", bus_error_message(&error, r));
+
+        *ret_max_size = MIN(unit_memory_max - unit_memory_current, slice_memory_max - slice_memory_current);
+
+        return 0;
+}
+
 static int save_external_coredump(
                 const Context *context,
                 int input_fd,
@@ -329,11 +409,14 @@ static int save_external_coredump(
                 int *ret_node_fd,
                 int *ret_data_fd,
                 uint64_t *ret_size,
+                uint64_t *ret_compressed_size,
                 bool *ret_truncated) {
 
-        _cleanup_free_ char *fn = NULL, *tmp = NULL;
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *fn = NULL;
         _cleanup_close_ int fd = -1;
         uint64_t rlimit, process_limit, max_size;
+        bool truncated, storage_on_tmpfs;
         struct stat st;
         uid_t uid;
         int r;
@@ -343,6 +426,8 @@ static int save_external_coredump(
         assert(ret_node_fd);
         assert(ret_data_fd);
         assert(ret_size);
+        assert(ret_compressed_size);
+        assert(ret_truncated);
 
         r = parse_uid(context->meta[META_ARGV_UID], &uid);
         if (r < 0)
@@ -379,92 +464,120 @@ static int save_external_coredump(
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
 
-        r = copy_bytes(input_fd, fd, max_size, 0);
-        if (r < 0) {
-                log_error_errno(r, "Cannot store coredump of %s (%s): %m",
-                                context->meta[META_ARGV_PID], context->meta[META_COMM]);
-                goto fail;
+        /* If storage is on tmpfs, the kernel oomd might kill us if there's MemoryMax set on
+         * the service or the slice it belongs to. This is common on low-resources systems,
+         * to avoid crashing processes to take away too many system resources.
+         * Check the cgroup settings, and set max_size to a bit less than half of the
+         * available memory left to the process.
+         * Then, attempt to write the core file uncompressed first - if the write gets
+         * interrupted, we know we won't be able to write it all, so instead compress what
+         * was written so far, delete the uncompressed truncated core, and then continue
+         * compressing from STDIN. Given the compressed core cannot be larger than the
+         * uncompressed one, and 1KB for metadata is accounted for in the calculation, we
+         * should be able to at least store che full compressed core file. */
+
+        storage_on_tmpfs = fd_is_temporary_fs(fd);
+        if (storage_on_tmpfs && arg_compress) {
+                uint64_t cgroup_limit = UINT64_MAX;
+
+                /* If we can't get the cgroup limit, just ignore it, but don't fail,
+                 * try anyway with the config settings. */
+                r = get_cgroup_memory_limit(&cgroup_limit);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get current cgroup memory limit, "
+                                           "fallback to static config settings: %m");
+
+                max_size = MIN(cgroup_limit, max_size);
+                max_size = (max_size - 1024) / 2; /* Account for 1KB metadata overhead for compressing */
+
+                log_debug("Setting max_size to limiting  writes to %" PRIu64 " bytes.", max_size);
         }
-        *ret_truncated = r == 1;
-        if (*ret_truncated)
+
+        r = copy_bytes(input_fd, fd, max_size, 0);
+        if (r < 0)
+                return log_error_errno(r, "Cannot store coredump of %s (%s): %m",
+                                context->meta[META_ARGV_PID], context->meta[META_COMM]);
+        truncated = r == 1;
+
+#if HAVE_COMPRESSION
+        if (arg_compress) {
+                _cleanup_(unlink_and_freep) char *tmp_compressed = NULL;
+                _cleanup_free_ char *fn_compressed = NULL;
+                _cleanup_close_ int fd_compressed = -1;
+                uint64_t uncompressed_size = 0;
+
+                if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
+
+                fn_compressed = strjoin(fn, COMPRESSED_EXT);
+                if (!fn_compressed)
+                        return log_oom();
+
+                fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR|O_CLOEXEC, &tmp_compressed);
+                if (fd_compressed < 0)
+                        return log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
+
+                r = compress_stream(fd, fd_compressed, max_size, &uncompressed_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
+
+                if (truncated && storage_on_tmpfs) {
+                        uint64_t partial_uncompressed_size = 0;
+
+                        /* Uncompressed write was truncated and we are writing to tmpfs: delete
+                         * the uncompressed core, and compress the remaining part from STDIN. */
+
+                        fn = unlink_and_free(fn);
+                        fd = safe_close(fd);
+
+                        r = compress_stream(input_fd, fd_compressed, max_size, &partial_uncompressed_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
+                        uncompressed_size += partial_uncompressed_size;
+                }
+
+                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid);
+                if (r < 0)
+                        return r;
+
+                if (fstat(fd_compressed, &st) < 0)
+                        return log_error_errno(errno,
+                                        "Failed to fstat core file %s: %m",
+                                        coredump_tmpfile_name(tmp_compressed));
+
+                *ret_filename = TAKE_PTR(fn_compressed);       /* compressed */
+                *ret_node_fd = TAKE_FD(fd_compressed);         /* compressed */
+                *ret_compressed_size = (uint64_t) st.st_size;  /* compressed */
+                *ret_data_fd = TAKE_FD(fd);
+                *ret_size = uncompressed_size;
+                *ret_truncated = truncated;
+                tmp_compressed = mfree(tmp_compressed);
+
+                return 0;
+        }
+#endif
+
+        if (truncated)
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
                            "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
-        if (fstat(fd, &st) < 0) {
-                log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
-                goto fail;
-        }
-
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1) {
-                log_error_errno(errno, "Failed to seek on %s: %m", coredump_tmpfile_name(tmp));
-                goto fail;
-        }
-
-#if HAVE_COMPRESSION
-        /* If we will remove the coredump anyway, do not compress. */
-        if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
-
-                _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
-                _cleanup_close_ int fd_compressed = -1;
-
-                fn_compressed = strjoin(fn, COMPRESSED_EXT);
-                if (!fn_compressed) {
-                        log_oom();
-                        goto uncompressed;
-                }
-
-                fd_compressed = open_tmpfile_linkable(fn_compressed, O_RDWR|O_CLOEXEC, &tmp_compressed);
-                if (fd_compressed < 0) {
-                        log_error_errno(fd_compressed, "Failed to create temporary file for coredump %s: %m", fn_compressed);
-                        goto uncompressed;
-                }
-
-                r = compress_stream(fd, fd_compressed, -1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to compress %s: %m", coredump_tmpfile_name(tmp_compressed));
-                        goto fail_compressed;
-                }
-
-                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid);
-                if (r < 0)
-                        goto fail_compressed;
-
-                /* OK, this worked, we can get rid of the uncompressed version now */
-                if (tmp)
-                        unlink_noerrno(tmp);
-
-                *ret_filename = TAKE_PTR(fn_compressed);  /* compressed */
-                *ret_node_fd = TAKE_FD(fd_compressed);    /* compressed */
-                *ret_data_fd = TAKE_FD(fd);               /* uncompressed */
-                *ret_size = (uint64_t) st.st_size;        /* uncompressed */
-
-                return 0;
-
-        fail_compressed:
-                if (tmp_compressed)
-                        (void) unlink(tmp_compressed);
-        }
-
-uncompressed:
-#endif
-
         r = fix_permissions(fd, tmp, fn, context, uid);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to fix permissions and finalize coredump %s into %s: %m", coredump_tmpfile_name(tmp), fn);
 
-        *ret_filename = TAKE_PTR(fn);
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
+
+        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
+
         *ret_data_fd = TAKE_FD(fd);
-        *ret_node_fd = -1;
         *ret_size = (uint64_t) st.st_size;
+        *ret_truncated = truncated;
 
         return 0;
-
-fail:
-        if (tmp)
-                (void) unlink(tmp);
-        return r;
 }
 
 static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_size) {
@@ -709,7 +822,7 @@ static int submit_coredump(
         _cleanup_free_ char *stacktrace = NULL;
         char *core_message;
         const char *module_name;
-        uint64_t coredump_size = UINT64_MAX;
+        uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false;
         JsonVariant *module_json;
         int r;
@@ -722,7 +835,8 @@ static int submit_coredump(
 
         /* Always stream the coredump to disk, if that's possible */
         r = save_external_coredump(context, input_fd,
-                                   &filename, &coredump_node_fd, &coredump_fd, &coredump_size, &truncated);
+                                   &filename, &coredump_node_fd, &coredump_fd,
+                                   &coredump_size, &coredump_compressed_size, &truncated);
         if (r < 0)
                 /* Skip whole core dumping part */
                 goto log;
@@ -730,7 +844,7 @@ static int submit_coredump(
         /* If we don't want to keep the coredump on disk, remove it now, as later on we
          * will lack the privileges for it. However, we keep the fd to it, so that we can
          * still process it and log it. */
-        r = maybe_remove_external_coredump(filename, coredump_size);
+        r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -738,7 +852,7 @@ static int submit_coredump(
 
         } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
-                         coredump_size, arg_external_size_max);
+                         coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
 
         /* Vacuum again, but exclude the coredump we just created */
         (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
@@ -758,7 +872,7 @@ static int submit_coredump(
                 log_debug("Not generating stack trace: core size %"PRIu64" is greater "
                           "than %"PRIu64" (the configured maximum)",
                           coredump_size, arg_process_size_max);
-        } else
+        } else if (coredump_fd >= 0)
                 coredump_parse_core(coredump_fd, context->meta[META_EXE], &stacktrace, &json_metadata);
 #endif
 
@@ -812,7 +926,7 @@ log:
         }
 
         /* Optionally store the entire coredump in the journal */
-        if (arg_storage == COREDUMP_STORAGE_JOURNAL) {
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL && coredump_fd >= 0) {
                 if (coredump_size <= arg_journal_size_max) {
                         size_t sz = 0;
 
