@@ -162,8 +162,8 @@ static int access_init(sd_bus_error *error) {
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %s", strerror_safe(saved_errno));
         }
 
-        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
-        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
+        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
+        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
 
         initialized = true;
         return 1;
