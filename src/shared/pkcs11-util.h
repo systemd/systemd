@@ -74,5 +74,11 @@ int pkcs11_crypt_device_callback(
 
 #endif
 
+typedef struct {
+        const char *friendly_name;
+        usec_t until;
+        bool headless;
+} systemd_pkcs11_plugin_params;
+
 int pkcs11_list_tokens(void);
 int pkcs11_find_token_auto(char **ret);
