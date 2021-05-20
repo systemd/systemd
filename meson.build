@@ -1759,6 +1759,20 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
                         install : true,
                         install_dir : rootlibdir)
         endif
+
+        if conf.get('HAVE_P11KIT') == 1
+                cryptsetup_token_systemd_pkcs11 = shared_library(
+                        'cryptsetup-token-systemd-pkcs11',
+                        link_args : ['-shared',
+                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
+                        dependencies : libshared_deps + [libcryptsetup],
+                        link_with : [libshared],
+                        link_whole : [cryptsetup_token_systemd_pkcs11_static],
+                        link_depends : cryptsetup_token_sym,
+                        install_rpath : rootlibexecdir,
+                        install : true,
+                        install_dir : rootlibdir)
+        endif
 endif
 
 ############################################################
