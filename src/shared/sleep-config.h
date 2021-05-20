@@ -4,6 +4,15 @@
 #include <linux/fiemap.h>
 #include "time-util.h"
 
+typedef enum SleepOperation {
+        SLEEP_SUSPEND,
+        SLEEP_HIBERNATE,
+        SLEEP_HYBRID_SLEEP,
+        SLEEP_SUSPEND_THEN_HIBERNATE,
+        _SLEEP_OPERATION_MAX,
+        _SLEEP_OPERATION_INVALID = -EINVAL,
+} SleepOperation;
+
 typedef struct SleepConfig {
         bool allow_suspend;         /* AllowSuspend */
         bool allow_hibernate;       /* AllowHibernation */
@@ -57,3 +66,6 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int can_sleep(const char *verb);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
+
+const char* sleep_operation_to_string(SleepOperation s) _const_;
+SleepOperation sleep_operation_from_string(const char *s) _pure_;
