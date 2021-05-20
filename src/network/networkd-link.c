@@ -45,6 +45,7 @@
 #include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-setlink.h"
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
@@ -149,6 +150,9 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
                 return false;
 
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                return false;
+
+        if (link->set_link_messages > 0)
                 return false;
 
         return true;
@@ -970,118 +974,6 @@ static int link_set_nomaster(Link *link) {
         return 0;
 }
 
-static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
-                log_link_message_warning_errno(link, m, r, "Could not set MTU, ignoring");
-                return 0;
-        }
-
-        log_link_debug(link, "Setting MTU done.");
-
-        /* The kernel resets ipv6 mtu after changing device mtu;
-         * we must set this here, after we've set device mtu */
-        r = link_set_ipv6_mtu(link);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
-
-        return 0;
-}
-
-int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        if (mtu == 0)
-                return 0;
-
-        if (link->mtu == mtu)
-                return 0;
-
-        log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
-         * on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
-        if (link_ipv6_enabled(link) && mtu < IPV6_MIN_MTU) {
-
-                log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as "
-                                 "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes");
-
-                mtu = IPV6_MIN_MTU;
-        }
-
-        r = sd_netlink_message_append_u32(req, IFLA_MTU, mtu);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append MTU: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static bool link_reduces_vlan_mtu(Link *link) {
-        /* See netif_reduces_vlan_mtu() in kernel. */
-        return streq_ptr(link->kind, "macsec");
-}
-
-static uint32_t link_get_requested_mtu_by_stacked_netdevs(Link *link) {
-        uint32_t mtu = 0;
-        NetDev *dev;
-
-        HASHMAP_FOREACH(dev, link->network->stacked_netdevs)
-                if (dev->kind == NETDEV_KIND_VLAN && dev->mtu > 0)
-                        /* See vlan_dev_change_mtu() in kernel. */
-                        mtu = MAX(mtu, link_reduces_vlan_mtu(link) ? dev->mtu + 4 : dev->mtu);
-
-                else if (dev->kind == NETDEV_KIND_MACVLAN && dev->mtu > mtu)
-                        /* See macvlan_change_mtu() in kernel. */
-                        mtu = dev->mtu;
-
-        return mtu;
-}
-
-static int link_configure_mtu(Link *link) {
-        uint32_t mtu;
-
-        assert(link);
-        assert(link->network);
-
-        if (link->network->mtu > 0)
-                return link_set_mtu(link, link->network->mtu);
-
-        mtu = link_get_requested_mtu_by_stacked_netdevs(link);
-        if (link->mtu >= mtu)
-                return 0;
-
-        log_link_notice(link, "Bumping MTU bytes from %"PRIu32" to %"PRIu32" because of stacked device. "
-                        "If it is not desired, then please explicitly specify MTUBytes= setting.",
-                        link->mtu, mtu);
-
-        return link_set_mtu(link, mtu);
-}
-
 static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1892,13 +1784,27 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         return 1;
 }
 
-static int link_enter_join_netdev(Link *link) {
+int link_enter_join_netdev(Link *link) {
         NetDev *netdev;
+        Request req;
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
+
+        req = (Request) {
+                .link = link,
+                .type = REQUEST_TYPE_SET_LINK,
+                .set_link_operation = SET_LINK_MTU,
+        };
+
+        if (ordered_set_contains(link->manager->request_queue, &req)) {
+                link->entering_to_join_netdev = true;
+                return 0;
+        }
+
+        link->entering_to_join_netdev = false;
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
