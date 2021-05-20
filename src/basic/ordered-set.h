@@ -34,6 +34,10 @@ static inline int ordered_set_put(OrderedSet *s, void *p) {
         return ordered_hashmap_put((OrderedHashmap*) s, p, p);
 }
 
+static inline void *ordered_set_get(OrderedSet *s, const void *p) {
+        return ordered_hashmap_get((OrderedHashmap*) s, p);
+}
+
 static inline unsigned ordered_set_size(OrderedSet *s) {
         return ordered_hashmap_size((OrderedHashmap*) s);
 }
