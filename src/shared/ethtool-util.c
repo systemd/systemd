@@ -158,15 +158,14 @@ assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
 
 DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
-static int ethtool_connect_or_warn(int *ret, bool warn) {
+static int ethtool_connect(int *ret) {
         int fd;
 
         assert_return(ret, -EINVAL);
 
         fd = socket_ioctl_fd();
         if (fd < 0)
-                return log_full_errno(warn ? LOG_WARNING: LOG_DEBUG, fd,
-                                       "ethtool: could not create control socket: %m");
+                return log_debug_errno(fd, "ethtool: could not create control socket: %m");
 
         *ret = fd;
 
@@ -188,7 +187,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         assert(ret);
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, true);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -230,7 +229,7 @@ int ethtool_get_link_info(
         assert(ifname);
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, false);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -282,7 +281,7 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 ethtool_fd = &fd;
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, false);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -320,11 +319,11 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         assert(ethtool_fd);
         assert(ifname);
 
-        if (speed == 0 && duplex == _DUP_INVALID)
+        if (speed == 0 && duplex < 0)
                 return 0;
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, true);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -335,7 +334,7 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         if (r < 0)
                 return -errno;
 
-        if (ethtool_cmd_speed(&ecmd) != speed) {
+        if (speed > 0 && ethtool_cmd_speed(&ecmd) != speed) {
                 ethtool_cmd_speed_set(&ecmd, speed);
                 need_update = true;
         }
@@ -381,11 +380,11 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         assert(ethtool_fd);
         assert(ifname);
 
-        if (wol == _WOL_INVALID)
+        if (wol < 0)
                 return 0;
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, true);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -475,7 +474,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         assert(ring);
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, true);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -608,7 +607,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
         assert(features);
 
         if (*ethtool_fd < 0) {
-                r = ethtool_connect_or_warn(ethtool_fd, true);
+                r = ethtool_connect(ethtool_fd);
                 if (r < 0)
                         return r;
         }
@@ -617,7 +616,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
 
         r = get_stringset(*ethtool_fd, &ifr, ETH_SS_FEATURES, &strings);
         if (r < 0)
-                return log_warning_errno(r, "ethtool: could not get ethtool features for %s", ifname);
+                return log_debug_errno(r, "ethtool: could not get ethtool features for %s", ifname);
 
         sfeatures = alloca0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
         sfeatures->cmd = ETHTOOL_SFEATURES;
@@ -627,7 +626,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
                 if (features[i] != -1) {
                         r = set_features_bit(strings, netdev_feature_table[i], features[i], sfeatures);
                         if (r < 0) {
-                                log_warning_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
+                                log_debug_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
                                 continue;
                         }
                 }
@@ -636,7 +635,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
-                return log_warning_errno(r, "ethtool: could not set ethtool features for %s", ifname);
+                return log_debug_errno(r, "ethtool: could not set ethtool features for %s", ifname);
 
         return 0;
 }
@@ -818,12 +817,6 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
         return 0;
 }
 
-/* If autonegotiation is disabled, the speed and duplex represent the fixed link
- * mode and are writable if the driver supports multiple link modes. If it is
- * enabled then they are read-only. If the link is up they represent the negotiated
- * link mode; if the link is down, the speed is 0, %SPEED_UNKNOWN or the highest
- * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
- */
 int ethtool_set_glinksettings(
                 int *fd,
                 const char *ifname,
@@ -841,13 +834,24 @@ int ethtool_set_glinksettings(
         assert(ifname);
         assert(advertise);
 
-        if (autonegotiation != AUTONEG_DISABLE && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
-                log_info("ethtool: autonegotiation is unset or enabled, the speed and duplex are not writable.");
-                return 0;
+        /* If autonegotiation is disabled, the speed and duplex represent the fixed link mode and are
+         * writable if the driver supports multiple link modes. If it is enabled then they are
+         * read-only. If the link is up they represent the negotiated link mode; if the link is down,
+         * the speed is 0, %SPEED_UNKNOWN or the highest enabled speed and @duplex is %DUPLEX_UNKNOWN
+         * or the best enabled duplex mode. */
+
+        if (speed > 0 || duplex >= 0 || port >= 0) {
+                if (autonegotiation == AUTONEG_ENABLE || !memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
+                        log_debug("ethtool: autonegotiation is enabled, the speed, duplex, or port are not writable.");
+                        speed = 0;
+                        duplex = _DUP_INVALID;
+                        port = _NET_DEV_PORT_INVALID;
+                } else
+                        autonegotiation = AUTONEG_DISABLE;
         }
 
         if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+                r = ethtool_connect(fd);
                 if (r < 0)
                         return r;
         }
@@ -858,16 +862,16 @@ int ethtool_set_glinksettings(
         if (r < 0) {
                 r = get_gset(*fd, &ifr, &u);
                 if (r < 0)
-                        return log_warning_errno(r, "ethtool: Cannot get device settings for %s : %m", ifname);
+                        return log_debug_errno(r, "ethtool: Cannot get device settings for %s : %m", ifname);
         }
 
         if (speed > 0)
                 u->base.speed = DIV_ROUND_UP(speed, 1000000);
 
-        if (duplex != _DUP_INVALID)
+        if (duplex >= 0)
                 u->base.duplex = duplex;
 
-        if (port != _NET_DEV_PORT_INVALID)
+        if (port >= 0)
                 u->base.port = port;
 
         if (autonegotiation >= 0)
@@ -885,7 +889,7 @@ int ethtool_set_glinksettings(
         else
                 r = set_sset(*fd, &ifr, u);
         if (r < 0)
-                return log_warning_errno(r, "ethtool: Cannot set device settings for %s: %m", ifname);
+                return log_debug_errno(r, "ethtool: Cannot set device settings for %s: %m", ifname);
 
         return r;
 }
@@ -905,7 +909,7 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         assert(channels);
 
         if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+                r = ethtool_connect(fd);
                 if (r < 0)
                         return r;
         }
@@ -961,7 +965,7 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         assert(ifname);
 
         if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+                r = ethtool_connect(fd);
                 if (r < 0)
                         return r;
         }
