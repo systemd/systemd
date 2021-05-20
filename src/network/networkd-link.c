@@ -28,6 +28,7 @@
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
@@ -38,7 +39,6 @@
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
@@ -149,6 +149,9 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
                 return false;
 
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
+                return false;
+
+        if (link->set_link_messages > 0)
                 return false;
 
         return true;
@@ -744,8 +747,17 @@ void link_check_ready(Link *link) {
                         return (void) log_link_debug(link, "%s(): an address %s is not ready.", __func__, strna(str));
                 }
 
+        if (!link->static_address_labels_configured)
+                return (void) log_link_debug(link, "%s(): static address labels are not configured.", __func__);
+
         if (!link->static_bridge_fdb_configured)
                 return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+
+        if (!link->static_bridge_mdb_configured)
+                return (void) log_link_debug(link, "%s(): static bridge MDB entries are not configured.", __func__);
+
+        if (!link->static_ipv6_proxy_ndp_configured)
+                return (void) log_link_debug(link, "%s(): static IPv6 proxy NDP addresses are not configured.", __func__);
 
         if (!link->static_neighbors_configured)
                 return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
@@ -764,9 +776,6 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
-
-        if (!link->bridge_mdb_configured)
-                return (void) log_link_debug(link, "%s(): Bridge MDB is not configured.", __func__);
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
                 bool has_ndisc_address = false;
@@ -813,30 +822,30 @@ void link_check_ready(Link *link) {
         link_enter_configured(link);
 }
 
-static int link_set_static_configs(Link *link) {
+static int link_request_static_configs(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
-        r = link_set_bridge_mdb(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_proxy_ndp_addresses(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_address_labels(link);
-        if (r < 0)
-                return r;
-
         r = link_request_static_addresses(link);
         if (r < 0)
                 return r;
 
+        r = link_request_static_address_labels(link);
+        if (r < 0)
+                return r;
+
         r = link_request_static_bridge_fdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_bridge_mdb(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_static_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
 
@@ -853,6 +862,10 @@ static int link_set_static_configs(Link *link) {
                 return r;
 
         r = link_request_static_routing_policy_rules(link);
+        if (r < 0)
+                return r;
+
+        r = link_request_dhcp_server(link);
         if (r < 0)
                 return r;
 
@@ -960,78 +973,6 @@ static int link_set_nomaster(Link *link) {
         return 0;
 }
 
-static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        link->setting_mtu = false;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set MTU, ignoring");
-        else
-                log_link_debug(link, "Setting MTU done.");
-
-        if (link->state == LINK_STATE_INITIALIZED) {
-                r = link_configure_continue(link);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-int link_set_mtu(Link *link, uint32_t mtu) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        if (mtu == 0 || link->setting_mtu)
-                return 0;
-
-        if (link->mtu == mtu)
-                return 0;
-
-        log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
-         * on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
-        if (link_ipv6_enabled(link) && mtu < IPV6_MIN_MTU) {
-
-                log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as "
-                                 "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes");
-
-                mtu = IPV6_MIN_MTU;
-        }
-
-        r = sd_netlink_message_append_u32(req, IFLA_MTU, mtu);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append MTU: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-        link->setting_mtu = true;
-
-        return 0;
-}
-
 static bool link_reduces_vlan_mtu(Link *link) {
         /* See netif_reduces_vlan_mtu() in kernel. */
         return streq_ptr(link->kind, "macsec");
@@ -1060,7 +1001,7 @@ static int link_configure_mtu(Link *link) {
         assert(link->network);
 
         if (link->network->mtu > 0)
-                return link_set_mtu(link, link->network->mtu);
+                return link_request_to_set_mtu(link, link->network->mtu);
 
         mtu = link_get_requested_mtu_by_stacked_netdevs(link);
         if (link->mtu >= mtu)
@@ -1070,7 +1011,7 @@ static int link_configure_mtu(Link *link) {
                         "If it is not desired, then please explicitly specify MTUBytes= setting.",
                         link->mtu, mtu);
 
-        return link_set_mtu(link, mtu);
+        return link_request_to_set_mtu(link, mtu);
 }
 
 static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1148,7 +1089,7 @@ static int link_set_flags(Link *link) {
         return 0;
 }
 
-static int link_acquire_ipv6_conf(Link *link) {
+static int link_acquire_dynamic_ipv6_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1183,7 +1124,7 @@ static int link_acquire_ipv6_conf(Link *link) {
         return 0;
 }
 
-static int link_acquire_ipv4_conf(Link *link) {
+static int link_acquire_dynamic_ipv4_conf(Link *link) {
         int r;
 
         assert(link);
@@ -1203,20 +1144,26 @@ static int link_acquire_ipv4_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
         }
 
+        if (link->dhcp_server) {
+                r = sd_dhcp_server_start(link->dhcp_server);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
+        }
+
         return 0;
 }
 
-static int link_acquire_conf(Link *link) {
+static int link_acquire_dynamic_conf(Link *link) {
         int r;
 
         assert(link);
 
-        r = link_acquire_ipv4_conf(link);
+        r = link_acquire_dynamic_ipv4_conf(link);
         if (r < 0)
                 return r;
 
         if (in6_addr_is_set(&link->ipv6ll_address)) {
-                r = link_acquire_ipv6_conf(link);
+                r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0)
                         return r;
         }
@@ -1811,6 +1758,8 @@ static int link_joined(Link *link) {
         if (r < 0)
                 return r;
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
         if (link->network->bridge) {
                 r = link_set_bridge(link);
                 if (r < 0)
@@ -1835,19 +1784,14 @@ static int link_joined(Link *link) {
         if (r < 0)
                 log_link_error_errno(link, r, "Could not set bridge vlan: %m");
 
-        /* Skip setting up addresses until it gets carrier,
-           or it would try to set addresses twice,
-           which is bad for non-idempotent steps. */
-        if (!link_has_carrier(link) && !link->network->configure_without_carrier)
-                return 0;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        r = link_acquire_conf(link);
+        r = link_request_static_configs(link);
         if (r < 0)
                 return r;
 
-        return link_set_static_configs(link);
+        if (!link_has_carrier(link))
+                return 0;
+
+        return link_acquire_dynamic_conf(link);
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2061,7 +2005,7 @@ static int link_drop_config(Link *link) {
         return r;
 }
 
-int link_configure(Link *link) {
+static int link_configure(Link *link) {
         int r;
 
         assert(link);
@@ -2154,7 +2098,7 @@ static int link_configure_continue(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
-        if (link->setting_mtu || link->setting_genmode)
+        if (link->setting_genmode)
                 return 0;
 
         /* Drop foreign config, but ignore loopback or critical devices.
@@ -2692,7 +2636,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address) {
         link_check_ready(link);
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_ipv6_conf(link);
+                r = link_acquire_dynamic_ipv6_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
@@ -2767,49 +2711,21 @@ static int link_carrier_gained(Link *link) {
                 return r;
         if (r > 0) {
                 r = link_reconfigure(link, false);
-                if (r < 0) {
-                        link_enter_failed(link);
+                if (r < 0)
                         return r;
-                }
         }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
-                r = link_acquire_conf(link);
-                if (r < 0) {
-                        link_enter_failed(link);
+                r = link_acquire_dynamic_conf(link);
+                if (r < 0)
                         return r;
-                }
 
-                link_set_state(link, LINK_STATE_CONFIGURING);
-                r = link_set_static_configs(link);
+                r = link_request_static_configs(link);
                 if (r < 0)
                         return r;
         }
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        if (!link->bridge_mdb_configured) {
-                r = link_set_bridge_mdb(link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (streq_ptr(link->kind, "bridge")) {
-                Link *slave;
-
-                SET_FOREACH(slave, link->slaves) {
-                        if (slave->bridge_mdb_configured)
-                                continue;
-
-                        r = link_set_bridge_mdb(slave);
-                        if (r < 0)
-                                link_enter_failed(slave);
-                }
-        }
-
-        return 0;
+        return link_handle_bound_by_list(link);
 }
 
 static int link_carrier_lost(Link *link) {
@@ -2823,12 +2739,6 @@ static int link_carrier_lost(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return link_handle_bound_by_list(link);
-
-        /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
-         * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
-         * configuration and stop the clients as well. */
-        if (link->setting_mtu)
-                return 0;
 
         r = link_stop_engines(link, false);
         if (r < 0) {
@@ -3141,7 +3051,8 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
 
                 r = link_update(link, message);
                 if (r < 0) {
-                        log_warning_errno(r, "Could not process link message, ignoring: %m");
+                        log_warning_errno(r, "Could not process link message: %m");
+                        link_enter_failed(link);
                         return 0;
                 }
 

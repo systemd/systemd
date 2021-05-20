@@ -366,12 +366,14 @@ RelayTarget=
 RelayAgentCircuitId=
 RelayAgentRemoteId=
 ServerAddress=
+UplinkInterface=
 [NextHop]
 Id=
 Gateway=
 Family=
 OnLink=
 Blackhole=
+Group=
 [QDisc]
 Parent=
 Handle=

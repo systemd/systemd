@@ -369,7 +369,6 @@ static int address_add_foreign(Link *link, const Address *in, Address **ret) {
 }
 
 static int address_add(Link *link, const Address *in, Address **ret) {
-        bool is_new = false;
         Address *address;
         int r;
 
@@ -382,7 +381,6 @@ static int address_add(Link *link, const Address *in, Address **ret) {
                 r = address_add_internal(link, &link->addresses, in, &address);
                 if (r < 0)
                         return r;
-                is_new = true;
         } else if (r == 0) {
                 /* Take over a foreign address */
                 r = set_ensure_put(&link->addresses, &address_hash_ops, address);
@@ -398,7 +396,7 @@ static int address_add(Link *link, const Address *in, Address **ret) {
 
         if (ret)
                 *ret = address;
-        return is_new;
+        return 0;
 }
 
 static int address_update(Address *address, const Address *src) {
@@ -939,7 +937,7 @@ static int address_configure(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Address *acquired_address, *a;
         bool update;
-        int r, k;
+        int r;
 
         assert(address);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
@@ -1006,9 +1004,9 @@ static int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_RT_PRIORITY attribute: %m");
 
-        k = address_add(link, address, &a);
-        if (k < 0)
-                return log_link_error_errno(link, k, "Could not add address: %m");
+        r = address_add(link, address, &a);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add address: %m");
 
         r = address_set_masquerade(a, true);
         if (r < 0)
@@ -1031,7 +1029,7 @@ static int address_configure(
         if (ret)
                 *ret = a;
 
-        return k;
+        return 0;
 }
 
 static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1050,10 +1048,6 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
                 log_link_debug(link, "Addresses set");
                 link->static_addresses_configured = true;
                 link_check_ready(link);
-
-                r = dhcp4_server_configure(link);
-                if (r < 0)
-                        link_enter_failed(link);
         }
 
         return 1;
@@ -1111,6 +1105,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1141,6 +1137,8 @@ int link_request_static_addresses(Link *link) {
                                          static_address_handler, &req);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 req->after_configure = static_address_after_configure;
         }
@@ -1166,8 +1164,8 @@ int link_request_static_addresses(Link *link) {
                                                  static_address_handler, &req);
                         if (r < 0)
                                 return r;
-
-                        req->after_configure = static_address_after_configure;
+                        if (r > 0)
+                                req->after_configure = static_address_after_configure;
                 }
         }
 

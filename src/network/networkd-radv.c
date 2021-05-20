@@ -649,7 +649,7 @@ int radv_emit_dns(Link *link) {
         Link *uplink;
         int r;
 
-        uplink = manager_find_uplink(link->manager, link);
+        (void) manager_find_uplink(link->manager, AF_INET6, link, &uplink);
 
         r = radv_set_dns(link, uplink);
         if (r < 0)

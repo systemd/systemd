@@ -19,6 +19,7 @@
 #include "ether-addr-util.h"
 #include "log-link.h"
 #include "network-util.h"
+#include "networkd-setlink.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
@@ -79,9 +80,11 @@ typedef struct Link {
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
 
-        unsigned address_label_messages;
         unsigned static_address_messages;
+        unsigned static_address_label_messages;
         unsigned static_bridge_fdb_messages;
+        unsigned static_bridge_mdb_messages;
+        unsigned static_ipv6_proxy_ndp_messages;
         unsigned static_neighbor_messages;
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
@@ -93,7 +96,9 @@ typedef struct Link {
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
-        unsigned bridge_mdb_messages;
+
+        unsigned set_link_messages;
+        SetLinkFlag set_link_flags;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -123,17 +128,18 @@ typedef struct Link {
         bool ipv4ll_address_configured:1;
 
         bool static_addresses_configured:1;
+        bool static_address_labels_configured:1;
         bool static_bridge_fdb_configured:1;
+        bool static_bridge_mdb_configured:1;
+        bool static_ipv6_proxy_ndp_configured:1;
         bool static_neighbors_configured:1;
         bool static_nexthops_configured:1;
         bool static_routes_configured:1;
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
-        bool setting_mtu:1;
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;
-        bool bridge_mdb_configured:1;
         bool can_configured:1;
         bool activated:1;
 
@@ -232,8 +238,6 @@ bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 
-int link_set_mtu(Link *link, uint32_t mtu);
-
 bool link_ipv4ll_enabled(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dhcp);
@@ -241,7 +245,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-int link_configure(Link *link);
 int link_reconfigure(Link *link, bool force);
 
 int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
