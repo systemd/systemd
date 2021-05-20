@@ -805,7 +805,9 @@ int dnssec_verify_rrset(
         case DNSSEC_ALGORITHM_ED448:
                 *result = DNSSEC_UNSUPPORTED_ALGORITHM;
                 return 0;
-        default:
+        default: {
+                gcry_error_t err;
+
                 /* OK, the RRs are now in canonical order. Let's calculate the digest */
                 md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
                 if (md_algorithm == -EOPNOTSUPP) {
@@ -815,8 +817,8 @@ int dnssec_verify_rrset(
                 if (md_algorithm < 0)
                         return md_algorithm;
 
-                gcry_md_open(&md, md_algorithm, 0);
-                if (!md)
+                err = gcry_md_open(&md, md_algorithm, 0);
+                if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                         return -EIO;
 
                 hash_size = gcry_md_get_algo_dlen(md_algorithm);
@@ -827,6 +829,7 @@ int dnssec_verify_rrset(
                 hash = gcry_md_read(md, 0);
                 if (!hash)
                         return -EIO;
+        }
         }
 
         switch (rrsig->rrsig.algorithm) {
