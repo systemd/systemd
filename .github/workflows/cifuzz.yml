@@ -23,6 +23,12 @@ jobs:
      fail-fast: false
      matrix:
        sanitizer: [address, undefined, memory]
+       extra-build-args: [c, rust]
+       exclude:
+         - sanitizer: undefined
+           extra-build-args: rust
+         - sanitizer: memory
+           extra-build-args: rust
    steps:
    - name: Build Fuzzers (${{ matrix.sanitizer }})
      id: build
@@ -32,6 +38,7 @@ jobs:
        dry-run: false
        allowed-broken-targets-percentage: 0
        sanitizer: ${{ matrix.sanitizer }}
+       extra-build-args: ${{ matrix.extra-build-args }}
    - name: Run Fuzzers (${{ matrix.sanitizer }})
      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
      with:
