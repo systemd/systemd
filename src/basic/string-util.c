@@ -790,8 +790,8 @@ char *strextend_with_separator_internal(char **x, const char *separator, ...) {
         return p;
 }
 
-int strextendf(char **x, const char *format, ...) {
-        size_t m, a;
+int strextendf_with_separator(char **x, const char *separator, const char *format, ...) {
+        size_t m, a, l_separator;
         va_list ap;
         int l;
 
@@ -802,6 +802,8 @@ int strextendf(char **x, const char *format, ...) {
         assert(x);
         assert(format);
 
+        l_separator = isempty(*x) ? 0 : strlen_ptr(separator);
+
         /* Let's try to use the allocated buffer, if there's room at the end still. Otherwise let's extend by 64 chars. */
         if (*x) {
                 m = strlen(*x);
@@ -810,13 +812,15 @@ int strextendf(char **x, const char *format, ...) {
         } else
                 m = a = 0;
 
-        if (a - m < 17) { /* if there's less than 16 chars space, then enlarge the buffer first */
+        if (a - m < 17 + l_separator) { /* if there's less than 16 chars space, then enlarge the buffer first */
                 char *n;
 
-                if (_unlikely_(m > SIZE_MAX - 64)) /* overflow check */
+                if (_unlikely_(l_separator > SIZE_MAX - 64)) /* overflow check #1 */
+                        return -ENOMEM;
+                if (_unlikely_(m > SIZE_MAX - 64 - l_separator)) /* overflow check #2 */
                         return -ENOMEM;
 
-                n = realloc(*x, m + 64);
+                n = realloc(*x, m + 64 + l_separator);
                 if (!n)
                         return -ENOMEM;
 
@@ -825,19 +829,20 @@ int strextendf(char **x, const char *format, ...) {
         }
 
         /* Now, let's try to format the string into it */
+        memcpy_safe(*x + m, separator, l_separator);
         va_start(ap, format);
-        l = vsnprintf(*x + m, a - m, format, ap);
+        l = vsnprintf(*x + m + l_separator, a - m - l_separator, format, ap);
         va_end(ap);
 
         assert(l >= 0);
 
-        if ((size_t) l < a - m) {
+        if ((size_t) l < a - m - l_separator) {
                 char *n;
 
                 /* Nice! This worked. We are done. But first, let's return the extra space we don't
                  * need. This should be a cheap operation, since we only lower the allocation size here,
                  * never increase. */
-                n = realloc(*x, m + (size_t) l + 1);
+                n = realloc(*x, m + (size_t) l + l_separator + 1);
                 if (n)
                         *x = n;
         } else {
@@ -845,22 +850,22 @@ int strextendf(char **x, const char *format, ...) {
 
                 /* Wasn't enough. Then let's allocate exactly what we need. */
 
-                if (_unlikely_((size_t) l > SIZE_MAX - 1)) /* overflow check #1 */
+                if (_unlikely_((size_t) l > SIZE_MAX - (l_separator + 1))) /* overflow check #1 */
                         goto oom;
-                if (_unlikely_(m > SIZE_MAX - ((size_t) l + 1))) /* overflow check #2 */
+                if (_unlikely_(m > SIZE_MAX - ((size_t) l + l_separator + 1))) /* overflow check #2 */
                         goto oom;
 
-                a = m + (size_t) l + 1;
+                a = m + (size_t) l + l_separator + 1;
                 n = realloc(*x, a);
                 if (!n)
                         goto oom;
                 *x = n;
 
                 va_start(ap, format);
-                l = vsnprintf(*x + m, a - m, format, ap);
+                l = vsnprintf(*x + m + l_separator, a - m - l_separator, format, ap);
                 va_end(ap);
 
-                assert((size_t) l < a - m);
+                assert((size_t) l < a - m - l_separator);
         }
 
         return 0;
