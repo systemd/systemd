@@ -414,7 +414,10 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                         if (size > READ_FULL_BYTES_MAX)
                                 return -EFBIG;
 
-                        n_retries--;
+                        if (size == max_size)
+                                n_retries = 0;
+                        else
+                                n_retries--;
                 } else {
                         size = MIN(READ_FULL_BYTES_MAX, max_size);
                         n_retries = 0;
