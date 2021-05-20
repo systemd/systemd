@@ -371,8 +371,6 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
         int n_retries;
         bool truncated = false;
 
-        assert(ret_contents);
-
         /* Virtual filesystems such as sysfs or procfs use kernfs, and kernfs can work with two sorts of
          * virtual files. One sort uses "seq_file", and the results of the first read are buffered for the
          * second read. The other sort uses "raw" reads which always go direct to the device. In the latter
@@ -486,7 +484,9 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 return -EBADMSG;
 
         buf[n] = 0;
-        *ret_contents = TAKE_PTR(buf);
+
+        if (ret_contents)
+                *ret_contents = TAKE_PTR(buf);
 
         return !truncated;
 }
