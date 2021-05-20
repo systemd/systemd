@@ -224,12 +224,13 @@
         <varlistentry>
           <term><varname>BUILD_ID=</varname></term>
 
-          <listitem><para>A string uniquely identifying the system image used as the origin for a distribution
-          (it is not updated with system updates). The field can be identical between different
-          <varname>VERSION_ID</varname>s as <varname>BUILD_ID</varname> is an only a unique identifier to a
-          specific version. Distributions that release each update as a new version would only need to use
-          <varname>VERSION_ID</varname> as each build is already distinct based on the
-          <varname>VERSION_ID</varname>. This field is optional.</para>
+          <listitem><para>A string uniquely identifying the system image originally used as the installation
+          base. In most cases, <varname>VERSION_ID</varname> or
+          <varname>IMAGE_ID</varname>+<varname>IMAGE_VERSION</varname> are updated when the entire system
+          image is replaced during an update. <varname>BUILD_ID</varname> may be used in distributions where
+          the original installation image version is important: <varname>VERSION_ID</varname> would change
+          during incremental system updates, but <varname>BUILD_ID</varname> would not. This field is
+          optional.</para>
 
           <para>Examples: <literal>BUILD_ID="2013-03-20.3"</literal>, <literal>BUILD_ID=201303203</literal>.
           </para></listitem>
@@ -261,6 +262,13 @@
           </para></listitem>
         </varlistentry>
       </variablelist>
+
+      <para>To summarize: if the image updates are built and shipped as comprehensive units,
+      <varname>IMAGE_ID</varname>+<varname>IMAGE_VERSION</varname> is the best fit. Otherwise, if updates
+      eventually completely replace previously installed contents, as in a typical binary distribution,
+      <varname>VERSION_ID</varname> should be used to identify major releases of the operating system.
+      <varname>BUILD_ID</varname> may be used instead or in addition to <varname>VERSION_ID</varname> when
+      the original system image version is important.</para>
     </refsect2>
 
     <refsect2>
