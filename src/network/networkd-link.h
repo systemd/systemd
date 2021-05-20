@@ -241,7 +241,6 @@ int link_stop_engines(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-int link_configure(Link *link);
 int link_reconfigure(Link *link, bool force);
 
 int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
