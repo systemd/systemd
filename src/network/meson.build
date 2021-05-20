@@ -113,6 +113,8 @@ sources = files('''
         networkd-route.h
         networkd-routing-policy-rule.c
         networkd-routing-policy-rule.h
+        networkd-setlink.c
+        networkd-setlink.h
         networkd-speed-meter.c
         networkd-speed-meter.h
         networkd-sriov.c
