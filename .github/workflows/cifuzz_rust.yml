@@ -2,7 +2,7 @@
 # vi: ts=2 sw=2 et:
 # See: https://google.github.io/oss-fuzz/getting-started/continuous-integration/
 
-name: CIFuzz
+name: CIFuzz (Rust)
 on:
   pull_request:
     paths:
