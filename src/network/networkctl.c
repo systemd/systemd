@@ -1046,26 +1046,25 @@ static int dump_gateways(
                 return n;
 
         for (int i = 0; i < n; i++) {
-                _cleanup_free_ char *gateway = NULL, *description = NULL, *with_description = NULL;
+                _cleanup_free_ char *gateway = NULL, *description = NULL;
                 char name[IF_NAMESIZE+1];
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway, ignoring: %m");
 
                 if (description) {
-                        with_description = strjoin(gateway, " (", description, ")");
-                        if (!with_description)
+                        if (!strextend(&gateway, " (", description, ")"))
                                 return log_oom();
                 }
 
                 /* Show interface name for the entry if we show entries for all interfaces */
                 r = strv_extendf(&buf, "%s%s%s",
-                                 with_description ?: gateway,
+                                 gateway,
                                  ifindex <= 0 ? " on " : "",
                                  ifindex <= 0 ? format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)

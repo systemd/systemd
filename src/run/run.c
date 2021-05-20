@@ -667,15 +667,8 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
                 *end = 0;
         }
 
-        if (!isempty(arg_slice)) {
-                if (name) {
-                        char *j = strjoin(name, "-", arg_slice);
-                        free_and_replace(name, j);
-                } else
-                        name = strdup(arg_slice);
-                if (!name)
-                        return log_oom();
-        }
+        if (!strextend_with_separator(&name, "-", empty_to_null(arg_slice)))
+                return log_oom();
 
         if (!name)
                 return 0;
