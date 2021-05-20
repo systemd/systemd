@@ -179,6 +179,12 @@ static void link_update_master_operstate(Link *link, NetDev *netdev) {
         if (netdev->ifindex <= 0)
                 return;
 
+        /* If an interface is self-mentioned in Bridge= or friends, then it introduces an infinite loop.
+         * FIXME: there still exits a possibility of an infinite loop when two or more interfaces
+         * mention each other in Bridge= or so. We need to detect such a loop. */
+        if (link->ifindex == netdev->ifindex)
+                return;
+
         if (link_get(link->manager, netdev->ifindex, &master) < 0)
                 return;
 
