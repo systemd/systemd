@@ -224,10 +224,11 @@
         <varlistentry>
           <term><varname>BUILD_ID=</varname></term>
 
-          <listitem><para>A string uniquely identifying the system image used as the origin for a distribution
-          (it is not updated with system updates). The field can be identical between different
-          <varname>VERSION_ID</varname>s as <varname>BUILD_ID</varname> is an only a unique identifier to a
-          specific version. Distributions that release each update as a new version would only need to use
+          <listitem><para>A string uniquely identifying the system image originally used as the installation
+          base. In most cases, it will be updated similarly to <varname>VERSION_ID</varname> when the entire
+          rootfs is replaced during an update. But during an incremental system update,
+          <varname>VERSION_ID</varname> would change, but <varname>BUILD_ID</varname> would
+          not. Distributions that release each update as a new version would only need to use
           <varname>VERSION_ID</varname> as each build is already distinct based on the
           <varname>VERSION_ID</varname>. This field is optional.</para>
 
