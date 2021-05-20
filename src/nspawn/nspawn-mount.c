@@ -382,39 +382,28 @@ int tmpfs_patch_options(
                 const char *selinux_apifs_context,
                 char **ret) {
 
-        char *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
 
-        if (uid_shift != UID_INVALID) {
-                if (asprintf(&buf, "%s%suid=" UID_FMT ",gid=" UID_FMT,
-                             strempty(options), options ? "," : "",
-                             uid_shift, uid_shift) < 0)
-                        return -ENOMEM;
+        assert(ret);
 
-                options = buf;
-        }
-
-#if HAVE_SELINUX
-        if (selinux_apifs_context) {
-                char *t;
-
-                t = strjoin(strempty(options), options ? "," : "",
-                            "context=\"", selinux_apifs_context, "\"");
-                free(buf);
-                if (!t)
-                        return -ENOMEM;
-
-                buf = t;
-        }
-#endif
-
-        if (!buf && options) {
+        if (options) {
                 buf = strdup(options);
                 if (!buf)
                         return -ENOMEM;
         }
-        *ret = buf;
 
-        return !!buf;
+        if (uid_shift != UID_INVALID)
+                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
+                        return -ENOMEM;
+
+#if HAVE_SELINUX
+        if (selinux_apifs_context)
+                if (!strextend_with_separator(&buf, ",", "context=\"", selinux_apifs_context, "\""))
+                        return -ENOMEM;
+#endif
+
+        *ret = TAKE_PTR(buf);
+        return !!*ret;
 }
 
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
