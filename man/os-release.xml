@@ -419,6 +419,14 @@ VARIANT_ID=workstation</programlisting>
 
       <programlisting><xi:include href="check-os-release.sh" parse="text" /></programlisting>
     </example>
+
+    <example>
+      <title>Reading <filename>os-release</filename> in
+      <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry></title>
+
+      <programlisting><xi:include href="check-os-release.py" parse="text" /></programlisting>
+    </example>
+
   </refsect1>
 
   <refsect1>
