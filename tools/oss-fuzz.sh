@@ -38,7 +38,16 @@ else
     fi
 fi
 
-if ! meson $build -D$fuzzflag -Db_lundef=false; then
+if [[ "$EXTRA_BUILD_ARGS" =~ "rust" ]]; then
+    # https://github.com/google/oss-fuzz/blob/master/infra/base-images/base-builder/compile
+    RUSTFLAGS=${RUSTFLAGS:---cfg fuzzing -Zsanitizer=$SANITIZER -Cdebuginfo=1 -Cforce-frame-pointers}
+
+    # https://github.com/google/oss-fuzz/blob/master/projects/suricata/build.sh
+    export RUSTFLAGS="$RUSTFLAGS -Cpasses=sancov -Cllvm-args=-sanitizer-coverage-level=4 -Cllvm-args=-sanitizer-coverage-trace-compares -Cllvm-args=-sanitizer-coverage-inline-8bit-counters -Cllvm-args=-sanitizer-coverage-trace-geps -Cllvm-args=-sanitizer-coverage-prune-blocks=0 -Cllvm-args=-sanitizer-coverage-pc-table -Clink-dead-code -Cllvm-args=-sanitizer-coverage-stack-depth"
+    build_rust="-Dbuild-rust=true"
+fi
+
+if ! meson $build -D$fuzzflag -Db_lundef=false $build_rust; then
     cat $build/meson-logs/meson-log.txt
     exit 1
 fi
