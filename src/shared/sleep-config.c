@@ -29,6 +29,7 @@
 #include "path-util.h"
 #include "sleep-config.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -699,3 +700,12 @@ SleepConfig* free_sleep_config(SleepConfig *sc) {
 
         return mfree(sc);
 }
+
+static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
+        [SLEEP_SUSPEND]                = "suspend",
+        [SLEEP_HIBERNATE]              = "hibernate",
+        [SLEEP_HYBRID_SLEEP]           = "hybrid-sleep",
+        [SLEEP_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation);
