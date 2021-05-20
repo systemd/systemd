@@ -26,7 +26,7 @@ jobs:
    steps:
    - name: Build Fuzzers (${{ matrix.sanitizer }})
      id: build
-     uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
+     uses: evverx/oss-fuzz/infra/cifuzz/actions/build_fuzzers@extra-args
      with:
        oss-fuzz-project-name: 'systemd'
        dry-run: false
@@ -34,7 +34,7 @@ jobs:
        sanitizer: ${{ matrix.sanitizer }}
        extra-build-args: 'rust'
    - name: Run Fuzzers (${{ matrix.sanitizer }})
-     uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
+     uses: evverx/oss-fuzz/infra/cifuzz/actions/run_fuzzers@extra-args
      with:
        oss-fuzz-project-name: 'systemd'
        fuzz-seconds: 600
