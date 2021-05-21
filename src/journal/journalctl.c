@@ -1052,6 +1052,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
+        /* Don't assume --boot when a date range/cursor is used in conjunction
+         * with --dmesg.
+         */
+        if (arg_dmesg && (arg_since_set || arg_until_set || arg_cursor || arg_after_cursor || arg_cursor_file))
+                arg_boot = false;
+
         if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root=, --image=.");
