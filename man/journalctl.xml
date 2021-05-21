@@ -520,9 +520,11 @@
         <term><option>-k</option></term>
         <term><option>--dmesg</option></term>
 
-        <listitem><para>Show only kernel messages. This implies
-        <option>-b</option> and adds the match
-        <literal>_TRANSPORT=kernel</literal>.</para></listitem>
+        <listitem><para>Show only kernel messages by adding the match
+        <literal>_TRANSPORT=kernel</literal>. Without specifying a date
+        range (using <option>--since=</option> or <option>--until=</option>) or
+        a cursor (<option>--cursor=</option>, <option>--after-cursor=</option>, or
+        <option>--cursor-file=</option>) this implies <option>-b</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
