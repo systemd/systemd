@@ -365,13 +365,13 @@ static void test_putenv_dup(void) {
         log_info("/* %s */", __func__);
 
         assert_se(putenv_dup("A=a1", true) == 0);
-        assert_se(streq(getenv("A"), "a1"));
+        assert_se(streq_ptr(getenv("A"), "a1"));
         assert_se(putenv_dup("A=a1", true) == 0);
-        assert_se(streq(getenv("A"), "a1"));
+        assert_se(streq_ptr(getenv("A"), "a1"));
         assert_se(putenv_dup("A=a2", false) == 0);
-        assert_se(streq(getenv("A"), "a1"));
+        assert_se(streq_ptr(getenv("A"), "a1"));
         assert_se(putenv_dup("A=a2", true) == 0);
-        assert_se(streq(getenv("A"), "a2"));
+        assert_se(streq_ptr(getenv("A"), "a2"));
 }
 
 static void test_setenv_systemd_exec_pid(void) {
