@@ -634,8 +634,8 @@ static int can_sleep_internal(
         if (operation == SLEEP_SUSPEND_THEN_HIBERNATE)
                 return can_s2h(sleep_config);
 
-        if (!can_sleep_state(sleep_config->states[operation]) ||
-            !can_sleep_disk(sleep_config->modes[operation]))
+        if (can_sleep_state(sleep_config->states[operation]) <= 0 ||
+            can_sleep_disk(sleep_config->modes[operation]) <= 0)
                 return false;
 
         if (operation == SLEEP_SUSPEND)
