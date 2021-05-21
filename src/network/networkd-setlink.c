@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/in.h>
+#include <linux/if.h>
+
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
@@ -8,6 +11,7 @@
 #include "string-table.h"
 
 static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
+        [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_MTU]                     = "MTU",
 };
 
@@ -40,6 +44,10 @@ static int set_link_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 
         log_link_debug(link, "%s set.", set_link_operation_to_string(op));
         return 1;
+}
+
+static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -87,6 +95,35 @@ static int link_configure(
                 return log_link_debug_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
         switch (op) {
+        case SET_LINK_FLAGS: {
+                unsigned ifi_change = 0, ifi_flags = 0;
+
+                if (link->network->arp >= 0) {
+                        ifi_change |= IFF_NOARP;
+                        SET_FLAG(ifi_flags, IFF_NOARP, link->network->arp == 0);
+                }
+
+                if (link->network->multicast >= 0) {
+                        ifi_change |= IFF_MULTICAST;
+                        SET_FLAG(ifi_flags, IFF_MULTICAST, link->network->multicast);
+                }
+
+                if (link->network->allmulticast >= 0) {
+                        ifi_change |= IFF_ALLMULTI;
+                        SET_FLAG(ifi_flags, IFF_ALLMULTI, link->network->allmulticast);
+                }
+
+                if (link->network->promiscuous >= 0) {
+                        ifi_change |= IFF_PROMISC;
+                        SET_FLAG(ifi_flags, IFF_PROMISC, link->network->promiscuous);
+                }
+
+                r = sd_rtnl_message_link_set_flags(req, ifi_flags, ifi_change);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not set link flags: %m");
+
+                break;
+        }
         case SET_LINK_MTU:
                 r = sd_netlink_message_append_u32(req, IFLA_MTU, PTR_TO_UINT32(userdata));
                 if (r < 0)
@@ -162,6 +199,19 @@ static int link_request_set_link(
         if (ret)
                 *ret = req;
         return 0;
+}
+
+int link_request_to_set_flags(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->network->arp < 0 &&
+            link->network->multicast < 0 &&
+            link->network->allmulticast < 0 &&
+            link->network->promiscuous < 0)
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_FLAGS, link_set_flags_handler, NULL);
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
