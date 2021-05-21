@@ -1110,6 +1110,43 @@ int config_parse_required_for_online(
         return 0;
 }
 
+int config_parse_link_group(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        if (isempty(rvalue)) {
+                network->group = 0;
+                network->group_set = false;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &network->group);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Group=, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->group_set = true;
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily,
                          "Failed to parse RequiredFamilyForOnline= setting");
 
