@@ -12,6 +12,7 @@
 
 static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_FLAGS]                   = "link flags",
+        [SET_LINK_GROUP]                   = "interface group",
         [SET_LINK_MAC]                     = "MAC address",
         [SET_LINK_MTU]                     = "MTU",
 };
@@ -49,6 +50,10 @@ static int set_link_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, true);
+}
+
+static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, true);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -129,6 +134,11 @@ static int link_configure(
 
                 break;
         }
+        case SET_LINK_GROUP:
+                r = sd_netlink_message_append_u32(req, IFLA_GROUP, link->network->group);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_GROUP attribute: %m");
+                break;
         case SET_LINK_MAC:
                 r = sd_netlink_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
                 if (r < 0)
@@ -222,6 +232,16 @@ int link_request_to_set_flags(Link *link) {
                 return 0;
 
         return link_request_set_link(link, SET_LINK_FLAGS, link_set_flags_handler, NULL);
+}
+
+int link_request_to_set_group(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->group_set)
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_GROUP, link_set_group_handler, NULL);
 }
 
 int link_request_to_set_mac(Link *link) {
