@@ -405,12 +405,18 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 /* Be prepared for files from /proc which generally report a file size of 0. */
                 assert_cc(READ_FULL_BYTES_MAX < SSIZE_MAX);
                 if (st.st_size > 0) {
-                        if (st.st_size > SSIZE_MAX) /* Avoid overflow with 32-bit size_t and 64-bit off_t. */
-                                return -EFBIG;
+                        if (st.st_size > SSIZE_MAX) { /* Avoid overflow with 32-bit size_t and 64-bit off_t. */
 
-                        size = MIN((size_t) st.st_size, max_size);
-                        if (size > READ_FULL_BYTES_MAX)
-                                return -EFBIG;
+                                if (max_size == SIZE_MAX)
+                                        return -EFBIG;
+
+                                size = max_size;
+                        } else {
+                                size = MIN((size_t) st.st_size, max_size);
+
+                                if (size > READ_FULL_BYTES_MAX)
+                                        return -EFBIG;
+                        }
 
                         n_retries--;
                 } else {
