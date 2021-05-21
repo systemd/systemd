@@ -158,17 +158,20 @@ assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
 
 DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
-static int ethtool_connect(int *ret) {
+static int ethtool_connect(int *ethtool_fd) {
         int fd;
 
-        assert_return(ret, -EINVAL);
+        assert(ethtool_fd);
+
+        /* This does nothing if already connected. */
+        if (*ethtool_fd >= 0)
+                return 0;
 
         fd = socket_ioctl_fd();
         if (fd < 0)
                 return log_debug_errno(fd, "ethtool: could not create control socket: %m");
 
-        *ret = fd;
-
+        *ethtool_fd = fd;
         return 0;
 }
 
@@ -186,11 +189,9 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         assert(ifname);
         assert(ret);
 
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -228,11 +229,9 @@ int ethtool_get_link_info(
         assert(ethtool_fd);
         assert(ifname);
 
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -279,12 +278,9 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
 
         if (!ethtool_fd)
                 ethtool_fd = &fd;
-
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -322,11 +318,9 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -383,11 +377,9 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         if (wol == _WOL_INVALID)
                 return 0;
 
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -473,11 +465,9 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         assert(ifname);
         assert(ring);
 
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -606,11 +596,9 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
         assert(ifname);
         assert(features);
 
-        if (*ethtool_fd < 0) {
-                r = ethtool_connect(ethtool_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(ethtool_fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -845,11 +833,9 @@ int ethtool_set_glinksettings(
                 return 0;
         }
 
-        if (*fd < 0) {
-                r = ethtool_connect(fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -903,11 +889,9 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         assert(ifname);
         assert(channels);
 
-        if (*fd < 0) {
-                r = ethtool_connect(fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
@@ -959,11 +943,9 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         assert(fd);
         assert(ifname);
 
-        if (*fd < 0) {
-                r = ethtool_connect(fd);
-                if (r < 0)
-                        return r;
-        }
+        r = ethtool_connect(fd);
+        if (r < 0)
+                return r;
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
