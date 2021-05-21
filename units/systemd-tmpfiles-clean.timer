@@ -10,6 +10,7 @@
 [Unit]
 Description=Daily Cleanup of Temporary Directories
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+ConditionPathExists=!/etc/initrd-release
 
 [Timer]
 OnBootSec=15min
