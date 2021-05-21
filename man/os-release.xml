@@ -16,12 +16,14 @@
 
   <refnamediv>
     <refname>os-release</refname>
+    <refname>initrd-release</refname>
     <refpurpose>Operating system identification</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/etc/os-release</filename></para>
     <para><filename>/usr/lib/os-release</filename></para>
+    <para><filename>/etc/initrd-release</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -79,6 +81,19 @@
     <para>For a longer rationale for <filename>os-release</filename>
     please refer to the <ulink
     url="http://0pointer.de/blog/projects/os-release">Announcement of <filename>/etc/os-release</filename></ulink>.</para>
+
+    <refsect2>
+      <title><filename>/etc/initrd-release</filename></title>
+
+      <para>In the <ulink
+      url="https://www.kernel.org/doc/html/latest/admin-guide/initrd.html">initrd</ulink>,
+      <filename>/etc/initrd-release</filename> plays the same role as <filename>os-release</filename> in the
+      main system. Additionally, the presence of that file means that the system is in the initrd phase.
+      <filename>/etc/os-release</filename> should be symlinked to <filename>/etc/initrd-release</filename>
+      (or vice versa), so programs that only look for <filename>/etc/os-release</filename> (as described
+      above) work correctly. The rest of this document that talks about <filename>os-release</filename>
+      should be understood to apply to <filename>initrd-release</filename> too.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
