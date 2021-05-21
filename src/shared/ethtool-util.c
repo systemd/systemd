@@ -302,6 +302,14 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
         return 0;
 }
 
+#define UPDATE(dest, val, updated)                     \
+        do {                                           \
+                typeof(val) _v = (val);                \
+                if (dest != _v)                        \
+                        updated = true;                \
+                dest = _v;                             \
+        } while(false)
+
 int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
@@ -315,7 +323,7 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         assert(ethtool_fd);
         assert(ifname);
 
-        if (speed == 0 && duplex == _DUP_INVALID)
+        if (speed == 0 && duplex < 0)
                 return 0;
 
         r = ethtool_connect(ethtool_fd);
@@ -328,35 +336,21 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
         if (r < 0)
                 return -errno;
 
-        if (ethtool_cmd_speed(&ecmd) != speed) {
+        if (speed > 0) {
+                need_update = need_update || ethtool_cmd_speed(&ecmd) != speed;
                 ethtool_cmd_speed_set(&ecmd, speed);
-                need_update = true;
         }
 
-        switch (duplex) {
-                case DUP_HALF:
-                        if (ecmd.duplex != DUPLEX_HALF) {
-                                ecmd.duplex = DUPLEX_HALF;
-                                need_update = true;
-                        }
-                        break;
-                case DUP_FULL:
-                        if (ecmd.duplex != DUPLEX_FULL) {
-                                ecmd.duplex = DUPLEX_FULL;
-                                need_update = true;
-                        }
-                        break;
-                default:
-                        break;
-        }
+        if (duplex >= 0)
+                UPDATE(ecmd.duplex, duplex, need_update);
 
-        if (need_update) {
-                ecmd.cmd = ETHTOOL_SSET;
+        if (!need_update)
+                return 0;
 
-                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-                if (r < 0)
-                        return -errno;
-        }
+        ecmd.cmd = ETHTOOL_SSET;
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
 
         return 0;
 }
@@ -465,6 +459,12 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         assert(ifname);
         assert(ring);
 
+        if (!ring->rx_pending_set &&
+            !ring->rx_mini_pending_set &&
+            !ring->rx_jumbo_pending_set &&
+            !ring->tx_pending_set)
+                return 0;
+
         r = ethtool_connect(ethtool_fd);
         if (r < 0)
                 return r;
@@ -475,33 +475,25 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         if (r < 0)
                 return -errno;
 
-        if (ring->rx_pending_set && ecmd.rx_pending != ring->rx_pending) {
-                ecmd.rx_pending = ring->rx_pending;
-                need_update = true;
-        }
+        if (ring->rx_pending_set)
+                UPDATE(ecmd.rx_pending, ring->rx_pending, need_update);
 
-        if (ring->rx_mini_pending_set && ecmd.rx_mini_pending != ring->rx_mini_pending) {
-                ecmd.rx_mini_pending = ring->rx_mini_pending;
-                need_update = true;
-        }
+        if (ring->rx_mini_pending_set)
+                UPDATE(ecmd.rx_mini_pending, ring->rx_mini_pending, need_update);
 
-        if (ring->rx_jumbo_pending_set && ecmd.rx_jumbo_pending != ring->rx_jumbo_pending) {
-                ecmd.rx_jumbo_pending = ring->rx_jumbo_pending;
-                need_update = true;
-        }
+        if (ring->rx_jumbo_pending_set)
+                UPDATE(ecmd.rx_jumbo_pending, ring->rx_jumbo_pending, need_update);
 
-        if (ring->tx_pending_set && ecmd.tx_pending != ring->tx_pending) {
-                ecmd.tx_pending = ring->tx_pending;
-                need_update = true;
-        }
+        if (ring->tx_pending_set)
+                UPDATE(ecmd.tx_pending, ring->tx_pending, need_update);
 
-        if (need_update) {
-                ecmd.cmd = ETHTOOL_SRINGPARAM;
+        if (!need_update)
+                return 0;
 
-                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-                if (r < 0)
-                        return -errno;
-        }
+        ecmd.cmd = ETHTOOL_SRINGPARAM;
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
 
         return 0;
 }
@@ -816,11 +808,16 @@ int ethtool_set_glinksettings(
 
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
+        bool changed = false;
         int r;
 
         assert(fd);
         assert(ifname);
         assert(advertise);
+
+        if (autonegotiation < 0 && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE) &&
+            speed == 0 && duplex < 0 && port < 0)
+                return 0;
 
         /* If autonegotiation is disabled, the speed and duplex represent the fixed link mode and are
          * writable if the driver supports multiple link modes. If it is enabled then they are
@@ -854,23 +851,31 @@ int ethtool_set_glinksettings(
         }
 
         if (speed > 0)
-                u->base.speed = DIV_ROUND_UP(speed, 1000000);
+                UPDATE(u->base.speed, DIV_ROUND_UP(speed, 1000000), changed);
 
-        if (duplex != _DUP_INVALID)
-                u->base.duplex = duplex;
+        if (duplex >= 0)
+                UPDATE(u->base.duplex, duplex, changed);
 
-        if (port != _NET_DEV_PORT_INVALID)
-                u->base.port = port;
+        if (port >= 0)
+                UPDATE(u->base.port, port, changed);
 
         if (autonegotiation >= 0)
-                u->base.autoneg = autonegotiation;
+                UPDATE(u->base.autoneg, autonegotiation, changed);
 
         if (!memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
-                u->base.autoneg = AUTONEG_ENABLE;
+                UPDATE(u->base.autoneg, AUTONEG_ENABLE, changed);
+
+                changed = changed ||
+                        memcmp(&u->link_modes.advertising, advertise, sizeof(uint32_t) * N_ADVERTISE) != 0 ||
+                        !memeqzero((uint8_t*) &u->link_modes.advertising + sizeof(uint32_t) * N_ADVERTISE,
+                                   ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(uint32_t) * N_ADVERTISE);
                 memcpy(&u->link_modes.advertising, advertise, sizeof(uint32_t) * N_ADVERTISE);
                 memzero((uint8_t*) &u->link_modes.advertising + sizeof(uint32_t) * N_ADVERTISE,
                         ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(uint32_t) * N_ADVERTISE);
         }
+
+        if (!changed)
+                return 0;
 
         if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
                 r = set_slinksettings(*fd, &ifr, u);
@@ -896,6 +901,12 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         assert(ifname);
         assert(channels);
 
+        if (!channels->rx_count_set &&
+            !channels->tx_count_set &&
+            !channels->other_count_set &&
+            !channels->combined_count_set)
+                return 0;
+
         r = ethtool_connect(fd);
         if (r < 0)
                 return r;
@@ -906,33 +917,25 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
         if (r < 0)
                 return -errno;
 
-        if (channels->rx_count_set && ecmd.rx_count != channels->rx_count) {
-                ecmd.rx_count = channels->rx_count;
-                need_update = true;
-        }
+        if (channels->rx_count_set)
+                UPDATE(ecmd.rx_count, channels->rx_count, need_update);
 
-        if (channels->tx_count_set && ecmd.tx_count != channels->tx_count) {
-                ecmd.tx_count = channels->tx_count;
-                need_update = true;
-        }
+        if (channels->tx_count_set)
+                UPDATE(ecmd.tx_count, channels->tx_count, need_update);
 
-        if (channels->other_count_set && ecmd.other_count != channels->other_count) {
-                ecmd.other_count = channels->other_count;
-                need_update = true;
-        }
+        if (channels->other_count_set)
+                UPDATE(ecmd.other_count, channels->other_count, need_update);
 
-        if (channels->combined_count_set && ecmd.combined_count != channels->combined_count) {
-                ecmd.combined_count = channels->combined_count;
-                need_update = true;
-        }
+        if (channels->combined_count_set)
+                UPDATE(ecmd.combined_count, channels->combined_count, need_update);
 
-        if (need_update) {
-                ecmd.cmd = ETHTOOL_SCHANNELS;
+        if (!need_update)
+                return 0;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
-                if (r < 0)
-                        return -errno;
-        }
+        ecmd.cmd = ETHTOOL_SCHANNELS;
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
 
         return 0;
 }
@@ -950,6 +953,9 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         assert(fd);
         assert(ifname);
 
+        if (rx < 0 && tx < 0 && autoneg < 0)
+                return 0;
+
         r = ethtool_connect(fd);
         if (r < 0)
                 return r;
@@ -960,42 +966,38 @@ int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int au
         if (r < 0)
                 return -errno;
 
-        if (rx >= 0 && ecmd.rx_pause != (uint32_t) rx) {
-                ecmd.rx_pause = rx;
-                need_update = true;
-        }
+        if (rx >= 0)
+                UPDATE(ecmd.rx_pause, (uint32_t) rx, need_update);
 
-        if (tx >= 0 && ecmd.tx_pause != (uint32_t) tx) {
-                ecmd.tx_pause = tx;
-                need_update = true;
-        }
+        if (tx >= 0)
+                UPDATE(ecmd.tx_pause, (uint32_t) tx, need_update);
 
-        if (autoneg >= 0 && ecmd.autoneg != (uint32_t) autoneg) {
-                ecmd.autoneg = autoneg;
-                need_update = true;
-        }
+        if (autoneg >= 0)
+                UPDATE(ecmd.autoneg, (uint32_t) autoneg, need_update);
 
-        if (need_update) {
-                ecmd.cmd = ETHTOOL_SPAUSEPARAM;
+        if (!need_update)
+                return 0;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
-                if (r < 0)
-                        return -errno;
-        }
+        ecmd.cmd = ETHTOOL_SPAUSEPARAM;
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
 
         return 0;
 }
 
-int config_parse_channel(const char *unit,
-                         const char *filename,
-                         unsigned line,
-                         const char *section,
-                         unsigned section_line,
-                         const char *lvalue,
-                         int ltype,
-                         const char *rvalue,
-                         void *data,
-                         void *userdata) {
+int config_parse_channel(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         netdev_channels *channels = data;
         uint32_t k;
         int r;
@@ -1035,16 +1037,18 @@ int config_parse_channel(const char *unit,
         return 0;
 }
 
-int config_parse_advertise(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_advertise(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         uint32_t *advertise = data;
         const char *p;
         int r;
@@ -1089,16 +1093,18 @@ int config_parse_advertise(const char *unit,
         }
 }
 
-int config_parse_nic_buffer_size(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
+int config_parse_nic_buffer_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         netdev_ring_param *ring = data;
         uint32_t k;
         int r;
