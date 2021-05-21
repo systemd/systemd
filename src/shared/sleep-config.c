@@ -607,7 +607,7 @@ static bool can_s2h(const SleepConfig *sleep_config) {
 
         for (size_t i = 0; i < ELEMENTSOF(operations); i++) {
                 r = can_sleep_internal(sleep_config, operations[i], false);
-                if (IN_SET(r, 0, -ENOSPC, -EADV)) {
+                if (IN_SET(r, 0, -ENOSPC)) {
                         log_debug("Unable to %s system.", sleep_operation_to_string(operations[i]));
                         return false;
                 }
