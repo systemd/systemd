@@ -7,6 +7,7 @@ typedef struct Link Link;
 typedef struct Request Request;
 
 typedef enum SetLinkOperation {
+        SET_LINK_ADDRESS_GENERATION_MODE, /* Setting IPv6LL address generation mode. */
         SET_LINK_FLAGS,                   /* Setting IFF_NOARP or friends. */
         SET_LINK_GROUP,                   /* Setting interface group. */
         SET_LINK_MAC,                     /* Setting MAC address. */
@@ -15,6 +16,7 @@ typedef enum SetLinkOperation {
         _SET_LINK_OPERATION_INVALID = -EINVAL,
 } SetLinkOperation;
 
+int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_flags(Link *link);
 int link_request_to_set_group(Link *link);
 int link_request_to_set_mac(Link *link);
