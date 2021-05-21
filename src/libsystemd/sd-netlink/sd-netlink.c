@@ -125,9 +125,13 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         rtnl->fd = fd;
         rtnl->protocol = protocol;
 
-        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, 1);
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_EXT_ACK, true);
         if (r < 0)
                 log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_EXT_ACK option, ignoring: %m");
+
+        r = setsockopt_int(fd, SOL_NETLINK, NETLINK_GET_STRICT_CHK, true);
+        if (r < 0)
+                log_debug_errno(r, "sd-netlink: Failed to enable NETLINK_GET_STRICT_CHK option, ignoring: %m");
 
         r = socket_bind(rtnl);
         if (r < 0) {
