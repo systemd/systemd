@@ -99,7 +99,6 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
-int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
 int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *features);
