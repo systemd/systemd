@@ -974,81 +974,6 @@ static int link_set_nomaster(Link *link) {
         return 0;
 }
 
-static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set link flags, ignoring");
-
-        return 1;
-}
-
-static int link_set_flags(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        unsigned ifi_change = 0;
-        unsigned ifi_flags = 0;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (!link->network)
-                return 0;
-
-        if (link->network->arp < 0 && link->network->multicast < 0 && link->network->allmulticast < 0 &&
-            link->network->promiscuous < 0)
-                return 0;
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        if (link->network->arp >= 0) {
-                ifi_change |= IFF_NOARP;
-                SET_FLAG(ifi_flags, IFF_NOARP, link->network->arp == 0);
-        }
-
-        if (link->network->multicast >= 0) {
-                ifi_change |= IFF_MULTICAST;
-                SET_FLAG(ifi_flags, IFF_MULTICAST, link->network->multicast);
-        }
-
-        if (link->network->allmulticast >= 0) {
-                ifi_change |= IFF_ALLMULTI;
-                SET_FLAG(ifi_flags, IFF_ALLMULTI, link->network->allmulticast);
-        }
-
-        if (link->network->promiscuous >= 0) {
-                ifi_change |= IFF_PROMISC;
-                SET_FLAG(ifi_flags, IFF_PROMISC, link->network->promiscuous);
-        }
-
-        r = sd_rtnl_message_link_set_flags(req, ifi_flags, ifi_change);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
 static int link_acquire_dynamic_ipv6_conf(Link *link) {
         int r;
 
@@ -2010,7 +1935,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_flags(link);
+        r = link_request_to_set_flags(link);
         if (r < 0)
                 return r;
 
