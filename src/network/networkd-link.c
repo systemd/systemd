@@ -1207,53 +1207,6 @@ int link_down(Link *link, link_netlink_message_handler_t callback) {
         return 0;
 }
 
-static int link_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set group for the interface");
-
-        return 1;
-}
-
-static int link_set_group(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        if (!link->network->group_set)
-                return 0;
-
-        log_link_debug(link, "Setting group");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_netlink_message_append_u32(req, IFLA_GROUP, link->network->group);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link group: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_group_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
 static int link_handle_bound_to_list(Link *link) {
         Link *l;
         int r;
@@ -1890,7 +1843,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_set_group(link);
+        r = link_request_to_set_group(link);
         if (r < 0)
                 return r;
 

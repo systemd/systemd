@@ -8,6 +8,7 @@ typedef struct Request Request;
 
 typedef enum SetLinkOperation {
         SET_LINK_FLAGS,                   /* Setting IFF_NOARP or friends. */
+        SET_LINK_GROUP,                   /* Setting interface group. */
         SET_LINK_MAC,                     /* Setting MAC address. */
         SET_LINK_MTU,                     /* Setting MTU. */
         _SET_LINK_OPERATION_MAX,
@@ -15,6 +16,7 @@ typedef enum SetLinkOperation {
 } SetLinkOperation;
 
 int link_request_to_set_flags(Link *link);
+int link_request_to_set_group(Link *link);
 int link_request_to_set_mac(Link *link);
 int link_request_to_set_mtu(Link *link, uint32_t mtu);
 
