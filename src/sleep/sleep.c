@@ -303,11 +303,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         r = execute(sleep_config, SLEEP_HIBERNATE, NULL);
         if (r < 0) {
-                log_notice_errno(r, "Couldn't hibernate, will try to suspend again: %m");
+                log_notice("Couldn't hibernate, will try to suspend again.");
 
                 r = execute(sleep_config, SLEEP_SUSPEND, "suspend-after-failed-hibernate");
                 if (r < 0)
-                        return log_error_errno(r, "Could neither hibernate nor suspend, giving up: %m");
+                        return r;
         }
 
         return 0;
