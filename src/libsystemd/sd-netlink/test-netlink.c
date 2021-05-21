@@ -35,36 +35,23 @@ static void test_message_link_bridge(sd_netlink *rtnl) {
 }
 
 static void test_link_configure(sd_netlink *rtnl, int ifindex) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
-        const char *mac = "98:fe:94:3f:c6:18", *name = "test";
-        char buffer[ETHER_ADDR_TO_STRING_MAX];
-        uint32_t mtu = 1450, mtu_out;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        uint32_t mtu_out;
         const char *name_out;
         struct ether_addr mac_out;
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_message_append_string(message, IFLA_IFNAME, name) >= 0);
-        assert_se(sd_netlink_message_append_ether_addr(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, IFLA_MTU, mtu) >= 0);
 
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) == 1);
-        assert_se(sd_netlink_message_rewind(message, NULL) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, &reply) == 1);
 
-        assert_se(sd_netlink_message_read_string(message, IFLA_IFNAME, &name_out) >= 0);
-        assert_se(streq(name, name_out));
-
-        assert_se(sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &mac_out) >= 0);
-        assert_se(streq(mac, ether_addr_to_string(&mac_out, buffer)));
-
-        assert_se(sd_netlink_message_read_u32(message, IFLA_MTU, &mtu_out) >= 0);
-        assert_se(mtu == mtu_out);
+        assert_se(sd_netlink_message_read_string(reply, IFLA_IFNAME, &name_out) >= 0);
+        assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &mac_out) >= 0);
+        assert_se(sd_netlink_message_read_u32(reply, IFLA_MTU, &mtu_out) >= 0);
 }
 
 static void test_link_get(sd_netlink *rtnl, int ifindex) {
-        sd_netlink_message *m;
-        sd_netlink_message *r;
-        uint32_t mtu = 1500;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *r = NULL;
         const char *str_data;
         uint8_t u8_data;
         uint32_t u32_data;
@@ -73,19 +60,7 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
         assert_se(m);
 
-        /* u8 test cases  */
-        assert_se(sd_netlink_message_append_u8(m, IFLA_CARRIER, 0) >= 0);
-        assert_se(sd_netlink_message_append_u8(m, IFLA_OPERSTATE, 0) >= 0);
-        assert_se(sd_netlink_message_append_u8(m, IFLA_LINKMODE, 0) >= 0);
-
-        /* u32 test cases */
-        assert_se(sd_netlink_message_append_u32(m, IFLA_MTU, mtu) >= 0);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_GROUP, 0) >= 0);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_TXQLEN, 0) >= 0);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_NUM_TX_QUEUES, 0) >= 0);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_NUM_RX_QUEUES, 0) >= 0);
-
-        assert_se(sd_netlink_call(rtnl, m, -1, &r) == 1);
+        assert_se(sd_netlink_call(rtnl, m, 0, &r) == 1);
 
         assert_se(sd_netlink_message_read_string(r, IFLA_IFNAME, &str_data) == 0);
 
@@ -100,14 +75,10 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
         assert_se(sd_netlink_message_read_u32(r, IFLA_NUM_RX_QUEUES, &u32_data) == 0);
 
         assert_se(sd_netlink_message_read_ether_addr(r, IFLA_ADDRESS, &eth_data) == 0);
-
-        assert_se((m = sd_netlink_message_unref(m)) == NULL);
-        assert_se((r = sd_netlink_message_unref(r)) == NULL);
 }
 
 static void test_address_get(sd_netlink *rtnl, int ifindex) {
-        sd_netlink_message *m;
-        sd_netlink_message *r;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *r = NULL;
         struct in_addr in_data;
         struct ifa_cacheinfo cache;
         const char *label;
@@ -121,10 +92,6 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
         assert_se(sd_netlink_message_read_in_addr(r, IFA_ADDRESS, &in_data) == 0);
         assert_se(sd_netlink_message_read_string(r, IFA_LABEL, &label) == 0);
         assert_se(sd_netlink_message_read_cache_info(r, IFA_CACHEINFO, &cache) == 0);
-
-        assert_se((m = sd_netlink_message_unref(m)) == NULL);
-        assert_se((r = sd_netlink_message_unref(r)) == NULL);
-
 }
 
 static void test_route(sd_netlink *rtnl) {
