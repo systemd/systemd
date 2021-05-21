@@ -978,8 +978,10 @@
         <listitem><para>Takes a list of exit status definitions that,
         when returned by the main service process, will force automatic
         service restarts, regardless of the restart setting configured
-        with <varname>Restart=</varname>. The argument format is
-        similar to
+        with <varname>Restart=</varname>. The process systemd 
+        forks off for <varname>Type=forking</varname> service
+        is not considered the main process of the service.
+        The argument format is similar to
         <varname>RestartPreventExitStatus=</varname>.</para></listitem>
       </varlistentry>
 
