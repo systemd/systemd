@@ -450,6 +450,13 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 if (n <= size)
                         break;
 
+                /* If a maximum size is specified and we already read as much, no need to try again */
+                if (max_size != SIZE_MAX && n >= max_size) {
+                        n = max_size;
+                        truncated = true;
+                        break;
+                }
+
                 /* Hmm... either we read too few bytes from /proc or less likely the content
                  * of the file might have been changed (and is now bigger) while we were
                  * processing, let's try again either with a bigger guessed size or the new
