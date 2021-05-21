@@ -308,50 +308,46 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const link_config
                                       config->autonegotiation, config->advertise,
                                       config->speed, config->duplex, config->port);
         if (r < 0) {
-                if (config->port != _NET_DEV_PORT_INVALID)
-                        log_device_warning_errno(device, r, "Could not set port '%s', ignoring: %m", port_to_string(config->port));
+                if (config->autonegotiation >= 0)
+                        log_device_warning_errno(device, r, "Could not %s auto negotiation, ignoring: %m",
+                                                 enable_disable(config->autonegotiation));
 
                 if (!eqzero(config->advertise))
-                        log_device_warning_errno(device, r, "Could not set advertise mode, ignoring: %m"); /* TODO: include modes in the log message. */
+                        log_device_warning_errno(device, r, "Could not set advertise mode, ignoring: %m");
 
-                if (config->speed) {
-                        unsigned speed = DIV_ROUND_UP(config->speed, 1000000);
-                        if (r == -EOPNOTSUPP) {
-                                r = ethtool_set_speed(ethtool_fd, name, speed, config->duplex);
-                                if (r < 0)
-                                        log_device_warning_errno(device, r, "Could not set speed to %uMbps, ignoring: %m", speed);
-                        }
-                }
+                if (config->speed > 0)
+                        log_device_warning_errno(device, r, "Could not set speed to %"PRIu64"Mbps, ignoring: %m",
+                                                 DIV_ROUND_UP(config->speed, 1000000));
 
-                if (config->duplex != _DUP_INVALID)
-                        log_device_warning_errno(device, r, "Could not set duplex to %s, ignoring: %m", duplex_to_string(config->duplex));
+                if (config->duplex >= 0)
+                        log_device_warning_errno(device, r, "Could not set duplex to %s, ignoring: %m",
+                                                 duplex_to_string(config->duplex));
+
+                if (config->port >= 0)
+                        log_device_warning_errno(device, r, "Could not set port to '%s', ignoring: %m",
+                                                 port_to_string(config->port));
         }
 
         r = ethtool_set_wol(ethtool_fd, name, config->wol);
         if (r < 0)
-                log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m", wol_to_string(config->wol));
+                log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m",
+                                         wol_to_string(config->wol));
 
         r = ethtool_set_features(ethtool_fd, name, config->features);
         if (r < 0)
                 log_device_warning_errno(device, r, "Could not set offload features, ignoring: %m");
 
-        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
-                r = ethtool_set_channels(ethtool_fd, name, &config->channels);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
-        }
+        r = ethtool_set_channels(ethtool_fd, name, &config->channels);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
 
-        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
-                r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
-        }
+        r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
 
-        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
-                r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
-        }
+        r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
 
         return 0;
 }
