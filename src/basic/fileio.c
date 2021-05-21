@@ -478,28 +478,30 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 buf = mfree(buf);
         }
 
-        if (n < size) {
-                char *p;
+        if (ret_contents) {
 
-                /* Return rest of the buffer to libc */
-                p = realloc(buf, n + 1);
-                if (!p)
-                        return -ENOMEM;
-                buf = p;
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will
+                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
+                 * operation as otherwise there'd be ambiguity about what we just read. */
+                if (!ret_size && memchr(buf, 0, n))
+                        return -EBADMSG;
+
+                if (n < size) {
+                        char *p;
+
+                        /* Return rest of the buffer to libc */
+                        p = realloc(buf, n + 1);
+                        if (!p)
+                                return -ENOMEM;
+                        buf = p;
+                }
+
+                buf[n] = 0;
+                *ret_contents = TAKE_PTR(buf);
         }
 
         if (ret_size)
                 *ret_size = n;
-        else if (memchr(buf, 0, n))
-                /* Safety check: if the caller doesn't want to know the size of what we just read it will
-                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
-                 * operation as otherwise there'd be ambiguity about what we just read. */
-                return -EBADMSG;
-
-        buf[n] = 0;
-
-        if (ret_contents)
-                *ret_contents = TAKE_PTR(buf);
 
         return !truncated;
 }
