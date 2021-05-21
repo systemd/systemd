@@ -380,9 +380,9 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
          * EOF. See issue #13585.
          *
          * max_size specifies a limit on the bytes read. If max_size is SIZE_MAX, the full file is read. If
-         * the the full file is too large to read, an error is returned. For other values of max_size,
-         * *partial contents* may be returned. (Though the read is still done using one syscall.)
-         * Returns 0 on partial success, 1 if untruncated contents were read. */
+         * the full file is too large to read, an error is returned. For other values of max_size, *partial
+         * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
+         * partial success, 1 if untruncated contents were read. */
 
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
