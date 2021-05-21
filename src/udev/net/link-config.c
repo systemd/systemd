@@ -337,23 +337,17 @@ static int link_config_apply_ethtool_settings(int *ethtool_fd, const link_config
         if (r < 0)
                 log_device_warning_errno(device, r, "Could not set offload features, ignoring: %m");
 
-        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
-                r = ethtool_set_channels(ethtool_fd, name, &config->channels);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
-        }
+        r = ethtool_set_channels(ethtool_fd, name, &config->channels);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
 
-        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
-                r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
-        }
+        r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
 
-        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
-                r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
-                if (r < 0)
-                        log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
-        }
+        r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
 
         return 0;
 }
