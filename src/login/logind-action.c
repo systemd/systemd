@@ -102,20 +102,20 @@ int manager_handle_action(
         }
 
         if (handle == HANDLE_SUSPEND)
-                supported = can_sleep("suspend") > 0;
+                supported = can_sleep(SLEEP_SUSPEND) > 0;
         else if (handle == HANDLE_HIBERNATE)
-                supported = can_sleep("hibernate") > 0;
+                supported = can_sleep(SLEEP_HIBERNATE) > 0;
         else if (handle == HANDLE_HYBRID_SLEEP)
-                supported = can_sleep("hybrid-sleep") > 0;
+                supported = can_sleep(SLEEP_HYBRID_SLEEP) > 0;
         else if (handle == HANDLE_SUSPEND_THEN_HIBERNATE)
-                supported = can_sleep("suspend-then-hibernate") > 0;
+                supported = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE) > 0;
         else if (handle == HANDLE_KEXEC)
                 supported = access(KEXEC, X_OK) >= 0;
         else
                 supported = true;
 
         if (!supported && IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
-                supported = can_sleep("suspend") > 0;
+                supported = can_sleep(SLEEP_SUSPEND) > 0;
                 if (supported) {
                         log_notice("Requested %s operation is not supported, using regular suspend instead.",
                                    handle_action_to_string(handle));
