@@ -188,13 +188,8 @@ static int run(int argc, char *argv[]) {
 
                                 free_and_replace(e, x);
                         } else if (arg_suffix) {
-                                char *x;
-
-                                x = strjoin(e, ".", arg_suffix);
-                                if (!x)
+                                if (!strextend(&e, ".", arg_suffix))
                                         return log_oom();
-
-                                free_and_replace(e, x);
                         }
 
                         break;
