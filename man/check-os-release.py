@@ -10,7 +10,7 @@ def read_os_release():
         f = open('/usr/lib/os-release')
 
     for line_number, line in enumerate(f):
-        if m := re.match(r'([A-Z][A-Z_0-9]+)=(.*)', line):
+        if m := re.match(r'([A-Z][A-Z_0-9]+)=(.*?)\s*$', line):
             name, val = m.groups()
             if val and val[0] in '"\'':
                 val = ast.literal_eval(val)
