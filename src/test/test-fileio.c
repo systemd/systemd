@@ -1069,8 +1069,12 @@ int main(int argc, char *argv[]) {
         test_read_nul_string();
         test_read_full_file_socket();
         test_read_full_file_offset_size();
+        test_read_virtual_file(0);
+        test_read_virtual_file(1);
+        test_read_virtual_file(2);
         test_read_virtual_file(20);
         test_read_virtual_file(4096);
+        test_read_virtual_file(4097);
         test_read_virtual_file(SIZE_MAX);
 
         return 0;
