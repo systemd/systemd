@@ -400,10 +400,32 @@ static int run(int argc, char *argv[]) {
                                        "Sleep operation \"%s\" is disabled by configuration, refusing.",
                                        sleep_operation_to_string(arg_operation));
 
-        if (arg_operation == SLEEP_SUSPEND_THEN_HIBERNATE)
-                return execute_s2h(sleep_config);
-        else
-                return execute(sleep_config, arg_operation, NULL);
+        switch (arg_operation) {
+
+        case SLEEP_SUSPEND_THEN_HIBERNATE:
+                r = execute_s2h(sleep_config);
+                break;
+
+        case SLEEP_HYBRID_SLEEP:
+                r = execute(sleep_config, SLEEP_HYBRID_SLEEP, NULL);
+                if (r < 0) {
+                        /* If we can't hybrid sleep, then let's try to suspend at least. After all, the user
+                         * asked us to do both: suspend + hibernate, and it's almost certainly the
+                         * hibernation that failed, hence still do the other thing, the suspend. */
+
+                        log_notice("Couldn't hybrid sleep, will try to suspend instead.");
+
+                        r = execute(sleep_config, SLEEP_SUSPEND, "suspend-after-failed-hybrid-sleep");
+                }
+
+                break;
+
+        default:
+                r = execute(sleep_config, arg_operation, NULL);
+                break;
+        }
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
