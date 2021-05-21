@@ -1034,8 +1034,11 @@ static void test_read_virtual_file(size_t max_size) {
                 size_t size = 0;
 
                 r = read_virtual_file(filename, max_size, &buf, &size);
-                log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m (%zu bytes)", filename, max_size, size);
-                assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
+                if (r < 0) {
+                        log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m", filename, max_size);
+                        assert_se(ERRNO_IS_PRIVILEGE(r) || r == -ENOENT);
+                } else
+                        log_info("read_virtual_file(\"%s\", %zu): %s (%zu bytes)", filename, max_size, r ? "non-truncated" : "truncated", size);
         }
 }
 
