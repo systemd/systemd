@@ -9,8 +9,10 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "string-table.h"
+#include "sysctl-util.h"
 
 static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
+        [SET_LINK_ADDRESS_GENERATION_MODE] = "IPv6LL address generation mode",
         [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_GROUP]                   = "interface group",
         [SET_LINK_MAC]                     = "MAC address",
@@ -46,6 +48,22 @@ static int set_link_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 
         log_link_debug(link, "%s set.", set_link_operation_to_string(op));
         return 1;
+}
+
+static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        r = set_link_handler_internal(rtnl, m, link, SET_LINK_ADDRESS_GENERATION_MODE, true);
+        if (r <= 0)
+                return r;
+
+        r = link_drop_ipv6ll_addresses(link);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to drop IPv6LL addresses: %m");
+                link_enter_failed(link);
+        }
+
+        return 0;
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -105,6 +123,27 @@ static int link_configure(
                 return log_link_debug_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
         switch (op) {
+        case SET_LINK_ADDRESS_GENERATION_MODE:
+                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
+
+                r = sd_netlink_message_open_container(req, AF_INET6);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not open AF_INET6 container: %m");
+
+                r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, PTR_TO_UINT8(userdata));
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE attribute: %m");
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not close AF_INET6 container: %m");
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+                break;
         case SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
 
@@ -218,6 +257,42 @@ static int link_request_set_link(
 
         if (ret)
                 *ret = req;
+        return 0;
+}
+
+int link_request_to_set_addrgen_mode(Link *link) {
+        Request *req;
+        uint8_t mode;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (!link_ipv6ll_enabled(link))
+                mode = IN6_ADDR_GEN_MODE_NONE;
+        else if (link->network->ipv6ll_address_gen_mode >= 0)
+                mode = link->network->ipv6ll_address_gen_mode;
+        else {
+                r = sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL);
+                if (r < 0) {
+                        /* The file may not exist. And even if it exists, when stable_secret is unset,
+                         * reading the file fails with ENOMEM when read_full_virtual_file(), which uses
+                         * read() as the backend, and EIO when read_one_line_file() which uses fgetc(). */
+                        log_link_debug_errno(link, r, "Failed to read sysctl property stable_secret, ignoring: %m");
+
+                        mode = IN6_ADDR_GEN_MODE_EUI64;
+                } else
+                        mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+        }
+
+        r = link_request_set_link(link, SET_LINK_ADDRESS_GENERATION_MODE, link_set_addrgen_mode_handler, &req);
+        if (r < 0)
+                return r;
+
+        req->userdata = UINT8_TO_PTR(mode);
         return 0;
 }
 
