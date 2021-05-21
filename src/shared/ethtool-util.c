@@ -310,51 +310,6 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                 dest = _v;                             \
         } while(false)
 
-int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex) {
-        struct ethtool_cmd ecmd = {
-                .cmd = ETHTOOL_GSET,
-        };
-        struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd,
-        };
-        bool need_update = false;
-        int r;
-
-        assert(ethtool_fd);
-        assert(ifname);
-
-        if (speed == 0 && duplex < 0)
-                return 0;
-
-        r = ethtool_connect(ethtool_fd);
-        if (r < 0)
-                return r;
-
-        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
-
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
-                return -errno;
-
-        if (speed > 0) {
-                need_update = need_update || ethtool_cmd_speed(&ecmd) != speed;
-                ethtool_cmd_speed_set(&ecmd, speed);
-        }
-
-        if (duplex >= 0)
-                UPDATE(ecmd.duplex, duplex, need_update);
-
-        if (!need_update)
-                return 0;
-
-        ecmd.cmd = ETHTOOL_SSET;
-        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
-        if (r < 0)
-                return -errno;
-
-        return 0;
-}
-
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL,
