@@ -422,11 +422,15 @@
         <varlistentry>
           <term><varname>IPv6LinkLocalAddressGenerationMode=</varname></term>
           <listitem>
-            <para>Specifies how IPv6 link local address is generated. Takes one of <literal>eui64</literal>,
-            <literal>none</literal>, <literal>stable-privacy</literal> and <literal>random</literal>.
-            When unset, the kernel's default will be used. Note that if <varname>LinkLocalAddressing=</varname>
-            not configured as <literal>ipv6</literal> then <varname>IPv6LinkLocalAddressGenerationMode=</varname>
-            is ignored.</para>
+            <para>Specifies how IPv6 link local address is generated. Takes one of
+            <literal>eui64</literal>, <literal>none</literal>, <literal>stable-privacy</literal> and
+            <literal>random</literal>. When unset, the kernel's default will be used. Note that if
+            <varname>LinkLocalAddressing=</varname> is <literal>no</literal> or
+            <literal>ipv4</literal>, then <varname>IPv6LinkLocalAddressGenerationMode=</varname> will
+            be ignored. Also, even if <varname>LinkLocalAddressing=</varname> is <literal>yes</literal>
+            or <literal>ipv6</literal>, setting
+            <varname>IPv6LinkLocalAddressGenerationMode=none</varname> disables to configure an IPv6
+            link-local address.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
