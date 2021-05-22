@@ -380,9 +380,9 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
          * EOF. See issue #13585.
          *
          * max_size specifies a limit on the bytes read. If max_size is SIZE_MAX, the full file is read. If
-         * the the full file is too large to read, an error is returned. For other values of max_size,
-         * *partial contents* may be returned. (Though the read is still done using one syscall.)
-         * Returns 0 on partial success, 1 if untruncated contents were read. */
+         * the full file is too large to read, an error is returned. For other values of max_size, *partial
+         * contents* may be returned. (Though the read is still done using one syscall.) Returns 0 on
+         * partial success, 1 if untruncated contents were read. */
 
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
@@ -404,13 +404,22 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
 
                 /* Be prepared for files from /proc which generally report a file size of 0. */
                 assert_cc(READ_FULL_BYTES_MAX < SSIZE_MAX);
-                if (st.st_size > 0) {
-                        if (st.st_size > SSIZE_MAX) /* Avoid overflow with 32-bit size_t and 64-bit off_t. */
-                                return -EFBIG;
+                if (st.st_size > 0 && n_retries > 1) {
+                        /* Let's use the file size if we have more than 1 attempt left. On the last attempt
+                         * we'll ignore the file size */
 
-                        size = MIN((size_t) st.st_size, max_size);
-                        if (size > READ_FULL_BYTES_MAX)
-                                return -EFBIG;
+                        if (st.st_size > SSIZE_MAX) { /* Avoid overflow with 32-bit size_t and 64-bit off_t. */
+
+                                if (max_size == SIZE_MAX)
+                                        return -EFBIG;
+
+                                size = max_size;
+                        } else {
+                                size = MIN((size_t) st.st_size, max_size);
+
+                                if (size > READ_FULL_BYTES_MAX)
+                                        return -EFBIG;
+                        }
 
                         n_retries--;
                 } else {
@@ -421,6 +430,7 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 buf = malloc(size + 1);
                 if (!buf)
                         return -ENOMEM;
+
                 /* Use a bigger allocation if we got it anyway, but not more than the limit. */
                 size = MIN3(MALLOC_SIZEOF_SAFE(buf) - 1, max_size, READ_FULL_BYTES_MAX);
 
@@ -444,20 +454,20 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 if (n <= size)
                         break;
 
-                /* Hmm... either we read too few bytes from /proc or less likely the content
-                 * of the file might have been changed (and is now bigger) while we were
-                 * processing, let's try again either with a bigger guessed size or the new
-                 * file size. */
-
-                if (n_retries <= 0) {
-                        if (max_size == SIZE_MAX)
-                                return st.st_size > 0 ? -EIO : -EFBIG;
-
-                        /* Accept a short read, but truncate it appropropriately. */
-                        n = MIN(n, max_size);
+                /* If a maximum size is specified and we already read as much, no need to try again */
+                if (max_size != SIZE_MAX && n >= max_size) {
+                        n = max_size;
                         truncated = true;
                         break;
                 }
+
+                /* We have no further attempts left? Then the file is apparently larger than our limits. Give up. */
+                if (n_retries <= 0)
+                        return -EFBIG;
+
+                /* Hmm... either we read too few bytes from /proc or less likely the content of the file
+                 * might have been changed (and is now bigger) while we were processing, let's try again
+                 * either with the new file size. */
 
                 if (lseek(fd, 0, SEEK_SET) < 0)
                         return -errno;
@@ -465,28 +475,30 @@ int read_virtual_file(const char *filename, size_t max_size, char **ret_contents
                 buf = mfree(buf);
         }
 
-        if (n < size) {
-                char *p;
+        if (ret_contents) {
 
-                /* Return rest of the buffer to libc */
-                p = realloc(buf, n + 1);
-                if (!p)
-                        return -ENOMEM;
-                buf = p;
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will
+                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
+                 * operation as otherwise there'd be ambiguity about what we just read. */
+                if (!ret_size && memchr(buf, 0, n))
+                        return -EBADMSG;
+
+                if (n < size) {
+                        char *p;
+
+                        /* Return rest of the buffer to libc */
+                        p = realloc(buf, n + 1);
+                        if (!p)
+                                return -ENOMEM;
+                        buf = p;
+                }
+
+                buf[n] = 0;
+                *ret_contents = TAKE_PTR(buf);
         }
 
         if (ret_size)
                 *ret_size = n;
-        else if (memchr(buf, 0, n))
-                /* Safety check: if the caller doesn't want to know the size of what we just read it will
-                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
-                 * operation as otherwise there'd be ambiguity about what we just read. */
-                return -EBADMSG;
-
-        buf[n] = 0;
-
-        if (ret_contents)
-                *ret_contents = TAKE_PTR(buf);
 
         return !truncated;
 }
