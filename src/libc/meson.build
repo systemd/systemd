@@ -8,6 +8,7 @@ libc_wrapper_sources = files(
         'mempolicy.c',
         'mount.c',
         'pidfd.c',
+        'printf.c',
         'quota.c',
         'sched.c',
         'signal.c',
