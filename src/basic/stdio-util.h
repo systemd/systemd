@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <printf.h>
 #include <stdio.h>
 
 #include "forward.h"
+#include "parse-printf-format.h"
 
 _printf_(3, 4)
 static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) {
