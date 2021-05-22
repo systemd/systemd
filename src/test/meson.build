@@ -150,6 +150,7 @@ simple_tests += files(
         'test-percent-util.c',
         'test-pidref.c',
         'test-pretty-print.c',
+        'test-printf.c',
         'test-prioq.c',
         'test-proc-cmdline.c',
         'test-procfs-util.c',
