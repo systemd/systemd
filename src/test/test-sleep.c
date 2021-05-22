@@ -25,16 +25,16 @@ static void test_parse_sleep_config(void) {
 
         _cleanup_free_ char *sum, *sus, *him, *his, *hym, *hys;
 
-        sum = strv_join(sleep_config->suspend_modes, ", ");
-        sus = strv_join(sleep_config->suspend_states, ", ");
-        him = strv_join(sleep_config->hibernate_modes, ", ");
-        his = strv_join(sleep_config->hibernate_states, ", ");
-        hym = strv_join(sleep_config->hybrid_modes, ", ");
-        hys = strv_join(sleep_config->hybrid_states, ", ");
-        log_debug("  allow_suspend: %u", sleep_config->allow_suspend);
-        log_debug("  allow_hibernate: %u", sleep_config->allow_hibernate);
-        log_debug("  allow_s2h: %u", sleep_config->allow_s2h);
-        log_debug("  allow_hybrid_sleep: %u", sleep_config->allow_hybrid_sleep);
+        sum = strv_join(sleep_config->modes[SLEEP_SUSPEND], ", ");
+        sus = strv_join(sleep_config->states[SLEEP_SUSPEND], ", ");
+        him = strv_join(sleep_config->modes[SLEEP_HIBERNATE], ", ");
+        his = strv_join(sleep_config->states[SLEEP_HIBERNATE], ", ");
+        hym = strv_join(sleep_config->modes[SLEEP_HYBRID_SLEEP], ", ");
+        hys = strv_join(sleep_config->states[SLEEP_HYBRID_SLEEP], ", ");
+        log_debug("  allow_suspend: %u", sleep_config->allow[SLEEP_SUSPEND]);
+        log_debug("  allow_hibernate: %u", sleep_config->allow[SLEEP_HIBERNATE]);
+        log_debug("  allow_s2h: %u", sleep_config->allow[SLEEP_SUSPEND_THEN_HIBERNATE]);
+        log_debug("  allow_hybrid_sleep: %u", sleep_config->allow[SLEEP_HYBRID_SLEEP]);
         log_debug("  suspend modes: %s", sum);
         log_debug("         states: %s", sus);
         log_debug("  hibernate modes: %s", him);
@@ -98,13 +98,13 @@ static void test_sleep(void) {
         log_info("Freeze configured: %s", yes_no(can_sleep_state(freeze) > 0));
 
         log_info("/= high-level sleep verbs =/");
-        r = can_sleep("suspend");
+        r = can_sleep(SLEEP_SUSPEND);
         log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
-        r = can_sleep("hibernate");
+        r = can_sleep(SLEEP_HIBERNATE);
         log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
-        r = can_sleep("hybrid-sleep");
+        r = can_sleep(SLEEP_HYBRID_SLEEP);
         log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
-        r = can_sleep("suspend-then-hibernate");
+        r = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE);
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
 }
 
