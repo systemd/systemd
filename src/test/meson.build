@@ -413,6 +413,12 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files(
+                        'test-printf.c',
+                        '../libc/musl/printf.c'
+                ),
+        },
+        test_template + {
                 'sources' : files('test-process-util.c'),
                 'dependencies' : threads,
         },
