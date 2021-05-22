@@ -5,6 +5,6 @@ test -e /etc/os-release && os_release='/etc/os-release' || os_release='/usr/lib/
 
 echo "Running on ${PRETTY_NAME:-Linux}"
 
-if [ "${ID:-linux}" = "debian" ] || [ "${ID_LIKE:-}" = "debian" ]; then
+if [ "${ID:-linux}" = "debian" ] || [ "${ID_LIKE#*debian*}" != "${ID_LIKE}" ]; then
     echo "Looks like Debian!"
 fi
