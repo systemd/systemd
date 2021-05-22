@@ -724,6 +724,7 @@ foreach header : ['crypt.h',
                   'gnu/libc-version.h',  # for musl
                   'gshadow.h',           # for musl
                   'nss.h',               # for musl
+                  'printf.h',            # for musl
                   'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
