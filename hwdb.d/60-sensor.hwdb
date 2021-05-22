@@ -478,6 +478,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrVISION.I22K*:svnKAZAM:pnVIS
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# KD / Kurio
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*:svnKDInteractive:pnKurioSmart:*:rnKDM960BCP:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Lamina
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*svnLamina*:*pnT701BR.SE:*
@@ -530,6 +536,16 @@ sensor:modalias:acpi:SMO8840*:dmi:*:svnLENOVO:pn80XF:pvrLenovoMIIX320:*
 sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XE:*
 sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80U1:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+# Yoga 300-11IBR, display sensor
+sensor:modalias:acpi:DUAL250E*:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+ ACCEL_LOCATION=display
+
+# Yoga 300-11IBR, base sensor
+sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
+ ACCEL_LOCATION=base
 
 #########################################
 # LINX
