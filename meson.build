@@ -704,6 +704,7 @@ foreach tuple : [
         ['crypt.h'],
         ['gshadow.h', 'musl'],
         ['nss.h',     'musl'],
+        ['printf.h',  'musl'],
         ['sys/sdt.h'],
         ['threads.h'],
         ['valgrind/memcheck.h'],
