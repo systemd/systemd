@@ -2,21 +2,28 @@
 
 import ast
 import re
+import sys
 
 def read_os_release():
     try:
-        f = open('/etc/os-release')
+        filename = '/etc/os-release'
+        f = open(filename)
     except FileNotFoundError:
-        f = open('/usr/lib/os-release')
+        filename = '/usr/lib/os-release'
+        f = open(filename)
 
     for line_number, line in enumerate(f):
-        if m := re.match(r'([A-Z][A-Z_0-9]+)=(.*?)\s*$', line):
+        line = line.rstrip()
+        if not line or line.startswith('#'):
+            continue
+        if m := re.match(r'([A-Z][A-Z_0-9]+)=(.*)', line):
             name, val = m.groups()
             if val and val[0] in '"\'':
                 val = ast.literal_eval(val)
             yield name, val
         else:
-            print(f'Warning: bad line {line_number}: {line}', file=sys.stderr)
+            print(f'{filename}:{line_number + 1}: bad line {line!r}',
+                  file=sys.stderr)
 
 os_release = dict(read_os_release())
 
