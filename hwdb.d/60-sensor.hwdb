@@ -537,6 +537,16 @@ sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XE:*
 sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80U1:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# Yoga 300-11IBR, display sensor
+sensor:modalias:acpi:DUAL250E*:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+ ACCEL_LOCATION=display
+
+# Yoga 300-11IBR, base sensor
+sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
+ ACCEL_LOCATION=base
+
 #########################################
 # LINX
 #########################################
