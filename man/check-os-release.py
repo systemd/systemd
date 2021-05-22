@@ -30,6 +30,6 @@ os_release = dict(read_os_release())
 pretty_name = os_release.get('PRETTY_NAME', 'Linux')
 print(f'Running on {pretty_name}')
 
-if (os_release.get('ID', 'linux') == 'debian' or
-    os_release.get('ID_LIKE', None) == 'debian'):
+if 'debian' in [os_release.get('ID', 'linux'),
+                *os_release.get('ID_LIKE', '').split()]:
     print('Looks like Debian!')
