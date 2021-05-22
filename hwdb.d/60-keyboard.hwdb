@@ -878,6 +878,10 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+ KEYBOARD_KEY_62=unknown  # Touchpad on, also emitted by "Ideapad extra buttons", ignore
+ KEYBOARD_KEY_63=unknown  # Touchpad off, also emitted by "Ideapad extra buttons", ignore
+
 # Fix for volume keys on Lenovo Yoga S940
 # For 10th gen it should be pn81Q8 instead of pn81Q7 but
 # I don't have a device to test
