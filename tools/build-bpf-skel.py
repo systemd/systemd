@@ -59,7 +59,16 @@ def gen_bpf_skeleton(bpftool_exec, in_file, out_fd):
 
     logging.debug('Generating BPF skeleton:')
     logging.debug('{}'.format(' '.join(bpftool_args)))
-    subprocess.check_call(bpftool_args, stdout=out_fd)
+    skel = subprocess.check_output(bpftool_args)
+    # libbpf is used via dlopen(), so rename symbols as defined
+    # in src/shared/bpf-dlopen.h
+    for s in (b'bpf_object__open_skeleton',
+              b'bpf_object__load_skeleton',
+              b'bpf_object__attach_skeleton',
+              b'bpf_object__detach_skeleton',
+              b'bpf_object__destroy_skeleton'):
+        skel = skel.replace(s, b'sym_' + s)
+    out_fd.write(skel)
 
 
 def bpf_build(args):
@@ -74,7 +83,7 @@ def bpf_build(args):
 
     clang_out_path = pathlib.Path(args.bpf_src_c).with_suffix('.o')
     with clang_out_path.open(mode='w') as clang_out, \
-            open(args.bpf_skel_h, mode='w') as bpf_skel_h:
+            open(args.bpf_skel_h, mode='wb') as bpf_skel_h:
         clang_compile(clang_exec=args.clang_exec,
                 clang_flags=clang_flags,
                 src_c=args.bpf_src_c,

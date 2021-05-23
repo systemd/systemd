@@ -1674,7 +1674,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
-                        libbpf,
+                        libdl,
                         libcap,
                         libblkid,
                         libmount,
