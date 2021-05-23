@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
+#include "bpf-dlopen.h"
 #include "cryptsetup-util.h"
 #include "idn-util.h"
 #include "libfido2-util.h"
@@ -42,6 +43,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_LIBFIDO2
         assert_se(dlopen_libfido2() >= 0);
+#endif
+
+#if HAVE_LIBBPF
+        assert_se(dlopen_bpf() >= 0);
 #endif
 
         return 0;

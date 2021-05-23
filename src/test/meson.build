@@ -616,7 +616,7 @@ tests += [
          [['src/test/test-socket-bind.c'],
           [libcore,
           libshared],
-         [libbpf],
+         [libdl],
          core_includes,
          'BPF_FRAMEWORK'],
 ]

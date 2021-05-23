@@ -9,6 +9,7 @@
 
 #if BPF_FRAMEWORK
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
+#include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "bpf/socket_bind/socket-bind.skel.h"
 #include "bpf/socket_bind/socket-bind-api.bpf.h"
@@ -37,7 +38,7 @@ static int update_rules_map(
                         .port_min = item->port_min,
                 };
 
-                if (bpf_map_update_elem(map_fd, &key, &val, BPF_ANY) != 0)
+                if (sym_bpf_map_update_elem(map_fd, &key, &val, BPF_ANY) != 0)
                         return -errno;
         }
 
@@ -71,34 +72,34 @@ static int prepare_socket_bind_bpf(
         if (!obj)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOMEM), "Failed to open BPF object");
 
-        if (bpf_map__resize(obj->maps.sd_bind_allow, MAX(allow_count, 1u)) != 0)
+        if (sym_bpf_map__resize(obj->maps.sd_bind_allow, MAX(allow_count, 1u)) != 0)
                 return log_unit_error_errno(u, errno,
-                                "Failed to resize BPF map '%s': %m", bpf_map__name(obj->maps.sd_bind_allow));
+                                "Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_allow));
 
-        if (bpf_map__resize(obj->maps.sd_bind_deny, MAX(deny_count, 1u)) != 0)
+        if (sym_bpf_map__resize(obj->maps.sd_bind_deny, MAX(deny_count, 1u)) != 0)
                 return log_unit_error_errno(u, errno,
-                                "Failed to resize BPF map '%s': %m", bpf_map__name(obj->maps.sd_bind_deny));
+                                "Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_deny));
 
         if (socket_bind_bpf__load(obj) != 0)
                 return log_unit_error_errno(u, errno, "Failed to load BPF object");
 
-        allow_map_fd = bpf_map__fd(obj->maps.sd_bind_allow);
+        allow_map_fd = sym_bpf_map__fd(obj->maps.sd_bind_allow);
         assert(allow_map_fd >= 0);
 
         r = update_rules_map(allow_map_fd, allow);
         if (r < 0)
                 return log_unit_error_errno(
                                 u, r, "Failed to put socket bind allow rules into BPF map '%s'",
-                                bpf_map__name(obj->maps.sd_bind_allow));
+                                sym_bpf_map__name(obj->maps.sd_bind_allow));
 
-        deny_map_fd = bpf_map__fd(obj->maps.sd_bind_deny);
+        deny_map_fd = sym_bpf_map__fd(obj->maps.sd_bind_deny);
         assert(deny_map_fd >= 0);
 
         r = update_rules_map(deny_map_fd, deny);
         if (r < 0)
                 return log_unit_error_errno(
                                 u, r, "Failed to put socket bind deny rules into BPF map '%s'",
-                                bpf_map__name(obj->maps.sd_bind_deny));
+                                sym_bpf_map__name(obj->maps.sd_bind_deny));
 
         *ret_obj = TAKE_PTR(obj);
         return 0;
@@ -117,7 +118,13 @@ int socket_bind_supported(void) {
                 return 0;
         }
 
-        if (!bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*ifindex=*/0)) {
+        r = dlopen_bpf();
+        if (r < 0) {
+                log_info_errno(r, "Could not load libbpf: %m");
+                return 0;
+        }
+
+        if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*ifindex=*/0)) {
                 log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                 "BPF program type cgroup_sock_addr is not supported");
                 return 0;
@@ -178,17 +185,17 @@ static int socket_bind_install_impl(Unit *u) {
                 return log_unit_error_errno(
                                 u, errno, "Failed to open cgroup=%s for reading", cgroup_path);
 
-        ipv4 = bpf_program__attach_cgroup(obj->progs.sd_bind4, cgroup_fd);
-        r = libbpf_get_error(ipv4);
+        ipv4 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind4, cgroup_fd);
+        r = sym_libbpf_get_error(ipv4);
         if (r != 0)
                 return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program",
-                                bpf_program__name(obj->progs.sd_bind4));
+                                sym_bpf_program__name(obj->progs.sd_bind4));
 
-        ipv6 = bpf_program__attach_cgroup(obj->progs.sd_bind6, cgroup_fd);
-        r = libbpf_get_error(ipv6);
+        ipv6 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind6, cgroup_fd);
+        r = sym_libbpf_get_error(ipv6);
         if (r != 0)
                 return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program",
-                                bpf_program__name(obj->progs.sd_bind6));
+                                sym_bpf_program__name(obj->progs.sd_bind6));
 
         u->ipv4_socket_bind_link = TAKE_PTR(ipv4);
         u->ipv6_socket_bind_link = TAKE_PTR(ipv6);
