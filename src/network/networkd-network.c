@@ -170,6 +170,8 @@ int network_verify(Network *network) {
 
         if (network->link_local < 0)
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
+        if (network->ipv6ll_address_gen_mode == IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE)
+                SET_FLAG(network->link_local, ADDRESS_FAMILY_IPV6, false);
 
         /* IPMasquerade implies IPForward */
         network->ip_forward |= network->ip_masquerade;
