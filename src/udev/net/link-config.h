@@ -10,7 +10,7 @@
 #include "net-condition.h"
 
 typedef struct LinkConfigContext LinkConfigContext;
-typedef struct link_config link_config;
+typedef struct LinkConfig LinkConfig;
 
 typedef enum MACAddressPolicy {
         MAC_ADDRESS_POLICY_PERSISTENT,
@@ -32,7 +32,7 @@ typedef enum NamePolicy {
         _NAMEPOLICY_INVALID = -EINVAL,
 } NamePolicy;
 
-struct link_config {
+struct LinkConfig {
         char *filename;
 
         NetMatch match;
@@ -65,7 +65,7 @@ struct link_config {
         int tx_flow_control;
         int autoneg_flow_control;
 
-        LIST_FIELDS(link_config, links);
+        LIST_FIELDS(LinkConfig, links);
 };
 
 int link_config_ctx_new(LinkConfigContext **ret);
@@ -76,8 +76,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename);
 int link_config_load(LinkConfigContext *ctx);
 bool link_config_should_reload(LinkConfigContext *ctx);
 
-int link_config_get(LinkConfigContext *ctx, sd_device *device, link_config **ret);
-int link_config_apply(LinkConfigContext *ctx, const link_config *config, sd_device *device, const char **ret_name);
+int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret);
+int link_config_apply(LinkConfigContext *ctx, const LinkConfig *config, sd_device *device, const char **ret_name);
 int link_get_driver(LinkConfigContext *ctx, sd_device *device, char **ret);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
