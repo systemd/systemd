@@ -1,5 +1,27 @@
 systemd System and Service Manager
 
+CHANGES WITH 249:
+
+        * The runtime dependency on libbpf, has been changed to be based on
+          dlopen(): instead of regular dynamic library dependency declared in
+          the binary ELF headers, this library is now loaded on demand
+          only, if it is available. If the library cannot be found the
+          relevant operations will fail gracefully, or a suitable fallback
+          logic is chosen. This is supposed to be useful for general purpose
+          distributions, as it allows minimizing the list of dependencies the
+          systemd packages pull in, permitting building of more minimal OS
+          images, while still making use of these "weak" dependencies should
+          they be installed. Since many package managers automatically
+          synthesize package dependencies from ELF shared library dependencies,
+          some additional manual packaging work has to be done now to replace
+          that (slightly downgraded from "required" to "recommended" or
+          whatever is conceptually suitable for the package manager). Note that
+          this change does not alter build-time behaviour: as before the
+          build-time dependency has to be installed during build, even if
+          it is now optional during runtime.
+
+        – Edinburgh, 2021-05-23
+
 CHANGES WITH 248:
 
         * A concept of system extension images is introduced. Such images may
