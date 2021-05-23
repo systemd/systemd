@@ -302,9 +302,17 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
         return ret;
 }
 
-int rtnl_get_link_iftype(sd_netlink **rtnl, int ifindex, unsigned short *ret) {
+int rtnl_get_link_info(sd_netlink **rtnl, int ifindex, unsigned short *ret_iftype, unsigned *ret_flags) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        unsigned short iftype;
+        unsigned flags;
         int r;
+
+        assert(rtnl);
+        assert(ifindex > 0);
+
+        if (!ret_iftype && !ret_flags)
+                return 0;
 
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
@@ -322,7 +330,23 @@ int rtnl_get_link_iftype(sd_netlink **rtnl, int ifindex, unsigned short *ret) {
         if (r < 0)
                 return r;
 
-        return sd_rtnl_message_link_get_type(reply, ret);
+        if (ret_iftype) {
+                r = sd_rtnl_message_link_get_type(reply, &iftype);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_flags) {
+                r = sd_rtnl_message_link_get_flags(reply, &flags);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_iftype)
+                *ret_iftype = iftype;
+        if (ret_flags)
+                *ret_flags = flags;
+        return 0;
 }
 
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret) {
