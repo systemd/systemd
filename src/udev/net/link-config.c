@@ -243,6 +243,7 @@ int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret)
         unsigned short iftype;
         LinkConfig *link;
         const char *name;
+        unsigned flags;
         int ifindex, r;
 
         assert(ctx);
@@ -257,9 +258,13 @@ int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret)
         if (r < 0)
                 return r;
 
-        r = rtnl_get_link_info(&ctx->rtnl, ifindex, &iftype, NULL);
+        r = rtnl_get_link_info(&ctx->rtnl, ifindex, &iftype, &flags);
         if (r < 0)
                 return r;
+
+        /* Do not configure loopback interfaces by .link files. */
+        if (flags & IFF_LOOPBACK)
+                return -ENOENT;
 
         r = ethtool_get_permanent_macaddr(&ctx->ethtool_fd, name, &permanent_mac);
         if (r < 0)
