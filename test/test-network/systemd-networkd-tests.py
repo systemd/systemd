@@ -762,7 +762,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'lo', env=env)
         print(output)
-        self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Link File: n/a')
         self.assertRegex(output, r'Network File: n/a')
 
     def test_delete_links(self):
