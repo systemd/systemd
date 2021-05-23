@@ -143,10 +143,9 @@ static int agent_ask_password_tty(
                 char ***ret) {
 
         int tty_fd = -1, r;
+        const char *con = arg_device ?: "/dev/console";
 
         if (arg_console) {
-                const char *con = arg_device ?: "/dev/console";
-
                 tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
                 if (tty_fd < 0)
                         return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
@@ -155,6 +154,7 @@ static int agent_ask_password_tty(
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
+                log_info("Starting password query on %s.", con);
         }
 
         r = ask_password_tty(tty_fd, message, NULL, until, flags, flag_file, ret);
@@ -162,6 +162,9 @@ static int agent_ask_password_tty(
         if (arg_console) {
                 tty_fd = safe_close(tty_fd);
                 release_terminal();
+
+                if (r >= 0)
+                        log_info("Password query on %s finished successfully.", con);
         }
 
         return r;
