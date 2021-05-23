@@ -1999,7 +1999,7 @@ static void log_execution_mode(bool *ret_first_boot) {
         if (arg_system) {
                 int v;
 
-                log_info("systemd " GIT_VERSION " running in %ssystem mode. (%s)",
+                log_info("systemd " GIT_VERSION " running in %ssystem mode (%s)",
                          arg_action == ACTION_TEST ? "test " : "",
                          systemd_features);
 
