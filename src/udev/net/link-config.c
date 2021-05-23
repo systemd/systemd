@@ -240,7 +240,7 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
 int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret) {
         unsigned name_assign_type = NET_NAME_UNKNOWN;
         struct ether_addr permanent_mac = {};
-        unsigned short iftype = 0;
+        unsigned short iftype;
         LinkConfig *link;
         const char *name;
         int ifindex, r;
@@ -257,7 +257,7 @@ int link_config_get(LinkConfigContext *ctx, sd_device *device, LinkConfig **ret)
         if (r < 0)
                 return r;
 
-        r = rtnl_get_link_iftype(&ctx->rtnl, ifindex, &iftype);
+        r = rtnl_get_link_info(&ctx->rtnl, ifindex, &iftype, NULL);
         if (r < 0)
                 return r;
 
