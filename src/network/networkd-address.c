@@ -755,7 +755,7 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, 0, AF_INET6);
+        r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
         if (r < 0)
                 return r;
 
@@ -771,16 +771,18 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
                 unsigned char flags;
                 int ifindex;
 
+                /* NETLINK_GET_STRICT_CHK socket option is supported since kernel 4.20. To support
+                 * older kernels, we need to check ifindex here. */
                 r = sd_rtnl_message_addr_get_ifindex(addr, &ifindex);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: invalid ifindex, ignoring: %m");
+                        log_link_warning_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
                         continue;
                 } else if (link->ifindex != ifindex)
                         continue;
 
                 r = sd_rtnl_message_addr_get_flags(addr, &flags);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address message with invalid flags, ignoring: %m");
+                        log_link_warning_errno(link, r, "rtnl: received address message without valid flags, ignoring: %m");
                         continue;
                 } else if (!(flags & IFA_F_TENTATIVE))
                         continue;
