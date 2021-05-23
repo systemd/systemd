@@ -411,7 +411,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "Process system password requests.\n\n"
+               "%sProcess system password requests.%s\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --list              Show pending password requests\n"
@@ -423,6 +423,8 @@ static int help(void) {
                "                         instead of the current TTY\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
                link);
 
         return 0;
