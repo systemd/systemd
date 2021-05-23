@@ -412,14 +412,15 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Process system password requests.\n\n"
-               "  -h --help     Show this help\n"
-               "     --version  Show package version\n"
-               "     --list     Show pending password requests\n"
-               "     --query    Process pending password requests\n"
-               "     --watch    Continuously process password requests\n"
-               "     --wall     Continuously forward password requests to wall\n"
-               "     --plymouth Ask question with Plymouth instead of on TTY\n"
-               "     --console  Ask question on /dev/console instead of current TTY\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --list              Show pending password requests\n"
+               "     --query             Process pending password requests\n"
+               "     --watch             Continuously process password requests\n"
+               "     --wall              Continuously forward password requests to wall\n"
+               "     --plymouth          Ask question with Plymouth instead of on TTY\n"
+               "     --console[=DEVICE]  Ask question on /dev/console (or DEVICE if specified)\n"
+               "                         instead of the current TTY\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
