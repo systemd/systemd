@@ -1838,6 +1838,10 @@ static int link_get_network(Link *link, Network **ret) {
         assert(link->manager);
         assert(ret);
 
+        /* networkd does not manage loopback interfaces. */
+        if (link->flags & IFF_LOOPBACK)
+                return -ENOENT;
+
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;
 
@@ -2024,7 +2028,6 @@ int link_reconfigure(Link *link, bool force) {
 }
 
 static int link_initialized_and_synced(Link *link) {
-        Network *network;
         int r;
 
         assert(link);
@@ -2048,6 +2051,8 @@ static int link_initialized_and_synced(Link *link) {
                 return r;
 
         if (!link->network) {
+                Network *network;
+
                 r = wifi_get_info(link);
                 if (r < 0)
                         return r;
@@ -2059,17 +2064,6 @@ static int link_initialized_and_synced(Link *link) {
                 }
                 if (r < 0)
                         return r;
-
-                if (link->flags & IFF_LOOPBACK) {
-                        if (network->link_local != ADDRESS_FAMILY_NO)
-                                log_link_debug(link, "Ignoring link-local autoconfiguration for loopback link");
-
-                        if (network->dhcp != ADDRESS_FAMILY_NO)
-                                log_link_debug(link, "Ignoring DHCP clients for loopback link");
-
-                        if (network->dhcp_server)
-                                log_link_debug(link, "Ignoring DHCP server for loopback link");
-                }
 
                 link->network = network_ref(network);
                 link_update_operstate(link, false);
