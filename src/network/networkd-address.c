@@ -784,13 +784,19 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
         return false;
 }
 
-static int link_enumerate_ipv6_tentative_addresses(Link *link) {
+int link_drop_ipv6ll_addresses(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        /* IPv6LL address may be in the tentative state, and in that case networkd has not received it.
+         * So, we need to dump all IPv6 addresses. */
+
+        if (link_ipv6ll_enabled(link))
+                return 0;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
         if (r < 0)
@@ -805,27 +811,57 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
                 return r;
 
         for (sd_netlink_message *addr = reply; addr; addr = sd_netlink_message_next(addr)) {
-                unsigned char flags;
+                _cleanup_(address_freep) Address *a = NULL;
+                unsigned char flags, prefixlen;
+                struct in6_addr address;
                 int ifindex;
 
                 /* NETLINK_GET_STRICT_CHK socket option is supported since kernel 4.20. To support
                  * older kernels, we need to check ifindex here. */
                 r = sd_rtnl_message_addr_get_ifindex(addr, &ifindex);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
+                        log_link_debug_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
                         continue;
                 } else if (link->ifindex != ifindex)
                         continue;
 
                 r = sd_rtnl_message_addr_get_flags(addr, &flags);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address message without valid flags, ignoring: %m");
+                        log_link_debug_errno(link, r, "rtnl: received address message without valid flags, ignoring: %m");
                         continue;
-                } else if (!(flags & IFA_F_TENTATIVE))
+                }
+
+                r = sd_rtnl_message_addr_get_prefixlen(addr, &prefixlen);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "rtnl: received address message without prefixlen, ignoring: %m");
+                        continue;
+                }
+
+                if (sd_netlink_message_read_in6_addr(addr, IFA_LOCAL, NULL) >= 0)
+                        /* address with peer, ignoring. */
                         continue;
 
-                log_link_debug(link, "Found tentative ipv6 link-local address");
-                (void) manager_rtnl_process_address(link->manager->rtnl, addr, link->manager);
+                r = sd_netlink_message_read_in6_addr(addr, IFA_ADDRESS, &address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "rtnl: received address message without valid address, ignoring: %m");
+                        continue;
+                }
+
+                if (!in6_addr_is_link_local(&address))
+                         continue;
+
+                r = address_new(&a);
+                if (r < 0)
+                        return -ENOMEM;
+
+                a->family = AF_INET6;
+                a->in_addr.in6 = address;
+                a->prefixlen = prefixlen;
+                a->flags = flags;
+
+                r = address_remove(a, link);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -837,17 +873,13 @@ int link_drop_foreign_addresses(Link *link) {
 
         assert(link);
 
-        /* The kernel doesn't notify us about tentative addresses;
-         * so if ipv6ll is disabled, we need to enumerate them now so we can drop them below */
-        if (!link_ipv6ll_enabled(link)) {
-                r = link_enumerate_ipv6_tentative_addresses(link);
-                if (r < 0)
-                        return r;
-        }
+        r = link_drop_ipv6ll_addresses(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to drop IPv6LL address: %m");
 
         SET_FOREACH(address, link->addresses_foreign) {
-                /* we consider IPv6LL addresses to be managed by the kernel */
-                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1 && link_ipv6ll_enabled(link))
+                /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
+                if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1)
                         continue;
 
                 if (link_address_is_dynamic(link, address)) {
