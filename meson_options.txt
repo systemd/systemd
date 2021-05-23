@@ -204,6 +204,7 @@ option('status-unit-format-default', type : 'combo',
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
+
 option('system-alloc-uid-min', type : 'integer', value : '-1',
        description : 'minimum system UID used when allocating')
 option('system-alloc-gid-min', type : 'integer', value : '-1',
@@ -220,10 +221,6 @@ option('container-uid-base-min', type : 'integer', value : 0x00080000,
        description : 'minimum container UID base')
 option('container-uid-base-max', type : 'integer', value : 0x6FFF0000,
        description : 'maximum container UID base')
-option('tty-gid', type : 'integer', value : 5,
-       description : 'the numeric GID of the "tty" group')
-option('users-gid', type : 'integer', value : '-1',
-       description : 'the numeric GID of the "users" group')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
 option('wheel-group', type : 'boolean',
@@ -234,6 +231,49 @@ option('nobody-user', type : 'string',
 option('nobody-group', type : 'string',
        description : 'The name of the nobody group (the one with GID 65534)',
        value : 'nobody')
+option('adm-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "adm" group')
+option('audio-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "audio" group')
+option('cdrom-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "cdrom" group')
+option('dialout-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "dialout" group')
+option('disk-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "disk" group')
+option('input-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "input" group')
+option('kmem-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "kmem" group')
+option('kvm-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "kvm" group')
+option('lp-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "lp" group')
+option('render-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "render" group')
+option('sgx-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "sgx" group')
+option('tape-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "tape" group')
+option('tty-gid', type : 'integer', value : 5,
+       description : 'the numeric GID of the "tty" group')
+option('users-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "users" group')
+option('utmp-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "utmp" group')
+option('video-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "video" group')
+option('wheel-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "wheel" group')
+option('systemd-journal-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-journal group')
+option('systemd-network-uid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-network user')
+option('systemd-resolve-uid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-resolve user')
+option('systemd-timesync-uid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the systemd-timesync user')
+
 option('dev-kvm-mode', type : 'string', value : '0666',
        description : '/dev/kvm access mode')
 option('group-render-mode', type : 'string', value : '0666',
