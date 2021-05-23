@@ -9,7 +9,7 @@
 #include "list.h"
 #include "net-condition.h"
 
-typedef struct link_config_ctx link_config_ctx;
+typedef struct LinkConfigContext LinkConfigContext;
 typedef struct link_config link_config;
 
 typedef enum MACAddressPolicy {
@@ -68,17 +68,17 @@ struct link_config {
         LIST_FIELDS(link_config, links);
 };
 
-int link_config_ctx_new(link_config_ctx **ret);
-link_config_ctx* link_config_ctx_free(link_config_ctx *ctx);
-DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
+int link_config_ctx_new(LinkConfigContext **ret);
+LinkConfigContext* link_config_ctx_free(LinkConfigContext *ctx);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LinkConfigContext*, link_config_ctx_free);
 
-int link_load_one(link_config_ctx *ctx, const char *filename);
-int link_config_load(link_config_ctx *ctx);
-bool link_config_should_reload(link_config_ctx *ctx);
+int link_load_one(LinkConfigContext *ctx, const char *filename);
+int link_config_load(LinkConfigContext *ctx);
+bool link_config_should_reload(LinkConfigContext *ctx);
 
-int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret);
-int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name);
-int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret);
+int link_config_get(LinkConfigContext *ctx, sd_device *device, link_config **ret);
+int link_config_apply(LinkConfigContext *ctx, const link_config *config, sd_device *device, const char **ret_name);
+int link_get_driver(LinkConfigContext *ctx, sd_device *device, char **ret);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;
