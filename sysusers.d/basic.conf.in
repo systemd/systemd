@@ -12,28 +12,28 @@ u root    0     "Super User" /root
 u {{NOBODY_USER_NAME}}  65534 "Nobody"     -
 
 # Administrator group: can *see* more than normal users
-g adm     -     -            -
+g adm     {{ADM_GID    }}     -            -
 
 # Administrator group: can *do* more than normal users
-g wheel   -     -            -
+g wheel   {{WHEEL_GID  }}     -            -
 
-# Access to certain kernel and userspace facilities
-g kmem    -     -            -
-g tty     {{TTY_GID}}     -            -
-g utmp    -     -            -
+# Access to shared database of users on the system
+g utmp    {{UTMP_GID   }}     -            -
 
-# Hardware access groups
-g audio   -     -            -
-g cdrom   -     -            -
-g dialout -     -            -
-g disk    -     -            -
-g input   -     -            -
-g kvm     -     -            -
-g lp      -     -            -
-g render  -     -            -
-g sgx     -     -            -
-g tape    -     -            -
-g video   -     -            -
+# Physical and virtual hardware access groups
+g audio   {{AUDIO_GID  }}     -            -
+g cdrom   {{CDROM_GID  }}     -            -
+g dialout {{DIALOUT_GID}}     -            -
+g disk    {{DISK_GID   }}     -            -
+g input   {{INPUT_GID  }}     -            -
+g kmem    {{KMEM_GID   }}     -            -
+g kvm     {{KVM_GID    }}     -            -
+g lp      {{LP_GID     }}     -            -
+g render  {{RENDER_GID }}     -            -
+g sgx     {{SGX_GID    }}     -            -
+g tape    {{TAPE_GID   }}     -            -
+g tty     {{TTY_GID    }}     -            -
+g video   {{VIDEO_GID  }}     -            -
 
 # Default group for normal users
-g users   {{USERS_GID}}     -            -
+g users   {{USERS_GID  }}     -            -
