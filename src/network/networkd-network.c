@@ -16,10 +16,11 @@
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -176,6 +177,7 @@ int network_verify(Network *network) {
         /* IPMasquerade implies IPForward */
         network->ip_forward |= network->ip_masquerade;
 
+        network_adjust_ipv6_proxy_ndp(network);
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
@@ -233,7 +235,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
-        network_drop_invalid_mdb_entries(network);
+        network_drop_invalid_bridge_mdb_entries(network);
         network_drop_invalid_neighbors(network);
         network_drop_invalid_address_labels(network);
         network_drop_invalid_prefixes(network);
@@ -601,7 +603,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
-        hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
+        hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
@@ -613,6 +615,7 @@ static Network *network_free(Network *network) {
         free(network->name);
 
         free(network->dhcp_server_timezone);
+        free(network->dhcp_server_uplink_name);
 
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
@@ -654,7 +657,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;
         BridgeFDB *fdb;
-        MdbEntry *mdb;
+        BridgeMDB *mdb;
         Neighbor *neighbor;
 
         assert(network);
@@ -671,7 +674,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (fdb->family == AF_INET6)
                         return true;
 
-        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
+        HASHMAP_FOREACH(mdb, network->bridge_mdb_entries_by_section)
                 if (mdb->family == AF_INET6)
                         return true;
 
@@ -753,12 +756,13 @@ int config_parse_domains(
                 void *data,
                 void *userdata) {
 
-        Network *n = data;
+        Network *n = userdata;
         int r;
 
-        assert(n);
+        assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(n);
 
         if (isempty(rvalue)) {
                 n->search_domains = ordered_set_free(n->search_domains);
@@ -837,6 +841,7 @@ int config_parse_hostname(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(hostname);
 
         r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &hn, userdata);
         if (r < 0)
@@ -882,6 +887,7 @@ int config_parse_timezone(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(datap);
 
         r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &tz, userdata);
         if (r < 0)
@@ -914,6 +920,7 @@ int config_parse_dns(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(n);
 
         if (isempty(rvalue)) {
                 for (unsigned i = 0; i < n->n_dns; i++)
@@ -970,15 +977,16 @@ int config_parse_dnssec_negative_trust_anchors(
                 void *data,
                 void *userdata) {
 
-        Network *n = data;
+        Set **nta = data;
         int r;
 
-        assert(n);
+        assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(nta);
 
         if (isempty(rvalue)) {
-                n->dnssec_negative_trust_anchors = set_free_free(n->dnssec_negative_trust_anchors);
+                *nta = set_free_free(*nta);
                 return 0;
         }
 
@@ -1003,7 +1011,7 @@ int config_parse_dnssec_negative_trust_anchors(
                         continue;
                 }
 
-                r = set_ensure_consume(&n->dnssec_negative_trust_anchors, &dns_name_hash_ops, TAKE_PTR(w));
+                r = set_ensure_consume(nta, &dns_name_hash_ops, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
         }
@@ -1024,9 +1032,10 @@ int config_parse_ntp(
         char ***l = data;
         int r;
 
-        assert(l);
+        assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(l);
 
         if (isempty(rvalue)) {
                 *l = strv_free(*l);
@@ -1079,10 +1088,15 @@ int config_parse_required_for_online(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         LinkOperationalStateRange range;
         bool required = true;
         int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
 
         if (isempty(rvalue)) {
                 network->required_for_online = true;
@@ -1107,6 +1121,43 @@ int config_parse_required_for_online(
         network->required_for_online = required;
         network->required_operstate_for_online = range;
 
+        return 0;
+}
+
+int config_parse_link_group(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        if (isempty(rvalue)) {
+                network->group = 0;
+                network->group_set = false;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &network->group);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Group=, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->group_set = true;
         return 0;
 }
 

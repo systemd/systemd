@@ -79,7 +79,11 @@ int local_addresses(
                         return r;
         }
 
-        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, af);
+        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, ifindex, af);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -221,6 +225,14 @@ int local_gateways(
         }
 
         r = sd_rtnl_message_new_route(rtnl, &req, RTM_GETROUTE, af, RTPROT_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_type(req, RTN_UNICAST);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_table(req, RT_TABLE_MAIN);
         if (r < 0)
                 return r;
 

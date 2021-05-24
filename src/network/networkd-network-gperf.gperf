@@ -10,6 +10,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
+#include "networkd-bridge-mdb.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server.h"
@@ -17,7 +18,6 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-dhcp6.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
@@ -59,7 +59,7 @@ Match.Architecture,                          config_parse_net_condition,        
 Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
 Link.MACAddress,                             config_parse_hwaddr,                                      0,                             offsetof(Network, mac)
 Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
-Link.Group,                                  config_parse_uint32,                                      0,                             offsetof(Network, group)
+Link.Group,                                  config_parse_link_group,                                  0,                             0
 Link.ARP,                                    config_parse_tristate,                                    0,                             offsetof(Network, arp)
 Link.Multicast,                              config_parse_tristate,                                    0,                             offsetof(Network, multicast)
 Link.AllMulticast,                           config_parse_tristate,                                    0,                             offsetof(Network, allmulticast)
@@ -110,7 +110,7 @@ Network.LLMNR,                               config_parse_resolve_support,      
 Network.MulticastDNS,                        config_parse_resolve_support,                             0,                             offsetof(Network, mdns)
 Network.DNSOverTLS,                          config_parse_dns_over_tls_mode,                           0,                             offsetof(Network, dns_over_tls_mode)
 Network.DNSSEC,                              config_parse_dnssec_mode,                                 0,                             offsetof(Network, dnssec_mode)
-Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             0
+Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             offsetof(Network, dnssec_negative_trust_anchors)
 Network.NTP,                                 config_parse_ntp,                                         0,                             offsetof(Network, ntp)
 Network.IPForward,                           config_parse_address_family_with_kernel,                  0,                             offsetof(Network, ip_forward)
 Network.IPMasquerade,                        config_parse_ip_masquerade,                               0,                             offsetof(Network, ip_masquerade)
@@ -263,6 +263,7 @@ IPv6AcceptRA.PrefixDenyList,                 config_parse_ndisc_address_filter, 
 IPv6AcceptRA.RouteAllowList,                 config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_allow_listed_route_prefix)
 IPv6AcceptRA.RouteDenyList,                  config_parse_ndisc_address_filter,                        0,                             offsetof(Network, ndisc_deny_listed_route_prefix)
 DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
+DHCPServer.UplinkInterface,                  config_parse_dhcp_server_uplink,                          0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
 DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
