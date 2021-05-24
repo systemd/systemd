@@ -64,5 +64,8 @@ static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags cop
 
 int copy_times(int fdf, int fdt, CopyFlags flags);
 int copy_access(int fdf, int fdt);
-int copy_rights(int fdf, int fdt);
+int copy_rights_with_fallback(int fdf, int fdt, const char *patht);
+static inline int copy_rights(int fdf, int fdt) {
+        return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
+}
 int copy_xattr(int fdf, int fdt);
