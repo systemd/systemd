@@ -763,6 +763,10 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
         for (sd_netlink_message *addr = reply; addr; addr = sd_netlink_message_next(addr)) {
                 unsigned char flags;
                 int ifindex;

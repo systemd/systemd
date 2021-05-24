@@ -114,7 +114,7 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
         assert_se(m);
-
+        assert_se(sd_netlink_message_request_dump(m, true) >= 0);
         assert_se(sd_netlink_call(rtnl, m, -1, &r) == 1);
 
         assert_se(sd_netlink_message_read_in_addr(r, IFA_LOCAL, &in_data) == 0);
@@ -479,7 +479,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
         sd_netlink_message *m;
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC) >= 0);
-
+        assert_se(sd_netlink_message_request_dump(req, true) >= 0);
         assert_se(sd_netlink_call(rtnl, req, 0, &reply) >= 0);
 
         for (m = reply; m; m = sd_netlink_message_next(m)) {
