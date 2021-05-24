@@ -753,12 +753,13 @@ int config_parse_domains(
                 void *data,
                 void *userdata) {
 
-        Network *n = data;
+        Network *n = userdata;
         int r;
 
-        assert(n);
+        assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(n);
 
         if (isempty(rvalue)) {
                 n->search_domains = ordered_set_free(n->search_domains);
@@ -837,6 +838,7 @@ int config_parse_hostname(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(hostname);
 
         r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &hn, userdata);
         if (r < 0)
@@ -882,6 +884,7 @@ int config_parse_timezone(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(datap);
 
         r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &tz, userdata);
         if (r < 0)
@@ -914,6 +917,7 @@ int config_parse_dns(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(n);
 
         if (isempty(rvalue)) {
                 for (unsigned i = 0; i < n->n_dns; i++)
@@ -970,15 +974,16 @@ int config_parse_dnssec_negative_trust_anchors(
                 void *data,
                 void *userdata) {
 
-        Network *n = data;
+        Set **nta = data;
         int r;
 
-        assert(n);
+        assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(nta);
 
         if (isempty(rvalue)) {
-                n->dnssec_negative_trust_anchors = set_free_free(n->dnssec_negative_trust_anchors);
+                *nta = set_free_free(*nta);
                 return 0;
         }
 
@@ -1003,7 +1008,7 @@ int config_parse_dnssec_negative_trust_anchors(
                         continue;
                 }
 
-                r = set_ensure_consume(&n->dnssec_negative_trust_anchors, &dns_name_hash_ops, TAKE_PTR(w));
+                r = set_ensure_consume(nta, &dns_name_hash_ops, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
         }
@@ -1024,9 +1029,10 @@ int config_parse_ntp(
         char ***l = data;
         int r;
 
-        assert(l);
+        assert(filename);
         assert(lvalue);
         assert(rvalue);
+        assert(l);
 
         if (isempty(rvalue)) {
                 *l = strv_free(*l);
@@ -1079,10 +1085,15 @@ int config_parse_required_for_online(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = userdata;
         LinkOperationalStateRange range;
         bool required = true;
         int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
 
         if (isempty(rvalue)) {
                 network->required_for_online = true;
@@ -1107,6 +1118,43 @@ int config_parse_required_for_online(
         network->required_for_online = required;
         network->required_operstate_for_online = range;
 
+        return 0;
+}
+
+int config_parse_link_group(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        if (isempty(rvalue)) {
+                network->group = 0;
+                network->group_set = false;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &network->group);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse Group=, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->group_set = true;
         return 0;
 }
 

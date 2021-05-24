@@ -1454,7 +1454,7 @@ static int link_set_group(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (link->network->group <= 0)
+        if (!link->network->group_set)
                 return 0;
 
         log_link_debug(link, "Setting group");
