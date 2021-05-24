@@ -394,7 +394,11 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         original = fopen(passwd_path, "re");
         if (original) {
 
-                r = copy_rights(fileno(original), fileno(passwd));
+                /* Allow fallback path for when /proc is not mounted. On any normal system /proc will be
+                 * mounted, but e.g. when 'dnf --installroot' is used, it might not be. There is no security
+                 * relevance here, since the environment is ultimately trusted, and not requiring /proc makes
+                 * it easier to depend on sysusers in packaging scripts and suchlike. */
+                r = copy_rights_with_fallback(fileno(original), fileno(passwd), passwd_tmp);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                passwd_path, passwd_tmp);
@@ -511,7 +515,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         original = fopen(shadow_path, "re");
         if (original) {
 
-                r = copy_rights(fileno(original), fileno(shadow));
+                r = copy_rights_with_fallback(fileno(original), fileno(shadow), shadow_tmp);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                shadow_path, shadow_tmp);
@@ -642,7 +646,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         original = fopen(group_path, "re");
         if (original) {
 
-                r = copy_rights(fileno(original), fileno(group));
+                r = copy_rights_with_fallback(fileno(original), fileno(group), group_tmp);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                group_path, group_tmp);
@@ -744,7 +748,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         if (original) {
                 struct sgrp *sg;
 
-                r = copy_rights(fileno(original), fileno(gshadow));
+                r = copy_rights_with_fallback(fileno(original), fileno(gshadow), gshadow_tmp);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                gshadow_path, gshadow_tmp);
