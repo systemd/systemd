@@ -873,10 +873,6 @@ int link_drop_foreign_addresses(Link *link) {
 
         assert(link);
 
-        r = link_drop_ipv6ll_addresses(link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to drop IPv6LL address: %m");
-
         SET_FOREACH(address, link->addresses_foreign) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
                 if (address->family == AF_INET6 && in6_addr_is_link_local(&address->in_addr.in6) == 1)
