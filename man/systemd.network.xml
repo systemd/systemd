@@ -204,10 +204,10 @@
       <varlistentry>
         <term><varname>Group=</varname></term>
         <listitem>
-          <para>Link groups are similar to port ranges found in managed switches.
-          When network interfaces are added to a numbered group, operations on
-          all the interfaces from that group can be performed at once. An unsigned
-          integer in the range 0…4294967294. Defaults to unset.</para>
+          <para>Link groups are similar to port ranges found in managed switches. When network interfaces
+          are added to a numbered group, operations on all the interfaces from that group can be
+          performed at once. Takes an unsigned integer in the range 0…4294967295. Defaults to unset.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2403,6 +2403,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         and clients shall learn the new settings with shorter
         latencies. Longer lease times reduce the generated DHCP
         network traffic.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UplinkInterface=</varname></term>
+        <listitem><para>Specifies name or index of uplink interface, or the special value
+        <literal>%none</literal>. When emitting DNS, NTP, or SIP servers are enabled but no servers are
+        specified, then the servers configured in the uplink interface will be emitted. When unset, the
+        link which has default gateway with higher priority will be automatically selected. When
+        <literal>%none</literal>, no uplink interface will be selected. Defaults to unset.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
