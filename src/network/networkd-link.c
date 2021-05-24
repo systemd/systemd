@@ -2815,12 +2815,6 @@ static int link_carrier_lost(Link *link) {
                 /* let's shortcut things for CAN which doesn't need most of what's done below. */
                 return link_handle_bound_by_list(link);
 
-        /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
-         * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
-         * configuration and stop the clients as well. */
-        if (link->setting_mtu)
-                return 0;
-
         r = link_stop_engines(link, false);
         if (r < 0) {
                 link_enter_failed(link);
