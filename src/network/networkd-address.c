@@ -759,6 +759,10 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
         r = sd_netlink_call(link->manager->rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
