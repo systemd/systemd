@@ -4,6 +4,7 @@
 import argparse
 import logging
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -59,7 +60,11 @@ def gen_bpf_skeleton(bpftool_exec, in_file, out_fd):
 
     logging.debug('Generating BPF skeleton:')
     logging.debug('{}'.format(' '.join(bpftool_args)))
-    subprocess.check_call(bpftool_args, stdout=out_fd)
+    skel = subprocess.check_output(bpftool_args, universal_newlines=True)
+    # libbpf is used via dlopen(), so rename symbols as defined
+    # in src/shared/bpf-dlopen.h
+    skel = re.sub(r'(bpf_object__\w+_skeleton)', r'sym_\1', skel)
+    out_fd.write(skel)
 
 
 def bpf_build(args):
