@@ -871,8 +871,6 @@ static int link_request_static_configs(Link *link) {
         return 0;
 }
 
-static int link_configure_continue(Link *link);
-
 static int link_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -979,24 +977,24 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         assert(link);
         assert(link->ifname);
 
-        link->setting_mtu = false;
-
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+                return 0;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
+        if (r < 0) {
                 log_link_message_warning_errno(link, m, r, "Could not set MTU, ignoring");
-        else
-                log_link_debug(link, "Setting MTU done.");
-
-        if (link->state == LINK_STATE_INITIALIZED) {
-                r = link_configure_continue(link);
-                if (r < 0)
-                        link_enter_failed(link);
+                return 0;
         }
 
-        return 1;
+        log_link_debug(link, "Setting MTU done.");
+
+        /* The kernel resets ipv6 mtu after changing device mtu;
+         * we must set this here, after we've set device mtu */
+        r = link_set_ipv6_mtu(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+
+        return 0;
 }
 
 int link_set_mtu(Link *link, uint32_t mtu) {
@@ -1007,7 +1005,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (mtu == 0 || link->setting_mtu)
+        if (mtu == 0)
                 return 0;
 
         if (link->mtu == mtu)
@@ -1039,7 +1037,6 @@ int link_set_mtu(Link *link, uint32_t mtu) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
-        link->setting_mtu = true;
 
         return 0;
 }
@@ -1264,26 +1261,27 @@ bool link_has_carrier(Link *link) {
 static int link_address_genmode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
+        assert(m);
         assert(link);
 
-        link->setting_genmode = false;
-
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+                return 0;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not set address genmode for interface, ignoring");
-        else
-                log_link_debug(link, "Setting address genmode done.");
-
-        if (link->state == LINK_STATE_INITIALIZED) {
-                r = link_configure_continue(link);
-                if (r < 0)
-                        link_enter_failed(link);
+        if (r < 0) {
+                log_link_message_warning_errno(link, m, r, "Could not set IPv6LL address generation mode, ignoring");
+                return 0;
         }
 
-        return 1;
+        log_link_debug(link, "IPv6LL address genaration mode set.");
+
+        r = link_drop_ipv6ll_addresses(link);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to drop IPv6LL address: %m");
+                link_enter_failed(link);
+        }
+
+        return 0;
 }
 
 static int link_configure_addrgen_mode(Link *link) {
@@ -1296,10 +1294,10 @@ static int link_configure_addrgen_mode(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (!socket_ipv6_is_supported() || link->setting_genmode)
+        if (!socket_ipv6_is_supported())
                 return 0;
 
-        log_link_debug(link, "Setting address genmode for link");
+        log_link_debug(link, "Setting IPv6LL address generation mode for link");
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
@@ -1331,7 +1329,7 @@ static int link_configure_addrgen_mode(Link *link) {
 
         r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
+                return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE attribute: %m");
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
@@ -1347,7 +1345,6 @@ static int link_configure_addrgen_mode(Link *link) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
-        link->setting_genmode = true;
 
         return 0;
 }
@@ -2151,31 +2148,6 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        return link_configure_continue(link);
-}
-
-/* The configuration continues in this separate function, instead of
- * including this in the above link_configure() function, for two
- * reasons:
- * 1) some devices reset the link when the mtu is set, which caused
- *    an infinite loop here in networkd; see:
- *    https://github.com/systemd/systemd/issues/6593
- *    https://github.com/systemd/systemd/issues/9831
- * 2) if ipv6ll is disabled, then bringing the interface up must be
- *    delayed until after we get confirmation from the kernel that
- *    the addr_gen_mode parameter has been set (via netlink), see:
- *    https://github.com/systemd/systemd/issues/13882
- */
-static int link_configure_continue(Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->state == LINK_STATE_INITIALIZED);
-
-        if (link->setting_mtu || link->setting_genmode)
-                return 0;
-
         /* Drop foreign config, but ignore loopback or critical devices.
          * We do not want to remove loopback address or addresses used for root NFS. */
         if (!(link->flags & IFF_LOOPBACK) &&
@@ -2184,12 +2156,6 @@ static int link_configure_continue(Link *link) {
                 if (r < 0)
                         return r;
         }
-
-        /* The kernel resets ipv6 mtu after changing device mtu;
-         * we must set this here, after we've set device mtu */
-        r = link_set_ipv6_mtu(link);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface, ignoring: %m");
 
         return link_enter_join_netdev(link);
 }
@@ -2878,15 +2844,10 @@ static int link_admin_state_up(Link *link) {
         }
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
-         * ipv6 mtu on NETDEV_UP, so we need to reset it.  The check for
-         * ipv6_mtu_set prevents this from trying to set it too early before
-         * the link->network has been setup; we only need to reset it
-         * here if we've already set it during normal initialization. */
-        if (link->ipv6_mtu_set) {
-                r = link_set_ipv6_mtu(link);
-                if (r < 0)
-                        return r;
-        }
+         * ipv6 mtu on NETDEV_UP, so we need to reset it. */
+        r = link_set_ipv6_mtu(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
 
         return 0;
 }
