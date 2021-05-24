@@ -508,11 +508,9 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
         }
 
-        if (rule->type != FR_ACT_TO_TBL) {
-                r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FIB rule type attribute: %m");
-        }
+        r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append FIB rule type attribute: %m");
 
         return 0;
 }
