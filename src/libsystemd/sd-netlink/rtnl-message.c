@@ -858,7 +858,6 @@ int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl, sd_netlink_message
 
         frh = NLMSG_DATA((*ret)->hdr);
         frh->family = ifal_family;
-        frh->action = FR_ACT_TO_TBL;
 
         return 0;
 }
