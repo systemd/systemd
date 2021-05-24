@@ -671,10 +671,6 @@ int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
 
         ifa->ifa_index = index;
         ifa->ifa_family = family;
-        if (family == AF_INET)
-                ifa->ifa_prefixlen = 32;
-        else if (family == AF_INET6)
-                ifa->ifa_prefixlen = 128;
 
         return 0;
 }
