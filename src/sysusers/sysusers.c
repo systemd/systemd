@@ -212,11 +212,9 @@ static int load_group_database(void) {
                 if (!n)
                         return -ENOMEM;
 
-                k = set_put(database_groups, n);
-                if (k < 0) {
-                        free(n);
+                k = set_consume(database_groups, n);
+                if (k < 0)
                         return k;
-                }
 
                 k = hashmap_put(database_by_groupname, n, GID_TO_PTR(gr->gr_gid));
                 if (k < 0 && k != -EEXIST)
@@ -280,8 +278,8 @@ static int make_backup(const char *target, const char *x) {
 
         if (rename(dst_tmp, backup) < 0)
                 return errno;
+        TAKE_PTR(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed*/
 
-        dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed*/
         return 0;
 }
 
@@ -401,7 +399,6 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         return r;
 
                 while ((r = fgetpwent_sane(original, &pw)) > 0) {
-
                         i = ordered_hashmap_get(users, pw->pw_name);
                         if (i && i->todo_user)
                                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
@@ -784,16 +781,14 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 *tmpfile = TAKE_PTR(gshadow);
                 *tmpfile_path = TAKE_PTR(gshadow_tmp);
         }
-        return 0;
-#else
-        return 0;
 #endif
+        return 0;
 }
 
 static int write_files(void) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
-        const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
+        const char *passwd_path, *shadow_path, *group_path, *gshadow_path;
         int r;
 
         passwd_path = prefix_roota(arg_root, "/etc/passwd");
@@ -845,8 +840,7 @@ static int write_files(void) {
                 r = rename_and_apply_smack_floor_label(group_tmp, group_path);
                 if (r < 0)
                         return r;
-
-                group_tmp = mfree(group_tmp);
+                TAKE_PTR(group_tmp);
 
                 if (!arg_root && !arg_image)
                         (void) nscd_flush_cache(STRV_MAKE("group"));
@@ -855,16 +849,14 @@ static int write_files(void) {
                 r = rename_and_apply_smack_floor_label(gshadow_tmp, gshadow_path);
                 if (r < 0)
                         return r;
-
-                gshadow_tmp = mfree(gshadow_tmp);
+                TAKE_PTR(gshadow_tmp);
         }
 
         if (passwd) {
                 r = rename_and_apply_smack_floor_label(passwd_tmp, passwd_path);
                 if (r < 0)
                         return r;
-
-                passwd_tmp = mfree(passwd_tmp);
+                TAKE_PTR(passwd_tmp);
 
                 if (!arg_root && !arg_image)
                         (void) nscd_flush_cache(STRV_MAKE("passwd"));
@@ -873,18 +865,13 @@ static int write_files(void) {
                 r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
                 if (r < 0)
                         return r;
-
-                shadow_tmp = mfree(shadow_tmp);
+                TAKE_PTR(shadow_tmp);
         }
 
         return 0;
 }
 
 static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
-        struct passwd *p;
-        struct group *g;
-        const char *n;
-        Item *i;
 
         /* Let's see if we already have assigned the UID a second time */
         if (ordered_hashmap_get(todo_uids, UID_TO_PTR(uid)))
@@ -893,6 +880,8 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
         /* Try to avoid using uids that are already used by a group
          * that doesn't have the same name as our new user. */
         if (check_with_gid) {
+                Item *i;
+
                 i = ordered_hashmap_get(todo_gids, GID_TO_PTR(uid));
                 if (i && !streq(i->name, name))
                         return 0;
@@ -903,6 +892,8 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
                 return 0;
 
         if (check_with_gid) {
+                const char *n;
+
                 n = hashmap_get(database_by_gid, GID_TO_PTR(uid));
                 if (n && !streq(n, name))
                         return 0;
@@ -910,6 +901,9 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
 
         /* Let's also check via NSS, to avoid UID clashes over LDAP and such, just in case */
         if (!arg_root) {
+                struct passwd *p;
+                struct group *g;
+
                 errno = 0;
                 p = getpwuid(uid);
                 if (p)
@@ -1109,7 +1103,8 @@ static int add_user(Item *i) {
                                        i->name, i->uid, i->gid);
 
         i->todo_user = true;
-        log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".", i->name, strna(i->description), i->uid, i->gid);
+        log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".",
+                 i->name, strna(i->description), i->uid, i->gid);
 
         return 0;
 }
