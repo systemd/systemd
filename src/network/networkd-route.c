@@ -893,21 +893,19 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set flags: %m");
 
-        if (route->table != RT_TABLE_MAIN) {
-                if (route->table < 256) {
-                        r = sd_rtnl_message_route_set_table(req, route->table);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not set route table: %m");
-                } else {
-                        r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not set route table: %m");
+        if (route->table < 256) {
+                r = sd_rtnl_message_route_set_table(req, route->table);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set route table: %m");
+        } else {
+                r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set route table: %m");
 
-                        /* Table attribute to allow more than 256. */
-                        r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
-                }
+                /* Table attribute to allow more than 256. */
+                r = sd_netlink_message_append_data(req, RTA_TABLE, &route->table, sizeof(route->table));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append RTA_TABLE attribute: %m");
         }
 
         if (!route_type_is_reject(route) && route->nexthop_id == 0) {
