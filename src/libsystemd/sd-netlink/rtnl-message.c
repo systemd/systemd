@@ -265,9 +265,6 @@ int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret,
         rtm = NLMSG_DATA((*ret)->hdr);
 
         rtm->rtm_family = rtm_family;
-        rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-        rtm->rtm_type = RTN_UNICAST;
-        rtm->rtm_table = RT_TABLE_MAIN;
         rtm->rtm_protocol = rtm_protocol;
 
         return 0;
@@ -664,17 +661,10 @@ int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
         if (r < 0)
                 return r;
 
-        if (nlmsg_type == RTM_GETADDR)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_DUMP;
-
         ifa = NLMSG_DATA((*ret)->hdr);
 
         ifa->ifa_index = index;
         ifa->ifa_family = family;
-        if (family == AF_INET)
-                ifa->ifa_prefixlen = 32;
-        else if (family == AF_INET6)
-                ifa->ifa_prefixlen = 128;
 
         return 0;
 }
@@ -865,7 +855,6 @@ int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl, sd_netlink_message
 
         frh = NLMSG_DATA((*ret)->hdr);
         frh->family = ifal_family;
-        frh->action = FR_ACT_TO_TBL;
 
         return 0;
 }
