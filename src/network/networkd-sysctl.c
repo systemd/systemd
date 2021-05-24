@@ -183,6 +183,25 @@ static int link_set_ipv6_proxy_ndp(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
 }
 
+int link_set_ipv6_mtu(Link *link) {
+        assert(link);
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->ipv6_mtu == 0)
+                return 0;
+
+        return sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
+}
+
 static int link_set_ipv4_accept_local(Link *link) {
         assert(link);
 
@@ -250,6 +269,10 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 proxy NDP, ignoring: %m");
 
+        r = link_set_ipv6_mtu(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
+
         r = link_set_ipv4_accept_local(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 accept_local flag for interface, ignoring: %m");
@@ -266,30 +289,6 @@ int link_set_sysctl(Link *link) {
         r = sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot enable promote_secondaries for interface, ignoring: %m");
-
-        return 0;
-}
-
-int link_set_ipv6_mtu(Link *link) {
-        int r;
-
-        assert(link);
-
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (link->network->ipv6_mtu == 0)
-                return 0;
-
-        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
-        if (r < 0)
-                return r;
-
-        link->ipv6_mtu_set = true;
 
         return 0;
 }
