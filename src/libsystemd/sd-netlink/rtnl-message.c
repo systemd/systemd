@@ -664,9 +664,6 @@ int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
         if (r < 0)
                 return r;
 
-        if (nlmsg_type == RTM_GETADDR)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_DUMP;
-
         ifa = NLMSG_DATA((*ret)->hdr);
 
         ifa->ifa_index = index;
