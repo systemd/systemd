@@ -79,7 +79,7 @@ int local_addresses(
                         return r;
         }
 
-        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, af);
+        r = sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, ifindex, af);
         if (r < 0)
                 return r;
 
