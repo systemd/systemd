@@ -909,7 +909,8 @@ if want_bpf_framework == 'false'
 else
         clang = find_program('clang', required : bpf_framework_required)
         llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
-        bpftool = find_program('bpftool', required : bpf_framework_required)
+        # Debian installs this in /usr/sbin/ which is not in $PATH
+        bpftool = find_program('bpftool', '/usr/sbin/bpftool', required : bpf_framework_required)
         bpf_arches = ['x86_64']
         deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
         # Can build BPF program from source code in restricted C
@@ -1673,7 +1674,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         liblz4,
-                        libbpf,
+                        libdl,
                         libcap,
                         libblkid,
                         libmount,

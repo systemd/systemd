@@ -159,7 +159,7 @@ libcore = static_library(
         include_directories : includes,
         dependencies : [versiondep,
                         threads,
-                        libbpf,
+                        libdl,
                         librt,
                         libseccomp,
                         libpam,
