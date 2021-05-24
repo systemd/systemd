@@ -83,6 +83,10 @@ int local_addresses(
         if (r < 0)
                 return r;
 
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
         r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return r;
