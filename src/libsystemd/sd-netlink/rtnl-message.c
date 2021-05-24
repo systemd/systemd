@@ -265,9 +265,6 @@ int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret,
         rtm = NLMSG_DATA((*ret)->hdr);
 
         rtm->rtm_family = rtm_family;
-        rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-        rtm->rtm_type = RTN_UNICAST;
-        rtm->rtm_table = RT_TABLE_MAIN;
         rtm->rtm_protocol = rtm_protocol;
 
         return 0;

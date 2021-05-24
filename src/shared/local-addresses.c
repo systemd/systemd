@@ -228,6 +228,14 @@ int local_gateways(
         if (r < 0)
                 return r;
 
+        r = sd_rtnl_message_route_set_type(req, RTN_UNICAST);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_table(req, RT_TABLE_MAIN);
+        if (r < 0)
+                return r;
+
         r = sd_netlink_message_request_dump(req, true);
         if (r < 0)
                 return r;
