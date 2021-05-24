@@ -247,7 +247,10 @@ Gateway=192.168.250.1
 [Bridge]
 Priority=28
 ''')
+        subprocess.check_call(['ip', 'link', 'set', 'dev', 'port1', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
+                               'port1', '--timeout=5'])
         self.assertEqual(self.read_attr('port1', 'brport/priority'), '28')
 
     def test_bridge_port_priority_set_zero(self):
@@ -257,7 +260,10 @@ Priority=28
 [Bridge]
 Priority=0
 ''')
+        subprocess.check_call(['ip', 'link', 'set', 'dev', 'port2', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
+                               'port2', '--timeout=5'])
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '0')
 
     def test_bridge_port_property(self):
@@ -273,7 +279,10 @@ AllowPortToBeRoot=true
 Cost=555
 Priority=23
 ''')
+        subprocess.check_call(['ip', 'link', 'set', 'dev', 'port2', 'down'])
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+        subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
+                               'port2', '--timeout=5'])
 
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '23')
         self.assertEqual(self.read_attr('port2', 'brport/hairpin_mode'), '1')
