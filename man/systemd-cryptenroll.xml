@@ -176,11 +176,11 @@
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the enrollment
-        requested via <option>--tpm2-device=</option> to. Takes a comma separated list of numeric PCR indexes
-        in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is specified, binds the
-        enrollment to no PCRs at all. PCRs allow binding the enrollment to specific software versions and
-        system state, so that the enrolled unlocking key is only accessible (may be "unsealed") if specific
-        trusted software and/or configuration is used.</para></listitem>
+        requested via <option>--tpm2-device=</option> to. Takes a <literal>+</literal> separated list of
+        numeric PCR indexes in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is
+        specified, binds the enrollment to no PCRs at all. PCRs allow binding the enrollment to specific
+        software versions and system state, so that the enrolled unlocking key is only accessible (may be
+        "unsealed") if specific trusted software and/or configuration is used.</para></listitem>
 
         <table>
           <title>Well-known PCR Definitions</title>
