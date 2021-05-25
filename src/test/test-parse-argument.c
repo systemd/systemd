@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <signal.h>
+
 #include "parse-argument.h"
 #include "stdio-util.h"
 #include "tests.h"
