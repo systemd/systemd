@@ -11,6 +11,9 @@
 #define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
 typedef struct Link Link;
+typedef struct Network Network;
+
+void network_adjust_bridge_vlan(Network *network);
 
 int link_set_bridge_vlan(Link *link);
 
