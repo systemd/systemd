@@ -55,13 +55,15 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
         s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (s->inotify_fd < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "Failed to allocate inotify fd: %m");
                 goto fail;
         }
 
         r = sd_event_add_io(s->unit->manager->event, &s->event_source, s->inotify_fd, EPOLLIN, handler, s);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to add inotify fd to event loop: %m");
                 goto fail;
+        }
 
         (void) sd_event_source_set_description(s->event_source, "path");
 
