@@ -13,6 +13,7 @@
 
 static const char *const set_link_mode_table[_SET_LINK_MODE_MAX] = {
         [SET_LINK_ADDRESS_GENERATION_MODE] = "IPv6LL address generation mode",
+        [SET_LINK_BOND] = "bond configurations",
         [SET_LINK_BRIDGE] = "bridge configurations",
         [SET_LINK_FLAGS] = "link flags",
         [SET_LINK_GROUP] = "interface group",
@@ -66,6 +67,10 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
         }
 
         return 0;
+}
+
+static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, true);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -153,6 +158,36 @@ static int link_configure(
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+                break;
+        case SET_LINK_BOND:
+                r = sd_netlink_message_open_container(req, IFLA_LINKINFO);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not open IFLA_LINKINFO container: %m");
+
+                r = sd_netlink_message_open_container_union(req, IFLA_INFO_DATA, "bond");
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not open IFLA_INFO_DATA container: %m");
+
+                if (link->network->active_slave) {
+                        r = sd_netlink_message_append_u32(req, IFLA_BOND_ACTIVE_SLAVE, link->ifindex);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "Could not append IFLA_BOND_ACTIVE_SLAVE attribute: %m");
+                }
+
+                if (link->network->primary_slave) {
+                        r = sd_netlink_message_append_u32(req, IFLA_BOND_PRIMARY, link->ifindex);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "Could not append IFLA_BOND_PRIMARY attribute: %m");
+                }
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not close IFLA_INFO_DATA container: %m");
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not close IFLA_LINKINFO container: %m");
+
                 break;
         case SET_LINK_BRIDGE:
                 r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
@@ -338,6 +373,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 return false;
 
         switch (mode) {
+        case SET_LINK_BOND:
         case SET_LINK_BRIDGE: {
                 Request req_set_master = {
                         .link = link,
@@ -471,6 +507,16 @@ int link_request_to_set_addrgen_mode(Link *link) {
 
         req->userdata = UINT8_TO_PTR(mode);
         return 0;
+}
+
+int link_request_to_set_bond(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->bond)
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_BOND, link_set_bond_handler, NULL);
 }
 
 int link_request_to_set_bridge(Link *link) {
