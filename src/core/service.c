@@ -2936,7 +2936,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
                 if (r <= 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
                         return 0;
                 }
 
