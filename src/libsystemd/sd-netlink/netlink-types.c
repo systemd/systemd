@@ -560,7 +560,9 @@ static const NLTypeSystem rtnl_af_spec_inet6_type_system = {
 };
 
 static const NLType rtnl_af_spec_types[] = {
-        [AF_INET6] =    { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_af_spec_inet6_type_system },
+        [AF_INET6]              = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_af_spec_inet6_type_system },
+        [IFLA_BRIDGE_FLAGS]     = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BRIDGE_VLAN_INFO] = { .size = sizeof(struct bridge_vlan_info) },
 };
 
 static const NLTypeSystem rtnl_af_spec_type_system = {
