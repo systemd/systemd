@@ -445,7 +445,7 @@ static int load_unix_sockets(void) {
                 if (!s)
                         return log_oom();
 
-                path_simplify(s, false);
+                path_simplify(s);
 
                 r = set_consume(sockets, s);
                 if (r == -EEXIST)
@@ -2779,7 +2779,7 @@ static int parse_line(
                         free_and_replace(i.argument, p);
                 }
 
-                path_simplify(i.argument, false);
+                path_simplify(i.argument);
                 break;
 
         case CREATE_CHAR_DEVICE:
@@ -2847,7 +2847,7 @@ static int parse_line(
                                   "Path '%s' not absolute.", i.path);
         }
 
-        path_simplify(i.path, false);
+        path_simplify(i.path);
 
         if (!should_include_path(i.path))
                 return 0;

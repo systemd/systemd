@@ -56,8 +56,11 @@ int path_split_and_make_absolute(const char *p, char ***ret);
 char* path_make_absolute(const char *p, const char *prefix);
 int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
-int path_make_relative(const char *from_dir, const char *to_path, char **_r);
-char* path_startswith(const char *path, const char *prefix) _pure_;
+int path_make_relative(const char *from, const char *to, char **ret);
+char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
+static inline char* path_startswith(const char *path, const char *prefix) {
+        return path_startswith_full(path, prefix, true);
+}
 int path_compare(const char *a, const char *b) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
@@ -66,7 +69,7 @@ bool path_equal_filename(const char *a, const char *b);
 char* path_join_internal(const char *first, ...);
 #define path_join(x, ...) path_join_internal(x, __VA_ARGS__, POINTER_MAX)
 
-char* path_simplify(char *path, bool kill_dots);
+char* path_simplify(char *path);
 
 enum {
         PATH_CHECK_FATAL    = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
@@ -104,7 +107,7 @@ int fsck_exists(const char *fstype);
  * directory. Excludes the specified directory itself */
 #define PATH_FOREACH_PREFIX(prefix, path)                               \
         for (char *_slash = ({                                          \
-                                path_simplify(strcpy(prefix, path), false); \
+                                path_simplify(strcpy(prefix, path));    \
                                 streq(prefix, "/") ? NULL : strrchr(prefix, '/'); \
                         });                                             \
              _slash && ((*_slash = 0), true);                           \
@@ -113,7 +116,7 @@ int fsck_exists(const char *fstype);
 /* Same as PATH_FOREACH_PREFIX but also includes the specified path itself */
 #define PATH_FOREACH_PREFIX_MORE(prefix, path)                          \
         for (char *_slash = ({                                          \
-                                path_simplify(strcpy(prefix, path), false); \
+                                path_simplify(strcpy(prefix, path));    \
                                 if (streq(prefix, "/"))                 \
                                         prefix[0] = 0;                  \
                                 strrchr(prefix, 0);                     \
@@ -147,12 +150,20 @@ int fsck_exists(const char *fstype);
         })
 
 char* dirname_malloc(const char *path);
+int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
+int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
 const char *last_path_component(const char *path);
-int path_extract_filename(const char *p, char **ret);
-int path_extract_directory(const char *p, char **ret);
+int path_extract_filename(const char *path, char **ret);
+int path_extract_directory(const char *path, char **ret);
 
 bool filename_is_valid(const char *p) _pure_;
-bool path_is_valid(const char *p) _pure_;
+bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
+static inline bool path_is_valid(const char *p) {
+        return path_is_valid_full(p, true);
+}
+static inline bool path_is_safe(const char *p) {
+        return path_is_valid_full(p, false);
+}
 bool path_is_normalized(const char *p) _pure_;
 
 char *file_in_same_dir(const char *path, const char *filename);
@@ -178,7 +189,7 @@ static inline const char *skip_dev_prefix(const char *p) {
         return e ?: p;
 }
 
-bool empty_or_root(const char *root);
+bool empty_or_root(const char *path);
 static inline const char *empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }

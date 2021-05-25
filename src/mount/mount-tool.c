@@ -386,7 +386,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_mount_what)
                                 return log_oom();
 
-                        path_simplify(arg_mount_what, false);
+                        path_simplify(arg_mount_what);
 
                         if (!path_is_absolute(arg_mount_what))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -403,7 +403,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!arg_mount_where)
                                         return log_oom();
 
-                                path_simplify(arg_mount_where, false);
+                                path_simplify(arg_mount_where);
 
                                 if (!path_is_absolute(arg_mount_where))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -985,7 +985,7 @@ static int action_umount(
                         if (!p)
                                 return log_oom();
 
-                        path_simplify(p, false);
+                        path_simplify(p);
 
                         r = stop_mounts(bus, p);
                         if (r < 0)
