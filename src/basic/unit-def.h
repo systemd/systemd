@@ -211,6 +211,7 @@ typedef enum UnitDependency {
         UNIT_WANTS,
         UNIT_BINDS_TO,
         UNIT_PART_OF,
+        UNIT_UPHOLDS,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' is 'required_by' */
@@ -218,6 +219,7 @@ typedef enum UnitDependency {
         UNIT_WANTED_BY,               /* inverse of 'wants' */
         UNIT_BOUND_BY,                /* inverse of 'binds_to' */
         UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
+        UNIT_UPHELD_BY,               /* inverse of 'uphold' */
 
         /* Negative dependencies */
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
@@ -227,8 +229,11 @@ typedef enum UnitDependency {
         UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
         UNIT_AFTER,
 
-        /* On Failure */
+        /* OnSuccess= + OnFailure= */
+        UNIT_ON_SUCCESS,
+        UNIT_ON_SUCCESS_OF,
         UNIT_ON_FAILURE,
+        UNIT_ON_FAILURE_OF,
 
         /* Triggers (i.e. a socket triggers a service) */
         UNIT_TRIGGERS,
@@ -238,12 +243,20 @@ typedef enum UnitDependency {
         UNIT_PROPAGATES_RELOAD_TO,
         UNIT_RELOAD_PROPAGATED_FROM,
 
+        /* Propagate stops */
+        UNIT_PROPAGATES_STOP_TO,
+        UNIT_STOP_PROPAGATED_FROM,
+
         /* Joins namespace of */
         UNIT_JOINS_NAMESPACE_OF,
 
         /* Reference information for GC logic */
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
         UNIT_REFERENCED_BY,
+
+        /* Slice= */
+        UNIT_IN_SLICE,
+        UNIT_SLICE_OF,
 
         _UNIT_DEPENDENCY_MAX,
         _UNIT_DEPENDENCY_INVALID = -EINVAL,
