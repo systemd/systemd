@@ -61,8 +61,8 @@ sources = files('''
         networkd-bridge-fdb.h
         networkd-bridge-mdb.c
         networkd-bridge-mdb.h
-        networkd-brvlan.c
-        networkd-brvlan.h
+        networkd-bridge-vlan.c
+        networkd-bridge-vlan.h
         networkd-can.c
         networkd-can.h
         networkd-conf.c
