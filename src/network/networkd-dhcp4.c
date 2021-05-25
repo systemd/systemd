@@ -20,6 +20,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
+#include "networkd-setlink.h"
 #include "networkd-state-file.h"
 #include "string-table.h"
 #include "strv.h"
@@ -208,7 +209,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
                                dhcp4_route_handler, &req);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         req->after_configure = dhcp4_after_route_configure;
@@ -685,7 +686,7 @@ static int dhcp_reset_mtu(Link *link) {
         if (link->original_mtu == mtu)
                 return 0;
 
-        r = link_set_mtu(link, link->original_mtu);
+        r = link_request_to_set_mtu(link, link->original_mtu);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: could not reset MTU: %m");
 
@@ -1064,6 +1065,8 @@ static int dhcp4_request_address(Link *link, bool announce) {
                                  dhcp4_address_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
+        if (r == 0)
+                return 0;
 
         req->after_configure = dhcp4_after_address_configure;
 
@@ -1127,7 +1130,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
                 r = sd_dhcp_lease_get_mtu(lease, &mtu);
                 if (r >= 0) {
-                        r = link_set_mtu(link, mtu);
+                        r = link_request_to_set_mtu(link, mtu);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set MTU to %" PRIu16 ": %m", mtu);
                 }

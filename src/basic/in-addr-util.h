@@ -58,6 +58,7 @@ int in_addr_is_localhost(int family, const union in_addr_union *u);
 
 bool in4_addr_is_local_multicast(const struct in_addr *a);
 bool in4_addr_is_non_local(const struct in_addr *a);
+bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a);
 
 bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b);
 bool in6_addr_equal(const struct in6_addr *a, const struct in6_addr *b);
