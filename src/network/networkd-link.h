@@ -79,9 +79,11 @@ typedef struct Link {
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
 
-        unsigned address_label_messages;
         unsigned static_address_messages;
+        unsigned static_address_label_messages;
         unsigned static_bridge_fdb_messages;
+        unsigned static_bridge_mdb_messages;
+        unsigned static_ipv6_proxy_ndp_messages;
         unsigned static_neighbor_messages;
         unsigned static_nexthop_messages;
         unsigned static_route_messages;
@@ -93,7 +95,7 @@ typedef struct Link {
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
-        unsigned bridge_mdb_messages;
+        unsigned set_link_messages;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -123,19 +125,19 @@ typedef struct Link {
         bool ipv4ll_address_configured:1;
 
         bool static_addresses_configured:1;
+        bool static_address_labels_configured:1;
         bool static_bridge_fdb_configured:1;
+        bool static_bridge_mdb_configured:1;
+        bool static_ipv6_proxy_ndp_configured:1;
         bool static_neighbors_configured:1;
         bool static_nexthops_configured:1;
         bool static_routes_configured:1;
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
         bool sr_iov_configured:1;
-        bool setting_mtu:1;
-        bool setting_genmode:1;
-        bool ipv6_mtu_set:1;
-        bool bridge_mdb_configured:1;
         bool can_configured:1;
         bool activated:1;
+        bool entering_to_join_netdev:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -218,6 +220,7 @@ int link_up(Link *link);
 int link_down(Link *link, link_netlink_message_handler_t callback);
 int link_activate(Link *link);
 
+int link_enter_join_netdev(Link *link);
 void link_enter_failed(Link *link);
 
 void link_set_state(Link *link, LinkState state);
@@ -231,8 +234,6 @@ bool link_has_carrier(Link *link);
 bool link_ipv6_enabled(Link *link);
 bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
-
-int link_set_mtu(Link *link, uint32_t mtu);
 
 bool link_ipv4ll_enabled(Link *link);
 
