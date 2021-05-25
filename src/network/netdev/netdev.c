@@ -25,6 +25,7 @@
 #include "netdevsim.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "nlmon.h"
 #include "path-lookup.h"
 #include "siphash24.h"
@@ -651,6 +652,140 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
                 assert_not_reached("Cannot join independent netdev");
         }
 
+        return 0;
+}
+
+static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
+        Request req;
+
+        assert(netdev);
+        assert(link);
+
+        if (netdev->state != NETDEV_STATE_LOADING)
+                return false;
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+        if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
+            link->state != LINK_STATE_CONFIGURED)
+                return false;
+
+        req = (Request) {
+                .link = link,
+                .type = REQUEST_TYPE_SET_LINK,
+                .set_link_operation = SET_LINK_MTU,
+        };
+
+        if (ordered_set_contains(link->manager->request_queue, &req))
+                return false;
+
+        return true;
+}
+
+int request_process_create_stacked_netdev(Request *req) {
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->type == REQUEST_TYPE_CREATE_STACKED_NETDEV);
+        assert(req->netdev);
+        assert(req->netlink_handler);
+
+        if (!netdev_is_ready_to_create(req->netdev, req->link))
+                return 0;
+
+        r = netdev_join(req->netdev, req->link, req->netlink_handler);
+        if (r < 0)
+                return log_link_error_errno(req->link, r, "Failed to create stacked netdev '%s': %m", req->netdev->ifname);
+
+        return 1;
+}
+
+static int link_create_stacked_netdev_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not create stacked netdev");
+                link_enter_failed(link);
+                return 0;
+        }
+
+        return 1;
+}
+
+static int link_create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        assert(link);
+        assert(link->create_stacked_netdev_messages > 0);
+
+        link->create_stacked_netdev_messages--;
+
+        if (link_create_stacked_netdev_handler_internal(rtnl, m, link) <= 0)
+                return 0;
+
+        if (link->create_stacked_netdev_messages == 0) {
+                link->stacked_netdevs_created = true;
+                log_link_debug(link, "Stacked netdevs created.");
+        }
+
+        return 0;
+}
+
+static int link_create_stacked_netdev_after_configured_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        assert(link);
+        assert(link->create_stacked_netdev_after_configured_messages > 0);
+
+        link->create_stacked_netdev_after_configured_messages--;
+
+        if (link_create_stacked_netdev_handler_internal(rtnl, m, link) <= 0)
+                return 0;
+
+        if (link->create_stacked_netdev_after_configured_messages == 0) {
+                link->stacked_netdevs_after_configured_created = true;
+                log_link_debug(link, "Stacked netdevs created.");
+        }
+
+        return 0;
+}
+
+int link_request_to_crate_stacked_netdev(Link *link, NetDev *netdev) {
+        NetDevCreateType create_type;
+        int r;
+
+        assert(link);
+        assert(netdev);
+
+        create_type = netdev_get_create_type(netdev);
+        if (!IN_SET(create_type, NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+                return -EINVAL;
+
+        if (netdev->state != NETDEV_STATE_LOADING || netdev->ifindex > 0)
+                /* Already created (or removed?) */
+                return 0;
+
+        if (create_type == NETDEV_CREATE_STACKED) {
+                link->stacked_netdevs_created = false;
+                r = link_queue_request(link, REQUEST_TYPE_CREATE_STACKED_NETDEV, netdev, false,
+                                       &link->create_stacked_netdev_messages,
+                                       link_create_stacked_netdev_handler,
+                                       NULL);
+        } else {
+                link->stacked_netdevs_after_configured_created = false;
+                r = link_queue_request(link, REQUEST_TYPE_CREATE_STACKED_NETDEV, netdev, false,
+                                       &link->create_stacked_netdev_after_configured_messages,
+                                       link_create_stacked_netdev_after_configured_handler,
+                                       NULL);
+        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to request to create stacked netdev '%s': %m",
+                                            netdev->ifname);
+
+        log_link_debug(link, "Requested to create stacked netdev '%s'", netdev->ifname);
         return 0;
 }
 

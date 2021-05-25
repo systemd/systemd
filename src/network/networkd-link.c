@@ -154,6 +154,11 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (link->set_link_messages > 0)
                 return false;
 
+        /* TODO: enable this check when link_request_to_create_stacked_netdev() is used.
+        if (!link->stacked_netdevs_created)
+                return false;
+        */
+
         return true;
 }
 

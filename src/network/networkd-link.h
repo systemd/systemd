@@ -96,6 +96,8 @@ typedef struct Link {
         unsigned sr_iov_messages;
         unsigned enslaving;
         unsigned set_link_messages;
+        unsigned create_stacked_netdev_messages;
+        unsigned create_stacked_netdev_after_configured_messages;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -138,6 +140,8 @@ typedef struct Link {
         bool can_configured:1;
         bool activated:1;
         bool entering_to_join_netdev:1;
+        bool stacked_netdevs_created:1;
+        bool stacked_netdevs_after_configured_created:1;
 
         sd_dhcp_server *dhcp_server;
 

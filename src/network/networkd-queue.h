@@ -11,6 +11,7 @@ typedef struct AddressLabel AddressLabel;
 typedef struct BridgeFDB BridgeFDB;
 typedef struct BridgeMDB BridgeMDB;
 typedef struct Neighbor Neighbor;
+typedef struct NetDev NetDev;
 typedef struct NextHop NextHop;
 typedef struct Route Route;
 typedef struct RoutingPolicyRule RoutingPolicyRule;
@@ -25,6 +26,7 @@ typedef enum RequestType {
         REQUEST_TYPE_ADDRESS_LABEL,
         REQUEST_TYPE_BRIDGE_FDB,
         REQUEST_TYPE_BRIDGE_MDB,
+        REQUEST_TYPE_CREATE_STACKED_NETDEV,
         REQUEST_TYPE_DHCP_SERVER,
         REQUEST_TYPE_IPV6_PROXY_NDP,
         REQUEST_TYPE_NEIGHBOR,
@@ -53,6 +55,7 @@ typedef struct Request {
                 Route *route;
                 RoutingPolicyRule *rule;
                 SetLinkOperation set_link_operation;
+                NetDev *netdev;
                 void *object;
         };
         void *userdata;

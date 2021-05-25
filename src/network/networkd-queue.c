@@ -27,6 +27,8 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_BRIDGE_MDB:
                 bridge_mdb_free(object);
                 break;
+        case REQUEST_TYPE_CREATE_STACKED_NETDEV:
+                break;
         case REQUEST_TYPE_DHCP_SERVER:
                 break;
         case REQUEST_TYPE_IPV6_PROXY_NDP:
@@ -93,6 +95,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ADDRESS_LABEL:
         case REQUEST_TYPE_BRIDGE_FDB:
         case REQUEST_TYPE_BRIDGE_MDB:
+        case REQUEST_TYPE_CREATE_STACKED_NETDEV:
                 /* TODO: Currently, these types do not have any specific hash and compare functions.
                  * Fortunately, all these objects are 'static', thus we can use the trivial functions. */
                 trivial_hash_func(req->object, state);
@@ -145,6 +148,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         case REQUEST_TYPE_ADDRESS_LABEL:
         case REQUEST_TYPE_BRIDGE_FDB:
         case REQUEST_TYPE_BRIDGE_MDB:
+        case REQUEST_TYPE_CREATE_STACKED_NETDEV:
                 return trivial_compare_func(a->object, b->object);
         case REQUEST_TYPE_DHCP_SERVER:
                 return 0;
@@ -254,6 +258,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 break;
                         case REQUEST_TYPE_BRIDGE_MDB:
                                 r = request_process_bridge_mdb(req);
+                                break;
+                        case REQUEST_TYPE_CREATE_STACKED_NETDEV:
+                                r = request_process_create_stacked_netdev(req);
                                 break;
                         case REQUEST_TYPE_DHCP_SERVER:
                                 r = request_process_dhcp_server(req);
