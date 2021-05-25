@@ -153,7 +153,8 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
-        int r = 0;
+
+        assert(s);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -167,13 +168,12 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return log_error_errno(errno, "Failed to read inotify event: %m");
         }
 
-        FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED) &&
-                    s->primary_wd == e->wd)
-                        r = 1;
-        }
+        if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED))
+                FOREACH_INOTIFY_EVENT(e, buffer, l)
+                        if (s->primary_wd == e->wd)
+                                return 1;
 
-        return r;
+        return 0;
 }
 
 static bool path_spec_check_good(PathSpec *s, bool initial, bool from_trigger_notify) {
