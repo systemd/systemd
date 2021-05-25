@@ -16,6 +16,7 @@ static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_GROUP]                   = "interface group",
         [SET_LINK_MAC]                     = "MAC address",
+        [SET_LINK_MASTER]                  = "master interface",
         [SET_LINK_MTU]                     = "MTU",
 };
 
@@ -76,6 +77,10 @@ static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, true);
+}
+
+static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, true);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -183,6 +188,11 @@ static int link_configure(
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not append IFLA_ADDRESS attribute: %m");
                 break;
+        case SET_LINK_MASTER:
+                r = sd_netlink_message_append_u32(req, IFLA_MASTER, PTR_TO_UINT32(userdata));
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
+                break;
         case SET_LINK_MTU:
                 r = sd_netlink_message_append_u32(req, IFLA_MTU, PTR_TO_UINT32(userdata));
                 if (r < 0)
@@ -201,15 +211,69 @@ static int link_configure(
         return 0;
 }
 
+static bool netdev_is_ready(NetDev *netdev) {
+        assert(netdev);
+
+        if (netdev->state != NETDEV_STATE_READY)
+                return false;
+        if (netdev->ifindex == 0)
+                return false;
+
+        return true;
+}
+
 static bool link_is_ready_to_call_set_link(Request *req) {
+        SetLinkOperation op;
         Link *link;
+        int r;
 
         assert(req);
 
         link = req->link;
+        op = req->set_link_operation;
 
         if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
+
+        switch (op) {
+        case SET_LINK_MASTER: {
+                uint32_t m = 0;
+
+                assert(link->network);
+
+                if (link->network->batadv) {
+                        if (!netdev_is_ready(link->network->batadv))
+                                return false;
+                        m = link->network->batadv->ifindex;
+                } else if (link->network->bond) {
+                        if (!netdev_is_ready(link->network->bond))
+                                return false;
+                        m = link->network->bond->ifindex;
+
+                        if (FLAGS_SET(link->flags, IFF_UP)) {
+                                /* link must be down when joining to bond master. */
+                                r = link_down(link, NULL);
+                                if (r < 0) {
+                                        link_enter_failed(link);
+                                        return false;
+                                }
+                        }
+                } else if (link->network->bridge) {
+                        if (!netdev_is_ready(link->network->bridge))
+                                return false;
+                        m = link->network->bridge->ifindex;
+                } else if (link->network->vrf) {
+                        if (!netdev_is_ready(link->network->vrf))
+                                return false;
+                        m = link->network->vrf->ifindex;
+                }
+
+                req->userdata = UINT32_TO_PTR(m);
+                break;
+        }
+        default:
+                break;
+        }
 
         return true;
 }
@@ -327,6 +391,12 @@ int link_request_to_set_mac(Link *link) {
                 return 0;
 
         return link_request_set_link(link, SET_LINK_MAC, link_set_mac_handler, NULL);
+}
+
+int link_request_to_set_master(Link *link) {
+        assert(link);
+
+        return link_request_set_link(link, SET_LINK_MASTER, link_set_master_handler, NULL);
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
