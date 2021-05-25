@@ -15,6 +15,7 @@ static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
         [SET_LINK_ADDRESS_GENERATION_MODE] = "IPv6LL address generation mode",
         [SET_LINK_BOND]                    = "bond configurations",
         [SET_LINK_BRIDGE]                  = "bridge configurations",
+        [SET_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations",
         [SET_LINK_FLAGS]                   = "link flags",
         [SET_LINK_GROUP]                   = "interface group",
         [SET_LINK_MAC]                     = "MAC address",
@@ -75,6 +76,10 @@ static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, true);
+}
+
+static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, true);
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -295,6 +300,31 @@ static int link_configure(
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not close IFLA_PROTINFO container: %m");
+                break;
+        case SET_LINK_BRIDGE_VLAN:
+                r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not set message family: %m");
+
+                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
+
+                if (!link->network->bridge) {
+                        /* master needs BRIDGE_FLAGS_SELF flag*/
+                        r = sd_netlink_message_append_u16(req, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "Could not append IFLA_BRIDGE_FLAGS attribute: %m");
+                }
+
+                r = bridge_vlan_append_info(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not append VLANs: %m");
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+
                 break;
         case SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
@@ -525,6 +555,19 @@ int link_request_to_set_bridge(Link *link) {
                 return 0;
 
         return link_request_set_link(link, SET_LINK_BRIDGE, link_set_bridge_handler, NULL);
+}
+
+int link_request_to_set_bridge_vlan(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->use_br_vlan)
+                return 0;
+
+        if (!link->network->bridge && !streq_ptr(link->kind, "bridge"))
+                return 0;
+
+        return link_request_set_link(link, SET_LINK_BRIDGE_VLAN, link_set_bridge_vlan_handler, NULL);
 }
 
 int link_request_to_set_flags(Link *link) {
