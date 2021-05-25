@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "netlink-util.h"
-#include "networkd-brvlan.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
