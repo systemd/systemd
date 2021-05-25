@@ -1374,14 +1374,16 @@ static void link_free_carrier_maps(Link *link) {
         return;
 }
 
-static int link_append_to_master(Link *link, NetDev *netdev) {
+static int link_append_to_master(Link *link) {
         Link *master;
         int r;
 
         assert(link);
-        assert(netdev);
 
-        r = link_get(link->manager, netdev->ifindex, &master);
+        if (link->master_ifindex <= 0)
+                return 0;
+
+        r = link_get(link->manager, link->master_ifindex, &master);
         if (r < 0)
                 return r;
 
@@ -1393,15 +1395,18 @@ static int link_append_to_master(Link *link, NetDev *netdev) {
         return 0;
 }
 
-static void link_drop_from_master(Link *link, NetDev *netdev) {
+static void link_drop_from_master(Link *link) {
         Link *master;
 
         assert(link);
 
-        if (!link->manager || !netdev)
+        if (!link->manager)
                 return;
 
-        if (link_get(link->manager, netdev->ifindex, &master) < 0)
+        if (link->master_ifindex <= 0)
+                return;
+
+        if (link_get(link->manager, link->master_ifindex, &master) < 0)
                 return;
 
         link_unref(set_remove(master->slaves, link));
@@ -1436,11 +1441,7 @@ static Link *link_drop(Link *link) {
 
         link_free_carrier_maps(link);
 
-        if (link->network) {
-                link_drop_from_master(link, link->network->batadv);
-                link_drop_from_master(link, link->network->bridge);
-                link_drop_from_master(link, link->network->bond);
-        }
+        link_drop_from_master(link);
 
         link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
@@ -1511,25 +1512,21 @@ static int link_joined(Link *link) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
-
-                r = link_append_to_master(link, link->network->bridge);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Failed to add to bridge master's slave list: %m");
         }
 
         if (link->network->bond) {
                 r = link_set_bond(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bond message: %m");
-
-                r = link_append_to_master(link, link->network->bond);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Failed to add to bond master's slave list: %m");
         }
 
         r = link_set_bridge_vlan(link);
         if (r < 0)
                 log_link_error_errno(link, r, "Could not set bridge vlan: %m");
+
+        r = link_append_to_master(link);
+        if (r < 0)
+                log_link_error_errno(link, r, "Failed to add to master interface's slave list: %m");
 
         r = link_request_static_configs(link);
         if (r < 0)
