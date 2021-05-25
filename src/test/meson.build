@@ -422,6 +422,8 @@ tests += [
 
         [['src/test/test-sleep.c']],
 
+        [['src/test/test-tpm2.c']],
+
         [['src/test/test-replace-var.c']],
 
         [['src/test/test-calendarspec.c']],
