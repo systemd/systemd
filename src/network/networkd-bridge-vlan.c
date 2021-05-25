@@ -161,10 +161,6 @@ int link_set_bridge_vlan(Link *link) {
         if (!link->network->bridge && !streq_ptr(link->kind, "bridge"))
                 return 0;
 
-        /* pvid might not be in br_vid_bitmap yet */
-        if (link->network->pvid)
-                set_bit(link->network->pvid, link->network->br_vid_bitmap);
-
         /* create new RTM message */
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
@@ -204,6 +200,17 @@ int link_set_bridge_vlan(Link *link) {
         link_ref(link);
 
         return 0;
+}
+
+void network_adjust_bridge_vlan(Network *network) {
+        assert(network);
+
+        if (!network->use_br_vlan)
+                return;
+
+        /* pvid might not be in br_vid_bitmap yet */
+        if (network->pvid)
+                set_bit(network->pvid, network->br_vid_bitmap);
 }
 
 int config_parse_brvlan_pvid(
