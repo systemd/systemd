@@ -113,18 +113,18 @@
       <varlistentry>
         <term><command>terminate-session</command> <replaceable>ID</replaceable>…</term>
 
-        <listitem><para>Terminates a session. This kills all processes
-        of the session and deallocates all resources attached to the
-        session. </para></listitem>
+        <listitem><para>Terminates a session. This kills all processes of the session and deallocates all
+        resources attached to the session. If the argument is specified as empty string the session invoking
+        the command is terminated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>kill-session</command> <replaceable>ID</replaceable>…</term>
 
-        <listitem><para>Send a signal to one or more processes of the
-        session. Use <option>--kill-who=</option> to select which
-        process to kill. Use <option>--signal=</option> to select the
-        signal to send.</para></listitem>
+        <listitem><para>Send a signal to one or more processes of the session. Use
+        <option>--kill-who=</option> to select which process to kill. Use <option>--signal=</option> to
+        select the signal to send. If the argument is specified as empty string the signal is sent to the
+        session invoking the command.</para></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -184,17 +184,17 @@
       <varlistentry>
         <term><command>terminate-user</command> <replaceable>USER</replaceable>…</term>
 
-        <listitem><para>Terminates all sessions of a user. This kills
-        all processes of all sessions of the user and deallocates all
-        runtime resources attached to the user.</para></listitem>
+        <listitem><para>Terminates all sessions of a user. This kills all processes of all sessions of the
+        user and deallocates all runtime resources attached to the user. If the argument is specified as
+        empty string the sessions of the user invoking the command are terminated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>kill-user</command> <replaceable>USER</replaceable>…</term>
 
-        <listitem><para>Send a signal to all processes of a user. Use
-        <option>--signal=</option> to select the signal to send.
-        </para></listitem>
+        <listitem><para>Send a signal to all processes of a user. Use <option>--signal=</option> to select
+        the signal to send. If the argument is specified as empty string the signal is sent to the sessions
+        of the user invoking the command.</para></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
