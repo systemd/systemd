@@ -182,6 +182,7 @@ int network_verify(Network *network) {
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
+        network_adjust_bridge_vlan(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
