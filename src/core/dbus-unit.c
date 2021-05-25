@@ -155,21 +155,27 @@ static int property_get_dependencies(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap **h = userdata;
-        Unit *u;
+        Unit *u = userdata, *other;
+        UnitDependency d;
+        Hashmap *deps;
         void *v;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(h);
+        assert(u);
+
+        d = unit_dependency_from_string(property);
+        assert_se(d >= 0);
+
+        deps = unit_get_dependencies(u, d);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(v, u, *h) {
-                r = sd_bus_message_append(reply, "s", u->id);
+        HASHMAP_FOREACH_KEY(v, other, deps) {
+                r = sd_bus_message_append(reply, "s", other->id);
                 if (r < 0)
                         return r;
         }
@@ -844,26 +850,32 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Unit, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Names", "as", property_get_names, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Following", "s", property_get_following, 0, 0),
-        SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRES]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Wants", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_WANTS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("BindsTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BINDS_TO]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PartOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PART_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequiredBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequisiteOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("WantedBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_WANTED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("BoundBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BOUND_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ConsistsOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONSISTS_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Conflicts", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONFLICTS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ConflictedBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_CONFLICTED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Before", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_BEFORE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("After", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_AFTER]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("OnFailure", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_ON_FAILURE]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Triggers", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_TRIGGERS]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_JOINS_NAMESPACE_OF]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Wants", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BindsTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PartOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RequiredBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RequisiteOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WantedBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BoundBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConsistsOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Conflicts", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConflictedBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Before", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("After", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnFailure", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnFailureOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccess", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccessOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Triggers", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PropagatesStopTo", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StopPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SliceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RequiresMountsFor", "as", property_get_requires_mounts_for, offsetof(Unit, requires_mounts_for), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -893,6 +905,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("RefuseManualStop", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AllowIsolate", "b", bus_property_get_bool, offsetof(Unit, allow_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultDependencies", "b", bus_property_get_bool, offsetof(Unit, default_dependencies), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnSuccesJobMode", "s", property_get_job_mode, offsetof(Unit, on_success_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OnFailureJobMode", "s", property_get_job_mode, offsetof(Unit, on_failure_job_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IgnoreOnIsolate", "b", bus_property_get_bool, offsetof(Unit, ignore_on_isolate), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2116,6 +2129,9 @@ static int bus_unit_set_transient_property(
         if (streq(name, "DefaultDependencies"))
                 return bus_set_transient_bool(u, name, &u->default_dependencies, message, flags, error);
 
+        if (streq(name, "OnSuccessJobMode"))
+                return bus_set_transient_job_mode(u, name, &u->on_success_job_mode, message, flags, error);
+
         if (streq(name, "OnFailureJobMode"))
                 return bus_set_transient_job_mode(u, name, &u->on_failure_job_mode, message, flags, error);
 
@@ -2231,7 +2247,7 @@ static int bus_unit_set_transient_property(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit name '%s' is not a slice", s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = unit_set_slice(u, slice);
+                        r = unit_set_slice(u, slice, UNIT_DEPENDENCY_FILE);
                         if (r < 0)
                                 return r;
 
@@ -2288,12 +2304,16 @@ static int bus_unit_set_transient_property(
                             UNIT_WANTS,
                             UNIT_BINDS_TO,
                             UNIT_PART_OF,
+                            UNIT_UPHOLDS,
                             UNIT_CONFLICTS,
                             UNIT_BEFORE,
                             UNIT_AFTER,
+                            UNIT_ON_SUCCESS,
                             UNIT_ON_FAILURE,
                             UNIT_PROPAGATES_RELOAD_TO,
                             UNIT_RELOAD_PROPAGATED_FROM,
+                            UNIT_PROPAGATES_STOP_TO,
+                            UNIT_STOP_PROPAGATED_FROM,
                             UNIT_JOINS_NAMESPACE_OF))
                     return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Dependency type %s may not be created transiently.", unit_dependency_to_string(d));
 
