@@ -3,6 +3,7 @@
 #include "parse-argument.h"
 #include "stdio-util.h"
 #include "tests.h"
+#include <signal.h>
 
 static void test_parse_json_argument(void) {
         log_info("/* %s */", __func__);
