@@ -920,6 +920,13 @@ int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
         uint32_t mask = 0;
         int r;
 
+        assert(s);
+
+        if (isempty(s)) {
+                *ret = 0;
+                return 0;
+        }
+
         /* Parses a "," or "+" separated list of PCR indexes. We support "," since this is a list after all,
          * and most other tools expect comma separated PCR specifications. We also support "+" since in
          * /etc/crypttab the "," is already used to separate options, hence a different separator is nice to
