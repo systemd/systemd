@@ -42,7 +42,13 @@ static int find_next_bit(int i, uint32_t x) {
         return j ? j + i : 0;
 }
 
-static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
+int bridge_vlan_append_info(
+                const Link *link,
+                sd_netlink_message *req,
+                uint16_t pvid,
+                const uint32_t *br_vid_bitmap,
+                const uint32_t *br_untagged_bitmap) {
+
         struct bridge_vlan_info br_vlan;
         bool done, untagged = false;
         uint16_t begin, end;
@@ -183,7 +189,7 @@ int link_set_bridge_vlan(Link *link) {
         }
 
         /* add vlan info */
-        r = append_vlan_info_data(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
+        r = bridge_vlan_append_info(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append VLANs: %m");
 
