@@ -1335,7 +1335,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         return -EINVAL;
 #elif HAVE_LIBIDN
         _cleanup_free_ char *buf = NULL;
-        size_t n = 0, allocated = 0;
+        size_t n = 0;
         bool first = true;
         int r, q;
 
@@ -1357,7 +1357,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 if (q > 0)
                         r = q;
 
-                if (!GREEDY_REALLOC(buf, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                if (!GREEDY_REALLOC(buf, n + !first + DNS_LABEL_ESCAPED_MAX))
                         return -ENOMEM;
 
                 r = dns_label_escape(label, r, buf + n + !first, DNS_LABEL_ESCAPED_MAX);
@@ -1375,7 +1375,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         if (n > DNS_HOSTNAME_MAX)
                 return -EINVAL;
 
-        if (!GREEDY_REALLOC(buf, allocated, n + 1))
+        if (!GREEDY_REALLOC(buf, n + 1))
                 return -ENOMEM;
 
         buf[n] = 0;
