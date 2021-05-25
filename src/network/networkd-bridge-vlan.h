@@ -5,6 +5,10 @@
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
+#include <inttypes.h>
+
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
 
 #define BRIDGE_VLAN_BITMAP_MAX 4096
@@ -14,6 +18,13 @@ typedef struct Link Link;
 typedef struct Network Network;
 
 void network_adjust_bridge_vlan(Network *network);
+
+int bridge_vlan_append_info(
+                const Link * link,
+                sd_netlink_message *req,
+                uint16_t pvid,
+                const uint32_t *br_vid_bitmap,
+                const uint32_t *br_untagged_bitmap);
 
 int link_set_bridge_vlan(Link *link);
 
