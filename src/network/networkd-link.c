@@ -1560,21 +1560,11 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_update_alternative_names(Link *link, sd_netlink_message *message);
-
-static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool force) {
+static int link_reconfigure_internal(Link *link, bool force) {
         Network *network;
         int r;
 
-        assert(m);
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0)
-                return r;
-
-        r = link_update_alternative_names(link, m);
-        if (r < 0)
-                return r;
+        assert(link);
 
         r = link_get_network(link, &network);
         if (r == -ENOENT) {
@@ -1631,28 +1621,29 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         return 0;
 }
 
-static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool force) {
         int r;
 
-        r = link_reconfigure_internal(link, m, false);
+        r = link_getlink_handler_internal(rtnl, m, link, "Failed to update link state");
+        if (r <= 0)
+                return r;
+
+        r = link_reconfigure_internal(link, force);
         if (r < 0)
                 link_enter_failed(link);
 
-        return 1;
+        return 0;
+}
+
+static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        return link_reconfigure_handler_internal(rtnl, m, link, false);
 }
 
 static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        r = link_reconfigure_internal(link, m, true);
-        if (r < 0)
-                link_enter_failed(link);
-
-        return 1;
+        return link_reconfigure_handler_internal(rtnl, m, link, true);
 }
 
 int link_reconfigure(Link *link, bool force) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         /* When link in pending or initialized state, then link_configure() will be called. To prevent
@@ -1661,18 +1652,9 @@ int link_reconfigure(Link *link, bool force) {
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
                 return 0; /* 0 means no-op. */
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
-                                     link->ifindex);
+        r = link_call_getlink(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
         if (r < 0)
                 return r;
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               force ? link_force_reconfigure_handler : link_reconfigure_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
 
         return 1; /* 1 means the interface will be reconfigured. */
 }
@@ -1740,32 +1722,19 @@ static int link_initialized_and_synced(Link *link) {
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to wait for the interface to be initialized: %m");
-                link_enter_failed(link);
-                return 0;
-        }
-
-        r = link_update_alternative_names(link, m);
-        if (r < 0) {
-                link_enter_failed(link);
+        r = link_getlink_handler_internal(rtnl, m, link, "Failed to wait for the interface to be initialized");
+        if (r <= 0)
                 return r;
-        }
 
         r = link_initialized_and_synced(link);
         if (r < 0)
                 link_enter_failed(link);
-        return 1;
+
+        return 0;
 }
 
 static int link_initialized(Link *link, sd_device *device) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
         assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
         assert(device);
 
         if (link->state != LINK_STATE_PENDING)
@@ -1784,19 +1753,7 @@ static int link_initialized(Link *link, sd_device *device) {
          * when it returns we know that the pending NEWLINKs have already been
          * processed and that we are up-to-date */
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
-                                     link->ifindex);
-        if (r < 0)
-                return r;
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, link_initialized_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-
-        return 0;
+        return link_call_getlink(link, link_initialized_handler);
 }
 
 static int link_check_initialized(Link *link) {
