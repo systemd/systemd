@@ -186,6 +186,45 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>The generated output shows the current device database entry in a terse format. Each line shown
+      is prefixed with one of the following characters:</para>
+
+      <table>
+        <title><command>udevadm info</command> output prefixes</title>
+        <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+          <colspec colname="prefix" />
+          <colspec colname="meaning" />
+          <thead>
+            <row>
+              <entry>Prefix</entry>
+              <entry>Meaning</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>P:</literal></entry>
+              <entry>Device path in <filename>/sys/</filename></entry>
+            </row>
+            <row>
+              <entry><literal>N:</literal></entry>
+              <entry>Kernel device node name</entry>
+            </row>
+            <row>
+              <entry><literal>L:</literal></entry>
+              <entry>Device node symlink priority</entry>
+            </row>
+            <row>
+              <entry><literal>S:</literal></entry>
+              <entry>Device node symlink</entry>
+            </row>
+            <row>
+              <entry><literal>E:</literal></entry>
+              <entry>Device property</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
     </refsect2>
 
     <refsect2><title>udevadm trigger
