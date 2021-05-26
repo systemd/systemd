@@ -1618,7 +1618,7 @@ static int link_reconfigure_internal(Link *link, bool force) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1;
 }
 
 static int link_reconfigure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool force) {
@@ -1860,8 +1860,8 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = link_reconfigure(link, false);
-                if (r < 0)
+                r = link_reconfigure_internal(link, false);
+                if (r != 0)
                         return r;
         }
 
