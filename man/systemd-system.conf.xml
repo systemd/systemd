@@ -328,6 +328,9 @@
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details about environment variables.</para>
 
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+
         <para>Example:
 
         <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
@@ -349,7 +352,11 @@
 
         <para>Setting environment variables for the manager process may be useful to modify its behaviour.
         See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
-        variables understood by <command>systemd</command>.</para></listitem>
+        variables understood by <command>systemd</command>.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -438,6 +445,45 @@
         turned on.</para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>DefaultEnvironment=</varname> and
+    <varname>ManagerEnvironment=</varname> settings. The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="A"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="M"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>

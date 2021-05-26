@@ -57,6 +57,7 @@
 #include "signal-util.h"
 #include "socket-bind.h"
 #include "socket-netlink.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -2656,15 +2657,15 @@ int config_parse_environ(
                 if (r == 0)
                         return 0;
 
-                if (u) {
+                if (u)
                         r = unit_env_printf(u, word, &resolved);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Failed to resolve unit specifiers in %s, ignoring: %m", word);
-                                continue;
-                        }
-                } else
-                        resolved = TAKE_PTR(word);
+                else
+                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
 
                 if (!env_assignment_is_valid(resolved)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
