@@ -70,7 +70,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
         log_link_debug(link, "Link set");
 
-        r = link_activate(link);
+        r = link_request_to_activate(link);
         if (r < 0) {
                 link_enter_failed(link);
                 return 1;
@@ -246,7 +246,7 @@ int link_configure_can(Link *link) {
                 return link_set_can(link);
         }
 
-        r = link_activate(link);
+        r = link_request_to_activate(link);
         if (r < 0)
                 return r;
 
