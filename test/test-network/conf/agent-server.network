@@ -1,9 +1,11 @@
 [Match]
 Name=server
+
 [Network]
 Address=192.168.5.1/24
 IPForward=ipv4
 DHCPServer=yes
+IPv6AcceptRA=no
 
 [DHCPServer]
 BindToInterface=no

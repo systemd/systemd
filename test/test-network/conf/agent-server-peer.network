@@ -1,5 +1,7 @@
 [Match]
 Name=server-peer
+
 [Network]
 Address=192.168.5.2/24
 IPForward=ipv4
+IPv6AcceptRA=no
