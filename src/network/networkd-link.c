@@ -1654,6 +1654,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
+        link_update_operstate(link, true);
         link_dirty(link);
 
         r = link_new_carrier_maps(link);
