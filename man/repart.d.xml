@@ -622,7 +622,9 @@
   <refsect1>
     <title>Specifiers</title>
 
-    <para>Specifiers may be used in the <varname>Label=</varname> setting. The following expansions are understood:</para>
+    <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
+    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname> settings. The following expansions are
+    understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
@@ -649,6 +651,8 @@
             <xi:include href="standard-specifiers.xml" xpointer="v"/>
             <xi:include href="standard-specifiers.xml" xpointer="w"/>
             <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
             <xi:include href="standard-specifiers.xml" xpointer="percent"/>
           </tbody>
         </tgroup>
