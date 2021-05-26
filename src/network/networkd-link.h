@@ -221,6 +221,8 @@ int link_get(Manager *m, int ifindex, Link **ret);
 int link_get_by_name(Manager *m, const char *ifname, Link **ret);
 int link_get_master(Link *link, Link **ret);
 
+int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
+int link_call_getlink(Link *link, link_netlink_message_handler_t callback);
 int link_up(Link *link);
 int link_down(Link *link, link_netlink_message_handler_t callback);
 int link_activate(Link *link);
