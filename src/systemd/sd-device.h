@@ -24,6 +24,7 @@
 #include <sys/types.h>
 
 #include "sd-event.h"
+#include "sd-id128.h"
 
 #include "_sd-common.h"
 
@@ -96,11 +97,13 @@ const char *sd_device_get_sysattr_next(sd_device *device);
 int sd_device_has_tag(sd_device *device, const char *tag);
 int sd_device_has_current_tag(sd_device *device, const char *tag);
 int sd_device_get_property_value(sd_device *device, const char *key, const char **value);
+int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret);
 int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **_value);
 
 int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value);
 int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr, const char *format, ...) _sd_printf_(3, 4);
 int sd_device_trigger(sd_device *device, sd_device_action_t action);
+int sd_device_trigger_with_uuid(sd_device *device, sd_device_action_t action, sd_id128_t *ret_uuid);
 
 /* device enumerator */
 
