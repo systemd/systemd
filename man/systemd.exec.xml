@@ -1036,8 +1036,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>Nice=</varname></term>
 
-        <listitem><para>Sets the default nice level (scheduling priority) for executed processes. Takes an integer
-        between -20 (highest priority) and 19 (lowest priority). See
+        <listitem><para>Sets the default nice level (scheduling priority) for executed processes. Takes an
+        integer between -20 (highest priority) and 19 (lowest priority). In case of resource contention,
+        smaller values mean more resources will be made available to the unit's processes, larger values mean
+        less resources will be made available. See
         <citerefentry><refentrytitle>setpriority</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1054,11 +1056,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>CPUSchedulingPriority=</varname></term>
 
-        <listitem><para>Sets the CPU scheduling priority for executed processes. The available priority range depends
-        on the selected CPU scheduling policy (see above). For real-time scheduling policies an integer between 1
-        (lowest priority) and 99 (highest priority) can be used. See
-        <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details. </para></listitem>
+        <listitem><para>Sets the CPU scheduling priority for executed processes. The available priority range
+        depends on the selected CPU scheduling policy (see above). For real-time scheduling policies an
+        integer between 1 (lowest priority) and 99 (highest priority) can be used. In case of CPU resource
+        contention, smaller values mean less CPU time is made available to the service, larger values mean
+        more. See <citerefentry
+        project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for details. </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1122,11 +1126,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IOSchedulingPriority=</varname></term>
 
-        <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0 (highest
-        priority) and 7 (lowest priority). The available priorities depend on the selected I/O scheduling class (see
-        above). If the empty string is assigned to this option, all prior assignments to both
-        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect.
-        See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0
+        (highest priority) and 7 (lowest priority). In case of I/O contention, smaller values mean more I/O
+        bandwidth is made available to the unit's processes, larger values mean less bandwidth. The available
+        priorities depend on the selected I/O scheduling class (see above). If the empty string is assigned
+        to this option, all prior assignments to both <varname>IOSchedulingClass=</varname> and
+        <varname>IOSchedulingPriority=</varname> have no effect.  See
+        <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
