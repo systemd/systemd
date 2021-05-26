@@ -2764,6 +2764,65 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
         return 1;
 }
 
+int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+        uint16_t message_type;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(error_msg);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                log_link_message_warning_errno(link, m, r, error_msg);
+                link_enter_failed(link);
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(m, &message_type);
+        if (r < 0) {
+                log_link_debug_errno(link, r, "rtnl: failed to read link message type, ignoring: %m");
+                return 0;
+        }
+        if (message_type != RTM_NEWLINK) {
+                log_link_debug(link, "rtnl: received invalid link message type, ignoring.");
+                return 0;
+        }
+
+        r = link_update(link, m);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        return 1;
+}
+
+int link_call_getlink(Link *link, link_netlink_message_handler_t callback) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(callback);
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return r;
+
+        link_ref(link);
+        return 0;
+}
+
 static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_PENDING] = "pending",
         [LINK_STATE_INITIALIZED] = "initialized",
