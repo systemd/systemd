@@ -36,10 +36,10 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 
 int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         static const int flags_table[_PATH_TYPE_MAX] = {
-                [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
-                [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
-                [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
-                [PATH_MODIFIED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY,
+                [PATH_EXISTS]              = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
+                [PATH_EXISTS_GLOB]         = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
+                [PATH_CHANGED]             = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
+                [PATH_MODIFIED]            = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY,
                 [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO,
         };
 
@@ -55,13 +55,15 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
         s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (s->inotify_fd < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "Failed to allocate inotify fd: %m");
                 goto fail;
         }
 
         r = sd_event_add_io(s->unit->manager->event, &s->event_source, s->inotify_fd, EPOLLIN, handler, s);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to add inotify fd to event loop: %m");
                 goto fail;
+        }
 
         (void) sd_event_source_set_description(s->event_source, "path");
 
@@ -69,9 +71,9 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         assert(!strstr(s->path, "//"));
 
         for (slash = strchr(s->path, '/'); ; slash = strchr(slash+1, '/')) {
-                char *cut = NULL;
-                int flags;
-                char tmp;
+                bool incomplete = false;
+                int flags, wd = -1;
+                char tmp, *cut;
 
                 if (slash) {
                         cut = slash + (slash == s->path);
@@ -79,28 +81,50 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                         *cut = '\0';
 
                         flags = IN_MOVE_SELF | IN_DELETE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO;
-                } else
+                } else {
+                        cut = NULL;
                         flags = flags_table[s->type];
-
-                r = inotify_add_watch(s->inotify_fd, s->path, flags);
-                if (r < 0) {
-                        if (IN_SET(errno, EACCES, ENOENT)) {
-                                if (cut)
-                                        *cut = tmp;
-                                break;
-                        }
-
-                        /* This second call to inotify_add_watch() should fail like the previous
-                         * one and is done for logging the error in a comprehensive way. */
-                        r = inotify_add_watch_and_warn(s->inotify_fd, s->path, flags);
-                        if (r < 0) {
-                                if (cut)
-                                        *cut = tmp;
-                                goto fail;
-                        }
-
-                        /* Hmm, we succeeded in adding the watch this time... let's continue. */
                 }
+
+                /* If this is a symlink watch both the symlink inode and where it points to. If the inode is
+                 * not a symlink both calls will install the same watch, which is redundant and doesn't
+                 * hurt. */
+                for (int follow_symlink = 0; follow_symlink < 2; follow_symlink ++) {
+                        uint32_t f = flags;
+
+                        SET_FLAG(f, IN_DONT_FOLLOW, !follow_symlink);
+
+                        wd = inotify_add_watch(s->inotify_fd, s->path, f);
+                        if (wd < 0) {
+                                if (IN_SET(errno, EACCES, ENOENT)) {
+                                        incomplete = true; /* This is an expected error, let's accept this
+                                                            * quietly: we have an incomplete watch for
+                                                            * now. */
+                                        break;
+                                }
+
+                                /* This second call to inotify_add_watch() should fail like the previous one
+                                 * and is done for logging the error in a comprehensive way. */
+                                wd = inotify_add_watch_and_warn(s->inotify_fd, s->path, f);
+                                if (wd < 0) {
+                                        if (cut)
+                                                *cut = tmp;
+
+                                        r = wd;
+                                        goto fail;
+                                }
+
+                                /* Hmm, we succeeded in adding the watch this time... let's continue. */
+                        }
+                }
+
+                if (incomplete) {
+                        if (cut)
+                                *cut = tmp;
+
+                        break;
+                }
+
                 exists = true;
 
                 /* Path exists, we don't need to watch parent too closely. */
@@ -122,7 +146,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                         oldslash = slash;
                 else {
                         /* whole path has been iterated over */
-                        s->primary_wd = r;
+                        s->primary_wd = wd;
                         break;
                 }
         }
@@ -151,7 +175,8 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
-        int r = 0;
+
+        assert(s);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -165,13 +190,12 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
                 return log_error_errno(errno, "Failed to read inotify event: %m");
         }
 
-        FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED) &&
-                    s->primary_wd == e->wd)
-                        r = 1;
-        }
+        if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED))
+                FOREACH_INOTIFY_EVENT(e, buffer, l)
+                        if (s->primary_wd == e->wd)
+                                return 1;
 
-        return r;
+        return 0;
 }
 
 static bool path_spec_check_good(PathSpec *s, bool initial, bool from_trigger_notify) {
