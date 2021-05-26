@@ -99,12 +99,16 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details. The
     ID is cached internally. In future a different mechanism to determine the invocation ID may be added.</para>
 
-    <para>Note that <function>sd_id128_get_machine_app_specific()</function>, <function>sd_id128_get_boot()</function>,
-    <function>sd_id128_get_boot_app_specific()</function>, and <function>sd_id128_get_invocation()</function> always
-    return UUID v4 compatible IDs.  <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible
-    ID on new installations but might not on older. It is possible to convert the machine ID into a UUID v4-compatible
-    one. For more information, see
-    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>Note that <function>sd_id128_get_machine_app_specific()</function>,
+    <function>sd_id128_get_boot()</function>, <function>sd_id128_get_boot_app_specific()</function>, and
+    <function>sd_id128_get_invocation()</function> always return UUID v4 compatible IDs.
+    <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible ID on new installations
+    but might not on older. It is possible to convert the machine ID into a UUID v4-compatible one. For more
+    information, see
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It is
+    hence guaranteed that thes functions will never return the ID consisting of all zero or all one bits
+    (<constant>SD_ID128_NULL</constant>, <constant>SD_ID128_ALLF</constant>) — with the possible exception of
+    <function>sd_id128_get_machine()</function>, as mentioned.</para>
 
     <para>For more information about the <literal>sd_id128_t</literal>
     type see
