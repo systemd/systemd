@@ -1815,11 +1815,7 @@ static int link_initialized_and_synced(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_configure(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_configure(link);
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1905,44 +1901,46 @@ static int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
 
         log_link_debug(link, "Link %d added", link->ifindex);
 
-        if (path_is_read_only_fs("/sys") <= 0) {
-                /* udev should be around */
-                sprintf(ifindex_str, "n%d", link->ifindex);
-                r = sd_device_new_from_device_id(&device, ifindex_str);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Could not find device, waiting for device initialization: %m");
-                        return 0;
-                }
-
-                r = sd_device_get_is_initialized(device);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
-                        goto failed;
-                }
-                if (r == 0) {
-                        /* not yet ready */
-                        log_link_debug(link, "link pending udev initialization...");
-                        return 0;
-                }
-
-                r = device_is_renaming(device);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
-                        goto failed;
-                }
-                if (r > 0) {
-                        log_link_debug(link, "Interface is being renamed, pending initialization.");
-                        return 0;
-                }
-
-                r = link_initialized(link, device);
-                if (r < 0)
-                        goto failed;
-        } else {
+        if (path_is_read_only_fs("/sys") > 0) {
+                /* no udev */
                 r = link_initialized_and_synced(link);
                 if (r < 0)
                         goto failed;
+                return 0;
         }
+
+        /* udev should be around */
+        xsprintf(ifindex_str, "n%d", link->ifindex);
+        r = sd_device_new_from_device_id(&device, ifindex_str);
+        if (r < 0) {
+                log_link_debug_errno(link, r, "Could not find device, waiting for device initialization: %m");
+                return 0;
+        }
+
+        r = sd_device_get_is_initialized(device);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
+                goto failed;
+        }
+        if (r == 0) {
+                /* not yet ready */
+                log_link_debug(link, "link pending udev initialization...");
+                return 0;
+        }
+
+        r = device_is_renaming(device);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
+                goto failed;
+        }
+        if (r > 0) {
+                log_link_debug(link, "Interface is being renamed, pending initialization.");
+                return 0;
+        }
+
+        r = link_initialized(link, device);
+        if (r < 0)
+                goto failed;
 
         return 0;
 failed:
@@ -2064,11 +2062,7 @@ static int link_carrier_lost(Link *link) {
                         return r;
         }
 
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_handle_bound_by_list(link);
 }
 
 int link_carrier_reset(Link *link) {
@@ -2076,18 +2070,18 @@ int link_carrier_reset(Link *link) {
 
         assert(link);
 
-        if (link_has_carrier(link)) {
-                r = link_carrier_lost(link);
-                if (r < 0)
-                        return r;
+        if (!link_has_carrier(link))
+                return 0;
 
-                r = link_carrier_gained(link);
-                if (r < 0)
-                        return r;
+        r = link_carrier_lost(link);
+        if (r < 0)
+                return r;
 
-                log_link_info(link, "Reset carrier");
-        }
+        r = link_carrier_gained(link);
+        if (r < 0)
+                return r;
 
+        log_link_info(link, "Reset carrier");
         return 0;
 }
 
