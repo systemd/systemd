@@ -364,3 +364,9 @@ int specifier_escape_strv(char **l, char ***ret) {
 
         return 0;
 }
+
+const Specifier system_and_tmp_specifier_table[] = {
+        COMMON_SYSTEM_SPECIFIERS,
+        COMMON_TMP_SPECIFIERS,
+        {}
+};

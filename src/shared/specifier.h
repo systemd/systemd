@@ -80,7 +80,6 @@ int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata
         { 'w', specifier_os_version_id,   NULL }, \
         { 'W', specifier_os_variant_id,   NULL }
 
-
 #define COMMON_CREDS_SPECIFIERS                   \
         { 'g', specifier_group_name,      NULL }, \
         { 'G', specifier_group_id,        NULL }, \
@@ -96,3 +95,6 @@ static inline char* specifier_escape(const char *string) {
 }
 
 int specifier_escape_strv(char **l, char ***ret);
+
+/* A generic specifier table consisting of COMMON_SYSTEM_SPECIFIERS and COMMON_TMP_SPECIFIERS */
+extern const Specifier system_and_tmp_specifier_table[];
