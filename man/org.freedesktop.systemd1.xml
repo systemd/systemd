@@ -2401,6 +2401,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -3504,6 +3506,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -4063,6 +4067,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>MountImages</varname>
       <varname>ExtensionImages</varname>
       see systemd.exec(5) for their meaning.</para>
+
+      <para><varname>MemoryAvailable</varname> indicates how much unused memory is available to the unit before
+      the <literal>MemoryMax</literal> limit set by cgroup memory controller is reached. It will take into
+      consideration limits on all parent slices, other than the limit set on the unit itself.</para>
     </refsect2>
   </refsect1>
 
@@ -4195,6 +4203,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s ControlGroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5321,6 +5331,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -5914,6 +5926,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s ControlGroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -6886,6 +6900,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -7600,6 +7616,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s ControlGroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -8544,6 +8562,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -9112,6 +9132,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -9403,6 +9425,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -9570,6 +9594,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly s ControlGroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9903,6 +9929,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="ControlGroup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
