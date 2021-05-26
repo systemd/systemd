@@ -1938,7 +1938,7 @@ int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, voi
 
         r = device_is_renaming(device);
         if (r < 0) {
-                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
+                log_device_debug_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
                                        device_action_to_string(action));
                 return 0;
         }
@@ -1949,12 +1949,13 @@ int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, voi
 
         r = link_get(m, ifindex, &link);
         if (r < 0) {
-                if (r != -ENODEV)
-                        log_debug_errno(r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
+                log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
                 return 0;
         }
 
-        (void) link_initialized(link, device);
+        r = link_initialized(link, device);
+        if (r < 0)
+                link_enter_failed(link);
 
         return 0;
 }
